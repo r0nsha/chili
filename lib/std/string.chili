@@ -15,7 +15,11 @@ pub type String = {
 }
 
 pub let String_new = fn() -> String {
-    String(nil, 0, 0)
+    String {
+        data: nil, 
+        cap: 0, 
+        len: 0
+    }
 }
 
 pub let String_from_str = fn(s: str) -> String {

@@ -780,35 +780,60 @@ impl<'a> AnalysisContext<'a> {
                     )
                 }
             }
-            ExprKind::StructLiteral(fields) => match parent_ty {
-                Some(ty) => {
-                    let ty = self.infcx.normalize_ty(&ty);
+            ExprKind::StructLiteral { type_expr, fields } => match type_expr {
+                Some(type_expr) => {
+                    let checked_type_expr =
+                        self.check_type_expr(frame, type_expr)?;
 
-                    match ty.maybe_deref_once() {
-                        Ty::Struct(struct_ty) => {
-                            self.check_named_struct_literal(frame, struct_ty, fields, &expr.span)?
-                        }
-                        Ty::Var(_) => {
-                            self.check_anonymous_struct_literal(frame, fields, &expr.span)?
-                        }
+                    let ty = checked_type_expr.value.unwrap().into_type();
+
+                    match ty {
+                        Ty::Struct(struct_ty) => self
+                            .check_named_struct_literal(
+                                frame, Some(Box::new(checked_type_expr.expr)), fields, struct_ty, &expr.span,
+                            )?,
                         _ => {
                             return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "type `{}` does not support struct initialization syntax",
-                                    ty
-                                ))
-                                .with_labels(vec![Label::primary(
-                                    expr.span.file_id,
-                                    expr.span.range.clone(),
-                                )]))
+                            .with_message(format!(
+                                "type `{}` does not support struct initialization syntax",
+                                ty
+                            ))
+                            .with_labels(vec![Label::primary(
+                                type_expr.span.file_id,
+                                type_expr.span.range.clone(),
+                            )]))
                         }
                     }
                 }
-                None => self.check_anonymous_struct_literal(
-                    frame, fields, &expr.span,
-                )?,
-            },
+                None => match parent_ty {
+                    Some(ty) => {
+                        let ty = self.infcx.normalize_ty(&ty);
 
+                        match ty.maybe_deref_once() {
+                            Ty::Struct(struct_ty) => {
+                                self.check_named_struct_literal(frame, None, fields, struct_ty, &expr.span)?
+                            }
+                            Ty::Var(_) => {
+                                self.check_anonymous_struct_literal(frame, fields, &expr.span)?
+                            }
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
+                                        "type `{}` does not support struct initialization syntax",
+                                        ty
+                                    ))
+                                    .with_labels(vec![Label::primary(
+                                        expr.span.file_id,
+                                        expr.span.range.clone(),
+                                    )]))
+                            }
+                        }
+                    }
+                    None => self.check_anonymous_struct_literal(
+                        frame, fields, &expr.span,
+                    )?,
+                },
+            },
             ExprKind::Literal(kind) => {
                 let (ty, value): (Ty, Option<Value>) = match kind {
                     LiteralKind::Int(i) => (
@@ -1130,8 +1155,9 @@ impl<'a> AnalysisContext<'a> {
     fn check_named_struct_literal(
         &mut self,
         frame: &mut AnalysisFrame,
-        struct_ty: StructTy,
+        type_expr: Option<Box<Expr>>,
         fields: &Vec<StructLiteralField>,
+        struct_ty: StructTy,
         span: &Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let mut field_set = UstrSet::default();
@@ -1209,7 +1235,10 @@ impl<'a> AnalysisContext<'a> {
         }
 
         Ok(CheckedExpr::new(
-            ExprKind::StructLiteral(new_fields),
+            ExprKind::StructLiteral {
+                type_expr: type_expr.clone(),
+                fields: new_fields,
+            },
             Ty::Struct(struct_ty),
             None,
             span,
@@ -1263,7 +1292,10 @@ impl<'a> AnalysisContext<'a> {
         };
 
         Ok(CheckedExpr::new(
-            ExprKind::StructLiteral(new_fields),
+            ExprKind::StructLiteral {
+                type_expr: None,
+                fields: new_fields,
+            },
             Ty::Struct(struct_ty),
             None,
             span,

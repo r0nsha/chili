@@ -44,9 +44,7 @@ impl Ir {
                 ));
             }
 
-            for entity in module.entitys.iter() {
-                entity.build(&mut b);
-            }
+            module.entitys.build(&mut b);
 
             b.end_child();
         }
@@ -63,14 +61,34 @@ trait BuildNode {
     fn build(&self, b: &mut TreeBuilder);
 }
 
+impl<T: BuildNode> BuildNode for Vec<T> {
+    fn build(&self, b: &mut TreeBuilder) {
+        for element in self {
+            element.build(b);
+        }
+    }
+}
+
+impl<T: BuildNode> BuildNode for Option<T> {
+    fn build(&self, b: &mut TreeBuilder) {
+        if let Some(e) = self {
+            e.build(b);
+        }
+    }
+}
+
+impl<T: BuildNode> BuildNode for Box<T> {
+    fn build(&self, b: &mut TreeBuilder) {
+        self.as_ref().build(b);
+    }
+}
+
 impl BuildNode for Fn {
     fn build(&self, b: &mut TreeBuilder) {
         b.begin_child("fn".to_string());
-        self.proto.build(b);
 
-        for stmt in &self.body {
-            stmt.build(b);
-        }
+        self.proto.build(b);
+        self.body.build(b);
 
         build_deferred(b, &self.deferred);
 
@@ -162,11 +180,8 @@ fn build_deferred(b: &mut TreeBuilder, deferred: &Vec<Expr>) {
     if deferred.is_empty() {
         return;
     }
-
     b.begin_child("deferred".to_string());
-    for expr in deferred {
-        expr.build(b);
-    }
+    deferred.build(b);
     b.end_child();
 }
 
@@ -198,18 +213,14 @@ impl BuildNode for Expr {
                     }
                     Builtin::Panic(expr) => {
                         b.begin_child("@panic".to_string());
-                        if let Some(expr) = expr {
-                            expr.build(b);
-                        }
+                        expr.build(b);
                         b.end_child();
                     }
                 };
             }
             ExprKind::Fn(closure) => {
                 b.begin_child(closure.proto.to_string());
-                for stmt in &closure.body {
-                    stmt.build(b);
-                }
+                closure.body.build(b);
                 b.end_child();
             }
             ExprKind::While { cond, expr } => {
@@ -265,13 +276,8 @@ impl BuildNode for Expr {
             }
             ExprKind::Return { expr, deferred } => {
                 b.begin_child("return".to_string());
-
                 build_deferred(b, deferred);
-
-                if let Some(expr) = expr {
-                    expr.build(b);
-                }
-
+                expr.build(b);
                 b.end_child();
             }
             ExprKind::If {
@@ -293,13 +299,8 @@ impl BuildNode for Expr {
             }
             ExprKind::Block { stmts, deferred } => {
                 b.begin_child(format!("block <{}>", self.ty));
-
-                for stmt in stmts {
-                    stmt.build(b);
-                }
-
+                stmts.build(b);
                 build_deferred(b, deferred);
-
                 b.end_child();
             }
             ExprKind::Binary { lhs, op, rhs } => {
@@ -374,9 +375,7 @@ impl BuildNode for Expr {
                 match kind {
                     ArrayLiteralKind::List(elements) => {
                         b.begin_child("list".to_string());
-                        for e in elements {
-                            e.build(b);
-                        }
+                        elements.build(b);
                         b.end_child();
                     }
                     ArrayLiteralKind::Fill { expr, len } => {
@@ -391,13 +390,12 @@ impl BuildNode for Expr {
             }
             ExprKind::TupleLiteral(elements) => {
                 b.begin_child(format!("tuple literal <{}>", self.ty));
-                for e in elements {
-                    e.build(b);
-                }
+                elements.build(b);
                 b.end_child();
             }
-            ExprKind::StructLiteral(fields) => {
+            ExprKind::StructLiteral { type_expr, fields } => {
                 b.begin_child(format!("struct literal <{}>", self.ty));
+                type_expr.build(b);
                 for f in fields {
                     b.begin_child(f.symbol.to_string());
                     f.value.build(b);

@@ -165,9 +165,10 @@ impl Lint for Expr {
             ExprKind::TupleLiteral(l) => {
                 l.lint()?;
             }
-            ExprKind::StructLiteral(l) => {
-                for s in l {
-                    s.value.lint()?;
+            ExprKind::StructLiteral { type_expr, fields } => {
+                type_expr.lint()?;
+                for f in fields {
+                    f.value.lint()?;
                 }
             }
             ExprKind::PointerType(e, _) => {

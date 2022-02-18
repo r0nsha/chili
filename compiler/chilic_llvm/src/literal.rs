@@ -9,50 +9,6 @@ use inkwell::{
 use super::codegen::{Codegen, CodegenState};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
-    // TODO: i should probably remove struct call initialization
-    pub(super) fn gen_struct_literal_call(
-        &mut self,
-        state: &mut CodegenState<'ctx>,
-        ty: &Ty,
-        args: &Vec<CallArg>,
-        deref: bool,
-    ) -> BasicValueEnum<'ctx> {
-        let struct_ty = ty.into_struct();
-
-        let llvm_ty = self.llvm_type(ty);
-        let struct_ptr = self.build_alloca(state, llvm_ty);
-
-        for (index, arg) in args.iter().enumerate() {
-            let index = if let Some(symbol) = &arg.symbol {
-                struct_ty
-                    .fields
-                    .iter()
-                    .position(|f| f.symbol == symbol.value)
-                    .unwrap()
-            } else {
-                index
-            };
-
-            let field_ptr = self
-                .builder
-                .build_struct_gep(
-                    struct_ptr,
-                    index as u32,
-                    &format!("arg_set_{}", struct_ty.fields[index].symbol),
-                )
-                .unwrap();
-
-            let value = self.gen_expr(state, &arg.value, true);
-            self.build_store(field_ptr, value);
-        }
-
-        if deref {
-            self.build_load(struct_ptr.into())
-        } else {
-            struct_ptr.into()
-        }
-    }
-
     pub(super) fn gen_struct_literal_named(
         &mut self,
         state: &mut CodegenState<'ctx>,

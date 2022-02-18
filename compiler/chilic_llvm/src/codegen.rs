@@ -945,12 +945,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ExprKind::Call(call) => match &call.callee.ty {
                 Ty::Fn(..) => self.gen_fn_call_expr(state, call, &expr.ty),
-                Ty::Type(inner) => match inner.as_ref() {
-                    Ty::Struct(..) => self.gen_struct_literal_call(
-                        state, inner, &call.args, deref,
-                    ),
-                    _ => unreachable!("got {}", call.callee.ty),
-                },
                 _ => unreachable!("got {}", call.callee.ty),
             },
             ExprKind::FieldAccess {
@@ -1223,9 +1217,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     tuple.into()
                 }
             }
-            ExprKind::StructLiteral(fields) => {
-                self.gen_struct_literal_named(state, &expr.ty, fields, deref)
-            }
+            ExprKind::StructLiteral {
+                type_expr: _,
+                fields,
+            } => self.gen_struct_literal_named(state, &expr.ty, fields, deref),
 
             ExprKind::Literal(value) => {
                 self.gen_literal_value(value, &expr.ty, deref)

@@ -15,6 +15,14 @@ impl Parser {
         &mut self,
         mut expr: Expr,
     ) -> DiagnosticResult<Expr> {
+        // named struct literal
+        if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
+            && self.match_one(OpenCurly)
+        {
+            let start_span = expr.span.clone();
+            return self.parse_struct_literal(Some(Box::new(expr)), start_span);
+        }
+
         // compound operations (non-recursive)
         for op in [
             PlusEq, MinusEq, StarEq, FwSlashEq, PercentEq, AmpEq, BarEq,

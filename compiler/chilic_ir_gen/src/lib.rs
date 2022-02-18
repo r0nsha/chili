@@ -6,14 +6,13 @@ use chilic_error::DiagnosticResult;
 use chilic_ir::entity::Entity;
 use chilic_ir::expr::{
     ArrayLiteralKind, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
-    LiteralKind, StructLiteralField, StructType, StructTypeField, TypeCastInfo,
+    StructLiteralField, StructType, StructTypeField, TypeCastInfo,
 };
 use chilic_ir::foreign_lib::ForeignLib;
 use chilic_ir::func::{Fn, FnParam, Proto};
 use chilic_ir::ir::Ir;
 use chilic_ir::item::{ItemKind, Items};
 use chilic_ir::module::Module;
-use chilic_ir::op::{BinaryOp, UnaryOp};
 use chilic_ir::stmt::{Stmt, StmtKind};
 use chilic_span::Span;
 use chilic_ty::Ty;
@@ -104,6 +103,18 @@ impl<T: Lower> Lower for Vec<T> {
     }
 }
 
+impl<T: Lower> Lower for Option<T> {
+    fn lower(&self, ctx: &mut IrGenContext) -> Option<T> {
+        self.as_ref().map(|s| s.lower(ctx))
+    }
+}
+
+impl<T: Lower> Lower for Box<T> {
+    fn lower(&self, ctx: &mut IrGenContext) -> Box<T> {
+        Box::new(self.as_ref().lower(ctx))
+    }
+}
+
 impl Lower for Fn {
     fn lower(&self, ctx: &mut IrGenContext) -> Fn {
         ctx.env.push_named_scope(self.proto.name);
@@ -186,25 +197,19 @@ impl Lower for Expr {
     fn lower(&self, ctx: &mut IrGenContext) -> Expr {
         let kind = match &self.kind {
             ExprKind::Assign { lvalue, rvalue } => ExprKind::Assign {
-                lvalue: Box::new(lvalue.lower(ctx)),
-                rvalue: Box::new(rvalue.lower(ctx)),
+                lvalue: lvalue.lower(ctx),
+                rvalue: rvalue.lower(ctx),
             },
             ExprKind::Cast(info) => ExprKind::Cast(info.lower(ctx)),
             ExprKind::Builtin(builtin) => ExprKind::Builtin(match builtin {
-                Builtin::SizeOf(expr) => {
-                    Builtin::SizeOf(Box::new(expr.lower(ctx)))
-                }
-                Builtin::AlignOf(expr) => {
-                    Builtin::AlignOf(Box::new(expr.lower(ctx)))
-                }
-                Builtin::Panic(expr) => Builtin::Panic(
-                    expr.as_ref().map(|e| Box::new(e.lower(ctx))),
-                ),
+                Builtin::SizeOf(expr) => Builtin::SizeOf(expr.lower(ctx)),
+                Builtin::AlignOf(expr) => Builtin::AlignOf(expr.lower(ctx)),
+                Builtin::Panic(expr) => Builtin::Panic(expr.lower(ctx)),
             }),
             ExprKind::Fn(func) => ExprKind::Fn(func.lower(ctx)),
             ExprKind::While { cond, expr } => ExprKind::While {
-                cond: Box::new(cond.lower(ctx)),
-                expr: Box::new(expr.lower(ctx)),
+                cond: cond.lower(ctx),
+                expr: expr.lower(ctx),
             },
             ExprKind::For {
                 iter_name,
@@ -219,15 +224,14 @@ impl Lower for Expr {
                     iter_name: *iter_name,
                     iter_index_name: *iter_index_name,
                     iterator: match iterator {
-                        ForIter::Range(start, end) => ForIter::Range(
-                            Box::new(start.lower(ctx)),
-                            Box::new(end.lower(ctx)),
-                        ),
+                        ForIter::Range(start, end) => {
+                            ForIter::Range(start.lower(ctx), end.lower(ctx))
+                        }
                         ForIter::Value(value) => {
-                            ForIter::Value(Box::new(value.lower(ctx)))
+                            ForIter::Value(value.lower(ctx))
                         }
                     },
-                    expr: Box::new(expr.lower(ctx)),
+                    expr: expr.lower(ctx),
                 };
 
                 ctx.defercx.pop_stack();
@@ -276,7 +280,7 @@ impl Lower for Expr {
 
                 ExprKind::Return {
                     expr: match expr {
-                        Some(expr) => Some(Box::new(expr.lower(ctx))),
+                        Some(expr) => Some(expr.lower(ctx)),
                         None => None,
                     },
                     deferred,
@@ -287,12 +291,9 @@ impl Lower for Expr {
                 then_expr,
                 else_expr,
             } => ExprKind::If {
-                cond: Box::new(cond.lower(ctx)),
-                then_expr: Box::new(then_expr.lower(ctx)),
-                else_expr: match else_expr {
-                    Some(else_expr) => Some(Box::new(else_expr.lower(ctx))),
-                    None => None,
-                },
+                cond: cond.lower(ctx),
+                then_expr: then_expr.lower(ctx),
+                else_expr: else_expr.lower(ctx),
             },
             ExprKind::Block { stmts, .. } => {
                 ctx.env.push_scope();
@@ -307,57 +308,25 @@ impl Lower for Expr {
                 ExprKind::Block { stmts, deferred }
             }
             ExprKind::Binary { lhs, op, rhs } => ExprKind::Binary {
-                lhs: Box::new(lhs.lower(ctx)),
-                op: match op {
-                    BinaryOp::Add => BinaryOp::Add,
-                    BinaryOp::Sub => BinaryOp::Sub,
-                    BinaryOp::Mul => BinaryOp::Mul,
-                    BinaryOp::Div => BinaryOp::Div,
-                    BinaryOp::Rem => BinaryOp::Rem,
-                    BinaryOp::Eq => BinaryOp::Eq,
-                    BinaryOp::NEq => BinaryOp::NEq,
-                    BinaryOp::Lt => BinaryOp::Lt,
-                    BinaryOp::LtEq => BinaryOp::LtEq,
-                    BinaryOp::Gt => BinaryOp::Gt,
-                    BinaryOp::GtEq => BinaryOp::GtEq,
-                    BinaryOp::And => BinaryOp::And,
-                    BinaryOp::Or => BinaryOp::Or,
-                    BinaryOp::Shl => BinaryOp::Shl,
-                    BinaryOp::Shr => BinaryOp::Shr,
-                    BinaryOp::BitwiseAnd => BinaryOp::BitwiseAnd,
-                    BinaryOp::BitwiseOr => BinaryOp::BitwiseOr,
-                    BinaryOp::BitwiseXor => BinaryOp::BitwiseXor,
-                },
-                rhs: Box::new(rhs.lower(ctx)),
+                lhs: lhs.lower(ctx),
+                op: *op,
+                rhs: rhs.lower(ctx),
             },
             ExprKind::Unary { op, lhs } => ExprKind::Unary {
-                op: match op {
-                    UnaryOp::Ref(is_mutable) => UnaryOp::Ref(*is_mutable),
-                    UnaryOp::Deref => UnaryOp::Deref,
-                    UnaryOp::Neg => UnaryOp::Neg,
-                    UnaryOp::Plus => UnaryOp::Plus,
-                    UnaryOp::Not => UnaryOp::Not,
-                    UnaryOp::BitwiseNot => UnaryOp::BitwiseNot,
-                },
-                lhs: Box::new(lhs.lower(ctx)),
+                op: *op,
+                lhs: lhs.lower(ctx),
             },
             ExprKind::Subscript { expr, index } => ExprKind::Subscript {
-                expr: Box::new(expr.lower(ctx)),
-                index: Box::new(index.lower(ctx)),
+                expr: expr.lower(ctx),
+                index: index.lower(ctx),
             },
             ExprKind::Slice { expr, low, high } => ExprKind::Slice {
-                expr: Box::new(expr.lower(ctx)),
-                low: match low {
-                    Some(low) => Some(Box::new(low.lower(ctx))),
-                    None => None,
-                },
-                high: match high {
-                    Some(high) => Some(Box::new(high.lower(ctx))),
-                    None => None,
-                },
+                expr: expr.lower(ctx),
+                low: low.lower(ctx),
+                high: high.lower(ctx),
             },
             ExprKind::Call(call) => ExprKind::Call(Call {
-                callee: Box::new(call.callee.lower(ctx)),
+                callee: call.callee.lower(ctx),
                 args: call
                     .args
                     .iter()
@@ -368,7 +337,7 @@ impl Lower for Expr {
                     .collect(),
             }),
             ExprKind::FieldAccess { expr, field } => ExprKind::FieldAccess {
-                expr: Box::new(expr.lower(ctx)),
+                expr: expr.lower(ctx),
                 field: *field,
             },
             ExprKind::Id {
@@ -387,8 +356,8 @@ impl Lower for Expr {
                     }
                     ArrayLiteralKind::Fill { expr, len } => {
                         ArrayLiteralKind::Fill {
-                            len: Box::new(len.lower(ctx)),
-                            expr: Box::new(expr.lower(ctx)),
+                            len: len.lower(ctx),
+                            expr: expr.lower(ctx),
                         }
                     }
                 })
@@ -396,40 +365,31 @@ impl Lower for Expr {
             ExprKind::TupleLiteral(elements) => {
                 ExprKind::TupleLiteral(elements.lower(ctx))
             }
-            ExprKind::StructLiteral(fields) => ExprKind::StructLiteral(
-                fields
-                    .iter()
-                    .map(|field| StructLiteralField {
-                        symbol: field.symbol,
-                        value: field.value.lower(ctx),
-                        span: field.span.clone(),
-                    })
-                    .collect(),
-            ),
-            ExprKind::Literal(kind) => ExprKind::Literal(match kind {
-                LiteralKind::Unit => LiteralKind::Unit,
-                LiteralKind::Nil => LiteralKind::Nil,
-                LiteralKind::Bool(v) => LiteralKind::Bool(*v),
-                LiteralKind::Int(v) => LiteralKind::Int(*v),
-                LiteralKind::Float(v) => LiteralKind::Float(*v),
-                LiteralKind::Str(v) => LiteralKind::Str(v.clone()),
-                LiteralKind::Char(v) => LiteralKind::Char(*v),
-            }),
+            ExprKind::StructLiteral { type_expr, fields } => {
+                ExprKind::StructLiteral {
+                    type_expr: type_expr.lower(ctx),
+                    fields: fields
+                        .iter()
+                        .map(|field| StructLiteralField {
+                            symbol: field.symbol,
+                            value: field.value.lower(ctx),
+                            span: field.span.clone(),
+                        })
+                        .collect(),
+                }
+            }
+            ExprKind::Literal(kind) => ExprKind::Literal(kind.clone()),
             ExprKind::PointerType(expr, is_mutable) => {
-                ExprKind::PointerType(Box::new(expr.lower(ctx)), *is_mutable)
+                ExprKind::PointerType(expr.lower(ctx), *is_mutable)
             }
             ExprKind::MultiPointerType(expr, is_mutable) => {
-                ExprKind::MultiPointerType(
-                    Box::new(expr.lower(ctx)),
-                    *is_mutable,
-                )
+                ExprKind::MultiPointerType(expr.lower(ctx), *is_mutable)
             }
-            ExprKind::ArrayType(expr, size) => ExprKind::ArrayType(
-                Box::new(expr.lower(ctx)),
-                Box::new(size.lower(ctx)),
-            ),
+            ExprKind::ArrayType(expr, size) => {
+                ExprKind::ArrayType(expr.lower(ctx), size.lower(ctx))
+            }
             ExprKind::SliceType(expr, is_mutable) => {
-                ExprKind::SliceType(Box::new(expr.lower(ctx)), *is_mutable)
+                ExprKind::SliceType(expr.lower(ctx), *is_mutable)
             }
             ExprKind::StructType(t) => ExprKind::StructType(StructType {
                 name: t.name,
@@ -479,11 +439,11 @@ impl Lower for Proto {
                 .iter()
                 .map(|param| FnParam {
                     pattern: param.pattern.clone(),
-                    ty: param.ty.as_ref().map(|ty| Box::new(ty.lower(ctx))),
+                    ty: param.ty.lower(ctx),
                 })
                 .collect(),
             variadic: self.variadic,
-            ret: self.ret.as_ref().map(|ret_ty| Box::new(ret_ty.lower(ctx))),
+            ret: self.ret.lower(ctx),
             lib_name: self.lib_name,
             ty: Ty::Unknown,
         }
@@ -493,11 +453,8 @@ impl Lower for Proto {
 impl Lower for TypeCastInfo {
     fn lower(&self, ctx: &mut IrGenContext) -> TypeCastInfo {
         TypeCastInfo {
-            expr: Box::new(self.expr.lower(ctx)),
-            type_expr: self
-                .type_expr
-                .as_ref()
-                .map(|type_expr| Box::new(type_expr.lower(ctx))),
+            expr: self.expr.lower(ctx),
+            type_expr: self.type_expr.lower(ctx),
             target_ty: Ty::Unknown,
         }
     }

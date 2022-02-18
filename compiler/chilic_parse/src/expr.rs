@@ -1,22 +1,25 @@
+use crate::*;
 use chilic_error::*;
 use chilic_ir::{
-    expr::{
-        ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter, LiteralKind,
-        StructLiteralField,
-    },
+    expr::{Builtin, Expr, ExprKind, ForIter, LiteralKind},
     op::{BinaryOp, UnaryOp},
 };
 use chilic_span::Span;
 use chilic_token::TokenType::*;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
-
-use crate::*;
 
 impl Parser {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
         self.parse_expr_internal(ustr(""))
+    }
+
+    pub(crate) fn parse_expr_with_res(
+        &mut self,
+        restrictions: Restrictions,
+    ) -> DiagnosticResult<Expr> {
+        self.with_res(restrictions, |p| p.parse_expr())
     }
 
     pub(crate) fn parse_decl_expr(
@@ -55,7 +58,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span.clone();
 
-        let cond = self.parse_expr()?;
+        let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         self.consume(OpenCurly)?;
         let then_expr = self.parse_block()?;
@@ -367,8 +370,12 @@ impl Parser {
             self.parse_array_literal()?
         } else if self.match_one(Dot) {
             let start_span = self.previous().span.clone();
-            if self.match_one(OpenParen) {
-                self.parse_struct_literal(start_span)?
+
+            // anonymous struct literal
+            if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
+                && self.match_one(OpenCurly)
+            {
+                self.parse_struct_literal(None, start_span)?
             } else {
                 return Err(SyntaxError::expected(
                     self.span_ref(),
@@ -401,7 +408,7 @@ impl Parser {
                 let mut expr = self.parse_expr()?;
 
                 let expr = if self.match_one(Comma) {
-                    self.parse_tuple_expr(expr, start_span)?
+                    self.parse_tuple_literal(expr, start_span)?
                 } else {
                     self.consume(CloseParen)?;
 
@@ -459,7 +466,8 @@ impl Parser {
 
     pub(crate) fn parse_while(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span.clone();
-        let cond = self.parse_expr()?;
+
+        let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         self.consume(OpenCurly)?;
         let expr = self.parse_block()?;
@@ -522,10 +530,12 @@ impl Parser {
         }
 
         // actual expression
-        let iter_start = self.parse_expr()?;
+        let iter_start =
+            self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         let iterator = if self.match_one(DotDot) {
-            let iter_end = self.parse_expr()?;
+            let iter_end =
+                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
             ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ForIter::Value(Box::new(iter_start))
@@ -576,150 +586,5 @@ impl Parser {
         );
 
         return Ok(expr);
-    }
-
-    pub(crate) fn parse_literal(&mut self) -> DiagnosticResult<Expr> {
-        let token = self.previous();
-        let span = token.span.clone();
-
-        let value = match &token.token_type {
-            Nil => LiteralKind::Nil,
-            True => LiteralKind::Bool(true),
-            False => LiteralKind::Bool(false),
-            Int(value) => LiteralKind::Int(*value),
-            Float(value) => LiteralKind::Float(*value),
-            Str(value) => LiteralKind::Str(value.to_string()),
-            Char(value) => LiteralKind::Char(*value),
-            _ => {
-                return Err(Diagnostic::bug()
-                    .with_message(format!(
-                        "unexpected literal `{}`",
-                        token.lexeme
-                    ))
-                    .with_labels(vec![Label::primary(
-                        span.file_id,
-                        span.range,
-                    )
-                    .with_message("unknown literal")]));
-            }
-        };
-
-        Ok(Expr::new(ExprKind::Literal(value), span))
-    }
-
-    pub(crate) fn parse_array_literal(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span.clone();
-
-        let mut elements = vec![];
-        let mut is_first_el = true;
-
-        while !self.match_one(CloseBracket) {
-            let expr = self.parse_expr()?;
-
-            if is_first_el {
-                if self.match_one(Semicolon) {
-                    let len = self.parse_expr()?;
-                    self.consume(CloseBracket)?;
-
-                    return Ok(Expr::new(
-                        ExprKind::ArrayLiteral(ArrayLiteralKind::Fill {
-                            expr: Box::new(expr),
-                            len: Box::new(len),
-                        }),
-                        Span::merge(&start_span, self.previous_span_ref()),
-                    ));
-                }
-                is_first_el = false;
-            }
-
-            elements.push(expr);
-
-            if self.match_one(Comma) {
-                continue;
-            } else {
-                self.consume(CloseBracket)?;
-                break;
-            }
-        }
-
-        Ok(Expr::new(
-            ExprKind::ArrayLiteral(ArrayLiteralKind::List(elements)),
-            Span::merge(&start_span, self.previous_span_ref()),
-        ))
-    }
-
-    fn parse_tuple_expr(
-        &mut self,
-        first_expr: Expr,
-        start_span: Span,
-    ) -> DiagnosticResult<Expr> {
-        let mut exprs = vec![first_expr];
-
-        while !self.match_one(CloseParen) && !self.is_end() {
-            let expr = self.parse_expr()?;
-            exprs.push(expr);
-
-            if self.match_one(Comma) {
-                continue;
-            } else if self.match_one(CloseParen) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
-
-        Ok(Expr::new(
-            ExprKind::TupleLiteral(exprs),
-            Span::merge(&start_span, self.previous_span_ref()),
-        ))
-    }
-
-    fn parse_struct_literal(
-        &mut self,
-        start_span: Span,
-    ) -> DiagnosticResult<Expr> {
-        let mut fields: Vec<StructLiteralField> = vec![];
-
-        while !self.match_one(CloseParen) && !self.is_end() {
-            let id_token = if self.match_id() {
-                self.previous().clone()
-            } else {
-                break;
-            };
-
-            let value = if self.match_one(Colon) {
-                self.parse_expr()?
-            } else {
-                Expr::new(
-                    ExprKind::Id {
-                        symbol: id_token.symbol(),
-                        is_mutable: false,
-                        entity_span: Span::empty(),
-                    },
-                    id_token.span.clone(),
-                )
-            };
-
-            let value_span = value.span.clone();
-
-            fields.push(StructLiteralField {
-                symbol: id_token.symbol(),
-                value,
-                span: Span::merge(&id_token.span, &value_span),
-            });
-
-            if self.match_one(Comma) {
-                continue;
-            } else if self.match_one(CloseParen) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
-
-        Ok(Expr::new(
-            ExprKind::StructLiteral(fields),
-            Span::merge(&start_span, self.previous_span_ref()),
-        ))
     }
 }

@@ -19,6 +19,39 @@ pub trait Substitute {
     ) -> DiagnosticResult<()>;
 }
 
+impl<T: Substitute> Substitute for Vec<T> {
+    fn substitute(
+        &mut self,
+        table: &mut InPlaceUnificationTable<TyVar>,
+    ) -> DiagnosticResult<()> {
+        for element in self {
+            element.substitute(table)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: Substitute> Substitute for Option<T> {
+    fn substitute(
+        &mut self,
+        table: &mut InPlaceUnificationTable<TyVar>,
+    ) -> DiagnosticResult<()> {
+        if let Some(e) = self {
+            e.substitute(table)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: Substitute> Substitute for Box<T> {
+    fn substitute(
+        &mut self,
+        table: &mut InPlaceUnificationTable<TyVar>,
+    ) -> DiagnosticResult<()> {
+        self.as_mut().substitute(table)
+    }
+}
+
 impl Substitute for Ir {
     fn substitute(
         &mut self,
@@ -54,12 +87,10 @@ impl Substitute for Proto {
         table: &mut InPlaceUnificationTable<TyVar>,
     ) -> DiagnosticResult<()> {
         for param in self.params.iter_mut() {
-            param.ty.as_mut().unwrap().substitute(table)?;
+            param.ty.substitute(table)?;
         }
 
-        if let Some(ret) = &mut self.ret {
-            ret.substitute(table)?;
-        }
+        self.ret.substitute(table)?;
 
         // TODO: put a real span here
         self.ty = substitute_ty(&self.ty, table, &Span::empty())?;
@@ -81,9 +112,7 @@ impl Substitute for Entity {
             None => Span::empty(),
         };
 
-        if let Some(value) = &mut self.value {
-            value.substitute(table)?;
-        }
+        self.value.substitute(table)?;
 
         self.ty = substitute_ty(&self.ty, table, &span)?;
 
@@ -98,9 +127,7 @@ impl Substitute for TypeCastInfo {
     ) -> DiagnosticResult<()> {
         self.expr.substitute(table)?;
 
-        if let Some(type_expr) = &mut self.type_expr {
-            type_expr.substitute(table)?;
-        }
+        self.type_expr.substitute(table)?;
 
         self.target_ty =
             substitute_ty(&self.target_ty, table, &self.expr.span)?;
@@ -147,9 +174,7 @@ impl Substitute for Expr {
                     expr.substitute(table)?
                 }
                 Builtin::Panic(expr) => {
-                    if let Some(expr) = expr {
-                        expr.substitute(table)?;
-                    }
+                    expr.substitute(table)?;
                 }
             },
             ExprKind::Fn(func) => {
@@ -182,10 +207,7 @@ impl Substitute for Expr {
             }
             ExprKind::Return { expr, deferred } => {
                 deferred.substitute(table)?;
-
-                if let Some(expr) = expr {
-                    expr.substitute(table)?;
-                }
+                expr.substitute(table)?;
             }
             ExprKind::If {
                 cond,
@@ -194,10 +216,7 @@ impl Substitute for Expr {
             } => {
                 cond.substitute(table)?;
                 then_expr.substitute(table)?;
-
-                if let Some(else_expr) = else_expr {
-                    else_expr.substitute(table)?;
-                }
+                else_expr.substitute(table)?;
             }
             ExprKind::Block { stmts, deferred } => {
                 stmts.substitute(table)?;
@@ -216,14 +235,8 @@ impl Substitute for Expr {
             }
             ExprKind::Slice { expr, low, high } => {
                 expr.substitute(table)?;
-
-                if let Some(low) = low {
-                    low.substitute(table)?;
-                }
-
-                if let Some(high) = high {
-                    high.substitute(table)?;
-                }
+                low.substitute(table)?;
+                high.substitute(table)?;
             }
             ExprKind::Call(call) => {
                 call.callee.substitute(table)?;
@@ -246,7 +259,8 @@ impl Substitute for Expr {
             ExprKind::TupleLiteral(elements) => {
                 elements.substitute(table)?;
             }
-            ExprKind::StructLiteral(fields) => {
+            ExprKind::StructLiteral { type_expr, fields } => {
+                type_expr.substitute(table)?;
                 for f in fields {
                     f.value.substitute(table)?;
                 }
@@ -279,19 +293,6 @@ impl Substitute for Expr {
         }
 
         self.ty = substitute_ty(&self.ty, table, &self.span)?;
-
-        Ok(())
-    }
-}
-
-impl<T: Substitute> Substitute for Vec<T> {
-    fn substitute(
-        &mut self,
-        table: &mut InPlaceUnificationTable<TyVar>,
-    ) -> DiagnosticResult<()> {
-        for element in self {
-            element.substitute(table)?;
-        }
 
         Ok(())
     }

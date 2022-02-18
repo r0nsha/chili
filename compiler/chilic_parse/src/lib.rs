@@ -3,12 +3,14 @@ mod expr;
 mod foreign;
 mod func;
 mod item;
+mod literal;
 mod pattern;
 mod postfix_expr;
 mod stmt;
 mod ty;
 mod r#use;
 
+use bitflags::bitflags;
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_ir::{item::Items, module::ModuleInfo};
 use chilic_span::Span;
@@ -17,6 +19,12 @@ use chilic_token::{
     TokenType::{self, *},
 };
 use ustr::{ustr, Ustr};
+
+bitflags! {
+    struct Restrictions : u8 {
+        const NO_STRUCT_LITERAL = 1 << 0;
+    }
+}
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -27,6 +35,7 @@ pub struct Parser {
     current_dir: String,
     decl_name_frames: Vec<Ustr>,
     used_modules: Vec<ModuleInfo>,
+    restrictions: Restrictions,
 }
 
 pub struct ParserResult {
@@ -50,6 +59,7 @@ impl Parser {
             current_dir,
             decl_name_frames: vec![],
             used_modules: vec![],
+            restrictions: Restrictions::empty(),
         }
     }
 
@@ -71,6 +81,22 @@ impl Parser {
             items,
             uses: self.used_modules.clone(),
         })
+    }
+
+    pub(crate) fn with_res<T>(
+        &mut self,
+        restrictions: Restrictions,
+        f: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        let old = self.restrictions;
+        self.restrictions = restrictions;
+        let res = f(self);
+        self.restrictions = old;
+        res
+    }
+
+    pub(crate) fn is_res(&self, restrictions: Restrictions) -> bool {
+        self.restrictions.contains(restrictions)
     }
 
     pub(crate) fn get_decl_name(&self) -> Ustr {

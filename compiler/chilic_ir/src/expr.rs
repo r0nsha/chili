@@ -220,7 +220,10 @@ pub enum ExprKind {
     },
     ArrayLiteral(ArrayLiteralKind),
     TupleLiteral(Vec<Expr>),
-    StructLiteral(Vec<StructLiteralField>),
+    StructLiteral {
+        type_expr: Option<Box<Expr>>,
+        fields: Vec<StructLiteralField>,
+    },
     Literal(LiteralKind),
     PointerType(Box<Expr>, bool),
     MultiPointerType(Box<Expr>, bool),

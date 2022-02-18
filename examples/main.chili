@@ -3,4 +3,6 @@ use c.?
 type Foo = {a: i32}
 
 let main = fn {
+    let foo = Foo{ a: 5 };
+    printf("a = %d\n".data, foo.a);
 }
