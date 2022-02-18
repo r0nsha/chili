@@ -1,17 +1,17 @@
 [workspace]
 members = [
-    "common",
-    "chilic_span",
-    "chilic_error",
-    "chilic_ty",
-    "chilic_ir",
-    "chilic_ir_gen",
-    "chilic_token",
-    "chilic_parse",
-    "chilic_check",
-    "chilic_infer",
-    "chilic_llvm",
-    "chilic_main",
+    "compiler/common",
+    "compiler/chilic_span",
+    "compiler/chilic_error",
+    "compiler/chilic_ty",
+    "compiler/chilic_ir",
+    "compiler/chilic_ir_gen",
+    "compiler/chilic_token",
+    "compiler/chilic_parse",
+    "compiler/chilic_check",
+    "compiler/chilic_infer",
+    "compiler/chilic_llvm",
+    "compiler/chilic_main",
 ]
 
 [profile.dev]

@@ -93,15 +93,19 @@ let main = fn()  {
 - [x] Structs
 - [x] Tuples
 - [ ] Function signature type-inference
+- [ ] Clean up examples folder
 - [ ] Friendlier errors
 - [ ] Recoverable lexer, parser and checker
 - [ ] Bytecode interpreter (no ffi)
 - [ ] Build options (Workspaces)
 - [ ] Bytecode interpreter: FFI
 - [ ] (Maybe?) Ownership model / Move semantics
+- [ ] Closures
 - [ ] Parametric polymorphism
 - [ ] Move builtin functions to `std`
 - [ ] Associated functions / Methods
+- [ ] Workspace methods
+- [ ] Traits / Interfaces
 - [ ] Remove many-item (indexable) pointers
 - [ ] Conditional compilation
 - [ ] Tagged unions (enums)
@@ -109,7 +113,6 @@ let main = fn()  {
 - [ ] First-class `Option` & `Result` types
 - [ ] Remove `nil` from the language
 - [ ] Typed variadic arguments
-- [ ] Traits / Interfaces
 - [ ] More robust string escaping
 - [ ] String interpolation
 - [ ] Attributes / Tags
