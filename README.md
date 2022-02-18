@@ -79,6 +79,10 @@ let main = fn()  {
 }
 ```
 
+## Tooling
+
+- VSCode plugin is available [here](https://github.com/r0nsha/chili-vscode) (currently includes syntax highlighting)
+
 ## Tasks
 
 - [x] Functions
