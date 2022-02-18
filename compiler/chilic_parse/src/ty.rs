@@ -5,6 +5,8 @@ use chilic_span::Span;
 use chilic_token::TokenType::*;
 use chilic_ty::StructTyKind;
 
+const SELF_SYMBOL: &str = "Self";
+
 impl Parser {
     pub(super) fn parse_decl_ty(
         &mut self,
@@ -21,7 +23,7 @@ impl Parser {
         if self.match_id() {
             let token = self.previous();
             let symbol = token.symbol();
-            let kind = if symbol == "Self" {
+            let kind = if symbol == SELF_SYMBOL {
                 ExprKind::SelfType
             } else {
                 ExprKind::Id {
@@ -49,8 +51,10 @@ impl Parser {
             if self.match_one(CloseParen) {
                 Ok(Expr::new(ExprKind::UnitType, self.previous().span.clone()))
             } else {
-                self.parse_struct_or_tuple_ty()
+                self.parse_tuple_ty()
             }
+        } else if self.match_one(OpenCurly) {
+            self.parse_struct_ty()
         } else if self.match_one(OpenBracket) {
             self.parse_array_type()
         } else if self.match_one(Fn) {
@@ -104,20 +108,6 @@ impl Parser {
         }
     }
 
-    fn parse_struct_or_tuple_ty(&mut self) -> DiagnosticResult<Expr> {
-        if self.match_id() {
-            if self.match_one(Colon) {
-                self.revert(2);
-                self.parse_struct_ty()
-            } else {
-                self.revert(1);
-                self.parse_tuple_ty()
-            }
-        } else {
-            self.parse_tuple_ty()
-        }
-    }
-
     fn parse_tuple_ty(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span.clone();
 
@@ -137,25 +127,6 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(tys),
-            Span::merge(&start_span, self.previous_span_ref()),
-        ))
-    }
-
-    fn parse_struct_union_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span.clone();
-        let name = self.get_decl_name();
-
-        self.consume(OpenParen)?;
-
-        let fields = self.parse_struct_ty_fields()?;
-
-        Ok(Expr::new(
-            ExprKind::StructType(StructType {
-                name,
-                qualified_name: name,
-                fields,
-                kind: StructTyKind::Union,
-            }),
             Span::merge(&start_span, self.previous_span_ref()),
         ))
     }
@@ -182,7 +153,7 @@ impl Parser {
     ) -> DiagnosticResult<Vec<StructTypeField>> {
         let mut fields = vec![];
 
-        while !self.match_one(CloseParen) && !self.is_end() {
+        while !self.match_one(CloseCurly) && !self.is_end() {
             let id = self.consume_id()?.clone();
             let name = id.symbol();
 
@@ -198,14 +169,33 @@ impl Parser {
 
             if self.match_one(Comma) {
                 continue;
-            } else if self.match_one(CloseParen) {
+            } else if self.match_one(CloseCurly) {
                 break;
             } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
+                return Err(SyntaxError::expected(self.span_ref(), ", or }"));
             }
         }
 
         Ok(fields)
+    }
+
+    fn parse_struct_union_ty(&mut self) -> DiagnosticResult<Expr> {
+        let start_span = self.previous().span.clone();
+        let name = self.get_decl_name();
+
+        self.consume(OpenParen)?;
+
+        let fields = self.parse_struct_ty_fields()?;
+
+        Ok(Expr::new(
+            ExprKind::StructType(StructType {
+                name,
+                qualified_name: name,
+                fields,
+                kind: StructTyKind::Union,
+            }),
+            Span::merge(&start_span, self.previous_span_ref()),
+        ))
     }
 
     fn parse_fn_ty(&mut self) -> DiagnosticResult<Expr> {

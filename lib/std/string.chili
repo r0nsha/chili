@@ -8,11 +8,11 @@ use c.{
 
 use process.exit
 
-pub type String = (
+pub type String = {
     data: [*mut]u8,
     cap: uint,
     len: uint,
-)
+}
 
 pub let String_new = fn() -> String {
     String(nil, 0, 0)

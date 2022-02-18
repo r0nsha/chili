@@ -1,13 +1,13 @@
 use c.printf
 use process.exit
 
-type PanicInfo = (
+type PanicInfo = {
     program: str,
     message: str,
     file_path: str,
     line: uint,
     column: uint,
-)
+}
 
 let default_panic_handler = fn(info: PanicInfo) -> ! {
     # TODO: use my own print routine.

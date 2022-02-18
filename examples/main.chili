@@ -1,4 +1,6 @@
 use c.?
 
+type Foo = {a: i32}
+
 let main = fn {
 }
