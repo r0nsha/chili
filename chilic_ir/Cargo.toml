@@ -1,0 +1,20 @@
+[package]
+name = "chilic_ir"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+colored = "2.0.0"
+strum_macros = "0.23.1"
+ptree = "0.4.0"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+ustr = "0.8.1"
+unindent = "0.1.7"
+path-absolutize = "3.0.11"
+
+common = { path = "../common" }
+chilic_span = { path = "../chilic_span" }
+chilic_token = { path = "../chilic_token" }
+chilic_error = { path = "../chilic_error" }
+chilic_ty = { path = "../chilic_ty" }

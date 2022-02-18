@@ -1,0 +1,3 @@
+foreign("system:kernel32") {
+    pub let ExitProcess = fn(ec: int) -> !;
+}

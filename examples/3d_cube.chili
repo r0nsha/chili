@@ -1,0 +1,54 @@
+use raylib.*;
+
+let main = fn() {
+	let width = 1920;
+	let height = 1080;
+
+	InitWindow(width, height, "chili language example - 3d cube\0".data);
+	SetTargetFPS(60);
+
+	let cube_pos = Vector3 { x=0, y=0, z=0 };
+
+	let mut camera = Camera3D {
+		position = Vector3 { x=0, y=10, z=10 },
+		target = cube_pos,
+		up = Vector3 { x=0, y=1, z=0 },
+		fovy = 45,
+		projection = CAMERA_PERSPECTIVE,
+	};
+
+	let camera_speed = 0.25;
+
+	while !WindowShouldClose() {
+		if IsKeyDown(KEY_W) {
+			camera.position.z += camera_speed;
+		}
+		if IsKeyDown(KEY_A) {
+			camera.position.x -= camera_speed;
+		}
+		if IsKeyDown(KEY_S) {
+			camera.position.z -= camera_speed;
+		}
+		if IsKeyDown(KEY_D) {
+			camera.position.x += camera_speed;
+		}
+		if IsKeyDown(KEY_SPACE) {
+			camera.position.y += camera_speed;
+		}
+		if IsKeyDown(KEY_LEFT_CONTROL) {
+			camera.position.y -= camera_speed;
+		}
+
+		BeginDrawing();
+		ClearBackground(ray_white);
+		BeginMode3D(camera);
+		DrawCube(cube_pos, 2, 2, 2, red);
+		DrawCubeWires(cube_pos, 2, 2, 2, maroon);
+		EndMode3D();
+		DrawText("Welcome to the tird dimension!".data, 10, 40, 20, dark_gray);
+		DrawFPS(10, 10);
+		EndDrawing();
+	}
+
+	CloseWindow();
+}

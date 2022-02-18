@@ -1,0 +1,19 @@
+[target.'cfg(windows)'.build]
+rustflags = [
+    "-Clinker=lld",
+    "-C link-args=-Wl,-zstack-size=4194304,-fuse-ld=lld",
+]
+
+[target.'cfg(unix)'.build]
+rustflags = ["-C link-args=-Wl,-zstack-size=4194304"]
+
+[profile.dev]
+opt-level = 0
+debug = false
+debug-assertions = false
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+rpath = false

@@ -1,0 +1,127 @@
+
+use windows.*;
+
+pub let STD_OUTPUT_HANDLE		HANDLE = -11;
+pub let STD_INPUT_HANDLE		HANDLE = -12;
+
+pub let FF_DONTCARE	UINT = 0;
+
+pub let FW_NORMAL UINT = 400;
+
+pub let ENABLE_EXTENDED_FLAGS 	UINT = 0x0080;
+pub let ENABLE_WINDOW_INPUT 	UINT = 0x0008;
+pub let ENABLE_MOUSE_INPUT 		UINT = 0x0010;
+
+pub let FORMAT_MESSAGE_FROM_SYSTEM DWORD = 0x00001000;
+
+pub type CHAR_INFO = {
+	char WCHAR,
+	attributes WORD
+}
+
+pub type SMALL_RECT = {
+	Left SHORT, 
+	Top SHORT, 
+	Right SHORT, 
+	Bottom SHORT
+}
+
+pub type CONSOLE_FONT_INFOEX = {
+	cbSize ULONG,
+	nFont DWORD,
+	dwFontSize COORD,
+	FontFamily UINT, 
+	FontWeight UINT,
+	FaceName [32]WCHAR
+}
+
+pub type CONSOLE_CURSOR_INFO = {
+	dwSize DWORD,
+	bVisible BOOL
+}
+
+pub type CONSOLE_SCREEN_BUFFER_INFO = {
+	dwSize DWORD, 
+	dwCursorPosition DWORD,
+	wAttributes WORD,
+	srWindow SMALL_RECT,
+	dwMaximumWindowSize COORD
+}
+
+foreign("system:kernel32") {
+	pub let GetStdHandle = fn(handle HANDLE) -> i64;
+	pub let CloseHandle = fn(h HANDLE) -> bool;
+	
+	pub let SetConsoleWindowInfo = fn(hConsoleOutput HANDLE, bAbsolute BOOL, lpConsoleWindow &SMALL_RECT) -> bool;
+	pub let SetConsoleCursorInfo = fn(hConsoleOutput HANDLE, lpConsoleCursorInfo &CONSOLE_CURSOR_INFO) -> bool;
+	pub let SetConsoleScreenBufferSize = fn(hConsoleOutput HANDLE, dwSize COORD) -> bool;
+	pub let SetConsoleActiveScreenBuffer = fn(hConsoleOutput HANDLE) -> bool;
+	pub let SetConsoleMode = fn(hConsoleOutput HANDLE, dwMode int) -> bool;
+	pub let SetConsoleTitleA = fn(title [&]u8) -> bool;
+
+	pub let WriteConsoleOutputW = fn(
+		hConsoleOutput HANDLE,
+		lpBuffer [&mut]CHAR_INFO,
+		dwBufferSize COORD, 
+		dwBufferCoord COORD,
+		lpWriteRegion &SMALL_RECT
+	) -> bool;
+
+	pub let SetCurrentConsoleFontEx = fn(hConsoleOutput HANDLE, bMaximumWindow BOOL, lpConsoleCurrentFontEx &CONSOLE_FONT_INFOEX) -> bool;
+	pub let GetConsoleScreenBufferInfo = fn(hConsoleOutput HANDLE, lpConsoleScreenBufferInfo &CONSOLE_SCREEN_BUFFER_INFO) -> bool;
+
+	pub let FormatMessageW = fn(
+		dwFlags DWORD,
+		lpSource *(),
+		dwMessageId DWORD, 
+		dwLanguageId DWORD,
+		lpBuffer [&]WCHAR,
+		nSize DWORD,
+		va_list &()
+	) -> DWORD;
+
+	pub let MultiByteToWideChar = fn(
+		CodePage uint,
+		dwFlags DWORD,
+		lpMultiByteStr [&]u8,
+		cpMultiByte int,
+		lpWideCharStr [&]u16,
+		cchWideChar int
+	) -> uint;
+
+	pub let GetLastError = fn() -> u16;
+	pub let ExitProcess = fn(ec int) -> !;
+
+	pub let Sleep = fn(dwMilliseconds DWORD);
+
+	pub let QueryPerformanceCounter = fn(lpPerformanceCount &uint) -> bool;
+	pub let QueryPerformanceFrequency = fn(lpPerformanceCount &uint) -> bool;
+
+    pub let CreateThread = fn(
+        lpThreadAttributes &(),
+        dwStackSize uint,
+        lpStartAddress *(),
+        lpParameter *(),
+        dwCreationFlags DWORD,
+        lpThreadId &mut DWORD,
+    ) -> HANDLE;
+
+    pub let WaitForMultipleObjects = fn(
+        nCount DWORD,
+        lpHandles [&]HANDLE,
+        bWaitAll BOOL,
+        dwMilliseconds DWORD
+    ) -> DWORD;
+
+	pub let GetNumberOfConsoleInputEvents = fn(
+		hConsoleInput HANDLE,
+		lpcNumberOfEvents &DWORD
+	) -> BOOL;
+
+	pub let ReadConsoleInput = fn(
+		hConsoleInput HANDLE,
+		lpBuffer [32]INPUT_RECORD,
+		nLength DWORD,
+		lpNumberOfEventsRead &DWORD,
+	) -> BOOL;
+}

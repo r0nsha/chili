@@ -1,0 +1,16 @@
+[package]
+name = "chilic_check"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+ustr = "0.8.1"
+
+chilic_span = { path = "../chilic_span" }
+common = { path = "../common" }
+chilic_error = { path = "../chilic_error" }
+chilic_ty = { path = "../chilic_ty" }
+chilic_ir = { path = "../chilic_ir" }
+chilic_infer = { path = "../chilic_infer" }

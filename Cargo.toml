@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "common",
+    "chilic_span",
+    "chilic_error",
+    "chilic_ty",
+    "chilic_ir",
+    "chilic_ir_gen",
+    "chilic_token",
+    "chilic_parse",
+    "chilic_check",
+    "chilic_infer",
+    "chilic_llvm",
+    "chilic_main",
+]
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3

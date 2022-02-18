@@ -1,0 +1,22 @@
+foreign "system:libucrt" {
+    let printf = fn(input -> *u8, ..) -> i64;
+}
+
+let Person = struct {
+	name -> str,
+	age -> uint,
+}
+
+let get_person = fn() -> Person {
+    Person{name = "Ron", age = 25}
+}
+
+let print_person = fn({name, age} -> *Person) {
+    let fmt = "My name is '%s' and I'm %d years old\n";
+    printf(fmt.data, name.data, age);
+}
+
+let main = fn() {
+    let p = get_person();
+    print_person(&p);
+}

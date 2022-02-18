@@ -1,0 +1,153 @@
+let foreign("system:libucrt") printf = fn(input [*]u8, ..) -> i64;
+
+// let main = fn() {
+// 	let mut a = 0;
+// 	a += 1;
+// 	printf("a = %d\n".data, a);
+// }
+
+// let main = fn() {
+// 	foo(5);
+// }
+
+// let foo = fn(mut a int) {
+// 	a += 1;
+// 	printf("a = %d\n".data, a);
+// }
+
+// let main = fn() {
+// 	let mut Foo = struct { 
+// 		a int,
+// 	};
+
+// 	let mut foo = Foo{ a = 41 };
+// 	foo.a = 5;
+// 	printf("foo.a = %d\n".data, foo.a);
+
+// 	foo = Foo{..};
+// 	printf("foo.a = %d\n".data, foo.a);
+// }
+
+// let main = fn() {
+//     let a = 0;
+//     let b = &a;
+//     b.* = 5;
+
+//     let mut a = 0;
+//     let b = &mut a;
+//     b.* = 5;
+
+//     let a = 0;
+//     let b = &mut a;
+//     b.* = 5;
+
+//     let mut a = 0;
+//     let b = &a;
+//     b.* = 5;
+// }
+
+// let main = fn() {
+//     let mut a = 5;
+//     foo(&mut a);
+// }
+
+// let foo = fn(a *mut int) {
+//     a.* += 1;
+// }
+
+// let main = fn() {
+//     let Foo = struct { a int, b int };
+
+//     let foo = &Foo{a=1, b=2};
+//     foo.b = 5;
+
+//     let foo = &mut Foo{a=1, b=2};
+//     foo.b = 5; 
+
+//     // reference field access
+
+//     let foo = Foo{a=1, b=2};
+//     let b = &foo.b;
+
+//     let foo = Foo{a=1, b=2};
+//     let b = &mut foo.b;
+
+//     let mut foo = Foo{a=1, b=2};
+//     let b = &mut foo.b;
+
+//     let foo = Foo{a=1, b=2};
+//     let b = &mut foo.b;
+
+//     // reference another reference
+
+//     let foo = &Foo{a=1, b=2};
+//     let b = &foo.b;
+
+//     let foo = &Foo{a=1, b=2};
+//     let b = &mut foo.b;
+
+//     let mut foo = &Foo{a=1, b=2};
+//     let b = &mut foo.b;
+
+//     let foo = &mut Foo{a=1, b=2};
+//     let b = &mut foo.b;
+
+//     // inner pointer inside struct
+
+//     let Foo = struct { p *int };
+
+//     let a = 5;
+//     let foo = Foo { p = &a };
+//     foo.p = 3;
+
+//     let mut a int = 5;
+//     let foo = Foo { p = &mut a };
+// }
+
+// let main = fn() {
+//     let foo = [_]int{1, 2};
+//     foo = [_]int{3, 4};
+
+//     let mut foo = [_]int{1, 2};
+//     foo = [_]int{3, 4};
+
+//     let foo = [_]int{1, 2};
+//     foo[0] = 5;
+
+//     let mut foo = [_]int{1, 2};
+//     foo[0] = 5;
+
+//     let foo = &[_]int{1, 2};
+//     foo[0] = 5;
+
+//     let mut foo = &[_]int{1, 2};
+//     foo[0] = 5;
+
+//     let foo = &mut [_]int{1, 2};
+//     foo[0] = 5;
+
+//     let Foo = struct {
+//         foo *mut [2]int
+//     };
+
+//     let foo = Foo { foo = &mut [_]int{1, 2} };
+//     foo.foo[0] = 4;
+
+//     for foo.foo {
+//         printf("foo[%d] = %d\n".data, it_index, it);
+//     }
+// }
+
+// let main = fn() {
+//     let s []int = &[_]int{1, 2};
+//     let s []int = &mut [_]int{1, 2};
+
+//     let s []mut int = &[_]int{1, 2};
+//     let s []mut int = &mut [_]int{1, 2};
+// }
+
+// let main = fn() {
+//     let s []mut int = &mut [_]int{1, 2};
+//     let mp [*]mut int = s.data;
+//     let p = @as(*mut int, mp);
+// }

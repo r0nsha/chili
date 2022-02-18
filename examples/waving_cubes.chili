@@ -1,0 +1,70 @@
+use raylib.*;
+use c.*;
+
+let width int = 1920;
+let height int = 1080;
+
+let main = fn() {
+	InitWindow(width, height, "chili language example - waving cubes\0".data);
+	SetTargetFPS(60);
+
+	let mut camera = Camera3D {
+		position = Vector3 { x=30, y=20, z=30 },
+		target = Vector3 { x=0, y=0, z=0 },
+		up = Vector3 { x=0, y=1, z=0 },
+		fovy = 70,
+		projection = CAMERA_PERSPECTIVE,
+	};
+
+	let block_count = 15;
+	let half_block_count = block_count as f64 / 2.0;
+	while !WindowShouldClose() {
+		let time = GetTime();
+		let scale = (2.0 + sin(time)) * 0.7;
+
+		let camera_time = time * 0.3;
+		camera.position.x = cos(camera_time) as _ * 40.0;
+		camera.position.z = sin(camera_time) as _ * 40.0;
+
+		BeginDrawing();
+		ClearBackground(ray_white);
+
+		BeginMode3D(camera);
+
+		DrawGrid(10, 5.0);
+
+		for x in 0..block_count - 1 {
+			for y in 0..block_count - 1 {
+				for z in 0..block_count - 1 {
+					let xyz = (x + y + z) as f32;
+					let block_scale = xyz / 30.0;
+					let scatter = sinf(block_scale * 20 + time as f32 * 4.0);
+
+					let cube_pos = Vector3 {
+						x = ((x as f64 - half_block_count) as f64 * (scale * 3.0) + scatter) as _,
+						y = ((y as f64 - half_block_count) as f64 * (scale * 2.0) + scatter) as _,
+						z = ((z as f64 - half_block_count) as f64 * (scale * 3.0) + scatter) as _,
+					};
+
+					let cube_color = ColorFromHSV(Vector3 {
+						x = ((xyz * 18) % 360) as _,
+						y = 0.75, 
+						z = 0.9
+					});
+
+					let cube_size = (2.4 - scale) * block_scale as f64;
+
+					DrawCube(cube_pos, cube_size, cube_size, cube_size, cube_color);
+				}
+			}	
+		}
+
+		EndMode3D();
+
+		DrawFPS(10, 10);
+
+		EndDrawing();
+	}
+
+	CloseWindow();
+}

@@ -1,0 +1,74 @@
+use raylib.*;
+use c.*;
+
+let width uint = 2000;
+let height uint = 400;
+let max_droplet_interval i32 = 1;
+
+let main = fn() {
+	srand(time(nil));
+
+	let mut values [width]int;
+	let mut sorted_indices [width]bool;
+
+	for 0..values.len - 1 {
+		values[it] = rand() % width;
+	}
+
+	InitWindow(width, height, "chili language - test - water ripples\0".data);
+	SetTargetFPS(300);
+
+	let mut n = 0;
+	let mut len = values.len - 1;
+
+	while !WindowShouldClose() {
+		if n < len {
+			for i in 0..len - n - 1 {
+				let a = values[i];
+				let b = values[i + 1];
+
+				if a > b {
+					let temp = values[i + 1];
+					values[i + 1] = values[i];
+					values [i] = temp;
+
+					sorted_indices[i] = true;
+				}
+			}
+			n += 1;
+		}
+
+		BeginDrawing();
+		ClearBackground(black);
+
+		for values {
+			let x = width - it_index;
+			let line_height = map(it, 0, width, 0, height);
+			DrawLine(
+				x, 
+				line_height, 
+				x, 
+				height,
+				if sorted_indices[it_index] { 
+					red
+				} else {
+					white
+				}
+			);
+		}
+
+		DrawFPS(10, 10);
+
+		sorted_indices = [false; width];
+
+		EndDrawing();
+	}
+
+	CloseWindow();
+}
+
+let map = fn(x int, a int, b int, c int, d int) -> int {
+	let div = (x - a) as f64 / (b - a) as f64;
+	let res = div * ((d - c) + c) as f64;
+	res as int
+}

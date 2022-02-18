@@ -1,0 +1,693 @@
+use user32;
+use kernel32.*;
+use windows.*;
+use c.*;
+
+pub let Pixel_Type = WCHAR;
+pub let PIXEL_SOLID 			Pixel_Type = 0x2588;
+pub let PIXEL_THREEQUARTERS 	Pixel_Type = 0x2593;
+pub let PIXEL_HALF 				Pixel_Type = 0x2592;
+pub let PIXEL_QUARTER 			Pixel_Type = 0x2591;
+pub let PIXEL_EMPTY 			Pixel_Type = @as(Pixel_Type, ' ');
+
+pub let Color = u16;
+
+pub let COLOR_FG_BLACK			Color = 0x0000;
+pub let COLOR_FG_DARK_BLUE    	Color = 0x0001;	
+pub let COLOR_FG_DARK_GREEN   	Color = 0x0002;
+pub let COLOR_FG_DARK_CYAN    	Color = 0x0003;
+pub let COLOR_FG_DARK_RED     	Color = 0x0004;
+pub let COLOR_FG_DARK_MAGENTA 	Color = 0x0005;
+pub let COLOR_FG_DARK_YELLOW  	Color = 0x0006;
+pub let COLOR_FG_GREY			Color = 0x0007;
+pub let COLOR_FG_DARK_GREY    	Color = 0x0008;
+pub let COLOR_FG_BLUE			Color = 0x0009;
+pub let COLOR_FG_GREEN			Color = 0x000A;
+pub let COLOR_FG_CYAN			Color = 0x000B;
+pub let COLOR_FG_RED			Color = 0x000C;
+pub let COLOR_FG_MAGENTA		Color = 0x000D;
+pub let COLOR_FG_YELLOW			Color = 0x000E;
+pub let COLOR_FG_WHITE			Color = 0x000F;
+pub let COLOR_BG_BLACK			Color = 0x0000;
+pub let COLOR_BG_DARK_BLUE		Color = 0x0010;
+pub let COLOR_BG_DARK_GREEN		Color = 0x0020;
+pub let COLOR_BG_DARK_CYAN		Color = 0x0030;
+pub let COLOR_BG_DARK_RED		Color = 0x0040;
+pub let COLOR_BG_DARK_MAGENTA 	Color = 0x0050;
+pub let COLOR_BG_DARK_YELLOW	Color = 0x0060;
+pub let COLOR_BG_GREY			Color = 0x0070;
+pub let COLOR_BG_DARK_GREY		Color = 0x0080;
+pub let COLOR_BG_BLUE			Color = 0x0090;
+pub let COLOR_BG_GREEN			Color = 0x00A0;
+pub let COLOR_BG_CYAN			Color = 0x00B0;
+pub let COLOR_BG_RED			Color = 0x00C0;
+pub let COLOR_BG_MAGENTA		Color = 0x00D0;
+pub let COLOR_BG_YELLOW			Color = 0x00E0;
+pub let COLOR_BG_WHITE			Color = 0x00F0;
+
+pub let COLOR_BLACK				= COLOR_BG_BLACK | COLOR_FG_BLACK;
+pub let COLOR_WHITE				= COLOR_BG_WHITE | COLOR_FG_WHITE;
+pub let COLOR_DARK_BLUE			= COLOR_BG_DARK_BLUE | COLOR_FG_DARK_BLUE;
+pub let COLOR_DARK_GREEN		= COLOR_BG_DARK_GREEN | COLOR_FG_DARK_GREEN;
+pub let COLOR_DARK_CYAN		 	= COLOR_BG_DARK_CYAN | COLOR_FG_DARK_CYAN;
+pub let COLOR_DARK_RED		 	= COLOR_BG_DARK_RED | COLOR_FG_DARK_RED;
+pub let COLOR_DARK_MAGENTA		= COLOR_BG_DARK_MAGENTA | COLOR_FG_DARK_MAGENTA;
+pub let COLOR_DARK_YELLOW		= COLOR_BG_DARK_YELLOW | COLOR_FG_DARK_YELLOW;
+pub let COLOR_GREY		 		= COLOR_BG_GREY | COLOR_FG_GREY;
+pub let COLOR_DARK_GREY		 	= COLOR_BG_DARK_GREY | COLOR_FG_DARK_GREY;
+pub let COLOR_BLUE		 		= COLOR_BG_BLUE | COLOR_FG_BLUE;
+pub let COLOR_GREEN		 		= COLOR_BG_GREEN | COLOR_FG_GREEN;
+pub let COLOR_CYAN		 		= COLOR_BG_CYAN | COLOR_FG_CYAN;
+pub let COLOR_RED		 		= COLOR_BG_RED | COLOR_FG_RED;
+pub let COLOR_MAGENTA			= COLOR_BG_MAGENTA | COLOR_FG_MAGENTA;
+pub let COLOR_YELLOW			= COLOR_BG_YELLOW | COLOR_FG_YELLOW;
+
+let KEY_COUNT = 256;
+
+pub let Console_Game_Engine = struct {
+	is_active bool,
+
+	cout_handle HANDLE, 
+	cin_handle HANDLE,
+
+	screen_width uint, 
+	screen_height uint,
+	
+	mouse_pos Vector2, 
+
+	window_rect SMALL_RECT,
+	screen_buffer [&mut]CHAR_INFO,
+
+	app_name str,
+	on_update fn(engine &Console_Game_Engine, delta_time f64) -> bool,
+	
+	// old_key_states [KEY_COUNT] u16,
+	// new_key_states [KEY_COUNT] u16,
+	// keys [KEY_COUNT] Key_State,
+}
+
+pub let Key_State = struct {
+	pressed bool,
+	released bool,
+	held bool,
+}
+
+pub let Vector2 = struct { 
+	x int, 
+	y int 
+}
+
+pub let Console_Game_Engine_new = fn(
+	app_name str,
+	screen_width uint, 
+	screen_height uint, 
+	font_width uint, 
+	font_height uint,
+	on_update fn(engine &Console_Game_Engine, delta_time f64) -> bool
+) -> Console_Game_Engine {
+	let cout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+	let cin_handle = GetStdHandle(STD_INPUT_HANDLE);
+
+	if cout_handle == INVALID_HANDLE_VALUE {
+		show_error("GetStdHandle -> OUT\0");
+	}
+
+	if cin_handle == INVALID_HANDLE_VALUE {
+		show_error("GetStdHandle -> IN\0");
+	}
+
+	let window_rect = SMALL_RECT { 
+		Left = 0, 
+		Top = 0, 
+		Right = 1, 
+		Bottom = 1
+	};
+
+	if !SetConsoleWindowInfo(cout_handle, TRUE, &window_rect) {
+		show_error("First SetConsoleWindowInfo\0");
+	}
+
+	if !SetConsoleScreenBufferSize(cout_handle, COORD{X=@as(_,screen_width), Y=@as(_,screen_height)}) {
+		show_error("SetConsoleScreenBufferSize\0");
+	}
+
+	if !SetConsoleActiveScreenBuffer(cout_handle) {
+		show_error("SetConsoleActiveScreenBuffer\0");
+	}
+
+	let console_font_info = CONSOLE_FONT_INFOEX {
+		cbSize = @as(_, @size_of(CONSOLE_FONT_INFOEX)),
+		dwFontSize = COORD{X=@as(_,font_width), Y=@as(_,font_height)},
+		FontFamily = FF_DONTCARE,
+		FontWeight = FW_NORMAL,
+		..
+	};
+
+	let face_name = str2wstr("Consolas");
+	defer free(@as(_, face_name.data));
+
+	wcscpy(&console_font_info.FaceName, face_name.data);
+
+	if !SetCurrentConsoleFontEx(cout_handle, FALSE, &console_font_info) {
+		show_error("SetCurrentConsoleFontEx\0");
+	}
+
+	let buffer_info CONSOLE_SCREEN_BUFFER_INFO;
+	if !GetConsoleScreenBufferInfo(cout_handle, &buffer_info) {
+		show_error("GetConsoleScreenBufferInfo");
+	}
+
+	if @as(i16, screen_width) > buffer_info.dwMaximumWindowSize.X {
+		show_error("Screen Width / Font Width Too Big");
+	}
+
+	if @as(i16, screen_height) > buffer_info.dwMaximumWindowSize.Y {
+		show_error("Screen Height / Font Height Too Big");
+	}
+
+	let window_rect = SMALL_RECT { 
+		Left = 0, 
+		Top = 0, 
+		Right = @as(_, screen_width - 1), 
+		Bottom = @as(_, screen_height - 1) 
+	};
+
+	if !SetConsoleWindowInfo(cout_handle, TRUE, &window_rect) {
+		show_error("Second SetConsoleWindowInfo\0");
+	}
+
+	if !SetConsoleCursorInfo(cout_handle, &CONSOLE_CURSOR_INFO { dwSize = 1, bVisible = FALSE }) {
+		show_error("SetConsoleCursorInfo");
+	}
+
+	if !SetConsoleMode(cin_handle, ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT) {
+		show_error("SetConsoleMode");
+	}
+	
+	Console_Game_Engine {
+		is_active = true,
+		cout_handle = cout_handle,
+		cin_handle = cin_handle,
+		screen_width = screen_width,
+		screen_height = screen_height,
+		mouse_pos = Vector2 { x = 0, y = 0 },
+		window_rect = window_rect,
+		screen_buffer = calloc(screen_width * screen_height, @size_of(CHAR_INFO)),
+		app_name = app_name,
+		on_update = on_update,
+		..
+	}
+}
+
+pub let Console_Game_Engine_start = fn(engine &mut Console_Game_Engine) {
+	let mut thread_id = 0;
+	let thread_handle = CreateThread(nil, 0, @as(_, game_thread), @as(_, engine), 0, &mut thread_id);
+	let threads []HANDLE = &.[thread_handle];
+	WaitForMultipleObjects(1, threads.data, TRUE, 2_147_483_647 /* Infinite */);
+}
+
+let game_thread = fn(engine &mut Console_Game_Engine) {
+	let mut t1 = now();
+	let mut t2 = now();
+
+	while engine.is_active {
+		t2 = now();
+		let delta_time = @as(f64, t2 - t1);
+		t1 = t2;
+
+		// handle_keys(engine);
+		handle_mouse(engine);
+
+		if !engine.on_update(engine, delta_time) {
+			engine.is_active = false;
+		}
+
+		let s [256]u8;
+		sprintf_s(&s, s.len, "Chili Console Game Engine - %s (FPS -> %3.2f)".data, engine.app_name.data, 1/delta_time);
+		SetConsoleTitleA(&s);
+
+		WriteConsoleOutputW(
+			engine.cout_handle, 
+			engine.screen_buffer, 
+			COORD{X=@as(_,engine.screen_width), Y=@as(_,engine.screen_height)}, 
+			COORD{X=0, Y=0}, 
+			&engine.window_rect
+		);
+	}
+}
+
+// let handle_keys = fn(engine &mut Console_Game_Engine) {
+// 	for 0..engine.keys.len - 1 {
+// 		engine.new_key_states[it] = user32.GetAsyncKeyState(it);
+
+// 		engine.keys[it].pressed = false;
+// 		engine.keys[it].released = false;
+
+// 		if engine.new_key_states[it] != engine.old_key_states[it] {
+// 			if engine.new_key_states[it] & 0x8000 != 0 {
+// 				engine.keys[it].pressed = !engine.keys[it].held;
+// 				engine.keys[it].held = true;
+// 			} else {
+// 				engine.keys[it].released = true;
+// 				engine.keys[it].held = false;
+// 			}
+// 		}
+
+// 		engine.old_key_states[it] = engine.new_key_states[it];
+// 	}
+// }
+
+let handle_mouse = fn(engine &mut Console_Game_Engine) {
+	// let input_buf [32]INPUT_RECORD;
+	// let events DWORD;
+	// GetNumberOfConsoleInputEvents(engine.cin_handle, &events);
+	// if events > 0 -> ReadConsoleInput(engine.cin_handle, input_buf, events, &events);
+
+	// for 0..events - 1 {
+	// 	let flags = input_buf[it].MouseEvent.dwEventFlags;
+	// 	if flags == MOUSE_MOVED {
+	// 		engine.mouse_pos.x = input_buf[it].MouseEvent.dwMousePosition.X;
+	// 		engine.mouse_pos.y = input_buf[it].MouseEvent.dwMousePosition.Y;
+	// 	} else if flags == 0 {
+	// 		// TODO -> mouse clicks!
+	// 		// for (int m = 0; m < 5; m++)
+	// 		// 	m_mouseNewState[m] = (inBuf[i].Event.MouseEvent.dwButtonState & (1 << m)) > 0;
+	// 	}
+	// }
+}
+
+pub let Console_Game_Engine_draw = fn(engine &Console_Game_Engine, { x, y } Vector2, pixel Pixel_Type, color Color) {
+	if 	x >= 0 && x < engine.screen_width &&
+		y >= 0 && y < engine.screen_height {
+			engine.screen_buffer[y * engine.screen_width + x].char = pixel;
+			engine.screen_buffer[y * engine.screen_width + x].attributes = color;
+	}
+}
+
+pub let Console_Game_Engine_draw_string = fn(engine &Console_Game_Engine, { x, y } Vector2, string str, color Color) {
+	for string {
+		Console_Game_Engine_draw(engine, Vector2 { x = x + it_index, y = y }, @as(_, it), color);
+	}
+}
+
+pub let Console_Game_Engine_fill = fn(
+	engine &Console_Game_Engine, 
+	mut from Vector2, 
+	mut to Vector2, 
+	pixel Pixel_Type, 
+	color Color
+) {
+	clip(engine, &mut from);
+	clip(engine, &mut to);
+	
+	for x in from.x..to.x {
+		for y in from.y..to.y {
+			Console_Game_Engine_draw(engine, Vector2 { x = x, y = y }, pixel, color)
+		}
+	}
+}
+
+pub let Console_Game_Engine_clear = fn(engine &Console_Game_Engine, color Color) {
+	Console_Game_Engine_fill(
+			engine, 
+			Vector2 { x = 0, y = 0 },
+			Vector2 { x = engine.screen_width, y = engine.screen_height },
+			PIXEL_EMPTY,
+			color
+	);
+}
+
+pub let Console_Game_Engine_drop = fn(engine &Console_Game_Engine) {
+	if engine.screen_buffer != nil {
+		free(@as(_, engine.screen_buffer));
+	}
+}
+
+let show_error = fn(msg str) {
+	// // get last error code & message
+	// let le = GetLastError();
+
+	// let buf_len = 256;
+	// let buf [&]WCHAR = calloc(buf_len, @size_of(WCHAR));
+	// defer free(@as(_, buf));
+
+	// FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM, nil, le, 0, buf, @as(_, buf_len), nil);
+
+	// // format title
+	// let title [256]u8;
+	// sprintf_s(&title, title.len, "%s (code -> %d)".data, msg.data, le);
+
+	// let title = str2wstr(title[..]);
+	// defer free(@as(_, title.data));
+
+	// // show message box
+	// user32.MessageBoxW(0, buf, title.data,  0);
+
+	printf("ERROR -> %s\n".data, msg.data);
+	
+	// ExitProcess(1)
+}
+
+let str2wstr = fn(s str) -> []WCHAR {
+	let CP_ACP = 0;
+
+	let p = s.data;
+	let mut ws [&]WCHAR;
+	let char_count = MultiByteToWideChar(CP_ACP, 0, p, -1, nil, 0);
+
+	ws = malloc(char_count * @size_of(WCHAR));
+
+	MultiByteToWideChar(CP_ACP, 0, p, -1, ws, char_count);
+
+	ws[..s.len]
+}
+
+let clip = fn(engine &Console_Game_Engine, v2 &mut Vector2) {
+	if v2.x < 0 {
+		v2.x = 0;
+	}
+		
+	if v2.x >= engine.screen_width {
+		v2.x = engine.screen_width;
+	}
+
+	if v2.y < 0 {
+		v2.y = 0;
+	}
+
+	if v2.y >= engine.screen_height {
+		v2.y = engine.screen_height;
+	}
+}
+
+let perf_frequency f64 = {
+	let f uint;
+	QueryPerformanceFrequency(&f);
+	@as(f64, f)
+}
+
+let now = fn() -> f64 {
+	let time uint;
+	QueryPerformanceCounter(&time);
+	@as(f64, time) / perf_frequency
+}
+
+
+// 				// Handle Keyboard Input
+// 				for (int i = 0; i < 256; i++)
+// 				{
+// 					m_keyNewState[i] = GetAsyncKeyState(i);
+
+// 					m_keys[i].bPressed = false;
+// 					m_keys[i].bReleased = false;
+
+// 					if (m_keyNewState[i] != m_keyOldState[i])
+// 					{
+// 						if (m_keyNewState[i] & 0x8000)
+// 						{
+// 							m_keys[i].bPressed = !m_keys[i].bHeld;
+// 							m_keys[i].bHeld = true;
+// 						}
+// 						else
+// 						{
+// 							m_keys[i].bReleased = true;
+// 							m_keys[i].bHeld = false;
+// 						}
+// 					}
+
+// 					m_keyOldState[i] = m_keyNewState[i];
+// 				}
+
+// 				// Handle Mouse Input - Check for window events
+// 				INPUT_RECORD inBuf[32];
+// 				DWORD events = 0;
+// 				GetNumberOfConsoleInputEvents(m_hConsoleIn, &events);
+// 				if (events > 0)
+// 					ReadConsoleInput(m_hConsoleIn, inBuf, events, &events);
+
+// 				// Handle events - we only care about mouse clicks and movement
+// 				// for now
+// 				for (DWORD i = 0; i < events; i++)
+// 				{
+// 					switch (inBuf[i].EventType)
+// 					{
+// 					case FOCUS_EVENT:
+// 					{
+// 						m_bConsoleInFocus = inBuf[i].Event.FocusEvent.bSetFocus;
+// 					}
+// 					break;
+
+// 					case MOUSE_EVENT:
+// 					{
+// 						switch (inBuf[i].Event.MouseEvent.dwEventFlags)
+// 						{
+// 						case MOUSE_MOVED:
+// 						{
+// 							m_mousePosX = inBuf[i].Event.MouseEvent.dwMousePosition.X;
+// 							m_mousePosY = inBuf[i].Event.MouseEvent.dwMousePosition.Y;
+// 						}
+// 						break;
+
+// 						case 0:
+// 						{
+// 							for (int m = 0; m < 5; m++)
+// 								m_mouseNewState[m] = (inBuf[i].Event.MouseEvent.dwButtonState & (1 << m)) > 0;
+
+// 						}
+// 						break;
+
+// 						default:
+// 							break;
+// 						}
+// 					}
+// 					break;
+
+// 					default:
+// 						break;
+// 						// We don't care just at the moment
+// 					}
+// 				}
+
+// 				for (int m = 0; m < 5; m++)
+// 				{
+// 					m_mouse[m].bPressed = false;
+// 					m_mouse[m].bReleased = false;
+
+// 					if (m_mouseNewState[m] != m_mouseOldState[m])
+// 					{
+// 						if (m_mouseNewState[m])
+// 						{
+// 							m_mouse[m].bPressed = true;
+// 							m_mouse[m].bHeld = true;
+// 						}
+// 						else
+// 						{
+// 							m_mouse[m].bReleased = true;
+// 							m_mouse[m].bHeld = false;
+// 						}
+// 					}
+
+// 					m_mouseOldState[m] = m_mouseNewState[m];
+// 				}
+
+
+// 				// Handle Frame Update
+// 				if (!OnUserUpdate(fElapsedTime))
+// 					m_bAtomActive = false;
+
+pub let VK_LBUTTON = 0x01;
+pub let VK_RBUTTON = 0x02;
+pub let VK_CANCEL = 0x03;
+pub let VK_MBUTTON = 0x04;   
+pub let VK_XBUTTON1 = 0x05;
+pub let VK_XBUTTON2 = 0x06;
+pub let VK_BACK = 0x08;
+pub let VK_TAB = 0x09;
+pub let VK_CLEAR = 0x0C;
+pub let VK_RETURN = 0x0D;
+pub let VK_SHIFT = 0x10;
+pub let VK_CONTROL = 0x11;
+pub let VK_MENU = 0x12;
+pub let VK_PAUSE = 0x13;
+pub let VK_CAPITAL = 0x14;
+pub let VK_KANA = 0x15;
+pub let VK_HANGEUL = 0x15;
+pub let VK_HANGUL = 0x15;
+pub let VK_JUNJA = 0x17;
+pub let VK_FINAL = 0x18;
+pub let VK_HANJA = 0x19;
+pub let VK_KANJI = 0x19;
+pub let VK_ESCAPE = 0x1B;
+pub let VK_CONVERT = 0x1C;
+pub let VK_NONCONVERT = 0x1D;
+pub let VK_ACCEPT = 0x1E;
+pub let VK_MODECHANGE = 0x1F;
+pub let VK_SPACE = 0x20;
+pub let VK_PRIOR = 0x21;
+pub let VK_NEXT = 0x22;
+pub let VK_END = 0x23;
+pub let VK_HOME = 0x24;
+pub let VK_LEFT = 0x25;
+pub let VK_UP = 0x26;
+pub let VK_RIGHT = 0x27;
+pub let VK_DOWN = 0x28;
+pub let VK_SELECT = 0x29;
+pub let VK_PRINT = 0x2A;
+pub let VK_EXECUTE = 0x2B;
+pub let VK_SNAPSHOT = 0x2C;
+pub let VK_INSERT = 0x2D;
+pub let VK_DELETE = 0x2E;
+pub let VK_HELP = 0x2F;
+pub let VK_LWIN = 0x5B;
+pub let VK_RWIN = 0x5C;
+pub let VK_APPS = 0x5D;
+pub let VK_SLEEP = 0x5F;
+pub let VK_NUMPAD0 = 0x60;
+pub let VK_NUMPAD1 = 0x61;
+pub let VK_NUMPAD2 = 0x62;
+pub let VK_NUMPAD3 = 0x63;
+pub let VK_NUMPAD4 = 0x64;
+pub let VK_NUMPAD5 = 0x65;
+pub let VK_NUMPAD6 = 0x66;
+pub let VK_NUMPAD7 = 0x67;
+pub let VK_NUMPAD8 = 0x68;
+pub let VK_NUMPAD9 = 0x69;
+pub let VK_MULTIPLY = 0x6A;
+pub let VK_ADD = 0x6B;
+pub let VK_SEPARATOR = 0x6C;
+pub let VK_SUBTRACT = 0x6D;
+pub let VK_DECIMAL = 0x6E;
+pub let VK_DIVIDE = 0x6F;
+pub let VK_F1 = 0x70;
+pub let VK_F2 = 0x71;
+pub let VK_F3 = 0x72;
+pub let VK_F4 = 0x73;
+pub let VK_F5 = 0x74;
+pub let VK_F6 = 0x75;
+pub let VK_F7 = 0x76;
+pub let VK_F8 = 0x77;
+pub let VK_F9 = 0x78;
+pub let VK_F10 = 0x79;
+pub let VK_F11 = 0x7A;
+pub let VK_F12 = 0x7B;
+pub let VK_F13 = 0x7C;
+pub let VK_F14 = 0x7D;
+pub let VK_F15 = 0x7E;
+pub let VK_F16 = 0x7F;
+pub let VK_F17 = 0x80;
+pub let VK_F18 = 0x81;
+pub let VK_F19 = 0x82;
+pub let VK_F20 = 0x83;
+pub let VK_F21 = 0x84;
+pub let VK_F22 = 0x85;
+pub let VK_F23 = 0x86;
+pub let VK_F24 = 0x87;
+pub let VK_NUMLOCK = 0x90;
+pub let VK_SCROLL = 0x91;
+pub let VK_OEM_NEC_EQUAL = 0x92;
+pub let VK_OEM_FJ_JISHO = 0x92;
+pub let VK_OEM_FJ_MASSHOU = 0x93;
+pub let VK_OEM_FJ_TOUROKU = 0x94;
+pub let VK_OEM_FJ_LOYA = 0x95;
+pub let VK_OEM_FJ_ROYA = 0x96;
+pub let VK_LSHIFT = 0xA0;
+pub let VK_RSHIFT = 0xA1;
+pub let VK_LCONTROL = 0xA2;
+pub let VK_RCONTROL = 0xA3;
+pub let VK_LMENU = 0xA4;
+pub let VK_RMENU = 0xA5;
+pub let VK_BROWSER_BACK = 0xA6;
+pub let VK_BROWSER_FORWARD = 0xA7;
+pub let VK_BROWSER_REFRESH = 0xA8;
+pub let VK_BROWSER_STOP = 0xA9;
+pub let VK_BROWSER_SEARCH = 0xAA;
+pub let VK_BROWSER_FAVORITES = 0xAB;
+pub let VK_BROWSER_HOME = 0xAC;
+pub let VK_VOLUME_MUTE = 0xAD;
+pub let VK_VOLUME_DOWN = 0xAE;
+pub let VK_VOLUME_UP = 0xAF;
+pub let VK_MEDIA_NEXT_TRACK = 0xB0;
+pub let VK_MEDIA_PREV_TRACK = 0xB1;
+pub let VK_MEDIA_STOP = 0xB2;
+pub let VK_MEDIA_PLAY_PAUSE = 0xB3;
+pub let VK_LAUNCH_MAIL = 0xB4;
+pub let VK_LAUNCH_MEDIA_SELECT = 0xB5;
+pub let VK_LAUNCH_APP1 = 0xB6;
+pub let VK_LAUNCH_APP2 = 0xB7;
+pub let VK_OEM_1 = 0xBA;
+pub let VK_OEM_PLUS = 0xBB;   
+pub let VK_OEM_COMMA = 0xBC;  
+pub let VK_OEM_MINUS = 0xBD;  
+pub let VK_OEM_PERIOD = 0xBE; 
+pub let VK_OEM_2 = 0xBF;
+pub let VK_OEM_3 = 0xC0;
+pub let VK_OEM_4 = 0xDB;
+pub let VK_OEM_5 = 0xDC;
+pub let VK_OEM_6 = 0xDD;
+pub let VK_OEM_7 = 0xDE;
+pub let VK_OEM_8 = 0xDF;
+pub let VK_OEM_AX = 0xE1;
+pub let VK_OEM_102 = 0xE2;
+pub let VK_ICO_HELP = 0xE3;
+pub let VK_ICO_00 = 0xE4;
+pub let VK_PROCESSKEY = 0xE5;
+pub let VK_ICO_CLEAR = 0xE6;
+pub let VK_PACKET = 0xE7;
+pub let VK_OEM_RESET = 0xE9;
+pub let VK_OEM_JUMP = 0xEA;
+pub let VK_OEM_PA1 = 0xEB;
+pub let VK_OEM_PA2 = 0xEC;
+pub let VK_OEM_PA3 = 0xED;
+pub let VK_OEM_WSCTRL = 0xEE;
+pub let VK_OEM_CUSEL = 0xEF;
+pub let VK_OEM_ATTN = 0xF0;
+pub let VK_OEM_FINISH = 0xF1;
+pub let VK_OEM_COPY = 0xF2;
+pub let VK_OEM_AUTO = 0xF3;
+pub let VK_OEM_ENLW = 0xF4;
+pub let VK_OEM_BACKTAB = 0xF5;
+pub let VK_ATTN = 0xF6;
+pub let VK_CRSEL = 0xF7;
+pub let VK_EXSEL = 0xF8;
+pub let VK_EREOF = 0xF9;
+pub let VK_PLAY = 0xFA;
+pub let VK_ZOOM = 0xFB;
+pub let VK_NONAME = 0xFC;
+pub let VK_PA1 = 0xFD;
+pub let VK_OEM_CLEAR = 0xFE;
+pub let VK_0 = 0x30;
+pub let VK_1 = 0x31;
+pub let VK_2 = 0x32;
+pub let VK_3 = 0x33;
+pub let VK_4 = 0x34;
+pub let VK_5 = 0x35;
+pub let VK_6 = 0x36;
+pub let VK_7 = 0x37;
+pub let VK_8 = 0x38;
+pub let VK_9 = 0x39;
+pub let VK_A = 0x41;
+pub let VK_B = 0x42;
+pub let VK_C = 0x43;
+pub let VK_D = 0x44;
+pub let VK_E = 0x45;
+pub let VK_F = 0x46;
+pub let VK_G = 0x47;
+pub let VK_H = 0x48;
+pub let VK_I = 0x49;
+pub let VK_J = 0x4A;
+pub let VK_K = 0x4B;
+pub let VK_L = 0x4C;
+pub let VK_M = 0x4D;
+pub let VK_N = 0x4E;
+pub let VK_O = 0x4F;
+pub let VK_P = 0x50;
+pub let VK_Q = 0x51;
+pub let VK_R = 0x52;
+pub let VK_S = 0x53;
+pub let VK_T = 0x54;
+pub let VK_U = 0x55;
+pub let VK_V = 0x56;
+pub let VK_W = 0x57;
+pub let VK_X = 0x58;
+pub let VK_Y = 0x59;
+pub let VK_Z = 0x5A;

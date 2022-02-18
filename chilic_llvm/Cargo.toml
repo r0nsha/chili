@@ -1,0 +1,19 @@
+[package]
+name = "chilic_llvm"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+execute = "0.2.9"
+colored = "2.0.0"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+ustr = "0.8.1"
+inkwell = { path = "../vendor/inkwell", features = ["llvm12-0"] }
+
+common = { path = "../common" }
+chilic_span = { path = "../chilic_span" }
+chilic_error = { path = "../chilic_error" }
+chilic_ty = { path = "../chilic_ty" }
+chilic_parse = { path = "../chilic_parse" }
+chilic_ir = { path = "../chilic_ir" }

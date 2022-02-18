@@ -1,0 +1,34 @@
+foreign("system:libucrt") {
+	pub let putchar = fn(char: int) -> int;
+	pub let getchar = fn() -> int;
+
+	pub let printf = fn(input: [*]u8, ..) -> int;
+	pub let sprintf_s = fn(buffer: [*]u8, sizeOfBuffer: uint, format: [*]u8, ..) -> int;
+
+	pub let strcpy = fn(dest: [*]u8, src: [*]u8) -> [*]u8;
+	pub let wcscpy = fn(dest: [*]u16, src: [*]u16) -> int;
+
+	pub let malloc = fn(size: uint) -> *c_void;
+    pub let calloc = fn(nitems: uint, size: uint) -> *c_void;
+    pub let realloc = fn(ptr: *c_void, size: uint) -> *c_void;
+	pub let free = fn(memblock: *c_void);
+
+	pub let abs = fn(x: i32) -> i32;
+
+	pub let sinf = fn(arg: f32) -> f32;
+	pub let sin = fn(arg: f64) -> f64;
+
+	pub let cosf = fn(arg: f32) -> f32;
+	pub let cos = fn(arg: f64) -> f64;
+
+	pub let atan2f = fn(y: f32, x: f32) -> f32;
+	pub let atan2 = fn(y: f64, x: f64) -> f64;
+
+	pub let pow = fn(x: f64, y: f64) -> f64;
+
+	pub let srand = fn(seed: uint);
+    pub let rand = fn() -> uint;
+    pub let time = fn(some: *c_void) -> uint;
+}
+
+pub type c_void = ()

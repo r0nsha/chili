@@ -1,0 +1,40 @@
+let foreign("system:libucrt") {
+    printf = fn(format -> *u8, ..) -> int,
+    _getch = fn() -> u8,
+    srand = fn(seed -> uint),
+    rand = fn() -> uint,
+    time = fn(some -> *uint) -> uint,
+	malloc = fn(size -> uint) -> *(),
+    free = fn(memblock -> *()),
+}
+
+let main = fn() {
+	srand(time(nil));
+
+	let roll1 = 0;
+	let roll2 = 0;
+	let attempts = 0;
+	printf("Press enter to roll the dice\n".data,);
+	
+	for true {
+		_getch();
+		attempts += 1;
+		
+		roll1 = roll_dice();
+		roll2 = roll_dice();
+
+		printf("You rolled %d and %d\n".data, roll1, roll2);
+
+		if roll1 == roll2 break;
+	}
+
+	printf("It took you %d attempts to roll the dice\n".data, attempts);
+}
+
+let roll_dice = fn() -> uint {
+	get_random_number(1, 6)
+}
+
+let get_random_number = fn(min -> uint, max -> uint) -> uint {
+	(rand() % max) + min
+}

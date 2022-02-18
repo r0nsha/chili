@@ -1,0 +1,15 @@
+foreign "system:libucrt" {
+    let printf = fn(format -> *u8, ..) -> int;
+    let scanf = fn(format -> *u8, ..) -> i64;
+    let srand = fn(seed -> uint);
+    let rand = fn() -> uint;
+    let time = fn(some -> *uint) -> uint;
+}
+
+let main = fn() {
+    srand(time(nil));
+
+    for 0..100 {
+        printf("num=%d\n".data, rand() % 5000000);
+    }
+}

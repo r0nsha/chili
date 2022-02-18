@@ -1,0 +1,20 @@
+let HANDLE = int
+
+let foreign("system:libucrt") {
+	printf = fn(input [*]u8, ..) -> i64,
+}
+
+let foreign("kernel32") {
+    GetStdHandle = fn(handle i32) -> HANDLE,
+    WriteFile = fn(status i64, buffer [*]u8, size uint, bytes_written *i32, overlapped *i64) -> i64
+}
+
+let main = fn() {
+	let std_out = GetStdHandle(-11);
+
+	printf("handle = %d\n".data, std_out);
+
+	let msg = "Hello, World!\n";
+	let bytes_written i32;
+	WriteFile(std_out, msg.data, msg.len, &bytes_written, nil);
+}

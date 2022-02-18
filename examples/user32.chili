@@ -1,0 +1,12 @@
+use windows.*;
+
+pub let foreign("system:user32") {
+	MessageBoxW = fn(
+		hWnd int,
+		lpText [&]WCHAR,
+		lpCaption [&]WCHAR,
+		uType UINT,
+	) -> int,
+
+	GetAsyncKeyState = fn(vKey int) -> u16
+}

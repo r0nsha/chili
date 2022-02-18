@@ -1,0 +1,27 @@
+use c.printf
+use process.exit
+
+type PanicInfo = (
+    program: str,
+    message: str,
+    file_path: str,
+    line: uint,
+    column: uint,
+)
+
+let default_panic_handler = fn(info: PanicInfo) -> ! {
+    # TODO: use my own print routine.
+    printf(
+        "program '%s' panicked at '%s', %s:%d:%d\n".data, 
+        info.program.data,
+        if info.message.len == 0 {
+            "unknown reason\0".data
+        } else {
+            info.message.data
+        },
+        info.file_path.data,
+        info.line,
+        info.column
+    );
+    exit(1)
+}

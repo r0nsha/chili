@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'compiler'",
+      "cargo": {
+        "args": ["build", "--bin=compiler", "--package=compiler"],
+        "filter": {
+          "name": "compiler",
+          "kind": "bin"
+        }
+      },
+      "args": ["examples/main.ch"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'compiler'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=compiler", "--package=compiler"],
+        "filter": {
+          "name": "compiler",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug integration test 'test'",
+      "cargo": {
+        "args": ["test", "--no-run", "--test=test", "--package=compiler"],
+        "filter": {
+          "name": "test",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

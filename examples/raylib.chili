@@ -1,0 +1,221 @@
+foreign("./lib/raylib") {
+    pub let InitWindow = fn(width i32, height i32, title [*]u8);
+    pub let CloseWindow = fn();
+    pub let WindowShouldClose = fn() -> bool;
+    pub let ToggleFullscreen = fn() -> bool;
+    pub let SetTargetFPS = fn(fps i32);
+
+    pub let ShowCursor = fn();
+    pub let HideCursor = fn();
+    pub let IsCursorHidden = fn() -> bool;
+    pub let EnableCursor = fn();
+    pub let DisableCursor = fn();
+    pub let IsCursorOnScreen = fn() -> bool;
+
+    pub let IsKeyPressed = fn(key i32) -> bool;
+    pub let IsKeyDown = fn(key i32) -> bool;
+    pub let IsKeyReleased = fn(key i32) -> bool;
+    pub let IsKeyUp = fn(key i32) -> bool;
+
+    pub let GetMousePosition = fn() -> Vector2;
+    pub let GetMouseDelta = fn() -> Vector2;
+    pub let IsMouseButtonPressed = fn(button i32) -> bool;
+    pub let IsMouseButtonDown = fn(button i32) -> bool;
+    pub let IsMouseButtonReleased = fn(button i32) -> bool;
+    pub let IsMouseButtonUp = fn(button i32) -> bool;
+    pub let GetMouseX = fn() -> i32;
+    pub let GetMouseY = fn() -> i32;
+    pub let GetMouseWheelMove = fn() -> f32;
+
+    pub let BeginDrawing = fn();
+    pub let EndDrawing = fn();
+    pub let BeginMode3D = fn(camera Camera3D);
+    pub let EndMode3D = fn();
+
+    pub let ClearBackground = fn(color Color);
+
+    pub let DrawPixel = fn(posX i32, posY i32, color Color);
+    pub let DrawPixelV = fn(position Vector2, color Color);
+
+    pub let DrawLine = fn(startPosX i32, startPosY i32, endPosX i32, endPosY i32, color Color);
+
+    pub let DrawCircle = fn(centerX i32, centerY i32, radius f32, color Color);
+    pub let DrawCircleV = fn(center Vector2, radius f32, color Color);
+    pub let DrawRectangle = fn(posX i32, posY i32, width i32, height i32, color Color);
+
+    pub let DrawCube = fn(position Vector3, width f32, height f32, length f32, color Color);
+    pub let DrawCubeWires = fn(position Vector3, width f32, height f32, length f32, color Color);
+
+    pub let DrawText = fn(text [*]u8, posX i32, posY i32, fontSize i32, color Color);
+    pub let DrawFPS = fn(posX i32, posY i32);
+    pub let DrawGrid = fn(slices i32, spacing f32);
+    
+    pub let CheckCollisionPointCircle = fn(point Vector2, center Vector2, radius f32) -> bool;
+
+    pub let ColorFromHSV = fn(hsv Vector3) -> Color;
+    pub let Fade = fn(color Color, alpha f32) -> Color;
+
+    pub let GetTime = fn() -> f64;
+}
+
+pub type Color = {
+    r u8,
+    g u8,
+    b u8,
+    a u8,
+}
+
+pub let light_gray  Color = Color { r = 200, g = 200, b = 200, a = 255 };
+pub let gray       Color = Color { r = 130, g = 130, b = 130, a = 255 };
+pub let dark_gray   Color = Color { r = 80, g = 80, b = 80, a = 255 };
+pub let yellow     Color = Color { r = 253, g = 249, b = 0, a = 255 };
+pub let gold       Color = Color { r = 255, g = 203, b = 0, a = 255 };
+pub let orange     Color = Color { r = 255, g = 161, b = 0, a = 255 };
+pub let pink       Color = Color { r = 255, g = 109, b = 194, a = 255 };
+pub let red        Color = Color { r = 230, g = 41, b = 55, a = 255 };
+pub let maroon     Color = Color { r = 190, g = 33, b = 55, a = 255 };
+pub let green      Color = Color { r = 0, g = 228, b = 48, a = 255 };
+pub let lime       Color = Color { r = 0, g = 158, b = 47, a = 255 };
+pub let dark_green  Color = Color { r = 0, g = 117, b = 44, a = 255 };
+pub let sky_blue    Color = Color { r = 102, g = 191, b = 255, a = 255 };
+pub let blue       Color = Color { r = 0, g = 121, b = 241, a = 255 };
+pub let dark_blue   Color = Color { r = 0, g = 82, b = 172, a = 255 };
+pub let purple     Color = Color { r = 200, g = 122, b = 255, a = 255 };
+pub let violet     Color = Color { r = 135, g = 60, b = 190, a = 255 };
+pub let dark_purple Color = Color { r = 112, g = 31, b = 126, a = 255 };
+pub let beige      Color = Color { r = 211, g = 176, b = 131, a = 255 };
+pub let brown      Color = Color { r = 127, g = 106, b = 79, a = 255 };
+pub let dark_brown  Color = Color { r = 76, g = 63, b = 47, a = 255 };
+pub let white      Color = Color { r = 255, g = 255, b = 255, a = 255 };
+pub let black      Color = Color { r = 0, g = 0, b = 0, a = 255 };
+pub let blank      Color = Color { r = 0, g = 0, b = 0, a = 0 };
+pub let magenta    Color = Color { r = 255, g = 0, b = 255, a = 255 };
+pub let ray_white   Color = Color { r = 245, g = 245, b = 245, a = 255 };
+
+pub type Vector2 = {
+    x f32,
+    y f32
+}
+
+pub type Vector3 = {
+    x f32,
+    y f32,
+    z f32,
+}
+
+pub type Camera3D = {
+    position Vector3,
+    target Vector3,
+    up Vector3,
+    fovy f32,
+    projection i32,
+}
+
+pub let CAMERA_PERSPECTIVE i32  = 0;
+pub let CAMERA_ORTHOGRAPHIC i32 = 1;
+
+pub let KEY_APOSTROPHE      i32 = 39;
+pub let KEY_COMMA           i32 = 44;
+pub let KEY_MINUS           i32 = 45;
+pub let KEY_PERIOD          i32 = 46;
+pub let KEY_SLASH           i32 = 47;
+pub let KEY_ZERO            i32 = 48;
+pub let KEY_ONE             i32 = 49;
+pub let KEY_TWO             i32 = 50;
+pub let KEY_THREE           i32 = 51;
+pub let KEY_FOUR            i32 = 52;
+pub let KEY_FIVE            i32 = 53;
+pub let KEY_SIX             i32 = 54;
+pub let KEY_SEVEN           i32 = 55;
+pub let KEY_EIGHT           i32 = 56;
+pub let KEY_NINE            i32 = 57;
+pub let KEY_SEMICOLON       i32 = 59;
+pub let KEY_EQUAL           i32 = 61;
+pub let KEY_A               i32 = 65;
+pub let KEY_B               i32 = 66;
+pub let KEY_C               i32 = 67;
+pub let KEY_D               i32 = 68;
+pub let KEY_E               i32 = 69;
+pub let KEY_F               i32 = 70;
+pub let KEY_G               i32 = 71;
+pub let KEY_H               i32 = 72;
+pub let KEY_I               i32 = 73;
+pub let KEY_J               i32 = 74;
+pub let KEY_K               i32 = 75;
+pub let KEY_L               i32 = 76;
+pub let KEY_M               i32 = 77;
+pub let KEY_N               i32 = 78;
+pub let KEY_O               i32 = 79;
+pub let KEY_P               i32 = 80;
+pub let KEY_Q               i32 = 81;
+pub let KEY_R               i32 = 82;
+pub let KEY_S               i32 = 83;
+pub let KEY_T               i32 = 84;
+pub let KEY_U               i32 = 85;
+pub let KEY_V               i32 = 86;
+pub let KEY_W               i32 = 87;
+pub let KEY_X               i32 = 88;
+pub let KEY_Y               i32 = 89;
+pub let KEY_Z               i32 = 90;
+pub let KEY_SPACE           i32 = 32;
+pub let KEY_ESCAPE          i32 = 256;
+pub let KEY_ENTER           i32 = 257;
+pub let KEY_TAB             i32 = 258;
+pub let KEY_BACKSPACE       i32 = 259;
+pub let KEY_INSERT          i32 = 260;
+pub let KEY_DELETE          i32 = 261;
+pub let KEY_RIGHT           i32 = 262;
+pub let KEY_LEFT            i32 = 263;
+pub let KEY_DOWN            i32 = 264;
+pub let KEY_UP              i32 = 265;
+pub let KEY_PAGE_UP         i32 = 266;
+pub let KEY_PAGE_DOWN       i32 = 267;
+pub let KEY_HOME            i32 = 268;
+pub let KEY_END             i32 = 269;
+pub let KEY_CAPS_LOCK       i32 = 280;
+pub let KEY_SCROLL_LOCK     i32 = 281;
+pub let KEY_NUM_LOCK        i32 = 282;
+pub let KEY_PRi32_SCREEN    i32 = 283;
+pub let KEY_PAUSE           i32 = 284;
+pub let KEY_F1              i32 = 290;
+pub let KEY_F2              i32 = 291;
+pub let KEY_F3              i32 = 292;
+pub let KEY_F4              i32 = 293;
+pub let KEY_F5              i32 = 294;
+pub let KEY_F6              i32 = 295;
+pub let KEY_F7              i32 = 296;
+pub let KEY_F8              i32 = 297;
+pub let KEY_F9              i32 = 298;
+pub let KEY_F10             i32 = 299;
+pub let KEY_F11             i32 = 300;
+pub let KEY_F12             i32 = 301;
+pub let KEY_LEFT_SHIFT      i32 = 340;
+pub let KEY_LEFT_CONTROL    i32 = 341;
+pub let KEY_LEFT_ALT        i32 = 342;
+pub let KEY_LEFT_SUPER      i32 = 343;
+pub let KEY_RIGHT_SHIFT     i32 = 344;
+pub let KEY_RIGHT_CONTROL   i32 = 345;
+pub let KEY_RIGHT_ALT       i32 = 346;
+pub let KEY_RIGHT_SUPER     i32 = 347;
+pub let KEY_KB_MENU         i32 = 348;
+pub let KEY_LEFT_BRACKET    i32 = 91;
+pub let KEY_BACKSLASH       i32 = 92;
+pub let KEY_RIGHT_BRACKET   i32 = 93;
+pub let KEY_GRAVE           i32 = 96;
+pub let KEY_KP_0            i32 = 320;
+pub let KEY_KP_1            i32 = 321;
+pub let KEY_KP_2            i32 = 322;
+pub let KEY_KP_3            i32 = 323;
+pub let KEY_KP_4            i32 = 324;
+pub let KEY_KP_5            i32 = 325;
+pub let KEY_KP_6            i32 = 326;
+pub let KEY_KP_7            i32 = 327;
+pub let KEY_KP_8            i32 = 328;
+pub let KEY_KP_9            i32 = 329;
+pub let KEY_KP_DECIMAL      i32 = 330;
+pub let KEY_KP_DIVIDE       i32 = 331;
+pub let KEY_KP_MULTIPLY     i32 = 332;
+pub let KEY_KP_SUBTRACT     i32 = 333;
+pub let KEY_KP_ADD          i32 = 334;
+pub let KEY_KP_ENTER        i32 = 335;
+pub let KEY_KP_EQUAL        i32 = 33;
