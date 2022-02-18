@@ -98,10 +98,10 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Arrays & Slices
 - [x] Structs
 - [x] Tuples
-- [ ] Function signature type-inference
 - [ ] Clean up examples folder
 - [ ] Friendlier errors
 - [ ] Recoverable lexer, parser and checker
+- [ ] Function signature type-inference
 - [ ] Bytecode interpreter (no ffi)
 - [ ] Build options (Workspaces)
 - [ ] Bytecode interpreter: FFI
