@@ -1,6 +1,6 @@
 pub mod entity;
 pub mod expr;
-pub mod foreign_lib;
+pub mod foreign_library;
 pub mod func;
 pub mod ir;
 pub mod item;

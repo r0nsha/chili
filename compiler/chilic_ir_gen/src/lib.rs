@@ -8,7 +8,7 @@ use chilic_ir::expr::{
     ArrayLiteralKind, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
     StructLiteralField, StructType, StructTypeField, TypeCastInfo,
 };
-use chilic_ir::foreign_lib::ForeignLib;
+use chilic_ir::foreign_library::ForeignLibrary;
 use chilic_ir::func::{Fn, FnParam, Proto};
 use chilic_ir::ir::Ir;
 use chilic_ir::item::{ItemKind, Items};
@@ -84,7 +84,7 @@ pub fn gen_structured_ir(
         span,
     } in &ctx.foreign_libraries
     {
-        let lib = ForeignLib::from_str(lib, *module_path, span)?;
+        let lib = ForeignLibrary::from_str(lib, *module_path, span)?;
         ir.foreign_libraries.insert(lib);
     }
 

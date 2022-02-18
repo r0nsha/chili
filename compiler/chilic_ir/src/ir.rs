@@ -5,7 +5,7 @@ use common::compiler_info::STD;
 use ustr::{ustr, Ustr, UstrMap};
 
 use crate::{
-    foreign_lib::ForeignLib,
+    foreign_library::ForeignLibrary,
     func::Fn,
     module::{Module, ModuleInfo},
 };
@@ -14,7 +14,7 @@ use crate::{
 pub struct Ir {
     pub modules: UstrMap<Module>,
     pub startup_fn: Option<Fn>,
-    pub foreign_libraries: HashSet<ForeignLib>,
+    pub foreign_libraries: HashSet<ForeignLibrary>,
     pub files: SimpleFiles<String, String>,
 }
 

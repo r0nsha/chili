@@ -11,7 +11,7 @@ mod ty;
 mod unary;
 mod util;
 
-use chilic_ir::foreign_lib::ForeignLib;
+use chilic_ir::foreign_library::ForeignLibrary;
 use chilic_ir::ir::Ir;
 use common::target::TargetPlatform;
 use common::{build_options::BuildOptions, sw};
@@ -155,15 +155,15 @@ fn build_executable(
     build_options: &BuildOptions,
     target_machine: &TargetMachine,
     module: &Module,
-    foreign_libraries: HashSet<ForeignLib>,
+    foreign_libraries: HashSet<ForeignLibrary>,
 ) -> String {
     let mut lib_paths = vec![];
     let mut libs = vec![];
 
     for lib in foreign_libraries.iter() {
         match lib {
-            ForeignLib::System(lib_name) => libs.push(lib_name),
-            ForeignLib::Path { lib_path, lib_name } => {
+            ForeignLibrary::System(lib_name) => libs.push(lib_name),
+            ForeignLibrary::Path { lib_path, lib_name } => {
                 lib_paths.push(lib_path);
                 libs.push(lib_name);
             }
