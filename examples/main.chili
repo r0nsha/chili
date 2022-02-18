@@ -4,5 +4,9 @@ type Foo = {a: i32}
 
 let main = fn {
     let foo = Foo{ a: 5 };
-    printf("a = %d\n".data, foo.a);
+    printf("a = %d\n".data, if foo.a == 5 {
+        foo.a
+    } else {
+        1000
+    });
 }
