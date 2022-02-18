@@ -947,9 +947,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 Ty::Fn(..) => self.gen_fn_call_expr(state, call, &expr.ty),
                 _ => unreachable!("got {}", call.callee.ty),
             },
-            ExprKind::FieldAccess {
+            ExprKind::MemberAccess {
                 expr: accessed_expr,
-                field,
+                member: field,
             } => {
                 let value = self.gen_expr(state, accessed_expr, false);
 

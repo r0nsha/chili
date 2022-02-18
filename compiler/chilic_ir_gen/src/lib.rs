@@ -336,9 +336,9 @@ impl Lower for Expr {
                     })
                     .collect(),
             }),
-            ExprKind::FieldAccess { expr, field } => ExprKind::FieldAccess {
+            ExprKind::MemberAccess { expr, member } => ExprKind::MemberAccess {
                 expr: expr.lower(ctx),
-                field: *field,
+                member: *member,
             },
             ExprKind::Id {
                 symbol,

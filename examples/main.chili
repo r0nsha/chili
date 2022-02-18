@@ -10,3 +10,14 @@ let main = fn {
         1000
     });
 }
+
+my_list
+    .map(|a| {
+        let b = a * 2;
+        let c = foo(b, 1, 2);
+        c
+    })
+    .filter(|a| {
+        ...
+    })
+    ...

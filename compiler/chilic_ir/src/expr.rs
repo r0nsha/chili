@@ -59,7 +59,7 @@ impl Expr {
 
     pub fn is_mutable(&self) -> bool {
         match &self.kind {
-            ExprKind::FieldAccess { expr, .. } => expr.is_mutable(),
+            ExprKind::MemberAccess { expr, .. } => expr.is_mutable(),
 
             ExprKind::Id { is_mutable, .. } => *is_mutable,
 
@@ -118,9 +118,9 @@ impl Expr {
                 let callee = call.callee.display_name_and_entity_span();
                 callee.map(|v| format!("{}()", v))
             }
-            ExprKind::FieldAccess { expr, field } => {
+            ExprKind::MemberAccess { expr, member } => {
                 let expr = expr.display_name_and_entity_span();
-                expr.map(|v| format!("{}.{}", v, field))
+                expr.map(|v| format!("{}.{}", v, member))
             }
             ExprKind::Id {
                 symbol,
@@ -209,9 +209,9 @@ pub enum ExprKind {
         high: Option<Box<Expr>>,
     },
     Call(Call),
-    FieldAccess {
+    MemberAccess {
         expr: Box<Expr>,
-        field: Ustr,
+        member: Ustr,
     },
     Id {
         symbol: Ustr,

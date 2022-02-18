@@ -150,7 +150,7 @@ impl Lint for Expr {
                     a.value.lint()?;
                 }
             }
-            ExprKind::FieldAccess { expr, field: _ } => {
+            ExprKind::MemberAccess { expr, member: _ } => {
                 expr.lint()?;
             }
             ExprKind::ArrayLiteral(k) => match k {

@@ -150,17 +150,17 @@ impl Parser {
 
         let expr = match token.token_type {
             Id(id) => Expr::new(
-                ExprKind::FieldAccess {
+                ExprKind::MemberAccess {
                     expr: Box::new(expr.clone()),
-                    field: id,
+                    member: id,
                 },
                 Span::merge(&start_span, &token.span),
             ),
 
             Int(i) => Expr::new(
-                ExprKind::FieldAccess {
+                ExprKind::MemberAccess {
                     expr: Box::new(expr.clone()),
-                    field: ustr(&i.to_string()),
+                    member: ustr(&i.to_string()),
                 },
                 Span::merge(&start_span, &token.span),
             ),
@@ -170,9 +170,9 @@ impl Parser {
                 let components = token.lexeme.split('.').collect::<Vec<&str>>();
 
                 let first_access = Expr::new(
-                    ExprKind::FieldAccess {
+                    ExprKind::MemberAccess {
                         expr: Box::new(expr.clone()),
-                        field: ustr(components[0]),
+                        member: ustr(components[0]),
                     },
                     Span::merge(
                         &start_span,
@@ -181,9 +181,9 @@ impl Parser {
                 );
 
                 let second_access = Expr::new(
-                    ExprKind::FieldAccess {
+                    ExprKind::MemberAccess {
                         expr: Box::new(first_access),
-                        field: ustr(components[0]),
+                        member: ustr(components[0]),
                     },
                     Span::merge(&start_span, &token.span),
                 );

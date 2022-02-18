@@ -244,7 +244,7 @@ impl Substitute for Expr {
                     arg.value.substitute(table)?;
                 }
             }
-            ExprKind::FieldAccess { expr, .. } => {
+            ExprKind::MemberAccess { expr, .. } => {
                 expr.substitute(table)?;
             }
             ExprKind::ArrayLiteral(kind) => match kind {

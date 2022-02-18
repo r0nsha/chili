@@ -188,8 +188,8 @@ fn check_lvalue_mutability_internal(
             UnaryOp::Deref => check_deref(lhs),
             _ => Err(InvalidLValue),
         },
-        ExprKind::FieldAccess { expr, field } => {
-            check_field_access(expr, *field, original_expr_span)
+        ExprKind::MemberAccess { expr, member } => {
+            check_member_access(expr, *member, original_expr_span)
         }
         ExprKind::Subscript { expr, .. } => {
             check_subscript(expr, original_expr_span)
@@ -229,9 +229,9 @@ fn check_deref(lhs: &Expr) -> Result<(), MutabilityCheckErr> {
     }
 }
 
-fn check_field_access(
+fn check_member_access(
     expr: &Expr,
-    field: Ustr,
+    member: Ustr,
     original_expr_span: &Span,
 ) -> Result<(), MutabilityCheckErr> {
     use MutabilityCheckErr::*;
@@ -245,14 +245,14 @@ fn check_field_access(
             } => ImmutableFieldAccess {
                 root_symbol,
                 entity_span,
-                full_path: format!("{}.{}", full_path, field),
+                full_path: format!("{}.{}", full_path, member),
             },
             ImmutableReference {
                 symbol,
                 entity_span,
                 ty_str,
             } => ImmutableReference {
-                symbol: format!("{}.{}", symbol, field),
+                symbol: format!("{}.{}", symbol, member),
                 entity_span,
                 ty_str,
             },
@@ -260,7 +260,7 @@ fn check_field_access(
                 symbol,
                 entity_span,
             } => {
-                let full_path = format!("{}.{}", symbol, field);
+                let full_path = format!("{}.{}", symbol, member);
                 ImmutableFieldAccess {
                     root_symbol: symbol,
                     entity_span,

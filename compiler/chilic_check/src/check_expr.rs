@@ -586,9 +586,9 @@ impl<'a> AnalysisContext<'a> {
                 )
             }
             ExprKind::Call(call) => self.check_call(frame, call, &expr.span)?,
-            ExprKind::FieldAccess {
+            ExprKind::MemberAccess {
                 expr: accessed_expr,
-                field,
+                member: field,
             } => {
                 let accessed_expr =
                     self.check_expr(frame, accessed_expr, None)?;
@@ -662,9 +662,9 @@ impl<'a> AnalysisContext<'a> {
                 };
 
                 CheckedExpr::new(
-                    ExprKind::FieldAccess {
+                    ExprKind::MemberAccess {
                         expr: Box::new(accessed_expr.expr),
-                        field: *field,
+                        member: *field,
                     },
                     ty,
                     value,
@@ -1526,13 +1526,13 @@ impl<'a> AnalysisContext<'a> {
         let ty = self.infcx.normalize_ty_and_untyped(&expr.ty);
 
         match &expr.kind {
-            ExprKind::FieldAccess { expr, field } => {
+            ExprKind::MemberAccess { expr, member } => {
                 match self
                     .check_expr_can_be_mutably_referenced_internal(expr, true)
                 {
                     Ok(_) => match ty {
                         Ty::Tuple(tys) => {
-                            let index = field.parse::<usize>().unwrap();
+                            let index = member.parse::<usize>().unwrap();
                             let ty = &tys[index];
 
                             match ty {
@@ -1542,7 +1542,7 @@ impl<'a> AnalysisContext<'a> {
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
-                                        symbol: *field,
+                                        symbol: *member,
                                         ty_str: ty.to_string(),
                                     })
                                 }
@@ -1553,7 +1553,7 @@ impl<'a> AnalysisContext<'a> {
                             let field_ty = struct_ty
                                 .fields
                                 .iter()
-                                .find(|f| f.symbol == *field)
+                                .find(|f| f.symbol == *member)
                                 .map(|f| &f.ty)
                                 .unwrap();
 
@@ -1564,7 +1564,7 @@ impl<'a> AnalysisContext<'a> {
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
-                                        symbol: *field,
+                                        symbol: *member,
                                         ty_str: field_ty.to_string(),
                                     })
                                 }
@@ -1577,7 +1577,7 @@ impl<'a> AnalysisContext<'a> {
                         } => {
                             let module =
                                 self.new_ir.modules.get(&module_name).unwrap();
-                            match module.find_entity(*field) {
+                            match module.find_entity(*member) {
                                 Some(entity) => match &entity.ty {
                                     Ty::Slice(_, is_mutable)
                                     | Ty::MultiPointer(_, is_mutable)
@@ -1585,7 +1585,7 @@ impl<'a> AnalysisContext<'a> {
                                         if !is_mutable =>
                                     {
                                         Err(ImmutableReference {
-                                            symbol: *field,
+                                            symbol: *member,
                                             ty_str: entity.ty.to_string(),
                                         })
                                     }
@@ -1602,7 +1602,7 @@ impl<'a> AnalysisContext<'a> {
                                             Err(ImmutableEntity {
                                                 symbol: ustr(&format!(
                                                     "{}.{}",
-                                                    module_name, field
+                                                    module_name, member
                                                 )),
                                                 entity_span: span.clone(),
                                             })
@@ -1610,11 +1610,12 @@ impl<'a> AnalysisContext<'a> {
                                     }
                                 },
                                 None => {
-                                    let use_ = module.find_use(*field).unwrap();
+                                    let use_ =
+                                        module.find_use(*member).unwrap();
                                     Err(ImmutableEntity {
                                         symbol: ustr(&format!(
                                             "{}.{}",
-                                            module_name, field
+                                            module_name, member
                                         )),
                                         entity_span: use_.span.clone(),
                                     })
@@ -1631,11 +1632,11 @@ impl<'a> AnalysisContext<'a> {
                         } => ImmutableFieldAccess {
                             root_symbol,
                             entity_span,
-                            full_path: format!("{}.{}", full_path, field),
+                            full_path: format!("{}.{}", full_path, member),
                         },
                         ImmutableReference { symbol, ty_str } => {
                             ImmutableReference {
-                                symbol: ustr(&format!("{}.{}", symbol, field)),
+                                symbol: ustr(&format!("{}.{}", symbol, member)),
                                 ty_str,
                             }
                         }
@@ -1645,7 +1646,7 @@ impl<'a> AnalysisContext<'a> {
                         } => ImmutableFieldAccess {
                             root_symbol: symbol,
                             entity_span,
-                            full_path: format!("{}.{}", symbol, field),
+                            full_path: format!("{}.{}", symbol, member),
                         },
                     }),
                 }

@@ -361,8 +361,8 @@ impl BuildNode for Expr {
 
                 b.end_child();
             }
-            ExprKind::FieldAccess { expr, field } => {
-                b.begin_child(format!("access `{}` <{}>", field, self.ty));
+            ExprKind::MemberAccess { expr, member } => {
+                b.begin_child(format!("access `{}` <{}>", member, self.ty));
                 expr.build(b);
                 b.end_child();
             }
