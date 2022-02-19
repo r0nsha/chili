@@ -43,7 +43,7 @@ impl Parser {
         let mut elements = vec![];
         let mut is_first_el = true;
 
-        while !match_token!(self, CloseBracket) {
+        while !match_token!(self, CloseBracket) && !self.is_end() {
             let expr = self.parse_expr()?;
 
             if is_first_el {
@@ -83,20 +83,15 @@ impl Parser {
         first_expr: Expr,
         start_span: Span,
     ) -> DiagnosticResult<Expr> {
-        let mut exprs = vec![first_expr];
+        let mut exprs = parse_delimited_list!(
+            self,
+            CloseParen,
+            Comma,
+            self.parse_expr()?,
+            ", or )"
+        );
 
-        while !match_token!(self, CloseParen) && !self.is_end() {
-            let expr = self.parse_expr()?;
-            exprs.push(expr);
-
-            if match_token!(self, Comma) {
-                continue;
-            } else if match_token!(self, CloseParen) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
+        exprs.insert(0, first_expr);
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(exprs),
@@ -109,44 +104,40 @@ impl Parser {
         type_expr: Option<Box<Expr>>,
         start_span: Span,
     ) -> DiagnosticResult<Expr> {
-        let mut fields: Vec<StructLiteralField> = vec![];
+        let fields = parse_delimited_list!(
+            self,
+            CloseCurly,
+            Comma,
+            {
+                let id_token = if match_token!(self, Id(_)) {
+                    self.previous().clone()
+                } else {
+                    break;
+                };
 
-        while !match_token!(self, CloseCurly) && !self.is_end() {
-            let id_token = if match_token!(self, Id(_)) {
-                self.previous().clone()
-            } else {
-                break;
-            };
+                let value = if match_token!(self, Colon) {
+                    self.parse_expr()?
+                } else {
+                    Expr::new(
+                        ExprKind::Id {
+                            symbol: id_token.symbol(),
+                            is_mutable: false,
+                            entity_span: Span::empty(),
+                        },
+                        id_token.span.clone(),
+                    )
+                };
 
-            let value = if match_token!(self, Colon) {
-                self.parse_expr()?
-            } else {
-                Expr::new(
-                    ExprKind::Id {
-                        symbol: id_token.symbol(),
-                        is_mutable: false,
-                        entity_span: Span::empty(),
-                    },
-                    id_token.span.clone(),
-                )
-            };
+                let value_span = value.span.clone();
 
-            let value_span = value.span.clone();
-
-            fields.push(StructLiteralField {
-                symbol: id_token.symbol(),
-                value,
-                span: Span::merge(&id_token.span, &value_span),
-            });
-
-            if match_token!(self, Comma) {
-                continue;
-            } else if match_token!(self, CloseCurly) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
+                StructLiteralField {
+                    symbol: id_token.symbol(),
+                    value,
+                    span: Span::merge(&id_token.span, &value_span),
+                }
+            },
+            ", or }"
+        );
 
         Ok(Expr::new(
             ExprKind::StructLiteral { type_expr, fields },

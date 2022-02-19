@@ -111,19 +111,13 @@ impl Parser {
     fn parse_tuple_ty(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span.clone();
 
-        let mut tys = vec![];
-
-        while !match_token!(self, CloseParen) && !self.is_end() {
-            tys.push(self.parse_ty()?);
-
-            if match_token!(self, Comma) {
-                continue;
-            } else if match_token!(self, CloseParen) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
+        let tys = parse_delimited_list!(
+            self,
+            CloseParen,
+            Comma,
+            self.parse_ty()?,
+            ", or )"
+        );
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(tys),

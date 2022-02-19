@@ -224,51 +224,45 @@ impl Parser {
 
     fn parse_call(&mut self, callee: Expr) -> DiagnosticResult<Expr> {
         let start_span = callee.span.clone();
-        let mut args = vec![];
         let mut used_named_argument = false;
 
-        while self.peek().token_type != CloseParen && !self.is_end() {
-            let symbol = if match_token!(self, Id(_)) {
-                let id_token = self.previous().clone();
-                if match_token!(self, Colon) {
-                    Some(Spanned::new(id_token.symbol(), id_token.span))
+        let args = parse_delimited_list!(
+            self,
+            CloseParen,
+            Comma,
+            {
+                let symbol = if match_token!(self, Id(_)) {
+                    let id_token = self.previous().clone();
+                    if match_token!(self, Colon) {
+                        Some(Spanned::new(id_token.symbol(), id_token.span))
+                    } else {
+                        self.revert(1);
+                        None
+                    }
                 } else {
-                    self.revert(1);
                     None
+                };
+
+                if symbol.is_some() {
+                    used_named_argument = true;
+                } else if used_named_argument {
+                    let span = self.span();
+                    return Err(Diagnostic::error()
+                        .with_message(
+                            "can't use positional arguments after named arguments",
+                        )
+                        .with_labels(vec![Label::primary(
+                            span.file_id,
+                            span.range,
+                        )]));
                 }
-            } else {
-                None
-            };
 
-            if symbol.is_some() {
-                used_named_argument = true;
-            } else if used_named_argument {
-                let span = self.span();
-                return Err(Diagnostic::error()
-                    .with_message(
-                        "can't use positional arguments after named arguments",
-                    )
-                    .with_labels(vec![Label::primary(
-                        span.file_id,
-                        span.range,
-                    )]));
-            }
+                let value = self.parse_expr()?;
 
-            let expr = self.parse_expr()?;
-
-            args.push(CallArg {
-                symbol,
-                value: expr,
-            });
-
-            if !match_token!(self, Comma) {
-                break;
-            }
-        }
-
-        require!(self, CloseParen, ")")?;
-
-        // TODO: fn shorthand
+                CallArg { symbol, value }
+            },
+            ", or )"
+        );
 
         Ok(Expr::new(
             ExprKind::Call(Call {

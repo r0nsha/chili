@@ -20,34 +20,31 @@ impl Parser {
 
     fn parse_struct_destructor(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous().span.clone();
-        let mut symbols = vec![];
         let mut exhaustive = true;
 
-        while !match_token!(self, CloseCurly) && !self.is_end() {
-            if match_token!(self, DotDot) {
-                require!(self, CloseCurly, "}")?;
-                exhaustive = false;
-                break;
-            }
+        let symbols = parse_delimited_list!(
+            self,
+            CloseCurly,
+            Comma,
+            {
+                if match_token!(self, DotDot) {
+                    require!(self, CloseCurly, "}")?;
+                    exhaustive = false;
+                    break;
+                }
 
-            let mut symbol_pattern = self.parse_symbol_pattern()?;
+                let mut symbol_pattern = self.parse_symbol_pattern()?;
 
-            if match_token!(self, Colon) {
-                let id_token = require!(self, Id(_), "identifier")?;
-                let symbol = id_token.symbol();
-                symbol_pattern.alias = Some(symbol);
-            }
+                if match_token!(self, Colon) {
+                    let id_token = require!(self, Id(_), "identifier")?;
+                    let symbol = id_token.symbol();
+                    symbol_pattern.alias = Some(symbol);
+                }
 
-            symbols.push(symbol_pattern);
-
-            if match_token!(self, Comma) {
-                continue;
-            } else if match_token!(self, CloseCurly) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or }"));
-            }
-        }
+                symbol_pattern
+            },
+            ", or }"
+        );
 
         let destructor = DestructorPattern {
             symbols,
@@ -60,27 +57,23 @@ impl Parser {
 
     fn parse_tuple_destructor(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous().span.clone();
-        let mut symbols = vec![];
         let mut exhaustive = true;
 
-        while !match_token!(self, CloseParen) && !self.is_end() {
-            if match_token!(self, DotDot) {
-                require!(self, CloseParen, ")")?;
-                exhaustive = false;
-                break;
-            }
+        let symbols = parse_delimited_list!(
+            self,
+            CloseParen,
+            Comma,
+            {
+                if match_token!(self, DotDot) {
+                    require!(self, CloseParen, ")")?;
+                    exhaustive = false;
+                    break;
+                }
 
-            let symbol_pattern = self.parse_symbol_pattern()?;
-            symbols.push(symbol_pattern);
-
-            if match_token!(self, Comma) {
-                continue;
-            } else if match_token!(self, CloseParen) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
+                self.parse_symbol_pattern()?
+            },
+            ", or )"
+        );
 
         let destructor = DestructorPattern {
             symbols,
