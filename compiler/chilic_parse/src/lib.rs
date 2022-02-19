@@ -9,8 +9,10 @@ mod top_level;
 mod ty;
 mod r#use;
 
+use std::collections::HashSet;
+
 use bitflags::bitflags;
-use chilic_ast::{module::ModuleInfo, Ast};
+use chilic_ast::{foreign_library::ForeignLibrary, module::ModuleInfo, Ast};
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::Span;
 use chilic_token::{Token, TokenType::*};
@@ -101,6 +103,7 @@ pub struct Parser {
     current_dir: String,
     decl_name_frames: Vec<Ustr>,
     used_modules: Vec<ModuleInfo>,
+    foreign_libraries: HashSet<ForeignLibrary>,
     restrictions: Restrictions,
 }
 
@@ -119,12 +122,13 @@ impl Parser {
         Self {
             tokens,
             current: 0,
-            marked: vec![],
+            marked: Default::default(),
             module_info,
             root_dir,
             current_dir,
-            decl_name_frames: vec![],
-            used_modules: vec![],
+            decl_name_frames: Default::default(),
+            used_modules: Default::default(),
+            foreign_libraries: Default::default(),
             restrictions: Restrictions::empty(),
         }
     }

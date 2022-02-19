@@ -1,4 +1,7 @@
+use std::collections::HashSet;
+
 use entity::Entity;
+use foreign_library::ForeignLibrary;
 use module::ModuleInfo;
 use r#use::Use;
 
@@ -21,14 +24,16 @@ pub struct Ast {
     pub module_info: ModuleInfo,
     pub uses: Vec<Use>,
     pub entities: Vec<Entity>,
+    pub foreign_libraries: HashSet<ForeignLibrary>,
 }
 
 impl Ast {
     pub fn new(module_info: ModuleInfo) -> Self {
         Self {
             module_info,
-            uses: vec![],
-            entities: vec![],
+            uses: Default::default(),
+            entities: Default::default(),
+            foreign_libraries: Default::default(),
         }
     }
 }

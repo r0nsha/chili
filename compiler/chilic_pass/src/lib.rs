@@ -7,41 +7,21 @@ use chilic_ast::expr::{
     ArrayLiteralKind, Block, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
     StructLiteralField, StructType, StructTypeField, TypeCastInfo,
 };
-use chilic_ast::foreign_library::ForeignLibrary;
 use chilic_ast::func::{Fn, FnParam, Proto};
 use chilic_ast::ir::Ir;
 use chilic_ast::module::Module;
 use chilic_ast::Ast;
 use chilic_error::DiagnosticResult;
-use chilic_span::Span;
 use chilic_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
 use common::env::Env;
 use defer::{DeferContext, DeferStackKind};
-use ustr::{ustr, Ustr};
+use ustr::ustr;
 
 use self::expand_use_wildcard::expand_use_wildcard;
 
-struct ForeignLibraryData {
-    lib: Ustr,
-    module_path: Ustr,
-    span: Span,
-}
-
-impl ForeignLibraryData {
-    fn new(lib: Ustr, module_path: Ustr, span: Span) -> Self {
-        Self {
-            lib,
-            module_path,
-            span,
-        }
-    }
-}
-
 struct IrGenContext {
-    module_path: Ustr,
     env: Env<()>,
-    foreign_libraries: Vec<ForeignLibraryData>,
     defercx: DeferContext,
 }
 
@@ -50,9 +30,7 @@ pub fn gen_ir(
     files: SimpleFiles<String, String>,
 ) -> DiagnosticResult<Ir> {
     let mut ctx = IrGenContext {
-        module_path: ustr(""),
         env: Env::new(),
-        foreign_libraries: vec![],
         defercx: DeferContext::new(),
     };
 
@@ -61,7 +39,6 @@ pub fn gen_ir(
     for ast in asts {
         let mut module = Module::new(ast.module_info);
 
-        ctx.module_path = ast.module_info.file_path;
         ctx.env.push_named_scope(ast.module_info.name);
 
         module.uses.extend(ast.uses);
@@ -70,16 +47,7 @@ pub fn gen_ir(
         ctx.env.pop_scope();
 
         ir.modules.insert(ast.module_info.name, module);
-    }
-
-    for ForeignLibraryData {
-        lib,
-        module_path,
-        span,
-    } in &ctx.foreign_libraries
-    {
-        let lib = ForeignLibrary::from_str(lib, *module_path, span)?;
-        ir.foreign_libraries.insert(lib);
+        ir.foreign_libraries.extend(ast.foreign_libraries);
     }
 
     expand_use_wildcard(&mut ir)?;
@@ -372,16 +340,7 @@ impl Lower for Expr {
                     })
                     .collect(),
             }),
-            ExprKind::FnType(proto) => {
-                if let Some(lib_name) = &proto.lib_name {
-                    ctx.foreign_libraries.push(ForeignLibraryData::new(
-                        *lib_name,
-                        ctx.module_path,
-                        self.span.clone(),
-                    ));
-                }
-                ExprKind::FnType(proto.lower(ctx))
-            }
+            ExprKind::FnType(proto) => ExprKind::FnType(proto.lower(ctx)),
             ExprKind::SelfType => ExprKind::SelfType,
             ExprKind::NeverType => ExprKind::NeverType,
             ExprKind::UnitType => ExprKind::UnitType,

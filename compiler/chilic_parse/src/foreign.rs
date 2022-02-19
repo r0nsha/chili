@@ -1,6 +1,7 @@
 use chilic_ast::{
     entity::{Entity, EntityKind, Visibility},
     expr::{Expr, ExprKind},
+    foreign_library::ForeignLibrary,
     pattern::{Pattern, SymbolPattern},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
@@ -101,17 +102,24 @@ impl Parser {
         require!(self, OpenParen, "(")?;
 
         let lib_token = require!(self, Str(_), "str")?;
-        let lib_name = lib_token.symbol();
+        let lib = lib_token.symbol();
 
-        let lib_name = if lib_name.ends_with(".lib") {
-            lib_name.clone().to_string()
+        let lib = if lib.ends_with(".lib") {
+            lib.clone().to_string()
         } else {
-            format!("{}.lib", lib_name)
+            format!("{}.lib", lib)
         };
-        let lib_name = ustr(&lib_name);
+
+        let lib = ustr(&lib);
 
         require!(self, CloseParen, ")")?;
 
-        Ok(lib_name)
+        self.foreign_libraries.insert(ForeignLibrary::from_str(
+            &lib,
+            self.module_info.file_path,
+            &lib_token.span,
+        )?);
+
+        Ok(lib)
     }
 }
