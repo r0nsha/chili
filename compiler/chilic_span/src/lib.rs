@@ -28,8 +28,11 @@ impl Span {
             panic!("can't merge locations from different files");
         }
 
+        let start = l1.range.start.min(l2.range.start);
+        let end = l1.range.end.max(l2.range.end);
+
         Self {
-            range: l1.range.start..l2.range.end,
+            range: start..end,
             file_id: l1.file_id,
         }
     }

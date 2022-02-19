@@ -151,7 +151,7 @@ impl Parser {
     fn parse_struct_ty_fields(
         &mut self,
     ) -> DiagnosticResult<Vec<StructTypeField>> {
-        let fields = parse_list!(
+        let fields = parse_delimited_list!(
             self,
             CloseCurly,
             Comma,

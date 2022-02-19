@@ -66,7 +66,7 @@ impl Parser {
 
         let mut variadic = false;
 
-        let params = parse_list!(
+        let params = parse_delimited_list!(
             self,
             CloseParen,
             Comma,

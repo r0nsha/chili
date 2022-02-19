@@ -17,7 +17,7 @@ impl Parser {
 
         require!(self, OpenCurly, "{")?;
 
-        let entities = parse_list!(
+        let entities = parse_delimited_list!(
             self,
             CloseCurly,
             Semicolon,

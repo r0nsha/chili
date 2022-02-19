@@ -57,7 +57,7 @@ macro_rules! require {
     };
 }
 
-macro_rules! parse_list {
+macro_rules! parse_delimited_list {
     ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:literal) => {{
         let mut items = vec![];
 
@@ -81,7 +81,7 @@ macro_rules! parse_list {
 
 pub(crate) use is;
 pub(crate) use match_token;
-pub(crate) use parse_list;
+pub(crate) use parse_delimited_list;
 pub(crate) use require;
 
 pub struct Parser {
