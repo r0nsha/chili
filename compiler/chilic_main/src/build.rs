@@ -1,5 +1,5 @@
-use chilic_ir_gen::ir_gen::IrGen;
 use chilic_llvm::codegen;
+use chilic_pass::ir_gen::IrGen;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
 use colored::Colorize;
 
@@ -54,7 +54,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     let sw = Stopwatch::start_new("lower");
 
-    let ir = match chilic_ir_gen::gen_structured_ir(&items, files.clone()) {
+    let ir = match chilic_pass::gen_structured_ir(&items, files.clone()) {
         Ok(ir) => ir,
         Err(diagnostic) => {
             emit_single_diagnostic(&files, diagnostic);

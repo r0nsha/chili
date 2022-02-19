@@ -177,27 +177,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_ir_gen"
-version = "0.1.0"
-dependencies = [
- "chilic_ast",
- "chilic_error",
- "chilic_parse",
- "chilic_span",
- "chilic_token",
- "chilic_ty",
- "codespan",
- "codespan-reporting",
- "colored",
- "common",
- "path-absolutize",
- "ptree",
- "strum_macros",
- "unindent",
- "ustr",
-]
-
-[[package]]
 name = "chilic_llvm"
 version = "0.0.1"
 dependencies = [
@@ -222,9 +201,9 @@ dependencies = [
  "chilic_ast",
  "chilic_check",
  "chilic_error",
- "chilic_ir_gen",
  "chilic_llvm",
  "chilic_parse",
+ "chilic_pass",
  "chilic_span",
  "clap",
  "codespan",
@@ -253,6 +232,27 @@ dependencies = [
  "common",
  "ptree",
  "strum_macros",
+ "ustr",
+]
+
+[[package]]
+name = "chilic_pass"
+version = "0.1.0"
+dependencies = [
+ "chilic_ast",
+ "chilic_error",
+ "chilic_parse",
+ "chilic_span",
+ "chilic_token",
+ "chilic_ty",
+ "codespan",
+ "codespan-reporting",
+ "colored",
+ "common",
+ "path-absolutize",
+ "ptree",
+ "strum_macros",
+ "unindent",
  "ustr",
 ]
 

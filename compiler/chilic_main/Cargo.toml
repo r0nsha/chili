@@ -21,7 +21,7 @@ common = { path = "../common" }
 chilic_span = { path = "../chilic_span" }
 chilic_error = { path = "../chilic_error" }
 chilic_ast = { path = "../chilic_ast" }
-chilic_ir_gen = { path = "../chilic_ir_gen" }
+chilic_pass = { path = "../chilic_pass" }
 chilic_parse = { path = "../chilic_parse" }
 chilic_check = { path = "../chilic_check" }
 chilic_llvm = { path = "../chilic_llvm" }

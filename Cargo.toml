@@ -5,7 +5,7 @@ members = [
     "compiler/chilic_error",
     "compiler/chilic_ty",
     "compiler/chilic_ast",
-    "compiler/chilic_ir_gen",
+    "compiler/chilic_pass",
     "compiler/chilic_token",
     "compiler/chilic_parse",
     "compiler/chilic_check",
