@@ -8,7 +8,7 @@ use chilic_span::Spanned;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
-pub(super) fn expand_use_wildcards(ir: &mut Ir) -> DiagnosticResult<()> {
+pub(super) fn expand_use_wildcard(ir: &mut Ir) -> DiagnosticResult<()> {
     let mut wildcard_uses = UstrMap::default();
 
     for (module_name, module) in ir.modules.iter() {

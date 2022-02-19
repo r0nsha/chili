@@ -1,6 +1,6 @@
 mod defer;
+mod expand_use_wildcard;
 pub mod ir_gen;
-mod use_wildcard;
 
 use chilic_ast::entity::Entity;
 use chilic_ast::expr::{
@@ -20,7 +20,7 @@ use common::env::Env;
 use defer::{DeferContext, DeferStackKind};
 use ustr::{ustr, Ustr};
 
-use self::use_wildcard::expand_use_wildcards;
+use self::expand_use_wildcard::expand_use_wildcard;
 
 struct ForeignLibraryData {
     lib: Ustr,
@@ -87,7 +87,7 @@ pub fn gen_structured_ir(
         ir.foreign_libraries.insert(lib);
     }
 
-    expand_use_wildcards(&mut ir)?;
+    expand_use_wildcard(&mut ir)?;
 
     Ok(ir)
 }
