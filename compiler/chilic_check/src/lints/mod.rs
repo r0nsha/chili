@@ -77,6 +77,9 @@ impl Lint for Expr {
     fn lint(&self) -> DiagnosticResult<()> {
         match &self.kind {
             ExprKind::Use(_) | ExprKind::Defer(_) => (),
+            ExprKind::Foreign(e) => {
+                e.lint()?;
+            }
             ExprKind::Entity(e) => {
                 e.lint()?;
             }

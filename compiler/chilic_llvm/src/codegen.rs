@@ -557,26 +557,46 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         let value = match &expr.kind {
-            ExprKind::Use(use_) => {
-                let decl = self.resolve_decl_from_use(use_);
-                state.env.insert(use_.alias, decl);
+            ExprKind::Use(uses) => {
+                for use_ in uses.iter() {
+                    let decl = self.resolve_decl_from_use(use_);
+                    state.env.insert(use_.alias, decl);
+                }
+
+                self.gen_unit()
+            }
+            ExprKind::Foreign(entities) => {
+                for entity in entities.iter() {
+                    if entity.ty.is_fn() {
+                        self.gen_entity_pattern_from_expr(
+                            state,
+                            &entity.pattern,
+                            &entity.ty,
+                            &entity.value,
+                        );
+                    } else {
+                        let symbol = entity.pattern.into_single().symbol;
+                        let ty = self.llvm_type(&entity.ty);
+                        let global_value = self.add_global_uninit(
+                            &symbol,
+                            ty,
+                            Linkage::External,
+                        );
+                        state
+                            .env
+                            .insert(symbol, CodegenDecl::Global(global_value));
+                    }
+                }
+
                 self.gen_unit()
             }
             ExprKind::Entity(entity) => {
-                if entity.lib_name.is_some() {
-                    let symbol = entity.pattern.into_single().symbol;
-                    let ty = self.llvm_type(&entity.ty);
-                    let global_value =
-                        self.add_global_uninit(&symbol, ty, Linkage::External);
-                    state.env.insert(symbol, CodegenDecl::Global(global_value));
-                } else {
-                    self.gen_entity_pattern_from_expr(
-                        state,
-                        &entity.pattern,
-                        &entity.ty,
-                        &entity.value,
-                    );
-                }
+                self.gen_entity_pattern_from_expr(
+                    state,
+                    &entity.pattern,
+                    &entity.ty,
+                    &entity.value,
+                );
 
                 self.gen_unit()
             }
@@ -967,10 +987,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     slice_ptr.into()
                 }
             }
-            ExprKind::Call(call) => match &call.callee.ty {
-                Ty::Fn(..) => self.gen_fn_call_expr(state, call, &expr.ty),
-                _ => unreachable!("got {}", call.callee.ty),
-            },
+            ExprKind::Call(call) => {
+                self.gen_fn_call_expr(state, call, &expr.ty)
+            }
             ExprKind::MemberAccess {
                 expr: accessed_expr,
                 member: field,

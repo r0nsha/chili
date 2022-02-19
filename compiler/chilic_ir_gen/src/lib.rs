@@ -204,6 +204,9 @@ impl Lower for Expr {
     fn lower(&self, ctx: &mut IrGenContext) -> Expr {
         let kind = match &self.kind {
             ExprKind::Use(use_) => ExprKind::Use(use_.clone()),
+            ExprKind::Foreign(entities) => {
+                ExprKind::Foreign(entities.lower(ctx))
+            }
             ExprKind::Entity(entity) => ExprKind::Entity(entity.lower(ctx)),
             ExprKind::Defer(expr) => {
                 ctx.defercx.current_stack_mut().deferred.push(*expr.clone());

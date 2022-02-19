@@ -177,6 +177,9 @@ impl Substitute for Expr {
     ) -> DiagnosticResult<()> {
         match &mut self.kind {
             ExprKind::Use(..) | ExprKind::Defer(_) => (),
+            ExprKind::Foreign(entities) => {
+                entities.substitute(table)?;
+            }
             ExprKind::Entity(entity) => {
                 entity.substitute(table)?;
             }

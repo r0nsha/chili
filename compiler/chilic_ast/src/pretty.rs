@@ -196,12 +196,15 @@ fn build_deferred(b: &mut TreeBuilder, deferred: &Vec<Expr>) {
 impl BuildNode for Expr {
     fn build(&self, b: &mut ptree::TreeBuilder) {
         match &self.kind {
-            ExprKind::Use(use_) => {
-                b.add_empty_child(format!(
-                    "use \"{}\" = {}",
-                    use_.module_info.file_path, use_.alias
-                ));
+            ExprKind::Use(uses) => {
+                for use_ in uses.iter() {
+                    b.add_empty_child(format!(
+                        "use \"{}\" = {}",
+                        use_.module_info.file_path, use_.alias
+                    ));
+                }
             }
+            ExprKind::Foreign(entities) => entities.build(b),
             ExprKind::Entity(entity) => entity.build(b),
             ExprKind::Defer(expr) => {
                 b.begin_child("defer".to_string());

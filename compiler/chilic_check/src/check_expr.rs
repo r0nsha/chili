@@ -27,16 +27,30 @@ impl<'a> AnalysisContext<'a> {
         parent_ty: Option<Ty>,
     ) -> DiagnosticResult<CheckedExpr> {
         let checked_expr = match &expr.kind {
-            ExprKind::Use(use_) => {
-                let entity_info =
-                    self.check_use(frame.module_info.name, use_)?;
-                let ty = entity_info.ty.clone();
-
-                frame.insert_entity_info(use_.alias, entity_info);
+            ExprKind::Use(uses) => {
+                for use_ in uses.iter() {
+                    let entity_info =
+                        self.check_use(frame.module_info.name, use_)?;
+                    frame.insert_entity_info(use_.alias, entity_info);
+                }
 
                 CheckedExpr::new(
-                    ExprKind::Use(use_.clone()),
-                    ty,
+                    ExprKind::Use(uses.clone()),
+                    Ty::Unit,
+                    None,
+                    &expr.span,
+                )
+            }
+            ExprKind::Foreign(entities) => {
+                let mut new_entities = vec![];
+
+                for entity in entities.iter() {
+                    new_entities.push(self.check_entity(frame, entity)?);
+                }
+
+                CheckedExpr::new(
+                    ExprKind::Foreign(new_entities),
+                    Ty::Unit,
                     None,
                     &expr.span,
                 )

@@ -30,7 +30,7 @@ pub(super) fn expand_use_wildcards(ir: &mut Ir) -> DiagnosticResult<()> {
         module.uses.extend(expanded_uses);
     }
 
-    // TODO: I also need to expand use statements
+    // TODO: I also need to expand use expressions
 
     Ok(())
 }

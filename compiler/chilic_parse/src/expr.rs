@@ -45,20 +45,13 @@ impl Parser {
         } else if match_token!(self, OpenCurly) {
             self.parse_block()
         } else if match_token!(self, Use) {
-            todo!()
-            // let uses = self.parse_use(Visibility::Private)?;
+            let start_span = self.previous().span.clone();
+            let uses = self.parse_use(Visibility::Private)?;
 
-            // let stmts: Vec<Stmt> = uses
-            //     .into_iter()
-            //     .map(|use_| {
-            //         let span = use_.span.clone();
-            //         Stmt::new(StmtKind::Use(use_), span)
-            //     })
-            //     .collect();
-
-            // require!(self, Semicolon, ";")?;
-
-            // return Ok(stmts);
+            Ok(Expr::new(
+                ExprKind::Use(uses),
+                Span::merge(&start_span, self.previous_span_ref()),
+            ))
         } else if match_token!(self, Defer) {
             let span = self.span();
             let expr = self.parse_expr()?;
@@ -79,36 +72,33 @@ impl Parser {
         } else if match_token!(self, Let) {
             let start_span = self.previous().span.clone();
 
-            let entity = if match_token!(self, Foreign) {
-                self.parse_foreign_single(Visibility::Private)?
+            if match_token!(self, Foreign) {
+                let entity = self.parse_foreign_single(Visibility::Private)?;
+
+                Ok(Expr::new(
+                    ExprKind::Foreign(vec![entity]),
+                    Span::merge(&start_span, self.previous_span_ref()),
+                ))
             } else {
-                self.parse_entity(
+                let entity = self.parse_entity(
                     EntityKind::Value,
                     Visibility::Private,
                     false,
-                )?
-            };
+                )?;
+
+                Ok(Expr::new(
+                    ExprKind::Entity(Box::new(entity)),
+                    Span::merge(&start_span, self.previous_span_ref()),
+                ))
+            }
+        } else if match_token!(self, Foreign) {
+            let start_span = self.previous().span.clone();
+            let entities = self.parse_foreign_block()?;
 
             Ok(Expr::new(
-                ExprKind::Entity(Box::new(entity)),
+                ExprKind::Foreign(entities),
                 Span::merge(&start_span, self.previous_span_ref()),
             ))
-        } else if match_token!(self, Foreign) {
-            todo!()
-            // let start_span = self.previous().span.clone();
-            // let entities = self.parse_foreign_block()?;
-
-            // let stmts = entities
-            //     .iter()
-            //     .map(|entity| {
-            //         Stmt::new(
-            //             StmtKind::Entity(entity.clone()),
-            //             Span::merge(&start_span, self.previous_span_ref()),
-            //         )
-            //     })
-            //     .collect();
-
-            // return Ok(stmts);
         } else {
             self.parse_logic_or()
         }?;
@@ -176,7 +166,7 @@ impl Parser {
                 }
 
                 return Err(SyntaxError::expected(
-                    self.previous_span_ref(),
+                    &self.previous_span_ref().end(),
                     "; or }",
                 ));
             }

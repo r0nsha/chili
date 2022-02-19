@@ -155,7 +155,8 @@ impl Expr {
     strum_macros::IntoStaticStr, strum_macros::Display, Debug, PartialEq, Clone,
 )]
 pub enum ExprKind {
-    Use(Use),
+    Use(Vec<Use>),
+    Foreign(Vec<Entity>),
     Entity(Box<Entity>),
     Defer(Box<Expr>),
     Assign {
