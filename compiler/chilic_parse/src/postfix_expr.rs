@@ -17,7 +17,7 @@ impl Parser {
     ) -> DiagnosticResult<Expr> {
         // named struct literal
         if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
-            && mat!(self, OpenCurly)
+            && match_token!(self, OpenCurly)
         {
             let start_span = expr.span.clone();
             return self.parse_struct_literal(Some(Box::new(expr)), start_span);
@@ -25,7 +25,7 @@ impl Parser {
 
         // compound operations (non-recursive)
 
-        if mat!(
+        if match_token!(
             self,
             PlusEq
                 | MinusEq
@@ -45,17 +45,17 @@ impl Parser {
 
         // postfix expressions (recursive)
         loop {
-            expr = if mat!(self, Eq) {
+            expr = if match_token!(self, Eq) {
                 self.parse_assign(expr)?
-            } else if mat!(self, Dot) {
+            } else if match_token!(self, Dot) {
                 self.parse_field_access(expr)?
-            } else if mat!(self, OpenParen) {
+            } else if match_token!(self, OpenParen) {
                 self.parse_call(expr)?
-            } else if mat!(self, OpenBracket) {
+            } else if match_token!(self, OpenBracket) {
                 self.parse_subscript_or_slice(expr)?
-            } else if mat!(self, As) {
+            } else if match_token!(self, As) {
                 self.parse_as(expr)?
-            } else if mat!(self, Fn) {
+            } else if match_token!(self, Fn) {
                 let start_span = expr.span.clone();
 
                 let fn_expr = self.parse_fn()?;
@@ -136,7 +136,7 @@ impl Parser {
     fn parse_as(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
         let start_span = expr.span.clone();
 
-        let type_expr = if mat!(self, Placeholder) {
+        let type_expr = if match_token!(self, Placeholder) {
             None
         } else {
             let expr = self.parse_ty()?;
@@ -228,9 +228,9 @@ impl Parser {
         let mut used_named_argument = false;
 
         while self.peek().token_type != CloseParen && !self.is_end() {
-            let symbol = if mat!(self, Id(_)) {
+            let symbol = if match_token!(self, Id(_)) {
                 let id_token = self.previous().clone();
-                if mat!(self, Colon) {
+                if match_token!(self, Colon) {
                     Some(Spanned::new(id_token.symbol(), id_token.span))
                 } else {
                     self.revert(1);
@@ -261,12 +261,12 @@ impl Parser {
                 value: expr,
             });
 
-            if !mat!(self, Comma) {
+            if !match_token!(self, Comma) {
                 break;
             }
         }
 
-        req!(self, CloseParen, ")")?;
+        require!(self, CloseParen, ")")?;
 
         // TODO: fn shorthand
 
@@ -287,13 +287,13 @@ impl Parser {
 
         match self.parse_expr() {
             Ok(index) => {
-                if mat!(self, DotDot) {
+                if match_token!(self, DotDot) {
                     let high = match self.parse_expr() {
                         Ok(high) => Some(Box::new(high)),
                         Err(_) => None,
                     };
 
-                    req!(self, CloseBracket, "]")?;
+                    require!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
                         ExprKind::Slice {
@@ -305,7 +305,7 @@ impl Parser {
                     ));
                 }
 
-                req!(self, CloseBracket, "]")?;
+                require!(self, CloseBracket, "]")?;
 
                 Ok(Expr::new(
                     ExprKind::Subscript {
@@ -316,13 +316,13 @@ impl Parser {
                 ))
             }
             Err(err) => {
-                if mat!(self, DotDot) {
+                if match_token!(self, DotDot) {
                     let high = match self.parse_expr() {
                         Ok(high) => Some(Box::new(high)),
                         Err(_) => None,
                     };
 
-                    req!(self, CloseBracket, "]")?;
+                    require!(self, CloseBracket, "]")?;
 
                     Ok(Expr::new(
                         ExprKind::Slice {

@@ -43,13 +43,13 @@ impl Parser {
         let mut elements = vec![];
         let mut is_first_el = true;
 
-        while !mat!(self, CloseBracket) {
+        while !match_token!(self, CloseBracket) {
             let expr = self.parse_expr()?;
 
             if is_first_el {
-                if mat!(self, Semicolon) {
+                if match_token!(self, Semicolon) {
                     let len = self.parse_expr()?;
-                    req!(self, CloseBracket, "]")?;
+                    require!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
                         ExprKind::ArrayLiteral(ArrayLiteralKind::Fill {
@@ -64,10 +64,10 @@ impl Parser {
 
             elements.push(expr);
 
-            if mat!(self, Comma) {
+            if match_token!(self, Comma) {
                 continue;
             } else {
-                req!(self, CloseBracket, "]")?;
+                require!(self, CloseBracket, "]")?;
                 break;
             }
         }
@@ -85,13 +85,13 @@ impl Parser {
     ) -> DiagnosticResult<Expr> {
         let mut exprs = vec![first_expr];
 
-        while !mat!(self, CloseParen) && !self.is_end() {
+        while !match_token!(self, CloseParen) && !self.is_end() {
             let expr = self.parse_expr()?;
             exprs.push(expr);
 
-            if mat!(self, Comma) {
+            if match_token!(self, Comma) {
                 continue;
-            } else if mat!(self, CloseParen) {
+            } else if match_token!(self, CloseParen) {
                 break;
             } else {
                 return Err(SyntaxError::expected(self.span_ref(), ", or )"));
@@ -111,14 +111,14 @@ impl Parser {
     ) -> DiagnosticResult<Expr> {
         let mut fields: Vec<StructLiteralField> = vec![];
 
-        while !mat!(self, CloseCurly) && !self.is_end() {
-            let id_token = if mat!(self, Id(_)) {
+        while !match_token!(self, CloseCurly) && !self.is_end() {
+            let id_token = if match_token!(self, Id(_)) {
                 self.previous().clone()
             } else {
                 break;
             };
 
-            let value = if mat!(self, Colon) {
+            let value = if match_token!(self, Colon) {
                 self.parse_expr()?
             } else {
                 Expr::new(
@@ -139,9 +139,9 @@ impl Parser {
                 span: Span::merge(&id_token.span, &value_span),
             });
 
-            if mat!(self, Comma) {
+            if match_token!(self, Comma) {
                 continue;
-            } else if mat!(self, CloseCurly) {
+            } else if match_token!(self, CloseCurly) {
                 break;
             } else {
                 return Err(SyntaxError::expected(self.span_ref(), ", or )"));

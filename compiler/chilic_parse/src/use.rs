@@ -33,12 +33,12 @@ impl Parser {
         &mut self,
         visibility: Visibility,
     ) -> DiagnosticResult<Vec<UseDecl>> {
-        if mat!(self, Tilde) {
-            req!(self, Dot, ".")?;
+        if match_token!(self, Tilde) {
+            require!(self, Dot, ".")?;
             todo!("implement `from_root` use: `use ~.foo.bar`");
         }
 
-        let id_token = req!(self, Id(_), "identifier")?.clone();
+        let id_token = require!(self, Id(_), "identifier")?.clone();
         let name = id_token.symbol().as_str();
 
         match name {
@@ -148,8 +148,8 @@ impl Parser {
         span: Span,
         use_path: &mut UsePath,
     ) -> DiagnosticResult<Vec<UseDecl>> {
-        if mat!(self, Dot) {
-            if mat!(self, Id(_)) {
+        if match_token!(self, Dot) {
+            if match_token!(self, Id(_)) {
                 // single child, i.e: `use other.foo`
 
                 let id_token = self.previous();
@@ -169,13 +169,13 @@ impl Parser {
                     id_token_span,
                     use_path,
                 )
-            } else if mat!(self, OpenCurly) {
+            } else if match_token!(self, OpenCurly) {
                 // multiple children, i.e: `use other.{foo, bar}`
 
                 let mut uses = vec![];
 
-                while !mat!(self, CloseCurly) {
-                    let id_token = req!(self, Id(_), "identifier")?.clone();
+                while !match_token!(self, CloseCurly) {
+                    let id_token = require!(self, Id(_), "identifier")?.clone();
                     let alias = id_token.symbol();
 
                     let mut local_use_path = use_path.clone();
@@ -195,14 +195,14 @@ impl Parser {
 
                     uses.extend(use_decl);
 
-                    if !mat!(self, Comma) {
-                        req!(self, CloseCurly, "}")?;
+                    if !match_token!(self, Comma) {
+                        require!(self, CloseCurly, "}")?;
                         break;
                     }
                 }
 
                 Ok(uses)
-            } else if mat!(self, QuestionMark) {
+            } else if match_token!(self, QuestionMark) {
                 use_path.push(Spanned::new(
                     UsePathNode::Wildcard,
                     self.previous().span.clone(),
@@ -221,8 +221,8 @@ impl Parser {
                 ))
             }
         } else {
-            let alias = if mat!(self, Colon) {
-                req!(self, Id(_), "identifier")?.symbol()
+            let alias = if match_token!(self, Colon) {
+                require!(self, Id(_), "identifier")?.symbol()
             } else {
                 alias
             };

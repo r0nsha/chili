@@ -7,9 +7,9 @@ impl Parser {
         match self.parse_symbol_pattern() {
             Ok(symbol) => Ok(Pattern::Single(symbol)),
             Err(_) => {
-                if mat!(self, OpenCurly) {
+                if match_token!(self, OpenCurly) {
                     self.parse_struct_destructor()
-                } else if mat!(self, OpenParen) {
+                } else if match_token!(self, OpenParen) {
                     self.parse_tuple_destructor()
                 } else {
                     Err(SyntaxError::expected(&self.peek().span, "pattern"))
@@ -23,26 +23,26 @@ impl Parser {
         let mut symbols = vec![];
         let mut exhaustive = true;
 
-        while !mat!(self, CloseCurly) && !self.is_end() {
-            if mat!(self, DotDot) {
-                req!(self, CloseCurly, "}")?;
+        while !match_token!(self, CloseCurly) && !self.is_end() {
+            if match_token!(self, DotDot) {
+                require!(self, CloseCurly, "}")?;
                 exhaustive = false;
                 break;
             }
 
             let mut symbol_pattern = self.parse_symbol_pattern()?;
 
-            if mat!(self, Colon) {
-                let id_token = req!(self, Id(_), "identifier")?;
+            if match_token!(self, Colon) {
+                let id_token = require!(self, Id(_), "identifier")?;
                 let symbol = id_token.symbol();
                 symbol_pattern.alias = Some(symbol);
             }
 
             symbols.push(symbol_pattern);
 
-            if mat!(self, Comma) {
+            if match_token!(self, Comma) {
                 continue;
-            } else if mat!(self, CloseCurly) {
+            } else if match_token!(self, CloseCurly) {
                 break;
             } else {
                 return Err(SyntaxError::expected(self.span_ref(), ", or }"));
@@ -63,9 +63,9 @@ impl Parser {
         let mut symbols = vec![];
         let mut exhaustive = true;
 
-        while !mat!(self, CloseParen) && !self.is_end() {
-            if mat!(self, DotDot) {
-                req!(self, CloseParen, ")")?;
+        while !match_token!(self, CloseParen) && !self.is_end() {
+            if match_token!(self, DotDot) {
+                require!(self, CloseParen, ")")?;
                 exhaustive = false;
                 break;
             }
@@ -73,9 +73,9 @@ impl Parser {
             let symbol_pattern = self.parse_symbol_pattern()?;
             symbols.push(symbol_pattern);
 
-            if mat!(self, Comma) {
+            if match_token!(self, Comma) {
                 continue;
-            } else if mat!(self, CloseParen) {
+            } else if match_token!(self, CloseParen) {
                 break;
             } else {
                 return Err(SyntaxError::expected(self.span_ref(), ", or )"));
@@ -94,11 +94,11 @@ impl Parser {
     pub(super) fn parse_symbol_pattern(
         &mut self,
     ) -> DiagnosticResult<SymbolPattern> {
-        let is_mutable = mat!(self, Mut);
+        let is_mutable = match_token!(self, Mut);
 
-        let (symbol, ignore) = if mat!(self, Id(_)) {
+        let (symbol, ignore) = if match_token!(self, Id(_)) {
             (self.previous().symbol(), false)
-        } else if mat!(self, Placeholder) {
+        } else if match_token!(self, Placeholder) {
             (ustr(""), true)
         } else {
             return Err(SyntaxError::expected(

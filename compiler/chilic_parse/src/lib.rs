@@ -36,7 +36,7 @@ macro_rules! is {
     };
 }
 
-macro_rules! mat {
+macro_rules! match_token {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
         if is!($parser, $( $pattern )|+) {
             $parser.bump();
@@ -47,7 +47,7 @@ macro_rules! mat {
     };
 }
 
-macro_rules! req {
+macro_rules! require {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:literal) => {
         if is!($parser, $( $pattern )|+) {
             Ok($parser.bump().clone())
@@ -57,9 +57,32 @@ macro_rules! req {
     };
 }
 
+macro_rules! parse_list {
+    ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:literal) => {{
+        let mut items = vec![];
+
+        while !match_token!($parser, $close_delim) && !$parser.is_end() {
+            let i = $parse;
+
+            items.push(i);
+
+            if match_token!($parser, $sep) {
+                continue;
+            } else if match_token!($parser, $close_delim) {
+                break;
+            } else {
+                return Err(SyntaxError::expected($parser.span_ref(), $msg));
+            }
+        }
+
+        items
+    }};
+}
+
 pub(crate) use is;
-pub(crate) use mat;
-pub(crate) use req;
+pub(crate) use match_token;
+pub(crate) use parse_list;
+pub(crate) use require;
 
 pub struct Parser {
     tokens: Vec<Token>,

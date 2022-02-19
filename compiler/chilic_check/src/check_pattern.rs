@@ -84,13 +84,16 @@ impl<'a> AnalysisContext<'a> {
                         continue;
                     }
 
-                    match struct_ty.fields.iter().find(|f| f.symbol == *symbol) {
+                    match struct_ty.fields.iter().find(|f| f.symbol == *symbol)
+                    {
                         Some(field) => {
                             if !field_set.insert(*symbol) {
-                                return Err(TypeError::duplicate_destructor_field(
-                                    span,
-                                    field.symbol,
-                                ));
+                                return Err(
+                                    TypeError::duplicate_destructor_field(
+                                        span,
+                                        field.symbol,
+                                    ),
+                                );
                             }
 
                             let symbol = alias.unwrap_or(*symbol);
@@ -107,12 +110,16 @@ impl<'a> AnalysisContext<'a> {
                             );
                         }
                         None => {
-                            return Err(TypeError::invalid_struct_field(span, *symbol, &parent_ty))
+                            return Err(TypeError::invalid_struct_field(
+                                span, *symbol, &parent_ty,
+                            ))
                         }
                     }
                 }
 
-                if pattern.exhaustive && field_set.len() < struct_ty.fields.len() {
+                if pattern.exhaustive
+                    && field_set.len() < struct_ty.fields.len()
+                {
                     return Err(Diagnostic::error()
                         .with_message(format!(
                             "missing struct fields: {}",
@@ -196,7 +203,9 @@ impl<'a> AnalysisContext<'a> {
 
 fn get_destructed_ty(parent_ty: &Ty, ty: &Ty) -> Ty {
     match parent_ty {
-        Ty::Pointer(_, is_mutable) => Ty::Pointer(Box::new(ty.clone()), *is_mutable),
+        Ty::Pointer(_, is_mutable) => {
+            Ty::Pointer(Box::new(ty.clone()), *is_mutable)
+        }
         _ => ty.clone(),
     }
 }

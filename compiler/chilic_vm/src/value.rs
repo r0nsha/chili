@@ -35,8 +35,8 @@
 //                 Value::Bool(v) => format!("bool {}", v),
 //                 Value::Str(v) => format!("str \"{}\"", v),
 //                 Value::Func(func) => format!("func {}", func.name,),
-//                 Value::ForeignFunc(func) => format!("foreign \"{}\" func {}", func.lib, func.name,),
-//             }
+//                 Value::ForeignFunc(func) => format!("foreign \"{}\"
+// func {}", func.lib, func.name,),             }
 //         )
 //     }
 // }

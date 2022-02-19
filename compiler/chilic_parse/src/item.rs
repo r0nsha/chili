@@ -10,13 +10,13 @@ impl Parser {
     pub(crate) fn parse_item(&mut self) -> DiagnosticResult<Vec<Item>> {
         self.skip_redundant_tokens();
 
-        let visibility = if mat!(self, Pub) {
+        let visibility = if match_token!(self, Pub) {
             Visibility::Public
         } else {
             Visibility::Private
         };
 
-        if mat!(self, Use) {
+        if match_token!(self, Use) {
             let uses = self.parse_use(visibility)?;
 
             let items: Vec<Item> = uses
@@ -28,19 +28,19 @@ impl Parser {
                 .collect();
 
             Ok(items)
-        } else if mat!(self, Type) {
+        } else if match_token!(self, Type) {
             let items = self
                 .parse_decl_item(EntityKind::Type, visibility)
                 .map(|item| vec![item])?;
 
             Ok(items)
-        } else if mat!(self, Let) {
+        } else if match_token!(self, Let) {
             let items = self
                 .parse_decl_item(EntityKind::Value, visibility)
                 .map(|item| vec![item])?;
 
             Ok(items)
-        } else if mat!(self, Foreign) {
+        } else if match_token!(self, Foreign) {
             let start_span = self.previous().span.clone();
             let entitys = self.parse_foreign_block()?;
             let items = entitys
@@ -70,7 +70,7 @@ impl Parser {
     ) -> DiagnosticResult<Item> {
         let start_span = self.previous().span.clone();
 
-        if kind == EntityKind::Value && mat!(self, Foreign) {
+        if kind == EntityKind::Value && match_token!(self, Foreign) {
             let entity = self.parse_foreign_single(visibility)?;
 
             Ok(Item::new(

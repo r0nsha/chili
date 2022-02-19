@@ -35,7 +35,9 @@ impl Pattern {
     pub fn span(&self) -> &Span {
         match self {
             Pattern::Single(p) => &p.span,
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => &p.span,
+            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
+                &p.span
+            }
         }
     }
 }
@@ -47,7 +49,8 @@ impl Display for Pattern {
             "{}",
             match self {
                 Pattern::Single(s) => s.to_string(),
-                Pattern::StructDestructor(s) => format!("{{{}}}", s.to_string()),
+                Pattern::StructDestructor(s) =>
+                    format!("{{{}}}", s.to_string()),
                 Pattern::TupleDestructor(s) => format!("({})", s.to_string()),
             }
         )

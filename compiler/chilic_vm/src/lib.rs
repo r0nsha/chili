@@ -48,8 +48,8 @@
 //     }
 // }
 
-// pub fn run(globals: &mut Globals, constants: &mut Constants, code: Bytecode) -> Value {
-//     let mut vm = VM::new(globals, constants);
+// pub fn run(globals: &mut Globals, constants: &mut Constants, code: Bytecode)
+// -> Value {     let mut vm = VM::new(globals, constants);
 //     vm.run(code)
 // }
 
@@ -59,9 +59,9 @@
 //         let a = $stack.pop();
 
 //         match (&a, &b) {
-//             (Value::Int(a), Value::Int(b)) => $stack.push(Value::Int(a $op b)),
-//             _=> panic!("invalid types in binary operation `{}` and `{}`", a ,b)
-//         }
+//             (Value::Int(a), Value::Int(b)) => $stack.push(Value::Int(a $op
+// b)),             _=> panic!("invalid types in binary operation `{}` and
+// `{}`", a ,b)         }
 //     };
 // }
 
@@ -71,10 +71,10 @@
 //         let a = $stack.pop();
 
 //         match (&a, &b) {
-//             (Value::Int(a), Value::Int(b)) => $stack.push(Value::Bool(a $op b)),
-//             (Value::Bool(a), Value::Bool(b)) => $stack.push(Value::Bool(a $op b)),
-//             _=> panic!("invalid types in compare operation `{}` and `{}`", a ,b)
-//         }
+//             (Value::Int(a), Value::Int(b)) => $stack.push(Value::Bool(a $op
+// b)),             (Value::Bool(a), Value::Bool(b)) =>
+// $stack.push(Value::Bool(a $op b)),             _=> panic!("invalid types in
+// compare operation `{}` and `{}`", a ,b)         }
 //     };
 // }
 
@@ -96,8 +96,8 @@
 // }
 
 // impl<'vm> VM<'vm> {
-//     fn new(globals: &'vm mut Globals, constants: &'vm mut Constants) -> Self {
-//         Self {
+//     fn new(globals: &'vm mut Globals, constants: &'vm mut Constants) -> Self
+// {         Self {
 //             globals,
 //             constants,
 //             stack: Stack::new(),
@@ -217,21 +217,22 @@
 //                     if self.frames.is_empty() {
 //                         return return_value;
 //                     } else {
-//                         self.stack.truncate(frame.slot - frame.function.arg_count);
-//                         self.stack.push(return_value);
-//                     }
+//                         self.stack.truncate(frame.slot -
+// frame.function.arg_count);                         
+// self.stack.push(return_value);                     }
 //                 }
 //                 &Instruction::Call(arg_count) => {
 //                     let value = self.stack.peek(0);
 //                     match value {
 //                         Value::Func(func) => {
-//                             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
-//                             self.frames.push(frame);
+//                             let frame = CallFrame::new(func.clone(),
+// self.stack.len() - 1);                             self.frames.push(frame);
 //                         }
 //                         Value::ForeignFunc(func) => {
 //                             let func = func.clone();
 
-//                             self.stack.pop(); // this pops the actual foreign function
+//                             self.stack.pop(); // this pops the actual foreign
+// function
 
 //                             let mut values = (0..arg_count)
 //                                 .into_iter()
@@ -239,12 +240,12 @@
 //                                 .collect::<Vec<Value>>();
 //                             values.reverse();
 
-//                             // TODO: push actual value by the return value of the func
-//                             let result = self.ffi.call(func, values).unwrap();
-//                             self.stack.push(Value::Int(result as i64));
-//                         }
-//                         _ => panic!("tried to call an uncallable value `{}`", value),
-//                     }
+//                             // TODO: push actual value by the return value of
+// the func                             let result = self.ffi.call(func,
+// values).unwrap();                             
+// self.stack.push(Value::Int(result as i64));                         }
+//                         _ => panic!("tried to call an uncallable value `{}`",
+// value),                     }
 //                 }
 //                 &Instruction::GetGlobal(name) => {
 //                     match self.globals.get(&name) {
@@ -298,8 +299,8 @@
 //     }
 // }
 
-// pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Bytecode) {
-//     if let Ok(file) = &OpenOptions::new()
+// pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code:
+// &Bytecode) {     if let Ok(file) = &OpenOptions::new()
 //         .read(false)
 //         .write(true)
 //         .create(true)
@@ -311,8 +312,8 @@
 
 //         for (index, inst) in code.iter().enumerate() {
 //             writer
-//                 .write(format!("{:06}\t{}\n", index, inst).as_bytes())
-//                 .unwrap();
+//                 .write(format!("{:06}\t{}\n", index,
+// inst).as_bytes())                 .unwrap();
 //         }
 
 //         writer.write("\nglobals:\n".as_bytes()).unwrap();
@@ -334,9 +335,9 @@
 //                                 func.code
 //                                     .iter()
 //                                     .enumerate()
-//                                     .map(|(index, inst)| format!("{:06}\t{}", index, inst))
-//                                     .collect::<Vec<String>>()
-//                                     .join("\n")
+//                                     .map(|(index, inst)|
+// format!("{:06}\t{}", index, inst))                                   
+// .collect::<Vec<String>>()                                     .join("\n")
 //                             ),
 //                         },
 //                     )
@@ -349,8 +350,8 @@
 
 //         for (index, constant) in constants.iter().enumerate() {
 //             writer
-//                 .write(format!("%{}\t{}\n", index, constant,).as_bytes())
-//                 .unwrap();
+//                 .write(format!("%{}\t{}\n", index,
+// constant,).as_bytes())                 .unwrap();
 //         }
 //     }
 // }

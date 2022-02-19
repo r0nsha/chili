@@ -12,7 +12,7 @@ impl Parser {
     pub(crate) fn parse_stmt(&mut self) -> DiagnosticResult<Vec<Stmt>> {
         self.skip_redundant_tokens();
 
-        if mat!(self, Use) {
+        if match_token!(self, Use) {
             let uses = self.parse_use(Visibility::Private)?;
 
             let stmts: Vec<Stmt> = uses
@@ -23,17 +23,17 @@ impl Parser {
                 })
                 .collect();
 
-            req!(self, Semicolon, ";")?;
+            require!(self, Semicolon, ";")?;
 
             Ok(stmts)
-        } else if mat!(self, Defer) {
+        } else if match_token!(self, Defer) {
             let span = self.span();
             let expr = self.parse_expr()?;
 
-            req!(self, Semicolon, ";")?;
+            require!(self, Semicolon, ";")?;
 
             Ok(vec![Stmt::new(StmtKind::Defer(expr), span)])
-        } else if mat!(self, Type) {
+        } else if match_token!(self, Type) {
             let start_span = self.previous().span.clone();
             let entity = self.parse_entity(
                 EntityKind::Type,
@@ -41,16 +41,16 @@ impl Parser {
                 false,
             )?;
 
-            req!(self, Semicolon, ";")?;
+            require!(self, Semicolon, ";")?;
 
             Ok(vec![Stmt::new(
                 StmtKind::Entity(entity),
                 Span::merge(&start_span, self.previous_span_ref()),
             )])
-        } else if mat!(self, Let) {
+        } else if match_token!(self, Let) {
             let start_span = self.previous().span.clone();
 
-            let entity = if mat!(self, Foreign) {
+            let entity = if match_token!(self, Foreign) {
                 self.parse_foreign_single(Visibility::Private)?
             } else {
                 self.parse_entity(
@@ -60,13 +60,13 @@ impl Parser {
                 )?
             };
 
-            req!(self, Semicolon, ";")?;
+            require!(self, Semicolon, ";")?;
 
             Ok(vec![Stmt::new(
                 StmtKind::Entity(entity),
                 Span::merge(&start_span, self.previous_span_ref()),
             )])
-        } else if mat!(self, Foreign) {
+        } else if match_token!(self, Foreign) {
             let start_span = self.previous().span.clone();
             let entitys = self.parse_foreign_block()?;
 
@@ -91,7 +91,7 @@ impl Parser {
         let expr = self.parse_expr()?;
         let span = expr.span.clone();
 
-        let terminated = mat!(self, Semicolon);
+        let terminated = match_token!(self, Semicolon);
 
         Ok(Stmt::new(
             StmtKind::Expr { expr, terminated },
@@ -104,7 +104,7 @@ impl Parser {
 
         self.skip_redundant_tokens();
 
-        while !mat!(self, CloseCurly) && !self.is_end() {
+        while !match_token!(self, CloseCurly) && !self.is_end() {
             let stmts = self.parse_stmt()?;
             stmts_list.extend(stmts);
             self.skip_redundant_tokens();

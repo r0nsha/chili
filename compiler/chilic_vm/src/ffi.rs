@@ -22,20 +22,20 @@
 //         Self {}
 //     }
 
-//     pub fn call(&mut self, func: ForeignFunction, values: Vec<Value>) -> Result<c_long, String> {
-//         let lib_name = if func.lib.as_str() == "C" {
+//     pub fn call(&mut self, func: ForeignFunction, values: Vec<Value>) ->
+// Result<c_long, String> {         let lib_name = if func.lib.as_str() == "C" {
 //             "msvcrt"
 //         } else {
 //             func.lib.as_str()
 //         };
 
-//         let lib = match unsafe { libloading::Library::new(format!("{}.dll", lib_name)) } {
-//             Ok(lib) => lib,
-//             Err(_) => return Err(format!("couldn't find library `{}`", lib_name)),
-//         };
+//         let lib = match unsafe {
+// libloading::Library::new(format!("{}.dll", lib_name)) } {            
+// Ok(lib) => lib,             Err(_) => return Err(format!("couldn't
+// find library `{}`", lib_name)),         };
 
-//         let symbol = match unsafe { lib.get(func.name.as_str().as_bytes()) } {
-//             Ok(symbol) => symbol,
+//         let symbol = match unsafe { lib.get(func.name.as_str().as_bytes()) }
+// {             Ok(symbol) => symbol,
 //             Err(_) => {
 //                 return Err(format!(
 //                     "couldn't find function `{}` in library `{}`",
@@ -44,7 +44,8 @@
 //             }
 //         };
 
-//         let ret_ty: *mut ffi_type = unsafe { &mut ty_to_ffi_ty(&func.ret_ty) };
+//         let ret_ty: *mut ffi_type = unsafe { &mut ty_to_ffi_ty(&func.ret_ty)
+// };
 
 //         let mut param_tys: Vec<*mut ffi_type> = vec![];
 
@@ -77,8 +78,9 @@
 //             };
 
 //             if let Err(_) = prep_result {
-//                 return Err(format!("failed calling foreign function `{}`, this is probably a cause of mismatching parameter or return type definitions", func.name));
-//             }
+//                 return Err(format!("failed calling foreign function
+// `{}`, this is probably a cause of mismatching parameter or return type
+// definitions", func.name));             }
 //         }
 
 //         let mut args: Vec<*mut c_void> = vec![];
@@ -89,10 +91,10 @@
 //                 Value::Int(mut v) => &mut v as *mut _ as *mut c_void,
 //                 Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
 //                 Value::Str(mut v) => &mut v as *mut _ as *mut c_void,
-//                 Value::Func(_) => panic!("bug! unexpected function to ffi conversion"),
-//                 Value::ForeignFunc(_) => {
-//                     panic!("bug! unexpected foreign function to ffi conversion")
-//                 }
+//                 Value::Func(_) => panic!("bug! unexpected function to ffi
+// conversion"),                 Value::ForeignFunc(_) => {
+//                     panic!("bug! unexpected foreign function to ffi
+// conversion")                 }
 //             };
 
 //             args.push(arg);
@@ -117,14 +119,14 @@
 //         Ty::I16 => types::sint16,
 //         Ty::I32 => types::sint32,
 //         Ty::I64 => types::sint64,
-//         Ty::() | Ty::Str | Ty::Func { .. } | Ty::Pointer(_) | Ty::Unknown => types::pointer,
-//     }
+//         Ty::() | Ty::Str | Ty::Func { .. } | Ty::Pointer(_) | Ty::Unknown =>
+// types::pointer,     }
 // }
 
 // unsafe fn value_to_ffi_ty(value: &Value) -> ffi_type {
 //     match value {
 //         Value::Int(_) => types::sint64,
 //         Value::Bool(_) => types::uint8,
-//         Value::() | Value::Str(_) | Value::Func(_) | Value::ForeignFunc(_) => types::pointer,
-//     }
+//         Value::() | Value::Str(_) | Value::Func(_) | Value::ForeignFunc(_) =>
+// types::pointer,     }
 // }

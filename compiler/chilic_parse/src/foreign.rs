@@ -15,24 +15,24 @@ impl Parser {
     ) -> DiagnosticResult<Vec<Entity>> {
         let lib_name = self.parse_lib_name()?;
 
-        req!(self, OpenCurly, "{")?;
+        require!(self, OpenCurly, "{")?;
 
         let mut entitys = vec![];
 
-        while !mat!(self, CloseCurly) {
-            let visibility = if mat!(self, Pub) {
+        while !match_token!(self, CloseCurly) {
+            let visibility = if match_token!(self, Pub) {
                 Visibility::Public
             } else {
                 Visibility::Private
             };
 
-            req!(self, Let, "let")?;
+            require!(self, Let, "let")?;
 
             entitys.push(self.parse_foreign_entity(lib_name, visibility)?);
 
-            if mat!(self, Semicolon) {
+            if match_token!(self, Semicolon) {
                 continue;
-            } else if mat!(self, CloseCurly) {
+            } else if match_token!(self, CloseCurly) {
                 break;
             } else {
                 return Err(SyntaxError::expected(
@@ -59,7 +59,7 @@ impl Parser {
         lib_name: Ustr,
         visibility: Visibility,
     ) -> DiagnosticResult<Entity> {
-        let id = req!(self, Id(_), "identifier")?.clone();
+        let id = require!(self, Id(_), "identifier")?.clone();
 
         let pattern = Pattern::Single(SymbolPattern {
             symbol: id.symbol(),
@@ -69,8 +69,8 @@ impl Parser {
             ignore: false,
         });
 
-        let entity = if mat!(self, Eq) {
-            req!(self, Fn, "fn")?;
+        let entity = if match_token!(self, Eq) {
+            require!(self, Fn, "fn")?;
 
             let proto_start_span = self.previous().span.clone();
             let mut proto =
@@ -105,9 +105,9 @@ impl Parser {
     }
 
     fn parse_lib_name(&mut self) -> DiagnosticResult<Ustr> {
-        req!(self, OpenParen, "(")?;
+        require!(self, OpenParen, "(")?;
 
-        let lib_token = req!(self, Str(_), "str")?;
+        let lib_token = require!(self, Str(_), "str")?;
         let lib_name = lib_token.symbol();
 
         let lib_name = if lib_name.ends_with(".lib") {
@@ -117,7 +117,7 @@ impl Parser {
         };
         let lib_name = ustr(&lib_name);
 
-        req!(self, CloseParen, ")")?;
+        require!(self, CloseParen, ")")?;
 
         Ok(lib_name)
     }
