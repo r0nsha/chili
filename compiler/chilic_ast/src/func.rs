@@ -1,13 +1,15 @@
 use chilic_ty::Ty;
 use ustr::Ustr;
 
-use crate::{expr::Expr, pattern::Pattern, stmt::Stmt};
+use crate::{
+    expr::{Block, Expr},
+    pattern::Pattern,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Fn {
     pub proto: Proto,
-    pub body: Vec<Stmt>,
-    pub deferred: Vec<Expr>,
+    pub body: Block,
     pub is_startup: bool,
 }
 

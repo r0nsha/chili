@@ -3,9 +3,10 @@ use chilic_ty::{StructTyKind, Ty, UIntTy};
 use ustr::Ustr;
 
 use crate::{
+    entity::Entity,
     func::{Fn, Proto},
     op::{BinaryOp, UnaryOp},
-    stmt::Stmt,
+    r#use::Use,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -154,6 +155,9 @@ impl Expr {
     strum_macros::IntoStaticStr, strum_macros::Display, Debug, PartialEq, Clone,
 )]
 pub enum ExprKind {
+    Use(Use),
+    Entity(Box<Entity>),
+    Defer(Box<Expr>),
     Assign {
         lvalue: Box<Expr>,
         rvalue: Box<Expr>,
@@ -186,10 +190,7 @@ pub enum ExprKind {
         then_expr: Box<Expr>,
         else_expr: Option<Box<Expr>>,
     },
-    Block {
-        stmts: Vec<Stmt>,
-        deferred: Vec<Expr>,
-    },
+    Block(Block),
     Binary {
         lhs: Box<Expr>,
         op: BinaryOp,
@@ -236,6 +237,13 @@ pub enum ExprKind {
     UnitType,
     PlaceholderType,
     Noop,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Block {
+    pub exprs: Vec<Expr>,
+    pub deferred: Vec<Expr>,
+    pub yields: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]

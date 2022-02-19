@@ -1,9 +1,10 @@
 use crate::*;
-use chilic_error::*;
 use chilic_ast::{
-    expr::{Builtin, Expr, ExprKind, ForIter, LiteralKind},
+    entity::{EntityKind, Visibility},
+    expr::{Block, Builtin, Expr, ExprKind, ForIter, LiteralKind},
     op::{BinaryOp, UnaryOp},
 };
+use chilic_error::*;
 use chilic_span::Span;
 use chilic_token::TokenType::*;
 use codespan_reporting::diagnostic::Diagnostic;
@@ -43,6 +44,71 @@ impl Parser {
             self.parse_for()
         } else if match_token!(self, OpenCurly) {
             self.parse_block()
+        } else if match_token!(self, Use) {
+            todo!()
+            // let uses = self.parse_use(Visibility::Private)?;
+
+            // let stmts: Vec<Stmt> = uses
+            //     .into_iter()
+            //     .map(|use_| {
+            //         let span = use_.span.clone();
+            //         Stmt::new(StmtKind::Use(use_), span)
+            //     })
+            //     .collect();
+
+            // require!(self, Semicolon, ";")?;
+
+            // return Ok(stmts);
+        } else if match_token!(self, Defer) {
+            let span = self.span();
+            let expr = self.parse_expr()?;
+            Ok(Expr::new(ExprKind::Defer(Box::new(expr)), span))
+        } else if match_token!(self, Type) {
+            let start_span = self.previous().span.clone();
+
+            let entity = self.parse_entity(
+                EntityKind::Type,
+                Visibility::Private,
+                false,
+            )?;
+
+            Ok(Expr::new(
+                ExprKind::Entity(Box::new(entity)),
+                Span::merge(&start_span, self.previous_span_ref()),
+            ))
+        } else if match_token!(self, Let) {
+            let start_span = self.previous().span.clone();
+
+            let entity = if match_token!(self, Foreign) {
+                self.parse_foreign_single(Visibility::Private)?
+            } else {
+                self.parse_entity(
+                    EntityKind::Value,
+                    Visibility::Private,
+                    false,
+                )?
+            };
+
+            Ok(Expr::new(
+                ExprKind::Entity(Box::new(entity)),
+                Span::merge(&start_span, self.previous_span_ref()),
+            ))
+        } else if match_token!(self, Foreign) {
+            todo!()
+            // let start_span = self.previous().span.clone();
+            // let entities = self.parse_foreign_block()?;
+
+            // let stmts = entities
+            //     .iter()
+            //     .map(|entity| {
+            //         Stmt::new(
+            //             StmtKind::Entity(entity.clone()),
+            //             Span::merge(&start_span, self.previous_span_ref()),
+            //         )
+            //     })
+            //     .collect();
+
+            // return Ok(stmts);
         } else {
             self.parse_logic_or()
         }?;
@@ -88,13 +154,40 @@ impl Parser {
 
     pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span.clone();
-        let stmts = self.parse_stmt_list()?;
+
+        let mut yields = false;
+        let mut exprs: Vec<Expr> = vec![];
+
+        while !match_token!(self, CloseCurly) && !self.is_end() {
+            let expr = self.parse_expr()?;
+            exprs.push(expr);
+
+            if match_token!(self, Semicolon) {
+                continue;
+            } else if match_token!(self, CloseCurly) {
+                if !last_is!(self, Semicolon) {
+                    yields = true;
+                }
+
+                break;
+            } else {
+                if last_is!(self, CloseCurly) {
+                    continue;
+                }
+
+                return Err(SyntaxError::expected(
+                    self.previous_span_ref(),
+                    "; or }",
+                ));
+            }
+        }
 
         Ok(Expr::new(
-            ExprKind::Block {
-                stmts,
+            ExprKind::Block(Block {
+                exprs,
                 deferred: vec![],
-            },
+                yields,
+            }),
             Span::merge(&start_span, self.previous_span_ref()),
         ))
     }

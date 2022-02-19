@@ -23,6 +23,14 @@ bitflags! {
     }
 }
 
+macro_rules! last_is {
+    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
+        match &$parser.previous().token_type {
+            $( $pattern )|+ => true,
+            _ => false
+        }
+    };
+}
 macro_rules! is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
         if $parser.is_end() {
@@ -80,6 +88,7 @@ macro_rules! parse_delimited_list {
 }
 
 pub(crate) use is;
+pub(crate) use last_is;
 pub(crate) use match_token;
 pub(crate) use parse_delimited_list;
 pub(crate) use require;

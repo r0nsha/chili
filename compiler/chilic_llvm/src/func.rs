@@ -3,7 +3,6 @@ use chilic_ast::{
     expr::{Call, ExprKind},
     func::{Fn, Proto},
     module::ModuleInfo,
-    stmt::StmtKind,
 };
 use chilic_ty::*;
 use inkwell::{
@@ -278,34 +277,19 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             );
         }
 
-        for (index, stmt) in func.body.iter().enumerate() {
-            match &stmt.kind {
-                StmtKind::Expr { expr, terminated } => {
-                    let value = self.gen_expr(&mut state, expr, true);
-                    if index == func.body.len() - 1
-                        && !*terminated
-                        && expr.ty != Ty::Never
-                    {
-                        self.gen_return(&mut state, Some(value), &vec![]);
-                    }
-                }
-                _ => {
-                    self.gen_stmt(&mut state, stmt);
-                }
+        for (index, expr) in func.body.exprs.iter().enumerate() {
+            let value = self.gen_expr(&mut state, expr, true);
+
+            if func.body.yields
+                && index == func.body.exprs.len() - 1
+                && expr.ty != Ty::Never
+            {
+                self.gen_return(&mut state, Some(value), &vec![]);
             }
         }
 
         if self.current_block().get_terminator().is_none() {
-            // for expr in &func.deferred {
-            //     self.gen_expr(&mut state, expr, true);
-            // }
-
-            // if function.get_type().get_return_type().is_none() {
-            //     self.builder.build_return(None);
-            // } else if func.proto.ty.into_fn().ret.is_unit() {
-            //     self.gen_return(&mut state, None, &vec![]);
-            // }
-            self.gen_return(&mut state, None, &func.deferred);
+            self.gen_return(&mut state, None, &func.body.deferred);
         }
 
         state.pop_scope();

@@ -6,10 +6,10 @@ use ptree::{
 };
 
 use crate::entity::Entity;
-use crate::expr::Expr;
 use crate::expr::{
     ArrayLiteralKind, Builtin, ExprKind, ForIter, LiteralKind, TypeCastInfo,
 };
+use crate::expr::{Block, Expr};
 use crate::func::{Fn, Proto};
 use crate::ir::Ir;
 use crate::stmt::{Stmt, StmtKind};
@@ -86,12 +86,20 @@ impl<T: BuildNode> BuildNode for Box<T> {
 impl BuildNode for Fn {
     fn build(&self, b: &mut TreeBuilder) {
         b.begin_child("fn".to_string());
-
         self.proto.build(b);
         self.body.build(b);
+        b.end_child();
+    }
+}
 
+impl BuildNode for Block {
+    fn build(&self, b: &mut TreeBuilder) {
+        b.begin_child(format!(
+            "block{}",
+            if self.yields { " (yields)" } else { "" }
+        ));
+        self.exprs.build(b);
         build_deferred(b, &self.deferred);
-
         b.end_child();
     }
 }
@@ -188,6 +196,18 @@ fn build_deferred(b: &mut TreeBuilder, deferred: &Vec<Expr>) {
 impl BuildNode for Expr {
     fn build(&self, b: &mut ptree::TreeBuilder) {
         match &self.kind {
+            ExprKind::Use(use_) => {
+                b.add_empty_child(format!(
+                    "use \"{}\" = {}",
+                    use_.module_info.file_path, use_.alias
+                ));
+            }
+            ExprKind::Entity(entity) => entity.build(b),
+            ExprKind::Defer(expr) => {
+                b.begin_child("defer".to_string());
+                expr.build(b);
+                b.end_child();
+            }
             ExprKind::Assign { lvalue, rvalue } => {
                 b.begin_child("assign".to_string());
                 lvalue.build(b);
@@ -297,11 +317,8 @@ impl BuildNode for Expr {
 
                 b.end_child();
             }
-            ExprKind::Block { stmts, deferred } => {
-                b.begin_child(format!("block <{}>", self.ty));
-                stmts.build(b);
-                build_deferred(b, deferred);
-                b.end_child();
+            ExprKind::Block(block) => {
+                block.build(b);
             }
             ExprKind::Binary { lhs, op, rhs } => {
                 b.begin_child(format!("{} <{}>", op, self.ty));

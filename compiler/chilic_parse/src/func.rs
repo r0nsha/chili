@@ -1,8 +1,7 @@
 use chilic_ast::{
-    expr::{Expr, ExprKind},
+    expr::{Block, Expr, ExprKind},
     func::{Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
-    stmt::Stmt,
 };
 use chilic_span::Span;
 use chilic_ty::Ty;
@@ -25,7 +24,6 @@ impl Parser {
             ExprKind::Fn(Fn {
                 proto,
                 body,
-                deferred: vec![],
                 is_startup: false,
             }),
             Span::merge(&start_span, self.previous_span_ref()),
@@ -136,15 +134,13 @@ impl Parser {
         Ok((params, variadic))
     }
 
-    pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Vec<Stmt>> {
+    pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Block> {
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(match block.kind {
-            ExprKind::Block { stmts, deferred: _ } => stmts,
-            _ => {
-                unreachable!()
-            }
+            ExprKind::Block(block) => block,
+            _ => unreachable!(),
         })
     }
 }

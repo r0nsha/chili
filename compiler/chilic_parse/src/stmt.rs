@@ -1,7 +1,6 @@
 use crate::*;
 use chilic_ast::{
     entity::{EntityKind, Visibility},
-    expr::ExprKind,
     stmt::{Stmt, StmtKind},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
@@ -97,45 +96,5 @@ impl Parser {
             StmtKind::Expr { expr, terminated },
             Span::merge(&span, self.previous_span_ref()),
         ))
-    }
-
-    pub(crate) fn parse_stmt_list(&mut self) -> DiagnosticResult<Vec<Stmt>> {
-        let mut stmts_list: Vec<Stmt> = vec![];
-
-        self.skip_redundant_tokens();
-
-        while !match_token!(self, CloseCurly) && !self.is_end() {
-            let stmts = self.parse_stmt()?;
-            stmts_list.extend(stmts);
-            self.skip_redundant_tokens();
-        }
-
-        let len = stmts_list.len();
-        for (i, stmt) in stmts_list.iter_mut().enumerate() {
-            match &mut stmt.kind {
-                StmtKind::Expr { expr, terminated } => {
-                    if i == len - 1 {
-                        // This isn't the last element, so we don't have to
-                        // worry about it
-                    } else if !*terminated
-                        && !matches!(
-                            expr.kind,
-                            ExprKind::While { .. }
-                                | ExprKind::For { .. }
-                                | ExprKind::If { .. }
-                                | ExprKind::Block { .. }
-                        )
-                    {
-                        return Err(SyntaxError::expected(
-                            &expr.span.end(),
-                            Semicolon.lexeme(),
-                        ));
-                    }
-                }
-                _ => (),
-            }
-        }
-
-        Ok(stmts_list)
     }
 }

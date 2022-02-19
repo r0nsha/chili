@@ -21,11 +21,9 @@ impl Parser {
         visibility: Visibility,
     ) -> DiagnosticResult<Vec<Use>> {
         let uses = self.parse_use_internal(visibility)?;
-
         uses.iter().for_each(|use_| {
             self.used_modules.push(use_.module_info);
         });
-
         Ok(uses)
     }
 

@@ -557,6 +557,30 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         let value = match &expr.kind {
+            ExprKind::Use(use_) => {
+                let decl = self.resolve_decl_from_use(use_);
+                state.env.insert(use_.alias, decl);
+                self.gen_unit()
+            }
+            ExprKind::Entity(entity) => {
+                if entity.lib_name.is_some() {
+                    let symbol = entity.pattern.into_single().symbol;
+                    let ty = self.llvm_type(&entity.ty);
+                    let global_value =
+                        self.add_global_uninit(&symbol, ty, Linkage::External);
+                    state.env.insert(symbol, CodegenDecl::Global(global_value));
+                } else {
+                    self.gen_entity_pattern_from_expr(
+                        state,
+                        &entity.pattern,
+                        &entity.ty,
+                        &entity.value,
+                    );
+                }
+
+                self.gen_unit()
+            }
+            ExprKind::Defer(_) => self.gen_unit(),
             ExprKind::Assign { lvalue, rvalue } => {
                 let left =
                     self.gen_expr(state, lvalue, false).into_pointer_value();
@@ -814,17 +838,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 then_expr,
                 else_expr,
             } => self.gen_if_expr(state, cond, then_expr, else_expr),
-            ExprKind::Block { stmts, deferred } => {
+            ExprKind::Block(block) => {
                 let mut value = self.gen_unit();
 
                 self.scope_names.push("_");
                 state.push_scope();
 
-                for stmt in stmts {
-                    value = self.gen_stmt(state, stmt);
+                for expr in &block.exprs {
+                    value = self.gen_expr(state, expr, true);
                 }
 
-                self.gen_expr_list(state, deferred);
+                self.gen_expr_list(state, &block.deferred);
 
                 state.pop_scope();
                 self.scope_names.pop();

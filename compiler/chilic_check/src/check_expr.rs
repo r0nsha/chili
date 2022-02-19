@@ -27,6 +27,35 @@ impl<'a> AnalysisContext<'a> {
         parent_ty: Option<Ty>,
     ) -> DiagnosticResult<CheckedExpr> {
         let checked_expr = match &expr.kind {
+            ExprKind::Use(use_) => {
+                let entity_info =
+                    self.check_use(frame.module_info.name, use_)?;
+                let ty = entity_info.ty.clone();
+
+                frame.insert_entity_info(use_.alias, entity_info);
+
+                CheckedExpr::new(
+                    ExprKind::Use(use_.clone()),
+                    ty,
+                    None,
+                    &expr.span,
+                )
+            }
+            ExprKind::Entity(entity) => {
+                let entity = self.check_entity(frame, entity)?;
+                CheckedExpr::new(
+                    ExprKind::Entity(Box::new(entity)),
+                    Ty::Unit,
+                    None,
+                    &expr.span,
+                )
+            }
+            ExprKind::Defer(deferred) => CheckedExpr::new(
+                ExprKind::Defer(deferred.clone()),
+                Ty::Unit,
+                None,
+                &expr.span,
+            ),
             ExprKind::Assign { lvalue, rvalue } => {
                 self.check_assign_expr(frame, lvalue, rvalue, &expr.span)?
             }
@@ -429,16 +458,16 @@ impl<'a> AnalysisContext<'a> {
                     )
                 }
             }
-            ExprKind::Block { stmts, deferred } => {
+            ExprKind::Block(block) => {
                 frame.push_scope();
 
-                let (stmts, result_ty) = self.check_stmt_list(frame, stmts)?;
-                let deferred = self.check_expr_list(frame, deferred)?;
+                let (block, result_ty) =
+                    self.check_block(frame, block, parent_ty)?;
 
                 frame.pop_scope();
 
                 CheckedExpr::new(
-                    ExprKind::Block { stmts, deferred },
+                    ExprKind::Block(block),
                     result_ty,
                     None,
                     &expr.span,

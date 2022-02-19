@@ -1,4 +1,7 @@
-use chilic_ast::stmt::{Stmt, StmtKind};
+use chilic_ast::{
+    expr::Block,
+    stmt::{Stmt, StmtKind},
+};
 use chilic_error::DiagnosticResult;
 use chilic_ty::*;
 
@@ -65,28 +68,42 @@ impl<'a> AnalysisContext<'a> {
         Ok(checked_stmt)
     }
 
-    pub(crate) fn check_stmt_list(
+    pub(crate) fn check_block(
         &mut self,
         frame: &mut AnalysisFrame,
-        stmts: &Vec<Stmt>,
-    ) -> DiagnosticResult<(Vec<Stmt>, Ty)> {
-        let mut new_stmts = vec![];
+        block: &Block,
+        parent_ty: Option<Ty>,
+    ) -> DiagnosticResult<(Block, Ty)> {
+        let mut new_block = Block {
+            exprs: vec![],
+            deferred: vec![],
+            yields: block.yields,
+        };
+
         let mut result_ty = Ty::Unit;
 
-        if !stmts.is_empty() {
-            let last_index = stmts.len() - 1;
+        if !block.exprs.is_empty() {
+            let last_index = block.exprs.len() - 1;
 
-            for (index, stmt) in stmts.iter().enumerate() {
-                let result = self.check_stmt(frame, stmt)?;
+            for (index, expr) in block.exprs.iter().enumerate() {
+                let is_last = index == last_index;
 
-                new_stmts.push(result.stmt);
+                let result = self.check_expr(
+                    frame,
+                    expr,
+                    if is_last { parent_ty.clone() } else { None },
+                )?;
 
-                if index == last_index {
+                new_block.exprs.push(result.expr);
+
+                if is_last {
                     result_ty = result.ty.into();
                 }
             }
         }
 
-        Ok((new_stmts, result_ty))
+        new_block.deferred = self.check_expr_list(frame, &block.deferred)?;
+
+        Ok((new_block, result_ty))
     }
 }

@@ -3,7 +3,7 @@ use chilic_ast::{expr::Expr, op::BinaryOp};
 use chilic_span::Span;
 use chilic_ty::*;
 use inkwell::{
-    types::{BasicTypeEnum, IntType},
+    types::IntType,
     values::{BasicValue, BasicValueEnum, FunctionValue, IntValue},
     FloatPredicate, IntPredicate,
 };

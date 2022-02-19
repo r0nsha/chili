@@ -4,5 +4,11 @@ type Foo = { a : i32, b : f32 }
 
 let main = fn {
     let foo = Foo { a : 1, b : 1.0 };
-    printf("Hello".data);
+    defer printf("2\n".data);
+    printf("1\n".data);
+    printf("%d\n".data, answer());
+    printf("%d\n".data, myfav());
 }
+
+let answer = fn() -> int { 42 }
+let myfav = fn() -> int { 5; 69 }

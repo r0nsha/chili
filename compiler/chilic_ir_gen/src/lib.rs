@@ -4,7 +4,7 @@ mod use_wildcard;
 
 use chilic_ast::entity::Entity;
 use chilic_ast::expr::{
-    ArrayLiteralKind, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
+    ArrayLiteralKind, Block, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
     StructLiteralField, StructType, StructTypeField, TypeCastInfo,
 };
 use chilic_ast::foreign_library::ForeignLibrary;
@@ -117,22 +117,29 @@ impl<T: Lower> Lower for Box<T> {
 
 impl Lower for Fn {
     fn lower(&self, ctx: &mut IrGenContext) -> Fn {
-        ctx.env.push_named_scope(self.proto.name);
-        ctx.defercx.push_stack(DeferStackKind::Fn);
+        Fn {
+            proto: self.proto.lower(ctx),
+            body: self.body.lower(ctx),
+            is_startup: false,
+        }
+    }
+}
 
-        let body: Vec<Stmt> = self.body.lower(ctx);
-        let deferred = ctx.defercx.current_deferred();
+impl Lower for Block {
+    fn lower(&self, ctx: &mut IrGenContext) -> Block {
+        ctx.env.push_scope();
+        ctx.defercx.push_stack(DeferStackKind::Block);
+
+        let exprs = self.exprs.lower(ctx);
+        let deferred = ctx.defercx.collect_deferred();
 
         ctx.defercx.pop_stack();
         ctx.env.pop_scope();
 
-        let proto: Proto = self.proto.lower(ctx);
-
-        Fn {
-            proto,
-            body,
+        Block {
+            exprs,
             deferred,
-            is_startup: false,
+            yields: self.yields,
         }
     }
 }
@@ -196,6 +203,12 @@ impl Lower for Stmt {
 impl Lower for Expr {
     fn lower(&self, ctx: &mut IrGenContext) -> Expr {
         let kind = match &self.kind {
+            ExprKind::Use(use_) => ExprKind::Use(use_.clone()),
+            ExprKind::Entity(entity) => ExprKind::Entity(entity.lower(ctx)),
+            ExprKind::Defer(expr) => {
+                ctx.defercx.current_stack_mut().deferred.push(*expr.clone());
+                ExprKind::Noop
+            }
             ExprKind::Assign { lvalue, rvalue } => ExprKind::Assign {
                 lvalue: lvalue.lower(ctx),
                 rvalue: rvalue.lower(ctx),
@@ -295,18 +308,7 @@ impl Lower for Expr {
                 then_expr: then_expr.lower(ctx),
                 else_expr: else_expr.lower(ctx),
             },
-            ExprKind::Block { stmts, .. } => {
-                ctx.env.push_scope();
-                ctx.defercx.push_stack(DeferStackKind::Block);
-
-                let stmts: Vec<Stmt> = stmts.lower(ctx);
-                let deferred = ctx.defercx.current_deferred();
-
-                ctx.defercx.pop_stack();
-                ctx.env.pop_scope();
-
-                ExprKind::Block { stmts, deferred }
-            }
+            ExprKind::Block(block) => ExprKind::Block(block.lower(ctx)),
             ExprKind::Binary { lhs, op, rhs } => ExprKind::Binary {
                 lhs: lhs.lower(ctx),
                 op: *op,

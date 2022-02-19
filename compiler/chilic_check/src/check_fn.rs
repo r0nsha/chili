@@ -9,7 +9,6 @@ use chilic_ast::{
     expr::{Expr, ExprKind},
     func::{Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
-    stmt::StmtKind,
 };
 
 impl<'a> AnalysisContext<'a> {
@@ -20,10 +19,9 @@ impl<'a> AnalysisContext<'a> {
         span: &Span,
         parent_ty: Option<Ty>,
     ) -> DiagnosticResult<Fn> {
-        let new_proto =
-            self.check_proto(frame, &func.proto, parent_ty, span)?;
+        let proto = self.check_proto(frame, &func.proto, parent_ty, span)?;
 
-        let ty = new_proto.ty.into_fn();
+        let ty = proto.ty.into_fn();
 
         // let expected_return_ty = self.infcx.normalize_ty(&ty.ret);
 
@@ -34,13 +32,13 @@ impl<'a> AnalysisContext<'a> {
         );
 
         fn_frame.insert_entity(
-            new_proto.name,
-            new_proto.ty.clone(),
+            proto.name,
+            proto.ty.clone(),
             span.clone(),
             true,
         );
 
-        for (index, param) in new_proto.params.iter().enumerate() {
+        for (index, param) in proto.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
             self.check_entity_pattern(
                 &mut fn_frame,
@@ -51,10 +49,13 @@ impl<'a> AnalysisContext<'a> {
             )?;
         }
 
-        let (mut body, result_ty) =
-            self.check_stmt_list(&mut fn_frame, &func.body)?;
+        let (mut body, result_ty) = self.check_block(
+            &mut fn_frame,
+            &func.body,
+            Some(proto.ty.clone()),
+        )?;
 
-        let last_stmt_span = match func.body.last() {
+        let last_stmt_span = match func.body.exprs.last() {
             Some(stmt) => &stmt.span,
             None => span,
         };
@@ -62,38 +63,31 @@ impl<'a> AnalysisContext<'a> {
         let result_ty = self.infcx.normalize_ty(&result_ty);
 
         if !result_ty.is_never() {
-            if body.is_empty() {
+            if body.exprs.is_empty() {
                 self.infcx.unify(
                     ty.ret.as_ref().clone(),
                     Ty::Unit,
                     last_stmt_span,
                 )?;
             } else {
-                let last_stmt_mut = body.last_mut().unwrap();
-
-                if let StmtKind::Expr { expr, terminated } =
-                    &mut last_stmt_mut.kind
-                {
-                    if *terminated {
-                        self.infcx.unify(
-                            ty.ret.as_ref().clone(),
-                            Ty::Unit,
-                            span,
-                        )?;
-                    } else {
-                        self.infcx.unify_or_coerce_ty_expr(
-                            ty.ret.as_ref(),
-                            expr,
-                            last_stmt_span,
-                        )?;
-                    }
+                if body.yields {
+                    let last_expr_mut = body.exprs.last_mut().unwrap();
+                    self.infcx.unify_or_coerce_ty_expr(
+                        ty.ret.as_ref(),
+                        last_expr_mut,
+                        last_stmt_span,
+                    )?;
+                } else {
+                    self.infcx.unify(
+                        ty.ret.as_ref().clone(),
+                        Ty::Unit,
+                        span,
+                    )?;
                 }
             }
         }
 
-        let deferred = self.check_expr_list(&mut fn_frame, &func.deferred)?;
-
-        let fn_ty = self.infcx.normalize_ty(&new_proto.ty).into_fn().clone();
+        let fn_ty = self.infcx.normalize_ty(&proto.ty).into_fn().clone();
 
         if func.is_startup
             && (!(fn_ty.ret.is_unit() || fn_ty.ret.is_never())
@@ -106,9 +100,8 @@ impl<'a> AnalysisContext<'a> {
         }
 
         Ok(Fn {
-            proto: new_proto,
+            proto,
             body,
-            deferred,
             is_startup: func.is_startup,
         })
     }

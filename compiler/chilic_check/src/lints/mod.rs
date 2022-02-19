@@ -2,7 +2,7 @@ mod type_limits;
 
 use chilic_ast::{
     entity::Entity,
-    expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter},
+    expr::{ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter},
     ir::Ir,
     stmt::{Stmt, StmtKind},
 };
@@ -65,9 +65,21 @@ impl Lint for Stmt {
     }
 }
 
+impl Lint for Block {
+    fn lint(&self) -> DiagnosticResult<()> {
+        self.exprs.lint()?;
+        self.deferred.lint()?;
+        Ok(())
+    }
+}
+
 impl Lint for Expr {
     fn lint(&self) -> DiagnosticResult<()> {
         match &self.kind {
+            ExprKind::Use(_) | ExprKind::Defer(_) => (),
+            ExprKind::Entity(e) => {
+                e.lint()?;
+            }
             ExprKind::Assign { lvalue, rvalue } => {
                 lvalue.lint()?;
                 rvalue.lint()?;
@@ -85,7 +97,6 @@ impl Lint for Expr {
             },
             ExprKind::Fn(f) => {
                 f.body.lint()?;
-                f.deferred.lint()?;
             }
             ExprKind::While { cond, expr } => {
                 cond.lint()?;
@@ -124,9 +135,8 @@ impl Lint for Expr {
                 then_expr.lint()?;
                 else_expr.lint()?;
             }
-            ExprKind::Block { stmts, deferred } => {
-                stmts.lint()?;
-                deferred.lint()?;
+            ExprKind::Block(block) => {
+                block.lint()?;
             }
             ExprKind::Binary { lhs, op: _, rhs } => {
                 lhs.lint()?;

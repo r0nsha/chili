@@ -30,7 +30,7 @@ impl DeferContext {
         self.stacks.last_mut().unwrap()
     }
 
-    pub fn current_deferred(&self) -> Vec<Expr> {
+    pub fn collect_deferred(&self) -> Vec<Expr> {
         self.current_stack()
             .deferred
             .iter()
@@ -42,7 +42,6 @@ impl DeferContext {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum DeferStackKind {
-    Fn,
     Loop,
     Block,
 }

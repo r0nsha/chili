@@ -1,6 +1,8 @@
 use chilic_ast::{
     entity::Entity,
-    expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter, TypeCastInfo},
+    expr::{
+        ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter, TypeCastInfo,
+    },
     func::{Fn, Proto},
     ir::Ir,
     stmt::{Stmt, StmtKind},
@@ -69,6 +71,17 @@ impl Substitute for Ir {
     }
 }
 
+impl Substitute for Block {
+    fn substitute(
+        &mut self,
+        table: &mut InPlaceUnificationTable<TyVar>,
+    ) -> DiagnosticResult<()> {
+        self.exprs.substitute(table)?;
+        self.deferred.substitute(table)?;
+        Ok(())
+    }
+}
+
 impl Substitute for Fn {
     fn substitute(
         &mut self,
@@ -76,7 +89,6 @@ impl Substitute for Fn {
     ) -> DiagnosticResult<()> {
         self.proto.substitute(table)?;
         self.body.substitute(table)?;
-        self.deferred.substitute(table)?;
         Ok(())
     }
 }
@@ -164,6 +176,10 @@ impl Substitute for Expr {
         table: &mut InPlaceUnificationTable<TyVar>,
     ) -> DiagnosticResult<()> {
         match &mut self.kind {
+            ExprKind::Use(..) | ExprKind::Defer(_) => (),
+            ExprKind::Entity(entity) => {
+                entity.substitute(table)?;
+            }
             ExprKind::Assign { lvalue, rvalue } => {
                 lvalue.substitute(table)?;
                 rvalue.substitute(table)?;
@@ -218,9 +234,9 @@ impl Substitute for Expr {
                 then_expr.substitute(table)?;
                 else_expr.substitute(table)?;
             }
-            ExprKind::Block { stmts, deferred } => {
-                stmts.substitute(table)?;
-                deferred.substitute(table)?;
+            ExprKind::Block(block) => {
+                block.exprs.substitute(table)?;
+                block.deferred.substitute(table)?;
             }
             ExprKind::Binary { lhs, op: _, rhs } => {
                 lhs.substitute(table)?;
