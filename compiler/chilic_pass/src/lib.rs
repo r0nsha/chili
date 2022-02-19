@@ -14,14 +14,12 @@ use chilic_ast::Ast;
 use chilic_error::DiagnosticResult;
 use chilic_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
-use common::env::Env;
 use defer::{DeferContext, DeferStackKind};
 use ustr::ustr;
 
 use self::expand_use_wildcard::expand_use_wildcard;
 
 struct IrGenContext {
-    env: Env<()>,
     defercx: DeferContext,
 }
 
@@ -30,7 +28,6 @@ pub fn gen_ir(
     files: SimpleFiles<String, String>,
 ) -> DiagnosticResult<Ir> {
     let mut ctx = IrGenContext {
-        env: Env::new(),
         defercx: DeferContext::new(),
     };
 
@@ -39,12 +36,8 @@ pub fn gen_ir(
     for ast in asts {
         let mut module = Module::new(ast.module_info);
 
-        ctx.env.push_named_scope(ast.module_info.name);
-
         module.uses.extend(ast.uses);
-        module.entities.extend(ast.entities.lower(&mut ctx));
-
-        ctx.env.pop_scope();
+        module.entities.extend(ast.entities);
 
         ir.modules.insert(ast.module_info.name, module);
         ir.foreign_libraries.extend(ast.foreign_libraries);
@@ -89,14 +82,12 @@ impl Lower for Fn {
 
 impl Lower for Block {
     fn lower(&self, ctx: &mut IrGenContext) -> Block {
-        ctx.env.push_scope();
         ctx.defercx.push_stack(DeferStackKind::Block);
 
         let exprs = self.exprs.lower(ctx);
         let deferred = ctx.defercx.collect_deferred();
 
         ctx.defercx.pop_stack();
-        ctx.env.pop_scope();
 
         Block {
             exprs,
@@ -111,13 +102,9 @@ impl Lower for Entity {
         Entity {
             kind: self.kind,
             pattern: self.pattern.clone(),
-            ty_expr: self.ty_expr.as_ref().map(|ty_expr| ty_expr.lower(ctx)),
+            ty_expr: self.ty_expr.lower(ctx),
             ty: Ty::Unknown,
-            value: if let Some(value) = &self.value {
-                Some(value.lower(ctx))
-            } else {
-                None
-            },
+            value: self.value.lower(ctx),
             visibility: self.visibility,
             const_value: self.const_value.clone(),
             should_codegen: self.should_codegen,
@@ -159,7 +146,6 @@ impl Lower for Expr {
                 iterator,
                 expr,
             } => {
-                ctx.env.push_scope();
                 ctx.defercx.push_stack(DeferStackKind::Loop);
 
                 let _for = ExprKind::For {
@@ -177,7 +163,6 @@ impl Lower for Expr {
                 };
 
                 ctx.defercx.pop_stack();
-                ctx.env.pop_scope();
 
                 _for
             }
@@ -324,11 +309,7 @@ impl Lower for Expr {
             }
             ExprKind::StructType(t) => ExprKind::StructType(StructType {
                 name: t.name,
-                qualified_name: ustr(&format!(
-                    "{}.{}",
-                    ctx.env.scope_name(),
-                    t.name
-                )),
+                qualified_name: t.qualified_name,
                 kind: t.kind,
                 fields: t
                     .fields

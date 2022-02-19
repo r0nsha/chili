@@ -23,8 +23,6 @@ impl<'a> AnalysisContext<'a> {
 
         let ty = proto.ty.into_fn();
 
-        // let expected_return_ty = self.infcx.normalize_ty(&ty.ret);
-
         let mut fn_frame = AnalysisFrame::new(
             frame.module_info,
             Some(*ty.ret.clone()),
@@ -49,11 +47,15 @@ impl<'a> AnalysisContext<'a> {
             )?;
         }
 
+        fn_frame.push_named_scope(proto.name);
+
         let (mut body, result_ty) = self.check_block(
             &mut fn_frame,
             &func.body,
             Some(proto.ty.clone()),
         )?;
+
+        fn_frame.pop_scope();
 
         let last_stmt_span = match func.body.exprs.last() {
             Some(stmt) => &stmt.span,

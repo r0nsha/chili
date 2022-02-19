@@ -990,9 +990,25 @@ impl<'a> AnalysisContext<'a> {
                 )
             }
             ExprKind::StructType(struct_type) => {
+                let name = if struct_type.name == "" {
+                    self.get_anonymous_struct_name(&expr.span)
+                } else {
+                    struct_type.name
+                };
+
+                let qualified_name = if struct_type.name == "" {
+                    name
+                } else {
+                    ustr(&format!(
+                        "{}.{}",
+                        frame.env.scope_name(),
+                        struct_type.name
+                    ))
+                };
+
                 let opaque_struct = Ty::Struct(StructTy::opaque(
                     struct_type.name,
-                    struct_type.qualified_name,
+                    qualified_name,
                     struct_type.kind,
                 ));
 
@@ -1041,18 +1057,6 @@ impl<'a> AnalysisContext<'a> {
                     });
                 }
 
-                let name = if struct_type.name == "" {
-                    self.get_anonymous_struct_name(&expr.span)
-                } else {
-                    struct_type.name
-                };
-
-                let qualified_name = if struct_type.name == "" {
-                    name
-                } else {
-                    struct_type.qualified_name
-                };
-
                 let mut struct_ty = StructTy {
                     name,
                     qualified_name,
@@ -1061,7 +1065,7 @@ impl<'a> AnalysisContext<'a> {
                 };
 
                 for field in struct_ty.fields.iter() {
-                    if self.occurs_check(&field.ty, struct_ty.qualified_name) {
+                    if self.occurs_check(&field.ty, qualified_name) {
                         return Err(TypeError::circular_type(
                             &expr.span,
                             &struct_ty.name,
@@ -1371,6 +1375,7 @@ impl<'a> AnalysisContext<'a> {
         }
     }
 
+    // TODO: this function is probably redundant?
     fn emplace_struct_ty(&self, ty: &mut Ty, struct_ty: &StructTy) {
         match ty {
             Ty::Fn(func) => {
