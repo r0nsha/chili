@@ -1,5 +1,5 @@
 use chilic_llvm::codegen;
-use chilic_pass::ir_gen::IrGen;
+use chilic_pass::ast_generator::AstGenerator;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
 use colored::Colorize;
 
@@ -33,28 +33,29 @@ pub fn do_build(build_options: BuildOptions) {
     let root_dir =
         format!("{}{}", root_dir.display(), std::path::MAIN_SEPARATOR);
 
-    let (items, root_file_id) = {
-        let mut ir_gen = IrGen {
+    let (asts, root_file_id) = {
+        let mut ast_generator = AstGenerator {
             files: &mut files,
             root_dir: root_dir.clone(),
             root_file_id: 0,
             already_parsed_modules: UstrSet::default(),
         };
 
-        let items = match ir_gen.gen(build_options.source_file.clone()) {
-            Ok(items) => items,
+        let asts = match ast_generator.start(build_options.source_file.clone())
+        {
+            Ok(asts) => asts,
             Err(diagnostic) => {
-                emit_single_diagnostic(&ir_gen.files, diagnostic);
+                emit_single_diagnostic(&ast_generator.files, diagnostic);
                 return;
             }
         };
 
-        (items, ir_gen.root_file_id)
+        (asts, ast_generator.root_file_id)
     };
 
     let sw = Stopwatch::start_new("lower");
 
-    let ir = match chilic_pass::gen_structured_ir(&items, files.clone()) {
+    let ir = match chilic_pass::gen_ir(asts, files.clone()) {
         Ok(ir) => ir,
         Err(diagnostic) => {
             emit_single_diagnostic(&files, diagnostic);

@@ -1,14 +1,9 @@
-use std::path::PathBuf;
-
 use chilic_ast::{
-    entity::Visibility,
-    item::{Item, ItemKind, Items},
-    module::ModuleInfo,
-    path::resolve_relative_path,
-    r#use::Use,
+    entity::Visibility, module::ModuleInfo, path::resolve_relative_path,
+    r#use::Use, Ast,
 };
 use chilic_error::DiagnosticResult;
-use chilic_parse::{Parser, ParserResult};
+use chilic_parse::Parser;
 use chilic_span::Span;
 use chilic_token::{lexer::Lexer, TokenType};
 use codespan_reporting::files::SimpleFiles;
@@ -16,48 +11,40 @@ use common::{
     compiler_info::{self, IntrinsticModuleInfo},
     Stopwatch,
 };
+use std::path::PathBuf;
+use unindent::unindent;
 use ustr::{ustr, UstrSet};
 
-pub struct IrGen<'a> {
+pub struct AstGenerator<'a> {
     pub files: &'a mut SimpleFiles<String, String>,
     pub root_dir: String,
     pub root_file_id: usize,
     pub already_parsed_modules: UstrSet,
 }
 
-impl<'a> IrGen<'a> {
-    pub fn gen(&mut self, file_path: String) -> DiagnosticResult<Items> {
-        let mut items = vec![];
+impl<'a> AstGenerator<'a> {
+    pub fn start(&mut self, file_path: String) -> DiagnosticResult<Vec<Ast>> {
+        let mut asts: Vec<Ast> = vec![];
 
-        let file_path = resolve_relative_path(&file_path, "", None)?;
-        self.add_root_source_file(&mut items, file_path)?;
+        let root_file_path = resolve_relative_path(
+            &file_path,
+            &common::builtin::root_module(),
+            None,
+        )?;
 
-        Ok(items)
-    }
+        let root_module_info = ModuleInfo::new(
+            common::builtin::root_module(),
+            ustr(&root_file_path),
+        );
 
-    fn add_root_source_file(
-        &mut self,
-        all_items: &mut Items,
-        file_path: String,
-    ) -> DiagnosticResult<()> {
-        self.add_source_file_internal(
-            all_items,
-            ModuleInfo::new(common::builtin::root_module(), ustr(&file_path)),
-            true,
-        )
+        self.add_source_file(&mut asts, root_module_info, true)?;
+
+        Ok(asts)
     }
 
     fn add_source_file(
         &mut self,
-        all_items: &mut Items,
-        module_info: ModuleInfo,
-    ) -> DiagnosticResult<()> {
-        self.add_source_file_internal(all_items, module_info, false)
-    }
-
-    fn add_source_file_internal(
-        &mut self,
-        all_items: &mut Items,
+        asts: &mut Vec<Ast>,
         module_info: ModuleInfo,
         is_root: bool,
     ) -> DiagnosticResult<()> {
@@ -68,10 +55,9 @@ impl<'a> IrGen<'a> {
         let source = std::fs::read_to_string(module_info.file_path.as_str())
             .expect(&format!("failed to read `{}`", module_info.file_path));
 
-        let file_id = self.files.add(
-            module_info.file_path.to_string(),
-            unindent::unindent(&source),
-        );
+        let file_id = self
+            .files
+            .add(module_info.file_path.to_string(), unindent(&source));
 
         if is_root {
             self.root_file_id = file_id;
@@ -106,44 +92,31 @@ impl<'a> IrGen<'a> {
                 .to_string(),
         );
 
-        let ParserResult {
-            mut items,
-            mut uses,
-        } = parser.parse()?;
+        let mut parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
         // TODO: if `std` is already added, don't add it!
-        add_intrinsic_std_use(&mut items, &mut uses, module_info);
+        add_intrinsic_std_use(&mut parse_result.ast, &mut parse_result.uses);
 
-        for used_module in uses {
-            self.add_source_file(all_items, used_module)?;
+        for used_module in parse_result.uses.iter() {
+            self.add_source_file(asts, *used_module, false)?;
         }
 
         sw.print();
 
-        all_items.extend(items);
+        asts.push(parse_result.ast);
 
         Ok(())
     }
 }
 
-fn add_intrinsic_std_use(
-    items: &mut Items,
-    uses: &mut Vec<ModuleInfo>,
-    module_info: ModuleInfo,
-) {
-    add_intrinsic_module(
-        items,
-        uses,
-        module_info,
-        compiler_info::std_module_info(),
-    )
+fn add_intrinsic_std_use(ast: &mut Ast, uses: &mut Vec<ModuleInfo>) {
+    add_intrinsic_module(ast, uses, compiler_info::std_module_info())
 }
 
 fn add_intrinsic_module(
-    items: &mut Items,
+    ast: &mut Ast,
     uses: &mut Vec<ModuleInfo>,
-    module_info: ModuleInfo,
     intrinsic_module_info: IntrinsticModuleInfo,
 ) {
     let intrinsic_module_info = ModuleInfo::new(
@@ -151,17 +124,13 @@ fn add_intrinsic_module(
         intrinsic_module_info.file_path,
     );
 
-    items.push(Item::new(
-        module_info,
-        ItemKind::Use(Use {
-            module_info: intrinsic_module_info,
-            alias: intrinsic_module_info.name,
-            use_path: vec![],
-            visibility: Visibility::Private,
-            span: Span::empty(),
-        }),
-        Span::empty(),
-    ));
+    ast.uses.push(Use {
+        module_info: intrinsic_module_info,
+        alias: intrinsic_module_info.name,
+        use_path: vec![],
+        visibility: Visibility::Private,
+        span: Span::empty(),
+    });
 
     uses.push(intrinsic_module_info);
 }

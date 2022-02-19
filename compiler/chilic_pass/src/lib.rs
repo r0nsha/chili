@@ -1,6 +1,6 @@
+pub mod ast_generator;
 mod defer;
 mod expand_use_wildcard;
-pub mod ir_gen;
 
 use chilic_ast::entity::Entity;
 use chilic_ast::expr::{
@@ -10,8 +10,8 @@ use chilic_ast::expr::{
 use chilic_ast::foreign_library::ForeignLibrary;
 use chilic_ast::func::{Fn, FnParam, Proto};
 use chilic_ast::ir::Ir;
-use chilic_ast::item::{ItemKind, Items};
 use chilic_ast::module::Module;
+use chilic_ast::Ast;
 use chilic_error::DiagnosticResult;
 use chilic_span::Span;
 use chilic_ty::Ty;
@@ -45,8 +45,8 @@ struct IrGenContext {
     defercx: DeferContext,
 }
 
-pub fn gen_structured_ir(
-    items: &Items,
+pub fn gen_ir(
+    asts: Vec<Ast>,
     files: SimpleFiles<String, String>,
 ) -> DiagnosticResult<Ir> {
     let mut ctx = IrGenContext {
@@ -58,23 +58,18 @@ pub fn gen_structured_ir(
 
     let mut ir = Ir::new(files);
 
-    for item in items {
-        let module = ir
-            .modules
-            .entry(item.module_info.name)
-            .or_insert_with(|| Module::new(item.module_info));
+    for ast in asts {
+        let mut module = Module::new(ast.module_info);
 
-        ctx.module_path = item.module_info.file_path;
-        ctx.env.push_named_scope(item.module_info.name);
+        ctx.module_path = ast.module_info.file_path;
+        ctx.env.push_named_scope(ast.module_info.name);
 
-        match &item.kind {
-            ItemKind::Use(use_) => module.uses.push(use_.clone()),
-            ItemKind::Entity(entity) => {
-                module.entities.push(entity.lower(&mut ctx))
-            }
-        }
+        module.uses.extend(ast.uses);
+        module.entities.extend(ast.entities.lower(&mut ctx));
 
         ctx.env.pop_scope();
+
+        ir.modules.insert(ast.module_info.name, module);
     }
 
     for ForeignLibraryData {

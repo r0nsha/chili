@@ -2,15 +2,15 @@ mod entity;
 mod expr;
 mod foreign;
 mod func;
-mod item;
 mod literal;
 mod pattern;
 mod postfix_expr;
+mod top_level;
 mod ty;
 mod r#use;
 
 use bitflags::bitflags;
-use chilic_ast::{item::Items, module::ModuleInfo};
+use chilic_ast::{module::ModuleInfo, Ast};
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::Span;
 use chilic_token::{Token, TokenType::*};
@@ -105,7 +105,7 @@ pub struct Parser {
 }
 
 pub struct ParserResult {
-    pub items: Items,
+    pub ast: Ast,
     pub uses: Vec<ModuleInfo>,
 }
 
@@ -130,21 +130,15 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> DiagnosticResult<ParserResult> {
-        let mut items: Items = Items::new();
+        let mut ast = Ast::new(self.module_info);
 
         while !self.is_end() {
-            match self.parse_item() {
-                Ok(i) => items.extend(i),
-                Err(why) => {
-                    return Err(why);
-                }
-            };
-
+            self.parse_top_level(&mut ast)?;
             self.skip_redundant_tokens();
         }
 
         Ok(ParserResult {
-            items,
+            ast,
             uses: self.used_modules.clone(),
         })
     }
