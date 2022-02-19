@@ -6,7 +6,7 @@ use crate::{entity::Entity, use_decl::UseDecl};
 pub struct Module {
     pub info: ModuleInfo,
     pub uses: Vec<UseDecl>,
-    pub entitys: Vec<Entity>,
+    pub entities: Vec<Entity>,
 }
 
 impl Module {
@@ -14,13 +14,13 @@ impl Module {
         Self {
             info,
             uses: vec![],
-            entitys: vec![],
+            entities: vec![],
         }
     }
 
     pub fn find_entity(&self, symbol: impl Into<Ustr>) -> Option<&Entity> {
         let symbol = symbol.into();
-        self.entitys
+        self.entities
             .iter()
             .find(|entity| entity.pattern.into_single().symbol == symbol)
     }

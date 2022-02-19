@@ -121,7 +121,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         for module in self.ir.modules.values() {
             state.module_info = module.info;
 
-            for entity in module.entitys.iter() {
+            for entity in module.entities.iter() {
                 if !entity.should_codegen || entity.kind == EntityKind::Type {
                     continue;
                 }

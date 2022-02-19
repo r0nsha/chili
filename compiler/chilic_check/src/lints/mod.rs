@@ -41,7 +41,7 @@ impl<T: Lint> Lint for Box<T> {
 impl Lint for Ir {
     fn lint(&self) -> DiagnosticResult<()> {
         for module in self.modules.values() {
-            for entity in &module.entitys {
+            for entity in &module.entities {
                 entity.lint()?;
             }
         }

@@ -74,7 +74,7 @@ impl<'a> AnalysisContext<'a> {
             (None, None)
         };
 
-        // * don't allow types to be bounded to mutable entitys
+        // * don't allow types to be bounded to mutable entities
         if const_value.as_ref().map_or(false, |v| v.is_type()) {
             match &entity.pattern {
                 Pattern::Single(SymbolPattern {
@@ -100,7 +100,7 @@ impl<'a> AnalysisContext<'a> {
             }
         }
 
-        // * don't allow const values with mutable entitys
+        // * don't allow const values with mutable entities
         let const_value = match &entity.pattern {
             Pattern::Single(SymbolPattern { is_mutable, .. }) => {
                 if *is_mutable {
@@ -314,7 +314,7 @@ impl<'a> AnalysisContext<'a> {
 
         let new_module = self.get_or_insert_new_module(module_info);
         let entity_info = EntityInfo::from_entity(&entity);
-        new_module.entitys.push(entity);
+        new_module.entities.push(entity);
 
         self.processed_items_stack.pop();
 

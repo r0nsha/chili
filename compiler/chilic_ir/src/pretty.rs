@@ -44,7 +44,7 @@ impl Ir {
                 ));
             }
 
-            module.entitys.build(&mut b);
+            module.entities.build(&mut b);
 
             b.end_child();
         }

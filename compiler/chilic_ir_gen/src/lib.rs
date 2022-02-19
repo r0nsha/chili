@@ -71,7 +71,7 @@ pub fn gen_structured_ir(
         match &item.kind {
             ItemKind::UseDecl(use_) => module.uses.push(use_.clone()),
             ItemKind::Entity(entity) => {
-                module.entitys.push(entity.lower(&mut ctx))
+                module.entities.push(entity.lower(&mut ctx))
             }
         }
 

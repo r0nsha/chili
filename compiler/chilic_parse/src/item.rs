@@ -42,8 +42,8 @@ impl Parser {
             Ok(items)
         } else if match_token!(self, Foreign) {
             let start_span = self.previous().span.clone();
-            let entitys = self.parse_foreign_block()?;
-            let items = entitys
+            let entities = self.parse_foreign_block()?;
+            let items = entities
                 .iter()
                 .map(|entity| {
                     Item::new(

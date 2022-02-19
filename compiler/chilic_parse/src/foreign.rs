@@ -17,32 +17,25 @@ impl Parser {
 
         require!(self, OpenCurly, "{")?;
 
-        let mut entitys = vec![];
+        let entities = parse_list!(
+            self,
+            CloseCurly,
+            Semicolon,
+            {
+                let visibility = if match_token!(self, Pub) {
+                    Visibility::Public
+                } else {
+                    Visibility::Private
+                };
 
-        while !match_token!(self, CloseCurly) {
-            let visibility = if match_token!(self, Pub) {
-                Visibility::Public
-            } else {
-                Visibility::Private
-            };
+                require!(self, Let, "let")?;
 
-            require!(self, Let, "let")?;
+                self.parse_foreign_entity(lib_name, visibility)?
+            },
+            "; or }"
+        );
 
-            entitys.push(self.parse_foreign_entity(lib_name, visibility)?);
-
-            if match_token!(self, Semicolon) {
-                continue;
-            } else if match_token!(self, CloseCurly) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(
-                    self.span_ref(),
-                    "newline, ; or }",
-                ));
-            }
-        }
-
-        Ok(entitys)
+        Ok(entities)
     }
 
     pub(crate) fn parse_foreign_single(

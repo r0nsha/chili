@@ -59,7 +59,7 @@ pub fn check_ir(
             }
         }
 
-        for entity in &module.entitys {
+        for entity in &module.entities {
             let SymbolPattern {
                 symbol,
                 span,
@@ -93,7 +93,7 @@ pub fn check_ir(
 
     let mut startup_entity = None;
 
-    for entity in &root_module.entitys {
+    for entity in &root_module.entities {
         match &entity.value {
             Some(expr) => match &expr.kind {
                 ExprKind::Fn(func) => {
@@ -140,7 +140,7 @@ pub fn check_ir(
                     ancx.check_use(*module_name, use_)?;
                 }
 
-                for entity in module.entitys.iter() {
+                for entity in module.entities.iter() {
                     ancx.check_top_level_entity_internal(
                         module.info,
                         entity,

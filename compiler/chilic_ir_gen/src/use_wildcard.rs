@@ -61,7 +61,7 @@ fn expand_wildcard_use(
                 }
             }
 
-            for entity in module.entitys.iter() {
+            for entity in module.entities.iter() {
                 if entity.visibility != Visibility::Private {
                     symbols_to_use.push((
                         entity.pattern.into_single().symbol,

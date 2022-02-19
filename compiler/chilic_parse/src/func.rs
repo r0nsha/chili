@@ -60,74 +60,78 @@ impl Parser {
         &mut self,
         kind: ParseProtoKind,
     ) -> DiagnosticResult<(Vec<FnParam>, bool)> {
-        let mut variadic = false;
-        let mut params = vec![];
-
         if !match_token!(self, OpenParen) {
-            return Ok((params, variadic));
+            return Ok((vec![], false));
         }
 
-        while !match_token!(self, CloseParen) && !self.is_end() {
-            if match_token!(self, DotDot) {
-                require!(self, CloseParen, ")")?;
-                variadic = true;
-                break;
-            }
+        let mut variadic = false;
 
-            match kind {
-                ParseProtoKind::Value => {
-                    let pattern = self.parse_pattern()?;
-
-                    let ty = if match_token!(self, Colon) {
-                        let ty = self.parse_ty()?;
-                        Some(Box::new(ty))
-                    } else {
-                        None
-                    };
-
-                    params.push(FnParam { pattern, ty });
+        let params = parse_list!(
+            self,
+            CloseParen,
+            Comma,
+            {
+                if match_token!(self, DotDot) {
+                    require!(self, CloseParen, ")")?;
+                    variadic = true;
+                    break;
                 }
-                ParseProtoKind::Type => {
-                    // the parameter's name is optional, so we are checking for
-                    // ambiguity here
-                    if match_token!(self, Id(_))
-                        || match_token!(self, Placeholder)
-                    {
-                        if match_token!(self, Colon) {
-                            // (a: {type}, ..)
-                            self.revert(2);
-                        } else {
-                            // ({type}, ..)
-                            self.revert(1);
-                            let pattern = Pattern::Single(SymbolPattern {
-                                symbol: ustr(""),
-                                alias: None,
-                                span: Span::empty(),
-                                is_mutable: false,
-                                ignore: true,
-                            });
 
+                match kind {
+                    ParseProtoKind::Value => {
+                        let pattern = self.parse_pattern()?;
+
+                        let ty = if match_token!(self, Colon) {
+                            let ty = self.parse_ty()?;
+                            Some(Box::new(ty))
+                        } else {
+                            None
+                        };
+
+                        FnParam { pattern, ty }
+                    }
+                    ParseProtoKind::Type => {
+                        // the parameter's name is optional, so we are checking
+                        // for ambiguity here
+                        if match_token!(self, Id(_))
+                            || match_token!(self, Placeholder)
+                        {
+                            if match_token!(self, Colon) {
+                                // (a: {type}, ..)
+                                self.revert(2);
+                                let pattern = Pattern::Single(
+                                    self.parse_symbol_pattern()?,
+                                );
+                                require!(self, Colon, ":")?;
+                                let ty = Some(Box::new(self.parse_ty()?));
+                                FnParam { pattern, ty }
+                            } else {
+                                // ({type}, ..)
+                                self.revert(1);
+                                let pattern = Pattern::Single(SymbolPattern {
+                                    symbol: ustr(""),
+                                    alias: None,
+                                    span: Span::empty(),
+                                    is_mutable: false,
+                                    ignore: true,
+                                });
+
+                                let ty = Some(Box::new(self.parse_ty()?));
+                                FnParam { pattern, ty }
+                            }
+                        } else {
+                            // (a: {type}, ..)
+                            let pattern =
+                                Pattern::Single(self.parse_symbol_pattern()?);
+                            require!(self, Colon, ":")?;
                             let ty = Some(Box::new(self.parse_ty()?));
-                            params.push(FnParam { pattern, ty });
+                            FnParam { pattern, ty }
                         }
                     }
-
-                    // (a: {type}, ..)
-                    let pattern = Pattern::Single(self.parse_symbol_pattern()?);
-                    require!(self, Colon, ":")?;
-                    let ty = Some(Box::new(self.parse_ty()?));
-                    params.push(FnParam { pattern, ty });
                 }
-            }
-
-            if match_token!(self, Comma) {
-                continue;
-            } else if match_token!(self, CloseParen) {
-                break;
-            } else {
-                return Err(SyntaxError::expected(self.span_ref(), ", or )"));
-            }
-        }
+            },
+            ", or )"
+        );
 
         Ok((params, variadic))
     }

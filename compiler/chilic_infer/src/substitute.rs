@@ -58,9 +58,9 @@ impl Substitute for Ir {
         table: &mut InPlaceUnificationTable<TyVar>,
     ) -> DiagnosticResult<()> {
         for (_, module) in self.modules.iter_mut() {
-            module.entitys.substitute(table)?;
+            module.entities.substitute(table)?;
 
-            for entity in module.entitys.iter_mut() {
+            for entity in module.entities.iter_mut() {
                 entity.substitute(table)?;
             }
         }

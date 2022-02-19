@@ -137,7 +137,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let root_module = self.ir.root_module();
 
         let startup_entity = root_module
-            .entitys
+            .entities
             .iter()
             .find(|entity| match &entity.value {
                 Some(expr) => match &expr.kind {
