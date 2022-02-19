@@ -1,10 +1,7 @@
 use super::codegen::{Codegen, CodegenState};
-use chilic_ir::module::ModuleInfo;
 use chilic_span::Span;
 use codespan_reporting::files::Files;
-use common::compiler_info::std_module_root_dir;
 use inkwell::values::{BasicValueEnum, IntValue};
-use ustr::ustr;
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[allow(unused)]

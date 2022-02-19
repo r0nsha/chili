@@ -1,23 +1,4 @@
 use c.?
 
-type Foo = {a: i32}
-
 let main = fn {
-    let foo = Foo{ a: 5 };
-    printf("a = %d\n".data, if foo.a == 5 {
-        foo.a
-    } else {
-        1000
-    });
 }
-
-my_list
-    .map(|a| {
-        let b = a * 2;
-        let c = foo(b, 1, 2);
-        c
-    })
-    .filter(|a| {
-        ...
-    })
-    ...

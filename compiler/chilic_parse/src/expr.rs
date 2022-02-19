@@ -35,13 +35,13 @@ impl Parser {
     ) -> DiagnosticResult<Expr> {
         self.decl_name_frames.push(decl_name);
 
-        let expr = if self.match_one(If) {
+        let expr = if mat!(self, If) {
             self.parse_if()
-        } else if self.match_one(While) {
+        } else if mat!(self, While) {
             self.parse_while()
-        } else if self.match_one(For) {
+        } else if mat!(self, For) {
             self.parse_for()
-        } else if self.match_one(OpenCurly) {
+        } else if mat!(self, OpenCurly) {
             self.parse_block()
         } else {
             self.parse_logic_or()
@@ -60,14 +60,14 @@ impl Parser {
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        self.consume(OpenCurly)?;
+        req!(self, OpenCurly, "{")?;
         let then_expr = self.parse_block()?;
 
-        let else_expr = if self.match_one(Else) {
-            let expr = if self.match_one(If) {
+        let else_expr = if mat!(self, Else) {
+            let expr = if mat!(self, If) {
                 self.parse_if()?
             } else {
-                self.consume(OpenCurly)?;
+                req!(self, OpenCurly, "{")?;
                 self.parse_block()?
             };
 
@@ -104,7 +104,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_one(BarBar) {
+        while mat!(self, BarBar) {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -126,7 +126,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_one(AmpAmp) {
+        while mat!(self, AmpAmp) {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -148,7 +148,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_any(&[BangEq, EqEq, Gt, GtEq, Lt, LtEq]) {
+        while mat!(self, BangEq | EqEq | Gt | GtEq | Lt | LtEq) {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -170,7 +170,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_one(Bar) {
+        while mat!(self, Bar) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -197,7 +197,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_one(Caret) {
+        while mat!(self, Caret) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -224,7 +224,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_one(Amp) {
+        while mat!(self, Amp) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -251,7 +251,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_any(&[LtLt, GtGt]) {
+        while mat!(self, LtLt | GtGt) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -278,7 +278,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_any(&[Minus, Plus]) {
+        while mat!(self, Minus | Plus) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -305,7 +305,7 @@ impl Parser {
 
         let start_span = expr.span.clone();
 
-        while self.match_any(&[Star, FwSlash, Percent]) {
+        while mat!(self, Star | FwSlash | Percent) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -328,14 +328,14 @@ impl Parser {
     }
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
-        if self.match_any(&[Amp, AmpAmp, Bang, Minus, Plus, Tilde]) {
+        if mat!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
             let span = self.previous().span.clone();
             let token = &self.previous().token_type;
 
             let expr = Expr::new(
                 ExprKind::Unary {
                     op: match token {
-                        Amp => UnaryOp::Ref(self.match_one(Mut)),
+                        Amp => UnaryOp::Ref(mat!(self, Mut)),
                         Star => UnaryOp::Deref,
                         Minus => UnaryOp::Neg,
                         Plus => UnaryOp::Plus,
@@ -355,7 +355,7 @@ impl Parser {
     }
 
     pub(crate) fn parse_atom(&mut self) -> DiagnosticResult<Expr> {
-        let expr = if self.match_id() {
+        let expr = if mat!(self, Id(_)) {
             let token = self.previous();
             let symbol = token.symbol();
             Expr::new(
@@ -366,14 +366,14 @@ impl Parser {
                 },
                 token.span.clone(),
             )
-        } else if self.match_one(OpenBracket) {
+        } else if mat!(self, OpenBracket) {
             self.parse_array_literal()?
-        } else if self.match_one(Dot) {
+        } else if mat!(self, Dot) {
             let start_span = self.previous().span.clone();
 
             // anonymous struct literal
             if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
-                && self.match_one(OpenCurly)
+                && mat!(self, OpenCurly)
             {
                 self.parse_struct_literal(None, start_span)?
             } else {
@@ -382,24 +382,19 @@ impl Parser {
                     &format!("an expression, got `{}`", self.peek().lexeme),
                 ));
             }
-        } else if self.match_one(At) {
+        } else if mat!(self, At) {
             return self.parse_builtin();
-        } else if self.match_any(&[Break, Continue, Return]) {
+        } else if mat!(self, Break | Continue | Return) {
             return self.parse_terminator();
-        } else if self.match_any(&[
-            Nil,
-            True,
-            False,
-            Int(0),
-            Float(0.0),
-            Str(ustr("")),
-            Char(' '),
-        ]) {
+        } else if mat!(
+            self,
+            Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)
+        ) {
             self.parse_literal()?
-        } else if self.match_one(OpenParen) {
+        } else if mat!(self, OpenParen) {
             let start_span = self.previous().span.clone();
 
-            if self.match_one(CloseParen) {
+            if mat!(self, CloseParen) {
                 Expr::new(
                     ExprKind::Literal(LiteralKind::Unit),
                     Span::merge(&start_span, self.previous_span_ref()),
@@ -407,10 +402,10 @@ impl Parser {
             } else {
                 let mut expr = self.parse_expr()?;
 
-                let expr = if self.match_one(Comma) {
+                let expr = if mat!(self, Comma) {
                     self.parse_tuple_literal(expr, start_span)?
                 } else {
-                    self.consume(CloseParen)?;
+                    req!(self, CloseParen, ")")?;
 
                     expr.span.range.start -= 1;
                     expr.span =
@@ -421,7 +416,7 @@ impl Parser {
 
                 expr
             }
-        } else if self.match_one(Fn) {
+        } else if mat!(self, Fn) {
             self.parse_fn()?
         } else {
             return Err(SyntaxError::expected(
@@ -435,15 +430,15 @@ impl Parser {
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span.clone();
-        let id_token = self.consume_id()?.clone();
+        let id_token = req!(self, Id(_), "identifier")?.clone();
         let symbol = id_token.symbol();
 
-        self.consume(OpenParen)?;
+        req!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
             "size_of" => Builtin::SizeOf(Box::new(self.parse_ty()?)),
             "align_of" => Builtin::AlignOf(Box::new(self.parse_ty()?)),
-            "panic" => Builtin::Panic(if self.check_token(CloseParen) {
+            "panic" => Builtin::Panic(if is!(self, CloseParen) {
                 None
             } else {
                 Some(Box::new(self.parse_expr()?))
@@ -456,7 +451,7 @@ impl Parser {
             }
         };
 
-        self.consume(CloseParen)?;
+        req!(self, CloseParen, ")")?;
 
         Ok(Expr::new(
             ExprKind::Builtin(builtin),
@@ -469,7 +464,7 @@ impl Parser {
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        self.consume(OpenCurly)?;
+        req!(self, OpenCurly, "{")?;
         let expr = self.parse_block()?;
 
         Ok(Expr::new(
@@ -492,13 +487,13 @@ impl Parser {
         self.mark(0);
 
         // iterator and index declarations
-        let (mut iter_name, iter_index_name) = if self.match_id() {
+        let (mut iter_name, iter_index_name) = if mat!(self, Id(_)) {
             declared_names = 1;
 
             let iter_name = self.previous().symbol();
 
-            let iter_index_name = if self.match_one(Comma) {
-                if self.match_id() {
+            let iter_index_name = if mat!(self, Comma) {
+                if mat!(self, Id(_)) {
                     declared_names = 2;
                     self.previous().symbol()
                 } else {
@@ -516,13 +511,13 @@ impl Parser {
         // in declaration
         let mut has_reset_mark = false;
         if declared_names == 1 {
-            if !self.match_one(In) {
+            if !mat!(self, In) {
                 iter_name = default_iter;
                 self.reset_to_mark();
                 has_reset_mark = true;
             }
         } else if declared_names == 2 {
-            self.consume(In)?;
+            req!(self, In, "in")?;
         }
 
         if !has_reset_mark {
@@ -533,7 +528,7 @@ impl Parser {
         let iter_start =
             self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        let iterator = if self.match_one(DotDot) {
+        let iterator = if mat!(self, DotDot) {
             let iter_end =
                 self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
             ForIter::Range(Box::new(iter_start), Box::new(iter_end))
@@ -541,7 +536,7 @@ impl Parser {
             ForIter::Value(Box::new(iter_start))
         };
 
-        self.consume(OpenCurly)?;
+        req!(self, OpenCurly, "{")?;
         let expr = self.parse_block()?;
 
         Ok(Expr::new(
@@ -564,11 +559,11 @@ impl Parser {
                 Break => ExprKind::Break { deferred: vec![] },
                 Continue => ExprKind::Continue { deferred: vec![] },
                 Return => {
-                    let expr = if self.match_line_terminator() {
+                    let expr = if mat!(self, Semicolon) {
                         None
                     } else {
                         let expr = self.parse_expr()?;
-                        self.consume_line_terminator()?;
+                        req!(self, Semicolon, ";")?;
                         Some(Box::new(expr))
                     };
 

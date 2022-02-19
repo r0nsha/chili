@@ -2,16 +2,15 @@ use chilic_ir::{
     expr::{Expr, ExprKind},
     func::{Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
-    stmt::{Stmt, StmtKind},
+    stmt::Stmt,
 };
 use chilic_span::Span;
-use chilic_token::TokenType::*;
 use chilic_ty::Ty;
 use ustr::{ustr, Ustr};
 
 use chilic_error::{DiagnosticResult, SyntaxError};
 
-use crate::Parser;
+use crate::*;
 
 impl Parser {
     pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
@@ -40,7 +39,7 @@ impl Parser {
     ) -> DiagnosticResult<Proto> {
         let (params, variadic) = self.parse_fn_params(kind)?;
 
-        let ret_ty = if self.match_one(RightArrow) {
+        let ret_ty = if mat!(self, RightArrow) {
             Some(Box::new(self.parse_ty()?))
         } else {
             None
@@ -64,13 +63,13 @@ impl Parser {
         let mut variadic = false;
         let mut params = vec![];
 
-        if !self.match_one(OpenParen) {
+        if !mat!(self, OpenParen) {
             return Ok((params, variadic));
         }
 
-        while !self.match_one(CloseParen) && !self.is_end() {
-            if self.match_one(DotDot) {
-                self.consume(CloseParen)?;
+        while !mat!(self, CloseParen) && !self.is_end() {
+            if mat!(self, DotDot) {
+                req!(self, CloseParen, ")")?;
                 variadic = true;
                 break;
             }
@@ -79,7 +78,7 @@ impl Parser {
                 ParseProtoKind::Value => {
                     let pattern = self.parse_pattern()?;
 
-                    let ty = if self.match_one(Colon) {
+                    let ty = if mat!(self, Colon) {
                         let ty = self.parse_ty()?;
                         Some(Box::new(ty))
                     } else {
@@ -91,8 +90,8 @@ impl Parser {
                 ParseProtoKind::Type => {
                     // the parameter's name is optional, so we are checking for
                     // ambiguity here
-                    if self.match_id() || self.match_one(Placeholder) {
-                        if self.match_one(Colon) {
+                    if mat!(self, Id(_)) || mat!(self, Placeholder) {
+                        if mat!(self, Colon) {
                             // (a: {type}, ..)
                             self.revert(2);
                         } else {
@@ -113,15 +112,15 @@ impl Parser {
 
                     // (a: {type}, ..)
                     let pattern = Pattern::Single(self.parse_symbol_pattern()?);
-                    self.consume(Colon)?;
+                    req!(self, Colon, ":")?;
                     let ty = Some(Box::new(self.parse_ty()?));
                     params.push(FnParam { pattern, ty });
                 }
             }
 
-            if self.match_one(Comma) {
+            if mat!(self, Comma) {
                 continue;
-            } else if self.match_one(CloseParen) {
+            } else if mat!(self, CloseParen) {
                 break;
             } else {
                 return Err(SyntaxError::expected(self.span_ref(), ", or )"));
@@ -132,7 +131,7 @@ impl Parser {
     }
 
     pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Vec<Stmt>> {
-        self.consume(OpenCurly)?;
+        req!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(match block.kind {

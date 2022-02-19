@@ -94,6 +94,8 @@ impl<'lx> Lexer<'lx> {
                     } else {
                         self.eat_comment()
                     }
+
+                    self.eat_token()?
                 }
                 '/' => {
                     if self.is('=') {
@@ -358,7 +360,7 @@ impl<'lx> Lexer<'lx> {
         }
     }
 
-    fn eat_multiline_comment(&mut self) -> TokenType {
+    fn eat_multiline_comment(&mut self) {
         self.bump();
 
         while self.peek_two() != "]#" && !self.is_eof() {
@@ -371,15 +373,12 @@ impl<'lx> Lexer<'lx> {
 
         self.bump();
         self.bump();
-
-        Comment(ustr(self.source.range(self.cursor)))
     }
 
-    fn eat_comment(&mut self) -> TokenType {
+    fn eat_comment(&mut self) {
         while self.peek() != '\n' && !self.is_eof() {
             self.bump();
         }
-        Comment(ustr(self.source.range(self.cursor)))
     }
 
     fn eat_number(&mut self) -> DiagnosticResult<TokenType> {

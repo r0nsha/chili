@@ -17,35 +17,45 @@ impl Parser {
     ) -> DiagnosticResult<Expr> {
         // named struct literal
         if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
-            && self.match_one(OpenCurly)
+            && mat!(self, OpenCurly)
         {
             let start_span = expr.span.clone();
             return self.parse_struct_literal(Some(Box::new(expr)), start_span);
         }
 
         // compound operations (non-recursive)
-        for op in [
-            PlusEq, MinusEq, StarEq, FwSlashEq, PercentEq, AmpEq, BarEq,
-            CaretEq, LtLtEq, GtGtEq, AmpAmpEq, BarBarEq,
-        ] {
-            if self.match_one(op.clone()) {
-                return self.parse_compound_assign(expr, op.into());
-            }
+
+        if mat!(
+            self,
+            PlusEq
+                | MinusEq
+                | StarEq
+                | FwSlashEq
+                | PercentEq
+                | AmpEq
+                | BarEq
+                | CaretEq
+                | LtLtEq
+                | GtGtEq
+                | AmpAmpEq
+                | BarBarEq
+        ) {
+            return self.parse_compound_assign(expr);
         }
 
         // postfix expressions (recursive)
         loop {
-            expr = if self.match_one(Eq) {
+            expr = if mat!(self, Eq) {
                 self.parse_assign(expr)?
-            } else if self.match_one(Dot) {
+            } else if mat!(self, Dot) {
                 self.parse_field_access(expr)?
-            } else if self.match_one(OpenParen) {
+            } else if mat!(self, OpenParen) {
                 self.parse_call(expr)?
-            } else if self.match_one(OpenBracket) {
+            } else if mat!(self, OpenBracket) {
                 self.parse_subscript_or_slice(expr)?
-            } else if self.match_one(As) {
+            } else if mat!(self, As) {
                 self.parse_as(expr)?
-            } else if self.match_one(Fn) {
+            } else if mat!(self, Fn) {
                 let start_span = expr.span.clone();
 
                 let fn_expr = self.parse_fn()?;
@@ -100,8 +110,8 @@ impl Parser {
     fn parse_compound_assign(
         &mut self,
         lvalue: Expr,
-        op: BinaryOp,
     ) -> DiagnosticResult<Expr> {
+        let op: BinaryOp = self.previous().token_type.clone().into();
         let rvalue = self.parse_expr()?;
 
         let lvalue_span = lvalue.span.clone();
@@ -126,7 +136,7 @@ impl Parser {
     fn parse_as(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
         let start_span = expr.span.clone();
 
-        let type_expr = if self.match_one(Placeholder) {
+        let type_expr = if mat!(self, Placeholder) {
             None
         } else {
             let expr = self.parse_ty()?;
@@ -218,9 +228,9 @@ impl Parser {
         let mut used_named_argument = false;
 
         while self.peek().token_type != CloseParen && !self.is_end() {
-            let symbol = if self.match_id() {
+            let symbol = if mat!(self, Id(_)) {
                 let id_token = self.previous().clone();
-                if self.match_one(Colon) {
+                if mat!(self, Colon) {
                     Some(Spanned::new(id_token.symbol(), id_token.span))
                 } else {
                     self.revert(1);
@@ -251,12 +261,12 @@ impl Parser {
                 value: expr,
             });
 
-            if !self.match_one(Comma) {
+            if !mat!(self, Comma) {
                 break;
             }
         }
 
-        self.consume(CloseParen)?;
+        req!(self, CloseParen, ")")?;
 
         // TODO: fn shorthand
 
@@ -277,13 +287,13 @@ impl Parser {
 
         match self.parse_expr() {
             Ok(index) => {
-                if self.match_one(DotDot) {
+                if mat!(self, DotDot) {
                     let high = match self.parse_expr() {
                         Ok(high) => Some(Box::new(high)),
                         Err(_) => None,
                     };
 
-                    self.consume(CloseBracket)?;
+                    req!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
                         ExprKind::Slice {
@@ -295,7 +305,7 @@ impl Parser {
                     ));
                 }
 
-                self.consume(CloseBracket)?;
+                req!(self, CloseBracket, "]")?;
 
                 Ok(Expr::new(
                     ExprKind::Subscript {
@@ -306,13 +316,13 @@ impl Parser {
                 ))
             }
             Err(err) => {
-                if self.match_one(DotDot) {
+                if mat!(self, DotDot) {
                     let high = match self.parse_expr() {
                         Ok(high) => Some(Box::new(high)),
                         Err(_) => None,
                     };
 
-                    self.consume(CloseBracket)?;
+                    req!(self, CloseBracket, "]")?;
 
                     Ok(Expr::new(
                         ExprKind::Slice {

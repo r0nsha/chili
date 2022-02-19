@@ -1,4 +1,4 @@
-use crate::Parser;
+use crate::*;
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_ir::{
     entity::{EntityKind, Visibility},
@@ -12,7 +12,7 @@ impl Parser {
     pub(crate) fn parse_stmt(&mut self) -> DiagnosticResult<Vec<Stmt>> {
         self.skip_redundant_tokens();
 
-        if self.match_one(Use) {
+        if mat!(self, Use) {
             let uses = self.parse_use(Visibility::Private)?;
 
             let stmts: Vec<Stmt> = uses
@@ -23,17 +23,17 @@ impl Parser {
                 })
                 .collect();
 
-            self.consume_line_terminator()?;
+            req!(self, Semicolon, ";")?;
 
             Ok(stmts)
-        } else if self.match_one(Defer) {
+        } else if mat!(self, Defer) {
             let span = self.span();
             let expr = self.parse_expr()?;
 
-            self.consume_line_terminator()?;
+            req!(self, Semicolon, ";")?;
 
             Ok(vec![Stmt::new(StmtKind::Defer(expr), span)])
-        } else if self.match_one(Type) {
+        } else if mat!(self, Type) {
             let start_span = self.previous().span.clone();
             let entity = self.parse_entity(
                 EntityKind::Type,
@@ -41,16 +41,16 @@ impl Parser {
                 false,
             )?;
 
-            self.consume_line_terminator()?;
+            req!(self, Semicolon, ";")?;
 
             Ok(vec![Stmt::new(
                 StmtKind::Entity(entity),
                 Span::merge(&start_span, self.previous_span_ref()),
             )])
-        } else if self.match_one(Let) {
+        } else if mat!(self, Let) {
             let start_span = self.previous().span.clone();
 
-            let entity = if self.match_one(Foreign) {
+            let entity = if mat!(self, Foreign) {
                 self.parse_foreign_single(Visibility::Private)?
             } else {
                 self.parse_entity(
@@ -60,13 +60,13 @@ impl Parser {
                 )?
             };
 
-            self.consume_line_terminator()?;
+            req!(self, Semicolon, ";")?;
 
             Ok(vec![Stmt::new(
                 StmtKind::Entity(entity),
                 Span::merge(&start_span, self.previous_span_ref()),
             )])
-        } else if self.match_one(Foreign) {
+        } else if mat!(self, Foreign) {
             let start_span = self.previous().span.clone();
             let entitys = self.parse_foreign_block()?;
 
@@ -91,7 +91,7 @@ impl Parser {
         let expr = self.parse_expr()?;
         let span = expr.span.clone();
 
-        let terminated = self.match_line_terminator();
+        let terminated = mat!(self, Semicolon);
 
         Ok(Stmt::new(
             StmtKind::Expr { expr, terminated },
@@ -104,7 +104,7 @@ impl Parser {
 
         self.skip_redundant_tokens();
 
-        while !self.match_one(CloseCurly) && !self.is_end() {
+        while !mat!(self, CloseCurly) && !self.is_end() {
             let stmts = self.parse_stmt()?;
             stmts_list.extend(stmts);
             self.skip_redundant_tokens();

@@ -1,23 +1,22 @@
-use crate::Parser;
+use crate::*;
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_ir::{
     entity::{EntityKind, Visibility},
     item::{Item, ItemKind},
 };
 use chilic_span::Span;
-use chilic_token::TokenType::*;
 
 impl Parser {
     pub(crate) fn parse_item(&mut self) -> DiagnosticResult<Vec<Item>> {
         self.skip_redundant_tokens();
 
-        let visibility = if self.match_one(Pub) {
+        let visibility = if mat!(self, Pub) {
             Visibility::Public
         } else {
             Visibility::Private
         };
 
-        if self.match_one(Use) {
+        if mat!(self, Use) {
             let uses = self.parse_use(visibility)?;
 
             let items: Vec<Item> = uses
@@ -29,19 +28,19 @@ impl Parser {
                 .collect();
 
             Ok(items)
-        } else if self.match_one(Type) {
+        } else if mat!(self, Type) {
             let items = self
                 .parse_decl_item(EntityKind::Type, visibility)
                 .map(|item| vec![item])?;
 
             Ok(items)
-        } else if self.match_one(Let) {
+        } else if mat!(self, Let) {
             let items = self
                 .parse_decl_item(EntityKind::Value, visibility)
                 .map(|item| vec![item])?;
 
             Ok(items)
-        } else if self.match_one(Foreign) {
+        } else if mat!(self, Foreign) {
             let start_span = self.previous().span.clone();
             let entitys = self.parse_foreign_block()?;
             let items = entitys
@@ -71,7 +70,7 @@ impl Parser {
     ) -> DiagnosticResult<Item> {
         let start_span = self.previous().span.clone();
 
-        if kind == EntityKind::Value && self.match_one(Foreign) {
+        if kind == EntityKind::Value && mat!(self, Foreign) {
             let entity = self.parse_foreign_single(visibility)?;
 
             Ok(Item::new(

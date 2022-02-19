@@ -14,10 +14,7 @@ use bitflags::bitflags;
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_ir::{item::Items, module::ModuleInfo};
 use chilic_span::Span;
-use chilic_token::{
-    Token,
-    TokenType::{self, *},
-};
+use chilic_token::{Token, TokenType::*};
 use ustr::{ustr, Ustr};
 
 bitflags! {
@@ -25,6 +22,44 @@ bitflags! {
         const NO_STRUCT_LITERAL = 1 << 0;
     }
 }
+
+macro_rules! is {
+    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
+        if $parser.is_end() {
+            false
+        } else {
+            match &$parser.peek().token_type {
+                $( $pattern )|+ => true,
+                _ => false
+            }
+        }
+    };
+}
+
+macro_rules! mat {
+    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
+        if is!($parser, $( $pattern )|+) {
+            $parser.bump();
+            true
+        } else {
+            false
+        }
+    };
+}
+
+macro_rules! req {
+    ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:literal) => {
+        if is!($parser, $( $pattern )|+) {
+            Ok($parser.bump().clone())
+        } else {
+            Err(SyntaxError::expected($parser.span_ref(), $msg))
+        }
+    };
+}
+
+pub(crate) use is;
+pub(crate) use mat;
+pub(crate) use req;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -108,93 +143,13 @@ impl Parser {
     }
 
     pub(crate) fn skip_redundant_tokens(&mut self) {
-        while self.check_token(Semicolon) {
+        while is!(self, Semicolon) {
             self.bump();
-        }
-    }
-
-    pub(crate) fn consume_str(&mut self) -> DiagnosticResult<Ustr> {
-        let token = self.consume(Str(ustr("")))?;
-        match token.token_type {
-            Str(str) => Ok(str),
-            _ => unreachable!(),
-        }
-    }
-
-    pub(crate) fn consume_id(&mut self) -> DiagnosticResult<Token> {
-        self.consume(Id(ustr("")))
-    }
-
-    pub(crate) fn consume(
-        &mut self,
-        token_type: TokenType,
-    ) -> DiagnosticResult<Token> {
-        if self.check_token(token_type.clone()) {
-            Ok(self.bump().clone())
-        } else {
-            Err(SyntaxError::expected(self.span_ref(), token_type.lexeme()))
-        }
-    }
-
-    pub(crate) fn consume_line_terminator(
-        &mut self,
-    ) -> DiagnosticResult<Token> {
-        if self.match_line_terminator() {
-            Ok(self.previous().clone())
-        } else {
-            Err(SyntaxError::expected(
-                &self.previous_span_ref().end(),
-                Semicolon.lexeme(),
-            ))
         }
     }
 
     pub(crate) fn revert(&mut self, tokens: usize) {
         self.current -= tokens;
-    }
-
-    pub(crate) fn match_id(&mut self) -> bool {
-        self.match_one(Id(ustr("")))
-    }
-
-    pub(crate) fn match_line_terminator(&mut self) -> bool {
-        self.match_one(Semicolon)
-    }
-
-    pub(crate) fn match_one(&mut self, token_type: TokenType) -> bool {
-        if self.check_token(token_type.clone()) {
-            self.bump();
-            true
-        } else {
-            false
-        }
-    }
-
-    pub(crate) fn match_any(&mut self, token_types: &[TokenType]) -> bool {
-        for token_type in token_types {
-            if self.match_one(token_type.clone()) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    pub(crate) fn check_token(&mut self, token_type: TokenType) -> bool {
-        if self.is_end() {
-            false
-        } else {
-            // * if the current token doesn't carry any semantic meaning (i.e: a
-            //   comment), then skip it.
-            if !matches!(token_type, Comment(_))
-                && matches!(self.peek().token_type, Comment(_))
-            {
-                self.bump();
-                self.check_token(token_type)
-            } else {
-                self.peek().is(token_type)
-            }
-        }
     }
 
     pub(crate) fn bump(&mut self) -> &Token {

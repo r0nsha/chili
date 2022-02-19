@@ -2,7 +2,6 @@ use chilic_ir::{
     entity::{Entity, EntityKind, Visibility},
     pattern::Pattern,
 };
-use chilic_token::TokenType::*;
 
 use crate::*;
 
@@ -17,15 +16,15 @@ impl Parser {
             EntityKind::Value => {
                 let pattern = self.parse_pattern()?;
 
-                let ty_expr = if self.match_one(Colon) {
+                let ty_expr = if mat!(self, Colon) {
                     Some(self.parse_ty()?)
                 } else {
                     None
                 };
 
                 if require_value {
-                    self.consume(Eq)?;
-                } else if !self.match_one(Eq) {
+                    req!(self, Eq, "=")?;
+                } else if !mat!(self, Eq) {
                     return Ok(Entity::new(
                         visibility, kind, pattern, ty_expr, None, None,
                     ));
@@ -48,7 +47,7 @@ impl Parser {
             }
             EntityKind::Type => {
                 let pattern = self.parse_symbol_pattern()?;
-                self.consume(Eq)?;
+                req!(self, Eq, "=")?;
                 let value = self.parse_decl_ty(pattern.symbol)?;
 
                 Ok(Entity::new(

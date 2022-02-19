@@ -1,6 +1,4 @@
-use std::path::PathBuf;
-
-use crate::Parser;
+use crate::*;
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_ir::{
     entity::Visibility,
@@ -9,12 +7,12 @@ use chilic_ir::{
     use_decl::{UseDecl, UsePath, UsePathNode},
 };
 use chilic_span::{Span, Spanned};
-use chilic_token::TokenType::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::{
     builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT},
     compiler_info,
 };
+use std::path::PathBuf;
 use ustr::{ustr, Ustr};
 
 impl Parser {
@@ -35,12 +33,12 @@ impl Parser {
         &mut self,
         visibility: Visibility,
     ) -> DiagnosticResult<Vec<UseDecl>> {
-        if self.match_one(Tilde) {
-            self.consume(Dot)?;
+        if mat!(self, Tilde) {
+            req!(self, Dot, ".")?;
             todo!("implement `from_root` use: `use ~.foo.bar`");
         }
 
-        let id_token = self.consume_id()?.clone();
+        let id_token = req!(self, Id(_), "identifier")?.clone();
         let name = id_token.symbol().as_str();
 
         match name {
@@ -150,8 +148,8 @@ impl Parser {
         span: Span,
         use_path: &mut UsePath,
     ) -> DiagnosticResult<Vec<UseDecl>> {
-        if self.match_one(Dot) {
-            if self.match_id() {
+        if mat!(self, Dot) {
+            if mat!(self, Id(_)) {
                 // single child, i.e: `use other.foo`
 
                 let id_token = self.previous();
@@ -171,13 +169,13 @@ impl Parser {
                     id_token_span,
                     use_path,
                 )
-            } else if self.match_one(OpenCurly) {
+            } else if mat!(self, OpenCurly) {
                 // multiple children, i.e: `use other.{foo, bar}`
 
                 let mut uses = vec![];
 
-                while !self.match_one(CloseCurly) {
-                    let id_token = self.consume_id()?.clone();
+                while !mat!(self, CloseCurly) {
+                    let id_token = req!(self, Id(_), "identifier")?.clone();
                     let alias = id_token.symbol();
 
                     let mut local_use_path = use_path.clone();
@@ -197,14 +195,14 @@ impl Parser {
 
                     uses.extend(use_decl);
 
-                    if !self.match_one(Comma) {
-                        self.consume(CloseCurly)?;
+                    if !mat!(self, Comma) {
+                        req!(self, CloseCurly, "}")?;
                         break;
                     }
                 }
 
                 Ok(uses)
-            } else if self.match_one(QuestionMark) {
+            } else if mat!(self, QuestionMark) {
                 use_path.push(Spanned::new(
                     UsePathNode::Wildcard,
                     self.previous().span.clone(),
@@ -223,8 +221,8 @@ impl Parser {
                 ))
             }
         } else {
-            let alias = if self.match_one(Colon) {
-                self.consume_id()?.symbol()
+            let alias = if mat!(self, Colon) {
+                req!(self, Id(_), "identifier")?.symbol()
             } else {
                 alias
             };

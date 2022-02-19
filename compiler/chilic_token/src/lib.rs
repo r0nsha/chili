@@ -147,7 +147,6 @@ pub enum TokenType {
     Str(Ustr),
     Char(char),
 
-    Comment(Ustr),
     Unknown(char),
     Eof,
 }
@@ -237,7 +236,6 @@ impl TokenType {
             Str(_) => "{string}",
             Char(_) => "{char}",
             Unknown(_) => "???",
-            Comment(_) => "comment",
             Eof => "EOF",
         }
     }

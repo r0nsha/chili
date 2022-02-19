@@ -5,10 +5,9 @@ use chilic_ir::{
     pattern::{Pattern, SymbolPattern},
 };
 use chilic_span::Span;
-use chilic_token::TokenType::*;
 use ustr::{ustr, Ustr};
 
-use crate::{func::ParseProtoKind, Parser};
+use crate::{func::ParseProtoKind, *};
 
 impl Parser {
     pub(crate) fn parse_foreign_block(
@@ -16,24 +15,24 @@ impl Parser {
     ) -> DiagnosticResult<Vec<Entity>> {
         let lib_name = self.parse_lib_name()?;
 
-        self.consume(OpenCurly)?;
+        req!(self, OpenCurly, "{")?;
 
         let mut entitys = vec![];
 
-        while !self.match_one(CloseCurly) {
-            let visibility = if self.match_one(Pub) {
+        while !mat!(self, CloseCurly) {
+            let visibility = if mat!(self, Pub) {
                 Visibility::Public
             } else {
                 Visibility::Private
             };
 
-            self.consume(Let)?;
+            req!(self, Let, "let")?;
 
             entitys.push(self.parse_foreign_entity(lib_name, visibility)?);
 
-            if self.match_line_terminator() {
+            if mat!(self, Semicolon) {
                 continue;
-            } else if self.match_one(CloseCurly) {
+            } else if mat!(self, CloseCurly) {
                 break;
             } else {
                 return Err(SyntaxError::expected(
@@ -60,7 +59,7 @@ impl Parser {
         lib_name: Ustr,
         visibility: Visibility,
     ) -> DiagnosticResult<Entity> {
-        let id = self.consume_id()?.clone();
+        let id = req!(self, Id(_), "identifier")?.clone();
 
         let pattern = Pattern::Single(SymbolPattern {
             symbol: id.symbol(),
@@ -70,8 +69,8 @@ impl Parser {
             ignore: false,
         });
 
-        let entity = if self.match_one(Eq) {
-            self.consume(Fn)?;
+        let entity = if mat!(self, Eq) {
+            req!(self, Fn, "fn")?;
 
             let proto_start_span = self.previous().span.clone();
             let mut proto =
@@ -106,9 +105,10 @@ impl Parser {
     }
 
     fn parse_lib_name(&mut self) -> DiagnosticResult<Ustr> {
-        self.consume(OpenParen)?;
+        req!(self, OpenParen, "(")?;
 
-        let lib_name = self.consume_str()?;
+        let lib_token = req!(self, Str(_), "str")?;
+        let lib_name = lib_token.symbol();
 
         let lib_name = if lib_name.ends_with(".lib") {
             lib_name.clone().to_string()
@@ -117,7 +117,7 @@ impl Parser {
         };
         let lib_name = ustr(&lib_name);
 
-        self.consume(CloseParen)?;
+        req!(self, CloseParen, ")")?;
 
         Ok(lib_name)
     }
