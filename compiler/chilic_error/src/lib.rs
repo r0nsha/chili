@@ -328,11 +328,7 @@ impl TypeError {
                 .with_message(format!("expected {}", expected))])
     }
 
-    pub fn invalid_type_cast(
-        span: &Span,
-        from: &Ty,
-        to: &Ty,
-    ) -> Diagnostic<usize> {
+    pub fn invalid_cast(span: &Span, from: &Ty, to: &Ty) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot cast from `{}` to `{}`", from, to))
             .with_labels(vec![Label::primary(span.file_id, span.range.clone())

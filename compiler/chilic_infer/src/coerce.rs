@@ -1,4 +1,4 @@
-use chilic_ast::expr::{Expr, ExprKind, TypeCastInfo};
+use chilic_ast::expr::{Cast, Expr, ExprKind};
 use chilic_ty::{size::SizeOf, *};
 use common::mut_eq;
 
@@ -124,7 +124,7 @@ impl Coerce for Expr {
     fn coerce(&self, target_ty: Ty) -> Self {
         let span = self.span.clone();
         Expr::typed(
-            ExprKind::Cast(TypeCastInfo {
+            ExprKind::Cast(Cast {
                 expr: Box::new(self.clone()),
                 type_expr: None,
                 target_ty: target_ty.clone(),

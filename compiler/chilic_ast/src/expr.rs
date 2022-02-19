@@ -163,7 +163,7 @@ pub enum ExprKind {
         lvalue: Box<Expr>,
         rvalue: Box<Expr>,
     },
-    Cast(TypeCastInfo),
+    Cast(Cast),
     Builtin(Builtin),
     Fn(Fn),
     While {
@@ -320,7 +320,7 @@ pub enum Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TypeCastInfo {
+pub struct Cast {
     pub type_expr: Option<Box<Expr>>,
     pub expr: Box<Expr>,
     pub target_ty: Ty,

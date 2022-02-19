@@ -1,8 +1,6 @@
 use chilic_ast::{
     entity::Entity,
-    expr::{
-        ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter, TypeCastInfo,
-    },
+    expr::{ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter},
     func::{Fn, Proto},
     ir::Ir,
 };
@@ -131,7 +129,7 @@ impl Substitute for Entity {
     }
 }
 
-impl Substitute for TypeCastInfo {
+impl Substitute for Cast {
     fn substitute(
         &mut self,
         table: &mut InPlaceUnificationTable<TyVar>,

@@ -1,8 +1,8 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr, TopLevelLookupKind};
 use chilic_ast::{
     expr::{
-        ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter, LiteralKind,
-        StructLiteralField, StructType, StructTypeField, TypeCastInfo,
+        ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter,
+        LiteralKind, StructLiteralField, StructType, StructTypeField,
     },
     module::ModuleInfo,
     pattern::SymbolPattern,
@@ -74,8 +74,8 @@ impl<'a> AnalysisContext<'a> {
                 self.check_assign_expr(frame, lvalue, rvalue, &expr.span)?
             }
             ExprKind::Cast(info) => {
-                let info = self
-                    .check_type_cast_info(frame, info, parent_ty, &expr.span)?;
+                let info =
+                    self.check_cast(frame, info, parent_ty, &expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
                 if ty_can_be_casted(&source_ty, &info.target_ty) {
@@ -1510,13 +1510,13 @@ impl<'a> AnalysisContext<'a> {
         Ok((new_block, result_ty))
     }
 
-    fn check_type_cast_info(
+    fn check_cast(
         &mut self,
         frame: &mut AnalysisFrame,
-        info: &TypeCastInfo,
+        info: &Cast,
         parent_ty: Option<Ty>,
         expr_span: &Span,
-    ) -> DiagnosticResult<TypeCastInfo> {
+    ) -> DiagnosticResult<Cast> {
         let casted_expr = self.check_expr(frame, &info.expr, None)?;
 
         let (type_expr, target_ty) = if let Some(type_expr) = &info.type_expr {
@@ -1540,7 +1540,7 @@ impl<'a> AnalysisContext<'a> {
             }
         };
 
-        Ok(TypeCastInfo {
+        Ok(Cast {
             expr: Box::new(casted_expr.expr),
             type_expr,
             target_ty,

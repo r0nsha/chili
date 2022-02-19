@@ -1,6 +1,6 @@
 use crate::*;
 use chilic_ast::{
-    expr::{Call, CallArg, Expr, ExprKind, TypeCastInfo},
+    expr::{Call, CallArg, Cast, Expr, ExprKind},
     op::{BinaryOp, UnaryOp},
 };
 use chilic_error::*;
@@ -144,7 +144,7 @@ impl Parser {
         };
 
         Ok(Expr::new(
-            ExprKind::Cast(TypeCastInfo {
+            ExprKind::Cast(Cast {
                 expr: Box::new(expr.clone()),
                 type_expr,
                 target_ty: Ty::Unknown,

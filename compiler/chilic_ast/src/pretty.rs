@@ -7,7 +7,7 @@ use ptree::{
 
 use crate::entity::Entity;
 use crate::expr::{
-    ArrayLiteralKind, Builtin, ExprKind, ForIter, LiteralKind, TypeCastInfo,
+    ArrayLiteralKind, Builtin, ExprKind, ForIter, LiteralKind, Cast,
 };
 use crate::expr::{Block, Expr};
 use crate::func::{Fn, Proto};
@@ -514,7 +514,7 @@ impl Display for LiteralKind {
     }
 }
 
-impl BuildNode for TypeCastInfo {
+impl BuildNode for Cast {
     fn build(&self, b: &mut TreeBuilder) {
         b.begin_child("from".to_string());
         self.expr.build(b);
