@@ -1,11 +1,11 @@
 use ustr::Ustr;
 
-use crate::{entity::Entity, use_decl::UseDecl};
+use crate::{entity::Entity, r#use::Use};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Module {
     pub info: ModuleInfo,
-    pub uses: Vec<UseDecl>,
+    pub uses: Vec<Use>,
     pub entities: Vec<Entity>,
 }
 
@@ -25,7 +25,7 @@ impl Module {
             .find(|entity| entity.pattern.into_single().symbol == symbol)
     }
 
-    pub fn find_use(&self, symbol: impl Into<Ustr>) -> Option<&UseDecl> {
+    pub fn find_use(&self, symbol: impl Into<Ustr>) -> Option<&Use> {
         let symbol = symbol.into();
         self.uses.iter().find(|use_| use_.alias == symbol)
     }

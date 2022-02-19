@@ -154,7 +154,7 @@ impl BuildNode for Entity {
 impl BuildNode for Stmt {
     fn build(&self, b: &mut ptree::TreeBuilder) {
         match &self.kind {
-            StmtKind::UseDecl(use_) => {
+            StmtKind::Use(use_) => {
                 b.add_empty_child(format!(
                     "use \"{}\" = {}",
                     use_.module_info.file_path, use_.alias

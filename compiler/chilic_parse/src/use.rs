@@ -1,11 +1,11 @@
 use crate::*;
-use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_ast::{
     entity::Visibility,
     module::ModuleInfo,
     path::AsModuleName,
-    use_decl::{UseDecl, UsePath, UsePathNode},
+    r#use::{Use, UsePath, UsePathNode},
 };
+use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::{Span, Spanned};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::{
@@ -19,7 +19,7 @@ impl Parser {
     pub(crate) fn parse_use(
         &mut self,
         visibility: Visibility,
-    ) -> DiagnosticResult<Vec<UseDecl>> {
+    ) -> DiagnosticResult<Vec<Use>> {
         let uses = self.parse_use_internal(visibility)?;
 
         uses.iter().for_each(|use_| {
@@ -32,7 +32,7 @@ impl Parser {
     fn parse_use_internal(
         &mut self,
         visibility: Visibility,
-    ) -> DiagnosticResult<Vec<UseDecl>> {
+    ) -> DiagnosticResult<Vec<Use>> {
         if match_token!(self, Tilde) {
             require!(self, Dot, ".")?;
             todo!("implement `from_root` use: `use ~.foo.bar`");
@@ -126,7 +126,7 @@ impl Parser {
         alias: Ustr,
         visibility: Visibility,
         module_name_span: Span,
-    ) -> DiagnosticResult<Vec<UseDecl>> {
+    ) -> DiagnosticResult<Vec<Use>> {
         let uses = self.parse_use_postfix_internal(
             ustr(path_buf.to_str().unwrap()),
             module,
@@ -147,7 +147,7 @@ impl Parser {
         visibility: Visibility,
         span: Span,
         use_path: &mut UsePath,
-    ) -> DiagnosticResult<Vec<UseDecl>> {
+    ) -> DiagnosticResult<Vec<Use>> {
         if match_token!(self, Dot) {
             if match_token!(self, Id(_)) {
                 // single child, i.e: `use other.foo`
@@ -184,7 +184,7 @@ impl Parser {
                         id_token.span.clone(),
                     ));
 
-                    let use_decl = self.parse_use_postfix_internal(
+                    let use_ = self.parse_use_postfix_internal(
                         path,
                         module,
                         alias,
@@ -193,7 +193,7 @@ impl Parser {
                         &mut local_use_path,
                     )?;
 
-                    uses.extend(use_decl);
+                    uses.extend(use_);
 
                     if !match_token!(self, Comma) {
                         require!(self, CloseCurly, "}")?;
@@ -207,7 +207,7 @@ impl Parser {
                     UsePathNode::Wildcard,
                     self.previous().span.clone(),
                 ));
-                Ok(vec![UseDecl {
+                Ok(vec![Use {
                     module_info: ModuleInfo::new(module, path),
                     alias: ustr(""),
                     use_path: use_path.clone(),
@@ -227,7 +227,7 @@ impl Parser {
                 alias
             };
 
-            Ok(vec![UseDecl {
+            Ok(vec![Use {
                 module_info: ModuleInfo::new(module, path),
                 alias,
                 use_path: use_path.clone(),

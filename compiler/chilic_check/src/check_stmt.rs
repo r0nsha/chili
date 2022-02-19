@@ -1,5 +1,5 @@
-use chilic_error::DiagnosticResult;
 use chilic_ast::stmt::{Stmt, StmtKind};
+use chilic_error::DiagnosticResult;
 use chilic_ty::*;
 
 use crate::{AnalysisContext, AnalysisFrame, CheckedStmt};
@@ -11,18 +11,14 @@ impl<'a> AnalysisContext<'a> {
         stmt: &Stmt,
     ) -> DiagnosticResult<CheckedStmt> {
         let checked_stmt = match &stmt.kind {
-            StmtKind::UseDecl(use_) => {
+            StmtKind::Use(use_) => {
                 let entity_info =
                     self.check_use(frame.module_info.name, use_)?;
                 let ty = entity_info.ty.clone();
 
                 frame.insert_entity_info(use_.alias, entity_info);
 
-                CheckedStmt::new(
-                    StmtKind::UseDecl(use_.clone()),
-                    ty,
-                    &stmt.span,
-                )
+                CheckedStmt::new(StmtKind::Use(use_.clone()), ty, &stmt.span)
             }
             StmtKind::Entity(entity) => {
                 let entity = self.check_entity(frame, entity)?;

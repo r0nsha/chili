@@ -1,4 +1,3 @@
-use chilic_error::{DiagnosticResult, TypeError};
 use chilic_ast::{
     entity::Entity,
     expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter, TypeCastInfo},
@@ -6,6 +5,7 @@ use chilic_ast::{
     ir::Ir,
     stmt::{Stmt, StmtKind},
 };
+use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 use ena::unify::InPlaceUnificationTable;
@@ -142,7 +142,7 @@ impl Substitute for Stmt {
         table: &mut InPlaceUnificationTable<TyVar>,
     ) -> DiagnosticResult<()> {
         match &mut self.kind {
-            StmtKind::UseDecl(..) | StmtKind::Defer(_) => (),
+            StmtKind::Use(..) | StmtKind::Defer(_) => (),
             StmtKind::Entity(entity) => {
                 entity.substitute(table)?;
             }

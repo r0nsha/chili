@@ -8,7 +8,7 @@ use chilic_ast::{
     ir::Ir,
     module::ModuleInfo,
     pattern::{Pattern, SymbolPattern},
-    use_decl::UseDecl,
+    r#use::Use,
 };
 use chilic_ty::*;
 use common::{
@@ -204,7 +204,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(crate) fn resolve_decl_from_use(
         &mut self,
-        use_: &UseDecl,
+        use_: &Use,
     ) -> CodegenDecl<'ctx> {
         let mut decl = CodegenDecl::Module(use_.module_info);
 

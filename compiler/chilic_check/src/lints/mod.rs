@@ -1,12 +1,12 @@
 mod type_limits;
 
-use chilic_error::DiagnosticResult;
 use chilic_ast::{
     entity::Entity,
     expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter},
     ir::Ir,
     stmt::{Stmt, StmtKind},
 };
+use chilic_error::DiagnosticResult;
 
 use self::type_limits::check_type_limits;
 
@@ -60,7 +60,7 @@ impl Lint for Stmt {
         match &self.kind {
             StmtKind::Entity(e) => e.lint(),
             StmtKind::Expr { expr, .. } => expr.lint(),
-            StmtKind::UseDecl(_) | StmtKind::Defer(_) => Ok(()),
+            StmtKind::Use(_) | StmtKind::Defer(_) => Ok(()),
         }
     }
 }

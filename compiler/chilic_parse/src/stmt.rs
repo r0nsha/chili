@@ -19,7 +19,7 @@ impl Parser {
                 .into_iter()
                 .map(|use_| {
                     let span = use_.span.clone();
-                    Stmt::new(StmtKind::UseDecl(use_), span)
+                    Stmt::new(StmtKind::Use(use_), span)
                 })
                 .collect();
 

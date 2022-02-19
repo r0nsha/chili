@@ -2,7 +2,6 @@ mod defer;
 pub mod ir_gen;
 mod use_wildcard;
 
-use chilic_error::DiagnosticResult;
 use chilic_ast::entity::Entity;
 use chilic_ast::expr::{
     ArrayLiteralKind, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
@@ -14,6 +13,7 @@ use chilic_ast::ir::Ir;
 use chilic_ast::item::{ItemKind, Items};
 use chilic_ast::module::Module;
 use chilic_ast::stmt::{Stmt, StmtKind};
+use chilic_error::DiagnosticResult;
 use chilic_span::Span;
 use chilic_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
@@ -69,7 +69,7 @@ pub fn gen_structured_ir(
         ctx.env.push_named_scope(item.module_info.name);
 
         match &item.kind {
-            ItemKind::UseDecl(use_) => module.uses.push(use_.clone()),
+            ItemKind::Use(use_) => module.uses.push(use_.clone()),
             ItemKind::Entity(entity) => {
                 module.entities.push(entity.lower(&mut ctx))
             }
@@ -160,8 +160,8 @@ impl Lower for Entity {
 impl Lower for Stmt {
     fn lower(&self, ctx: &mut IrGenContext) -> Stmt {
         match &self.kind {
-            StmtKind::UseDecl(use_) => {
-                Stmt::new(StmtKind::UseDecl(use_.clone()), self.span.clone())
+            StmtKind::Use(use_) => {
+                Stmt::new(StmtKind::Use(use_.clone()), self.span.clone())
             }
             StmtKind::Entity(entity) => Stmt::new(
                 StmtKind::Entity(entity.lower(ctx)),

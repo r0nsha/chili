@@ -23,7 +23,7 @@ impl Parser {
                 .into_iter()
                 .map(|use_| {
                     let span = use_.span.clone();
-                    Item::new(self.module_info, ItemKind::UseDecl(use_), span)
+                    Item::new(self.module_info, ItemKind::Use(use_), span)
                 })
                 .collect();
 

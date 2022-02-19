@@ -10,14 +10,14 @@ use crate::{
     AnalysisContext, AnalysisFrame, EntityInfo, ProcessedItem,
     TopLevelLookupKind,
 };
-use chilic_infer::substitute::Substitute;
 use chilic_ast::{
     entity::{Entity, EntityKind, Visibility},
     module::{Module, ModuleInfo},
     pattern::{Pattern, SymbolPattern},
-    use_decl::UseDecl,
+    r#use::Use,
     value::Value,
 };
+use chilic_infer::substitute::Substitute;
 
 impl<'a> AnalysisContext<'a> {
     pub(crate) fn check_entity(
@@ -324,7 +324,7 @@ impl<'a> AnalysisContext<'a> {
     pub(crate) fn check_use(
         &mut self,
         calling_module: Ustr,
-        use_: &UseDecl,
+        use_: &Use,
     ) -> DiagnosticResult<EntityInfo> {
         let mut ty = Ty::Module {
             name: use_.module_info.name,

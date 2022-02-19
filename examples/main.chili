@@ -3,6 +3,6 @@ use c.?
 type Foo = { a : i32, b : f32 }
 
 let main = fn {
-    let foo = Foo { a : 1, b : 1.0 }
-    printf("Hello".data)
+    let foo = Foo { a : 1, b : 1.0 };
+    printf("Hello".data);
 }

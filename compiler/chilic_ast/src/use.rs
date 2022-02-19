@@ -4,7 +4,7 @@ use ustr::Ustr;
 use crate::{entity::Visibility, module::ModuleInfo};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct UseDecl {
+pub struct Use {
     pub module_info: ModuleInfo,
     pub alias: Ustr,
     pub use_path: UsePath,
@@ -12,7 +12,7 @@ pub struct UseDecl {
     pub span: Span,
 }
 
-impl UseDecl {
+impl Use {
     pub fn span_ref(&self) -> &Span {
         if self.use_path.is_empty() {
             &self.span

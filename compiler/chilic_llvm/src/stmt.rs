@@ -12,7 +12,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         stmt: &Stmt,
     ) -> BasicValueEnum<'ctx> {
         match &stmt.kind {
-            StmtKind::UseDecl(use_) => {
+            StmtKind::Use(use_) => {
                 let decl = self.resolve_decl_from_use(use_);
                 state.env.insert(use_.alias, decl);
             }

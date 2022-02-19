@@ -1,4 +1,4 @@
-use crate::{entity::Entity, module::ModuleInfo, use_decl::UseDecl};
+use crate::{entity::Entity, module::ModuleInfo, r#use::Use};
 use chilic_span::Span;
 
 pub type Items = Vec<Item>;
@@ -24,6 +24,6 @@ impl Item {
     strum_macros::IntoStaticStr, strum_macros::Display, Debug, PartialEq, Clone,
 )]
 pub enum ItemKind {
-    UseDecl(UseDecl),
+    Use(Use),
     Entity(Entity),
 }

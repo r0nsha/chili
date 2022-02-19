@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
-use chilic_error::DiagnosticResult;
 use chilic_ast::{
     entity::Visibility,
     item::{Item, ItemKind, Items},
     module::ModuleInfo,
     path::resolve_relative_path,
-    use_decl::UseDecl,
+    r#use::Use,
 };
+use chilic_error::DiagnosticResult;
 use chilic_parse::{Parser, ParserResult};
 use chilic_span::Span;
 use chilic_token::{lexer::Lexer, TokenType};
@@ -153,7 +153,7 @@ fn add_intrinsic_module(
 
     items.push(Item::new(
         module_info,
-        ItemKind::UseDecl(UseDecl {
+        ItemKind::Use(Use {
             module_info: intrinsic_module_info,
             alias: intrinsic_module_info.name,
             use_path: vec![],

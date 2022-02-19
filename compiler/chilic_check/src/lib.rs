@@ -11,7 +11,6 @@ mod check_unary;
 mod lints;
 
 use builtin::get_builtin_types;
-use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
 use chilic_ast::{
     entity::Entity,
     expr::{Expr, ExprKind},
@@ -21,6 +20,7 @@ use chilic_ast::{
     stmt::{Stmt, StmtKind},
     value::Value,
 };
+use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
 use chilic_span::Span;
 use chilic_ty::Ty;
 use codespan_reporting::{
@@ -45,16 +45,16 @@ pub fn check_ir(
     for (_, module) in &ir.modules {
         let mut module_decls = UstrMap::default();
 
-        for use_decl in &module.uses {
-            let span = use_decl.span_ref();
+        for use_ in &module.uses {
+            let span = use_.span_ref();
 
             if let Some(defined_span) =
-                module_decls.insert(use_decl.alias, span.clone())
+                module_decls.insert(use_.alias, span.clone())
             {
                 return Err(SyntaxError::duplicate_symbol(
                     &defined_span,
                     &span,
-                    use_decl.alias,
+                    use_.alias,
                 ));
             }
         }

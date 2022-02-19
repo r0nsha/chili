@@ -3,7 +3,7 @@ use chilic_span::Span;
 use crate::{
     entity::Entity,
     expr::{Expr, ExprKind},
-    use_decl::UseDecl,
+    r#use::Use,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -22,7 +22,7 @@ impl Stmt {
     strum_macros::IntoStaticStr, strum_macros::Display, Debug, PartialEq, Clone,
 )]
 pub enum StmtKind {
-    UseDecl(UseDecl),
+    Use(Use),
     Entity(Entity),
     Defer(Expr),
     Expr { expr: Expr, terminated: bool },

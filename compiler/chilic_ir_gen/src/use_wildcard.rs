@@ -1,9 +1,9 @@
-use chilic_error::DiagnosticResult;
 use chilic_ast::{
     entity::Visibility,
     ir::Ir,
-    use_decl::{UseDecl, UsePathNode},
+    r#use::{Use, UsePathNode},
 };
+use chilic_error::DiagnosticResult;
 use chilic_span::Spanned;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
@@ -38,8 +38,8 @@ pub(super) fn expand_use_wildcards(ir: &mut Ir) -> DiagnosticResult<()> {
 fn expand_wildcard_use(
     ir: &Ir,
     module_name: Ustr,
-    mut use_: UseDecl,
-) -> DiagnosticResult<Vec<UseDecl>> {
+    mut use_: Use,
+) -> DiagnosticResult<Vec<Use>> {
     // for a given use: `use foo.*`;
     // with symbols: A, B, C;
     // this function will expand this use to:
@@ -78,7 +78,7 @@ fn expand_wildcard_use(
                         UsePathNode::Symbol(*symbol),
                         use_.span_ref().clone(),
                     ));
-                    UseDecl {
+                    Use {
                         module_info: use_.module_info,
                         alias: *symbol,
                         use_path,

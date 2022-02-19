@@ -10,7 +10,7 @@ pub mod path;
 pub mod pattern;
 pub mod pretty;
 pub mod stmt;
-pub mod use_decl;
+pub mod r#use;
 pub mod value;
 
 pub const PLACEHOLDER_SYMBOL: &str = "_";
