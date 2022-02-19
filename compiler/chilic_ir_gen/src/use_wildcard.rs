@@ -1,5 +1,5 @@
 use chilic_error::DiagnosticResult;
-use chilic_ir::{
+use chilic_ast::{
     entity::Visibility,
     ir::Ir,
     use_decl::{UseDecl, UsePathNode},

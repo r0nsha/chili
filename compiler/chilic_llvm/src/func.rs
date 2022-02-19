@@ -1,4 +1,4 @@
-use chilic_ir::{
+use chilic_ast::{
     entity::EntityKind,
     expr::{Call, ExprKind},
     func::{Fn, Proto},

@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chilic_ir::{expr::Expr, op::UnaryOp};
+use chilic_ast::{expr::Expr, op::UnaryOp};
 use chilic_span::Span;
 use chilic_ty::*;
 use inkwell::{values::BasicValueEnum, IntPredicate};

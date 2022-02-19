@@ -1,4 +1,4 @@
-use chilic_ir::stmt::{Stmt, StmtKind};
+use chilic_ast::stmt::{Stmt, StmtKind};
 use inkwell::{module::Linkage, values::BasicValueEnum};
 
 use crate::codegen::CodegenDecl;

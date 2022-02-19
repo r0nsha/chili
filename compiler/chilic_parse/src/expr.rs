@@ -1,6 +1,6 @@
 use crate::*;
 use chilic_error::*;
-use chilic_ir::{
+use chilic_ast::{
     expr::{Builtin, Expr, ExprKind, ForIter, LiteralKind},
     op::{BinaryOp, UnaryOp},
 };

@@ -16,4 +16,4 @@ chilic_span = { path = "../chilic_span" }
 chilic_error = { path = "../chilic_error" }
 chilic_ty = { path = "../chilic_ty" }
 chilic_parse = { path = "../chilic_parse" }
-chilic_ir = { path = "../chilic_ir" }
+chilic_ast = { path = "../chilic_ast" }

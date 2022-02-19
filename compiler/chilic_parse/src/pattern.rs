@@ -1,6 +1,6 @@
 use crate::*;
+use chilic_ast::pattern::{DestructorPattern, Pattern, SymbolPattern};
 use chilic_error::SyntaxError;
-use chilic_ir::pattern::{DestructorPattern, Pattern, SymbolPattern};
 
 impl Parser {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {

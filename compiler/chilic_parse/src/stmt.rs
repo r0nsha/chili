@@ -1,10 +1,10 @@
 use crate::*;
-use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_ir::{
+use chilic_ast::{
     entity::{EntityKind, Visibility},
     expr::ExprKind,
     stmt::{Stmt, StmtKind},
 };
+use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::Span;
 use chilic_token::TokenType::*;
 

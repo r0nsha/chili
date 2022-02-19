@@ -1,4 +1,4 @@
-use chilic_ir::expr::{LiteralKind, StructLiteralField};
+use chilic_ast::expr::{LiteralKind, StructLiteralField};
 use chilic_ty::*;
 use inkwell::{
     types::{BasicType, BasicTypeEnum},

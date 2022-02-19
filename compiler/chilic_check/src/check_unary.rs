@@ -1,6 +1,6 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr};
 use chilic_error::{DiagnosticResult, TypeError};
-use chilic_ir::{
+use chilic_ast::{
     expr::{Expr, ExprKind, LiteralKind},
     op::UnaryOp,
     value::Value,

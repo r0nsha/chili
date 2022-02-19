@@ -1,8 +1,8 @@
 use crate::*;
-use chilic_error::*;
-use chilic_ir::expr::{
+use chilic_ast::expr::{
     ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField,
 };
+use chilic_error::*;
 use chilic_span::Span;
 use chilic_token::TokenType::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};

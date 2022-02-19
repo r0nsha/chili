@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chilic_ir::expr::Expr;
+use chilic_ast::expr::Expr;
 use inkwell::{
     basic_block::BasicBlock,
     values::{BasicValueEnum, IntValue},

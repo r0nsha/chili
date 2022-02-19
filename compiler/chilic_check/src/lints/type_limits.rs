@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use chilic_error::DiagnosticResult;
-use chilic_ir::expr::{Expr, ExprKind, LiteralKind};
+use chilic_ast::expr::{Expr, ExprKind, LiteralKind};
 use chilic_span::Span;
 use chilic_ty::{IntTy, Ty, UIntTy};
 use codespan_reporting::diagnostic::{Diagnostic, Label};

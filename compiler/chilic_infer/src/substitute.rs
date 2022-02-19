@@ -1,5 +1,5 @@
 use chilic_error::{DiagnosticResult, TypeError};
-use chilic_ir::{
+use chilic_ast::{
     entity::Entity,
     expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter, TypeCastInfo},
     func::{Fn, Proto},

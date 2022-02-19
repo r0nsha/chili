@@ -12,5 +12,5 @@ chilic_span = { path = "../chilic_span" }
 common = { path = "../common" }
 chilic_error = { path = "../chilic_error" }
 chilic_ty = { path = "../chilic_ty" }
-chilic_ir = { path = "../chilic_ir" }
+chilic_ast = { path = "../chilic_ast" }
 chilic_infer = { path = "../chilic_infer" }

@@ -4,7 +4,7 @@ members = [
     "compiler/chilic_span",
     "compiler/chilic_error",
     "compiler/chilic_ty",
-    "compiler/chilic_ir",
+    "compiler/chilic_ast",
     "compiler/chilic_ir_gen",
     "compiler/chilic_token",
     "compiler/chilic_parse",

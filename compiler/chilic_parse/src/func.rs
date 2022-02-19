@@ -1,4 +1,4 @@
-use chilic_ir::{
+use chilic_ast::{
     expr::{Expr, ExprKind},
     func::{Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},

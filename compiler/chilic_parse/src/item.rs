@@ -1,9 +1,9 @@
 use crate::*;
-use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_ir::{
+use chilic_ast::{
     entity::{EntityKind, Visibility},
     item::{Item, ItemKind},
 };
+use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::Span;
 
 impl Parser {

@@ -2,7 +2,7 @@ use super::{
     abi::{align_of, size_of, AbiFn},
     util::is_a_load_inst,
 };
-use chilic_ir::{
+use chilic_ast::{
     entity::Entity,
     expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter},
     ir::Ir,

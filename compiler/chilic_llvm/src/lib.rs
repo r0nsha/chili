@@ -11,8 +11,8 @@ mod ty;
 mod unary;
 mod util;
 
-use chilic_ir::foreign_library::ForeignLibrary;
-use chilic_ir::ir::Ir;
+use chilic_ast::foreign_library::ForeignLibrary;
+use chilic_ast::ir::Ir;
 use common::target::TargetPlatform;
 use common::{build_options::BuildOptions, sw};
 use execute::Execute;

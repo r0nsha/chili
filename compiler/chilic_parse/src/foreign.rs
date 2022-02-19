@@ -1,9 +1,9 @@
-use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_ir::{
+use chilic_ast::{
     entity::{Entity, EntityKind, Visibility},
     expr::{Expr, ExprKind},
     pattern::{Pattern, SymbolPattern},
 };
+use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::Span;
 use ustr::{ustr, Ustr};
 

@@ -1,7 +1,5 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr, TopLevelLookupKind};
-use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
-use chilic_infer::{cast::ty_can_be_casted, infer::InferenceValue};
-use chilic_ir::{
+use chilic_ast::{
     expr::{
         ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter, LiteralKind,
         StructLiteralField, StructType, StructTypeField, TypeCastInfo,
@@ -10,6 +8,8 @@ use chilic_ir::{
     pattern::SymbolPattern,
     value::Value,
 };
+use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
+use chilic_infer::{cast::ty_can_be_casted, infer::InferenceValue};
 use chilic_span::Span;
 use chilic_ty::*;
 use codespan_reporting::{

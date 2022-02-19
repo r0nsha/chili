@@ -4,7 +4,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrSet;
 
 use crate::{AnalysisContext, AnalysisFrame, EntityInfo};
-use chilic_ir::{
+use chilic_ast::{
     pattern::{DestructorPattern, Pattern, SymbolPattern},
     value::Value,
 };

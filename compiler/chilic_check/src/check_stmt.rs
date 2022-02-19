@@ -1,5 +1,5 @@
 use chilic_error::DiagnosticResult;
-use chilic_ir::stmt::{Stmt, StmtKind};
+use chilic_ast::stmt::{Stmt, StmtKind};
 use chilic_ty::*;
 
 use crate::{AnalysisContext, AnalysisFrame, CheckedStmt};

@@ -11,8 +11,8 @@ mod ty;
 mod r#use;
 
 use bitflags::bitflags;
+use chilic_ast::{item::Items, module::ModuleInfo};
 use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_ir::{item::Items, module::ModuleInfo};
 use chilic_span::Span;
 use chilic_token::{Token, TokenType::*};
 use ustr::{ustr, Ustr};

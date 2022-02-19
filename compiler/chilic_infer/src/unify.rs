@@ -1,5 +1,5 @@
 use chilic_error::{DiagnosticResult, TypeError};
-use chilic_ir::expr::Expr;
+use chilic_ast::expr::Expr;
 use chilic_span::Span;
 use chilic_ty::*;
 use codespan_reporting::diagnostic::Diagnostic;

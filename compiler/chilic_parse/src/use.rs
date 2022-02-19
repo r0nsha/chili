@@ -1,6 +1,6 @@
 use crate::*;
 use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_ir::{
+use chilic_ast::{
     entity::Visibility,
     module::ModuleInfo,
     path::AsModuleName,

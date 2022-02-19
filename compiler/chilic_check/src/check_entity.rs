@@ -11,7 +11,7 @@ use crate::{
     TopLevelLookupKind,
 };
 use chilic_infer::substitute::Substitute;
-use chilic_ir::{
+use chilic_ast::{
     entity::{Entity, EntityKind, Visibility},
     module::{Module, ModuleInfo},
     pattern::{Pattern, SymbolPattern},

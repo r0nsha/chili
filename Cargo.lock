@@ -118,12 +118,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chilic_ast"
+version = "0.0.1"
+dependencies = [
+ "chilic_error",
+ "chilic_span",
+ "chilic_token",
+ "chilic_ty",
+ "codespan",
+ "codespan-reporting",
+ "colored",
+ "common",
+ "path-absolutize",
+ "ptree",
+ "strum_macros",
+ "unindent",
+ "ustr",
+]
+
+[[package]]
 name = "chilic_check"
 version = "0.1.0"
 dependencies = [
+ "chilic_ast",
  "chilic_error",
  "chilic_infer",
- "chilic_ir",
  "chilic_span",
  "chilic_ty",
  "codespan",
@@ -147,8 +166,8 @@ dependencies = [
 name = "chilic_infer"
 version = "0.1.0"
 dependencies = [
+ "chilic_ast",
  "chilic_error",
- "chilic_ir",
  "chilic_span",
  "chilic_ty",
  "codespan",
@@ -158,30 +177,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_ir"
-version = "0.0.1"
-dependencies = [
- "chilic_error",
- "chilic_span",
- "chilic_token",
- "chilic_ty",
- "codespan",
- "codespan-reporting",
- "colored",
- "common",
- "path-absolutize",
- "ptree",
- "strum_macros",
- "unindent",
- "ustr",
-]
-
-[[package]]
 name = "chilic_ir_gen"
 version = "0.1.0"
 dependencies = [
+ "chilic_ast",
  "chilic_error",
- "chilic_ir",
  "chilic_parse",
  "chilic_span",
  "chilic_token",
@@ -201,8 +201,8 @@ dependencies = [
 name = "chilic_llvm"
 version = "0.0.1"
 dependencies = [
+ "chilic_ast",
  "chilic_error",
- "chilic_ir",
  "chilic_parse",
  "chilic_span",
  "chilic_ty",
@@ -219,9 +219,9 @@ dependencies = [
 name = "chilic_main"
 version = "0.0.1"
 dependencies = [
+ "chilic_ast",
  "chilic_check",
  "chilic_error",
- "chilic_ir",
  "chilic_ir_gen",
  "chilic_llvm",
  "chilic_parse",
@@ -242,8 +242,8 @@ name = "chilic_parse"
 version = "0.0.1"
 dependencies = [
  "bitflags 1.3.2",
+ "chilic_ast",
  "chilic_error",
- "chilic_ir",
  "chilic_span",
  "chilic_token",
  "chilic_ty",

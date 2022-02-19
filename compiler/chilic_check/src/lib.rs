@@ -12,7 +12,7 @@ mod lints;
 
 use builtin::get_builtin_types;
 use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
-use chilic_ir::{
+use chilic_ast::{
     entity::Entity,
     expr::{Expr, ExprKind},
     ir::Ir,

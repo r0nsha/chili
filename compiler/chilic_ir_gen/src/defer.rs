@@ -1,4 +1,4 @@
-use chilic_ir::expr::Expr;
+use chilic_ast::expr::Expr;
 
 #[derive(Clone)]
 pub(crate) struct DeferContext {

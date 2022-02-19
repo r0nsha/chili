@@ -3,17 +3,17 @@ pub mod ir_gen;
 mod use_wildcard;
 
 use chilic_error::DiagnosticResult;
-use chilic_ir::entity::Entity;
-use chilic_ir::expr::{
+use chilic_ast::entity::Entity;
+use chilic_ast::expr::{
     ArrayLiteralKind, Builtin, Call, CallArg, Expr, ExprKind, ForIter,
     StructLiteralField, StructType, StructTypeField, TypeCastInfo,
 };
-use chilic_ir::foreign_library::ForeignLibrary;
-use chilic_ir::func::{Fn, FnParam, Proto};
-use chilic_ir::ir::Ir;
-use chilic_ir::item::{ItemKind, Items};
-use chilic_ir::module::Module;
-use chilic_ir::stmt::{Stmt, StmtKind};
+use chilic_ast::foreign_library::ForeignLibrary;
+use chilic_ast::func::{Fn, FnParam, Proto};
+use chilic_ast::ir::Ir;
+use chilic_ast::item::{ItemKind, Items};
+use chilic_ast::module::Module;
+use chilic_ast::stmt::{Stmt, StmtKind};
 use chilic_span::Span;
 use chilic_ty::Ty;
 use codespan_reporting::files::SimpleFiles;

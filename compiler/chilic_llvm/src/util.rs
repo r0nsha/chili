@@ -1,6 +1,6 @@
 use std::mem;
 
-use chilic_ir::func::Proto;
+use chilic_ast::func::Proto;
 use chilic_ty::*;
 use common::mem::calculate_align;
 use inkwell::{

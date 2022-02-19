@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use chilic_error::DiagnosticResult;
-use chilic_ir::{
+use chilic_ast::{
     entity::Visibility,
     item::{Item, ItemKind, Items},
     module::ModuleInfo,
