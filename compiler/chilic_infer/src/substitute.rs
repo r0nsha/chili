@@ -5,7 +5,6 @@ use chilic_ast::{
     },
     func::{Fn, Proto},
     ir::Ir,
-    stmt::{Stmt, StmtKind},
 };
 use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
@@ -143,28 +142,6 @@ impl Substitute for TypeCastInfo {
 
         self.target_ty =
             substitute_ty(&self.target_ty, table, &self.expr.span)?;
-
-        Ok(())
-    }
-}
-
-impl Substitute for Stmt {
-    fn substitute(
-        &mut self,
-        table: &mut InPlaceUnificationTable<TyVar>,
-    ) -> DiagnosticResult<()> {
-        match &mut self.kind {
-            StmtKind::Use(..) | StmtKind::Defer(_) => (),
-            StmtKind::Entity(entity) => {
-                entity.substitute(table)?;
-            }
-            StmtKind::Expr {
-                expr,
-                terminated: _,
-            } => {
-                expr.substitute(table)?;
-            }
-        }
 
         Ok(())
     }

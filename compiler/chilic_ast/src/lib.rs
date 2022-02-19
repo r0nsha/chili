@@ -9,7 +9,6 @@ pub mod op;
 pub mod path;
 pub mod pattern;
 pub mod pretty;
-pub mod stmt;
 pub mod r#use;
 pub mod value;
 

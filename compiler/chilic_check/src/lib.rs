@@ -6,7 +6,6 @@ mod check_entity;
 mod check_expr;
 mod check_fn;
 mod check_pattern;
-mod check_stmt;
 mod check_unary;
 mod lints;
 
@@ -17,7 +16,6 @@ use chilic_ast::{
     ir::Ir,
     module::ModuleInfo,
     pattern::SymbolPattern,
-    stmt::{Stmt, StmtKind},
     value::Value,
 };
 use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
@@ -162,20 +160,6 @@ pub fn check_ir(
                 "define function `let main = fn() {}` in your entry file"
                     .to_string(),
             ])),
-    }
-}
-
-pub(crate) struct CheckedStmt {
-    stmt: Stmt,
-    ty: Ty,
-}
-
-impl CheckedStmt {
-    pub(crate) fn new(expr: StmtKind, ty: Ty, span: &Span) -> Self {
-        Self {
-            stmt: Stmt::new(expr, span.clone()),
-            ty,
-        }
     }
 }
 

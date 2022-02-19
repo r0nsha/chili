@@ -6,7 +6,6 @@ mod func;
 mod literal;
 mod panic;
 mod runtime_check;
-mod stmt;
 mod ty;
 mod unary;
 mod util;

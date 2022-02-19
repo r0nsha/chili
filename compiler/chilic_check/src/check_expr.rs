@@ -1,7 +1,7 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr, TopLevelLookupKind};
 use chilic_ast::{
     expr::{
-        ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter, LiteralKind,
+        ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter, LiteralKind,
         StructLiteralField, StructType, StructTypeField, TypeCastInfo,
     },
     module::ModuleInfo,
@@ -1464,6 +1464,45 @@ impl<'a> AnalysisContext<'a> {
             ),
             entity.is_init,
         ))
+    }
+
+    pub(crate) fn check_block(
+        &mut self,
+        frame: &mut AnalysisFrame,
+        block: &Block,
+        parent_ty: Option<Ty>,
+    ) -> DiagnosticResult<(Block, Ty)> {
+        let mut new_block = Block {
+            exprs: vec![],
+            deferred: vec![],
+            yields: block.yields,
+        };
+
+        let mut result_ty = Ty::Unit;
+
+        if !block.exprs.is_empty() {
+            let last_index = block.exprs.len() - 1;
+
+            for (index, expr) in block.exprs.iter().enumerate() {
+                let is_last = index == last_index;
+
+                let result = self.check_expr(
+                    frame,
+                    expr,
+                    if is_last { parent_ty.clone() } else { None },
+                )?;
+
+                new_block.exprs.push(result.expr);
+
+                if is_last {
+                    result_ty = result.ty.into();
+                }
+            }
+        }
+
+        new_block.deferred = self.check_expr_list(frame, &block.deferred)?;
+
+        Ok((new_block, result_ty))
     }
 
     fn check_type_cast_info(

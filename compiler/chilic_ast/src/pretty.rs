@@ -12,7 +12,6 @@ use crate::expr::{
 use crate::expr::{Block, Expr};
 use crate::func::{Fn, Proto};
 use crate::ir::Ir;
-use crate::stmt::{Stmt, StmtKind};
 
 impl Ir {
     pub fn print(&self) {
@@ -156,31 +155,6 @@ impl BuildNode for Entity {
         }
 
         b.end_child();
-    }
-}
-
-impl BuildNode for Stmt {
-    fn build(&self, b: &mut ptree::TreeBuilder) {
-        match &self.kind {
-            StmtKind::Use(use_) => {
-                b.add_empty_child(format!(
-                    "use \"{}\" = {}",
-                    use_.module_info.file_path, use_.alias
-                ));
-            }
-            StmtKind::Entity(entity) => entity.build(b),
-            StmtKind::Defer(expr) => {
-                b.begin_child("defer".to_string());
-                expr.build(b);
-                b.end_child();
-            }
-            StmtKind::Expr {
-                expr,
-                terminated: _,
-            } => {
-                expr.build(b);
-            }
-        }
     }
 }
 

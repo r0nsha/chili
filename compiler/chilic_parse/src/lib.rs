@@ -6,7 +6,6 @@ mod item;
 mod literal;
 mod pattern;
 mod postfix_expr;
-mod stmt;
 mod ty;
 mod r#use;
 

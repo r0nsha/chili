@@ -12,7 +12,6 @@ use chilic_ast::func::{Fn, FnParam, Proto};
 use chilic_ast::ir::Ir;
 use chilic_ast::item::{ItemKind, Items};
 use chilic_ast::module::Module;
-use chilic_ast::stmt::{Stmt, StmtKind};
 use chilic_error::DiagnosticResult;
 use chilic_span::Span;
 use chilic_ty::Ty;
@@ -160,42 +159,6 @@ impl Lower for Entity {
             const_value: self.const_value.clone(),
             should_codegen: self.should_codegen,
             lib_name: self.lib_name,
-        }
-    }
-}
-
-impl Lower for Stmt {
-    fn lower(&self, ctx: &mut IrGenContext) -> Stmt {
-        match &self.kind {
-            StmtKind::Use(use_) => {
-                Stmt::new(StmtKind::Use(use_.clone()), self.span.clone())
-            }
-            StmtKind::Entity(entity) => Stmt::new(
-                StmtKind::Entity(entity.lower(ctx)),
-                self.span.clone(),
-            ),
-            StmtKind::Defer(expr) => {
-                ctx.defercx.current_stack_mut().deferred.push(expr.clone());
-
-                Stmt::new(
-                    StmtKind::Expr {
-                        expr: Expr::typed(
-                            ExprKind::Noop,
-                            Ty::Unit,
-                            self.span.clone(),
-                        ),
-                        terminated: true,
-                    },
-                    self.span.clone(),
-                )
-            }
-            StmtKind::Expr { expr, terminated } => Stmt::new(
-                StmtKind::Expr {
-                    expr: expr.lower(ctx),
-                    terminated: *terminated,
-                },
-                self.span.clone(),
-            ),
         }
     }
 }

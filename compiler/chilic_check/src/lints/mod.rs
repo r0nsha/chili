@@ -4,7 +4,6 @@ use chilic_ast::{
     entity::Entity,
     expr::{ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter},
     ir::Ir,
-    stmt::{Stmt, StmtKind},
 };
 use chilic_error::DiagnosticResult;
 
@@ -52,16 +51,6 @@ impl Lint for Ir {
 impl Lint for Entity {
     fn lint(&self) -> DiagnosticResult<()> {
         self.value.lint()
-    }
-}
-
-impl Lint for Stmt {
-    fn lint(&self) -> DiagnosticResult<()> {
-        match &self.kind {
-            StmtKind::Entity(e) => e.lint(),
-            StmtKind::Expr { expr, .. } => expr.lint(),
-            StmtKind::Use(_) | StmtKind::Defer(_) => Ok(()),
-        }
     }
 }
 
