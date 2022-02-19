@@ -277,7 +277,7 @@ impl AnalysisFrame {
         expected_return_ty: Option<Ty>,
         mut env: AnalysisEnv,
     ) -> Self {
-        env.push_scope();
+        env.push_named_scope(module_info.name);
         let min_env_depth = env.depth();
 
         Self {
