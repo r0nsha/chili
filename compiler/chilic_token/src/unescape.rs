@@ -1,5 +1,4 @@
-use chilic_span::Span;
-use std::ops::Range;
+use chilic_span::{EndPosition, Position, Span};
 
 pub enum UnescapeError {
     InvalidEscapeSequence(Span),
@@ -32,13 +31,20 @@ pub fn unescape(s: &str, start_span: Span) -> Result<String, UnescapeError> {
                 '\"' => s.push('\"'),
                 '\\' => s.push('\\'),
                 _ => {
-                    return Err(UnescapeError::InvalidEscapeSequence(Span::new(
-                        Range {
-                            start: start_span.range.start + processed,
-                            end: start_span.range.start + processed + 1,
-                        },
-                        start_span.file_id,
-                    )))
+                    return Err(UnescapeError::InvalidEscapeSequence(
+                        Span::new(
+                            start_span.file_id,
+                            Position {
+                                index: start_span.start.index + processed,
+                                line: start_span.start.line,
+                                column: start_span.start.column
+                                    + processed as u16,
+                            },
+                            EndPosition {
+                                index: start_span.start.index + processed + 1,
+                            },
+                        ),
+                    ))
                 }
             };
         }

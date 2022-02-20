@@ -634,7 +634,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.gen_global_str("", "", true)
                     };
 
-                    self.gen_panic(state, message, &expr.span);
+                    self.gen_panic(state, message, expr.span);
                     self.gen_unit()
                 }
             },
@@ -876,10 +876,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 value
             }
             ExprKind::Binary { lhs, op, rhs } => {
-                self.gen_binary(state, lhs, op, rhs, &expr.span)
+                self.gen_binary(state, lhs, op, rhs, expr.span)
             }
             ExprKind::Unary { op, lhs } => {
-                self.gen_unary(state, op, lhs, &expr.span, deref)
+                self.gen_unary(state, op, lhs, expr.span, deref)
             }
             ExprKind::Subscript {
                 expr: accessed_expr,
@@ -899,7 +899,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 if let Some(len) = len {
                     self.gen_runtime_check_index_out_of_bounds(
-                        state, index, len, &expr.span,
+                        state, index, len, expr.span,
                     );
                 }
 
@@ -952,7 +952,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 };
 
                 self.gen_runtime_check_slice_end_before_start(
-                    state, low, high, &expr.span,
+                    state, low, high, expr.span,
                 );
 
                 let len = match ty {
@@ -966,7 +966,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 if let Some(len) = len {
                     self.gen_runtime_check_slice_range_out_of_bounds(
-                        state, low, high, len, &expr.span,
+                        state, low, high, len, expr.span,
                     );
                 }
 

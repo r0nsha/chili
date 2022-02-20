@@ -102,7 +102,7 @@ impl Substitute for Proto {
         self.ret.substitute(table)?;
 
         // TODO: put a real span here
-        self.ty = substitute_ty(&self.ty, table, &Span::unknown())?;
+        self.ty = substitute_ty(&self.ty, table, Span::unknown())?;
 
         Ok(())
     }
@@ -116,14 +116,14 @@ impl Substitute for Entity {
         let span = match &mut self.ty_expr {
             Some(e) => {
                 e.substitute(table)?;
-                e.span.clone()
+                e.span
             }
             None => Span::unknown(),
         };
 
         self.value.substitute(table)?;
 
-        self.ty = substitute_ty(&self.ty, table, &span)?;
+        self.ty = substitute_ty(&self.ty, table, span)?;
 
         Ok(())
     }
@@ -138,8 +138,7 @@ impl Substitute for Cast {
 
         self.type_expr.substitute(table)?;
 
-        self.target_ty =
-            substitute_ty(&self.target_ty, table, &self.expr.span)?;
+        self.target_ty = substitute_ty(&self.target_ty, table, self.expr.span)?;
 
         Ok(())
     }
@@ -286,7 +285,7 @@ impl Substitute for Expr {
             ExprKind::Noop => return Ok(()), /* Noop is skipped */
         }
 
-        self.ty = substitute_ty(&self.ty, table, &self.span)?;
+        self.ty = substitute_ty(&self.ty, table, self.span)?;
 
         Ok(())
     }
@@ -295,7 +294,7 @@ impl Substitute for Expr {
 pub fn substitute_ty(
     ty: &Ty,
     table: &mut InPlaceUnificationTable<TyVar>,
-    span: &Span,
+    span: Span,
 ) -> DiagnosticResult<Ty> {
     match ty {
         Ty::Var(id) => {
@@ -369,12 +368,12 @@ pub fn substitute_ty(
             let mut fields = vec![];
 
             for field in &struct_ty.fields {
-                let ty = substitute_ty(&field.ty, table, &field.span)?;
+                let ty = substitute_ty(&field.ty, table, field.span)?;
 
                 fields.push(StructTyField {
                     symbol: field.symbol,
                     ty,
-                    span: field.span.clone(),
+                    span: field.span,
                 });
             }
 

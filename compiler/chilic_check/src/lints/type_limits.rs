@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use chilic_error::DiagnosticResult;
 use chilic_ast::expr::{Expr, ExprKind, LiteralKind};
+use chilic_error::DiagnosticResult;
 use chilic_span::Span;
 use chilic_ty::{IntTy, Ty, UIntTy};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -14,7 +14,7 @@ pub fn check_type_limits(e: &Expr) -> DiagnosticResult<()> {
                     let (min, max) = int_ty_range(*int_ty);
 
                     if value < min || value > max {
-                        Err(overflow_err(value, &e.ty, min, max, &e.span))
+                        Err(overflow_err(value, &e.ty, min, max, e.span))
                     } else {
                         Ok(())
                     }
@@ -23,12 +23,12 @@ pub fn check_type_limits(e: &Expr) -> DiagnosticResult<()> {
                     let (min, max) = uint_ty_range(*uint_ty);
 
                     if value.is_negative() {
-                        Err(overflow_err(value, &e.ty, min, max, &e.span))
+                        Err(overflow_err(value, &e.ty, min, max, e.span))
                     } else {
                         let value = value as u64;
 
                         if value < min || value > max {
-                            Err(overflow_err(value, &e.ty, min, max, &e.span))
+                            Err(overflow_err(value, &e.ty, min, max, e.span))
                         } else {
                             Ok(())
                         }
@@ -72,13 +72,13 @@ fn overflow_err<V: Copy + Display, M: Copy + Display>(
     ty: &Ty,
     min: M,
     max: M,
-    span: &Span,
+    span: Span,
 ) -> Diagnostic<usize> {
     Diagnostic::error()
         .with_message(format!(
             "integer literal of type `{}` must be between {} and {}, but found {}",
             ty, min, max,value
         ))
-        .with_labels(vec![Label::primary(span.file_id, span.range.clone())
+        .with_labels(vec![Label::primary(span.file_id, span.range().clone())
             .with_message("integer literal overflow")])
 }

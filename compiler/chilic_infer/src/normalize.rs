@@ -23,26 +23,46 @@ impl InferenceContext {
         match ty {
             Ty::Type(inner) => {
                 if expand_types {
-                    self.normalize_ty_internal(inner, expand_types, normalize_untyped)
+                    self.normalize_ty_internal(
+                        inner,
+                        expand_types,
+                        normalize_untyped,
+                    )
                 } else {
                     ty.clone()
                 }
             }
 
             Ty::Pointer(ty, is_mutable) => Ty::Pointer(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
+                Box::new(self.normalize_ty_internal(
+                    ty,
+                    expand_types,
+                    normalize_untyped,
+                )),
                 *is_mutable,
             ),
             Ty::MultiPointer(ty, is_mutable) => Ty::MultiPointer(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
+                Box::new(self.normalize_ty_internal(
+                    ty,
+                    expand_types,
+                    normalize_untyped,
+                )),
                 *is_mutable,
             ),
             Ty::Array(ty, size) => Ty::Array(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
+                Box::new(self.normalize_ty_internal(
+                    ty,
+                    expand_types,
+                    normalize_untyped,
+                )),
                 *size,
             ),
             Ty::Slice(ty, is_mutable) => Ty::Slice(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
+                Box::new(self.normalize_ty_internal(
+                    ty,
+                    expand_types,
+                    normalize_untyped,
+                )),
                 *is_mutable,
             ),
 
@@ -52,12 +72,19 @@ impl InferenceContext {
                 for param in &ty.params {
                     params.push(FnTyParam {
                         symbol: param.symbol,
-                        ty: self.normalize_ty_internal(&param.ty, expand_types, normalize_untyped),
+                        ty: self.normalize_ty_internal(
+                            &param.ty,
+                            expand_types,
+                            normalize_untyped,
+                        ),
                     });
                 }
 
-                let ret =
-                    Box::new(self.normalize_ty_internal(&ty.ret, expand_types, normalize_untyped));
+                let ret = Box::new(self.normalize_ty_internal(
+                    &ty.ret,
+                    expand_types,
+                    normalize_untyped,
+                ));
 
                 Ty::Fn(FnTy {
                     params,
@@ -71,7 +98,11 @@ impl InferenceContext {
                 let mut new_tys = vec![];
 
                 for ty in tys {
-                    new_tys.push(self.normalize_ty_internal(ty, expand_types, normalize_untyped));
+                    new_tys.push(self.normalize_ty_internal(
+                        ty,
+                        expand_types,
+                        normalize_untyped,
+                    ));
                 }
 
                 Ty::Tuple(new_tys)
@@ -83,8 +114,12 @@ impl InferenceContext {
                 for field in &struct_ty.fields {
                     new_fields.push(StructTyField {
                         symbol: field.symbol,
-                        ty: self.normalize_ty_internal(&field.ty, expand_types, normalize_untyped),
-                        span: field.span.clone(),
+                        ty: self.normalize_ty_internal(
+                            &field.ty,
+                            expand_types,
+                            normalize_untyped,
+                        ),
+                        span: field.span,
                     });
                 }
 
@@ -100,10 +135,13 @@ impl InferenceContext {
                 let value = self.value_of(TyVar::from(*var));
 
                 match value {
-                    InferenceValue::Bound(ty) => {
-                        self.normalize_ty_internal(&ty, expand_types, normalize_untyped)
-                    }
-                    InferenceValue::UntypedInt | InferenceValue::UntypedFloat => {
+                    InferenceValue::Bound(ty) => self.normalize_ty_internal(
+                        &ty,
+                        expand_types,
+                        normalize_untyped,
+                    ),
+                    InferenceValue::UntypedInt
+                    | InferenceValue::UntypedFloat => {
                         if normalize_untyped {
                             Ty::from(value)
                         } else {

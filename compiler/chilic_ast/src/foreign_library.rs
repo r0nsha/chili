@@ -16,7 +16,7 @@ impl ForeignLibrary {
     pub fn from_str(
         string: &str,
         module_path: Ustr,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 

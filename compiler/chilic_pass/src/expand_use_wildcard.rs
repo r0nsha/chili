@@ -76,14 +76,14 @@ fn expand_wildcard_use(
                     let mut use_path = use_.use_path.clone();
                     use_path.push(Spanned::new(
                         UsePathNode::Symbol(*symbol),
-                        use_.span_ref().clone(),
+                        use_.span().clone(),
                     ));
                     Use {
                         module_info: use_.module_info,
                         alias: *symbol,
                         use_path,
                         visibility: *visibility,
-                        span: use_.span_ref().clone(),
+                        span: use_.span().clone(),
                     }
                 })
                 .collect())
@@ -95,7 +95,7 @@ fn expand_wildcard_use(
             ))
             .with_labels(vec![Label::primary(
                 use_.span.file_id,
-                use_.span.range.clone(),
+                use_.span.range().clone(),
             )
             .with_message(format!("not found in `{}`", module_name))])),
     }

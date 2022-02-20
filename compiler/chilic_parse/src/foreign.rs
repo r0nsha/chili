@@ -5,7 +5,7 @@ use chilic_ast::{
     pattern::{Pattern, SymbolPattern},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_span::Span;
+use chilic_span::{Merge, Span};
 use ustr::{ustr, Ustr};
 
 use crate::{func::ParseProtoKind, *};
@@ -59,14 +59,14 @@ impl Parser {
             symbol: id.symbol(),
             alias: None,
             is_mutable: false,
-            span: id.span.clone(),
+            span: id.span,
             ignore: false,
         });
 
         let entity = if match_token!(self, Eq) {
             require!(self, Fn, "fn")?;
 
-            let proto_start_span = self.previous().span.clone();
+            let proto_start_span = self.previous().span;
             let mut proto =
                 self.parse_fn_proto(id.symbol(), ParseProtoKind::Value)?;
             proto.lib_name = Some(lib_name);
@@ -78,7 +78,7 @@ impl Parser {
                 None,
                 Some(Expr::new(
                     ExprKind::FnType(proto),
-                    Span::merge(&proto_start_span, self.previous_span_ref()),
+                    proto_start_span.merge(self.previous_span()),
                 )),
                 Some(lib_name),
             )
@@ -117,7 +117,7 @@ impl Parser {
         self.foreign_libraries.insert(ForeignLibrary::from_str(
             &lib,
             self.module_info.file_path,
-            &lib_token.span,
+            lib_token.span,
         )?);
 
         Ok(lib)

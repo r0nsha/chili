@@ -1,20 +1,20 @@
 use std::ops::Range;
 
-use chilic_span::Span;
+use chilic_span::{EndPosition, FileId, Position, Span};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Cursor {
-    start: usize,
-    end: usize,
-    file_id: usize,
+    file_id: FileId,
+    start: Position,
+    end: Position,
 }
 
 impl Cursor {
-    pub(crate) fn new(start: usize, file_id: usize) -> Self {
+    pub(crate) fn new(file_id: FileId) -> Self {
         Self {
-            start,
-            end: start,
             file_id,
+            start: Position::initial(),
+            end: Position::initial(),
         }
     }
 
@@ -24,37 +24,35 @@ impl Cursor {
     }
 
     #[inline]
-    pub(crate) fn bump(&mut self) {
-        self.end += 1;
+    pub(crate) fn advance(&mut self, newline: bool) {
+        self.end.index += 1;
+
+        if newline {
+            self.end.column = 0;
+            self.end.line += 1;
+        } else {
+            self.end.column += 1;
+        }
     }
 
     #[inline]
-    #[allow(unused)]
-    pub(crate) fn start(&self) -> usize {
-        self.start
-    }
-
-    #[inline]
-    pub(crate) fn end(&self) -> usize {
-        self.end
-    }
-
-    #[inline]
-    #[allow(unused)]
-    pub(crate) fn file_id(&self) -> usize {
-        self.file_id
+    pub(crate) fn end_index(&self) -> usize {
+        self.end.index
     }
 
     #[inline]
     pub(crate) fn range(&self) -> Range<usize> {
-        self.start..self.end
+        self.start.index..self.end.index
     }
 
     pub(crate) fn span(&self) -> Span {
-        Span {
-            range: self.range(),
-            file_id: self.file_id,
-        }
+        Span::new(
+            self.file_id,
+            self.start,
+            EndPosition {
+                index: self.end.index,
+            },
+        )
     }
 }
 

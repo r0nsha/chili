@@ -34,7 +34,7 @@ impl<'a> AnalysisContext<'a> {
                             const_value: const_value.clone(),
                             is_mutable: *is_mutable,
                             is_init,
-                            span: span.clone(),
+                            span: *span,
                         },
                     );
                 }
@@ -66,7 +66,7 @@ impl<'a> AnalysisContext<'a> {
                         .with_message(format!("can't destruct `{}`", parent_ty))
                         .with_labels(vec![Label::primary(
                             pattern.span.file_id,
-                            pattern.span.range.clone(),
+                            pattern.span.range().clone(),
                         )]));
                 }
 
@@ -90,7 +90,7 @@ impl<'a> AnalysisContext<'a> {
                             if !field_set.insert(*symbol) {
                                 return Err(
                                     TypeError::duplicate_destructor_field(
-                                        span,
+                                        *span,
                                         field.symbol,
                                     ),
                                 );
@@ -105,13 +105,13 @@ impl<'a> AnalysisContext<'a> {
                                     const_value: None,
                                     is_mutable: *is_mutable,
                                     is_init,
-                                    span: span.clone(),
+                                    span: *span,
                                 },
                             );
                         }
                         None => {
                             return Err(TypeError::invalid_struct_field(
-                                span, *symbol, &parent_ty,
+                                *span, *symbol, &parent_ty,
                             ))
                         }
                     }
@@ -133,7 +133,7 @@ impl<'a> AnalysisContext<'a> {
                         ))
                         .with_labels(vec![Label::primary(
                             pattern.span.file_id,
-                            pattern.span.range.clone(),
+                            pattern.span.range().clone(),
                         )]));
                 }
 
@@ -141,7 +141,7 @@ impl<'a> AnalysisContext<'a> {
             }
             ty => {
                 return Err(TypeError::struct_destructor_on_invalid_type(
-                    &pattern.span,
+                    pattern.span,
                     &ty,
                 ))
             }
@@ -159,7 +159,7 @@ impl<'a> AnalysisContext<'a> {
             Ty::Tuple(tys) => {
                 if pattern.symbols.len() > tys.len() {
                     return Err(TypeError::too_many_destructor_variables(
-                        &pattern.span,
+                        pattern.span,
                         parent_ty,
                         tys.len(),
                         pattern.symbols.len(),
@@ -186,7 +186,7 @@ impl<'a> AnalysisContext<'a> {
                             const_value: None,
                             is_mutable: *is_mutable,
                             is_init,
-                            span: span.clone(),
+                            span: *span,
                         },
                     );
                 }
@@ -194,7 +194,7 @@ impl<'a> AnalysisContext<'a> {
                 Ok(())
             }
             ty => Err(TypeError::tuple_destructor_on_invalid_type(
-                &pattern.span,
+                pattern.span,
                 &ty,
             )),
         }

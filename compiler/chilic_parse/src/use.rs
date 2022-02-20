@@ -53,7 +53,7 @@ impl Parser {
                     module,
                     alias,
                     visibility,
-                    id_token.span.clone(),
+                    id_token.span,
                 )
             }
             _ => {
@@ -69,7 +69,7 @@ impl Parser {
                     check_path_is_under_root_or_std(
                         &self.root_dir,
                         &path_buf,
-                        &id_token.span,
+                        id_token.span,
                     )?;
 
                     self.parse_use_postfix(
@@ -83,7 +83,7 @@ impl Parser {
                     check_path_is_under_root_or_std(
                         &self.root_dir,
                         &path_buf,
-                        &id_token.span,
+                        id_token.span,
                     )?;
 
                     let mut mod_path = path_buf.clone();
@@ -103,15 +103,11 @@ impl Parser {
                         Err(module_not_found_err(
                             &path_buf,
                             &module,
-                            &id_token.span,
+                            id_token.span,
                         ))
                     }
                 } else {
-                    Err(module_not_found_err(
-                        &path_buf,
-                        &module,
-                        &id_token.span,
-                    ))
+                    Err(module_not_found_err(&path_buf, &module, id_token.span))
                 }
             }
         }
@@ -151,12 +147,12 @@ impl Parser {
                 // single child, i.e: `use other.foo`
 
                 let id_token = self.previous();
-                let id_token_span = id_token.span.clone();
+                let id_token_span = id_token.span;
                 let alias = id_token.symbol();
 
                 use_path.push(Spanned::new(
                     UsePathNode::Symbol(alias),
-                    id_token.span.clone(),
+                    id_token.span,
                 ));
 
                 self.parse_use_postfix_internal(
@@ -179,7 +175,7 @@ impl Parser {
                     let mut local_use_path = use_path.clone();
                     local_use_path.push(Spanned::new(
                         UsePathNode::Symbol(alias),
-                        id_token.span.clone(),
+                        id_token.span,
                     ));
 
                     let use_ = self.parse_use_postfix_internal(
@@ -203,7 +199,7 @@ impl Parser {
             } else if match_token!(self, QuestionMark) {
                 use_path.push(Spanned::new(
                     UsePathNode::Wildcard,
-                    self.previous().span.clone(),
+                    self.previous().span,
                 ));
                 Ok(vec![Use {
                     module_info: ModuleInfo::new(module, path),
@@ -213,10 +209,7 @@ impl Parser {
                     span,
                 }])
             } else {
-                Err(SyntaxError::expected(
-                    self.span_ref(),
-                    "an identifier, { or ?",
-                ))
+                Err(SyntaxError::expected(self.span(), "an identifier, { or ?"))
             }
         } else {
             let alias = if match_token!(self, Colon) {
@@ -239,11 +232,11 @@ impl Parser {
 fn module_not_found_err(
     path_buf: &PathBuf,
     module: &str,
-    span: &Span,
+    span: Span,
 ) -> Diagnostic<usize> {
     Diagnostic::error()
         .with_message(format!("couldn't find module `{}`", module))
-        .with_labels(vec![Label::primary(span.file_id, span.range.clone())])
+        .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
         .with_notes(vec![format!(
             "tried to resolve this path: {}",
             path_buf.display()
@@ -253,7 +246,7 @@ fn module_not_found_err(
 fn check_path_is_under_root_or_std(
     root_path: &str,
     path_buf: &PathBuf,
-    span: &Span,
+    span: Span,
 ) -> DiagnosticResult<()> {
     if path_buf.starts_with(root_path)
         || path_buf.starts_with(compiler_info::std_module_root_dir())
@@ -264,7 +257,7 @@ fn check_path_is_under_root_or_std(
             .with_message("cannot use modules outside of the root module scope")
             .with_labels(vec![Label::primary(
                 span.file_id,
-                span.range.clone(),
+                span.range().clone(),
             )]))
     }
 }

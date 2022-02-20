@@ -5,7 +5,7 @@ use chilic_ast::{
     op::{BinaryOp, UnaryOp},
 };
 use chilic_error::*;
-use chilic_span::Span;
+use chilic_span::{Merge, Span};
 use chilic_token::TokenType::*;
 use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
@@ -45,19 +45,19 @@ impl Parser {
         } else if match_token!(self, OpenCurly) {
             self.parse_block()
         } else if match_token!(self, Use) {
-            let start_span = self.previous().span.clone();
+            let start_span = self.previous().span;
             let uses = self.parse_use(Visibility::Private)?;
 
             Ok(Expr::new(
                 ExprKind::Use(uses),
-                Span::merge(&start_span, self.previous_span_ref()),
+                start_span.merge(self.previous_span()),
             ))
         } else if match_token!(self, Defer) {
             let span = self.span();
             let expr = self.parse_expr()?;
             Ok(Expr::new(ExprKind::Defer(Box::new(expr)), span))
         } else if match_token!(self, Type) {
-            let start_span = self.previous().span.clone();
+            let start_span = self.previous().span;
 
             let entity = self.parse_entity(
                 EntityKind::Type,
@@ -67,17 +67,17 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::Entity(Box::new(entity)),
-                Span::merge(&start_span, self.previous_span_ref()),
+                start_span.merge(self.previous_span()),
             ))
         } else if match_token!(self, Let) {
-            let start_span = self.previous().span.clone();
+            let start_span = self.previous().span;
 
             if match_token!(self, Foreign) {
                 let entity = self.parse_foreign_single(Visibility::Private)?;
 
                 Ok(Expr::new(
                     ExprKind::Foreign(vec![entity]),
-                    Span::merge(&start_span, self.previous_span_ref()),
+                    start_span.merge(self.previous_span()),
                 ))
             } else {
                 let entity = self.parse_entity(
@@ -88,16 +88,16 @@ impl Parser {
 
                 Ok(Expr::new(
                     ExprKind::Entity(Box::new(entity)),
-                    Span::merge(&start_span, self.previous_span_ref()),
+                    start_span.merge(self.previous_span()),
                 ))
             }
         } else if match_token!(self, Foreign) {
-            let start_span = self.previous().span.clone();
+            let start_span = self.previous().span;
             let entities = self.parse_foreign_block()?;
 
             Ok(Expr::new(
                 ExprKind::Foreign(entities),
-                Span::merge(&start_span, self.previous_span_ref()),
+                start_span.merge(self.previous_span()),
             ))
         } else {
             self.parse_logic_or()
@@ -112,7 +112,7 @@ impl Parser {
 
     pub(crate) fn parse_if(&mut self) -> DiagnosticResult<Expr> {
         let token = self.previous();
-        let span = token.span.clone();
+        let span = token.span;
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
@@ -138,12 +138,12 @@ impl Parser {
                 then_expr: Box::new(then_expr),
                 else_expr,
             },
-            Span::merge(&span, self.previous_span_ref()),
+            span.merge(self.previous_span()),
         ))
     }
 
     pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
 
         let mut yields = false;
         let mut exprs: Vec<Expr> = vec![];
@@ -166,7 +166,7 @@ impl Parser {
                 }
 
                 return Err(SyntaxError::expected(
-                    &self.previous_span_ref().end(),
+                    self.previous_span(),
                     "; or }",
                 ));
             }
@@ -178,14 +178,14 @@ impl Parser {
                 deferred: vec![],
                 yields,
             }),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
     pub(crate) fn parse_logic_or(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_logic_and()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, BarBar) {
             expr = Expr::new(
@@ -194,10 +194,7 @@ impl Parser {
                     op: BinaryOp::Or,
                     rhs: Box::new(self.parse_logic_and()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -207,7 +204,7 @@ impl Parser {
     pub(crate) fn parse_logic_and(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_comparison()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, AmpAmp) {
             expr = Expr::new(
@@ -216,10 +213,7 @@ impl Parser {
                     op: BinaryOp::And,
                     rhs: Box::new(self.parse_comparison()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -229,7 +223,7 @@ impl Parser {
     pub(crate) fn parse_comparison(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_bitwise_or()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, BangEq | EqEq | Gt | GtEq | Lt | LtEq) {
             expr = Expr::new(
@@ -238,10 +232,7 @@ impl Parser {
                     op: self.previous().token_type.clone().into(),
                     rhs: Box::new(self.parse_bitwise_or()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -251,7 +242,7 @@ impl Parser {
     pub(crate) fn parse_bitwise_or(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_bitwise_xor()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, Bar) {
             if self.peek().is(Eq) {
@@ -265,10 +256,7 @@ impl Parser {
                     op: BinaryOp::BitwiseOr,
                     rhs: Box::new(self.parse_bitwise_xor()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -278,7 +266,7 @@ impl Parser {
     pub(crate) fn parse_bitwise_xor(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_bitwise_and()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, Caret) {
             if self.peek().is(Eq) {
@@ -292,10 +280,7 @@ impl Parser {
                     op: BinaryOp::BitwiseXor,
                     rhs: Box::new(self.parse_bitwise_and()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -305,7 +290,7 @@ impl Parser {
     pub(crate) fn parse_bitwise_and(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_bitshift()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, Amp) {
             if self.peek().is(Eq) {
@@ -319,10 +304,7 @@ impl Parser {
                     op: BinaryOp::BitwiseAnd,
                     rhs: Box::new(self.parse_bitshift()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -332,7 +314,7 @@ impl Parser {
     pub(crate) fn parse_bitshift(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_term()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, LtLt | GtGt) {
             if self.peek().is(Eq) {
@@ -346,10 +328,7 @@ impl Parser {
                     op: self.previous().token_type.clone().into(),
                     rhs: Box::new(self.parse_term()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -359,7 +338,7 @@ impl Parser {
     pub(crate) fn parse_term(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_factor()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, Minus | Plus) {
             if self.peek().is(Eq) {
@@ -373,10 +352,7 @@ impl Parser {
                     op: self.previous().token_type.clone().into(),
                     rhs: Box::new(self.parse_factor()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -386,7 +362,7 @@ impl Parser {
     pub(crate) fn parse_factor(&mut self) -> DiagnosticResult<Expr> {
         let mut expr = self.parse_unary()?;
 
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         while match_token!(self, Star | FwSlash | Percent) {
             if self.peek().is(Eq) {
@@ -400,10 +376,7 @@ impl Parser {
                     op: self.previous().token_type.clone().into(),
                     rhs: Box::new(self.parse_unary()?),
                 },
-                Span::new(
-                    start_span.range.start..self.previous().span.range.end,
-                    start_span.file_id,
-                ),
+                start_span.merge(self.previous_span()),
             );
         }
 
@@ -412,7 +385,7 @@ impl Parser {
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
         if match_token!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
-            let span = self.previous().span.clone();
+            let span = self.previous().span;
             let token = &self.previous().token_type;
 
             let expr = Expr::new(
@@ -428,7 +401,7 @@ impl Parser {
                     },
                     lhs: Box::new(self.parse_unary()?),
                 },
-                Span::merge(&span, self.previous_span_ref()),
+                span.merge(self.previous_span()),
             );
 
             Ok(expr)
@@ -447,12 +420,12 @@ impl Parser {
                     is_mutable: false,
                     entity_span: Span::unknown(),
                 },
-                token.span.clone(),
+                token.span,
             )
         } else if match_token!(self, OpenBracket) {
             self.parse_array_literal()?
         } else if match_token!(self, Dot) {
-            let start_span = self.previous().span.clone();
+            let start_span = self.previous().span;
 
             // anonymous struct literal
             if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
@@ -461,7 +434,7 @@ impl Parser {
                 self.parse_struct_literal(None, start_span)?
             } else {
                 return Err(SyntaxError::expected(
-                    self.span_ref(),
+                    self.span(),
                     &format!("an expression, got `{}`", self.peek().lexeme),
                 ));
             }
@@ -475,12 +448,12 @@ impl Parser {
         ) {
             self.parse_literal()?
         } else if match_token!(self, OpenParen) {
-            let start_span = self.previous().span.clone();
+            let start_span = self.previous().span;
 
             if match_token!(self, CloseParen) {
                 Expr::new(
                     ExprKind::Literal(LiteralKind::Unit),
-                    Span::merge(&start_span, self.previous_span_ref()),
+                    start_span.merge(self.previous_span()),
                 )
             } else {
                 let mut expr = self.parse_expr()?;
@@ -490,9 +463,8 @@ impl Parser {
                 } else {
                     require!(self, CloseParen, ")")?;
 
-                    expr.span.range.start -= 1;
-                    expr.span =
-                        Span::merge(&expr.span, self.previous_span_ref());
+                    expr.span.range().start -= 1;
+                    expr.span = Span::merge(&expr.span, self.previous_span());
 
                     expr
                 };
@@ -503,7 +475,7 @@ impl Parser {
             self.parse_fn()?
         } else {
             return Err(SyntaxError::expected(
-                self.span_ref(),
+                self.span(),
                 &format!("an expression, got `{}`", self.peek().lexeme),
             ));
         };
@@ -512,7 +484,7 @@ impl Parser {
     }
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
         let id_token = require!(self, Id(_), "identifier")?.clone();
         let symbol = id_token.symbol();
 
@@ -528,7 +500,7 @@ impl Parser {
             }),
             name => {
                 return Err(SyntaxError::unknown_builtin_function(
-                    &Span::merge(&start_span, &id_token.span),
+                    start_span.merge(id_token.span),
                     name.to_string(),
                 ))
             }
@@ -538,12 +510,12 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::Builtin(builtin),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
     pub(crate) fn parse_while(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
@@ -555,7 +527,7 @@ impl Parser {
                 cond: Box::new(cond),
                 expr: Box::new(expr),
             },
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
@@ -565,7 +537,7 @@ impl Parser {
 
         let mut declared_names = 0;
 
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
 
         self.mark(0);
 
@@ -629,13 +601,13 @@ impl Parser {
                 iterator,
                 expr: Box::new(expr),
             },
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
     pub(crate) fn parse_terminator(&mut self) -> DiagnosticResult<Expr> {
         let token = self.previous();
-        let span = token.span.clone();
+        let span = token.span;
 
         let expr = Expr::new(
             match token.token_type {
@@ -660,7 +632,7 @@ impl Parser {
                         .with_message("got an invalid terminator"));
                 }
             },
-            Span::merge(&span, self.previous_span_ref()),
+            span.merge(self.previous_span()),
         );
 
         return Ok(expr);

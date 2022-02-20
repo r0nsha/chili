@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 pub type FileId = usize;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -18,6 +20,26 @@ impl Span {
 
     pub fn unknown() -> Self {
         Default::default()
+    }
+
+    pub fn range(&self) -> Range<usize> {
+        self.start.index..self.end.index
+    }
+
+    pub fn with_start(&self, start: Position) -> Self {
+        Self {
+            file_id: self.file_id,
+            start,
+            end: self.end,
+        }
+    }
+
+    pub fn with_end(&self, end: EndPosition) -> Self {
+        Self {
+            file_id: self.file_id,
+            start: self.start,
+            end,
+        }
     }
 }
 

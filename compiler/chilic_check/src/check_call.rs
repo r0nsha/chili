@@ -1,5 +1,5 @@
-use chilic_error::{DiagnosticResult, TypeError};
 use chilic_ast::expr::{Call, CallArg, ExprKind};
+use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -12,7 +12,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         call: &Call,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let callee = self.check_expr(frame, &call.callee, None)?;
         let ty = self.infcx.normalize_ty(&callee.ty);
@@ -21,7 +21,7 @@ impl<'a> AnalysisContext<'a> {
             Ty::Fn(fn_type) => {
                 self.check_call_fn(frame, &fn_type, call, callee, span)
             }
-            _ => Err(TypeError::expected(&call.callee.span, &ty, "a function")),
+            _ => Err(TypeError::expected(call.callee.span, &ty, "a function")),
         }
     }
 
@@ -31,7 +31,7 @@ impl<'a> AnalysisContext<'a> {
         fn_type: &FnTy,
         call: &Call,
         callee: CheckedExpr,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         if fn_type.variadic {
             if call.args.len() < fn_type.params.len() {
@@ -57,7 +57,7 @@ impl<'a> AnalysisContext<'a> {
                 // * this is a named argument
 
                 if let Some(passed_span) =
-                    passed_args.insert(symbol.value, symbol.span.clone())
+                    passed_args.insert(symbol.value, symbol.span)
                 {
                     return Err(Diagnostic::error()
                         .with_message(format!(
@@ -67,12 +67,12 @@ impl<'a> AnalysisContext<'a> {
                         .with_labels(vec![
                             Label::primary(
                                 symbol.span.file_id,
-                                symbol.span.range.clone(),
+                                symbol.span.range().clone(),
                             )
                             .with_message("duplicate passed here"),
                             Label::secondary(
                                 passed_span.file_id,
-                                passed_span.range,
+                                passed_span.range(),
                             )
                             .with_message("has already been passed here"),
                         ]));
@@ -96,7 +96,7 @@ impl<'a> AnalysisContext<'a> {
                     self.infcx.unify_or_coerce_ty_expr(
                         &param_ty,
                         &mut arg.expr,
-                        &call.args[index].value.span,
+                        call.args[index].value.span,
                     )?;
 
                     arg
@@ -108,13 +108,13 @@ impl<'a> AnalysisContext<'a> {
                         ))
                         .with_labels(vec![Label::primary(
                             symbol.span.file_id,
-                            symbol.span.range.clone(),
+                            symbol.span.range().clone(),
                         )]));
                 }
             } else {
                 // * this is a positional argument
                 if let Some(param) = fn_type.params.get(index) {
-                    passed_args.insert(param.symbol, arg.value.span.clone());
+                    passed_args.insert(param.symbol, arg.value.span);
 
                     let mut arg = self.check_expr(
                         frame,
@@ -127,7 +127,7 @@ impl<'a> AnalysisContext<'a> {
                     self.infcx.unify_or_coerce_ty_expr(
                         &param_ty,
                         &mut arg.expr,
-                        &call.args[index].value.span,
+                        call.args[index].value.span,
                     )?;
 
                     arg

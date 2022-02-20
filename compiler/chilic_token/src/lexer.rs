@@ -26,7 +26,7 @@ impl<'lx> Lexer<'lx> {
     pub fn new(file_id: usize, source: &'lx str) -> Self {
         Self {
             source: Source::new(source),
-            cursor: Cursor::new(0, file_id),
+            cursor: Cursor::new(file_id),
             tokens: vec![],
         }
     }
@@ -208,7 +208,7 @@ impl<'lx> Lexer<'lx> {
                             .with_message(format!("invalid token `{}`", ch))
                             .with_labels(vec![Label::primary(
                                 span.file_id,
-                                span.range.clone(),
+                                span.range().clone(),
                             )]));
                     }
                 }
@@ -234,7 +234,7 @@ impl<'lx> Lexer<'lx> {
                 )
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range.clone(),
+                    span.range().clone(),
                 )]));
         }
 
@@ -259,7 +259,7 @@ impl<'lx> Lexer<'lx> {
                         )
                         .with_labels(vec![Label::primary(
                             span.file_id,
-                            span.range.clone(),
+                            span.range().clone(),
                         )]));
                 }
 
@@ -271,7 +271,7 @@ impl<'lx> Lexer<'lx> {
                         .with_message("invalid escape sequence")
                         .with_labels(vec![Label::primary(
                             span.file_id,
-                            span.range,
+                            span.range(),
                         )]))
                 }
             },
@@ -293,7 +293,7 @@ impl<'lx> Lexer<'lx> {
                 )
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range.clone(),
+                    span.range().clone(),
                 )]));
         }
 
@@ -331,7 +331,7 @@ impl<'lx> Lexer<'lx> {
                 ))
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range.clone(),
+                    span.range().clone(),
                 )]));
         }
 
@@ -353,7 +353,7 @@ impl<'lx> Lexer<'lx> {
                         .with_message("invalid escape sequence")
                         .with_labels(vec![Label::primary(
                             span.file_id,
-                            span.range,
+                            span.range(),
                         )]))
                 }
             },
@@ -576,7 +576,8 @@ impl<'lx> Lexer<'lx> {
         if self.is_eof() {
             EOF_STR
         } else {
-            self.source.range(self.cursor.end()..self.cursor.end() + 2)
+            self.source
+                .range(self.cursor.end_index()..self.cursor.end_index() + 2)
         }
     }
 
@@ -584,16 +585,16 @@ impl<'lx> Lexer<'lx> {
         if self.is_eof() {
             EOF_CHAR
         } else {
-            self.source.at(self.cursor.end())
+            self.source.at(self.cursor.end_index())
         }
     }
 
     pub(crate) fn peek_previous(&self) -> char {
-        self.source.at(self.cursor.end() - 1)
+        self.source.at(self.cursor.end_index() - 1)
     }
 
     pub(crate) fn peek_next(&self) -> char {
-        self.source.at(self.cursor.end() + 1)
+        self.source.at(self.cursor.end_index() + 1)
     }
 
     pub(crate) fn is(&mut self, expected: char) -> bool {
@@ -609,7 +610,7 @@ impl<'lx> Lexer<'lx> {
         let char = self.peek();
 
         if !self.is_eof() {
-            self.cursor.bump();
+            self.cursor.advance(char == '\n');
         }
 
         char
@@ -625,7 +626,7 @@ impl<'lx> Lexer<'lx> {
 
     #[inline]
     fn is_eof(&self) -> bool {
-        self.cursor.end() >= self.source.len()
+        self.cursor.end_index() >= self.source.len()
     }
 }
 

@@ -122,7 +122,7 @@ pub(super) trait Coerce {
 
 impl Coerce for Expr {
     fn coerce(&self, target_ty: Ty) -> Self {
-        let span = self.span.clone();
+        let span = self.span;
         Expr::typed(
             ExprKind::Cast(Cast {
                 expr: Box::new(self.clone()),

@@ -3,14 +3,14 @@ use chilic_ast::expr::{
     ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField,
 };
 use chilic_error::*;
-use chilic_span::Span;
+use chilic_span::{Merge, Span};
 use chilic_token::TokenType::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 impl Parser {
     pub(crate) fn parse_literal(&mut self) -> DiagnosticResult<Expr> {
         let token = self.previous();
-        let span = token.span.clone();
+        let span = token.span;
 
         let value = match &token.token_type {
             Nil => LiteralKind::Nil,
@@ -28,7 +28,7 @@ impl Parser {
                     ))
                     .with_labels(vec![Label::primary(
                         span.file_id,
-                        span.range,
+                        span.range(),
                     )
                     .with_message("unknown literal")]));
             }
@@ -38,7 +38,7 @@ impl Parser {
     }
 
     pub(crate) fn parse_array_literal(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
 
         let mut elements = vec![];
         let mut is_first_el = true;
@@ -56,7 +56,7 @@ impl Parser {
                             expr: Box::new(expr),
                             len: Box::new(len),
                         }),
-                        Span::merge(&start_span, self.previous_span_ref()),
+                        start_span.merge(self.previous_span()),
                     ));
                 }
                 is_first_el = false;
@@ -74,7 +74,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::ArrayLiteral(ArrayLiteralKind::List(elements)),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
@@ -95,7 +95,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(exprs),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
@@ -124,16 +124,16 @@ impl Parser {
                             is_mutable: false,
                             entity_span: Span::unknown(),
                         },
-                        id_token.span.clone(),
+                        id_token.span,
                     )
                 };
 
-                let value_span = value.span.clone();
+                let value_span = value.span;
 
                 StructLiteralField {
                     symbol: id_token.symbol(),
                     value,
-                    span: Span::merge(&id_token.span, &value_span),
+                    span: id_token.span.merge(value_span),
                 }
             },
             ", or }"
@@ -141,7 +141,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::StructLiteral { type_expr, fields },
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 }

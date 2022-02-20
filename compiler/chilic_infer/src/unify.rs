@@ -1,5 +1,5 @@
-use chilic_error::{DiagnosticResult, TypeError};
 use chilic_ast::expr::Expr;
+use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 use codespan_reporting::diagnostic::Diagnostic;
@@ -64,7 +64,7 @@ impl InferenceContext {
         &mut self,
         left_expr: &mut Expr,
         right_expr: &mut Expr,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<Ty> {
         match self.unify_ty_ty(&left_expr.ty, &right_expr.ty, span) {
             Ok(ty) => Ok(ty),
@@ -95,7 +95,7 @@ impl InferenceContext {
         &mut self,
         ty: &Ty,
         expr: &mut Expr,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<Ty> {
         match self.unify_ty_ty(ty, &expr.ty, span) {
             Ok(ty) => Ok(ty),
@@ -123,7 +123,7 @@ impl InferenceContext {
         &mut self,
         expected: impl Into<Ty>,
         actual: impl Into<Ty>,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<Ty> {
         let expected: Ty = expected.into();
         let actual: Ty = actual.into();
@@ -137,7 +137,7 @@ impl InferenceContext {
         &mut self,
         expected: &Ty,
         actual: &Ty,
-        span: &Span,
+        span: Span,
     ) -> Result<Ty, UnificationError> {
         match (expected, actual) {
             (Ty::Unit, Ty::Unit)
@@ -320,7 +320,7 @@ impl InferenceContext {
     pub fn map_unification_error(
         &mut self,
         UnificationError(expected, actual): UnificationError,
-        span: &Span,
+        span: Span,
     ) -> Diagnostic<usize> {
         TypeError::type_mismatch(
             span,

@@ -1,6 +1,7 @@
 use crate::*;
 use chilic_ast::pattern::{DestructorPattern, Pattern, SymbolPattern};
 use chilic_error::SyntaxError;
+use chilic_span::Merge;
 
 impl Parser {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
@@ -12,14 +13,14 @@ impl Parser {
                 } else if match_token!(self, OpenParen) {
                     self.parse_tuple_destructor()
                 } else {
-                    Err(SyntaxError::expected(&self.peek().span, "pattern"))
+                    Err(SyntaxError::expected(self.span(), "pattern"))
                 }
             }
         }
     }
 
     fn parse_struct_destructor(&mut self) -> DiagnosticResult<Pattern> {
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
         let mut exhaustive = true;
 
         let symbols = parse_delimited_list!(
@@ -49,14 +50,14 @@ impl Parser {
         let destructor = DestructorPattern {
             symbols,
             exhaustive,
-            span: Span::merge(&start_span, self.previous_span_ref()),
+            span: start_span.merge(self.previous_span()),
         };
 
         Ok(Pattern::StructDestructor(destructor))
     }
 
     fn parse_tuple_destructor(&mut self) -> DiagnosticResult<Pattern> {
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
         let mut exhaustive = true;
 
         let symbols = parse_delimited_list!(
@@ -78,7 +79,7 @@ impl Parser {
         let destructor = DestructorPattern {
             symbols,
             exhaustive,
-            span: Span::merge(&start_span, self.previous_span_ref()),
+            span: start_span.merge(self.previous_span()),
         };
 
         Ok(Pattern::TupleDestructor(destructor))
@@ -94,10 +95,7 @@ impl Parser {
         } else if match_token!(self, Placeholder) {
             (ustr(""), true)
         } else {
-            return Err(SyntaxError::expected(
-                self.span_ref(),
-                "identifier or _",
-            ));
+            return Err(SyntaxError::expected(self.span(), "identifier or _"));
         };
 
         Ok(SymbolPattern {

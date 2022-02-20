@@ -44,14 +44,12 @@ pub fn check_ir(
         let mut module_decls = UstrMap::default();
 
         for use_ in &module.uses {
-            let span = use_.span_ref();
+            let span = use_.span();
 
-            if let Some(defined_span) =
-                module_decls.insert(use_.alias, span.clone())
-            {
+            if let Some(defined_span) = module_decls.insert(use_.alias, span) {
                 return Err(SyntaxError::duplicate_symbol(
-                    &defined_span,
-                    &span,
+                    defined_span,
+                    span,
                     use_.alias,
                 ));
             }
@@ -69,12 +67,10 @@ pub fn check_ir(
                 continue;
             }
 
-            if let Some(defined_span) =
-                module_decls.insert(symbol, span.clone())
-            {
+            if let Some(defined_span) = module_decls.insert(symbol, span) {
                 return Err(SyntaxError::duplicate_symbol(
-                    &defined_span,
-                    &span,
+                    defined_span,
+                    span,
                     symbol,
                 ));
             }
@@ -108,7 +104,7 @@ pub fn check_ir(
                         entity.value = Some(Expr::typed(
                             ExprKind::Fn(func),
                             expr.ty.clone(),
-                            expr.span.clone(),
+                            expr.span,
                         ));
 
                         startup_entity = Some(entity);
@@ -128,7 +124,7 @@ pub fn check_ir(
                 root_module.info,
                 &startup_entity,
                 root_module.info.name,
-                &Span::unknown(),
+                Span::unknown(),
             )?;
 
             ancx.in_main_path = false;
@@ -143,7 +139,7 @@ pub fn check_ir(
                         module.info,
                         entity,
                         *module_name,
-                        &Span::unknown(),
+                        Span::unknown(),
                     )?;
                 }
             }
@@ -174,10 +170,10 @@ impl CheckedExpr {
         expr: ExprKind,
         ty: Ty,
         value: Option<Value>,
-        span: &Span,
+        span: Span,
     ) -> Self {
         Self {
-            expr: Expr::typed(expr, ty.clone(), span.clone()),
+            expr: Expr::typed(expr, ty.clone(), span),
             ty,
             value,
         }
@@ -317,7 +313,7 @@ impl EntityInfo {
             const_value: entity.const_value.clone(),
             is_mutable,
             is_init: entity.value.is_some() || entity.const_value.is_some(),
-            span: span.clone(),
+            span: span,
         }
     }
 }
@@ -350,7 +346,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         value: Option<Value>,
         ty: &Ty,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<i64> {
         match &value {
             Some(value) => {
@@ -376,7 +372,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         symbol: Ustr,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<EntityInfo> {
         match frame.env.get_with_depth(&symbol) {
             Some((entity_info, depth)) => {
@@ -387,7 +383,7 @@ impl<'a> AnalysisContext<'a> {
                         )
                         .with_labels(vec![Label::primary(
                             span.file_id,
-                            span.range.clone(),
+                            span.range().clone(),
                         )]));
                 }
 

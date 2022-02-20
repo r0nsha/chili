@@ -32,11 +32,11 @@ impl Pattern {
         }
     }
 
-    pub fn span(&self) -> &Span {
+    pub fn span(&self) -> Span {
         match self {
-            Pattern::Single(p) => &p.span,
+            Pattern::Single(p) => p.span,
             Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
-                &p.span
+                p.span
             }
         }
     }

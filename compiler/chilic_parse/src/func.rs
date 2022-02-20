@@ -3,7 +3,7 @@ use chilic_ast::{
     func::{Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
-use chilic_span::Span;
+use chilic_span::{Merge, Span};
 use chilic_ty::Ty;
 use ustr::{ustr, Ustr};
 
@@ -14,7 +14,7 @@ use crate::*;
 impl Parser {
     pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
         let name = self.get_decl_name();
-        let start_span = self.previous().span.clone();
+        let start_span = self.previous().span;
 
         let proto = self.parse_fn_proto(name, ParseProtoKind::Value)?;
 
@@ -26,7 +26,7 @@ impl Parser {
                 body,
                 is_startup: false,
             }),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 

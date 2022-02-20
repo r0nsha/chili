@@ -1,10 +1,10 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr};
-use chilic_error::{DiagnosticResult, TypeError};
 use chilic_ast::{
     expr::{Expr, ExprKind, LiteralKind},
     op::UnaryOp,
     value::Value,
 };
+use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 
@@ -15,7 +15,7 @@ impl<'a> AnalysisContext<'a> {
         op: UnaryOp,
         lhs: &Expr,
         parent_ty: Option<Ty>,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let lhs = self.check_expr(frame, lhs, parent_ty)?;
         let lhs_ty = self.infcx.normalize_ty(&lhs.ty);

@@ -127,7 +127,7 @@ impl Expr {
                 symbol,
                 is_mutable: _,
                 entity_span,
-            } => MaybeSpanned::spanned(symbol.to_string(), entity_span.clone()),
+            } => MaybeSpanned::spanned(symbol.to_string(), *entity_span),
             ExprKind::ArrayLiteral { .. } => {
                 MaybeSpanned::not_spanned("[_]{..}".to_string())
             }

@@ -61,7 +61,7 @@ macro_rules! require {
         if is!($parser, $( $pattern )|+) {
             Ok($parser.bump().clone())
         } else {
-            Err(SyntaxError::expected($parser.span_ref(), $msg))
+            Err(SyntaxError::expected($parser.span(), $msg))
         }
     };
 }
@@ -80,7 +80,7 @@ macro_rules! parse_delimited_list {
             } else if match_token!($parser, $close_delim) {
                 break;
             } else {
-                return Err(SyntaxError::expected($parser.span_ref(), $msg));
+                return Err(SyntaxError::expected($parser.span(), $msg));
             }
         }
 
@@ -214,19 +214,10 @@ impl Parser {
     }
 
     pub(crate) fn span(&self) -> Span {
-        self.peek().span.clone()
+        self.peek().span
     }
 
-    pub(crate) fn span_ref(&self) -> &Span {
-        &self.peek().span
-    }
-
-    #[allow(unused)]
     pub(crate) fn previous_span(&self) -> Span {
-        self.previous().span.clone()
-    }
-
-    pub(crate) fn previous_span_ref(&self) -> &Span {
-        &self.previous().span
+        self.previous().span
     }
 }

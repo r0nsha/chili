@@ -4,7 +4,7 @@ use chilic_ast::{
     op::{BinaryOp, UnaryOp},
 };
 use chilic_error::*;
-use chilic_span::{Span, Spanned};
+use chilic_span::{EndPosition, Merge, Span, Spanned};
 use chilic_token::TokenType::*;
 use chilic_ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -19,7 +19,7 @@ impl Parser {
         if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
             && match_token!(self, OpenCurly)
         {
-            let start_span = expr.span.clone();
+            let start_span = expr.span;
             return self.parse_struct_literal(Some(Box::new(expr)), start_span);
         }
 
@@ -56,7 +56,7 @@ impl Parser {
             } else if match_token!(self, As) {
                 self.parse_as(expr)?
             } else if match_token!(self, Fn) {
-                let start_span = expr.span.clone();
+                let start_span = expr.span;
 
                 let fn_expr = self.parse_fn()?;
                 let fn_arg = CallArg {
@@ -64,7 +64,7 @@ impl Parser {
                     value: fn_expr,
                 };
 
-                let span = Span::merge(&start_span, self.previous_span_ref());
+                let span = start_span.merge(self.previous_span());
 
                 match &expr.kind {
                     ExprKind::Call(call) => {
@@ -93,17 +93,17 @@ impl Parser {
     }
 
     fn parse_assign(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         let rvalue = self.parse_expr()?;
-        let end_span = self.previous().span.clone();
+        let end_span = self.previous().span;
 
         Ok(Expr::new(
             ExprKind::Assign {
                 lvalue: Box::new(expr.clone()),
                 rvalue: Box::new(rvalue),
             },
-            Span::merge(&start_span, &end_span),
+            start_span.merge(end_span),
         ))
     }
 
@@ -114,8 +114,8 @@ impl Parser {
         let op: BinaryOp = self.previous().token_type.clone().into();
         let rvalue = self.parse_expr()?;
 
-        let lvalue_span = lvalue.span.clone();
-        let rvalue_span = rvalue.span.clone();
+        let lvalue_span = lvalue.span;
+        let rvalue_span = rvalue.span;
 
         Ok(Expr::new(
             ExprKind::Assign {
@@ -126,15 +126,15 @@ impl Parser {
                         op,
                         rhs: Box::new(rvalue),
                     },
-                    rvalue_span.clone(),
+                    rvalue_span,
                 )),
             },
-            Span::merge(&lvalue_span, &rvalue_span),
+            lvalue_span.merge(rvalue_span),
         ))
     }
 
     fn parse_as(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         let type_expr = if match_token!(self, Placeholder) {
             None
@@ -149,12 +149,12 @@ impl Parser {
                 type_expr,
                 target_ty: Ty::Unknown,
             }),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
     fn parse_field_access(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         let token = self.bump();
 
@@ -164,7 +164,7 @@ impl Parser {
                     expr: Box::new(expr.clone()),
                     member: id,
                 },
-                Span::merge(&start_span, &token.span),
+                start_span.merge(token.span),
             ),
 
             Int(i) => Expr::new(
@@ -172,22 +172,21 @@ impl Parser {
                     expr: Box::new(expr.clone()),
                     member: ustr(&i.to_string()),
                 },
-                Span::merge(&start_span, &token.span),
+                start_span.merge(token.span),
             ),
 
             Float(_) => {
                 // this is for chained tuple access like `tuple.0.1`
                 let components = token.lexeme.split('.').collect::<Vec<&str>>();
 
-                let mut end_span = token.span.clone();
-                end_span.end -= components[0].len() + 1;
-
                 let first_access = Expr::new(
                     ExprKind::MemberAccess {
                         expr: Box::new(expr.clone()),
                         member: ustr(components[0]),
                     },
-                    Span::merge(&start_span, &end_span),
+                    start_span.merge(token.span.with_end(EndPosition {
+                        index: token.span.end.index - components[0].len() + 1,
+                    })),
                 );
 
                 let second_access = Expr::new(
@@ -195,7 +194,7 @@ impl Parser {
                         expr: Box::new(first_access),
                         member: ustr(components[0]),
                     },
-                    Span::merge(&start_span, &token.span),
+                    start_span.merge(token.span),
                 );
 
                 second_access
@@ -206,14 +205,14 @@ impl Parser {
                     op: UnaryOp::Deref,
                     lhs: Box::new(expr.clone()),
                 },
-                Span::merge(&start_span, &token.span),
+                start_span.merge(token.span),
             ),
 
             OpenParen => self.parse_call(expr)?,
 
             _ => {
                 return Err(SyntaxError::expected(
-                    self.span_ref(),
+                    self.span(),
                     "an identifier, number or *",
                 ))
             }
@@ -223,7 +222,7 @@ impl Parser {
     }
 
     fn parse_call(&mut self, callee: Expr) -> DiagnosticResult<Expr> {
-        let start_span = callee.span.clone();
+        let start_span = callee.span;
         let mut used_named_argument = false;
 
         let args = parse_delimited_list!(
@@ -253,7 +252,7 @@ impl Parser {
                         )
                         .with_labels(vec![Label::primary(
                             span.file_id,
-                            span.range,
+                            span.range(),
                         )]));
                 }
 
@@ -269,7 +268,7 @@ impl Parser {
                 callee: Box::new(callee),
                 args,
             }),
-            Span::merge(&start_span, self.previous_span_ref()),
+            start_span.merge(self.previous_span()),
         ))
     }
 
@@ -277,7 +276,7 @@ impl Parser {
         &mut self,
         expr: Expr,
     ) -> DiagnosticResult<Expr> {
-        let start_span = expr.span.clone();
+        let start_span = expr.span;
 
         match self.parse_expr() {
             Ok(index) => {
@@ -295,7 +294,7 @@ impl Parser {
                             low: Some(Box::new(index)),
                             high,
                         },
-                        Span::merge(&start_span, self.previous_span_ref()),
+                        start_span.merge(self.previous_span()),
                     ));
                 }
 
@@ -306,7 +305,7 @@ impl Parser {
                         expr: Box::new(expr),
                         index: Box::new(index),
                     },
-                    Span::merge(&start_span, self.previous_span_ref()),
+                    start_span.merge(self.previous_span()),
                 ))
             }
             Err(err) => {
@@ -324,7 +323,7 @@ impl Parser {
                             low: None,
                             high,
                         },
-                        Span::merge(&start_span, self.previous_span_ref()),
+                        start_span.merge(self.previous_span()),
                     ))
                 } else {
                     Err(err)

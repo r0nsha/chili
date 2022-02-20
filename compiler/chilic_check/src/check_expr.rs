@@ -38,7 +38,7 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Use(uses.clone()),
                     Ty::Unit,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Foreign(entities) => {
@@ -52,7 +52,7 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Foreign(new_entities),
                     Ty::Unit,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Entity(entity) => {
@@ -61,21 +61,21 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Entity(Box::new(entity)),
                     Ty::Unit,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Defer(deferred) => CheckedExpr::new(
                 ExprKind::Defer(deferred.clone()),
                 Ty::Unit,
                 None,
-                &expr.span,
+                expr.span,
             ),
             ExprKind::Assign { lvalue, rvalue } => {
-                self.check_assign_expr(frame, lvalue, rvalue, &expr.span)?
+                self.check_assign_expr(frame, lvalue, rvalue, expr.span)?
             }
             ExprKind::Cast(info) => {
                 let info =
-                    self.check_cast(frame, info, parent_ty, &expr.span)?;
+                    self.check_cast(frame, info, parent_ty, expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
                 if ty_can_be_casted(&source_ty, &info.target_ty) {
@@ -84,7 +84,7 @@ impl<'a> AnalysisContext<'a> {
                         ExprKind::Cast(info),
                         target_ty,
                         None,
-                        &expr.span,
+                        expr.span,
                     )
                 } else {
                     let source_ty =
@@ -96,7 +96,7 @@ impl<'a> AnalysisContext<'a> {
                         ))
                         .with_labels(vec![Label::primary(
                             info.expr.span.file_id,
-                            info.expr.span.range.clone(),
+                            info.expr.span.range().clone(),
                         )
                         .with_message(format!(
                             "invalid cast to `{}`",
@@ -105,9 +105,9 @@ impl<'a> AnalysisContext<'a> {
                 }
             }
             ExprKind::Fn(func) => {
-                let func = self.check_fn(frame, func, &expr.span, parent_ty)?;
+                let func = self.check_fn(frame, func, expr.span, parent_ty)?;
                 let ty = func.proto.ty.clone();
-                CheckedExpr::new(ExprKind::Fn(func), ty, None, &expr.span)
+                CheckedExpr::new(ExprKind::Fn(func), ty, None, expr.span)
             }
             ExprKind::Builtin(builtin) => match builtin {
                 Builtin::SizeOf(type_expr) | Builtin::AlignOf(type_expr) => {
@@ -118,7 +118,7 @@ impl<'a> AnalysisContext<'a> {
                         ))),
                         Ty::UInt(UIntTy::USize),
                         None,
-                        &expr.span,
+                        expr.span,
                     )
                 }
                 Builtin::Panic(msg_expr) => {
@@ -134,7 +134,7 @@ impl<'a> AnalysisContext<'a> {
                         ExprKind::Builtin(Builtin::Panic(msg_expr)),
                         Ty::Unit,
                         None,
-                        &expr.span,
+                        expr.span,
                     )
                 }
             },
@@ -145,11 +145,11 @@ impl<'a> AnalysisContext<'a> {
                 frame.loop_depth += 1;
 
                 let mut cond = self.check_expr(frame, cond, None)?;
-                let cond_span = cond.expr.span.clone();
+                let cond_span = cond.expr.span;
                 self.infcx.unify_or_coerce_ty_expr(
                     &Ty::Bool,
                     &mut cond.expr,
-                    &cond_span,
+                    cond_span,
                 )?;
                 let looped_expr = self.check_expr(frame, looped_expr, None)?;
 
@@ -162,7 +162,7 @@ impl<'a> AnalysisContext<'a> {
                     },
                     Ty::Unit,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::For {
@@ -183,7 +183,7 @@ impl<'a> AnalysisContext<'a> {
                         let mut start = self.check_expr(frame, start, None)?;
                         let mut end = self.check_expr(frame, end, None)?;
 
-                        // let end_span = end.expr.span.clone();
+                        // let end_span = end.expr.span;
                         // self.infcx.unify_or_coerce_expr_expr(
                         //     &mut start.expr,
                         //     &mut end.expr,
@@ -204,29 +204,29 @@ impl<'a> AnalysisContext<'a> {
                                 .with_labels(vec![
                                     Label::primary(
                                         looped_expr.span.file_id,
-                                        start.expr.span.range.clone(),
+                                        start.expr.span.range().clone(),
                                     ),
                                     Label::primary(
                                         looped_expr.span.file_id,
-                                        end.expr.span.range.clone(),
+                                        end.expr.span.range().clone(),
                                     ),
                                 ]));
                         }
 
                         if self.infcx.is_untyped_integer(&start.ty) {
-                            let span = start.expr.span.clone();
+                            let span = start.expr.span;
                             self.infcx.unify_or_coerce_ty_expr(
                                 &Ty::Int(IntTy::ISize),
                                 &mut start.expr,
-                                &span,
+                                span,
                             )?;
                         }
                         if self.infcx.is_untyped_integer(&end.ty) {
-                            let span = end.expr.span.clone();
+                            let span = end.expr.span;
                             self.infcx.unify_or_coerce_ty_expr(
                                 &start.ty,
                                 &mut end.expr,
-                                &span,
+                                span,
                             )?;
                         }
 
@@ -236,7 +236,7 @@ impl<'a> AnalysisContext<'a> {
                         frame.insert_entity(
                             *iter_name,
                             start_ty,
-                            start.expr.span.clone(),
+                            start.expr.span,
                             true,
                         );
                         // TODO: remove index variable once i have proper
@@ -244,7 +244,7 @@ impl<'a> AnalysisContext<'a> {
                         frame.insert_entity(
                             *iter_index_name,
                             Ty::UInt(UIntTy::USize),
-                            start.expr.span.clone(),
+                            start.expr.span,
                             true,
                         );
 
@@ -278,13 +278,13 @@ impl<'a> AnalysisContext<'a> {
                                 frame.insert_entity(
                                     *iter_name,
                                     iter_ty,
-                                    value.expr.span.clone(),
+                                    value.expr.span,
                                     true,
                                 );
                                 frame.insert_entity(
                                     *iter_index_name,
                                     Ty::UInt(UIntTy::USize),
-                                    value.expr.span.clone(),
+                                    value.expr.span,
                                     true,
                                 );
                             }
@@ -298,7 +298,7 @@ impl<'a> AnalysisContext<'a> {
                                     ))
                                     .with_labels(vec![Label::primary(
                                         value.expr.span.file_id,
-                                        value.expr.span.range.clone(),
+                                        value.expr.span.range().clone(),
                                     )]));
                             }
                         };
@@ -321,13 +321,13 @@ impl<'a> AnalysisContext<'a> {
                     },
                     Ty::Unit,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Break { deferred } => {
                 if frame.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(
-                        &expr.span, "break",
+                        expr.span, "break",
                     ));
                 }
 
@@ -337,13 +337,13 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Break { deferred },
                     Ty::Never,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Continue { deferred } => {
                 if frame.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(
-                        &expr.span, "continue",
+                        expr.span, "continue",
                     ));
                 }
 
@@ -353,7 +353,7 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Continue { deferred },
                     Ty::Never,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Return {
@@ -364,7 +364,7 @@ impl<'a> AnalysisContext<'a> {
 
                 if frame.env.depth() <= 1 {
                     return Err(SyntaxError::outside_of_function(
-                        &expr.span, "return",
+                        expr.span, "return",
                     ));
                 }
 
@@ -381,7 +381,7 @@ impl<'a> AnalysisContext<'a> {
                                 self.infcx.unify_or_coerce_ty_expr(
                                     &return_ty,
                                     &mut returned_result.expr,
-                                    &expr.span,
+                                    expr.span,
                                 )?;
 
                                 Some(Box::new(returned_result.expr))
@@ -389,7 +389,7 @@ impl<'a> AnalysisContext<'a> {
                                 self.infcx.unify(
                                     return_ty.clone(),
                                     Ty::Unit,
-                                    &expr.span,
+                                    expr.span,
                                 )?;
 
                                 None
@@ -404,12 +404,12 @@ impl<'a> AnalysisContext<'a> {
                             },
                             Ty::Never,
                             None,
-                            &expr.span,
+                            expr.span,
                         )
                     }
                     None => {
                         return Err(SyntaxError::outside_of_function(
-                            &expr.span, "return",
+                            expr.span, "return",
                         ))
                     }
                 }
@@ -422,7 +422,7 @@ impl<'a> AnalysisContext<'a> {
                 let cond = self.check_expr(frame, cond, None)?;
                 let ty = self.infcx.normalize_ty(&cond.ty);
 
-                self.infcx.unify(Ty::Bool, ty, &cond.expr.span)?;
+                self.infcx.unify(Ty::Bool, ty, cond.expr.span)?;
 
                 let mut then_result =
                     self.check_expr(frame, then_expr, parent_ty.clone())?;
@@ -432,12 +432,12 @@ impl<'a> AnalysisContext<'a> {
                         let mut else_result =
                             self.check_expr(frame, else_expr, parent_ty)?;
 
-                        let span = else_result.expr.span.clone();
+                        let span = else_result.expr.span;
 
                         let result_ty = self.infcx.unify_or_coerce_expr_expr(
                             &mut then_result.expr,
                             &mut else_result.expr,
-                            &span,
+                            span,
                         )?;
 
                         then_result.ty = result_ty.clone();
@@ -456,7 +456,7 @@ impl<'a> AnalysisContext<'a> {
                             ExprKind::Noop,
                             Ty::Unit,
                             None,
-                            &expr.span,
+                            expr.span,
                         ))
                     }
                 } else {
@@ -468,7 +468,7 @@ impl<'a> AnalysisContext<'a> {
                         },
                         result_ty,
                         None,
-                        &expr.span,
+                        expr.span,
                     )
                 }
             }
@@ -484,14 +484,14 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Block(block),
                     result_ty,
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Binary { lhs, op, rhs } => self.check_binary_expr(
-                frame, lhs, *op, rhs, parent_ty, &expr.span,
+                frame, lhs, *op, rhs, parent_ty, expr.span,
             )?,
             ExprKind::Unary { op, lhs } => {
-                self.check_unary_expr(frame, *op, lhs, parent_ty, &expr.span)?
+                self.check_unary_expr(frame, *op, lhs, parent_ty, expr.span)?
             }
             ExprKind::Subscript {
                 expr: accessed_expr,
@@ -499,11 +499,11 @@ impl<'a> AnalysisContext<'a> {
             } => {
                 let mut index = self.check_expr(frame, index, None)?;
 
-                let index_span = index.expr.span.clone();
+                let index_span = index.expr.span;
                 self.infcx.unify_or_coerce_ty_expr(
                     &Ty::UInt(UIntTy::USize),
                     &mut index.expr,
-                    &index_span,
+                    index_span,
                 )?;
 
                 let accessed_expr_result =
@@ -521,7 +521,7 @@ impl<'a> AnalysisContext<'a> {
                                     Diagnostic::error()
                                     .with_message(format!("index out of array bounds - expected 0 to {}, but found {}", size-1,index_value))
                                     .with_labels(vec![
-                                        Label::primary(index.expr.span.file_id, index.expr.span.range.clone()).with_message("index out of bounds")
+                                        Label::primary(index.expr.span.file_id, index.expr.span.range().clone()).with_message("index out of bounds")
                                     ]
                                 ));
                             }
@@ -540,11 +540,11 @@ impl<'a> AnalysisContext<'a> {
                         },
                         inner.as_ref().clone(),
                         None,
-                        &expr.span,
+                        expr.span,
                     ),
                     _ => {
                         return Err(TypeError::invalid_expr_in_subscript(
-                            &accessed_expr_result.expr.span,
+                            accessed_expr_result.expr.span,
                             &ty,
                         ))
                     }
@@ -561,11 +561,11 @@ impl<'a> AnalysisContext<'a> {
                 let low = if let Some(low) = low {
                     let mut low = self.check_expr(frame, low, None)?;
 
-                    let span = low.expr.span.clone();
+                    let span = low.expr.span;
                     self.infcx.unify_or_coerce_ty_expr(
                         &Ty::UInt(UIntTy::USize),
                         &mut low.expr,
-                        &span,
+                        span,
                     )?;
 
                     Some(Box::new(low.expr))
@@ -576,11 +576,11 @@ impl<'a> AnalysisContext<'a> {
                 let high = if let Some(high) = high {
                     let mut high = self.check_expr(frame, high, None)?;
 
-                    let span = high.expr.span.clone();
+                    let span = high.expr.span;
                     self.infcx.unify_or_coerce_ty_expr(
                         &Ty::UInt(UIntTy::USize),
                         &mut high.expr,
-                        &span,
+                        span,
                     )?;
 
                     Some(Box::new(high.expr))
@@ -592,7 +592,7 @@ impl<'a> AnalysisContext<'a> {
                             )
                             .with_labels(vec![Label::primary(
                                 expr.span.file_id,
-                                expr.span.range.clone(),
+                                expr.span.range().clone(),
                             )]));
                     }
 
@@ -611,7 +611,7 @@ impl<'a> AnalysisContext<'a> {
 
                     _ => {
                         return Err(TypeError::invalid_expr_in_slice(
-                            &sliced_expr.expr.span,
+                            sliced_expr.expr.span,
                             &sliced_expr_ty,
                         ))
                     }
@@ -625,10 +625,10 @@ impl<'a> AnalysisContext<'a> {
                     },
                     Ty::Slice(result_ty, is_mutable),
                     None,
-                    &expr.span,
+                    expr.span,
                 )
             }
-            ExprKind::Call(call) => self.check_call(frame, call, &expr.span)?,
+            ExprKind::Call(call) => self.check_call(frame, call, expr.span)?,
             ExprKind::MemberAccess {
                 expr: accessed_expr,
                 member: field,
@@ -646,7 +646,7 @@ impl<'a> AnalysisContext<'a> {
                                     Some(field_ty) => (field_ty.clone(), None),
                                     None => return Err(
                                         TypeError::tuple_field_out_of_bounds(
-                                            &expr.span,
+                                            expr.span,
                                             &field,
                                             &ty,
                                             tys.len() - 1,
@@ -657,7 +657,7 @@ impl<'a> AnalysisContext<'a> {
                             Err(_) => {
                                 return Err(
                                     TypeError::non_numeric_tuple_field(
-                                        &expr.span, &field, &ty,
+                                        expr.span, &field, &ty,
                                     ),
                                 );
                             }
@@ -668,7 +668,7 @@ impl<'a> AnalysisContext<'a> {
                             Some(field) => (field.ty.clone(), None),
                             None => {
                                 return Err(TypeError::invalid_struct_field(
-                                    &expr.span,
+                                    expr.span,
                                     *field,
                                     &ty.clone().into(),
                                 ))
@@ -690,7 +690,7 @@ impl<'a> AnalysisContext<'a> {
                             ModuleInfo::new(*name, *file_path),
                             frame.module_info.name,
                             *field,
-                            &expr.span,
+                            expr.span,
                             TopLevelLookupKind::OtherModule,
                         )?;
 
@@ -698,7 +698,7 @@ impl<'a> AnalysisContext<'a> {
                     }
                     ty => {
                         return Err(TypeError::field_access_on_invalid_type(
-                            &accessed_expr.expr.span,
+                            accessed_expr.expr.span,
                             &ty,
                         ));
                     }
@@ -711,12 +711,12 @@ impl<'a> AnalysisContext<'a> {
                     },
                     ty,
                     value,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Id { symbol, .. } => {
                 let (expr, _) =
-                    self.check_id(frame, *symbol, &expr.span, false)?;
+                    self.check_id(frame, *symbol, expr.span, false)?;
                 expr
             }
             ExprKind::ArrayLiteral(kind) => match kind {
@@ -732,11 +732,11 @@ impl<'a> AnalysisContext<'a> {
                             Some(element_ty.clone()),
                         )?;
 
-                        let el_span = el.expr.span.clone();
+                        let el_span = el.expr.span;
                         self.infcx.unify_or_coerce_ty_expr(
                             &element_ty,
                             &mut el.expr,
-                            &el_span,
+                            el_span,
                         )?;
 
                         new_elements.push(el.expr);
@@ -748,7 +748,7 @@ impl<'a> AnalysisContext<'a> {
                         )),
                         Ty::Array(Box::new(element_ty), elements.len()),
                         None,
-                        &expr.span,
+                        expr.span,
                     )
                 }
                 ArrayLiteralKind::Fill { expr, len } => {
@@ -756,19 +756,19 @@ impl<'a> AnalysisContext<'a> {
                     let len_value = self.expect_value_is_int(
                         len.value,
                         &len.ty,
-                        &len.expr.span,
+                        len.expr.span,
                     )?;
                     let len_value = len_value as isize;
 
                     if len_value < 0 {
                         return Err(TypeError::negative_array_len(
-                            &len.expr.span,
+                            len.expr.span,
                             len_value,
                         ));
                     }
 
                     let expr = self.check_expr(frame, expr, None)?;
-                    let span = expr.expr.span.clone();
+                    let span = expr.expr.span;
 
                     CheckedExpr::new(
                         ExprKind::ArrayLiteral(ArrayLiteralKind::Fill {
@@ -777,7 +777,7 @@ impl<'a> AnalysisContext<'a> {
                         }),
                         Ty::Array(Box::new(expr.ty), len_value as _),
                         None,
-                        &span,
+                        span,
                     )
                 }
             },
@@ -805,7 +805,7 @@ impl<'a> AnalysisContext<'a> {
                 );
                 let new_elements =
                     new_elements.iter().map(|e| e.expr.clone()).collect();
-                let span = &expr.span;
+                let span = expr.span;
 
                 if is_type_expression {
                     CheckedExpr::new(
@@ -833,7 +833,7 @@ impl<'a> AnalysisContext<'a> {
                     match ty {
                         Ty::Struct(struct_ty) => self
                             .check_named_struct_literal(
-                                frame, Some(Box::new(checked_type_expr.expr)), fields, struct_ty, &expr.span,
+                                frame, Some(Box::new(checked_type_expr.expr)), fields, struct_ty, expr.span,
                             )?,
                         _ => {
                             return Err(Diagnostic::error()
@@ -843,7 +843,7 @@ impl<'a> AnalysisContext<'a> {
                             ))
                             .with_labels(vec![Label::primary(
                                 type_expr.span.file_id,
-                                type_expr.span.range.clone(),
+                                type_expr.span.range().clone(),
                             )]))
                         }
                     }
@@ -854,10 +854,10 @@ impl<'a> AnalysisContext<'a> {
 
                         match ty.maybe_deref_once() {
                             Ty::Struct(struct_ty) => {
-                                self.check_named_struct_literal(frame, None, fields, struct_ty, &expr.span)?
+                                self.check_named_struct_literal(frame, None, fields, struct_ty, expr.span)?
                             }
                             Ty::Var(_) => {
-                                self.check_anonymous_struct_literal(frame, fields, &expr.span)?
+                                self.check_anonymous_struct_literal(frame, fields, expr.span)?
                             }
                             _ => {
                                 return Err(Diagnostic::error()
@@ -867,13 +867,13 @@ impl<'a> AnalysisContext<'a> {
                                     ))
                                     .with_labels(vec![Label::primary(
                                         expr.span.file_id,
-                                        expr.span.range.clone(),
+                                        expr.span.range().clone(),
                                     )]))
                             }
                         }
                     }
                     None => self.check_anonymous_struct_literal(
-                        frame, fields, &expr.span,
+                        frame, fields, expr.span,
                     )?,
                 },
             },
@@ -907,7 +907,7 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::Literal(kind.clone()),
                     ty,
                     value,
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::PointerType(expr, is_mutable) => {
@@ -923,7 +923,7 @@ impl<'a> AnalysisContext<'a> {
                     ),
                     new_ty.clone().create_type(),
                     Some(Value::Type(new_ty)),
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::MultiPointerType(expr, is_mutable) => {
@@ -940,7 +940,7 @@ impl<'a> AnalysisContext<'a> {
                     ),
                     new_ty.clone().create_type(),
                     Some(Value::Type(new_ty)),
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::ArrayType(expr, size) => {
@@ -952,13 +952,13 @@ impl<'a> AnalysisContext<'a> {
                 let size_value = self.expect_value_is_int(
                     size.value,
                     &size.ty,
-                    &size.expr.span,
+                    size.expr.span,
                 )?;
                 let size_value = size_value as isize;
 
                 if size_value < 0 {
                     return Err(TypeError::negative_array_len(
-                        &size.expr.span,
+                        size.expr.span,
                         size_value,
                     ));
                 }
@@ -973,7 +973,7 @@ impl<'a> AnalysisContext<'a> {
                     ),
                     new_ty.clone().create_type(),
                     Some(Value::Type(new_ty)),
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::SliceType(expr, is_mutable) => {
@@ -986,12 +986,12 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::SliceType(Box::new(type_expr.expr), *is_mutable),
                     new_ty.clone().create_type(),
                     Some(Value::Type(new_ty)),
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::StructType(struct_type) => {
                 let name = if struct_type.name == "" {
-                    self.get_anonymous_struct_name(&expr.span)
+                    self.get_anonymous_struct_name(expr.span)
                 } else {
                     struct_type.name
                 };
@@ -1019,7 +1019,7 @@ impl<'a> AnalysisContext<'a> {
                         struct_type.name,
                         opaque_struct_type.clone(),
                         Value::Type(opaque_struct),
-                        expr.span.clone(),
+                        expr.span,
                     );
                 }
 
@@ -1035,11 +1035,11 @@ impl<'a> AnalysisContext<'a> {
                     let ty = type_expr.value.unwrap().into_type();
 
                     if let Some(defined_span) =
-                        field_span_map.insert(field.name, field.span.clone())
+                        field_span_map.insert(field.name, field.span)
                     {
                         return Err(SyntaxError::duplicate_struct_field(
-                            &defined_span,
-                            &field.span,
+                            defined_span,
+                            field.span,
                             field.name.to_string(),
                         ));
                     }
@@ -1047,13 +1047,13 @@ impl<'a> AnalysisContext<'a> {
                     new_fields.push(StructTypeField {
                         name: field.name,
                         ty: type_expr.expr,
-                        span: field.span.clone(),
+                        span: field.span,
                     });
 
                     struct_ty_fields.push(StructTyField {
                         symbol: field.name,
                         ty,
-                        span: field.span.clone(),
+                        span: field.span,
                     });
                 }
 
@@ -1067,7 +1067,7 @@ impl<'a> AnalysisContext<'a> {
                 for field in struct_ty.fields.iter() {
                     if self.occurs_check(&field.ty, qualified_name) {
                         return Err(TypeError::circular_type(
-                            &expr.span,
+                            expr.span,
                             &struct_ty.name,
                         ));
                     }
@@ -1090,12 +1090,12 @@ impl<'a> AnalysisContext<'a> {
                     }),
                     Ty::Struct(struct_ty.clone()).create_type(),
                     Some(Value::Type(Ty::Struct(struct_ty))),
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::FnType(proto) => {
                 let proto =
-                    self.check_proto(frame, proto, parent_ty, &expr.span)?;
+                    self.check_proto(frame, proto, parent_ty, expr.span)?;
 
                 if proto.lib_name.is_some() {
                     let ty = proto.ty.clone();
@@ -1103,7 +1103,7 @@ impl<'a> AnalysisContext<'a> {
                         ExprKind::FnType(proto),
                         ty,
                         None,
-                        &expr.span,
+                        expr.span,
                     )
                 } else {
                     let ty = proto.ty.clone().create_type();
@@ -1111,7 +1111,7 @@ impl<'a> AnalysisContext<'a> {
                         ExprKind::FnType(proto),
                         ty.clone(),
                         Some(Value::Type(ty)),
-                        &expr.span,
+                        expr.span,
                     )
                 }
             }
@@ -1120,7 +1120,7 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::SelfType,
                     self_type.clone(),
                     Some(Value::Type(self_type.clone())),
-                    &expr.span,
+                    expr.span,
                 ),
                 None => return Err(Diagnostic::error()
                     .with_message(
@@ -1128,20 +1128,20 @@ impl<'a> AnalysisContext<'a> {
                     )
                     .with_labels(vec![Label::primary(
                         expr.span.file_id,
-                        expr.span.range.clone(),
+                        expr.span.range().clone(),
                     )])),
             },
             ExprKind::NeverType => CheckedExpr::new(
                 ExprKind::NeverType,
                 Ty::Never.create_type(),
                 Some(Value::Type(Ty::Never)),
-                &expr.span,
+                expr.span,
             ),
             ExprKind::UnitType => CheckedExpr::new(
                 ExprKind::UnitType,
                 Ty::Unit.create_type(),
                 Some(Value::Type(Ty::Unit)),
-                &expr.span,
+                expr.span,
             ),
             ExprKind::PlaceholderType => {
                 let tyvar = self.infcx.fresh_type_var();
@@ -1149,14 +1149,14 @@ impl<'a> AnalysisContext<'a> {
                     ExprKind::PlaceholderType,
                     Ty::from(tyvar).create_type(),
                     Some(Value::Type(tyvar.into())),
-                    &expr.span,
+                    expr.span,
                 )
             }
             ExprKind::Noop => CheckedExpr::new(
                 ExprKind::Noop,
                 self.infcx.fresh_type_var().into(),
                 None,
-                &expr.span,
+                expr.span,
             ),
         };
 
@@ -1173,7 +1173,7 @@ impl<'a> AnalysisContext<'a> {
         let is_type = result.value.as_ref().map_or(false, |v| v.is_type());
 
         if !is_type {
-            return Err(TypeError::expected(&expr.span, &result.ty, "a type"));
+            return Err(TypeError::expected(expr.span, &result.ty, "a type"));
         }
 
         let ty = result.value.unwrap().into_type();
@@ -1205,7 +1205,7 @@ impl<'a> AnalysisContext<'a> {
         type_expr: Option<Box<Expr>>,
         fields: &Vec<StructLiteralField>,
         struct_ty: StructTy,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let mut field_set = UstrSet::default();
 
@@ -1217,7 +1217,7 @@ impl<'a> AnalysisContext<'a> {
             if !field_set.insert(field.symbol) {
                 return Err(
                     SyntaxError::struct_field_specified_more_than_once(
-                        &field.span,
+                        field.span,
                         field.symbol.to_string(),
                     ),
                 );
@@ -1233,22 +1233,22 @@ impl<'a> AnalysisContext<'a> {
                         Some(f.ty.clone()),
                     )?;
 
-                    let field_span = field.value.span.clone();
+                    let field_span = field.value.span;
                     self.infcx.unify_or_coerce_ty_expr(
                         &f.ty,
                         &mut field_value.expr,
-                        &field_span,
+                        field_span,
                     )?;
 
                     new_fields.push(StructLiteralField {
                         symbol: field.symbol,
                         value: field_value.expr,
-                        span: field.span.clone(),
+                        span: field.span,
                     })
                 }
                 None => {
                     return Err(TypeError::invalid_struct_field(
-                        &field.span,
+                        field.span,
                         field.symbol,
                         &Ty::Struct(struct_ty),
                     ))
@@ -1261,7 +1261,7 @@ impl<'a> AnalysisContext<'a> {
                 .with_message("union literal should have exactly one field")
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range.clone(),
+                    span.range().clone(),
                 )]));
         }
 
@@ -1277,7 +1277,7 @@ impl<'a> AnalysisContext<'a> {
                 ))
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range.clone(),
+                    span.range().clone(),
                 )]));
         }
 
@@ -1297,7 +1297,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         fields: &Vec<StructLiteralField>,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let mut field_set = UstrSet::default();
 
@@ -1308,7 +1308,7 @@ impl<'a> AnalysisContext<'a> {
             if !field_set.insert(field.symbol) {
                 return Err(
                     SyntaxError::struct_field_specified_more_than_once(
-                        &field.span,
+                        field.span,
                         field.symbol.to_string(),
                     ),
                 );
@@ -1319,13 +1319,13 @@ impl<'a> AnalysisContext<'a> {
             struct_ty_fields.push(StructTyField {
                 symbol: field.symbol,
                 ty: field_value.ty.clone(),
-                span: field.span.clone(),
+                span: field.span,
             });
 
             new_fields.push(StructLiteralField {
                 symbol: field.symbol,
                 value: field_value.expr,
-                span: field.span.clone(),
+                span: field.span,
             })
         }
 
@@ -1412,21 +1412,15 @@ impl<'a> AnalysisContext<'a> {
         }
     }
 
-    fn get_anonymous_struct_name(&self, span: &Span) -> Ustr {
-        let location =
-            self.files.location(span.file_id, span.range.start).unwrap();
-
-        ustr(&format!(
-            "struct:{}:{}",
-            location.line_number, location.column_number
-        ))
+    fn get_anonymous_struct_name(&self, span: Span) -> Ustr {
+        ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
     }
 
     pub(crate) fn check_id(
         &mut self,
         frame: &mut AnalysisFrame,
         symbol: Ustr,
-        span: &Span,
+        span: Span,
         is_lvalue: bool,
     ) -> DiagnosticResult<(CheckedExpr, bool)> {
         let entity = self.find_symbol(frame, symbol, span)?;
@@ -1446,11 +1440,11 @@ impl<'a> AnalysisContext<'a> {
             return Err(Diagnostic::error()
                 .with_message(msg.clone())
                 .with_labels(vec![
-                    Label::primary(span.file_id, span.range.clone())
+                    Label::primary(span.file_id, span.range().clone())
                         .with_message(msg),
                     Label::secondary(
                         entity.span.file_id,
-                        entity.span.range.clone(),
+                        entity.span.range().clone(),
                     )
                     .with_message("defined here"),
                 ]));
@@ -1515,7 +1509,7 @@ impl<'a> AnalysisContext<'a> {
         frame: &mut AnalysisFrame,
         info: &Cast,
         parent_ty: Option<Ty>,
-        expr_span: &Span,
+        expr_span: Span,
     ) -> DiagnosticResult<Cast> {
         let casted_expr = self.check_expr(frame, &info.expr, None)?;
 
@@ -1534,7 +1528,7 @@ impl<'a> AnalysisContext<'a> {
                         .with_message("can't infer the type cast's target type")
                         .with_labels(vec![Label::primary(
                             expr_span.file_id,
-                            expr_span.range.clone(),
+                            expr_span.range(),
                         )]))
                 }
             }
@@ -1562,7 +1556,7 @@ impl<'a> AnalysisContext<'a> {
                     ))
                     .with_labels(vec![Label::primary(
                         expr.span.file_id,
-                        expr.span.range.clone(),
+                        expr.span.range().clone(),
                     )
                     .with_message("cannot reference")]),
                 ImmutableFieldAccess {
@@ -1575,9 +1569,9 @@ impl<'a> AnalysisContext<'a> {
                         full_path, root_symbol
                     ))
                     .with_labels(vec![
-                        Label::primary(expr.span.file_id, expr.span.range.clone())
+                        Label::primary(expr.span.file_id, expr.span.range().clone())
                             .with_message("cannot reference"),
-                        Label::secondary(entity_span.file_id, entity_span.range.clone())
+                        Label::secondary(entity_span.file_id, entity_span.range())
                             .with_message(format!(
                                 "consider changing this to be mutable: `mut {}`",
                                 root_symbol
@@ -1592,9 +1586,9 @@ impl<'a> AnalysisContext<'a> {
                         symbol
                     ))
                     .with_labels(vec![
-                        Label::primary(expr.span.file_id, expr.span.range.clone())
+                        Label::primary(expr.span.file_id, expr.span.range().clone())
                             .with_message("cannot reference immutable variable"),
-                        Label::secondary(entity_span.file_id, entity_span.range.clone())
+                        Label::secondary(entity_span.file_id, entity_span.range())
                             .with_message(format!(
                                 "consider changing this to be mutable: `mut {}`",
                                 symbol
@@ -1691,7 +1685,7 @@ impl<'a> AnalysisContext<'a> {
                                                     "{}.{}",
                                                     module_name, member
                                                 )),
-                                                entity_span: span.clone(),
+                                                entity_span: span,
                                             })
                                         }
                                     }
@@ -1704,7 +1698,7 @@ impl<'a> AnalysisContext<'a> {
                                             "{}.{}",
                                             module_name, member
                                         )),
-                                        entity_span: use_.span.clone(),
+                                        entity_span: use_.span,
                                     })
                                 }
                             }
@@ -1764,7 +1758,7 @@ impl<'a> AnalysisContext<'a> {
                 } else {
                     Err(ImmutableEntity {
                         symbol: *symbol,
-                        entity_span: entity_span.clone(),
+                        entity_span: *entity_span,
                     })
                 }
             }

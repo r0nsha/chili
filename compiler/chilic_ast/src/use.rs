@@ -13,11 +13,11 @@ pub struct Use {
 }
 
 impl Use {
-    pub fn span_ref(&self) -> &Span {
+    pub fn span(&self) -> Span {
         if self.use_path.is_empty() {
-            &self.span
+            self.span
         } else {
-            &self.use_path.last().unwrap().span
+            self.use_path.last().unwrap().span
         }
     }
 

@@ -1,10 +1,10 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr};
-use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
 use chilic_ast::{
     expr::{Expr, ExprKind, LiteralKind},
     op::BinaryOp,
     value::Value,
 };
+use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 
@@ -17,16 +17,16 @@ impl<'a> AnalysisContext<'a> {
         op: BinaryOp,
         rhs: &Box<Expr>,
         parent_ty: Option<Ty>,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let mut lhs = self.check_expr(frame, lhs, parent_ty.clone())?;
         let mut rhs = self.check_expr(frame, rhs, parent_ty)?;
 
-        let rhs_span = rhs.expr.span.clone();
+        let rhs_span = rhs.expr.span;
         let ty = self.infcx.unify_or_coerce_expr_expr(
             &mut lhs.expr,
             &mut rhs.expr,
-            &rhs_span,
+            rhs_span,
         )?;
 
         match op {

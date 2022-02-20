@@ -45,7 +45,7 @@ impl<'a> AnalysisContext<'a> {
                 EntityKind::Value => {
                     if is_a_type {
                         return Err(TypeError::expected(
-                            &value.span,
+                            value.span,
                             &self.infcx.normalize_ty_and_untyped(&result.ty),
                             "a value",
                         ));
@@ -54,7 +54,7 @@ impl<'a> AnalysisContext<'a> {
                 EntityKind::Type => {
                     if !is_a_type {
                         return Err(TypeError::expected(
-                            &value.span,
+                            value.span,
                             &self.infcx.normalize_ty_and_untyped(&result.ty),
                             "a type",
                         ));
@@ -62,11 +62,11 @@ impl<'a> AnalysisContext<'a> {
                 }
             }
 
-            let span = result.expr.span.clone();
+            let span = result.expr.span;
             self.infcx.unify_or_coerce_ty_expr(
                 &Ty::from(expected_var),
                 &mut result.expr,
-                &span,
+                span,
             )?;
 
             (Some(result.expr), result.value)
@@ -87,7 +87,7 @@ impl<'a> AnalysisContext<'a> {
                             )
                             .with_labels(vec![Label::primary(
                                 span.file_id,
-                                span.range.clone(),
+                                span.range().clone(),
                             )])
                             .with_notes(vec![String::from(
                                 "try removing the `mut` from the declaration",
@@ -143,7 +143,7 @@ impl<'a> AnalysisContext<'a> {
         module_info: ModuleInfo,
         calling_module: Ustr,
         symbol: Ustr,
-        symbol_span: &Span,
+        symbol_span: Span,
         lookup_kind: TopLevelLookupKind,
     ) -> DiagnosticResult<EntityInfo> {
         // if the entity is already in new_ir, get its type instead
@@ -156,7 +156,7 @@ impl<'a> AnalysisContext<'a> {
                     self.is_item_accessible(
                         entity.visibility,
                         symbol,
-                        &span,
+                        span,
                         module_info,
                         calling_module,
                         symbol_span,
@@ -196,7 +196,7 @@ impl<'a> AnalysisContext<'a> {
                         self.is_item_accessible(
                             use_.visibility,
                             use_.alias,
-                            use_.span_ref(),
+                            use_.span(),
                             module_info,
                             calling_module,
                             symbol_span,
@@ -214,7 +214,7 @@ impl<'a> AnalysisContext<'a> {
                         const_value: Some(Value::Type(ty.clone())),
                         is_mutable: false,
                         is_init: true,
-                        span: symbol_span.clone(),
+                        span: symbol_span,
                     }),
                     None => Err(match lookup_kind {
                         TopLevelLookupKind::CurrentModule => {
@@ -225,7 +225,7 @@ impl<'a> AnalysisContext<'a> {
                                 ))
                                 .with_labels(vec![Label::primary(
                                     symbol_span.file_id,
-                                    symbol_span.range.clone(),
+                                    symbol_span.range(),
                                 )
                                 .with_message("not found in this scope")])
                         }
@@ -236,7 +236,7 @@ impl<'a> AnalysisContext<'a> {
                             ))
                             .with_labels(vec![Label::primary(
                                 symbol_span.file_id,
-                                symbol_span.range.clone(),
+                                symbol_span.range(),
                             )
                             .with_message(format!(
                                 "not found in `{}`",
@@ -265,7 +265,7 @@ impl<'a> AnalysisContext<'a> {
         module_info: ModuleInfo,
         entity: &Entity,
         calling_module: Ustr,
-        calling_span: &Span,
+        calling_span: Span,
     ) -> DiagnosticResult<EntityInfo> {
         let SymbolPattern { symbol, span, .. } = entity.pattern.into_single();
 
@@ -281,10 +281,10 @@ impl<'a> AnalysisContext<'a> {
                     .with_labels(vec![
                         Label::primary(
                             calling_span.file_id,
-                            calling_span.range.clone(),
+                            calling_span.range(),
                         )
                         .with_message("reference is here"),
-                        Label::secondary(span.file_id, span.range.clone())
+                        Label::secondary(span.file_id, span.range().clone())
                             .with_message(format!(
                                 "`{}` declared here",
                                 symbol
@@ -301,7 +301,7 @@ impl<'a> AnalysisContext<'a> {
         self.is_item_accessible(
             entity.visibility,
             symbol,
-            &span,
+            span,
             module_info,
             calling_module,
             calling_span,
@@ -342,7 +342,7 @@ impl<'a> AnalysisContext<'a> {
                     current_module,
                     calling_module,
                     symbol.value.into_symbol(),
-                    &symbol.span,
+                    symbol.span,
                     TopLevelLookupKind::OtherModule,
                 )?;
 
@@ -357,7 +357,7 @@ impl<'a> AnalysisContext<'a> {
                     _ => {
                         if index < use_.use_path.len() - 1 {
                             return Err(TypeError::type_mismatch(
-                                &symbol.span,
+                                symbol.span,
                                 &Ty::Module {
                                     name: ustr(""),
                                     file_path: ustr(""),
@@ -383,10 +383,10 @@ impl<'a> AnalysisContext<'a> {
         &self,
         visibility: Visibility,
         symbol: Ustr,
-        symbol_span: &Span,
+        symbol_span: Span,
         module_info: ModuleInfo,
         calling_module: Ustr,
-        calling_span: &Span,
+        calling_span: Span,
     ) -> DiagnosticResult<()> {
         if visibility == Visibility::Private
             && module_info.name != calling_module
@@ -397,16 +397,10 @@ impl<'a> AnalysisContext<'a> {
                     symbol
                 ))
                 .with_labels(vec![
-                    Label::primary(
-                        calling_span.file_id,
-                        calling_span.range.clone(),
-                    )
-                    .with_message("symbol is private"),
-                    Label::secondary(
-                        symbol_span.file_id,
-                        symbol_span.range.clone(),
-                    )
-                    .with_message("symbol defined here"),
+                    Label::primary(calling_span.file_id, calling_span.range())
+                        .with_message("symbol is private"),
+                    Label::secondary(symbol_span.file_id, symbol_span.range())
+                        .with_message("symbol defined here"),
                 ]))
         } else {
             Ok(())

@@ -1,11 +1,11 @@
 use crate::{
     CheckedExpr, EntityInfo, {AnalysisContext, AnalysisFrame},
 };
-use chilic_error::DiagnosticResult;
 use chilic_ast::{
     expr::{Expr, ExprKind},
     op::UnaryOp,
 };
+use chilic_error::DiagnosticResult;
 use chilic_span::{MaybeSpanned, Span};
 use chilic_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -17,17 +17,17 @@ impl<'a> AnalysisContext<'a> {
         frame: &mut AnalysisFrame,
         lvalue: &Expr,
         rvalue: &Expr,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
         let lvalue = match &lvalue.kind {
             ExprKind::Id {
                 symbol, is_mutable, ..
             } => {
                 let (lvalue, is_init) =
-                    self.check_id(frame, *symbol, &lvalue.span, true)?;
+                    self.check_id(frame, *symbol, lvalue.span, true)?;
 
                 if is_init {
-                    check_lvalue_is_mut(&lvalue.expr, &lvalue.expr.span)?;
+                    check_lvalue_is_mut(&lvalue.expr, lvalue.expr.span)?;
                 } else {
                     // set entity as init in the current scope
                     frame.insert_entity_info(
@@ -37,7 +37,7 @@ impl<'a> AnalysisContext<'a> {
                             const_value: None,
                             is_mutable: *is_mutable,
                             is_init: true,
-                            span: lvalue.expr.span.clone(),
+                            span: lvalue.expr.span,
                         },
                     );
                 }
@@ -46,7 +46,7 @@ impl<'a> AnalysisContext<'a> {
             }
             _ => {
                 let lvalue = self.check_expr(frame, lvalue, None)?;
-                check_lvalue_is_mut(&lvalue.expr, &lvalue.expr.span)?;
+                check_lvalue_is_mut(&lvalue.expr, lvalue.expr.span)?;
                 lvalue
             }
         };
@@ -54,11 +54,11 @@ impl<'a> AnalysisContext<'a> {
         let mut rvalue =
             self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
 
-        let rvalue_span = rvalue.expr.span.clone();
+        let rvalue_span = rvalue.expr.span;
         self.infcx.unify_or_coerce_ty_expr(
             &lvalue.ty,
             &mut rvalue.expr,
-            &rvalue_span,
+            rvalue_span,
         )?;
 
         Ok(CheckedExpr::new(
@@ -91,7 +91,7 @@ enum MutabilityCheckErr {
     InvalidLValue,
 }
 
-fn check_lvalue_is_mut(expr: &Expr, expr_span: &Span) -> DiagnosticResult<()> {
+fn check_lvalue_is_mut(expr: &Expr, expr_span: Span) -> DiagnosticResult<()> {
     use MutabilityCheckErr::*;
 
     check_lvalue_mutability_internal(expr, expr_span, true).map_err(|err| {
@@ -101,17 +101,15 @@ fn check_lvalue_is_mut(expr: &Expr, expr_span: &Span) -> DiagnosticResult<()> {
                 entity_span,
                 ty_str,
             } => {
-                let mut labels = vec![Label::primary(
-                    expr_span.file_id,
-                    expr_span.range.clone(),
-                )
-                .with_message("cannot assign")];
+                let mut labels =
+                    vec![Label::primary(expr_span.file_id, expr_span.range())
+                        .with_message("cannot assign")];
 
                 if let Some(entity_span) = entity_span {
                     labels.push(
                         Label::secondary(
                             entity_span.file_id,
-                            entity_span.range.clone(),
+                            entity_span.range(),
                         )
                         .with_message("consider referencing as mutable"),
                     );
@@ -134,16 +132,13 @@ fn check_lvalue_is_mut(expr: &Expr, expr_span: &Span) -> DiagnosticResult<()> {
                     full_path, root_symbol
                 ))
                 .with_labels(vec![
-                    Label::primary(expr_span.file_id, expr_span.range.clone())
+                    Label::primary(expr_span.file_id, expr_span.range())
                         .with_message("cannot assign"),
-                    Label::secondary(
-                        entity_span.file_id,
-                        entity_span.range.clone(),
-                    )
-                    .with_message(format!(
-                        "consider changing this to be mutable: `mut {}`",
-                        root_symbol
-                    )),
+                    Label::secondary(entity_span.file_id, entity_span.range())
+                        .with_message(format!(
+                            "consider changing this to be mutable: `mut {}`",
+                            root_symbol
+                        )),
                 ]),
             ImmutableEntity {
                 symbol,
@@ -154,22 +149,19 @@ fn check_lvalue_is_mut(expr: &Expr, expr_span: &Span) -> DiagnosticResult<()> {
                     symbol
                 ))
                 .with_labels(vec![
-                    Label::primary(expr_span.file_id, expr_span.range.clone())
+                    Label::primary(expr_span.file_id, expr_span.range())
                         .with_message("cannot assign"),
-                    Label::secondary(
-                        entity_span.file_id,
-                        entity_span.range.clone(),
-                    )
-                    .with_message(format!(
-                        "consider making this entity mutable: `mut {}`",
-                        symbol
-                    )),
+                    Label::secondary(entity_span.file_id, entity_span.range())
+                        .with_message(format!(
+                            "consider making this entity mutable: `mut {}`",
+                            symbol
+                        )),
                 ]),
             InvalidLValue => Diagnostic::error()
                 .with_message("invalid left-hand side of assignment")
                 .with_labels(vec![Label::primary(
                     expr_span.file_id,
-                    expr_span.range.clone(),
+                    expr_span.range(),
                 )
                 .with_message("cannot assign to this expression")]),
         }
@@ -178,7 +170,7 @@ fn check_lvalue_is_mut(expr: &Expr, expr_span: &Span) -> DiagnosticResult<()> {
 
 fn check_lvalue_mutability_internal(
     expr: &Expr,
-    original_expr_span: &Span,
+    original_expr_span: Span,
     is_direct_assign: bool,
 ) -> Result<(), MutabilityCheckErr> {
     use MutabilityCheckErr::*;
@@ -201,7 +193,7 @@ fn check_lvalue_mutability_internal(
         } => check_id(
             *symbol,
             *is_mutable,
-            entity_span,
+            *entity_span,
             &expr.ty,
             is_direct_assign,
         ),
@@ -232,7 +224,7 @@ fn check_deref(lhs: &Expr) -> Result<(), MutabilityCheckErr> {
 fn check_member_access(
     expr: &Expr,
     member: Ustr,
-    original_expr_span: &Span,
+    original_expr_span: Span,
 ) -> Result<(), MutabilityCheckErr> {
     use MutabilityCheckErr::*;
 
@@ -274,7 +266,7 @@ fn check_member_access(
 
 fn check_subscript(
     expr: &Expr,
-    original_expr_span: &Span,
+    original_expr_span: Span,
 ) -> Result<(), MutabilityCheckErr> {
     use MutabilityCheckErr::*;
 
@@ -332,7 +324,7 @@ fn check_subscript(
 fn check_id(
     symbol: Ustr,
     is_mutable: bool,
-    entity_span: &Span,
+    entity_span: Span,
     ty: &Ty,
     is_direct_assign: bool,
 ) -> Result<(), MutabilityCheckErr> {
@@ -348,7 +340,7 @@ fn check_id(
                 } else {
                     Err(ImmutableReference {
                         symbol: symbol.to_string(),
-                        entity_span: Some(entity_span.clone()),
+                        entity_span: Some(entity_span),
                         ty_str: ty.to_string(),
                     })
                 }
@@ -362,7 +354,7 @@ fn check_id(
     } else {
         Err(ImmutableEntity {
             symbol: symbol.to_string(),
-            entity_span: entity_span.clone(),
+            entity_span: entity_span,
         })
     }
 }

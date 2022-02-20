@@ -16,7 +16,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         func: &Fn,
-        span: &Span,
+        span: Span,
         parent_ty: Option<Ty>,
     ) -> DiagnosticResult<Fn> {
         let proto = self.check_proto(frame, &func.proto, parent_ty, span)?;
@@ -29,12 +29,7 @@ impl<'a> AnalysisContext<'a> {
             frame.env.clone(),
         );
 
-        fn_frame.insert_entity(
-            proto.name,
-            proto.ty.clone(),
-            span.clone(),
-            true,
-        );
+        fn_frame.insert_entity(proto.name, proto.ty.clone(), span, true);
 
         for (index, param) in proto.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
@@ -58,7 +53,7 @@ impl<'a> AnalysisContext<'a> {
         fn_frame.pop_scope();
 
         let last_stmt_span = match func.body.exprs.last() {
-            Some(stmt) => &stmt.span,
+            Some(stmt) => stmt.span,
             None => span,
         };
 
@@ -98,7 +93,7 @@ impl<'a> AnalysisContext<'a> {
         {
             return Err(Diagnostic::error()
                 .with_message("entry point function `main` has wrong type, expected `fn() -> ()`")
-                .with_labels(vec![Label::primary(span.file_id, span.range.clone())]));
+                .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
         }
 
         Ok(Fn {
@@ -113,7 +108,7 @@ impl<'a> AnalysisContext<'a> {
         frame: &mut AnalysisFrame,
         proto: &Proto,
         parent_ty: Option<Ty>,
-        span: &Span,
+        span: Span,
     ) -> DiagnosticResult<Proto> {
         let parent_fn_ty = parent_ty
             .as_ref()
@@ -130,13 +125,13 @@ impl<'a> AnalysisContext<'a> {
         let mut param_tys = vec![];
         let mut param_name_map = UstrMap::default();
 
-        let mut check_symbol = |symbol: Ustr, span: &Span| {
+        let mut check_symbol = |symbol: Ustr, span: Span| {
             if let Some(already_defined_span) =
-                param_name_map.insert(symbol, span.clone())
+                param_name_map.insert(symbol, span)
             {
                 Err(SyntaxError::duplicate_symbol(
-                    &already_defined_span,
-                    &span,
+                    already_defined_span,
+                    span,
                     symbol,
                 ))
             } else {
@@ -153,7 +148,7 @@ impl<'a> AnalysisContext<'a> {
                     ..
                 }) => {
                     if !ignore {
-                        if let Err(e) = check_symbol(*symbol, span) {
+                        if let Err(e) = check_symbol(*symbol, *span) {
                             return Err(e);
                         }
                     }
@@ -170,7 +165,7 @@ impl<'a> AnalysisContext<'a> {
                     {
                         if !ignore {
                             if let Err(e) =
-                                check_symbol(alias.unwrap_or(*symbol), span)
+                                check_symbol(alias.unwrap_or(*symbol), *span)
                             {
                                 return Err(e);
                             }
@@ -207,7 +202,7 @@ impl<'a> AnalysisContext<'a> {
                             ))
                             .with_labels(vec![Label::primary(
                                 span.file_id,
-                                span.range.clone(),
+                                span.range().clone(),
                             )]));
                     }
                 }
@@ -249,7 +244,7 @@ impl<'a> AnalysisContext<'a> {
                     let pattern = Pattern::Single(SymbolPattern {
                         symbol,
                         alias: None,
-                        span: span.clone(),
+                        span: span,
                         is_mutable: false,
                         ignore: false,
                     });
@@ -259,7 +254,7 @@ impl<'a> AnalysisContext<'a> {
                         ty: Some(Box::new(Expr::typed(
                             ExprKind::Noop,
                             parent_param_ty.clone().create_type(),
-                            span.clone(),
+                            span,
                         ))),
                     });
 

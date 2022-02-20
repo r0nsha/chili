@@ -10,7 +10,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         divisor: IntValue<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         const NAME: &str = "__runtime_check_division_by_zero";
         let cond = self.builder.build_int_compare(
@@ -28,7 +28,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         ptr: PointerValue<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         const NAME: &str = "__runtime_check_null_pointer_dereference";
         let cond = self.builder.build_is_null(ptr, "");
@@ -44,7 +44,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         cond: IntValue<'ctx>,
-        span: &Span,
+        span: Span,
         op: &str,
     ) {
         let name = format!("__runtime_check_overflow_{}", op);
@@ -63,7 +63,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         index: IntValue<'ctx>,
         len: IntValue<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         const NAME: &str = "__runtime_check_index_out_of_bounds";
 
@@ -96,7 +96,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         const NAME: &str = "__runtime_check_slice_end_before_start";
 
@@ -119,7 +119,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
         len: IntValue<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         const NAME: &str = "__runtime_check_slice_range_out_of_bounds";
 

@@ -9,7 +9,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         msg: impl AsRef<str>,
-        span: &Span,
+        span: Span,
     ) {
         let message = self.gen_global_str("", msg.as_ref(), true);
         self.gen_panic(state, message, span)
@@ -19,7 +19,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         message: BasicValueEnum<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         let panic_fn = self
             .find_or_gen_entity_by_name(
@@ -49,19 +49,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             true,
         );
 
-        let location = self
-            .ir
-            .files
-            .location(span.file_id, span.range.start)
-            .unwrap();
-
         let line = self
             .ptr_sized_int_type
-            .const_int(location.line_number as _, false);
+            .const_int(span.start.line as _, false);
 
         let column = self
             .ptr_sized_int_type
-            .const_int(location.column_number as _, false);
+            .const_int(span.start.column as _, false);
 
         let panic_info = self.gen_struct(
             state,
@@ -88,7 +82,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         name: impl AsRef<str>,
         cond: IntValue<'ctx>,
         message: BasicValueEnum<'ctx>,
-        span: &Span,
+        span: Span,
     ) {
         let name = name.as_ref();
 

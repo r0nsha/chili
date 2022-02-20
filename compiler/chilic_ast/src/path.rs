@@ -10,7 +10,7 @@ use chilic_span::Span;
 pub fn resolve_relative_path(
     path: &str,
     relative_to: &str,
-    span: Option<&Span>,
+    span: Option<Span>,
 ) -> DiagnosticResult<String> {
     let path = Path::new(&path);
 
@@ -33,7 +33,7 @@ pub fn resolve_relative_path(
         Err(match span {
             Some(span) => diagnostic.with_labels(vec![Label::primary(
                 span.file_id,
-                span.range.clone(),
+                span.range().clone(),
             )]),
             None => diagnostic,
         })

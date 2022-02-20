@@ -10,7 +10,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         op: &UnaryOp,
         lhs: &Box<Expr>,
-        span: &Span,
+        span: Span,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         match op {

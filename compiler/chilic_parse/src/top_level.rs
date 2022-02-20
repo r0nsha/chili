@@ -39,7 +39,7 @@ impl Parser {
             ast.entities.extend(entities);
         } else {
             return Err(SyntaxError::expected(
-                self.span_ref(),
+                self.span(),
                 &format!("an item, got `{}`", self.peek().lexeme),
             ));
         }

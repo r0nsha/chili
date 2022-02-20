@@ -15,7 +15,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         lhs: &Box<Expr>,
         op: &BinaryOp,
         rhs: &Box<Expr>,
-        span: &Span,
+        span: Span,
     ) -> BasicValueEnum<'ctx> {
         let ty = &lhs.ty;
 
@@ -89,7 +89,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: &Ty,
-        span: &Span,
+        span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             Ty::Int(_) | Ty::UInt(_) => {
@@ -137,7 +137,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: &Ty,
-        span: &Span,
+        span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             Ty::Int(_) | Ty::UInt(_) => {
@@ -184,7 +184,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: &Ty,
-        span: &Span,
+        span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             Ty::Int(_) | Ty::UInt(_) => {
@@ -231,7 +231,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: &Ty,
-        span: &Span,
+        span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             Ty::Int(_) => {
@@ -280,7 +280,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: &Ty,
-        span: &Span,
+        span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             Ty::Int(_) => {
@@ -423,7 +423,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         f: FunctionValue<'ctx>,
         lhs: IntValue<'ctx>,
         rhs: IntValue<'ctx>,
-        span: &Span,
+        span: Span,
         op: &str,
     ) -> IntValue<'ctx> {
         let call_value =
