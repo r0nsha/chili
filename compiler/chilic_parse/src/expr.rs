@@ -229,7 +229,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.clone().into(),
+                    op: self.previous().token_type.into(),
                     rhs: Box::new(self.parse_bitwise_or()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -325,7 +325,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.clone().into(),
+                    op: self.previous().token_type.into(),
                     rhs: Box::new(self.parse_term()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -349,7 +349,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.clone().into(),
+                    op: self.previous().token_type.into(),
                     rhs: Box::new(self.parse_factor()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -373,7 +373,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.clone().into(),
+                    op: self.previous().token_type.into(),
                     rhs: Box::new(self.parse_unary()?),
                 },
                 start_span.merge(self.previous_span()),

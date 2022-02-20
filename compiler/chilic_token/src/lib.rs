@@ -7,7 +7,7 @@ use chilic_span::Span;
 use std::fmt::Display;
 use ustr::{ustr, Ustr};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: Ustr,
@@ -41,7 +41,7 @@ impl Display for Token {
     }
 }
 
-#[derive(strum_macros::Display, Debug, PartialEq, Clone)]
+#[derive(strum_macros::Display, Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     At,
 

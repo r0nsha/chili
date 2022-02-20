@@ -111,7 +111,7 @@ impl Parser {
         &mut self,
         lvalue: Expr,
     ) -> DiagnosticResult<Expr> {
-        let op: BinaryOp = self.previous().token_type.clone().into();
+        let op: BinaryOp = self.previous().token_type.into();
         let rvalue = self.parse_expr()?;
 
         let lvalue_span = lvalue.span;
