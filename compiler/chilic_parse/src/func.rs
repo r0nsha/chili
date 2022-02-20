@@ -109,7 +109,7 @@ impl Parser {
                                 let pattern = Pattern::Single(SymbolPattern {
                                     symbol: ustr(""),
                                     alias: None,
-                                    span: Span::empty(),
+                                    span: Span::unknown(),
                                     is_mutable: false,
                                     ignore: true,
                                 });

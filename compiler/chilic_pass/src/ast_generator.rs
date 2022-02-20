@@ -129,7 +129,7 @@ fn add_intrinsic_module(
         alias: intrinsic_module_info.name,
         use_path: vec![],
         visibility: Visibility::Private,
-        span: Span::empty(),
+        span: Span::unknown(),
     });
 
     uses.push(intrinsic_module_info);

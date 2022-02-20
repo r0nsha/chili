@@ -128,7 +128,7 @@ pub fn check_ir(
                 root_module.info,
                 &startup_entity,
                 root_module.info.name,
-                &Span::empty(),
+                &Span::unknown(),
             )?;
 
             ancx.in_main_path = false;
@@ -143,7 +143,7 @@ pub fn check_ir(
                         module.info,
                         entity,
                         *module_name,
-                        &Span::empty(),
+                        &Span::unknown(),
                     )?;
                 }
             }

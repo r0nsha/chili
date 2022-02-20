@@ -1,56 +1,45 @@
-use std::ops::Range;
-
 pub type FileId = usize;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Span {
-    pub range: Range<usize>,
     pub file_id: FileId,
+    pub start: Position,
+    pub end: EndPosition,
 }
 
 impl Span {
-    pub fn new(cols: Range<usize>, file_id: FileId) -> Self {
+    pub fn new(file_id: FileId, start: Position, end: EndPosition) -> Self {
         Self {
-            range: cols,
             file_id,
+            start,
+            end,
         }
     }
 
-    pub fn empty() -> Self {
+    pub fn unknown() -> Self {
+        Default::default()
+    }
+}
+
+impl Default for Span {
+    fn default() -> Self {
         Self {
-            range: 0..0,
-            file_id: 0,
+            file_id: Default::default(),
+            start: Default::default(),
+            end: Default::default(),
         }
     }
+}
 
-    pub fn merge(l1: &Span, l2: &Span) -> Self {
-        if l1.file_id != l2.file_id {
-            panic!("can't merge locations from different files");
-        }
-
-        let start = l1.range.start.min(l2.range.start);
-        let end = l1.range.end.max(l2.range.end);
-
-        Self {
-            range: start..end,
-            file_id: l1.file_id,
-        }
+impl Ord for Span {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.start, self.end).cmp(&(other.start, other.end))
     }
+}
 
-    pub fn end(&self) -> Self {
-        Span::new(self.range.end..self.range.end, self.file_id)
-    }
-
-    pub fn with_start(&self, start: usize) -> Self {
-        Span::new(start..self.range.end, self.file_id)
-    }
-
-    pub fn with_end(&self, end: usize) -> Self {
-        Span::new(self.range.start..end, self.file_id)
-    }
-
-    pub fn trim_end(&self, amount: usize) -> Self {
-        Span::new(self.range.start..self.range.end - amount, self.file_id)
+impl PartialOrd for Span {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -91,4 +80,92 @@ impl<T> MaybeSpanned<T> {
     pub fn map<F: FnOnce(T) -> T>(self, f: F) -> Self {
         Self::new(f(self.value), self.span)
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Position {
+    pub index: usize,
+    pub line: u32,
+    pub column: u16,
+}
+
+impl Position {
+    pub fn new(index: usize, line: u32, column: u16) -> Self {
+        Self {
+            index,
+            line,
+            column,
+        }
+    }
+
+    pub fn initial() -> Self {
+        Self {
+            index: 0,
+            line: 1,
+            column: 1,
+        }
+    }
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self {
+            index: Default::default(),
+            line: Default::default(),
+            column: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EndPosition {
+    pub index: usize,
+}
+
+impl EndPosition {
+    pub fn new(index: usize) -> Self {
+        Self { index }
+    }
+}
+
+impl Default for EndPosition {
+    fn default() -> Self {
+        Self {
+            index: Default::default(),
+        }
+    }
+}
+
+pub trait Merge {
+    fn merge(&self, other: Self) -> Self;
+}
+
+impl Merge for Span {
+    fn merge(&self, other: Self) -> Self {
+        if self.file_id != other.file_id {
+            panic!("can't merge spans from different files");
+        }
+
+        let start = if self.start.index < other.start.index {
+            self.start
+        } else {
+            other.start
+        };
+
+        let end = if self.end.index < other.end.index {
+            other.end
+        } else {
+            self.end
+        };
+
+        Self {
+            file_id: self.file_id,
+            start,
+            end,
+        }
+    }
+}
+
+pub trait Spannable {
+    fn span(&self) -> Span;
 }

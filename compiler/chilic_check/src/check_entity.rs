@@ -331,7 +331,7 @@ impl<'a> AnalysisContext<'a> {
             file_path: use_.module_info.file_path,
         };
         let mut const_value = None;
-        let mut span = Span::empty();
+        let mut span = Span::unknown();
 
         if !use_.use_path.is_empty() {
             // go over the use_path, and get the relevant symbol

@@ -188,7 +188,7 @@ impl StructTyField {
         Self {
             symbol: ustr(""),
             ty,
-            span: Span::empty(),
+            span: Span::unknown(),
         }
     }
 }

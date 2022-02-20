@@ -102,7 +102,7 @@ impl Substitute for Proto {
         self.ret.substitute(table)?;
 
         // TODO: put a real span here
-        self.ty = substitute_ty(&self.ty, table, &Span::empty())?;
+        self.ty = substitute_ty(&self.ty, table, &Span::unknown())?;
 
         Ok(())
     }
@@ -118,7 +118,7 @@ impl Substitute for Entity {
                 e.substitute(table)?;
                 e.span.clone()
             }
-            None => Span::empty(),
+            None => Span::unknown(),
         };
 
         self.value.substitute(table)?;

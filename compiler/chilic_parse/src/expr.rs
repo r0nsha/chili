@@ -445,7 +445,7 @@ impl Parser {
                 ExprKind::Id {
                     symbol,
                     is_mutable: false,
-                    entity_span: Span::empty(),
+                    entity_span: Span::unknown(),
                 },
                 token.span.clone(),
             )

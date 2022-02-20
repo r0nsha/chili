@@ -179,15 +179,15 @@ impl Parser {
                 // this is for chained tuple access like `tuple.0.1`
                 let components = token.lexeme.split('.').collect::<Vec<&str>>();
 
+                let mut end_span = token.span.clone();
+                end_span.end -= components[0].len() + 1;
+
                 let first_access = Expr::new(
                     ExprKind::MemberAccess {
                         expr: Box::new(expr.clone()),
                         member: ustr(components[0]),
                     },
-                    Span::merge(
-                        &start_span,
-                        &token.span.trim_end(components[0].len() + 1),
-                    ),
+                    Span::merge(&start_span, &end_span),
                 );
 
                 let second_access = Expr::new(
