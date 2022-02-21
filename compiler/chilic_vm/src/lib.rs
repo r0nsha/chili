@@ -107,7 +107,7 @@
 //     }
 
 //     fn run(&'vm mut self, code: Bytecode) -> Value {
-//         let function = Function {
+//         let function = Fn {
 //             name: ustr(""),
 //             arg_count: 0,
 //             code,
@@ -218,7 +218,7 @@
 //                         return return_value;
 //                     } else {
 //                         self.stack.truncate(frame.slot -
-// frame.function.arg_count);                         
+// frame.function.arg_count);
 // self.stack.push(return_value);                     }
 //                 }
 //                 &Instruction::Call(arg_count) => {
@@ -242,7 +242,7 @@
 
 //                             // TODO: push actual value by the return value of
 // the func                             let result = self.ffi.call(func,
-// values).unwrap();                             
+// values).unwrap();
 // self.stack.push(Value::Int(result as i64));                         }
 //                         _ => panic!("tried to call an uncallable value `{}`",
 // value),                     }
@@ -274,7 +274,7 @@
 //         &self.current_func().code
 //     }
 
-//     fn current_func(&self) -> &Function {
+//     fn current_func(&self) -> &Fn {
 //         &self.frames.peek(0).function
 //     }
 
@@ -336,7 +336,7 @@
 //                                     .iter()
 //                                     .enumerate()
 //                                     .map(|(index, inst)|
-// format!("{:06}\t{}", index, inst))                                   
+// format!("{:06}\t{}", index, inst))
 // .collect::<Vec<String>>()                                     .join("\n")
 //                             ),
 //                         },

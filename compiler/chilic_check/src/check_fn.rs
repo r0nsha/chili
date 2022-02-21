@@ -6,8 +6,7 @@ use ustr::{ustr, Ustr, UstrMap};
 
 use crate::{AnalysisContext, AnalysisFrame};
 use chilic_ast::{
-    expr::{Expr, ExprKind},
-    func::{Fn, FnParam, Proto},
+    ast::{Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
 

@@ -29,8 +29,8 @@ There are languages such as `Rust` which succeed in making this gap smaller, but
 > **🌶 The language is still going through its early iterations.**  
 > To build the compiler from source, you will need to:
 >
-> - [Set up](https:#github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine (I'm working on including LLVM as part of the project).
-> - [Install](https:#www.rust-lang.org/learn/get-started) the rust compiler
+> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine (I'm working on including LLVM as part of the project).
+> - [Install](https://www.rust-lang.org/learn/get-started) the rust compiler
 
 As there's no freestanding binary yet, we still need to build the compiler from source:
 
@@ -98,7 +98,11 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Arrays & Slices
 - [x] Structs
 - [x] Tuples
-- [ ] Clean up examples folder
+- [x] Clean up examples folder
+- [ ] Allow circular dependencies
+- [ ] Allow both Nominal and Structural typing
+- [ ] Types as Values
+- [ ] Constant function parameters
 - [ ] Friendlier errors
 - [ ] Recoverable lexer, parser and checker
 - [ ] Function signature type-inference

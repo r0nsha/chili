@@ -1,14 +1,11 @@
+use crate::{func::ParseProtoKind, *};
 use chilic_ast::{
-    entity::{Entity, EntityKind, Visibility},
-    expr::{Expr, ExprKind},
-    foreign_library::ForeignLibrary,
+    ast::{Entity, EntityKind, Expr, ExprKind, ForeignLibrary, Visibility},
     pattern::{Pattern, SymbolPattern},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_span::{Merge, Span};
+use chilic_span::Merge;
 use ustr::{ustr, Ustr};
-
-use crate::{func::ParseProtoKind, *};
 
 impl Parser {
     pub(crate) fn parse_foreign_block(

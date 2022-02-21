@@ -1,15 +1,12 @@
+use crate::*;
 use chilic_ast::{
-    expr::{Block, Expr, ExprKind},
-    func::{Fn, FnParam, Proto},
+    ast::{Block, Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
+use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::{Merge, Span};
 use chilic_ty::Ty;
 use ustr::{ustr, Ustr};
-
-use chilic_error::{DiagnosticResult, SyntaxError};
-
-use crate::*;
 
 impl Parser {
     pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {

@@ -1,9 +1,7 @@
 use crate::*;
 use chilic_ast::{
-    entity::Visibility,
-    module::ModuleInfo,
+    ast::{ModuleInfo, Use, UsePath, UsePathNode, Visibility},
     path::AsModuleName,
-    r#use::{Use, UsePath, UsePathNode},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::{Span, Spanned};

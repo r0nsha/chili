@@ -1,9 +1,10 @@
-use chilic_ast::{
-    entity::EntityKind,
-    expr::{Call, ExprKind},
-    func::{Fn, Proto},
-    module::ModuleInfo,
+use crate::{
+    abi::{AbiFn, AbiTyKind},
+    codegen::{Codegen, CodegenState},
+    util::LlvmName,
+    CallingConv,
 };
+use chilic_ast::ast::{Call, EntityKind, ExprKind, Fn, ModuleInfo, Proto};
 use chilic_ty::*;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -16,13 +17,6 @@ use inkwell::{
     AddressSpace,
 };
 use ustr::ustr;
-
-use super::{
-    abi::{AbiFn, AbiTyKind},
-    codegen::{Codegen, CodegenState},
-    CallingConv,
-};
-use crate::util::LlvmName;
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     fn gen_startup(

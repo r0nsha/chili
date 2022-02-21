@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chilic_ast::{expr::Expr, op::BinaryOp};
+use chilic_ast::ast::{BinaryOp, Expr};
 use chilic_span::Span;
 use chilic_ty::*;
 use inkwell::{

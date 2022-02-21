@@ -19,7 +19,7 @@ impl Display for Ty {
                     I16 => "i16",
                     I32 => "i32",
                     I64 => "i64",
-                    ISize => "int",
+                    Isize => "int",
                 }
                 .to_string(),
                 UInt(inner) => match inner {
@@ -27,14 +27,14 @@ impl Display for Ty {
                     U16 => "u16",
                     U32 => "u32",
                     U64 => "u64",
-                    USize => "uint",
+                    Usize => "uint",
                 }
                 .to_string(),
                 Float(inner) => match inner {
                     F16 => "f16",
                     F32 => "f32",
                     F64 => "f64",
-                    FSize => "float",
+                    Fsize => "float",
                 }
                 .to_string(),
                 Pointer(ty, is_mutable) => format!(

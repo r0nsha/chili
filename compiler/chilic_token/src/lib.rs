@@ -9,27 +9,27 @@ use ustr::{ustr, Ustr};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Token {
-    pub token_type: TokenType,
+    pub kind: TokenKind,
     pub lexeme: Ustr,
     pub span: Span,
 }
 
 impl Token {
-    pub fn is(&self, other: TokenType) -> bool {
-        self.token_type.is(other)
+    pub fn is(&self, other: TokenKind) -> bool {
+        self.kind.is(other)
     }
 
     pub fn into_id(&self) -> Ustr {
-        match self.token_type {
-            TokenType::Id(name) => name,
+        match self.kind {
+            TokenKind::Id(name) => name,
             _ => unreachable!(),
         }
     }
 
     pub fn symbol(&self) -> Ustr {
-        match &self.token_type {
-            TokenType::Id(name) => *name,
-            TokenType::Str(value) => ustr(value),
+        match &self.kind {
+            TokenKind::Id(name) => *name,
+            TokenKind::Str(value) => ustr(value),
             _ => panic!("BUG! only call get_name for identifiers and strings"),
         }
     }
@@ -37,12 +37,12 @@ impl Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.token_type)
+        write!(f, "{}", self.kind)
     }
 }
 
 #[derive(strum_macros::Display, Debug, PartialEq, Clone, Copy)]
-pub enum TokenType {
+pub enum TokenKind {
     At,
 
     Semicolon,
@@ -151,13 +151,13 @@ pub enum TokenType {
     Eof,
 }
 
-impl TokenType {
-    pub fn is(&self, other: TokenType) -> bool {
+impl TokenKind {
+    pub fn is(&self, other: TokenKind) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(&other)
     }
 
     pub fn lexeme(&self) -> &str {
-        use TokenType::*;
+        use TokenKind::*;
 
         match self {
             At => "@",

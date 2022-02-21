@@ -1,11 +1,8 @@
 use crate::*;
-use chilic_ast::{
-    expr::{Call, CallArg, Cast, Expr, ExprKind},
-    op::{BinaryOp, UnaryOp},
-};
+use chilic_ast::ast::{BinaryOp, Call, CallArg, Cast, Expr, ExprKind, UnaryOp};
 use chilic_error::*;
-use chilic_span::{EndPosition, Merge, Span, Spanned};
-use chilic_token::TokenType::*;
+use chilic_span::{EndPosition, Merge, Spanned};
+use chilic_token::TokenKind::*;
 use chilic_ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
@@ -111,7 +108,7 @@ impl Parser {
         &mut self,
         lvalue: Expr,
     ) -> DiagnosticResult<Expr> {
-        let op: BinaryOp = self.previous().token_type.into();
+        let op: BinaryOp = self.previous().kind.into();
         let rvalue = self.parse_expr()?;
 
         let lvalue_span = lvalue.span;
@@ -158,7 +155,7 @@ impl Parser {
 
         let token = self.bump();
 
-        let expr = match token.token_type {
+        let expr = match token.kind {
             Id(id) => Expr::new(
                 ExprKind::MemberAccess {
                     expr: Box::new(expr.clone()),

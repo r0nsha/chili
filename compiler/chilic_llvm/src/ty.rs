@@ -24,20 +24,20 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 IntTy::I16 => self.context.i16_type().into(),
                 IntTy::I32 => self.context.i32_type().into(),
                 IntTy::I64 => self.context.i64_type().into(),
-                IntTy::ISize => self.ptr_sized_int_type.into(),
+                IntTy::Isize => self.ptr_sized_int_type.into(),
             },
             Ty::UInt(inner) => match inner {
                 UIntTy::U8 => self.context.i8_type().into(),
                 UIntTy::U16 => self.context.i16_type().into(),
                 UIntTy::U32 => self.context.i32_type().into(),
                 UIntTy::U64 => self.context.i64_type().into(),
-                UIntTy::USize => self.ptr_sized_int_type.into(),
+                UIntTy::Usize => self.ptr_sized_int_type.into(),
             },
             Ty::Float(inner) => match inner {
                 FloatTy::F16 => self.context.f16_type().into(),
                 FloatTy::F32 => self.context.f32_type().into(),
                 FloatTy::F64 => self.context.f64_type().into(),
-                FloatTy::FSize => if self.target_metrics.word_size == 8 {
+                FloatTy::Fsize => if self.target_metrics.word_size == 8 {
                     self.context.f64_type()
                 } else {
                     self.context.f32_type()

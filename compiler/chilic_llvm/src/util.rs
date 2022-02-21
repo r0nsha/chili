@@ -1,6 +1,8 @@
-use std::mem;
-
-use chilic_ast::func::Proto;
+use crate::{
+    abi::{align_of, size_of},
+    codegen::{Codegen, CodegenDeclsMap, CodegenState},
+};
+use chilic_ast::ast::Proto;
 use chilic_ty::*;
 use common::mem::calculate_align;
 use inkwell::{
@@ -11,12 +13,8 @@ use inkwell::{
     },
     AddressSpace, IntPredicate,
 };
+use std::mem;
 use ustr::{ustr, Ustr, UstrMap};
-
-use super::{
-    abi::{align_of, size_of},
-    codegen::{Codegen, CodegenDeclsMap, CodegenState},
-};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[inline]

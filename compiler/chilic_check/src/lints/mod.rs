@@ -1,13 +1,10 @@
 mod type_limits;
 
-use chilic_ast::{
-    entity::Entity,
-    expr::{ArrayLiteralKind, Block, Builtin, Expr, ExprKind, ForIter},
-    ir::Ir,
+use chilic_ast::ast::{
+    ArrayLiteralKind, Block, Builtin, Entity, Expr, ExprKind, ForIter, Ir,
 };
 use chilic_error::DiagnosticResult;
-
-use self::type_limits::check_type_limits;
+use type_limits::check_type_limits;
 
 pub trait Lint {
     fn lint(&self) -> DiagnosticResult<()>;

@@ -1,4 +1,4 @@
-use chilic_ast::expr::{Call, CallArg, ExprKind};
+use chilic_ast::ast::{Call, CallArg, ExprKind};
 use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;

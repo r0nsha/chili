@@ -1,6 +1,5 @@
 use super::codegen::{Codegen, CodegenState};
 use chilic_span::Span;
-use codespan_reporting::files::Files;
 use inkwell::values::{BasicValueEnum, IntValue};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {

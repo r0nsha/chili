@@ -10,26 +10,27 @@ mod ty;
 mod unary;
 mod util;
 
-use chilic_ast::foreign_library::ForeignLibrary;
-use chilic_ast::ir::Ir;
-use common::target::TargetPlatform;
-use common::{build_options::BuildOptions, sw};
+use chilic_ast::ast::{ForeignLibrary, Ir};
+use codegen::Codegen;
+use common::{build_options::BuildOptions, sw, target::TargetPlatform};
 use execute::Execute;
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::passes::PassManager;
-use inkwell::targets::{
-    CodeModel, FileType, InitializationConfig, RelocMode, Target,
-    TargetMachine, TargetTriple,
+use inkwell::{
+    context::Context,
+    module::Module,
+    passes::PassManager,
+    targets::{
+        CodeModel, FileType, InitializationConfig, RelocMode, Target,
+        TargetMachine, TargetTriple,
+    },
+    values::FunctionValue,
+    OptimizationLevel,
 };
-use inkwell::values::FunctionValue;
-use inkwell::OptimizationLevel;
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use std::process::Command;
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    process::Command,
+};
 use ustr::UstrMap;
-
-use self::codegen::Codegen;
 
 pub fn codegen(build_options: &BuildOptions, ir: &Ir) {
     let context = Context::create();

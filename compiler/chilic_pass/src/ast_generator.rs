@@ -1,11 +1,11 @@
 use chilic_ast::{
-    entity::Visibility, module::ModuleInfo, path::resolve_relative_path,
-    r#use::Use, Ast,
+    ast::{Ast, ModuleInfo, Use, Visibility},
+    path::resolve_relative_path,
 };
 use chilic_error::DiagnosticResult;
 use chilic_parse::Parser;
 use chilic_span::Span;
-use chilic_token::{lexer::Lexer, TokenType};
+use chilic_token::{lexer::Lexer, TokenKind};
 use codespan_reporting::files::SimpleFiles;
 use common::{
     compiler_info::{self, IntrinsticModuleInfo},
@@ -69,12 +69,12 @@ impl<'a> AstGenerator<'a> {
         //     "{:?}",
         //     tokens
         //         .iter()
-        //         .map(|t| t.token_type.lexeme())
+        //         .map(|t| t.kind.lexeme())
         //         .collect::<Vec<&str>>()
         // );
         sw.print();
 
-        if tokens.is_empty() || tokens.first().unwrap().is(TokenType::Eof) {
+        if tokens.is_empty() || tokens.first().unwrap().is(TokenKind::Eof) {
             return Ok(());
         }
 

@@ -9,13 +9,12 @@ mod top_level;
 mod ty;
 mod r#use;
 
-use std::collections::HashSet;
-
 use bitflags::bitflags;
-use chilic_ast::{foreign_library::ForeignLibrary, module::ModuleInfo, Ast};
+use chilic_ast::ast::{Ast, ForeignLibrary, ModuleInfo};
 use chilic_error::{DiagnosticResult, SyntaxError};
 use chilic_span::Span;
-use chilic_token::{Token, TokenType::*};
+use chilic_token::{Token, TokenKind::*};
+use std::collections::HashSet;
 use ustr::{ustr, Ustr};
 
 bitflags! {
@@ -26,7 +25,7 @@ bitflags! {
 
 macro_rules! last_is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        match &$parser.previous().token_type {
+        match &$parser.previous().kind {
             $( $pattern )|+ => true,
             _ => false
         }
@@ -37,7 +36,7 @@ macro_rules! is {
         if $parser.is_end() {
             false
         } else {
-            match &$parser.peek().token_type {
+            match &$parser.peek().kind {
                 $( $pattern )|+ => true,
                 _ => false
             }
@@ -190,7 +189,7 @@ impl Parser {
     }
 
     pub(crate) fn is_end(&self) -> bool {
-        self.peek().token_type == Eof
+        self.peek().kind == Eof
     }
 
     pub(crate) fn mark(&mut self, offset: isize) {

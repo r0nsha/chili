@@ -1,8 +1,8 @@
 use crate::{func::ParseProtoKind, *};
-use chilic_ast::expr::{Expr, ExprKind, StructType, StructTypeField};
+use chilic_ast::ast::{Expr, ExprKind, StructType, StructTypeField};
 use chilic_error::SyntaxError;
 use chilic_span::{Merge, Span};
-use chilic_token::TokenType::*;
+use chilic_token::TokenKind::*;
 use chilic_ty::StructTyKind;
 
 const SELF_SYMBOL: &str = "Self";

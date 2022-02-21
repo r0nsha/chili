@@ -11,10 +11,7 @@ mod lints;
 
 use builtin::get_builtin_types;
 use chilic_ast::{
-    entity::Entity,
-    expr::{Expr, ExprKind},
-    ir::Ir,
-    module::ModuleInfo,
+    ast::{Entity, Expr, ExprKind, Ir, ModuleInfo},
     pattern::SymbolPattern,
     value::Value,
 };

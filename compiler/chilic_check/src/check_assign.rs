@@ -1,10 +1,7 @@
 use crate::{
     CheckedExpr, EntityInfo, {AnalysisContext, AnalysisFrame},
 };
-use chilic_ast::{
-    expr::{Expr, ExprKind},
-    op::UnaryOp,
-};
+use chilic_ast::ast::{Expr, ExprKind, UnaryOp};
 use chilic_error::DiagnosticResult;
 use chilic_span::{MaybeSpanned, Span};
 use chilic_ty::*;

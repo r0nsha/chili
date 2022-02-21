@@ -1,12 +1,11 @@
 use crate::*;
-use chilic_ast::{
-    entity::{EntityKind, Visibility},
-    expr::{Block, Builtin, Expr, ExprKind, ForIter, LiteralKind},
-    op::{BinaryOp, UnaryOp},
+use chilic_ast::ast::{
+    BinaryOp, Block, Builtin, EntityKind, Expr, ExprKind, ForIter, LiteralKind,
+    UnaryOp, Visibility,
 };
 use chilic_error::*;
 use chilic_span::{Merge, Span};
-use chilic_token::TokenType::*;
+use chilic_token::TokenKind::*;
 use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
@@ -229,7 +228,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.into(),
+                    op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_bitwise_or()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -325,7 +324,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.into(),
+                    op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_term()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -349,7 +348,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.into(),
+                    op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_factor()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -373,7 +372,7 @@ impl Parser {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().token_type.into(),
+                    op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_unary()?),
                 },
                 start_span.merge(self.previous_span()),
@@ -386,7 +385,7 @@ impl Parser {
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
         if match_token!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
             let span = self.previous().span;
-            let token = &self.previous().token_type;
+            let token = &self.previous().kind;
 
             let expr = Expr::new(
                 ExprKind::Unary {
@@ -610,7 +609,7 @@ impl Parser {
         let span = token.span;
 
         let expr = Expr::new(
-            match token.token_type {
+            match token.kind {
                 Break => ExprKind::Break { deferred: vec![] },
                 Continue => ExprKind::Continue { deferred: vec![] },
                 Return => {

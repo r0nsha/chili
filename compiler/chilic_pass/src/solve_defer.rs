@@ -1,8 +1,7 @@
-use chilic_ast::entity::Entity;
-use chilic_ast::expr::{
-    ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter,
+use chilic_ast::ast::{
+    ArrayLiteralKind, Block, Builtin, Cast, Entity, Expr, ExprKind, Fn,
+    ForIter, Proto,
 };
-use chilic_ast::func::{Fn, Proto};
 
 #[derive(Clone)]
 pub(crate) struct DeferContext {

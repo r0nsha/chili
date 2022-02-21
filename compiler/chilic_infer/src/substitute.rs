@@ -1,8 +1,6 @@
-use chilic_ast::{
-    entity::Entity,
-    expr::{ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter},
-    func::{Fn, Proto},
-    ir::Ir,
+use chilic_ast::ast::{
+    ArrayLiteralKind, Block, Builtin, Cast, Entity, Expr, ExprKind, Fn,
+    ForIter, Ir, Proto,
 };
 use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;

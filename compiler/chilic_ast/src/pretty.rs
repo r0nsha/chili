@@ -1,17 +1,12 @@
-use std::fmt::Display;
-
+use crate::ast::{
+    ArrayLiteralKind, Block, Builtin, Cast, Entity, Expr, ExprKind, Fn,
+    ForIter, Ir, LiteralKind, Proto,
+};
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style,
     TreeBuilder,
 };
-
-use crate::entity::Entity;
-use crate::expr::{
-    ArrayLiteralKind, Builtin, ExprKind, ForIter, LiteralKind, Cast,
-};
-use crate::expr::{Block, Expr};
-use crate::func::{Fn, Proto};
-use crate::ir::Ir;
+use std::fmt::Display;
 
 impl Ir {
     pub fn print(&self) {

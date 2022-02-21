@@ -13,18 +13,18 @@ pub(crate) fn get_builtin_types() -> UstrMap<Ty> {
     add_builtin_type("i16", Ty::Int(IntTy::I16));
     add_builtin_type("i32", Ty::Int(IntTy::I32));
     add_builtin_type("i64", Ty::Int(IntTy::I64));
-    add_builtin_type("int", Ty::Int(IntTy::ISize));
+    add_builtin_type("int", Ty::Int(IntTy::Isize));
 
     add_builtin_type("u8", Ty::UInt(UIntTy::U8));
     add_builtin_type("u16", Ty::UInt(UIntTy::U16));
     add_builtin_type("u32", Ty::UInt(UIntTy::U32));
     add_builtin_type("u64", Ty::UInt(UIntTy::U64));
-    add_builtin_type("uint", Ty::UInt(UIntTy::USize));
+    add_builtin_type("uint", Ty::UInt(UIntTy::Usize));
 
     add_builtin_type("f16", Ty::Float(FloatTy::F16));
     add_builtin_type("f32", Ty::Float(FloatTy::F32));
     add_builtin_type("f64", Ty::Float(FloatTy::F64));
-    add_builtin_type("float", Ty::Float(FloatTy::FSize));
+    add_builtin_type("float", Ty::Float(FloatTy::Fsize));
 
     add_builtin_type("str", Ty::str());
 

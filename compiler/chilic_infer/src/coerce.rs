@@ -1,4 +1,4 @@
-use chilic_ast::expr::{Cast, Expr, ExprKind};
+use chilic_ast::ast::{Cast, Expr, ExprKind};
 use chilic_ty::{size::SizeOf, *};
 use common::mut_eq;
 

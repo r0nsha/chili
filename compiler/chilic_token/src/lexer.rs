@@ -5,7 +5,7 @@ use crate::source::Source;
 use crate::unescape::{unescape, UnescapeError};
 use crate::{
     Token,
-    TokenType::{self, *},
+    TokenKind::{self, *},
 };
 use chilic_error::{DiagnosticResult, LexerError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -42,7 +42,7 @@ impl<'lx> Lexer<'lx> {
         Ok(self.tokens)
     }
 
-    pub(crate) fn eat_token(&mut self) -> DiagnosticResult<TokenType> {
+    pub(crate) fn eat_token(&mut self) -> DiagnosticResult<TokenKind> {
         self.cursor.continue_from_end();
 
         let ch = self.bump();
@@ -218,7 +218,7 @@ impl<'lx> Lexer<'lx> {
         Ok(tt)
     }
 
-    fn eat_char(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_char(&mut self) -> DiagnosticResult<TokenKind> {
         const WRAP_WITH: char = '\'';
         // TODO: fix unescaping issues
         // TODO: write my own unescape functionality
@@ -278,7 +278,7 @@ impl<'lx> Lexer<'lx> {
         }
     }
 
-    fn eat_raw_str(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_raw_str(&mut self) -> DiagnosticResult<TokenKind> {
         self.bump();
 
         while self.peek() != DOUBLE_QUOTE && !self.is_eof() {
@@ -310,7 +310,7 @@ impl<'lx> Lexer<'lx> {
         Ok(Str(ustr(&slice)))
     }
 
-    fn eat_str(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_str(&mut self) -> DiagnosticResult<TokenKind> {
         loop {
             if self.peek() == DOUBLE_QUOTE || self.is_eof() {
                 break;
@@ -381,7 +381,7 @@ impl<'lx> Lexer<'lx> {
         }
     }
 
-    fn eat_number(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_number(&mut self) -> DiagnosticResult<TokenKind> {
         if self.peek_previous() == '0' {
             match self.peek() {
                 'x' | 'X' => return self.eat_number_hex(),
@@ -417,7 +417,7 @@ impl<'lx> Lexer<'lx> {
         }
     }
 
-    fn eat_number_hex(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_number_hex(&mut self) -> DiagnosticResult<TokenKind> {
         let mut hex_value = String::from("");
 
         self.bump();
@@ -466,7 +466,7 @@ impl<'lx> Lexer<'lx> {
         Ok(Int(decimal_value))
     }
 
-    fn eat_number_octal(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_number_octal(&mut self) -> DiagnosticResult<TokenKind> {
         let mut octal_value = String::from("");
 
         self.bump();
@@ -502,7 +502,7 @@ impl<'lx> Lexer<'lx> {
         Ok(Int(decimal_value))
     }
 
-    fn eat_number_binary(&mut self) -> DiagnosticResult<TokenType> {
+    fn eat_number_binary(&mut self) -> DiagnosticResult<TokenKind> {
         let mut binary_value = String::from("");
 
         self.bump();
@@ -539,7 +539,7 @@ impl<'lx> Lexer<'lx> {
     }
 
     #[inline]
-    fn eat_id(&mut self) -> TokenType {
+    fn eat_id(&mut self) -> TokenKind {
         while is_id_continue(self.peek()) {
             self.bump();
         }
@@ -616,9 +616,9 @@ impl<'lx> Lexer<'lx> {
         char
     }
 
-    fn add_token(&mut self, token_type: TokenType) {
+    fn add_token(&mut self, kind: TokenKind) {
         self.tokens.push(Token {
-            token_type,
+            kind,
             lexeme: ustr(self.source.range(self.cursor)),
             span: self.cursor.span(),
         });

@@ -1,8 +1,5 @@
 use crate::*;
-use chilic_ast::{
-    entity::{EntityKind, Visibility},
-    Ast,
-};
+use chilic_ast::ast::{Ast, EntityKind, Visibility};
 use chilic_error::{DiagnosticResult, SyntaxError};
 
 impl Parser {

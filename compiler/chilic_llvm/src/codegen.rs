@@ -3,12 +3,11 @@ use super::{
     util::is_a_load_inst,
 };
 use chilic_ast::{
-    entity::Entity,
-    expr::{ArrayLiteralKind, Builtin, Expr, ExprKind, ForIter},
-    ir::Ir,
-    module::ModuleInfo,
+    ast::{
+        ArrayLiteralKind, Builtin, Entity, Expr, ExprKind, ForIter, Ir,
+        ModuleInfo, Use,
+    },
     pattern::{Pattern, SymbolPattern},
-    r#use::Use,
 };
 use chilic_ty::*;
 use common::{

@@ -1,8 +1,4 @@
-use chilic_ast::{
-    entity::Visibility,
-    ir::Ir,
-    r#use::{Use, UsePathNode},
-};
+use chilic_ast::ast::{Ir, Use, UsePathNode, Visibility};
 use chilic_error::DiagnosticResult;
 use chilic_span::Spanned;
 use codespan_reporting::diagnostic::{Diagnostic, Label};

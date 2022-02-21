@@ -7,7 +7,7 @@
 // use crate::value::Value;
 
 // #[derive(Debug, Clone)]
-// pub struct ForeignFunction {
+// pub struct ForeignFn {
 //     pub lib: Ustr,
 //     pub name: Ustr,
 //     pub param_tys: Vec<Ty>,
@@ -30,7 +30,7 @@
 //         };
 
 //         let lib = match unsafe {
-// libloading::Library::new(format!("{}.dll", lib_name)) } {            
+// libloading::Library::new(format!("{}.dll", lib_name)) } {
 // Ok(lib) => lib,             Err(_) => return Err(format!("couldn't
 // find library `{}`", lib_name)),         };
 

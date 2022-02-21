@@ -1,9 +1,8 @@
+use crate::*;
 use chilic_ast::{
-    entity::{Entity, EntityKind, Visibility},
+    ast::{Entity, EntityKind, Visibility},
     pattern::Pattern,
 };
-
-use crate::*;
 
 impl Parser {
     pub(crate) fn parse_entity(

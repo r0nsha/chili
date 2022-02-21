@@ -42,7 +42,7 @@
 // }
 
 // #[derive(Debug, Clone)]
-// pub struct Function {
+// pub struct Fn {
 //     pub name: Ustr,
 //     pub arg_count: usize,
 //     pub code: Bytecode,

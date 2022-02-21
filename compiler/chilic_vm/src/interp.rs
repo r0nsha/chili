@@ -55,11 +55,12 @@
 //                 code.push(Instruction::Return);
 //                 interp.env.pop_scope();
 
-//                 dump_bytecode_to_file(&interp.globals, &interp.constants, &code);
+//                 dump_bytecode_to_file(&interp.globals, &interp.constants,
+// &code);
 
 //                 println!();
-//                 let result = run(&mut interp.globals, &mut interp.constants, code);
-//                 println!("\nresult: {}", result);
+//                 let result = run(&mut interp.globals, &mut interp.constants,
+// code);                 println!("\nresult: {}", result);
 //             }
 //             _ => (),
 //         }
@@ -68,13 +69,15 @@
 
 // fn interp_item(interp: &mut Interp, item: &Item) -> Ustr {
 //     match &item.data {
-//         ItemKind::RunDirective(_) => panic!("interp_item: unexpected run directive"),
-//         ItemKind::ForeignFunc(foreign_proto) => {
-//             let foreign_func = unsafe { foreign_proto_to_ffi(foreign_proto) };
+//         ItemKind::RunDirective(_) => panic!("interp_item: unexpected run
+// directive"),         ItemKind::ForeignFunc(foreign_proto) => {
+//             let foreign_func = unsafe { foreign_proto_to_ffi(foreign_proto)
+// };
 
 //             interp
 //                 .globals
-//                 .insert(foreign_proto.name, Value::ForeignFunc(foreign_func));
+//                 .insert(foreign_proto.name,
+// Value::ForeignFunc(foreign_func));
 
 //             foreign_proto.name
 //         }
@@ -104,8 +107,8 @@
 
 //             match interp.constants.pop() {
 //                 Some(constant) => interp.globals.insert(*name, constant),
-//                 None => panic!("global let item doesn't have a defined value"),
-//             };
+//                 None => panic!("global let item doesn't have a defined
+// value"),             };
 
 //             *name
 //         }
@@ -135,7 +138,7 @@
 
 //     interp.globals.insert(
 //         proto.name,
-//         Value::Func(Function {
+//         Value::Func(Fn {
 //             name: proto.name,
 //             arg_count: proto.params.len(),
 //             code,
@@ -198,8 +201,8 @@
 //             if let Some(expr) = expr {
 //                 interp_expr(interp, code, expr);
 //             } else {
-//                 interp.push_const(code, Value::Int(0)); // push () here instead of int
-//             }
+//                 interp.push_const(code, Value::Int(0)); // push () here
+// instead of int             }
 
 //             interp_defer(interp, code, &None, defer);
 
@@ -361,9 +364,9 @@
 //     match end_defer {
 //         Some(end_defer) => {
 //             interp_expr(interp, code, &end_defer.expr);
-//             let prev_defer = &end_defer.prev_defer.as_ref().map(|d| d.as_ref().clone());
-//             interp_defer(interp, code, start_defer, prev_defer);
-//         }
+//             let prev_defer = &end_defer.prev_defer.as_ref().map(|d|
+// d.as_ref().clone());             interp_defer(interp, code, start_defer,
+// prev_defer);         }
 //         None => return,
 //     }
 
@@ -377,8 +380,8 @@
 //     //                 Some(defer) => current = Some(defer.as_ref().clone()),
 //     //                 None => return,
 //     //             }
-//     //             current = _curr.prev_defer.as_ref().map(|d| d.as_ref().clone());
-//     //         }
+//     //             current = _curr.prev_defer.as_ref().map(|d|
+// d.as_ref().clone());     //         }
 //     //         None => return,
 //     //     }
 //     // }
@@ -410,13 +413,13 @@
 //     target_offset
 // }
 
-// unsafe fn foreign_proto_to_ffi(proto: &Proto) -> ffi::ForeignFunction {
+// unsafe fn foreign_proto_to_ffi(proto: &Proto) -> ffi::ForeignFn {
 //     if let Some(lib) = proto.lib {
-//         ffi::ForeignFunction {
+//         ffi::ForeignFn {
 //             lib,
 //             name: proto.name,
-//             param_tys: proto.params.iter().map(|p| p.data.ty.clone()).collect(),
-//             ret_ty: proto.ret_ty.clone(),
+//             param_tys: proto.params.iter().map(|p|
+// p.data.ty.clone()).collect(),             ret_ty: proto.ret_ty.clone(),
 //             variadic: proto.variadic,
 //         }
 //     } else {

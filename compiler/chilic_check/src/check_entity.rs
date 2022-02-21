@@ -1,23 +1,19 @@
-use chilic_error::{DiagnosticResult, TypeError};
-use chilic_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::env::Env;
-
-use chilic_ty::*;
-use ustr::{ustr, Ustr};
-
 use crate::{
     AnalysisContext, AnalysisFrame, EntityInfo, ProcessedItem,
     TopLevelLookupKind,
 };
 use chilic_ast::{
-    entity::{Entity, EntityKind, Visibility},
-    module::{Module, ModuleInfo},
+    ast::{Entity, EntityKind, Module, ModuleInfo, Use, Visibility},
     pattern::{Pattern, SymbolPattern},
-    r#use::Use,
     value::Value,
 };
+use chilic_error::{DiagnosticResult, TypeError};
 use chilic_infer::substitute::Substitute;
+use chilic_span::Span;
+use chilic_ty::*;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use common::env::Env;
+use ustr::{ustr, Ustr};
 
 impl<'a> AnalysisContext<'a> {
     pub(crate) fn check_entity(
@@ -202,7 +198,7 @@ impl<'a> AnalysisContext<'a> {
                             symbol_span,
                         )?;
 
-                        return self.check_use(calling_module, use_);
+                        return self.check_use(calling_module, &use_);
                     }
                     None => (),
                 }

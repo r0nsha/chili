@@ -2,7 +2,7 @@ use crate::{
     expand_use_wildcard::expand_use_wildcard,
     solve_defer::{DeferContext, SolveDefer},
 };
-use chilic_ast::{ir::Ir, module::Module, Ast};
+use chilic_ast::ast::{Ast, Ir, Module};
 use chilic_error::DiagnosticResult;
 use codespan_reporting::files::SimpleFiles;
 

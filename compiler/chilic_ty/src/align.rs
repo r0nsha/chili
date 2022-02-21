@@ -17,7 +17,7 @@ impl AlignOf for Ty {
             Ty::Slice(..) => StructTy::temp(
                 vec![
                     StructTyField::temp(Ty::raw_pointer(false)),
-                    StructTyField::temp(Ty::UInt(UIntTy::USize)),
+                    StructTyField::temp(Ty::UInt(UIntTy::Usize)),
                 ],
                 StructTyKind::Struct,
             )
@@ -40,7 +40,7 @@ impl AlignOf for IntTy {
             IntTy::I16 => 2,
             IntTy::I32 => 4,
             IntTy::I64 => 8,
-            IntTy::ISize => word_size as _,
+            IntTy::Isize => word_size as _,
         }
     }
 }
@@ -52,7 +52,7 @@ impl AlignOf for UIntTy {
             UIntTy::U16 => 2,
             UIntTy::U32 => 4,
             UIntTy::U64 => 8,
-            UIntTy::USize => word_size as _,
+            UIntTy::Usize => word_size as _,
         }
     }
 }
@@ -63,7 +63,7 @@ impl AlignOf for FloatTy {
             FloatTy::F16 => 2,
             FloatTy::F32 => 4,
             FloatTy::F64 => 8,
-            FloatTy::FSize => word_size as _,
+            FloatTy::Fsize => word_size as _,
         }
     }
 }

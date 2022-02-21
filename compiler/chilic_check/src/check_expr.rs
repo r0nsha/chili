@@ -1,10 +1,10 @@
 use crate::{AnalysisContext, AnalysisFrame, CheckedExpr, TopLevelLookupKind};
 use chilic_ast::{
-    expr::{
+    ast::{
         ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter,
-        LiteralKind, StructLiteralField, StructType, StructTypeField,
+        LiteralKind, ModuleInfo, StructLiteralField, StructType,
+        StructTypeField,
     },
-    module::ModuleInfo,
     pattern::SymbolPattern,
     value::Value,
 };
@@ -12,10 +12,7 @@ use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
 use chilic_infer::{cast::ty_can_be_casted, infer::InferenceValue};
 use chilic_span::Span;
 use chilic_ty::*;
-use codespan_reporting::{
-    diagnostic::{Diagnostic, Label},
-    files::Files,
-};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -116,7 +113,7 @@ impl<'a> AnalysisContext<'a> {
                         ExprKind::Builtin(Builtin::SizeOf(Box::new(
                             result.expr,
                         ))),
-                        Ty::UInt(UIntTy::USize),
+                        Ty::UInt(UIntTy::Usize),
                         None,
                         expr.span,
                     )
@@ -216,7 +213,7 @@ impl<'a> AnalysisContext<'a> {
                         if self.infcx.is_untyped_integer(&start.ty) {
                             let span = start.expr.span;
                             self.infcx.unify_or_coerce_ty_expr(
-                                &Ty::Int(IntTy::ISize),
+                                &Ty::Int(IntTy::Isize),
                                 &mut start.expr,
                                 span,
                             )?;
@@ -243,7 +240,7 @@ impl<'a> AnalysisContext<'a> {
                         // iterators
                         frame.insert_entity(
                             *iter_index_name,
-                            Ty::UInt(UIntTy::USize),
+                            Ty::UInt(UIntTy::Usize),
                             start.expr.span,
                             true,
                         );
@@ -283,7 +280,7 @@ impl<'a> AnalysisContext<'a> {
                                 );
                                 frame.insert_entity(
                                     *iter_index_name,
-                                    Ty::UInt(UIntTy::USize),
+                                    Ty::UInt(UIntTy::Usize),
                                     value.expr.span,
                                     true,
                                 );
@@ -501,7 +498,7 @@ impl<'a> AnalysisContext<'a> {
 
                 let index_span = index.expr.span;
                 self.infcx.unify_or_coerce_ty_expr(
-                    &Ty::UInt(UIntTy::USize),
+                    &Ty::UInt(UIntTy::Usize),
                     &mut index.expr,
                     index_span,
                 )?;
@@ -563,7 +560,7 @@ impl<'a> AnalysisContext<'a> {
 
                     let span = low.expr.span;
                     self.infcx.unify_or_coerce_ty_expr(
-                        &Ty::UInt(UIntTy::USize),
+                        &Ty::UInt(UIntTy::Usize),
                         &mut low.expr,
                         span,
                     )?;
@@ -578,7 +575,7 @@ impl<'a> AnalysisContext<'a> {
 
                     let span = high.expr.span;
                     self.infcx.unify_or_coerce_ty_expr(
-                        &Ty::UInt(UIntTy::USize),
+                        &Ty::UInt(UIntTy::Usize),
                         &mut high.expr,
                         span,
                     )?;
@@ -678,7 +675,7 @@ impl<'a> AnalysisContext<'a> {
                     Ty::Array(..) | Ty::Slice(..)
                         if field.as_str() == BUILTIN_FIELD_LEN =>
                     {
-                        (Ty::UInt(UIntTy::USize), None)
+                        (Ty::UInt(UIntTy::Usize), None)
                     }
                     Ty::Slice(inner, is_mutable)
                         if field.as_str() == BUILTIN_FIELD_DATA =>

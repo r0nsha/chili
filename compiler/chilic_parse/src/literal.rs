@@ -1,10 +1,10 @@
 use crate::*;
-use chilic_ast::expr::{
+use chilic_ast::ast::{
     ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField,
 };
 use chilic_error::*;
 use chilic_span::{Merge, Span};
-use chilic_token::TokenType::*;
+use chilic_token::TokenKind::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 impl Parser {
@@ -12,7 +12,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let value = match &token.token_type {
+        let value = match &token.kind {
             Nil => LiteralKind::Nil,
             True => LiteralKind::Bool(true),
             False => LiteralKind::Bool(false),

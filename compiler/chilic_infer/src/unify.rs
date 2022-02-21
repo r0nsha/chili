@@ -1,17 +1,14 @@
-use chilic_ast::expr::Expr;
+use crate::{
+    coerce::{Coerce, CoercionResult, TryCoerce},
+    infer::{InferenceContext, InferenceValue, InferenceValue::*, TyVar},
+};
+use chilic_ast::ast::Expr;
 use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 use codespan_reporting::diagnostic::Diagnostic;
 use common::mut_eq;
 use ena::unify::UnifyValue;
-
-use crate::{
-    coerce::{Coerce, CoercionResult, TryCoerce},
-    infer::{InferenceContext, TyVar},
-};
-
-use super::infer::{InferenceValue, InferenceValue::*};
 
 pub struct UnificationError(pub Ty, pub Ty);
 
@@ -146,16 +143,16 @@ impl InferenceContext {
             | (Ty::Int(IntTy::I16), Ty::Int(IntTy::I16))
             | (Ty::Int(IntTy::I32), Ty::Int(IntTy::I32))
             | (Ty::Int(IntTy::I64), Ty::Int(IntTy::I64))
-            | (Ty::Int(IntTy::ISize), Ty::Int(IntTy::ISize))
+            | (Ty::Int(IntTy::Isize), Ty::Int(IntTy::Isize))
             | (Ty::UInt(UIntTy::U8), Ty::UInt(UIntTy::U8))
             | (Ty::UInt(UIntTy::U16), Ty::UInt(UIntTy::U16))
             | (Ty::UInt(UIntTy::U32), Ty::UInt(UIntTy::U32))
             | (Ty::UInt(UIntTy::U64), Ty::UInt(UIntTy::U64))
-            | (Ty::UInt(UIntTy::USize), Ty::UInt(UIntTy::USize))
+            | (Ty::UInt(UIntTy::Usize), Ty::UInt(UIntTy::Usize))
             | (Ty::Float(FloatTy::F16), Ty::Float(FloatTy::F16))
             | (Ty::Float(FloatTy::F32), Ty::Float(FloatTy::F32))
             | (Ty::Float(FloatTy::F64), Ty::Float(FloatTy::F64))
-            | (Ty::Float(FloatTy::FSize), Ty::Float(FloatTy::FSize))
+            | (Ty::Float(FloatTy::Fsize), Ty::Float(FloatTy::Fsize))
             | (Ty::Never, Ty::Never) => Ok(expected.clone()),
 
             (Ty::Pointer(t1, m1), Ty::Pointer(t2, m2)) => {
