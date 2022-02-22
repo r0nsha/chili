@@ -1,1 +1,0 @@
-pub let answer = fn() -> int => 42

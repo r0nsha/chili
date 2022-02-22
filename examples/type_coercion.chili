@@ -17,8 +17,8 @@ let main = fn() {
 	let small i32 = 1;
 	let big i64 = 2;
 
-	// big = small;
-	// let big u64 = small;
+	# big = small;
+	# let big u64 = small;
 
 	let sum i64 = big + small;
 	let is_gt = big > small;
@@ -34,7 +34,7 @@ let main = fn() {
 
 	foo(small, small);
 
-	test_return(); // SHOULD ONLY COERCE ACTUAL
+	test_return(); # SHOULD ONLY COERCE ACTUAL
 
 	let Thing = struct {
 		a i64

@@ -1,6 +1,6 @@
 use c.?;
 
-type Foo = { a : i32, b : f32 }
+type Foo = { a: i32, b: f32 }
 
 let main = fn {
     # let foreign("system:libucrt") printf = fn(f: [*]u8, ..) -> i64;

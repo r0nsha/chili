@@ -120,7 +120,7 @@ let read_file = fn(path str) -> str {
 		ExitProcess(1);
 	}
 
-	// CloseHandle(file);
+	# CloseHandle(file);
 	let slice = buffer[..bytes_read];
 
 	slice

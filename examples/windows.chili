@@ -22,7 +22,7 @@ pub type COORD = {
 
 pub type INPUT_RECORD = {
     EventType WORD,
-    MouseEvent MOUSE_EVENT_RECORD // TODO -> this should be a union https://docs.microsoft.com/en-us/windows/console/input-record-str
+    MouseEvent MOUSE_EVENT_RECORD # TODO -> this should be a union https://docs.microsoft.com/en-us/windows/console/input-record-str
 }
 
 pub let MOUSE_MOVED DWORD = 0x0001;
