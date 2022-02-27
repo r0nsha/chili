@@ -9,7 +9,11 @@ let main = fn {
     printf("1\n".data);
     printf("%d\n".data, answer());
     printf("%d\n".data, myfav());
-    let foo = defer 5;
+    let bee = if true {
+        5
+    } else {
+        10
+    };
 }
 
 let answer = fn() -> int { 42 }

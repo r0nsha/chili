@@ -21,7 +21,7 @@ impl Parser {
         &mut self,
         restrictions: Restrictions,
     ) -> DiagnosticResult<Expr> {
-        self.with_res(restrictions, |p| p.parse_expr())
+        self.with_res(restrictions, |p| p.parse_expr_internal(ustr("")))
     }
 
     pub(crate) fn parse_decl_expr(
