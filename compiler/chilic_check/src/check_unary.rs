@@ -13,10 +13,10 @@ impl<'a> AnalysisContext<'a> {
         frame: &mut AnalysisFrame,
         op: UnaryOp,
         lhs: &Expr,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
-        let lhs = self.check_expr(frame, lhs, parent_ty)?;
+        let lhs = self.check_expr(frame, lhs, expected_ty)?;
         let lhs_ty = self.infcx.normalize_ty(&lhs.ty);
 
         let ty = match op {

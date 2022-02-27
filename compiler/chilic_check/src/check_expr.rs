@@ -21,7 +21,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         expr: &Expr,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
     ) -> DiagnosticResult<CheckedExpr> {
         let checked_expr = match &expr.kind {
             ExprKind::Use(uses) => {
@@ -72,7 +72,7 @@ impl<'a> AnalysisContext<'a> {
             }
             ExprKind::Cast(info) => {
                 let info =
-                    self.check_cast(frame, info, parent_ty, expr.span)?;
+                    self.check_cast(frame, info, expected_ty, expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
                 if ty_can_be_casted(&source_ty, &info.target_ty) {
@@ -102,7 +102,8 @@ impl<'a> AnalysisContext<'a> {
                 }
             }
             ExprKind::Fn(func) => {
-                let func = self.check_fn(frame, func, expr.span, parent_ty)?;
+                let func =
+                    self.check_fn(frame, func, expr.span, expected_ty)?;
                 let ty = func.proto.ty.clone();
                 CheckedExpr::new(ExprKind::Fn(func), ty, None, expr.span)
             }
@@ -422,12 +423,12 @@ impl<'a> AnalysisContext<'a> {
                 self.infcx.unify(Ty::Bool, ty, cond.expr.span)?;
 
                 let mut then_result =
-                    self.check_expr(frame, then_expr, parent_ty.clone())?;
+                    self.check_expr(frame, then_expr, expected_ty.clone())?;
 
                 let (else_result, result_ty) =
                     if let Some(else_expr) = else_expr {
                         let mut else_result =
-                            self.check_expr(frame, else_expr, parent_ty)?;
+                            self.check_expr(frame, else_expr, expected_ty)?;
 
                         let span = else_result.expr.span;
 
@@ -473,7 +474,7 @@ impl<'a> AnalysisContext<'a> {
                 frame.push_scope();
 
                 let (block, result_ty) =
-                    self.check_block(frame, block, parent_ty)?;
+                    self.check_block(frame, block, expected_ty)?;
 
                 frame.pop_scope();
 
@@ -485,10 +486,15 @@ impl<'a> AnalysisContext<'a> {
                 )
             }
             ExprKind::Binary { lhs, op, rhs } => self.check_binary_expr(
-                frame, lhs, *op, rhs, parent_ty, expr.span,
+                frame,
+                lhs,
+                *op,
+                rhs,
+                expected_ty,
+                expr.span,
             )?,
             ExprKind::Unary { op, lhs } => {
-                self.check_unary_expr(frame, *op, lhs, parent_ty, expr.span)?
+                self.check_unary_expr(frame, *op, lhs, expected_ty, expr.span)?
             }
             ExprKind::Subscript {
                 expr: accessed_expr,
@@ -845,7 +851,7 @@ impl<'a> AnalysisContext<'a> {
                         }
                     }
                 }
-                None => match parent_ty {
+                None => match expected_ty {
                     Some(ty) => {
                         let ty = self.infcx.normalize_ty(&ty);
 
@@ -888,8 +894,8 @@ impl<'a> AnalysisContext<'a> {
                         self.infcx.new_key(InferenceValue::UntypedNil).into(),
                         None,
                     ),
-                    LiteralKind::Unit => match parent_ty {
-                        Some(parent_ty) if parent_ty.is_type() => (
+                    LiteralKind::Unit => match expected_ty {
+                        Some(expected_ty) if expected_ty.is_type() => (
                             Ty::Unit.create_type(),
                             Some(Value::Type(Ty::Unit)),
                         ),
@@ -1092,7 +1098,7 @@ impl<'a> AnalysisContext<'a> {
             }
             ExprKind::FnType(proto) => {
                 let proto =
-                    self.check_proto(frame, proto, parent_ty, expr.span)?;
+                    self.check_proto(frame, proto, expected_ty, expr.span)?;
 
                 if proto.lib_name.is_some() {
                     let ty = proto.ty.clone();
@@ -1466,7 +1472,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         block: &Block,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
     ) -> DiagnosticResult<(Block, Ty)> {
         let mut new_block = Block {
             exprs: vec![],
@@ -1485,7 +1491,7 @@ impl<'a> AnalysisContext<'a> {
                 let result = self.check_expr(
                     frame,
                     expr,
-                    if is_last { parent_ty.clone() } else { None },
+                    if is_last { expected_ty.clone() } else { None },
                 )?;
 
                 new_block.exprs.push(result.expr);
@@ -1505,7 +1511,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         info: &Cast,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
         expr_span: Span,
     ) -> DiagnosticResult<Cast> {
         let casted_expr = self.check_expr(frame, &info.expr, None)?;
@@ -1515,10 +1521,10 @@ impl<'a> AnalysisContext<'a> {
             let target_ty = type_expr.value.unwrap().into_type();
             (Some(Box::new(type_expr.expr)), target_ty)
         } else {
-            match parent_ty {
-                Some(parent_ty) => {
-                    let parent_ty = self.infcx.normalize_ty(&parent_ty);
-                    (None, parent_ty)
+            match expected_ty {
+                Some(expected_ty) => {
+                    let expected_ty = self.infcx.normalize_ty(&expected_ty);
+                    (None, expected_ty)
                 }
                 None => {
                     return Err(Diagnostic::error()

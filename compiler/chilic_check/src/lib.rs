@@ -16,12 +16,10 @@ use chilic_ast::{
     value::Value,
 };
 use chilic_error::{DiagnosticResult, SyntaxError, TypeError};
+use chilic_infer::infer::InferenceContext;
 use chilic_span::Span;
 use chilic_ty::Ty;
-use codespan_reporting::{
-    diagnostic::{Diagnostic, Label},
-    files::SimpleFiles,
-};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::{
     build_options::BuildOptions,
     env::{Env, Scope},
@@ -29,13 +27,7 @@ use common::{
 use lints::Lint;
 use ustr::{Ustr, UstrMap};
 
-use chilic_infer::infer::InferenceContext;
-
-pub fn check_ir(
-    files: &SimpleFiles<String, String>,
-    build_options: &BuildOptions,
-    ir: Ir,
-) -> DiagnosticResult<Ir> {
+pub fn check_ir(build_options: &BuildOptions, ir: Ir) -> DiagnosticResult<Ir> {
     // * check for duplicate symbols in the same module
     for (_, module) in &ir.modules {
         let mut module_decls = UstrMap::default();
@@ -78,7 +70,7 @@ pub fn check_ir(
 
     let target_metrics = build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
-    let mut ancx = AnalysisContext::new(&mut infcx, &ir, &mut new_ir, files);
+    let mut ancx = AnalysisContext::new(&mut infcx, &ir, &mut new_ir);
 
     let root_module = ir.root_module();
 
@@ -187,7 +179,6 @@ pub(crate) struct AnalysisContext<'a> {
     pub(crate) old_ir: &'a Ir,
     pub(crate) new_ir: &'a mut Ir,
     pub(crate) builtin_types: UstrMap<Ty>,
-    pub(crate) files: &'a SimpleFiles<String, String>,
     pub(crate) processed_items_stack: Vec<ProcessedItem>,
     pub(crate) in_main_path: bool,
 }
@@ -326,14 +317,12 @@ impl<'a> AnalysisContext<'a> {
         infcx: &'a mut InferenceContext,
         old_ir: &'a Ir,
         new_ir: &'a mut Ir,
-        files: &'a SimpleFiles<String, String>,
     ) -> Self {
         Self {
             infcx,
             old_ir,
             new_ir,
             builtin_types: get_builtin_types(),
-            files,
             processed_items_stack: vec![],
             in_main_path: false,
         }

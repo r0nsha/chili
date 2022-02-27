@@ -55,15 +55,18 @@ impl<'a> AnalysisContext<'a> {
     fn check_struct_destructor(
         &mut self,
         frame: &mut AnalysisFrame,
-        parent_ty: &Ty,
+        expected_ty: &Ty,
         pattern: &DestructorPattern,
         is_init: bool,
     ) -> DiagnosticResult<()> {
-        match parent_ty.maybe_deref_once() {
+        match expected_ty.maybe_deref_once() {
             Ty::Struct(ref struct_ty) => {
                 if struct_ty.is_union() {
                     return Err(Diagnostic::error()
-                        .with_message(format!("can't destruct `{}`", parent_ty))
+                        .with_message(format!(
+                            "can't destruct `{}`",
+                            expected_ty
+                        ))
                         .with_labels(vec![Label::primary(
                             pattern.span.file_id,
                             pattern.span.range().clone(),
@@ -101,7 +104,10 @@ impl<'a> AnalysisContext<'a> {
                             frame.insert_entity_info(
                                 symbol,
                                 EntityInfo {
-                                    ty: get_destructed_ty(parent_ty, &field.ty),
+                                    ty: get_destructed_ty(
+                                        expected_ty,
+                                        &field.ty,
+                                    ),
                                     const_value: None,
                                     is_mutable: *is_mutable,
                                     is_init,
@@ -111,7 +117,9 @@ impl<'a> AnalysisContext<'a> {
                         }
                         None => {
                             return Err(TypeError::invalid_struct_field(
-                                *span, *symbol, &parent_ty,
+                                *span,
+                                *symbol,
+                                &expected_ty,
                             ))
                         }
                     }
@@ -151,16 +159,16 @@ impl<'a> AnalysisContext<'a> {
     fn check_tuple_destructor(
         &mut self,
         frame: &mut AnalysisFrame,
-        parent_ty: &Ty,
+        expected_ty: &Ty,
         pattern: &DestructorPattern,
         is_init: bool,
     ) -> DiagnosticResult<()> {
-        match parent_ty.maybe_deref_once() {
+        match expected_ty.maybe_deref_once() {
             Ty::Tuple(tys) => {
                 if pattern.symbols.len() > tys.len() {
                     return Err(TypeError::too_many_destructor_variables(
                         pattern.span,
-                        parent_ty,
+                        expected_ty,
                         tys.len(),
                         pattern.symbols.len(),
                     ));
@@ -182,7 +190,7 @@ impl<'a> AnalysisContext<'a> {
                     frame.insert_entity_info(
                         *symbol,
                         EntityInfo {
-                            ty: get_destructed_ty(parent_ty, &tys[i]),
+                            ty: get_destructed_ty(expected_ty, &tys[i]),
                             const_value: None,
                             is_mutable: *is_mutable,
                             is_init,
@@ -201,8 +209,8 @@ impl<'a> AnalysisContext<'a> {
     }
 }
 
-fn get_destructed_ty(parent_ty: &Ty, ty: &Ty) -> Ty {
-    match parent_ty {
+fn get_destructed_ty(expected_ty: &Ty, ty: &Ty) -> Ty {
+    match expected_ty {
         Ty::Pointer(_, is_mutable) => {
             Ty::Pointer(Box::new(ty.clone()), *is_mutable)
         }

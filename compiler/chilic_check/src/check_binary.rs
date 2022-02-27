@@ -15,11 +15,11 @@ impl<'a> AnalysisContext<'a> {
         lhs: &Box<Expr>,
         op: BinaryOp,
         rhs: &Box<Expr>,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
-        let mut lhs = self.check_expr(frame, lhs, parent_ty.clone())?;
-        let mut rhs = self.check_expr(frame, rhs, parent_ty)?;
+        let mut lhs = self.check_expr(frame, lhs, expected_ty.clone())?;
+        let mut rhs = self.check_expr(frame, rhs, expected_ty)?;
 
         let rhs_span = rhs.expr.span;
         let ty = self.infcx.unify_or_coerce_expr_expr(

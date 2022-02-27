@@ -16,9 +16,9 @@ impl<'a> AnalysisContext<'a> {
         frame: &mut AnalysisFrame,
         func: &Fn,
         span: Span,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
     ) -> DiagnosticResult<Fn> {
-        let proto = self.check_proto(frame, &func.proto, parent_ty, span)?;
+        let proto = self.check_proto(frame, &func.proto, expected_ty, span)?;
 
         let ty = proto.ty.into_fn();
 
@@ -106,10 +106,10 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         frame: &mut AnalysisFrame,
         proto: &Proto,
-        parent_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<Proto> {
-        let parent_fn_ty = parent_ty
+        let parent_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
             .and_then(|t| {

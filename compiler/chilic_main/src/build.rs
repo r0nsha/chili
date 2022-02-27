@@ -69,7 +69,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     let sw = Stopwatch::start_new("analyze");
 
-    let ir = match chilic_check::check_ir(&files, &build_options, ir) {
+    let ir = match chilic_check::check_ir(&build_options, ir) {
         Ok(ir) => ir,
         Err(diagnostic) => {
             emit_single_diagnostic(&files, diagnostic);
