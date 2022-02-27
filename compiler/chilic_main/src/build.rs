@@ -34,12 +34,7 @@ pub fn do_build(build_options: BuildOptions) {
         format!("{}{}", root_dir.display(), std::path::MAIN_SEPARATOR);
 
     let (asts, root_file_id) = {
-        let mut ast_generator = AstGenerator {
-            files: &mut files,
-            root_dir: root_dir.clone(),
-            root_file_id: 0,
-            already_parsed_modules: UstrSet::default(),
-        };
+        let mut ast_generator = AstGenerator::new(&mut files, root_dir);
 
         let asts = match ast_generator.start(build_options.source_file.clone())
         {

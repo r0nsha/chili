@@ -456,7 +456,7 @@ impl Module {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleInfo {
     pub name: Ustr,
     pub file_path: Ustr,

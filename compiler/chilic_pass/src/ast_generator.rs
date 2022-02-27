@@ -23,6 +23,18 @@ pub struct AstGenerator<'a> {
 }
 
 impl<'a> AstGenerator<'a> {
+    pub fn new(
+        files: &'a mut SimpleFiles<String, String>,
+        root_dir: String,
+    ) -> Self {
+        Self {
+            files,
+            root_dir,
+            root_file_id: 0,
+            already_parsed_modules: Default::default(),
+        }
+    }
+
     pub fn start(&mut self, file_path: String) -> DiagnosticResult<Vec<Ast>> {
         let mut asts: Vec<Ast> = vec![];
 
@@ -98,6 +110,7 @@ impl<'a> AstGenerator<'a> {
         add_intrinsic_std_use(&mut parse_result.ast, &mut parse_result.uses);
 
         for used_module in parse_result.uses.iter() {
+            // TODO: This is a workaround until the parser becomes recoverable
             self.add_source_file(asts, *used_module, false)?;
         }
 
