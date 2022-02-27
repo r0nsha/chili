@@ -109,7 +109,7 @@ impl<'a> AnalysisContext<'a> {
         expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<Proto> {
-        let parent_fn_ty = expected_ty
+        let expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
             .and_then(|t| {
@@ -178,18 +178,19 @@ impl<'a> AnalysisContext<'a> {
                 let ty = type_expr.value.unwrap().into_type();
                 (Box::new(type_expr.expr), ty)
             } else {
-                match parent_fn_ty {
-                    Some(ref parent_fn_ty) => {
-                        // infer this param's type from the parent param's type
-                        let parent_param_ty =
-                            parent_fn_ty.params[index].ty.clone();
+                match expected_fn_ty {
+                    Some(ref expected_fn_ty) => {
+                        // infer this param's type from the expected param's
+                        // type
+                        let expected_param_ty =
+                            expected_fn_ty.params[index].ty.clone();
                         (
                             Box::new(Expr::typed(
                                 ExprKind::Noop,
-                                parent_param_ty.clone().create_type(),
+                                expected_param_ty.clone().create_type(),
                                 param.pattern.span().clone(),
                             )),
-                            parent_param_ty,
+                            expected_param_ty,
                         )
                     }
                     None => {
@@ -222,8 +223,8 @@ impl<'a> AnalysisContext<'a> {
             });
         }
 
-        // if parent function is fn(int) -> int, and this function is fn() ->
-        // int, insert the parent functions param as `it`
+        // if expected function is fn(int) -> int, and this function is fn() ->
+        // int, insert the expected functions param as `it`
         // example:
         //
         // let map = fn(fn(int) -> int) ...
@@ -235,9 +236,9 @@ impl<'a> AnalysisContext<'a> {
         // map fn => it * 2
         //
         if params.is_empty() {
-            if let Some(parent_fn_ty) = &parent_fn_ty {
-                if parent_fn_ty.params.len() == 1 {
-                    let parent_param_ty = &parent_fn_ty.params[0].ty;
+            if let Some(expected_fn_ty) = &expected_fn_ty {
+                if expected_fn_ty.params.len() == 1 {
+                    let expected_param_ty = &expected_fn_ty.params[0].ty;
                     let symbol = ustr("it");
 
                     let pattern = Pattern::Single(SymbolPattern {
@@ -252,14 +253,14 @@ impl<'a> AnalysisContext<'a> {
                         pattern: pattern.clone(),
                         ty: Some(Box::new(Expr::typed(
                             ExprKind::Noop,
-                            parent_param_ty.clone().create_type(),
+                            expected_param_ty.clone().create_type(),
                             span,
                         ))),
                     });
 
                     param_tys.push(FnTyParam {
                         symbol,
-                        ty: parent_param_ty.clone(),
+                        ty: expected_param_ty.clone(),
                     });
                 }
             }
@@ -271,8 +272,10 @@ impl<'a> AnalysisContext<'a> {
                 let ty = type_expr.value.unwrap().into_type();
                 (Some(Box::new(type_expr.expr)), ty)
             }
-            None => match parent_fn_ty {
-                Some(parent_fn_ty) => (None, parent_fn_ty.ret.as_ref().clone()),
+            None => match expected_fn_ty {
+                Some(expected_fn_ty) => {
+                    (None, expected_fn_ty.ret.as_ref().clone())
+                }
                 None => (None, Ty::Unit),
             },
         };
