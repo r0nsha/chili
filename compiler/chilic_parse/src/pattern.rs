@@ -1,7 +1,7 @@
 use crate::*;
 use chilic_ast::pattern::{DestructorPattern, Pattern, SymbolPattern};
 use chilic_error::SyntaxError;
-use chilic_span::Merge;
+use chilic_span::To;
 
 impl Parser {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
@@ -50,7 +50,7 @@ impl Parser {
         let destructor = DestructorPattern {
             symbols,
             exhaustive,
-            span: start_span.merge(self.previous_span()),
+            span: start_span.to(self.previous_span()),
         };
 
         Ok(Pattern::StructDestructor(destructor))
@@ -79,7 +79,7 @@ impl Parser {
         let destructor = DestructorPattern {
             symbols,
             exhaustive,
-            span: start_span.merge(self.previous_span()),
+            span: start_span.to(self.previous_span()),
         };
 
         Ok(Pattern::TupleDestructor(destructor))

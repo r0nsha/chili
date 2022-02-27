@@ -4,7 +4,7 @@ use chilic_ast::ast::{
     UnaryOp, Visibility,
 };
 use chilic_error::*;
-use chilic_span::{Merge, Span};
+use chilic_span::{Span, To};
 use chilic_token::TokenKind::*;
 use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
@@ -49,7 +49,7 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::Use(uses),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             ))
         } else if match_token!(self, Defer) {
             let span = self.span();
@@ -66,7 +66,7 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::Entity(Box::new(entity)),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             ))
         } else if match_token!(self, Let) {
             let start_span = self.previous().span;
@@ -76,7 +76,7 @@ impl Parser {
 
                 Ok(Expr::new(
                     ExprKind::Foreign(vec![entity]),
-                    start_span.merge(self.previous_span()),
+                    start_span.to(self.previous_span()),
                 ))
             } else {
                 let entity = self.parse_entity(
@@ -87,7 +87,7 @@ impl Parser {
 
                 Ok(Expr::new(
                     ExprKind::Entity(Box::new(entity)),
-                    start_span.merge(self.previous_span()),
+                    start_span.to(self.previous_span()),
                 ))
             }
         } else if match_token!(self, Foreign) {
@@ -96,7 +96,7 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::Foreign(entities),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             ))
         } else {
             self.parse_logic_or()
@@ -137,7 +137,7 @@ impl Parser {
                 then_expr: Box::new(then_expr),
                 else_expr,
             },
-            span.merge(self.previous_span()),
+            span.to(self.previous_span()),
         ))
     }
 
@@ -177,7 +177,7 @@ impl Parser {
                 deferred: vec![],
                 yields,
             }),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -193,7 +193,7 @@ impl Parser {
                     op: BinaryOp::Or,
                     rhs: Box::new(self.parse_logic_and()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -212,7 +212,7 @@ impl Parser {
                     op: BinaryOp::And,
                     rhs: Box::new(self.parse_comparison()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -231,7 +231,7 @@ impl Parser {
                     op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_bitwise_or()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -255,7 +255,7 @@ impl Parser {
                     op: BinaryOp::BitwiseOr,
                     rhs: Box::new(self.parse_bitwise_xor()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -279,7 +279,7 @@ impl Parser {
                     op: BinaryOp::BitwiseXor,
                     rhs: Box::new(self.parse_bitwise_and()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -303,7 +303,7 @@ impl Parser {
                     op: BinaryOp::BitwiseAnd,
                     rhs: Box::new(self.parse_bitshift()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -327,7 +327,7 @@ impl Parser {
                     op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_term()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -351,7 +351,7 @@ impl Parser {
                     op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_factor()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -375,7 +375,7 @@ impl Parser {
                     op: self.previous().kind.into(),
                     rhs: Box::new(self.parse_unary()?),
                 },
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
         }
 
@@ -400,7 +400,7 @@ impl Parser {
                     },
                     lhs: Box::new(self.parse_unary()?),
                 },
-                span.merge(self.previous_span()),
+                span.to(self.previous_span()),
             );
 
             Ok(expr)
@@ -452,7 +452,7 @@ impl Parser {
             if match_token!(self, CloseParen) {
                 Expr::new(
                     ExprKind::Literal(LiteralKind::Unit),
-                    start_span.merge(self.previous_span()),
+                    start_span.to(self.previous_span()),
                 )
             } else {
                 let mut expr = self.parse_expr()?;
@@ -463,7 +463,7 @@ impl Parser {
                     require!(self, CloseParen, ")")?;
 
                     expr.span.range().start -= 1;
-                    expr.span = Span::merge(&expr.span, self.previous_span());
+                    expr.span = Span::to(&expr.span, self.previous_span());
 
                     expr
                 };
@@ -499,7 +499,7 @@ impl Parser {
             }),
             name => {
                 return Err(SyntaxError::unknown_builtin_function(
-                    start_span.merge(id_token.span),
+                    start_span.to(id_token.span),
                     name.to_string(),
                 ))
             }
@@ -509,7 +509,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::Builtin(builtin),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -526,7 +526,7 @@ impl Parser {
                 cond: Box::new(cond),
                 expr: Box::new(expr),
             },
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -600,7 +600,7 @@ impl Parser {
                 iterator,
                 expr: Box::new(expr),
             },
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -631,7 +631,7 @@ impl Parser {
                         .with_message("got an invalid terminator"));
                 }
             },
-            span.merge(self.previous_span()),
+            span.to(self.previous_span()),
         );
 
         return Ok(expr);

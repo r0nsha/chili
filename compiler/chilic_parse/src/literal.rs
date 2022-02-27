@@ -3,7 +3,7 @@ use chilic_ast::ast::{
     ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField,
 };
 use chilic_error::*;
-use chilic_span::{Merge, Span};
+use chilic_span::{Span, To};
 use chilic_token::TokenKind::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
@@ -56,7 +56,7 @@ impl Parser {
                             expr: Box::new(expr),
                             len: Box::new(len),
                         }),
-                        start_span.merge(self.previous_span()),
+                        start_span.to(self.previous_span()),
                     ));
                 }
                 is_first_el = false;
@@ -74,7 +74,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::ArrayLiteral(ArrayLiteralKind::List(elements)),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -95,7 +95,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(exprs),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -133,7 +133,7 @@ impl Parser {
                 StructLiteralField {
                     symbol: id_token.symbol(),
                     value,
-                    span: id_token.span.merge(value_span),
+                    span: id_token.span.to(value_span),
                 }
             },
             ", or }"
@@ -141,7 +141,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::StructLiteral { type_expr, fields },
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 }

@@ -158,12 +158,12 @@ impl Default for EndPosition {
     }
 }
 
-pub trait Merge {
-    fn merge(&self, other: Self) -> Self;
+pub trait To {
+    fn to(&self, other: Self) -> Self;
 }
 
-impl Merge for Span {
-    fn merge(&self, other: Self) -> Self {
+impl To for Span {
+    fn to(&self, other: Self) -> Self {
         if self.file_id != other.file_id {
             panic!("can't merge spans from different files");
         }

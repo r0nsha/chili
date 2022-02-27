@@ -1,7 +1,7 @@
 use crate::*;
 use chilic_ast::ast::{BinaryOp, Call, CallArg, Cast, Expr, ExprKind, UnaryOp};
 use chilic_error::*;
-use chilic_span::{EndPosition, Merge, Spanned};
+use chilic_span::{EndPosition, Spanned, To};
 use chilic_token::TokenKind::*;
 use chilic_ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -61,7 +61,7 @@ impl Parser {
                     value: fn_expr,
                 };
 
-                let span = start_span.merge(self.previous_span());
+                let span = start_span.to(self.previous_span());
 
                 match &expr.kind {
                     ExprKind::Call(call) => {
@@ -100,7 +100,7 @@ impl Parser {
                 lvalue: Box::new(expr.clone()),
                 rvalue: Box::new(rvalue),
             },
-            start_span.merge(end_span),
+            start_span.to(end_span),
         ))
     }
 
@@ -126,7 +126,7 @@ impl Parser {
                     rvalue_span,
                 )),
             },
-            lvalue_span.merge(rvalue_span),
+            lvalue_span.to(rvalue_span),
         ))
     }
 
@@ -146,7 +146,7 @@ impl Parser {
                 type_expr,
                 target_ty: Ty::Unknown,
             }),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -161,7 +161,7 @@ impl Parser {
                     expr: Box::new(expr.clone()),
                     member: id,
                 },
-                start_span.merge(token.span),
+                start_span.to(token.span),
             ),
 
             Int(i) => Expr::new(
@@ -169,7 +169,7 @@ impl Parser {
                     expr: Box::new(expr.clone()),
                     member: ustr(&i.to_string()),
                 },
-                start_span.merge(token.span),
+                start_span.to(token.span),
             ),
 
             Float(_) => {
@@ -181,7 +181,7 @@ impl Parser {
                         expr: Box::new(expr.clone()),
                         member: ustr(components[0]),
                     },
-                    start_span.merge(token.span.with_end(EndPosition {
+                    start_span.to(token.span.with_end(EndPosition {
                         index: token.span.end.index - components[0].len() + 1,
                     })),
                 );
@@ -191,7 +191,7 @@ impl Parser {
                         expr: Box::new(first_access),
                         member: ustr(components[0]),
                     },
-                    start_span.merge(token.span),
+                    start_span.to(token.span),
                 );
 
                 second_access
@@ -202,7 +202,7 @@ impl Parser {
                     op: UnaryOp::Deref,
                     lhs: Box::new(expr.clone()),
                 },
-                start_span.merge(token.span),
+                start_span.to(token.span),
             ),
 
             OpenParen => self.parse_call(expr)?,
@@ -265,7 +265,7 @@ impl Parser {
                 callee: Box::new(callee),
                 args,
             }),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -291,7 +291,7 @@ impl Parser {
                             low: Some(Box::new(index)),
                             high,
                         },
-                        start_span.merge(self.previous_span()),
+                        start_span.to(self.previous_span()),
                     ));
                 }
 
@@ -302,7 +302,7 @@ impl Parser {
                         expr: Box::new(expr),
                         index: Box::new(index),
                     },
-                    start_span.merge(self.previous_span()),
+                    start_span.to(self.previous_span()),
                 ))
             }
             Err(err) => {
@@ -320,7 +320,7 @@ impl Parser {
                             low: None,
                             high,
                         },
-                        start_span.merge(self.previous_span()),
+                        start_span.to(self.previous_span()),
                     ))
                 } else {
                     Err(err)

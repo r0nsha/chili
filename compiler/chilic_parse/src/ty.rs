@@ -1,7 +1,7 @@
 use crate::{func::ParseProtoKind, *};
 use chilic_ast::ast::{Expr, ExprKind, StructType, StructTypeField};
 use chilic_error::SyntaxError;
-use chilic_span::{Merge, Span};
+use chilic_span::{Span, To};
 use chilic_token::TokenKind::*;
 use chilic_ty::StructTyKind;
 
@@ -43,7 +43,7 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::PointerType(Box::new(ty), is_mutable),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             ))
         } else if match_token!(self, Bang) {
             Ok(Expr::new(ExprKind::NeverType, self.previous().span))
@@ -80,7 +80,7 @@ impl Parser {
 
             let ty = Expr::new(
                 ExprKind::MultiPointerType(Box::new(inner), is_mutable),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             );
 
             Ok(ty)
@@ -92,7 +92,7 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::SliceType(Box::new(ty), is_mutable),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             ))
         } else {
             // array type or sized array literal
@@ -103,7 +103,7 @@ impl Parser {
 
             Ok(Expr::new(
                 ExprKind::ArrayType(Box::new(ty), Box::new(size)),
-                start_span.merge(self.previous_span()),
+                start_span.to(self.previous_span()),
             ))
         }
     }
@@ -121,7 +121,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(tys),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -138,7 +138,7 @@ impl Parser {
                 fields,
                 kind: StructTyKind::Struct,
             }),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -184,7 +184,7 @@ impl Parser {
                 fields,
                 kind: StructTyKind::Union,
             }),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 
@@ -195,7 +195,7 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::FnType(proto),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 }

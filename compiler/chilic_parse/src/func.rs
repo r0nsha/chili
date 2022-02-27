@@ -4,7 +4,7 @@ use chilic_ast::{
     pattern::{Pattern, SymbolPattern},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_span::{Merge, Span};
+use chilic_span::{Span, To};
 use chilic_ty::Ty;
 use ustr::{ustr, Ustr};
 
@@ -23,7 +23,7 @@ impl Parser {
                 body,
                 is_startup: false,
             }),
-            start_span.merge(self.previous_span()),
+            start_span.to(self.previous_span()),
         ))
     }
 

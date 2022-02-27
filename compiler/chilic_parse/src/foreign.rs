@@ -4,7 +4,7 @@ use chilic_ast::{
     pattern::{Pattern, SymbolPattern},
 };
 use chilic_error::{DiagnosticResult, SyntaxError};
-use chilic_span::Merge;
+use chilic_span::To;
 use ustr::{ustr, Ustr};
 
 impl Parser {
@@ -75,7 +75,7 @@ impl Parser {
                 None,
                 Some(Expr::new(
                     ExprKind::FnType(proto),
-                    proto_start_span.merge(self.previous_span()),
+                    proto_start_span.to(self.previous_span()),
                 )),
                 Some(lib_name),
             )
