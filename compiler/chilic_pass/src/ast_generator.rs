@@ -11,7 +11,7 @@ use common::{
     compiler_info::{self, IntrinsticModuleInfo},
     Stopwatch,
 };
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 use unindent::unindent;
 use ustr::{ustr, UstrSet};
 
@@ -95,7 +95,6 @@ impl<'a> AstGenerator<'a> {
         let mut parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
-        // TODO: if `std` is already added, don't add it!
         add_intrinsic_std_use(&mut parse_result.ast, &mut parse_result.uses);
 
         for used_module in parse_result.uses.iter() {
@@ -110,13 +109,13 @@ impl<'a> AstGenerator<'a> {
     }
 }
 
-fn add_intrinsic_std_use(ast: &mut Ast, uses: &mut Vec<ModuleInfo>) {
+fn add_intrinsic_std_use(ast: &mut Ast, uses: &mut HashSet<ModuleInfo>) {
     add_intrinsic_module(ast, uses, compiler_info::std_module_info())
 }
 
 fn add_intrinsic_module(
     ast: &mut Ast,
-    uses: &mut Vec<ModuleInfo>,
+    uses: &mut HashSet<ModuleInfo>,
     intrinsic_module_info: IntrinsticModuleInfo,
 ) {
     let intrinsic_module_info = ModuleInfo::new(
@@ -132,5 +131,5 @@ fn add_intrinsic_module(
         span: Span::unknown(),
     });
 
-    uses.push(intrinsic_module_info);
+    uses.insert(intrinsic_module_info);
 }

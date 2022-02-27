@@ -102,14 +102,14 @@ pub struct Parser {
     root_dir: String,
     current_dir: String,
     decl_name_frames: Vec<Ustr>,
-    used_modules: Vec<ModuleInfo>,
+    used_modules: HashSet<ModuleInfo>,
     foreign_libraries: HashSet<ForeignLibrary>,
     restrictions: Restrictions,
 }
 
 pub struct ParserResult {
     pub ast: Ast,
-    pub uses: Vec<ModuleInfo>,
+    pub uses: HashSet<ModuleInfo>,
 }
 
 impl Parser {
