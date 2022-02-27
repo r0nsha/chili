@@ -29,12 +29,12 @@ impl Parser {
         &mut self,
         visibility: Visibility,
     ) -> DiagnosticResult<Vec<Use>> {
-        if match_token!(self, Tilde) {
-            require!(self, Dot, ".")?;
+        if eat!(self, Tilde) {
+            expect!(self, Dot, ".")?;
             todo!("implement `from_root` use: `use ~.foo.bar`");
         }
 
-        let id_token = require!(self, Id(_), "identifier")?.clone();
+        let id_token = expect!(self, Id(_), "identifier")?.clone();
         let name = id_token.symbol().as_str();
 
         match name {
@@ -140,8 +140,8 @@ impl Parser {
         span: Span,
         use_path: &mut UsePath,
     ) -> DiagnosticResult<Vec<Use>> {
-        if match_token!(self, Dot) {
-            if match_token!(self, Id(_)) {
+        if eat!(self, Dot) {
+            if eat!(self, Id(_)) {
                 // single child, i.e: `use other.foo`
 
                 let id_token = self.previous();
@@ -161,13 +161,13 @@ impl Parser {
                     id_token_span,
                     use_path,
                 )
-            } else if match_token!(self, OpenCurly) {
+            } else if eat!(self, OpenCurly) {
                 // multiple children, i.e: `use other.{foo, bar}`
 
                 let mut uses = vec![];
 
-                while !match_token!(self, CloseCurly) {
-                    let id_token = require!(self, Id(_), "identifier")?.clone();
+                while !eat!(self, CloseCurly) {
+                    let id_token = expect!(self, Id(_), "identifier")?.clone();
                     let alias = id_token.symbol();
 
                     let mut local_use_path = use_path.clone();
@@ -187,14 +187,14 @@ impl Parser {
 
                     uses.extend(use_);
 
-                    if !match_token!(self, Comma) {
-                        require!(self, CloseCurly, "}")?;
+                    if !eat!(self, Comma) {
+                        expect!(self, CloseCurly, "}")?;
                         break;
                     }
                 }
 
                 Ok(uses)
-            } else if match_token!(self, QuestionMark) {
+            } else if eat!(self, QuestionMark) {
                 use_path.push(Spanned::new(
                     UsePathNode::Wildcard,
                     self.previous().span,
@@ -210,8 +210,8 @@ impl Parser {
                 Err(SyntaxError::expected(self.span(), "an identifier, { or ?"))
             }
         } else {
-            let alias = if match_token!(self, Colon) {
-                require!(self, Id(_), "identifier")?.symbol()
+            let alias = if eat!(self, Colon) {
+                expect!(self, Id(_), "identifier")?.symbol()
             } else {
                 alias
             };

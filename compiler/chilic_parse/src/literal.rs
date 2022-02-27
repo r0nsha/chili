@@ -43,13 +43,13 @@ impl Parser {
         let mut elements = vec![];
         let mut is_first_el = true;
 
-        while !match_token!(self, CloseBracket) && !self.is_end() {
+        while !eat!(self, CloseBracket) && !self.is_end() {
             let expr = self.parse_expr()?;
 
             if is_first_el {
-                if match_token!(self, Semicolon) {
+                if eat!(self, Semicolon) {
                     let len = self.parse_expr()?;
-                    require!(self, CloseBracket, "]")?;
+                    expect!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
                         ExprKind::ArrayLiteral(ArrayLiteralKind::Fill {
@@ -64,10 +64,10 @@ impl Parser {
 
             elements.push(expr);
 
-            if match_token!(self, Comma) {
+            if eat!(self, Comma) {
                 continue;
             } else {
-                require!(self, CloseBracket, "]")?;
+                expect!(self, CloseBracket, "]")?;
                 break;
             }
         }
@@ -109,13 +109,13 @@ impl Parser {
             CloseCurly,
             Comma,
             {
-                let id_token = if match_token!(self, Id(_)) {
+                let id_token = if eat!(self, Id(_)) {
                     self.previous().clone()
                 } else {
                     break;
                 };
 
-                let value = if match_token!(self, Colon) {
+                let value = if eat!(self, Colon) {
                     self.parse_expr()?
                 } else {
                     Expr::new(

@@ -19,11 +19,12 @@ use ustr::{ustr, Ustr};
 
 bitflags! {
     struct Restrictions : u8 {
-        const NO_STRUCT_LITERAL = 1 << 0;
+        const STMT_EXPR = 1 << 0;
+        const NO_STRUCT_LITERAL = 1 << 1;
     }
 }
 
-macro_rules! last_is {
+macro_rules! last_token_is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
         match &$parser.previous().kind {
             $( $pattern )|+ => true,
@@ -31,7 +32,7 @@ macro_rules! last_is {
         }
     };
 }
-macro_rules! is {
+macro_rules! token_is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
         if $parser.is_end() {
             false
@@ -44,9 +45,9 @@ macro_rules! is {
     };
 }
 
-macro_rules! match_token {
+macro_rules! eat {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        if is!($parser, $( $pattern )|+) {
+        if token_is!($parser, $( $pattern )|+) {
             $parser.bump();
             true
         } else {
@@ -55,9 +56,9 @@ macro_rules! match_token {
     };
 }
 
-macro_rules! require {
+macro_rules! expect {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:literal) => {
-        if is!($parser, $( $pattern )|+) {
+        if token_is!($parser, $( $pattern )|+) {
             Ok($parser.bump().clone())
         } else {
             Err(SyntaxError::expected($parser.span(), $msg))
@@ -69,14 +70,14 @@ macro_rules! parse_delimited_list {
     ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:literal) => {{
         let mut items = vec![];
 
-        while !match_token!($parser, $close_delim) && !$parser.is_end() {
+        while !eat!($parser, $close_delim) && !$parser.is_end() {
             let i = $parse;
 
             items.push(i);
 
-            if match_token!($parser, $sep) {
+            if eat!($parser, $sep) {
                 continue;
-            } else if match_token!($parser, $close_delim) {
+            } else if eat!($parser, $close_delim) {
                 break;
             } else {
                 return Err(SyntaxError::expected($parser.span(), $msg));
@@ -87,11 +88,11 @@ macro_rules! parse_delimited_list {
     }};
 }
 
-pub(crate) use is;
-pub(crate) use last_is;
-pub(crate) use match_token;
+pub(crate) use eat;
+pub(crate) use expect;
+pub(crate) use last_token_is;
 pub(crate) use parse_delimited_list;
-pub(crate) use require;
+pub(crate) use token_is;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -158,10 +159,6 @@ impl Parser {
         res
     }
 
-    pub(crate) fn is_res(&self, restrictions: Restrictions) -> bool {
-        self.restrictions.contains(restrictions)
-    }
-
     pub(crate) fn get_decl_name(&self) -> Ustr {
         if !self.decl_name_frames.is_empty() {
             *self.decl_name_frames.last().unwrap()
@@ -171,7 +168,7 @@ impl Parser {
     }
 
     pub(crate) fn skip_redundant_tokens(&mut self) {
-        while is!(self, Semicolon) {
+        while token_is!(self, Semicolon) {
             self.bump();
         }
     }

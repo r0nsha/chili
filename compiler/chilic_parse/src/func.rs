@@ -34,7 +34,7 @@ impl Parser {
     ) -> DiagnosticResult<Proto> {
         let (params, variadic) = self.parse_fn_params(kind)?;
 
-        let ret_ty = if match_token!(self, RightArrow) {
+        let ret_ty = if eat!(self, RightArrow) {
             Some(Box::new(self.parse_ty()?))
         } else {
             None
@@ -55,7 +55,7 @@ impl Parser {
         &mut self,
         kind: ParseProtoKind,
     ) -> DiagnosticResult<(Vec<FnParam>, bool)> {
-        if !match_token!(self, OpenParen) {
+        if !eat!(self, OpenParen) {
             return Ok((vec![], false));
         }
 
@@ -66,8 +66,8 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                if match_token!(self, DotDot) {
-                    require!(self, CloseParen, ")")?;
+                if eat!(self, DotDot) {
+                    expect!(self, CloseParen, ")")?;
                     variadic = true;
                     break;
                 }
@@ -76,7 +76,7 @@ impl Parser {
                     ParseProtoKind::Value => {
                         let pattern = self.parse_pattern()?;
 
-                        let ty = if match_token!(self, Colon) {
+                        let ty = if eat!(self, Colon) {
                             let ty = self.parse_ty()?;
                             Some(Box::new(ty))
                         } else {
@@ -88,16 +88,14 @@ impl Parser {
                     ParseProtoKind::Type => {
                         // the parameter's name is optional, so we are checking
                         // for ambiguity here
-                        if match_token!(self, Id(_))
-                            || match_token!(self, Placeholder)
-                        {
-                            if match_token!(self, Colon) {
+                        if eat!(self, Id(_)) || eat!(self, Placeholder) {
+                            if eat!(self, Colon) {
                                 // (a: {type}, ..)
                                 self.revert(2);
                                 let pattern = Pattern::Single(
                                     self.parse_symbol_pattern()?,
                                 );
-                                require!(self, Colon, ":")?;
+                                expect!(self, Colon, ":")?;
                                 let ty = Some(Box::new(self.parse_ty()?));
                                 FnParam { pattern, ty }
                             } else {
@@ -118,7 +116,7 @@ impl Parser {
                             // (a: {type}, ..)
                             let pattern =
                                 Pattern::Single(self.parse_symbol_pattern()?);
-                            require!(self, Colon, ":")?;
+                            expect!(self, Colon, ":")?;
                             let ty = Some(Box::new(self.parse_ty()?));
                             FnParam { pattern, ty }
                         }
@@ -132,7 +130,7 @@ impl Parser {
     }
 
     pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Block> {
-        require!(self, OpenCurly, "{")?;
+        expect!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(match block.kind {

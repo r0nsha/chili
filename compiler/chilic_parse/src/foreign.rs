@@ -13,20 +13,20 @@ impl Parser {
     ) -> DiagnosticResult<Vec<Entity>> {
         let lib_name = self.parse_lib_name()?;
 
-        require!(self, OpenCurly, "{")?;
+        expect!(self, OpenCurly, "{")?;
 
         let entities = parse_delimited_list!(
             self,
             CloseCurly,
             Semicolon,
             {
-                let visibility = if match_token!(self, Pub) {
+                let visibility = if eat!(self, Pub) {
                     Visibility::Public
                 } else {
                     Visibility::Private
                 };
 
-                require!(self, Let, "let")?;
+                expect!(self, Let, "let")?;
 
                 self.parse_foreign_entity(lib_name, visibility)?
             },
@@ -50,7 +50,7 @@ impl Parser {
         lib_name: Ustr,
         visibility: Visibility,
     ) -> DiagnosticResult<Entity> {
-        let id = require!(self, Id(_), "identifier")?.clone();
+        let id = expect!(self, Id(_), "identifier")?.clone();
 
         let pattern = Pattern::Single(SymbolPattern {
             symbol: id.symbol(),
@@ -60,8 +60,8 @@ impl Parser {
             ignore: false,
         });
 
-        let entity = if match_token!(self, Eq) {
-            require!(self, Fn, "fn")?;
+        let entity = if eat!(self, Eq) {
+            expect!(self, Fn, "fn")?;
 
             let proto_start_span = self.previous().span;
             let mut proto =
@@ -96,9 +96,9 @@ impl Parser {
     }
 
     fn parse_lib_name(&mut self) -> DiagnosticResult<Ustr> {
-        require!(self, OpenParen, "(")?;
+        expect!(self, OpenParen, "(")?;
 
-        let lib_token = require!(self, Str(_), "str")?;
+        let lib_token = expect!(self, Str(_), "str")?;
         let lib = lib_token.symbol();
 
         let lib = if lib.ends_with(".lib") {
@@ -109,7 +109,7 @@ impl Parser {
 
         let lib = ustr(&lib);
 
-        require!(self, CloseParen, ")")?;
+        expect!(self, CloseParen, ")")?;
 
         self.foreign_libraries.insert(ForeignLibrary::from_str(
             &lib,

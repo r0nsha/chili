@@ -8,9 +8,9 @@ impl Parser {
         match self.parse_symbol_pattern() {
             Ok(symbol) => Ok(Pattern::Single(symbol)),
             Err(_) => {
-                if match_token!(self, OpenCurly) {
+                if eat!(self, OpenCurly) {
                     self.parse_struct_destructor()
-                } else if match_token!(self, OpenParen) {
+                } else if eat!(self, OpenParen) {
                     self.parse_tuple_destructor()
                 } else {
                     Err(SyntaxError::expected(self.span(), "pattern"))
@@ -28,16 +28,16 @@ impl Parser {
             CloseCurly,
             Comma,
             {
-                if match_token!(self, DotDot) {
-                    require!(self, CloseCurly, "}")?;
+                if eat!(self, DotDot) {
+                    expect!(self, CloseCurly, "}")?;
                     exhaustive = false;
                     break;
                 }
 
                 let mut symbol_pattern = self.parse_symbol_pattern()?;
 
-                if match_token!(self, Colon) {
-                    let id_token = require!(self, Id(_), "identifier")?;
+                if eat!(self, Colon) {
+                    let id_token = expect!(self, Id(_), "identifier")?;
                     let symbol = id_token.symbol();
                     symbol_pattern.alias = Some(symbol);
                 }
@@ -65,8 +65,8 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                if match_token!(self, DotDot) {
-                    require!(self, CloseParen, ")")?;
+                if eat!(self, DotDot) {
+                    expect!(self, CloseParen, ")")?;
                     exhaustive = false;
                     break;
                 }
@@ -88,11 +88,11 @@ impl Parser {
     pub(super) fn parse_symbol_pattern(
         &mut self,
     ) -> DiagnosticResult<SymbolPattern> {
-        let is_mutable = match_token!(self, Mut);
+        let is_mutable = eat!(self, Mut);
 
-        let (symbol, ignore) = if match_token!(self, Id(_)) {
+        let (symbol, ignore) = if eat!(self, Id(_)) {
             (self.previous().symbol(), false)
-        } else if match_token!(self, Placeholder) {
+        } else if eat!(self, Placeholder) {
             (ustr(""), true)
         } else {
             return Err(SyntaxError::expected(self.span(), "identifier or _"));

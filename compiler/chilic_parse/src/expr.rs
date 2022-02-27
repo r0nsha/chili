@@ -12,7 +12,9 @@ use ustr::ustr;
 
 impl Parser {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
-        self.parse_expr_internal(ustr(""))
+        self.with_res(Restrictions::empty(), |p| {
+            p.parse_expr_internal(ustr(""))
+        })
     }
 
     pub(crate) fn parse_expr_with_res(
@@ -26,61 +28,37 @@ impl Parser {
         &mut self,
         decl_name: Ustr,
     ) -> DiagnosticResult<Expr> {
-        self.parse_expr_internal(decl_name)
+        self.with_res(Restrictions::empty(), |p| {
+            p.parse_expr_internal(decl_name)
+        })
     }
 
     fn parse_expr_internal(
         &mut self,
         decl_name: Ustr,
     ) -> DiagnosticResult<Expr> {
+        let is_stmt = self.restrictions.contains(Restrictions::STMT_EXPR);
+
         self.decl_name_frames.push(decl_name);
 
-        let expr = if match_token!(self, If) {
-            self.parse_if()
-        } else if match_token!(self, While) {
-            self.parse_while()
-        } else if match_token!(self, For) {
-            self.parse_for()
-        } else if match_token!(self, OpenCurly) {
-            self.parse_block()
-        } else if match_token!(self, Use) {
-            let start_span = self.previous().span;
-            let uses = self.parse_use(Visibility::Private)?;
-
-            Ok(Expr::new(
-                ExprKind::Use(uses),
-                start_span.to(self.previous_span()),
-            ))
-        } else if match_token!(self, Defer) {
-            let span = self.span();
-            let expr = self.parse_expr()?;
-            Ok(Expr::new(ExprKind::Defer(Box::new(expr)), span))
-        } else if match_token!(self, Type) {
-            let start_span = self.previous().span;
-
-            let entity = self.parse_entity(
-                EntityKind::Type,
-                Visibility::Private,
-                false,
-            )?;
-
-            Ok(Expr::new(
-                ExprKind::Entity(Box::new(entity)),
-                start_span.to(self.previous_span()),
-            ))
-        } else if match_token!(self, Let) {
-            let start_span = self.previous().span;
-
-            if match_token!(self, Foreign) {
-                let entity = self.parse_foreign_single(Visibility::Private)?;
+        let expr = if is_stmt {
+            if eat!(self, Use) {
+                let start_span = self.previous().span;
+                let uses = self.parse_use(Visibility::Private)?;
 
                 Ok(Expr::new(
-                    ExprKind::Foreign(vec![entity]),
+                    ExprKind::Use(uses),
                     start_span.to(self.previous_span()),
                 ))
-            } else {
+            } else if eat!(self, Defer) {
+                let span = self.span();
+                let expr = self.parse_expr()?;
+                Ok(Expr::new(ExprKind::Defer(Box::new(expr)), span))
+            } else if eat!(self, Type) {
+                let start_span = self.previous().span;
+
                 let entity = self.parse_entity(
-                    EntityKind::Value,
+                    EntityKind::Type,
                     Visibility::Private,
                     false,
                 )?;
@@ -89,15 +67,40 @@ impl Parser {
                     ExprKind::Entity(Box::new(entity)),
                     start_span.to(self.previous_span()),
                 ))
-            }
-        } else if match_token!(self, Foreign) {
-            let start_span = self.previous().span;
-            let entities = self.parse_foreign_block()?;
+            } else if eat!(self, Let) {
+                let start_span = self.previous().span;
 
-            Ok(Expr::new(
-                ExprKind::Foreign(entities),
-                start_span.to(self.previous_span()),
-            ))
+                if eat!(self, Foreign) {
+                    let entity =
+                        self.parse_foreign_single(Visibility::Private)?;
+
+                    Ok(Expr::new(
+                        ExprKind::Foreign(vec![entity]),
+                        start_span.to(self.previous_span()),
+                    ))
+                } else {
+                    let entity = self.parse_entity(
+                        EntityKind::Value,
+                        Visibility::Private,
+                        false,
+                    )?;
+
+                    Ok(Expr::new(
+                        ExprKind::Entity(Box::new(entity)),
+                        start_span.to(self.previous_span()),
+                    ))
+                }
+            } else if eat!(self, Foreign) {
+                let start_span = self.previous().span;
+                let entities = self.parse_foreign_block()?;
+
+                Ok(Expr::new(
+                    ExprKind::Foreign(entities),
+                    start_span.to(self.previous_span()),
+                ))
+            } else {
+                self.parse_logic_or()
+            }
         } else {
             self.parse_logic_or()
         }?;
@@ -115,14 +118,14 @@ impl Parser {
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        require!(self, OpenCurly, "{")?;
+        expect!(self, OpenCurly, "{")?;
         let then_expr = self.parse_block()?;
 
-        let else_expr = if match_token!(self, Else) {
-            let expr = if match_token!(self, If) {
+        let else_expr = if eat!(self, Else) {
+            let expr = if eat!(self, If) {
                 self.parse_if()?
             } else {
-                require!(self, OpenCurly, "{")?;
+                expect!(self, OpenCurly, "{")?;
                 self.parse_block()?
             };
 
@@ -147,20 +150,20 @@ impl Parser {
         let mut yields = false;
         let mut exprs: Vec<Expr> = vec![];
 
-        while !match_token!(self, CloseCurly) && !self.is_end() {
-            let expr = self.parse_expr()?;
+        while !eat!(self, CloseCurly) && !self.is_end() {
+            let expr = self.parse_expr_with_res(Restrictions::STMT_EXPR)?;
             exprs.push(expr);
 
-            if match_token!(self, Semicolon) {
+            if eat!(self, Semicolon) {
                 continue;
-            } else if match_token!(self, CloseCurly) {
-                if !last_is!(self, Semicolon) {
+            } else if eat!(self, CloseCurly) {
+                if !last_token_is!(self, Semicolon) {
                     yields = true;
                 }
 
                 break;
             } else {
-                if last_is!(self, CloseCurly) {
+                if last_token_is!(self, CloseCurly) {
                     continue;
                 }
 
@@ -186,7 +189,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, BarBar) {
+        while eat!(self, BarBar) {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -205,7 +208,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, AmpAmp) {
+        while eat!(self, AmpAmp) {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -224,7 +227,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, BangEq | EqEq | Gt | GtEq | Lt | LtEq) {
+        while eat!(self, BangEq | EqEq | Gt | GtEq | Lt | LtEq) {
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -243,7 +246,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, Bar) {
+        while eat!(self, Bar) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -267,7 +270,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, Caret) {
+        while eat!(self, Caret) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -291,7 +294,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, Amp) {
+        while eat!(self, Amp) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -315,7 +318,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, LtLt | GtGt) {
+        while eat!(self, LtLt | GtGt) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -339,7 +342,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, Minus | Plus) {
+        while eat!(self, Minus | Plus) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -363,7 +366,7 @@ impl Parser {
 
         let start_span = expr.span;
 
-        while match_token!(self, Star | FwSlash | Percent) {
+        while eat!(self, Star | FwSlash | Percent) {
             if self.peek().is(Eq) {
                 self.revert(1);
                 return Ok(expr);
@@ -383,14 +386,14 @@ impl Parser {
     }
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
-        if match_token!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
+        if eat!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
             let span = self.previous().span;
             let token = &self.previous().kind;
 
             let expr = Expr::new(
                 ExprKind::Unary {
                     op: match token {
-                        Amp => UnaryOp::Ref(match_token!(self, Mut)),
+                        Amp => UnaryOp::Ref(eat!(self, Mut)),
                         Star => UnaryOp::Deref,
                         Minus => UnaryOp::Neg,
                         Plus => UnaryOp::Plus,
@@ -405,12 +408,12 @@ impl Parser {
 
             Ok(expr)
         } else {
-            self.parse_atom()
+            self.parse_primary()
         }
     }
 
-    pub(crate) fn parse_atom(&mut self) -> DiagnosticResult<Expr> {
-        let expr = if match_token!(self, Id(_)) {
+    pub(crate) fn parse_primary(&mut self) -> DiagnosticResult<Expr> {
+        let expr = if eat!(self, Id(_)) {
             let token = self.previous();
             let symbol = token.symbol();
             Expr::new(
@@ -421,15 +424,21 @@ impl Parser {
                 },
                 token.span,
             )
-        } else if match_token!(self, OpenBracket) {
+        } else if eat!(self, If) {
+            self.parse_if()?
+        } else if eat!(self, While) {
+            self.parse_while()?
+        } else if eat!(self, For) {
+            self.parse_for()?
+        } else if eat!(self, OpenCurly) {
+            self.parse_block()?
+        } else if eat!(self, OpenBracket) {
             self.parse_array_literal()?
-        } else if match_token!(self, Dot) {
+        } else if eat!(self, Dot) {
             let start_span = self.previous().span;
 
             // anonymous struct literal
-            if !self.is_res(Restrictions::NO_STRUCT_LITERAL)
-                && match_token!(self, OpenCurly)
-            {
+            if eat!(self, OpenCurly) {
                 self.parse_struct_literal(None, start_span)?
             } else {
                 return Err(SyntaxError::expected(
@@ -437,19 +446,19 @@ impl Parser {
                     &format!("an expression, got `{}`", self.peek().lexeme),
                 ));
             }
-        } else if match_token!(self, At) {
+        } else if eat!(self, At) {
             return self.parse_builtin();
-        } else if match_token!(self, Break | Continue | Return) {
+        } else if eat!(self, Break | Continue | Return) {
             return self.parse_terminator();
-        } else if match_token!(
+        } else if eat!(
             self,
             Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)
         ) {
             self.parse_literal()?
-        } else if match_token!(self, OpenParen) {
+        } else if eat!(self, OpenParen) {
             let start_span = self.previous().span;
 
-            if match_token!(self, CloseParen) {
+            if eat!(self, CloseParen) {
                 Expr::new(
                     ExprKind::Literal(LiteralKind::Unit),
                     start_span.to(self.previous_span()),
@@ -457,10 +466,10 @@ impl Parser {
             } else {
                 let mut expr = self.parse_expr()?;
 
-                let expr = if match_token!(self, Comma) {
+                let expr = if eat!(self, Comma) {
                     self.parse_tuple_literal(expr, start_span)?
                 } else {
-                    require!(self, CloseParen, ")")?;
+                    expect!(self, CloseParen, ")")?;
 
                     expr.span.range().start -= 1;
                     expr.span = Span::to(&expr.span, self.previous_span());
@@ -470,7 +479,7 @@ impl Parser {
 
                 expr
             }
-        } else if match_token!(self, Fn) {
+        } else if eat!(self, Fn) {
             self.parse_fn()?
         } else {
             return Err(SyntaxError::expected(
@@ -484,15 +493,15 @@ impl Parser {
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
-        let id_token = require!(self, Id(_), "identifier")?.clone();
+        let id_token = expect!(self, Id(_), "identifier")?.clone();
         let symbol = id_token.symbol();
 
-        require!(self, OpenParen, "(")?;
+        expect!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
             "size_of" => Builtin::SizeOf(Box::new(self.parse_ty()?)),
             "align_of" => Builtin::AlignOf(Box::new(self.parse_ty()?)),
-            "panic" => Builtin::Panic(if is!(self, CloseParen) {
+            "panic" => Builtin::Panic(if token_is!(self, CloseParen) {
                 None
             } else {
                 Some(Box::new(self.parse_expr()?))
@@ -505,7 +514,7 @@ impl Parser {
             }
         };
 
-        require!(self, CloseParen, ")")?;
+        expect!(self, CloseParen, ")")?;
 
         Ok(Expr::new(
             ExprKind::Builtin(builtin),
@@ -518,7 +527,7 @@ impl Parser {
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        require!(self, OpenCurly, "{")?;
+        expect!(self, OpenCurly, "{")?;
         let expr = self.parse_block()?;
 
         Ok(Expr::new(
@@ -541,13 +550,13 @@ impl Parser {
         self.mark(0);
 
         // iterator and index declarations
-        let (mut iter_name, iter_index_name) = if match_token!(self, Id(_)) {
+        let (mut iter_name, iter_index_name) = if eat!(self, Id(_)) {
             declared_names = 1;
 
             let iter_name = self.previous().symbol();
 
-            let iter_index_name = if match_token!(self, Comma) {
-                if match_token!(self, Id(_)) {
+            let iter_index_name = if eat!(self, Comma) {
+                if eat!(self, Id(_)) {
                     declared_names = 2;
                     self.previous().symbol()
                 } else {
@@ -565,13 +574,13 @@ impl Parser {
         // in declaration
         let mut has_reset_mark = false;
         if declared_names == 1 {
-            if !match_token!(self, In) {
+            if !eat!(self, In) {
                 iter_name = default_iter;
                 self.reset_to_mark();
                 has_reset_mark = true;
             }
         } else if declared_names == 2 {
-            require!(self, In, "in")?;
+            expect!(self, In, "in")?;
         }
 
         if !has_reset_mark {
@@ -582,7 +591,7 @@ impl Parser {
         let iter_start =
             self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        let iterator = if match_token!(self, DotDot) {
+        let iterator = if eat!(self, DotDot) {
             let iter_end =
                 self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
             ForIter::Range(Box::new(iter_start), Box::new(iter_end))
@@ -590,7 +599,7 @@ impl Parser {
             ForIter::Value(Box::new(iter_start))
         };
 
-        require!(self, OpenCurly, "{")?;
+        expect!(self, OpenCurly, "{")?;
         let expr = self.parse_block()?;
 
         Ok(Expr::new(
@@ -613,11 +622,11 @@ impl Parser {
                 Break => ExprKind::Break { deferred: vec![] },
                 Continue => ExprKind::Continue { deferred: vec![] },
                 Return => {
-                    let expr = if match_token!(self, Semicolon) {
+                    let expr = if eat!(self, Semicolon) {
                         None
                     } else {
                         let expr = self.parse_expr()?;
-                        require!(self, Semicolon, ";")?;
+                        expect!(self, Semicolon, ";")?;
                         Some(Box::new(expr))
                     };
 

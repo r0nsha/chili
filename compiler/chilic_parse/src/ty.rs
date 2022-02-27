@@ -20,7 +20,7 @@ impl Parser {
     }
 
     pub(super) fn parse_ty(&mut self) -> DiagnosticResult<Expr> {
-        if match_token!(self, Id(_)) {
+        if eat!(self, Id(_)) {
             let token = self.previous();
             let symbol = token.symbol();
             let kind = if symbol == SELF_SYMBOL {
@@ -34,32 +34,32 @@ impl Parser {
             };
 
             Ok(Expr::new(kind, token.span))
-        } else if match_token!(self, Placeholder) {
+        } else if eat!(self, Placeholder) {
             Ok(Expr::new(ExprKind::PlaceholderType, self.previous_span()))
-        } else if match_token!(self, Star) {
+        } else if eat!(self, Star) {
             let start_span = self.previous().span;
-            let is_mutable = match_token!(self, Mut);
+            let is_mutable = eat!(self, Mut);
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
                 ExprKind::PointerType(Box::new(ty), is_mutable),
                 start_span.to(self.previous_span()),
             ))
-        } else if match_token!(self, Bang) {
+        } else if eat!(self, Bang) {
             Ok(Expr::new(ExprKind::NeverType, self.previous().span))
-        } else if match_token!(self, OpenParen) {
-            if match_token!(self, CloseParen) {
+        } else if eat!(self, OpenParen) {
+            if eat!(self, CloseParen) {
                 Ok(Expr::new(ExprKind::UnitType, self.previous().span))
             } else {
                 self.parse_tuple_ty()
             }
-        } else if match_token!(self, OpenCurly) {
+        } else if eat!(self, OpenCurly) {
             self.parse_struct_ty()
-        } else if match_token!(self, OpenBracket) {
+        } else if eat!(self, OpenBracket) {
             self.parse_array_type()
-        } else if match_token!(self, Fn) {
+        } else if eat!(self, Fn) {
             self.parse_fn_ty()
-        } else if match_token!(self, Union) {
+        } else if eat!(self, Union) {
             self.parse_struct_union_ty()
         } else {
             Err(SyntaxError::expected(self.span(), "a type"))
@@ -69,12 +69,12 @@ impl Parser {
     fn parse_array_type(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
 
-        if match_token!(self, Star) {
+        if eat!(self, Star) {
             // multi-pointer type
 
-            let is_mutable = match_token!(self, Mut);
+            let is_mutable = eat!(self, Mut);
 
-            require!(self, CloseBracket, "]")?;
+            expect!(self, CloseBracket, "]")?;
 
             let inner = self.parse_ty()?;
 
@@ -84,10 +84,10 @@ impl Parser {
             );
 
             Ok(ty)
-        } else if match_token!(self, CloseBracket) {
+        } else if eat!(self, CloseBracket) {
             // slice type
 
-            let is_mutable = match_token!(self, Mut);
+            let is_mutable = eat!(self, Mut);
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
@@ -98,7 +98,7 @@ impl Parser {
             // array type or sized array literal
 
             let size = self.parse_expr()?;
-            require!(self, CloseBracket, "]")?;
+            expect!(self, CloseBracket, "]")?;
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
@@ -150,10 +150,10 @@ impl Parser {
             CloseCurly,
             Comma,
             {
-                let id = require!(self, Id(_), "identifier")?.clone();
+                let id = expect!(self, Id(_), "identifier")?.clone();
                 let name = id.symbol();
 
-                require!(self, Colon, ":")?;
+                expect!(self, Colon, ":")?;
 
                 let ty = self.parse_ty()?;
 
@@ -173,7 +173,7 @@ impl Parser {
         let start_span = self.previous().span;
         let name = self.get_decl_name();
 
-        require!(self, OpenParen, "(")?;
+        expect!(self, OpenParen, "(")?;
 
         let fields = self.parse_struct_ty_fields()?;
 

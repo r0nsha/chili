@@ -15,15 +15,15 @@ impl Parser {
             EntityKind::Value => {
                 let pattern = self.parse_pattern()?;
 
-                let ty_expr = if match_token!(self, Colon) {
+                let ty_expr = if eat!(self, Colon) {
                     Some(self.parse_ty()?)
                 } else {
                     None
                 };
 
                 if require_value {
-                    require!(self, Eq, "=")?;
-                } else if !match_token!(self, Eq) {
+                    expect!(self, Eq, "=")?;
+                } else if !eat!(self, Eq) {
                     return Ok(Entity::new(
                         visibility, kind, pattern, ty_expr, None, None,
                     ));
@@ -46,7 +46,7 @@ impl Parser {
             }
             EntityKind::Type => {
                 let pattern = self.parse_symbol_pattern()?;
-                require!(self, Eq, "=")?;
+                expect!(self, Eq, "=")?;
                 let value = self.parse_decl_ty(pattern.symbol)?;
 
                 Ok(Entity::new(
