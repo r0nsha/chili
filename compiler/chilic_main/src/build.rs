@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use chilic_llvm::codegen;
 use chilic_pass::ast_generator::AstGenerator;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
@@ -7,7 +9,6 @@ use chilic_error::emit_single_diagnostic;
 use common::{build_options::BuildOptions, Stopwatch};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
-use ustr::UstrSet;
 
 pub fn do_build(build_options: BuildOptions) {
     println!();
@@ -40,7 +41,10 @@ pub fn do_build(build_options: BuildOptions) {
         {
             Ok(asts) => asts,
             Err(diagnostic) => {
-                emit_single_diagnostic(&ast_generator.files, diagnostic);
+                emit_single_diagnostic(
+                    ast_generator.files.into_inner().unwrap(),
+                    diagnostic,
+                );
                 return;
             }
         };
@@ -80,7 +84,11 @@ pub fn do_build(build_options: BuildOptions) {
 
     all_sw.stop();
 
-    print_stats(&files, root_file_id, all_sw.elapsed().as_millis());
+    print_stats(
+        &files,
+        root_file_id.load(Ordering::SeqCst),
+        all_sw.elapsed().as_millis(),
+    );
 }
 
 fn print_stats(

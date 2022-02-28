@@ -11,15 +11,24 @@ use common::{
     compiler_info::{self, IntrinsticModuleInfo},
     Stopwatch,
 };
-use std::{collections::HashSet, path::PathBuf};
+use crossbeam_utils::thread;
+use dashmap::DashSet;
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex, RwLock,
+    },
+};
 use unindent::unindent;
-use ustr::{ustr, UstrSet};
+use ustr::ustr;
 
 pub struct AstGenerator<'a> {
-    pub files: &'a mut SimpleFiles<String, String>,
+    pub files: Mutex<&'a mut SimpleFiles<String, String>>,
     pub root_dir: String,
-    pub root_file_id: usize,
-    pub already_parsed_modules: UstrSet,
+    pub root_file_id: AtomicUsize,
+    pub parsed_modules: DashSet<ModuleInfo>,
 }
 
 impl<'a> AstGenerator<'a> {
@@ -28,15 +37,17 @@ impl<'a> AstGenerator<'a> {
         root_dir: String,
     ) -> Self {
         Self {
-            files,
+            files: Mutex::new(files),
             root_dir,
-            root_file_id: 0,
-            already_parsed_modules: Default::default(),
+            root_file_id: Default::default(),
+            parsed_modules: Default::default(),
         }
     }
 
     pub fn start(&mut self, file_path: String) -> DiagnosticResult<Vec<Ast>> {
-        let mut asts: Vec<Ast> = vec![];
+        let asts: RwLock<Vec<Ast>> = RwLock::default();
+
+        let sw = Stopwatch::start_new("parse");
 
         let root_file_path = resolve_relative_path(
             &file_path,
@@ -49,18 +60,20 @@ impl<'a> AstGenerator<'a> {
             ustr(&root_file_path),
         );
 
-        self.add_source_file(&mut asts, root_module_info, true)?;
+        self.add_source_file(&asts, root_module_info, true)?;
 
-        Ok(asts)
+        sw.print();
+
+        Ok(asts.into_inner().unwrap())
     }
 
     fn add_source_file(
-        &mut self,
-        asts: &mut Vec<Ast>,
+        &self,
+        asts: &RwLock<Vec<Ast>>,
         module_info: ModuleInfo,
         is_root: bool,
     ) -> DiagnosticResult<()> {
-        if !self.already_parsed_modules.insert(module_info.name) {
+        if !self.parsed_modules.insert(module_info) {
             return Ok(());
         }
 
@@ -69,13 +82,14 @@ impl<'a> AstGenerator<'a> {
 
         let file_id = self
             .files
+            .lock()
+            .unwrap()
             .add(module_info.file_path.to_string(), unindent(&source));
 
         if is_root {
-            self.root_file_id = file_id;
+            self.root_file_id.store(file_id, Ordering::SeqCst);
         }
 
-        let sw = Stopwatch::start_new("tokenize");
         let tokens = Lexer::new(file_id, &source).scan()?;
         // println!(
         //     "{:?}",
@@ -84,13 +98,10 @@ impl<'a> AstGenerator<'a> {
         //         .map(|t| t.kind.lexeme())
         //         .collect::<Vec<&str>>()
         // );
-        sw.print();
 
         if tokens.is_empty() || tokens.first().unwrap().is(TokenKind::Eof) {
             return Ok(());
         }
-
-        let sw = Stopwatch::start_new("parse");
 
         let mut parser = Parser::new(
             tokens,
@@ -109,14 +120,27 @@ impl<'a> AstGenerator<'a> {
         // implicitly add `std` to every file we parse
         add_intrinsic_std_use(&mut parse_result.ast, &mut parse_result.uses);
 
-        for used_module in parse_result.uses.iter() {
-            // TODO: This is a workaround until the parser becomes recoverable
-            self.add_source_file(asts, *used_module, false)?;
-        }
+        thread::scope(|scope| {
+            let mut handles = vec![];
 
-        sw.print();
+            for u in parse_result.uses.iter() {
+                let h = scope.spawn(|_| {
+                    // TODO: I ignore parser errors for now (which is bad...)
+                    // TODO: This will be fixed when I make the parser
+                    // TODO: recoverable
+                    let _ = self.add_source_file(asts, *u, false);
+                });
 
-        asts.push(parse_result.ast);
+                handles.push(h);
+            }
+
+            for h in handles {
+                h.join().unwrap();
+            }
+        })
+        .unwrap();
+
+        asts.write().unwrap().push(parse_result.ast);
 
         Ok(())
     }
