@@ -99,7 +99,7 @@ impl<'a> AstGenerator<'a> {
         //         .collect::<Vec<&str>>()
         // );
 
-        if tokens.is_empty() || tokens.first().unwrap().is(TokenKind::Eof) {
+        if tokens.is_empty() || tokens.first().unwrap().kind == TokenKind::Eof {
             return Ok(());
         }
 

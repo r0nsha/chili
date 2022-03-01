@@ -71,15 +71,14 @@ macro_rules! parse_delimited_list {
         let mut items = vec![];
 
         while !eat!($parser, $close_delim) && !$parser.is_end() {
-            let i = $parse;
-
-            items.push(i);
+            items.push($parse);
 
             if eat!($parser, $sep) {
                 continue;
             } else if eat!($parser, $close_delim) {
                 break;
             } else {
+                println!("got `{}`", $parser.peek());
                 return Err(SyntaxError::expected($parser.span(), $msg));
             }
         }

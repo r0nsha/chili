@@ -15,10 +15,6 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn is(&self, other: TokenKind) -> bool {
-        self.kind.is(other)
-    }
-
     pub fn into_id(&self) -> Ustr {
         match self.kind {
             TokenKind::Id(name) => name,
@@ -45,6 +41,7 @@ impl Display for Token {
 pub enum TokenKind {
     At,
 
+    Newline,
     Semicolon,
     Colon,
 
@@ -152,15 +149,12 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn is(&self, other: TokenKind) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(&other)
-    }
-
     pub fn lexeme(&self) -> &str {
         use TokenKind::*;
 
         match self {
             At => "@",
+            Newline => "[newline]",
             Semicolon => ";",
             Colon => ":",
             OpenParen => "(",
@@ -238,5 +232,71 @@ impl TokenKind {
             Unknown(_) => "???",
             Eof => "EOF",
         }
+    }
+
+    pub fn is_expr_start(&self) -> bool {
+        use TokenKind::*;
+        matches!(
+            self,
+            At | OpenParen
+                | OpenCurly
+                | OpenBracket
+                | Plus
+                | Minus
+                | Star
+                | QuestionMark
+                | Amp
+                | Bar
+                | Tilde
+                | Bang
+                | If
+                | While
+                | For
+                | Break
+                | Continue
+                | Return
+                | Defer
+                | Let
+                | Type
+                | Fn
+                | Foreign
+                | Use
+                | Pub
+                | Union
+                | Match
+                | Placeholder
+                | Id(_)
+                | Nil
+                | True
+                | False
+                | Int(_)
+                | Float(_)
+                | Str(_)
+                | Char(_)
+        )
+    }
+
+    pub fn is_expr_end(&self) -> bool {
+        use TokenKind::*;
+        matches!(
+            self,
+            Semicolon
+                | CloseParen
+                | CloseCurly
+                | CloseBracket
+                | QuestionMark
+                | Break
+                | Continue
+                | Return
+                | Placeholder
+                | Id(_)
+                | Nil
+                | True
+                | False
+                | Int(_)
+                | Float(_)
+                | Str(_)
+                | Char(_)
+        )
     }
 }

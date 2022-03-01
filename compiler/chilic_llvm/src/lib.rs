@@ -64,7 +64,6 @@ pub fn codegen(build_options: &BuildOptions, ir: &Ir) {
         type_map: UstrMap::default(),
         global_str_map: UstrMap::default(),
         fn_type_map: HashMap::new(),
-        scope_names: vec![],
     };
 
     sw!("llvm", {

@@ -66,7 +66,7 @@ impl<'a> AnalysisContext<'a> {
                     last_stmt_span,
                 )?;
             } else {
-                if body.yields {
+                if body.yields && !ty.ret.is_unit() {
                     let last_expr_mut = body.exprs.last_mut().unwrap();
                     self.infcx.unify_or_coerce_ty_expr(
                         ty.ret.as_ref(),

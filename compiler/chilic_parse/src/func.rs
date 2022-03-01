@@ -90,7 +90,7 @@ impl Parser {
                         // for ambiguity here
                         if eat!(self, Id(_)) || eat!(self, Placeholder) {
                             if eat!(self, Colon) {
-                                // (a: {type}, ..)
+                                // (a: type, ..)
                                 self.revert(2);
                                 let pattern = Pattern::Single(
                                     self.parse_symbol_pattern()?,
@@ -99,7 +99,7 @@ impl Parser {
                                 let ty = Some(Box::new(self.parse_ty()?));
                                 FnParam { pattern, ty }
                             } else {
-                                // ({type}, ..)
+                                // (type, ..)
                                 self.revert(1);
                                 let pattern = Pattern::Single(SymbolPattern {
                                     symbol: ustr(""),
@@ -113,7 +113,7 @@ impl Parser {
                                 FnParam { pattern, ty }
                             }
                         } else {
-                            // (a: {type}, ..)
+                            // (a: type, ..)
                             let pattern =
                                 Pattern::Single(self.parse_symbol_pattern()?);
                             expect!(self, Colon, ":")?;
