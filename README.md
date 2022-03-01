@@ -87,7 +87,7 @@ let main = fn()  {
 
 As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes.
 
-[Chili Programming Language Discord](https://discord.gg/HGWbKTgH)
+[Chili Programming Language Discord](https://discord.gg/Tu4s49Pdre)
 
 ## Tasks
 
