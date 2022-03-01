@@ -247,11 +247,6 @@ impl Parser {
         let start_span = expr.span;
 
         while eat!(self, Bar) {
-            if self.peek().is(Eq) {
-                self.revert(1);
-                return Ok(expr);
-            }
-
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -271,11 +266,6 @@ impl Parser {
         let start_span = expr.span;
 
         while eat!(self, Caret) {
-            if self.peek().is(Eq) {
-                self.revert(1);
-                return Ok(expr);
-            }
-
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -295,11 +285,6 @@ impl Parser {
         let start_span = expr.span;
 
         while eat!(self, Amp) {
-            if self.peek().is(Eq) {
-                self.revert(1);
-                return Ok(expr);
-            }
-
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -319,11 +304,6 @@ impl Parser {
         let start_span = expr.span;
 
         while eat!(self, LtLt | GtGt) {
-            if self.peek().is(Eq) {
-                self.revert(1);
-                return Ok(expr);
-            }
-
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -343,11 +323,6 @@ impl Parser {
         let start_span = expr.span;
 
         while eat!(self, Minus | Plus) {
-            if self.peek().is(Eq) {
-                self.revert(1);
-                return Ok(expr);
-            }
-
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),
@@ -367,11 +342,6 @@ impl Parser {
         let start_span = expr.span;
 
         while eat!(self, Star | FwSlash | Percent) {
-            if self.peek().is(Eq) {
-                self.revert(1);
-                return Ok(expr);
-            }
-
             expr = Expr::new(
                 ExprKind::Binary {
                     lhs: Box::new(expr),

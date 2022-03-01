@@ -79,7 +79,7 @@ impl<'a> AnalysisContext<'a> {
                     if *is_mutable {
                         return Err(Diagnostic::error()
                             .with_message(
-                                "variable of type `{type}` must be immutable",
+                                "variable of type `type` must be immutable",
                             )
                             .with_labels(vec![Label::primary(
                                 span.file_id,

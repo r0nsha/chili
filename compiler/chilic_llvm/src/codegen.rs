@@ -72,8 +72,6 @@ pub struct Codegen<'cg, 'ctx> {
     pub type_map: UstrMap<BasicTypeEnum<'ctx>>,
     pub global_str_map: UstrMap<PointerValue<'ctx>>,
     pub fn_type_map: HashMap<FnTy, AbiFn<'ctx>>,
-
-    pub scope_names: Vec<&'cg str>,
 }
 
 pub(super) type ModuleToCodegenDeclsMap<'ctx> = UstrMap<CodegenDeclsMap<'ctx>>;
@@ -713,7 +711,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                 };
 
-                self.scope_names.push("_");
                 state.push_scope();
 
                 let it = match iterator {
@@ -827,7 +824,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 state.loop_blocks.pop();
                 state.pop_scope();
-                self.scope_names.pop();
 
                 self.gen_unit()
             }
@@ -860,7 +856,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ExprKind::Block(block) => {
                 let mut value = self.gen_unit();
 
-                self.scope_names.push("_");
                 state.push_scope();
 
                 for expr in &block.exprs {
@@ -870,7 +865,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_expr_list(state, &block.deferred);
 
                 state.pop_scope();
-                self.scope_names.pop();
 
                 value
             }

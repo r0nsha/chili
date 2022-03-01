@@ -80,7 +80,10 @@ macro_rules! parse_delimited_list {
             } else if eat!($parser, $close_delim) {
                 break;
             } else {
-                return Err(SyntaxError::expected($parser.span(), $msg));
+                let mut span = $parser.span();
+                span.start.index += 1;
+                span.start.column += 1;
+                return Err(SyntaxError::expected(span, $msg));
             }
         }
 

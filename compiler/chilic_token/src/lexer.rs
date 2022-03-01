@@ -39,7 +39,102 @@ impl<'lx> Lexer<'lx> {
 
         self.add_token(Eof);
 
+        self.replace_terminating_newlines_with_semicolons();
+
         Ok(self.tokens)
+    }
+
+    fn replace_terminating_newlines_with_semicolons(&mut self) {
+        let mut last_token = None;
+
+        for i in 0..self.tokens.len() {
+            let token = self.tokens[i].kind;
+
+            if matches!(token, Newline) {
+                match last_token {
+                    Some(t) => {
+                        // if previous token can end an expression
+                        if matches!(
+                            t,
+                            CloseParen
+                                | CloseCurly
+                                | CloseBracket
+                                | QuestionMark
+                                | Break
+                                | Continue
+                                | Return
+                                | Placeholder
+                                | Id(_)
+                                | Nil
+                                | True
+                                | False
+                                | Int(_)
+                                | Float(_)
+                                | Str(_)
+                                | Char(_)
+                        ) {
+                            let next_token = match self.tokens.get(i + 1) {
+                                Some(t) => t.kind.clone(),
+                                None => Eof,
+                            };
+
+                            // if next token can start an expression
+                            if matches!(
+                                next_token,
+                                At | OpenParen
+                                    | OpenCurly
+                                    | OpenBracket
+                                    | Plus
+                                    | Minus
+                                    | Star
+                                    | QuestionMark
+                                    | Amp
+                                    | Bar
+                                    | Tilde
+                                    | Bang
+                                    | If
+                                    | While
+                                    | For
+                                    | Break
+                                    | Continue
+                                    | Return
+                                    | Defer
+                                    | Let
+                                    | Type
+                                    | Fn
+                                    | Foreign
+                                    | Use
+                                    | Pub
+                                    | Union
+                                    | Match
+                                    | Placeholder
+                                    | Id(_)
+                                    | Nil
+                                    | True
+                                    | False
+                                    | Int(_)
+                                    | Float(_)
+                                    | Str(_)
+                                    | Char(_)
+                            ) {
+                                // replace the newline with a semicolon
+                                self.tokens[i].kind = Semicolon;
+                            }
+                        }
+                    }
+                    None => {}
+                }
+            }
+
+            last_token = Some(token);
+        }
+
+        self.tokens = self
+            .tokens
+            .iter()
+            .filter(|t| t.kind != Newline)
+            .cloned()
+            .collect();
     }
 
     pub(crate) fn eat_token(&mut self) -> DiagnosticResult<TokenKind> {
@@ -121,7 +216,16 @@ impl<'lx> Lexer<'lx> {
                 ',' => Comma,
                 // skip this character
                 ' ' | '\r' | '\t' => self.eat_token()?,
-                '\n' => self.eat_token()?,
+                '\n' => match self.tokens.last() {
+                    Some(t) => {
+                        if matches!(t.kind, Newline | Semicolon) {
+                            self.eat_token()?
+                        } else {
+                            Newline
+                        }
+                    }
+                    None => self.eat_token()?,
+                },
                 '\'' => self.eat_char()?,
                 DOUBLE_QUOTE => self.eat_str()?,
                 '~' => Tilde,

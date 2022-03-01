@@ -237,10 +237,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        self.scope_names.push(fn_name.as_str());
         state.push_named_scope(fn_name);
 
         let mut params = function.get_params();
+
         if abi_fn.ret.kind.is_indirect() {
             params.remove(0);
         }
@@ -276,9 +276,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             if func.body.yields
                 && index == func.body.exprs.len() - 1
-                && expr.ty != Ty::Never
+                && !expr.ty.is_never()
             {
-                self.gen_return(&mut state, Some(value), &vec![]);
+                self.gen_return(&mut state, Some(value), &func.body.deferred);
             }
         }
 
@@ -287,7 +287,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         state.pop_scope();
-        self.scope_names.pop();
 
         self.start_block(&mut state, decl_block);
         self.builder.build_unconditional_branch(entry_block);

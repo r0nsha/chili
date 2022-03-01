@@ -62,10 +62,10 @@ impl Display for Ty {
                         .join(", ")
                 ),
                 Struct(ty) => ty.to_string(),
-                Module { .. } => "{module}".to_string(),
-                Type(_) => "{type}".to_string(),
+                Module { .. } => "[module]".to_string(),
+                Type(_) => "type".to_string(),
                 Never => "!".to_string(),
-                Unknown | Var(_) => "{unknown}".to_string(),
+                Unknown | Var(_) => "[unknown]".to_string(),
             }
         )
     }

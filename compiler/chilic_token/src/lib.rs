@@ -15,10 +15,6 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn is(&self, other: TokenKind) -> bool {
-        self.kind.is(other)
-    }
-
     pub fn into_id(&self) -> Ustr {
         match self.kind {
             TokenKind::Id(name) => name,
@@ -45,6 +41,7 @@ impl Display for Token {
 pub enum TokenKind {
     At,
 
+    Newline,
     Semicolon,
     Colon,
 
@@ -152,15 +149,12 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn is(&self, other: TokenKind) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(&other)
-    }
-
     pub fn lexeme(&self) -> &str {
         use TokenKind::*;
 
         match self {
             At => "@",
+            Newline => "[newline]",
             Semicolon => ";",
             Colon => ":",
             OpenParen => "(",
