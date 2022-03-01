@@ -65,9 +65,3 @@ macro_rules! sw {
         sw.print();
     };
 }
-
-// NOTE (Ron): checks that mutability rules are equal. This fn shouldn't be
-// here.....
-pub fn mut_eq(from: bool, to: bool) -> bool {
-    from == to || (!from && to)
-}

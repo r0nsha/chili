@@ -1,6 +1,5 @@
 use chilic_ast::ast::{Cast, Expr, ExprKind};
 use chilic_ty::{size::SizeOf, *};
-use common::mut_eq;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {
@@ -49,7 +48,7 @@ impl TryCoerce for Ty {
 
             // * array[N] of T -> slice of T
             (Ty::Pointer(t, lmut), Ty::Slice(t_slice, rmut))
-                if mut_eq(*lmut, *rmut) =>
+                if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
                     Ty::Array(t_array, ..) => {
@@ -65,7 +64,7 @@ impl TryCoerce for Ty {
 
             // * slice of T <- array[N] of T
             (Ty::Slice(t_slice, lmut), Ty::Pointer(t, rmut))
-                if mut_eq(*lmut, *rmut) =>
+                if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
                     Ty::Array(t_array, ..) => {
@@ -81,7 +80,7 @@ impl TryCoerce for Ty {
 
             // * array[N] of T -> multi-pointer of T
             (Ty::Pointer(t, lmut), Ty::MultiPointer(t_ptr, rmut))
-                if mut_eq(*lmut, *rmut) =>
+                if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
                     Ty::Array(t_array, ..) => {
@@ -97,7 +96,7 @@ impl TryCoerce for Ty {
 
             // * multi-pointer of T <- array[N] of T
             (Ty::MultiPointer(t_ptr, lmut), Ty::Pointer(t, rmut))
-                if mut_eq(*lmut, *rmut) =>
+                if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
                     Ty::Array(t_array, ..) => {
@@ -133,4 +132,9 @@ impl Coerce for Expr {
             span,
         )
     }
+}
+
+// NOTE (Ron): checks that mutability rules are equal
+pub fn can_coerce_mut(from: bool, to: bool) -> bool {
+    from == to || (!from && to)
 }

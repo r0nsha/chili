@@ -1,5 +1,5 @@
+use crate::coerce::can_coerce_mut;
 use chilic_ty::*;
-use common::mut_eq;
 
 pub fn ty_can_be_casted(from: &Ty, to: &Ty) -> bool {
     from == to
@@ -10,9 +10,9 @@ pub fn ty_can_be_casted(from: &Ty, to: &Ty) -> bool {
             // int <=> int
             // int <=> uint
             // int <=> float
-            (Ty::Int(_), Ty::Int(_)) | (Ty::Int(_), Ty::UInt(_)) | (Ty::Int(_), Ty::Float(_)) => {
-                true
-            }
+            (Ty::Int(_), Ty::Int(_))
+            | (Ty::Int(_), Ty::UInt(_))
+            | (Ty::Int(_), Ty::Float(_)) => true,
 
             // uint <=> int
             // uint <=> uint
@@ -32,23 +32,28 @@ pub fn ty_can_be_casted(from: &Ty, to: &Ty) -> bool {
             (Ty::Pointer(..), Ty::Pointer(..)) => true,
 
             // pointer <=> int | uint
-            (Ty::Pointer(..), Ty::Int(..)) | (Ty::Pointer(..), Ty::UInt(..)) => true,
+            (Ty::Pointer(..), Ty::Int(..))
+            | (Ty::Pointer(..), Ty::UInt(..)) => true,
 
             // int | uint <=> pointer
-            (Ty::Int(..), Ty::Pointer(..)) | (Ty::UInt(..), Ty::Pointer(..)) => true,
+            (Ty::Int(..), Ty::Pointer(..))
+            | (Ty::UInt(..), Ty::Pointer(..)) => true,
 
             // pointer <=> multi-pointer
-            (Ty::Pointer(t1, from_mutable), Ty::MultiPointer(t2, to_mutable))
-            | (Ty::MultiPointer(t1, to_mutable), Ty::Pointer(t2, from_mutable))
-                if t1 == t2 && mut_eq(*from_mutable, *to_mutable) =>
-            {
-                true
-            }
+            (
+                Ty::Pointer(t1, from_mutable),
+                Ty::MultiPointer(t2, to_mutable),
+            )
+            | (
+                Ty::MultiPointer(t1, to_mutable),
+                Ty::Pointer(t2, from_mutable),
+            ) if t1 == t2 && can_coerce_mut(*from_mutable, *to_mutable) => true,
 
             // pointer(array) => multi-pointer
-            (Ty::Pointer(t, from_mutable), Ty::MultiPointer(t_ptr, to_mutable))
-                if mut_eq(*from_mutable, *to_mutable) =>
-            {
+            (
+                Ty::Pointer(t, from_mutable),
+                Ty::MultiPointer(t_ptr, to_mutable),
+            ) if can_coerce_mut(*from_mutable, *to_mutable) => {
                 match t.as_ref() {
                     Ty::Array(t_array, ..) => t_array == t_ptr,
                     _ => false,
@@ -57,7 +62,7 @@ pub fn ty_can_be_casted(from: &Ty, to: &Ty) -> bool {
 
             // pointer(array) => slice
             (Ty::Pointer(t, from_mutable), Ty::Slice(t_slice, to_mutable))
-                if mut_eq(*from_mutable, *to_mutable) =>
+                if can_coerce_mut(*from_mutable, *to_mutable) =>
             {
                 match t.as_ref() {
                     Ty::Array(t_array, ..) => t_array == t_slice,

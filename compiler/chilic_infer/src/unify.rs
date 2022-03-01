@@ -1,3 +1,4 @@
+use crate::coerce::can_coerce_mut;
 use crate::{
     coerce::{Coerce, CoercionResult, TryCoerce},
     infer::{InferenceContext, InferenceValue, InferenceValue::*, TyVar},
@@ -7,7 +8,6 @@ use chilic_error::{DiagnosticResult, TypeError};
 use chilic_span::Span;
 use chilic_ty::*;
 use codespan_reporting::diagnostic::Diagnostic;
-use common::mut_eq;
 use ena::unify::UnifyValue;
 
 pub struct UnificationError(pub Ty, pub Ty);
@@ -156,7 +156,7 @@ impl InferenceContext {
             | (Ty::Never, Ty::Never) => Ok(expected.clone()),
 
             (Ty::Pointer(t1, m1), Ty::Pointer(t2, m2)) => {
-                if !mut_eq(*m1, *m2) {
+                if !can_coerce_mut(*m1, *m2) {
                     return Err(UnificationError(
                         expected.clone(),
                         actual.clone(),
@@ -168,7 +168,7 @@ impl InferenceContext {
             }
 
             (Ty::MultiPointer(t1, m1), Ty::MultiPointer(t2, m2)) => {
-                if !mut_eq(*m1, *m2) {
+                if !can_coerce_mut(*m1, *m2) {
                     return Err(UnificationError(
                         expected.clone(),
                         actual.clone(),
@@ -268,7 +268,7 @@ impl InferenceContext {
             }
 
             (Ty::Slice(inner_a, m1), Ty::Slice(inner_b, m2)) => {
-                if !mut_eq(*m1, *m2) {
+                if !can_coerce_mut(*m1, *m2) {
                     return Err(UnificationError(
                         expected.clone(),
                         actual.clone(),
