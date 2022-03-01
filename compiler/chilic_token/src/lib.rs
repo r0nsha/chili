@@ -233,4 +233,70 @@ impl TokenKind {
             Eof => "EOF",
         }
     }
+
+    pub fn is_expr_start(&self) -> bool {
+        use TokenKind::*;
+        matches!(
+            self,
+            At | OpenParen
+                | OpenCurly
+                | OpenBracket
+                | Plus
+                | Minus
+                | Star
+                | QuestionMark
+                | Amp
+                | Bar
+                | Tilde
+                | Bang
+                | If
+                | While
+                | For
+                | Break
+                | Continue
+                | Return
+                | Defer
+                | Let
+                | Type
+                | Fn
+                | Foreign
+                | Use
+                | Pub
+                | Union
+                | Match
+                | Placeholder
+                | Id(_)
+                | Nil
+                | True
+                | False
+                | Int(_)
+                | Float(_)
+                | Str(_)
+                | Char(_)
+        )
+    }
+
+    pub fn is_expr_end(&self) -> bool {
+        use TokenKind::*;
+        matches!(
+            self,
+            Semicolon
+                | CloseParen
+                | CloseCurly
+                | CloseBracket
+                | QuestionMark
+                | Break
+                | Continue
+                | Return
+                | Placeholder
+                | Id(_)
+                | Nil
+                | True
+                | False
+                | Int(_)
+                | Float(_)
+                | Str(_)
+                | Char(_)
+        )
+    }
 }

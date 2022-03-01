@@ -147,38 +147,19 @@ impl Parser {
     pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
 
-        let mut yields = false;
-        let mut exprs: Vec<Expr> = vec![];
-
-        while !eat!(self, CloseCurly) && !self.is_end() {
-            let expr = self.parse_expr_with_res(Restrictions::STMT_EXPR)?;
-            exprs.push(expr);
-
-            if eat!(self, Semicolon) {
-                continue;
-            } else if eat!(self, CloseCurly) {
-                if !last_token_is!(self, Semicolon) {
-                    yields = true;
-                }
-
-                break;
-            } else {
-                if last_token_is!(self, CloseCurly) {
-                    continue;
-                }
-
-                return Err(SyntaxError::expected(
-                    self.previous_span(),
-                    "; or }",
-                ));
-            }
-        }
+        let exprs = parse_delimited_list!(
+            self,
+            CloseCurly,
+            Semicolon,
+            self.parse_expr_with_res(Restrictions::STMT_EXPR)?,
+            "; or }"
+        );
 
         Ok(Expr::new(
             ExprKind::Block(Block {
                 exprs,
                 deferred: vec![],
-                yields,
+                yields: true,
             }),
             start_span.to(self.previous_span()),
         ))
@@ -587,32 +568,31 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let expr = Expr::new(
-            match token.kind {
-                Break => ExprKind::Break { deferred: vec![] },
-                Continue => ExprKind::Continue { deferred: vec![] },
-                Return => {
-                    let expr = if eat!(self, Semicolon) {
-                        None
-                    } else {
-                        let expr = self.parse_expr()?;
-                        expect!(self, Semicolon, ";")?;
-                        Some(Box::new(expr))
-                    };
+        let kind = match token.kind {
+            Break => ExprKind::Break { deferred: vec![] },
+            Continue => ExprKind::Continue { deferred: vec![] },
+            Return => {
+                let expr = if !self.peek().kind.is_expr_start()
+                    && token_is!(self, Semicolon)
+                {
+                    None
+                } else {
+                    let expr = self.parse_expr()?;
+                    Some(Box::new(expr))
+                };
 
-                    ExprKind::Return {
-                        expr,
-                        deferred: vec![],
-                    }
+                ExprKind::Return {
+                    expr,
+                    deferred: vec![],
                 }
-                _ => {
-                    return Err(Diagnostic::bug()
-                        .with_message("got an invalid terminator"));
-                }
-            },
-            span.to(self.previous_span()),
-        );
+            }
+            _ => {
+                return Err(
+                    Diagnostic::bug().with_message("got an invalid terminator")
+                );
+            }
+        };
 
-        return Ok(expr);
+        return Ok(Expr::new(kind, span.to(self.previous_span())));
     }
 }
