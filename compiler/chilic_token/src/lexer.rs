@@ -63,10 +63,6 @@ impl<'lx> Lexer<'lx> {
                             // if next token can start an expression
                             if next_token.is_expr_start() {
                                 // replace the newline with a semicolon
-                                println!(
-                                    "line: {}",
-                                    self.tokens[i].span.start.line
-                                );
                                 self.tokens[i].kind = Semicolon;
                             }
                         }
