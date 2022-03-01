@@ -1,4 +1,5 @@
 pub mod build;
+pub mod build_v2;
 pub mod cli;
 
 use cli::start_cli;
@@ -12,7 +13,9 @@ fn main() {
         unsafe { SetConsoleOutputCP(CP_UTF8) };
     }
 
-    // this is a workaround to prevent stack overflows, especially during the analysis phase
+    // Note (Ron): this is a (hopefully temporary) workaround to prevent stack
+    // overflows, especially during the analysis phase. I haven't found any
+    // other solution for this.
     std::thread::Builder::new()
         .name(String::from("main"))
         .stack_size(32 * 1024 * 1024)

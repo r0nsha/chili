@@ -4,7 +4,7 @@ use clap::clap_app;
 use colored::Colorize;
 use common::{build_options::BuildOptions, target::TargetPlatform};
 
-use crate::build::do_build;
+use crate::build_v2::do_build;
 
 pub fn start_cli() {
     let mut app = clap_app!(compiler =>
@@ -31,10 +31,11 @@ pub fn start_cli() {
         }
     };
 
-    let input_file = subcommand_matches.value_of("input").unwrap_or_else(|| {
-        app.print_long_help().expect("failed printing help message");
-        std::process::exit(0);
-    });
+    let input_file =
+        subcommand_matches.value_of("input").unwrap_or_else(|| {
+            app.print_long_help().expect("failed printing help message");
+            std::process::exit(0);
+        });
 
     match get_file_path(input_file) {
         Ok(file) => do_build(BuildOptions {
