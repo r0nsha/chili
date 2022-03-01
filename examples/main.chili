@@ -20,11 +20,23 @@ let main = fn {
 
     5
 
-    # ()
+    printf("gcd: %d\n".data, gcd(13, 7))
 }
 
 let answer = fn -> int { 42 }
 let myfav = fn -> int { 
     5
     69 
+}
+
+let gcd = fn(mut a: int, mut b: int) -> int {
+    while a != b {
+        if a > b {
+            a -= b
+        } else {
+            b -= a
+        }
+    }
+
+    a
 }
