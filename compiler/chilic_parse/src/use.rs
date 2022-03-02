@@ -210,7 +210,7 @@ impl Parser {
                 Err(SyntaxError::expected(self.span(), "an identifier, { or ?"))
             }
         } else {
-            let alias = if eat!(self, Colon) {
+            let alias = if eat!(self, As) {
                 expect!(self, Id(_), "identifier")?.symbol()
             } else {
                 alias
