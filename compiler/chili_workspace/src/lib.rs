@@ -9,11 +9,15 @@ use std::{
 
 pub struct Workspace<'w> {
     files: SimpleFiles<String, String>,
+
     root_dir: &'w Path,
     std_dir: &'w Path,
+
     module_infos: HashMap<ModuleId, ModuleInfo>,
     parsed_trees: HashMap<ModuleId, Ast>,
+
     bindings: HashMap<BindingId, BindingDef<'w>>,
+
     foreign_libraries: HashSet<ForeignLibrary>,
 }
 
