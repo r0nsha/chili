@@ -1,16 +1,31 @@
-use chili_ast::ast::{Binding, ForeignLibrary, ModuleInfo};
+use chili_ast::ast::{Ast, Binding, ForeignLibrary, ModuleInfo};
 use chili_ty::Ty;
+use common::compiler_info;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
 };
 
-struct Workspace<'w> {
+pub struct Workspace<'w> {
     root_dir: &'w Path,
     std_dir: &'w Path,
     module_infos: HashMap<ModuleId, ModuleInfo>,
+    parsed_trees: HashMap<ModuleId, Ast>,
     bindings: HashMap<BindingId, BindingDef<'w>>,
     foreign_libraries: HashSet<ForeignLibrary>,
+}
+
+impl<'w> Workspace<'w> {
+    pub fn new(root_dir: &'w Path, std_dir: &'w Path) -> Self {
+        Self {
+            root_dir,
+            std_dir,
+            module_infos: Default::default(),
+            parsed_trees: Default::default(),
+            bindings: Default::default(),
+            foreign_libraries: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]

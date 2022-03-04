@@ -291,6 +291,7 @@ version = "0.0.1"
 dependencies = [
  "chili_ast",
  "chili_ty",
+ "common",
 ]
 
 [[package]]

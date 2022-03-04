@@ -5,5 +5,6 @@ edition = "2021"
 
 [dependencies]
 
+common = { path = '../common' }
 chili_ty = { path = '../chili_ty' }
 chili_ast = { path = "../chili_ast" }
