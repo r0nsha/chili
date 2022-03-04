@@ -1,0 +1,25 @@
+[package]
+name = "chili_pass"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+colored = "2.0.0"
+strum_macros = "0.23.1"
+ptree = "0.4.0"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+ustr = "0.8.1"
+unindent = "0.1.7"
+path-absolutize = "3.0.11"
+crossbeam = "0.8.1"
+crossbeam-utils = "0.8.7"
+dashmap = "5.1.0"
+
+common = { path = "../common" }
+chili_span = { path = "../chili_span" }
+chili_token = { path = "../chili_token" }
+chili_error = { path = "../chili_error" }
+chili_ty = { path = "../chili_ty" }
+chili_parse = { path = "../chili_parse" }
+chili_ast = { path = "../chili_ast" }

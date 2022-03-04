@@ -118,13 +118,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "chilic_ast"
+name = "chili_ast"
 version = "0.0.1"
 dependencies = [
- "chilic_error",
- "chilic_span",
- "chilic_token",
- "chilic_ty",
+ "chili_error",
+ "chili_span",
+ "chili_token",
+ "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -137,14 +137,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_check"
+name = "chili_check"
 version = "0.1.0"
 dependencies = [
- "chilic_ast",
- "chilic_error",
- "chilic_infer",
- "chilic_span",
- "chilic_ty",
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "chili_ty",
+ "chili_typeck",
  "codespan",
  "codespan-reporting",
  "common",
@@ -152,39 +152,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_error"
+name = "chili_error"
 version = "0.1.0"
 dependencies = [
- "chilic_span",
- "chilic_ty",
+ "chili_span",
+ "chili_ty",
  "codespan",
  "codespan-reporting",
  "ustr",
 ]
 
 [[package]]
-name = "chilic_infer"
-version = "0.1.0"
-dependencies = [
- "chilic_ast",
- "chilic_error",
- "chilic_span",
- "chilic_ty",
- "codespan",
- "codespan-reporting",
- "common",
- "ena",
-]
-
-[[package]]
-name = "chilic_llvm"
+name = "chili_llvm"
 version = "0.0.1"
 dependencies = [
- "chilic_ast",
- "chilic_error",
- "chilic_parse",
- "chilic_span",
- "chilic_ty",
+ "chili_ast",
+ "chili_error",
+ "chili_parse",
+ "chili_span",
+ "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -195,16 +181,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_main"
+name = "chili_main"
 version = "0.0.1"
 dependencies = [
- "chilic_ast",
- "chilic_check",
- "chilic_error",
- "chilic_llvm",
- "chilic_parse",
- "chilic_pass",
- "chilic_span",
+ "chili_ast",
+ "chili_check",
+ "chili_error",
+ "chili_llvm",
+ "chili_parse",
+ "chili_pass",
+ "chili_span",
  "clap",
  "codespan",
  "codespan-reporting",
@@ -217,15 +203,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_parse"
+name = "chili_parse"
 version = "0.0.1"
 dependencies = [
  "bitflags 1.3.2",
- "chilic_ast",
- "chilic_error",
- "chilic_span",
- "chilic_token",
- "chilic_ty",
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "chili_token",
+ "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -236,15 +222,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_pass"
+name = "chili_pass"
 version = "0.1.0"
 dependencies = [
- "chilic_ast",
- "chilic_error",
- "chilic_parse",
- "chilic_span",
- "chilic_token",
- "chilic_ty",
+ "chili_ast",
+ "chili_error",
+ "chili_parse",
+ "chili_span",
+ "chili_token",
+ "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -260,15 +246,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_span"
+name = "chili_span"
 version = "0.1.0"
 
 [[package]]
-name = "chilic_token"
+name = "chili_token"
 version = "0.1.0"
 dependencies = [
- "chilic_error",
- "chilic_span",
+ "chili_error",
+ "chili_span",
  "codespan",
  "codespan-reporting",
  "strum_macros",
@@ -277,12 +263,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "chilic_ty"
+name = "chili_ty"
 version = "0.1.0"
 dependencies = [
- "chilic_span",
+ "chili_span",
  "common",
  "ustr",
+]
+
+[[package]]
+name = "chili_typeck"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "chili_ty",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "ena",
 ]
 
 [[package]]

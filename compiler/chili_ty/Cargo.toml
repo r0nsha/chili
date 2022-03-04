@@ -1,0 +1,10 @@
+[package]
+name = "chili_ty"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ustr = "0.8.1"
+
+common = { path = "../common" }
+chili_span = { path = "../chili_span" }

@@ -1,0 +1,19 @@
+[package]
+name = "chili_llvm"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+execute = "0.2.9"
+colored = "2.0.0"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+ustr = "0.8.1"
+
+inkwell = { path = "../../vendor/inkwell", features = ["llvm12-0"] }
+common = { path = "../common" }
+chili_span = { path = "../chili_span" }
+chili_error = { path = "../chili_error" }
+chili_ty = { path = "../chili_ty" }
+chili_parse = { path = "../chili_parse" }
+chili_ast = { path = "../chili_ast" }

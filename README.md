@@ -253,7 +253,7 @@ use foo.im_public;
 # we can automatically use all of `foo`s symbols using *
 use foo.*;
 
-# we can combine uses however we like
+# we can combine imports however we like
 use foo.im_public;
 use this.{
     is.deep,

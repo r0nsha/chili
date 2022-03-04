@@ -1,0 +1,27 @@
+[package]
+name = "chili_main"
+version = "0.0.1"
+edition = "2021"
+
+[[bin]]
+name = "chilic"
+path = "src/main.rs"
+
+[dependencies]
+clap = "2.33.3"
+colored = "2.0.0"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+num-format = "0.4.0"
+ustr = "0.8.1"
+linked_hash_set = "0.1.4"
+path-absolutize = "3.0.11"
+
+common = { path = "../common" }
+chili_span = { path = "../chili_span" }
+chili_error = { path = "../chili_error" }
+chili_ast = { path = "../chili_ast" }
+chili_pass = { path = "../chili_pass" }
+chili_parse = { path = "../chili_parse" }
+chili_check = { path = "../chili_check" }
+chili_llvm = { path = "../chili_llvm" }
