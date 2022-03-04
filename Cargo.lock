@@ -291,6 +291,8 @@ version = "0.0.1"
 dependencies = [
  "chili_ast",
  "chili_ty",
+ "codespan",
+ "codespan-reporting",
  "common",
 ]
 

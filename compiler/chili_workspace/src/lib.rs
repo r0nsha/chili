@@ -1,5 +1,6 @@
 use chili_ast::ast::{Ast, Binding, ForeignLibrary, ModuleInfo};
 use chili_ty::Ty;
+use codespan_reporting::files::SimpleFiles;
 use common::compiler_info;
 use std::{
     collections::{HashMap, HashSet},
@@ -7,6 +8,7 @@ use std::{
 };
 
 pub struct Workspace<'w> {
+    files: SimpleFiles<String, String>,
     root_dir: &'w Path,
     std_dir: &'w Path,
     module_infos: HashMap<ModuleId, ModuleInfo>,
@@ -18,6 +20,7 @@ pub struct Workspace<'w> {
 impl<'w> Workspace<'w> {
     pub fn new(root_dir: &'w Path, std_dir: &'w Path) -> Self {
         Self {
+            files: SimpleFiles::new(),
             root_dir,
             std_dir,
             module_infos: Default::default(),
