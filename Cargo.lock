@@ -138,7 +138,7 @@ dependencies = [
 
 [[package]]
 name = "chili_check"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "chili_error"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chili_span",
  "chili_ty",
@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "chili_pass"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -247,11 +247,11 @@ dependencies = [
 
 [[package]]
 name = "chili_span"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "chili_token"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chili_error",
  "chili_span",
@@ -264,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "chili_ty"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chili_span",
  "common",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "chili_typeck"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -283,6 +283,14 @@ dependencies = [
  "codespan-reporting",
  "common",
  "ena",
+]
+
+[[package]]
+name = "chili_workspace"
+version = "0.0.1"
+dependencies = [
+ "chili_ast",
+ "chili_ty",
 ]
 
 [[package]]
