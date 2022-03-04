@@ -6,8 +6,8 @@ use std::{
 };
 
 struct Workspace<'w> {
-    root_directory: &'w Path,
-    std_directory: &'w Path,
+    root_dir: &'w Path,
+    std_dir: &'w Path,
     module_infos: HashMap<ModuleId, ModuleInfo>,
     bindings: HashMap<BindingId, BindingDef<'w>>,
     foreign_libraries: HashSet<ForeignLibrary>,
