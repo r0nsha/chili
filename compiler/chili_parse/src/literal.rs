@@ -7,7 +7,7 @@ use chili_span::{Span, To};
 use chili_token::TokenKind::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_literal(&mut self) -> DiagnosticResult<Expr> {
         let token = self.previous();
         let span = token.span;

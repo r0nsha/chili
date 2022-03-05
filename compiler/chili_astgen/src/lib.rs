@@ -1,12 +1,12 @@
 use chili_ast::{
     ast::{Ast, Import, ModuleInfo, Visibility},
     path::resolve_relative_path,
+    workspace::Workspace,
 };
 use chili_error::DiagnosticResult;
 use chili_parse::Parser;
 use chili_span::Span;
 use chili_token::{lexer::Lexer, TokenKind};
-use codespan_reporting::files::SimpleFiles;
 use common::{
     compiler_info::{self, IntrinsticModuleInfo},
     Stopwatch,
@@ -16,30 +16,20 @@ use dashmap::DashSet;
 use std::{
     collections::HashSet,
     path::PathBuf,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Mutex, RwLock,
-    },
+    sync::{Mutex, RwLock},
 };
 use unindent::unindent;
 use ustr::ustr;
 
-pub struct AstGenerator<'a> {
-    pub files: Mutex<&'a mut SimpleFiles<String, String>>,
-    pub root_dir: String,
-    pub root_file_id: AtomicUsize,
+pub struct AstGenerator<'a, 'w> {
+    pub workspace: Mutex<&'a mut Workspace<'w>>,
     pub parsed_modules: DashSet<ModuleInfo>,
 }
 
-impl<'a> AstGenerator<'a> {
-    pub fn new(
-        files: &'a mut SimpleFiles<String, String>,
-        root_dir: String,
-    ) -> Self {
+impl<'a, 'w> AstGenerator<'a, 'w> {
+    pub fn new(workspace: &'a mut Workspace<'w>) -> Self {
         Self {
-            files: Mutex::new(files),
-            root_dir,
-            root_file_id: Default::default(),
+            workspace: Mutex::new(workspace),
             parsed_modules: Default::default(),
         }
     }
@@ -80,16 +70,19 @@ impl<'a> AstGenerator<'a> {
         let source = std::fs::read_to_string(module_info.file_path.as_str())
             .expect(&format!("failed to read `{}`", module_info.file_path));
 
-        let file_id = self
-            .files
-            .lock()
-            .unwrap()
-            .add(module_info.file_path.to_string(), unindent(&source));
+        let file_id = {
+            let mut workspace = self.workspace.lock().unwrap();
 
-        if is_root {
-            self.root_file_id.store(file_id, Ordering::SeqCst);
-        }
+            let file_id = workspace
+                .files
+                .add(module_info.file_path.to_string(), unindent(&source));
 
+            if is_root {
+                workspace.root_file_id = file_id;
+            }
+
+            file_id
+        };
         let tokens = Lexer::new(file_id, &source).scan()?;
         // println!(
         //     "{:?}",
@@ -103,10 +96,16 @@ impl<'a> AstGenerator<'a> {
             return Ok(());
         }
 
+        let (root_dir, std_dir) = {
+            let w = self.workspace.lock().unwrap();
+            (w.root_dir, w.std_dir)
+        };
+
         let mut parser = Parser::new(
             tokens,
             module_info,
-            self.root_dir.clone(),
+            root_dir,
+            std_dir,
             PathBuf::from(module_info.file_path.as_str())
                 .parent()
                 .unwrap()
@@ -115,13 +114,13 @@ impl<'a> AstGenerator<'a> {
                 .to_string(),
         );
 
-        let mut parse_result = parser.parse()?;
+        let parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
-        add_intrinsic_std_import(
-            &mut parse_result.ast,
-            &mut parse_result.imports,
-        );
+        // add_intrinsic_std_import(
+        //     &mut parse_result.ast,
+        //     &mut parse_result.imports,
+        // );
 
         thread::scope(|scope| {
             let mut handles = vec![];

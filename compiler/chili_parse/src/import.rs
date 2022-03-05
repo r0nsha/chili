@@ -1,7 +1,6 @@
 use crate::*;
-use chili_ast::{
-    ast::{Import, ImportPath, ImportPathNode, ModuleInfo, Visibility},
-    path::AsModuleName,
+use chili_ast::ast::{
+    Import, ImportPath, ImportPathNode, ModuleInfo, Visibility,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, Spanned};
@@ -10,10 +9,10 @@ use common::{
     builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT},
     compiler_info,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use ustr::{ustr, Ustr};
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_import(
         &mut self,
         visibility: Visibility,
@@ -58,14 +57,14 @@ impl Parser {
                 let mut path_buf = PathBuf::from(&self.current_dir);
                 path_buf.push(name);
 
-                let module = path_buf.as_module_name(&self.root_dir);
+                let module = self.get_module_name_from_path(&path_buf);
                 let module = ustr(&module);
                 let alias = ustr(name);
 
                 if path_buf.with_extension(SOURCE_FILE_EXT).is_file() {
                     path_buf.set_extension(SOURCE_FILE_EXT);
                     check_path_is_under_root_or_std(
-                        &self.root_dir,
+                        self.root_dir,
                         &path_buf,
                         id_token.span,
                     )?;
@@ -79,7 +78,7 @@ impl Parser {
                     )
                 } else if path_buf.is_dir() {
                     check_path_is_under_root_or_std(
-                        &self.root_dir,
+                        self.root_dir,
                         &path_buf,
                         id_token.span,
                     )?;
@@ -225,6 +224,22 @@ impl Parser {
             }])
         }
     }
+
+    fn get_module_name_from_path(&self, path: &Path) -> String {
+        // TODO: this `std_root_dir` thing is very hacky. we should probably get
+        // `std` from `root_dir`, and not do this ad-hoc.
+        let mut std_root_dir =
+            self.std_dir.parent().unwrap().to_str().unwrap().to_string();
+
+        std_root_dir.push(std::path::MAIN_SEPARATOR);
+
+        let path_str = path.to_str().unwrap();
+
+        path_str
+            .replace(self.root_dir.to_str().unwrap(), "")
+            .replace(&std_root_dir, "")
+            .replace(std::path::MAIN_SEPARATOR, ".")
+    }
 }
 
 fn module_not_found_err(
@@ -242,7 +257,7 @@ fn module_not_found_err(
 }
 
 fn check_path_is_under_root_or_std(
-    root_path: &str,
+    root_path: &Path,
     path_buf: &PathBuf,
     span: Span,
 ) -> DiagnosticResult<()> {

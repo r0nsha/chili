@@ -7,7 +7,7 @@ use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
 use ustr::{ustr, Ustr};
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_foreign_block(
         &mut self,
     ) -> DiagnosticResult<Vec<Binding>> {

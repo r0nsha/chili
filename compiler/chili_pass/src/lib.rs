@@ -1,4 +1,3 @@
-pub mod ast_generator;
 mod expand_glob_imports;
 mod gen_ir;
 mod solve_defer;

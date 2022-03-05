@@ -4,7 +4,7 @@ use clap::clap_app;
 use colored::Colorize;
 use common::{build_options::BuildOptions, target::TargetPlatform};
 
-use crate::build_v2::do_build;
+use crate::build::do_build;
 
 pub fn start_cli() {
     let mut app = clap_app!(compiler =>

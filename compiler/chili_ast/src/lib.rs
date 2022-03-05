@@ -3,3 +3,4 @@ pub mod path;
 pub mod pattern;
 pub mod pretty;
 pub mod value;
+pub mod workspace;

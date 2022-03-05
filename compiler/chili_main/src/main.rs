@@ -1,5 +1,4 @@
 pub mod build;
-pub mod build_v2;
 pub mod cli;
 
 use cli::start_cli;

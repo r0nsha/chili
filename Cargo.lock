@@ -132,6 +132,25 @@ dependencies = [
  "path-absolutize",
  "ptree",
  "strum_macros",
+ "ustr",
+]
+
+[[package]]
+name = "chili_astgen"
+version = "0.0.1"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_parse",
+ "chili_span",
+ "chili_token",
+ "chili_ty",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "crossbeam",
+ "crossbeam-utils",
+ "dashmap",
  "unindent",
  "ustr",
 ]
@@ -185,6 +204,7 @@ name = "chili_main"
 version = "0.0.1"
 dependencies = [
  "chili_ast",
+ "chili_astgen",
  "chili_check",
  "chili_error",
  "chili_llvm",
@@ -233,15 +253,7 @@ dependencies = [
  "chili_ty",
  "codespan",
  "codespan-reporting",
- "colored",
  "common",
- "crossbeam",
- "crossbeam-utils",
- "dashmap",
- "path-absolutize",
- "ptree",
- "strum_macros",
- "unindent",
  "ustr",
 ]
 
@@ -283,17 +295,6 @@ dependencies = [
  "codespan-reporting",
  "common",
  "ena",
-]
-
-[[package]]
-name = "chili_workspace"
-version = "0.0.1"
-dependencies = [
- "chili_ast",
- "chili_ty",
- "codespan",
- "codespan-reporting",
- "common",
 ]
 
 [[package]]

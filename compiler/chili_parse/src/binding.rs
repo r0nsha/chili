@@ -4,7 +4,7 @@ use chili_ast::{
     pattern::Pattern,
 };
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_binding(
         &mut self,
         kind: BindingKind,

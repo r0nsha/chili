@@ -10,11 +10,14 @@ mod top_level;
 mod ty;
 
 use bitflags::bitflags;
-use chili_ast::ast::{Ast, ForeignLibrary, ModuleInfo};
+use chili_ast::{
+    ast::{Ast, ForeignLibrary, ModuleInfo},
+    workspace::Workspace,
+};
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
 use chili_token::{Token, TokenKind::*};
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path};
 use ustr::{ustr, Ustr};
 
 bitflags! {
@@ -24,14 +27,6 @@ bitflags! {
     }
 }
 
-macro_rules! last_token_is {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        match &$parser.previous().kind {
-            $( $pattern )|+ => true,
-            _ => false
-        }
-    };
-}
 macro_rules! token_is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
         if $parser.is_end() {
@@ -89,16 +84,16 @@ macro_rules! parse_delimited_list {
 
 pub(crate) use eat;
 pub(crate) use expect;
-pub(crate) use last_token_is;
 pub(crate) use parse_delimited_list;
 pub(crate) use token_is;
 
-pub struct Parser {
+pub struct Parser<'w> {
     tokens: Vec<Token>,
     current: usize,
     marked: Vec<usize>,
     module_info: ModuleInfo,
-    root_dir: String,
+    root_dir: &'w Path,
+    std_dir: &'w Path,
     current_dir: String,
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
@@ -111,11 +106,12 @@ pub struct ParserResult {
     pub imports: HashSet<ModuleInfo>,
 }
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub fn new(
         tokens: Vec<Token>,
         module_info: ModuleInfo,
-        root_dir: String,
+        root_dir: &'w Path,
+        std_dir: &'w Path,
         current_dir: String,
     ) -> Self {
         Self {
@@ -124,6 +120,7 @@ impl Parser {
             marked: Default::default(),
             module_info,
             root_dir,
+            std_dir,
             current_dir,
             decl_name_frames: Default::default(),
             used_modules: Default::default(),

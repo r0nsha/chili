@@ -7,7 +7,7 @@ use chili_ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_postfix_expr(
         &mut self,
         mut expr: Expr,

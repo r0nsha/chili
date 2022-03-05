@@ -10,7 +10,7 @@ use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
         self.with_res(Restrictions::empty(), |p| {
             p.parse_expr_internal(ustr(""))

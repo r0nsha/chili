@@ -2,10 +2,10 @@
 members = [
     "compiler/common",
     "compiler/chili_span",
-    "compiler/chili_workspace",
     "compiler/chili_error",
     "compiler/chili_ty",
     "compiler/chili_ast",
+    "compiler/chili_astgen",
     "compiler/chili_pass",
     "compiler/chili_token",
     "compiler/chili_parse",

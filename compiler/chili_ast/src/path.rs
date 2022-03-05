@@ -39,38 +39,3 @@ pub fn resolve_relative_path(
         })
     }
 }
-
-pub trait AsModuleName {
-    fn as_module_name(&self, root_dir: &impl AsRef<str>) -> String;
-}
-
-impl AsModuleName for PathBuf {
-    fn as_module_name(&self, root_dir: &impl AsRef<str>) -> String {
-        self.to_str().unwrap().to_string().as_module_name(root_dir)
-    }
-}
-
-impl AsModuleName for Path {
-    fn as_module_name(&self, root_dir: &impl AsRef<str>) -> String {
-        self.to_str().unwrap().to_string().as_module_name(root_dir)
-    }
-}
-
-impl AsModuleName for String {
-    fn as_module_name(&self, root_dir: &impl AsRef<str>) -> String {
-        // TODO: this `std_root_dir` thing feels hacky. we should probably get
-        // `std` from `root_dir`, and not do this ad-hoc.
-        let mut std_root_dir = compiler_info::std_module_root_dir()
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-
-        std_root_dir.push(std::path::MAIN_SEPARATOR);
-
-        self.replace(root_dir.as_ref(), "")
-            .replace(&std_root_dir, "")
-            .replace(std::path::MAIN_SEPARATOR, ".")
-    }
-}

@@ -2,7 +2,7 @@ use crate::*;
 use chili_ast::ast::{Ast, BindingKind, Visibility};
 use chili_error::{DiagnosticResult, SyntaxError};
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(crate) fn parse_top_level(
         &mut self,
         ast: &mut Ast,

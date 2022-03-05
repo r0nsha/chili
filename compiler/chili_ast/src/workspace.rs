@@ -1,30 +1,39 @@
-use chili_ast::ast::{Ast, Binding, ForeignLibrary, ModuleInfo};
+use crate::ast::{Ast, Binding, ForeignLibrary, ModuleInfo};
+use chili_span::FileId;
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
-use common::compiler_info;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
 };
 
 pub struct Workspace<'w> {
-    files: SimpleFiles<String, String>,
+    // Mapping from file id's to their source. Stored for diagnostics
+    pub files: SimpleFiles<String, String>,
 
-    root_dir: &'w Path,
-    std_dir: &'w Path,
+    // The root source file's id. Resolved during ast generation
+    pub root_file_id: FileId,
 
-    module_infos: HashMap<ModuleId, ModuleInfo>,
-    parsed_trees: HashMap<ModuleId, Ast>,
+    // The workspace's root directory
+    pub root_dir: &'w Path,
 
-    bindings: HashMap<BindingId, BindingDef<'w>>,
+    // Std library's root directory
+    pub std_dir: &'w Path,
 
-    foreign_libraries: HashSet<ForeignLibrary>,
+    pub module_infos: HashMap<ModuleId, ModuleInfo>,
+    pub parsed_trees: HashMap<ModuleId, Ast>,
+
+    pub bindings: HashMap<BindingId, BindingDef<'w>>,
+
+    // Foreign libraries needed to be linked. Resolved during name resolution
+    pub foreign_libraries: HashSet<ForeignLibrary>,
 }
 
 impl<'w> Workspace<'w> {
     pub fn new(root_dir: &'w Path, std_dir: &'w Path) -> Self {
         Self {
             files: SimpleFiles::new(),
+            root_file_id: Default::default(),
             root_dir,
             std_dir,
             module_infos: Default::default(),
@@ -52,3 +61,5 @@ pub struct BindingId(usize);
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct ScopeLevel(usize);
+
+impl<'w> Workspace<'w> {}

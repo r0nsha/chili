@@ -7,7 +7,7 @@ use chili_ty::StructTyKind;
 
 const SELF_SYMBOL: &str = "Self";
 
-impl Parser {
+impl<'w> Parser<'w> {
     pub(super) fn parse_decl_ty(
         &mut self,
         decl_name: Ustr,
