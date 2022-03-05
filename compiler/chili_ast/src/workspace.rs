@@ -1,8 +1,7 @@
-use crate::ast::{Ast, Binding, ForeignLibrary, ModuleInfo};
+use crate::ast::{Ast, Binding, ForeignLibrary};
 use chili_span::FileId;
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
-use generational_arena::{Arena, Index};
 use std::{collections::HashSet, path::Path};
 
 pub struct Workspace<'w> {
@@ -18,14 +17,16 @@ pub struct Workspace<'w> {
     // Std library's root directory
     pub std_dir: &'w Path,
 
-    // Note (Ron): This takes unnecessary space after name resolution, maybe
-    // manually drop it? Parsed trees aka Ast. Resolved during ast
-    // generation ModuleId -> Ast
-    pub parsed_trees: Arena<Ast>,
+    // Parsed modules/trees, aka Ast's. Resolved during ast generation
+    // ModuleId -> Ast
+    pub parsed_modules: Vec<Ast>,
+
+    // The root module's id. Resolved after ast generation
+    pub root_module: ModuleId,
 
     // Bindings resolved during name resolution
     // BindingId -> BindingDef
-    pub bindings: Arena<BindingDef<'w>>,
+    pub bindings: Vec<BindingDef<'w>>,
 
     // Foreign libraries needed to be linked. Resolved during name resolution
     pub foreign_libraries: HashSet<ForeignLibrary>,
@@ -38,21 +39,13 @@ impl<'w> Workspace<'w> {
             root_file_id: Default::default(),
             root_dir,
             std_dir,
-            parsed_trees: Default::default(),
+            parsed_modules: Default::default(),
+            root_module: Default::default(),
             bindings: Default::default(),
             foreign_libraries: Default::default(),
         }
     }
 }
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ModuleId(Index);
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BindingId(Index);
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ScopeLevel(usize);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingDef<'w> {
@@ -65,6 +58,24 @@ pub struct BindingDef<'w> {
 
 impl<'w> Workspace<'w> {
     pub fn add_module(&mut self, ast: Ast) -> ModuleId {
-        ModuleId(self.parsed_trees.insert(ast))
+        self.parsed_modules.push(ast);
+        ModuleId(self.parsed_modules.len() - 1)
+    }
+
+    pub fn get_module(&self, id: ModuleId) -> Option<&Ast> {
+        self.parsed_modules.get(id.0)
     }
 }
+
+macro_rules! id_struct {
+    ($id:ident) => {
+        #[derive(
+            Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy,
+        )]
+        pub struct $id(usize);
+    };
+}
+
+id_struct!(ModuleId);
+id_struct!(BindingId);
+id_struct!(ScopeLevel);

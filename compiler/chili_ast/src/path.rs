@@ -1,7 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::compiler_info;
 use path_absolutize::Absolutize;
 
 use chili_error::DiagnosticResult;

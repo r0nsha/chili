@@ -47,10 +47,6 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    for (i, a) in workspace.parsed_trees.iter() {
-        println!("{:?} -> {:?}", i, a.module_info);
-    }
-
     // let sw = Stopwatch::start_new("lower");
 
     // let ir = match chili_pass::gen_ir(asts, workspace.files.clone()) {
