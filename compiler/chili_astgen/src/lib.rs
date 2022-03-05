@@ -34,7 +34,7 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
         }
     }
 
-    pub fn start(&mut self, file_path: String) -> DiagnosticResult<Vec<Ast>> {
+    pub fn start(&mut self, file_path: String) -> DiagnosticResult<()> {
         let asts: RwLock<Vec<Ast>> = RwLock::default();
 
         let sw = Stopwatch::start_new("parse");
@@ -54,7 +54,12 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
 
         sw.print();
 
-        Ok(asts.into_inner().unwrap())
+        let mut workspace = self.workspace.lock().unwrap();
+        for ast in asts.into_inner().unwrap() {
+            workspace.add_module(ast);
+        }
+
+        Ok(())
     }
 
     fn add_source_file(

@@ -33,53 +33,53 @@ pub fn do_build(build_options: BuildOptions) {
         return;
     }
 
-    let asts = {
+    {
         let mut ast_generator = AstGenerator::new(&mut workspace);
 
-        let asts = match ast_generator.start(build_options.source_file.clone())
+        if let Err(diagnostic) =
+            ast_generator.start(build_options.source_file.clone())
         {
-            Ok(asts) => asts,
-            Err(diagnostic) => {
-                emit_single_diagnostic(
-                    &ast_generator.workspace.lock().unwrap().files,
-                    diagnostic,
-                );
-                return;
-            }
-        };
-
-        asts
-    };
-
-    let sw = Stopwatch::start_new("lower");
-
-    let ir = match chili_pass::gen_ir(asts, workspace.files.clone()) {
-        Ok(ir) => ir,
-        Err(diagnostic) => {
-            emit_single_diagnostic(&workspace.files, diagnostic);
+            emit_single_diagnostic(
+                &ast_generator.workspace.lock().unwrap().files,
+                diagnostic,
+            );
             return;
         }
-    };
+    }
 
-    sw.print();
+    for (i, a) in workspace.parsed_trees.iter() {
+        println!("{:?} -> {:?}", i, a.module_info);
+    }
 
-    // ir.print();
+    // let sw = Stopwatch::start_new("lower");
 
-    let sw = Stopwatch::start_new("analyze");
+    // let ir = match chili_pass::gen_ir(asts, workspace.files.clone()) {
+    //     Ok(ir) => ir,
+    //     Err(diagnostic) => {
+    //         emit_single_diagnostic(&workspace.files, diagnostic);
+    //         return;
+    //     }
+    // };
 
-    let ir = match chili_check::check_ir(&build_options, ir) {
-        Ok(ir) => ir,
-        Err(diagnostic) => {
-            emit_single_diagnostic(&workspace.files, diagnostic);
-            return;
-        }
-    };
+    // sw.print();
 
-    sw.print();
+    // // ir.print();
 
-    // ir.print();
+    // let sw = Stopwatch::start_new("analyze");
 
-    codegen(&build_options, &ir);
+    // let ir = match chili_check::check_ir(&build_options, ir) {
+    //     Ok(ir) => ir,
+    //     Err(diagnostic) => {
+    //         emit_single_diagnostic(&workspace.files, diagnostic);
+    //         return;
+    //     }
+    // };
+
+    // sw.print();
+
+    // // ir.print();
+
+    // codegen(&build_options, &ir);
 
     all_sw.stop();
 

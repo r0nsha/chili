@@ -2,10 +2,8 @@ use crate::ast::{Ast, Binding, ForeignLibrary, ModuleInfo};
 use chili_span::FileId;
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use generational_arena::{Arena, Index};
+use std::{collections::HashSet, path::Path};
 
 pub struct Workspace<'w> {
     // Mapping from file id's to their source. Stored for diagnostics
@@ -20,10 +18,14 @@ pub struct Workspace<'w> {
     // Std library's root directory
     pub std_dir: &'w Path,
 
-    pub module_infos: HashMap<ModuleId, ModuleInfo>,
-    pub parsed_trees: HashMap<ModuleId, Ast>,
+    // Note (Ron): This takes unnecessary space after name resolution, maybe
+    // manually drop it? Parsed trees aka Ast. Resolved during ast
+    // generation ModuleId -> Ast
+    pub parsed_trees: Arena<Ast>,
 
-    pub bindings: HashMap<BindingId, BindingDef<'w>>,
+    // Bindings resolved during name resolution
+    // BindingId -> BindingDef
+    pub bindings: Arena<BindingDef<'w>>,
 
     // Foreign libraries needed to be linked. Resolved during name resolution
     pub foreign_libraries: HashSet<ForeignLibrary>,
@@ -36,7 +38,6 @@ impl<'w> Workspace<'w> {
             root_file_id: Default::default(),
             root_dir,
             std_dir,
-            module_infos: Default::default(),
             parsed_trees: Default::default(),
             bindings: Default::default(),
             foreign_libraries: Default::default(),
@@ -45,7 +46,13 @@ impl<'w> Workspace<'w> {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ModuleId(usize);
+pub struct ModuleId(Index);
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct BindingId(Index);
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct ScopeLevel(usize);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingDef<'w> {
@@ -56,10 +63,8 @@ pub struct BindingDef<'w> {
     uses: usize,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BindingId(usize);
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ScopeLevel(usize);
-
-impl<'w> Workspace<'w> {}
+impl<'w> Workspace<'w> {
+    pub fn add_module(&mut self, ast: Ast) -> ModuleId {
+        ModuleId(self.parsed_trees.insert(ast))
+    }
+}
