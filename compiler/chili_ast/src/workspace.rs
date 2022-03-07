@@ -1,5 +1,5 @@
-use crate::ast::{Ast, Binding, ForeignLibrary};
-use chili_span::FileId;
+use crate::ast::{Ast, Binding, ForeignLibrary, Visibility};
+use chili_span::{FileId, Span};
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
 use std::{collections::HashSet, path::Path};
@@ -19,14 +19,14 @@ pub struct Workspace<'w> {
 
     // Parsed modules/trees, aka Ast's. Resolved during ast generation
     // ModuleId -> Ast
-    pub parsed_modules: Vec<Ast>,
+    pub modules: Vec<Ast>,
 
     // The root module's id. Resolved after ast generation
     pub root_module: ModuleId,
 
     // Bindings resolved during name resolution
     // BindingId -> BindingDef
-    pub bindings: Vec<BindingDef<'w>>,
+    pub binding_infos: Vec<BindingInfo<'w>>,
 
     // Foreign libraries needed to be linked. Resolved during name resolution
     pub foreign_libraries: HashSet<ForeignLibrary>,
@@ -39,30 +39,35 @@ impl<'w> Workspace<'w> {
             root_file_id: Default::default(),
             root_dir,
             std_dir,
-            parsed_modules: Default::default(),
+            modules: Default::default(),
             root_module: Default::default(),
-            bindings: Default::default(),
+            binding_infos: Default::default(),
             foreign_libraries: Default::default(),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct BindingDef<'w> {
-    binding: Binding,
-    scope_level: ScopeLevel,
-    scope_name: &'w str,
-    uses: usize,
+pub struct BindingInfo<'w> {
+    pub id: BindingInfoId,
+    pub module_id: ModuleId,
+    pub binding: Binding,
+    pub visibility: Visibility,
+    pub ty: Ty,
+    pub level: BindingLevel,
+    pub scope_name: &'w str,
+    pub uses: usize,
+    pub span: Span,
 }
 
 impl<'w> Workspace<'w> {
     pub fn add_module(&mut self, ast: Ast) -> ModuleId {
-        self.parsed_modules.push(ast);
-        ModuleId(self.parsed_modules.len() - 1)
+        self.modules.push(ast);
+        ModuleId(self.modules.len() - 1)
     }
 
     pub fn get_module(&self, id: ModuleId) -> Option<&Ast> {
-        self.parsed_modules.get(id.0)
+        self.modules.get(id.0)
     }
 }
 
@@ -76,5 +81,5 @@ macro_rules! id_struct {
 }
 
 id_struct!(ModuleId);
-id_struct!(BindingId);
-id_struct!(ScopeLevel);
+id_struct!(BindingInfoId);
+id_struct!(BindingLevel);

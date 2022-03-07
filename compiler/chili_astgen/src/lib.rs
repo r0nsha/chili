@@ -9,7 +9,6 @@ use chili_span::Span;
 use chili_token::{lexer::Lexer, TokenKind};
 use common::{
     compiler_info::{self, IntrinsticModuleInfo},
-    Stopwatch,
 };
 use crossbeam_utils::thread;
 use dashmap::DashSet;
@@ -37,8 +36,6 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
     pub fn start(&mut self, file_path: String) -> DiagnosticResult<()> {
         let asts: RwLock<Vec<Ast>> = RwLock::default();
 
-        let sw = Stopwatch::start_new("parse");
-
         let root_file_path = resolve_relative_path(
             &file_path,
             &common::builtin::root_module(),
@@ -51,8 +48,6 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
         );
 
         self.add_source_file(&asts, root_module_info, true)?;
-
-        sw.print();
 
         let mut workspace = self.workspace.lock().unwrap();
         for ast in asts.into_inner().unwrap() {

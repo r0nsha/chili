@@ -33,6 +33,8 @@ pub fn do_build(build_options: BuildOptions) {
         return;
     }
 
+    let sw = Stopwatch::start_new("parse");
+
     {
         let mut ast_generator = AstGenerator::new(&mut workspace);
 
@@ -46,6 +48,12 @@ pub fn do_build(build_options: BuildOptions) {
             return;
         }
     }
+
+    sw.print();
+
+    let sw = Stopwatch::start_new("resolve");
+
+    sw.print();
 
     // let sw = Stopwatch::start_new("lower");
 
