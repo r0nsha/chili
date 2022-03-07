@@ -1459,6 +1459,7 @@ impl<'a> AnalysisContext<'a> {
                     symbol,
                     is_mutable: binding.is_mutable,
                     binding_span: binding.span,
+                    binding_info_id: Default::default(),
                 },
                 binding.ty,
                 binding.const_value,
@@ -1739,6 +1740,7 @@ impl<'a> AnalysisContext<'a> {
                 symbol,
                 is_mutable,
                 binding_span,
+                binding_info_id: _,
             } => {
                 match ty {
                     Ty::Slice(_, is_mutable)

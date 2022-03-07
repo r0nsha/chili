@@ -35,23 +35,29 @@ pub fn do_build(build_options: BuildOptions) {
 
     let sw = Stopwatch::start_new("parse");
 
-    {
-        let mut ast_generator = AstGenerator::new(&mut workspace);
+    let asts = {
+        let mut generator = AstGenerator::new(&mut workspace);
 
-        if let Err(diagnostic) =
-            ast_generator.start(build_options.source_file.clone())
-        {
-            emit_single_diagnostic(
-                &ast_generator.workspace.lock().unwrap().files,
-                diagnostic,
-            );
-            return;
+        match generator.start(build_options.source_file.clone()) {
+            Ok(asts) => asts,
+            Err(diagnostic) => {
+                emit_single_diagnostic(
+                    &generator.workspace.lock().unwrap().files,
+                    diagnostic,
+                );
+                return;
+            }
         }
-    }
+    };
 
     sw.print();
 
     let sw = Stopwatch::start_new("resolve");
+
+    if let Err(diagnostic) = chili_resolve::resolve(&mut workspace, asts) {
+        emit_single_diagnostic(&workspace.files, diagnostic);
+        return;
+    }
 
     sw.print();
 

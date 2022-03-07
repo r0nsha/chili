@@ -1,8 +1,9 @@
-use crate::ast::{Ast, Binding, ForeignLibrary, Visibility};
+use crate::ast::{Ast, ForeignLibrary, Visibility};
 use chili_span::{FileId, Span};
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
 use std::{collections::HashSet, path::Path};
+use ustr::Ustr;
 
 pub struct Workspace<'w> {
     // Mapping from file id's to their source. Stored for diagnostics
@@ -51,9 +52,10 @@ impl<'w> Workspace<'w> {
 pub struct BindingInfo<'w> {
     pub id: BindingInfoId,
     pub module_id: ModuleId,
-    pub binding: Binding,
+    pub symbol: Ustr,
     pub visibility: Visibility,
     pub ty: Ty,
+    pub is_mutable: bool,
     pub level: BindingLevel,
     pub scope_name: &'w str,
     pub uses: usize,
@@ -69,17 +71,31 @@ impl<'w> Workspace<'w> {
     pub fn get_module(&self, id: ModuleId) -> Option<&Ast> {
         self.modules.get(id.0)
     }
+
+    pub fn add_binding_info(
+        &mut self,
+        binding_info: BindingInfo<'w>,
+    ) -> BindingInfoId {
+        self.binding_infos.push(binding_info);
+        BindingInfoId(self.binding_infos.len() - 1)
+    }
+
+    pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {
+        self.binding_infos.get(id.0)
+    }
 }
 
-macro_rules! id_struct {
-    ($id:ident) => {
-        #[derive(
-            Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy,
-        )]
-        pub struct $id(usize);
-    };
-}
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct ModuleId(pub usize);
 
-id_struct!(ModuleId);
-id_struct!(BindingInfoId);
-id_struct!(BindingLevel);
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct BindingInfoId(pub usize);
+
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct BindingLevel(pub usize);
+
+impl BindingLevel {
+    pub fn is_global(&self) -> bool {
+        self.0 == 1
+    }
+}

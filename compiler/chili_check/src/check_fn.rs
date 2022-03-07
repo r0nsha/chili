@@ -242,6 +242,7 @@ impl<'a> AnalysisContext<'a> {
                     let symbol = ustr("it");
 
                     let pattern = Pattern::Single(SymbolPattern {
+                        binding_info_id: Default::default(),
                         symbol,
                         alias: None,
                         span: span,

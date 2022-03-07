@@ -119,6 +119,7 @@ impl<'a> AnalysisContext<'a> {
         )?;
 
         Ok(Binding {
+            binding_info_id: binding.binding_info_id,
             kind: binding.kind,
             pattern: binding.pattern.clone(),
             ty_expr,

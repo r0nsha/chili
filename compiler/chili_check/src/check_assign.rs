@@ -193,6 +193,7 @@ fn check_lvalue_mutability_internal(
             symbol,
             is_mutable,
             binding_span,
+            binding_info_id: _,
         } => check_id(
             *symbol,
             *is_mutable,

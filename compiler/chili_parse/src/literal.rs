@@ -123,6 +123,7 @@ impl<'w> Parser<'w> {
                             symbol: id_token.symbol(),
                             is_mutable: false,
                             binding_span: Span::unknown(),
+                            binding_info_id: Default::default(),
                         },
                         id_token.span,
                     )

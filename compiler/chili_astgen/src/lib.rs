@@ -31,7 +31,7 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
         }
     }
 
-    pub fn start(&mut self, file_path: String) -> DiagnosticResult<()> {
+    pub fn start(&mut self, file_path: String) -> DiagnosticResult<Vec<Ast>> {
         let asts: RwLock<Vec<Ast>> = RwLock::default();
 
         let root_file_path = resolve_relative_path(
@@ -47,12 +47,7 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
 
         self.add_source_file(&asts, root_module_info, true)?;
 
-        let mut workspace = self.workspace.lock().unwrap();
-        for ast in asts.into_inner().unwrap() {
-            workspace.add_module(ast);
-        }
-
-        Ok(())
+        Ok(asts.into_inner().unwrap())
     }
 
     fn add_source_file(
@@ -161,6 +156,7 @@ fn add_intrinsic_module(
     );
 
     ast.imports.push(Import {
+        module_id: Default::default(),
         module_info: intrinsic_module_info,
         alias: intrinsic_module_info.name,
         import_path: vec![],

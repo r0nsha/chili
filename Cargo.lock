@@ -210,6 +210,7 @@ dependencies = [
  "chili_llvm",
  "chili_parse",
  "chili_pass",
+ "chili_resolve",
  "chili_span",
  "clap",
  "codespan",

@@ -102,6 +102,7 @@ impl<'w> Parser<'w> {
                                 // (type, ..)
                                 self.revert(1);
                                 let pattern = Pattern::Single(SymbolPattern {
+                                    binding_info_id: Default::default(),
                                     symbol: ustr(""),
                                     alias: None,
                                     span: Span::unknown(),

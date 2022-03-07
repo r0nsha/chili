@@ -3,6 +3,8 @@ use std::fmt::Display;
 use chili_span::Span;
 use ustr::Ustr;
 
+use crate::workspace::BindingInfoId;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
     Single(SymbolPattern),
@@ -73,6 +75,7 @@ impl Display for DestructorPattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SymbolPattern {
+    pub binding_info_id: BindingInfoId,
     pub symbol: Ustr,
     pub alias: Option<Ustr>,
     pub span: Span,

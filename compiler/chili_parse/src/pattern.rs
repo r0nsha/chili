@@ -99,6 +99,7 @@ impl<'w> Parser<'w> {
         };
 
         Ok(SymbolPattern {
+            binding_info_id: Default::default(),
             symbol,
             alias: None,
             is_mutable,
