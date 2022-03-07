@@ -52,7 +52,6 @@ pub struct BindingDef<'w> {
     binding: Binding,
     scope_level: ScopeLevel,
     scope_name: &'w str,
-    ty: Ty,
     uses: usize,
 }
 

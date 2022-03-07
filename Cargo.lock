@@ -119,7 +119,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chili_ast"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_error",
  "chili_span",
@@ -137,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "chili_astgen"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "chili_check"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -172,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "chili_error"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_span",
  "chili_ty",
@@ -183,7 +183,7 @@ dependencies = [
 
 [[package]]
 name = "chili_llvm"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "chili_main"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_astgen",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "chili_parse"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bitflags 1.3.2",
  "chili_ast",
@@ -243,7 +243,7 @@ dependencies = [
 
 [[package]]
 name = "chili_pass"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -260,14 +260,26 @@ dependencies = [
 [[package]]
 name = "chili_resolve"
 version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_parse",
+ "chili_span",
+ "chili_token",
+ "chili_ty",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "ustr",
+]
 
 [[package]]
 name = "chili_span"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "chili_token"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_error",
  "chili_span",
@@ -280,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "chili_ty"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_span",
  "common",
@@ -289,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "chili_typeck"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
@@ -348,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
