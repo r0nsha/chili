@@ -4,7 +4,7 @@ use chili_ast::{
     ast::{Ast, Binding},
     workspace::{BindingInfoId, BindingLevel, ModuleId, Workspace},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{DiagnosticResult, SyntaxError};
 use scope::Scope;
 use ustr::Ustr;
 
@@ -14,7 +14,7 @@ pub fn resolve<'w>(
 ) -> DiagnosticResult<()> {
     for ast in asts.iter_mut() {
         let mut resolver = Resolver {
-            module_id: Default::default(),
+            module_id: workspace.next_module_id(),
             scopes: Default::default(),
         };
 
@@ -180,12 +180,17 @@ impl<'w> Resolve<'w> for Binding {
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
         if resolver.in_global_scope() {
-            if workspace
+            if let Some(binding) = workspace
                 .binding_infos
                 .iter()
                 .find(|b| b.symbol == self.pattern.into_single().symbol)
-                .is_some()
-            {}
+            {
+                return Err(SyntaxError::duplicate_symbol(
+                    binding.span,
+                    self.pattern.span(),
+                    binding.symbol,
+                ));
+            }
         }
 
         Ok(())

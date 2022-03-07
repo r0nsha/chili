@@ -72,6 +72,10 @@ impl<'w> Workspace<'w> {
         self.modules.get(id.0)
     }
 
+    pub fn next_module_id(&self) -> ModuleId {
+        ModuleId(self.modules.len())
+    }
+
     pub fn add_binding_info(
         &mut self,
         binding_info: BindingInfo<'w>,
@@ -82,6 +86,10 @@ impl<'w> Workspace<'w> {
 
     pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {
         self.binding_infos.get(id.0)
+    }
+
+    pub fn next_binding_info_id(&self) -> BindingInfoId {
+        BindingInfoId(self.binding_infos.len())
     }
 }
 
