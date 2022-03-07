@@ -7,9 +7,7 @@ use chili_error::DiagnosticResult;
 use chili_parse::Parser;
 use chili_span::Span;
 use chili_token::{lexer::Lexer, TokenKind};
-use common::{
-    compiler_info::{self, IntrinsticModuleInfo},
-};
+use common::compiler_info::{self, IntrinsticModuleInfo};
 use crossbeam_utils::thread;
 use dashmap::DashSet;
 use std::{

@@ -25,7 +25,7 @@ pub struct Workspace<'w> {
     pub root_module: ModuleId,
 
     // Bindings resolved during name resolution
-    // BindingId -> BindingDef
+    // BindingInfoId -> BindingInfo
     pub binding_infos: Vec<BindingInfo<'w>>,
 
     // Foreign libraries needed to be linked. Resolved during name resolution
