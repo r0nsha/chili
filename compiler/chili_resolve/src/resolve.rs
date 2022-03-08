@@ -155,8 +155,11 @@ impl<'w> Resolve<'w> for ast::Expr {
                 iterator,
                 expr,
             } => {
-                // TODO: add iter_name
-                // TODO: add iter_index_name
+                // TODO: add iter_id
+                // TODO: add iter_ty
+                // TODO: add iter_index_id
+                // TODO: add iter_name to current scope
+                // TODO: add iter_index_name to current scope
 
                 match iterator {
                     ast::ForIter::Range(start, end) => {
