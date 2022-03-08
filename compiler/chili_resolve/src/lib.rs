@@ -2,11 +2,14 @@ mod scope;
 
 use chili_ast::{
     ast::{Ast, Binding},
-    workspace::{BindingInfoId, BindingLevel, ModuleId, Workspace},
+    workspace::{
+        BindingInfo, BindingInfoId, BindingLevel, ModuleId, Workspace,
+    },
 };
 use chili_error::{DiagnosticResult, SyntaxError};
+use chili_ty::Ty;
 use scope::Scope;
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 pub fn resolve<'w>(
     workspace: &mut Workspace<'w>,
@@ -46,7 +49,11 @@ impl Resolver {
     }
 
     fn push_scope(&mut self) {
-        self.scopes.push(Scope::new());
+        self.scopes.push(Scope::new("_"));
+    }
+
+    fn push_named_scope(&mut self, name: impl ToString) {
+        self.scopes.push(Scope::new(name));
     }
 
     fn pop_scope(&mut self) {
@@ -55,6 +62,10 @@ impl Resolver {
 
     fn current_binding_level(&mut self) -> BindingLevel {
         BindingLevel(self.scopes.len())
+    }
+
+    fn current_scope_name(&mut self) -> String {
+        "".to_string()
     }
 
     fn lookup_binding<'w>(
@@ -179,11 +190,14 @@ impl<'w> Resolve<'w> for Binding {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
+        // TODO: support other patterns
+        let pattern = self.pattern.into_single();
+
         if resolver.in_global_scope() {
             if let Some(binding) = workspace
                 .binding_infos
                 .iter()
-                .find(|b| b.symbol == self.pattern.into_single().symbol)
+                .find(|b| b.symbol == pattern.symbol)
             {
                 return Err(SyntaxError::duplicate_symbol(
                     binding.span,
@@ -193,6 +207,16 @@ impl<'w> Resolve<'w> for Binding {
             }
         }
 
+        workspace.add_binding_info(
+            resolver.module_id,
+            pattern.symbol,
+            self.visibility,
+            pattern.is_mutable,
+            resolver.current_binding_level(),
+            ustr(&resolver.current_scope_name()),
+            pattern.span,
+        );
+
         Ok(())
     }
 
@@ -201,6 +225,6 @@ impl<'w> Resolve<'w> for Binding {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        todo!()
+        Ok(())
     }
 }

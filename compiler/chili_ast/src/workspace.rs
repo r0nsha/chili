@@ -27,7 +27,7 @@ pub struct Workspace<'w> {
 
     // Bindings resolved during name resolution
     // BindingInfoId -> BindingInfo
-    pub binding_infos: Vec<BindingInfo<'w>>,
+    pub binding_infos: Vec<BindingInfo>,
 
     // Foreign libraries needed to be linked. Resolved during name resolution
     pub foreign_libraries: HashSet<ForeignLibrary>,
@@ -49,7 +49,7 @@ impl<'w> Workspace<'w> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct BindingInfo<'w> {
+pub struct BindingInfo {
     pub id: BindingInfoId,
     pub module_id: ModuleId,
     pub symbol: Ustr,
@@ -57,7 +57,7 @@ pub struct BindingInfo<'w> {
     pub ty: Ty,
     pub is_mutable: bool,
     pub level: BindingLevel,
-    pub scope_name: &'w str,
+    pub scope_name: Ustr,
     pub uses: usize,
     pub span: Span,
 }
@@ -78,10 +78,28 @@ impl<'w> Workspace<'w> {
 
     pub fn add_binding_info(
         &mut self,
-        binding_info: BindingInfo<'w>,
+        module_id: ModuleId,
+        symbol: Ustr,
+        visibility: Visibility,
+        is_mutable: bool,
+        level: BindingLevel,
+        scope_name: Ustr,
+        span: Span,
     ) -> BindingInfoId {
-        self.binding_infos.push(binding_info);
-        BindingInfoId(self.binding_infos.len() - 1)
+        let id = BindingInfoId(self.binding_infos.len());
+        self.binding_infos.push(BindingInfo {
+            id,
+            module_id,
+            symbol,
+            visibility,
+            ty: Ty::Unknown,
+            is_mutable,
+            level,
+            scope_name,
+            uses: 0,
+            span,
+        });
+        id
     }
 
     pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {

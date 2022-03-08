@@ -30,7 +30,6 @@ let main = fn {
     # printf("gcd: %d\n".data, gcd(13, 7))
 }
 
-
 let gcd = fn(mut a: int, mut b: int) -> int {
     while a != b {
         if a > b {
