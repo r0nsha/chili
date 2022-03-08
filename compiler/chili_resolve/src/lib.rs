@@ -1,7 +1,8 @@
+mod import;
 mod scope;
 
 use chili_ast::{
-    ast::{Ast, Binding},
+    ast::{Ast, Binding, Import, ModuleInfo},
     workspace::{
         BindingInfo, BindingInfoId, BindingLevel, ModuleId, Workspace,
     },
@@ -18,6 +19,7 @@ pub fn resolve<'w>(
     for ast in asts.iter_mut() {
         let mut resolver = Resolver {
             module_id: workspace.next_module_id(),
+            module_info: ast.module_info,
             scopes: Default::default(),
         };
 
@@ -36,6 +38,7 @@ pub fn resolve<'w>(
 
 struct Resolver {
     module_id: ModuleId,
+    module_info: ModuleInfo,
     scopes: Vec<Scope>,
 }
 
@@ -180,6 +183,48 @@ impl<'w> Resolve<'w> for Ast {
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
         self.bindings.define(resolver, workspace)?;
+        Ok(())
+    }
+}
+
+impl<'w> Resolve<'w> for Import {
+    fn declare(
+        &mut self,
+        resolver: &mut Resolver,
+        workspace: &mut Workspace<'w>,
+    ) -> DiagnosticResult<()> {
+        if resolver.in_global_scope() {
+            if let Some(binding) = workspace
+                .binding_infos
+                .iter()
+                .find(|b| b.symbol == self.alias)
+            {
+                return Err(SyntaxError::duplicate_symbol(
+                    binding.span,
+                    self.span,
+                    binding.symbol,
+                ));
+            }
+        }
+
+        workspace.add_import_binding_info(
+            resolver.module_id,
+            self.alias,
+            self.visibility,
+            resolver.current_binding_level(),
+            ustr(&resolver.current_scope_name()),
+            self.span,
+            self.clone(),
+        );
+
+        Ok(())
+    }
+
+    fn define(
+        &mut self,
+        resolver: &mut Resolver,
+        workspace: &mut Workspace<'w>,
+    ) -> DiagnosticResult<()> {
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use chili_ast::ast::{Import, ImportPathNode, Ir, Visibility};
+use chili_ast::ast::{Import, ImportPathNode, Ir};
 use chili_error::DiagnosticResult;
 use chili_span::Spanned;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -51,14 +51,13 @@ fn expand_glob_import(
             let mut symbols_to_import = vec![];
 
             for import in module.imports.iter() {
-                if !import.is_glob() && import.visibility != Visibility::Private
-                {
+                if !import.is_glob() && import.visibility.is_public() {
                     symbols_to_import.push((import.alias, import.visibility));
                 }
             }
 
             for binding in module.bindings.iter() {
-                if binding.visibility != Visibility::Private {
+                if binding.visibility.is_public() {
                     symbols_to_import.push((
                         binding.pattern.into_single().symbol,
                         binding.visibility,
@@ -75,6 +74,7 @@ fn expand_glob_import(
                         import.span().clone(),
                     ));
                     Import {
+                        module_id: import.module_id,
                         module_info: import.module_info,
                         alias: *symbol,
                         import_path,

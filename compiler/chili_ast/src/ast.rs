@@ -579,6 +579,22 @@ pub enum Visibility {
     Public,
 }
 
+impl Visibility {
+    pub fn is_private(&self) -> bool {
+        match self {
+            Visibility::Private => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_public(&self) -> bool {
+        match self {
+            Visibility::Public => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BinaryOp {
     Add,

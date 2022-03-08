@@ -1,4 +1,4 @@
-use c.?;
+use c.printf
 
 type Foo = { a: int, b: int }
 
