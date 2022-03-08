@@ -56,10 +56,18 @@ pub struct BindingInfo {
     pub visibility: Visibility,
     pub ty: Ty,
     pub is_mutable: bool,
+    pub kind: BindingInfoKind,
     pub level: BindingLevel,
     pub scope_name: Ustr,
     pub uses: usize,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum BindingInfoKind {
+    Let,
+    Type,
+    Import,
 }
 
 impl<'w> Workspace<'w> {
@@ -82,6 +90,7 @@ impl<'w> Workspace<'w> {
         symbol: Ustr,
         visibility: Visibility,
         is_mutable: bool,
+        kind: BindingInfoKind,
         level: BindingLevel,
         scope_name: Ustr,
         span: Span,
@@ -94,6 +103,7 @@ impl<'w> Workspace<'w> {
             visibility,
             ty: Ty::Unknown,
             is_mutable,
+            kind,
             level,
             scope_name,
             uses: 0,

@@ -38,7 +38,7 @@ impl<'a> AnalysisContext<'a> {
                 result.value.as_ref().map_or(false, |v| v.is_type());
 
             match &binding.kind {
-                BindingKind::Value => {
+                BindingKind::Let => {
                     if is_a_type {
                         return Err(TypeError::expected(
                             value.span,

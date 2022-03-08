@@ -1,7 +1,11 @@
 use crate::Resolver;
-use chili_ast::{ast, workspace::Workspace};
+use chili_ast::{
+    ast,
+    workspace::{BindingInfoKind, Workspace},
+};
 use chili_error::{DiagnosticResult, SyntaxError};
-use ustr::ustr;
+use chili_span::Span;
+use ustr::{ustr, Ustr};
 
 // Trait for declaring top level bindings/imports/etc...
 pub(crate) trait Declare<'w> {
@@ -54,6 +58,7 @@ impl<'w> Declare<'w> for ast::Ast {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
+        self.imports.declare(resolver, workspace)?;
         self.bindings.declare(resolver, workspace)?;
         Ok(())
     }
@@ -65,25 +70,16 @@ impl<'w> Declare<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        if resolver.in_global_scope() {
-            if let Some(binding) = workspace
-                .binding_infos
-                .iter()
-                .find(|b| b.symbol == self.alias)
-            {
-                return Err(SyntaxError::duplicate_symbol(
-                    binding.span,
-                    self.span,
-                    binding.symbol,
-                ));
-            }
-        }
+        check_duplicate_global_symbol(
+            resolver, workspace, self.alias, self.span,
+        )?;
 
         workspace.add_binding_info(
             resolver.module_id,
             self.alias,
             self.visibility,
             false,
+            BindingInfoKind::Import,
             resolver.current_binding_level(),
             ustr(&resolver.current_scope_name()),
             self.span,
@@ -99,28 +95,25 @@ impl<'w> Declare<'w> for ast::Binding {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        // TODO: support other patterns
+        // TODO: support destructor patterns
         let pattern = self.pattern.into_single();
 
-        if resolver.in_global_scope() {
-            if let Some(binding) = workspace
-                .binding_infos
-                .iter()
-                .find(|b| b.symbol == pattern.symbol)
-            {
-                return Err(SyntaxError::duplicate_symbol(
-                    binding.span,
-                    self.pattern.span(),
-                    binding.symbol,
-                ));
-            }
-        }
+        check_duplicate_global_symbol(
+            resolver,
+            workspace,
+            pattern.symbol,
+            pattern.span,
+        )?;
 
-        workspace.add_binding_info(
+        self.binding_info_id = workspace.add_binding_info(
             resolver.module_id,
             pattern.symbol,
             self.visibility,
             pattern.is_mutable,
+            match self.kind {
+                ast::BindingKind::Let => BindingInfoKind::Let,
+                ast::BindingKind::Type => BindingInfoKind::Type,
+            },
             resolver.current_binding_level(),
             ustr(&resolver.current_scope_name()),
             pattern.span,
@@ -128,4 +121,28 @@ impl<'w> Declare<'w> for ast::Binding {
 
         Ok(())
     }
+}
+
+fn check_duplicate_global_symbol<'w>(
+    resolver: &Resolver,
+    workspace: &Workspace<'w>,
+    symbol: Ustr,
+    span: Span,
+) -> DiagnosticResult<()> {
+    if resolver.in_global_scope() {
+        if let Some(binding) = workspace
+            .binding_infos
+            .iter()
+            .filter(|b| b.module_id == resolver.module_id)
+            .find(|b| b.symbol == symbol)
+        {
+            return Err(SyntaxError::duplicate_symbol(
+                binding.span,
+                span,
+                binding.symbol,
+            ));
+        }
+    }
+
+    Ok(())
 }

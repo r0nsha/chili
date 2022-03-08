@@ -8,7 +8,8 @@ use ustr::Ustr;
 pub(crate) struct Resolver {
     pub(crate) module_id: ModuleId,
     pub(crate) module_info: ModuleInfo,
-    scopes: Vec<Scope>,
+    pub(crate) scopes: Vec<Scope>,
+    pub(crate) function_scope: usize,
 }
 
 impl Resolver {
@@ -17,6 +18,7 @@ impl Resolver {
             module_id,
             module_info,
             scopes: Default::default(),
+            function_scope: Default::default(),
         }
     }
 
@@ -45,7 +47,11 @@ impl Resolver {
     }
 
     pub(crate) fn current_scope_name(&mut self) -> String {
-        "".to_string()
+        self.scopes
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect::<Vec<&str>>()
+            .join(".")
     }
 
     pub(crate) fn lookup_binding<'w>(

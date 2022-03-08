@@ -12,7 +12,7 @@ impl<'w> Parser<'w> {
         require_value: bool,
     ) -> DiagnosticResult<Binding> {
         match kind {
-            BindingKind::Value => {
+            BindingKind::Let => {
                 let pattern = self.parse_pattern()?;
 
                 let ty_expr = if eat!(self, Colon) {

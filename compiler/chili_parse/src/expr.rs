@@ -80,7 +80,7 @@ impl<'w> Parser<'w> {
                     ))
                 } else {
                     let binding = self.parse_binding(
-                        BindingKind::Value,
+                        BindingKind::Let,
                         Visibility::Private,
                         false,
                     )?;

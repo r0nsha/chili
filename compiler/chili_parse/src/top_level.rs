@@ -27,7 +27,7 @@ impl<'w> Parser<'w> {
             let binding = if eat!(self, Foreign) {
                 self.parse_foreign_single(visibility)?
             } else {
-                self.parse_binding(BindingKind::Value, visibility, true)?
+                self.parse_binding(BindingKind::Let, visibility, true)?
             };
 
             ast.bindings.push(binding);
