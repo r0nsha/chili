@@ -1,4 +1,4 @@
-use crate::ast::{Ast, ForeignLibrary, Import, Visibility};
+use crate::ast::{Ast, ForeignLibrary, Visibility};
 use chili_span::{FileId, Span};
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
@@ -60,7 +60,6 @@ pub struct BindingInfo {
     pub scope_name: Ustr,
     pub uses: usize,
     pub span: Span,
-    pub import_info: Option<Import>,
 }
 
 impl<'w> Workspace<'w> {
@@ -99,34 +98,6 @@ impl<'w> Workspace<'w> {
             scope_name,
             uses: 0,
             span,
-            import_info: None,
-        });
-        id
-    }
-
-    pub fn add_import_binding_info(
-        &mut self,
-        module_id: ModuleId,
-        symbol: Ustr,
-        visibility: Visibility,
-        level: BindingLevel,
-        scope_name: Ustr,
-        span: Span,
-        import: Import,
-    ) -> BindingInfoId {
-        let id = BindingInfoId(self.binding_infos.len());
-        self.binding_infos.push(BindingInfo {
-            id,
-            module_id,
-            symbol,
-            visibility,
-            ty: Ty::Unknown,
-            is_mutable: false,
-            level,
-            scope_name,
-            uses: 0,
-            span,
-            import_info: Some(import),
         });
         id
     }

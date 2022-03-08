@@ -207,14 +207,14 @@ impl<'w> Resolve<'w> for Import {
             }
         }
 
-        workspace.add_import_binding_info(
+        workspace.add_binding_info(
             resolver.module_id,
             self.alias,
             self.visibility,
+            false,
             resolver.current_binding_level(),
             ustr(&resolver.current_scope_name()),
             self.span,
-            self.clone(),
         );
 
         Ok(())
