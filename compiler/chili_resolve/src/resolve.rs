@@ -56,6 +56,7 @@ impl<'w> Resolve<'w> for ast::Ast {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
+        self.imports.resolve(resolver, workspace)?;
         self.bindings.resolve(resolver, workspace)?;
         Ok(())
     }
@@ -76,7 +77,8 @@ impl<'w> Resolve<'w> for ast::Import {
         );
 
         if !resolver.in_global_scope() {
-            // TODO: add self to current scope
+            // TODO: add self to current scope using
+            // TODO: `resolver.current_scope().add_binding(Kind::Import)`
         }
 
         Ok(())
@@ -93,7 +95,8 @@ impl<'w> Resolve<'w> for ast::Binding {
         self.value.resolve(resolver, workspace)?;
 
         if !resolver.in_global_scope() {
-            // TODO: add self to current scope
+            // TODO: add self to current scope using
+            // TODO: `resolver.current_scope().add_binding(Kind::Let/Type)`
         }
 
         Ok(())
