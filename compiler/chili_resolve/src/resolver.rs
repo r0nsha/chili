@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::scope::Scope;
+use crate::{import::ModuleExports, scope::Scope};
 use chili_ast::{
     ast::ModuleInfo,
     workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
@@ -8,6 +8,10 @@ use chili_ast::{
 use ustr::{Ustr, UstrMap};
 
 pub(crate) struct Resolver {
+    // All exports from all modules, used for resolving
+    // glob imports, i.e `foo.?`
+    pub(crate) exports: ModuleExports,
+
     // The current module's id and information
     pub(crate) module_id: ModuleId,
     pub(crate) module_info: ModuleInfo,
@@ -25,6 +29,7 @@ pub(crate) struct Resolver {
 impl Resolver {
     pub(crate) fn new() -> Self {
         Self {
+            exports: Default::default(),
             module_id: Default::default(),
             module_info: Default::default(),
             builtin_types: Default::default(),

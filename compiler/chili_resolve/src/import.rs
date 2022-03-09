@@ -1,41 +1,65 @@
-use chili_ast::ast::{Import, ImportPathNode, Ir};
-use chili_error::DiagnosticResult;
+use std::collections::HashMap;
+
+use chili_ast::{
+    ast::{Ast, Import, ImportPathNode},
+    workspace::ModuleId,
+};
 use chili_span::Spanned;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::Ustr;
 
-pub(super) fn expand_glob_imports(ir: &mut Ir) -> DiagnosticResult<()> {
-    let mut glob_imports = UstrMap::default();
+pub(crate) type ModuleExports = HashMap<ModuleId, Vec<Ustr>>;
 
-    for (module_name, module) in ir.modules.iter() {
-        let glob_imports = glob_imports.entry(*module_name).or_insert(vec![]);
-        for import in module.imports.iter() {
-            if import.is_glob() {
-                glob_imports.extend(expand_glob_import(
-                    ir,
-                    *module_name,
-                    import.clone(),
-                )?);
+pub(crate) fn collect_module_exports(asts: &Vec<Ast>) -> ModuleExports {
+    let mut exports: ModuleExports = Default::default();
+
+    for ast in asts.iter() {
+        let entry = exports.entry(ast.module_id).or_default();
+
+        for import in ast.imports.iter() {
+            if import.visibility.is_public() {
+                entry.push(import.alias);
+            }
+        }
+
+        for binding in ast.bindings.iter() {
+            if binding.visibility.is_public() {
+                // TODO: support destructor patterns
+                entry.push(binding.pattern.into_single().symbol);
             }
         }
     }
 
-    for (module_name, module) in ir.modules.iter_mut() {
-        module.imports.retain(|import| !import.is_glob());
-        let expanded_imports = glob_imports.get(module_name).unwrap().clone();
-        module.imports.extend(expanded_imports);
-    }
-
-    // TODO: I also need to expand use expressions
-
-    Ok(())
+    exports
 }
 
-fn expand_glob_import(
-    ir: &Ir,
-    module_name: Ustr,
-    mut import: Import,
-) -> DiagnosticResult<Vec<Import>> {
+pub(crate) fn expand_and_replace_glob_imports(
+    imports: &mut Vec<Import>,
+    exports: &ModuleExports,
+) {
+    let mut to_remove: Vec<usize> = vec![];
+    let mut to_add: Vec<Import> = vec![];
+
+    for (index, import) in imports.iter().enumerate() {
+        if !import.is_glob() {
+            continue;
+        }
+
+        let expanded_imports = expand_glob_import(import.clone(), exports);
+
+        to_remove.push(index);
+        to_add.extend(expanded_imports);
+    }
+
+    let mut removed = 0;
+    for index in to_remove {
+        imports.remove(index - removed);
+        removed += 1;
+    }
+
+    imports.extend(to_add);
+}
+
+fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
     // for a given use: `use foo.*`;
     // with symbols: A, B, C;
     // this function will expand this use to:
@@ -44,55 +68,23 @@ fn expand_glob_import(
     //      `use foo.C`
     //
 
-    import.import_path.pop();
-    let path = ustr(&import.import_path_str());
-    match ir.modules.get(&path) {
-        Some(module) => {
-            let mut symbols_to_import = vec![];
-
-            for import in module.imports.iter() {
-                if !import.is_glob() && import.visibility.is_public() {
-                    symbols_to_import.push((import.alias, import.visibility));
-                }
+    let exports = exports.get(&import.module_id).unwrap();
+    exports
+        .iter()
+        .map(|symbol| {
+            let mut import_path = import.import_path.clone();
+            import_path.push(Spanned::new(
+                ImportPathNode::Symbol(*symbol),
+                import.span().clone(),
+            ));
+            Import {
+                module_id: import.module_id,
+                module_info: import.module_info,
+                alias: *symbol,
+                import_path,
+                visibility: import.visibility,
+                span: import.span().clone(),
             }
-
-            for binding in module.bindings.iter() {
-                if binding.visibility.is_public() {
-                    symbols_to_import.push((
-                        binding.pattern.into_single().symbol,
-                        binding.visibility,
-                    ));
-                }
-            }
-
-            Ok(symbols_to_import
-                .iter()
-                .map(|(symbol, visibility)| {
-                    let mut import_path = import.import_path.clone();
-                    import_path.push(Spanned::new(
-                        ImportPathNode::Symbol(*symbol),
-                        import.span().clone(),
-                    ));
-                    Import {
-                        module_id: import.module_id,
-                        module_info: import.module_info,
-                        alias: *symbol,
-                        import_path,
-                        visibility: *visibility,
-                        span: import.span().clone(),
-                    }
-                })
-                .collect())
-        }
-        None => Err(Diagnostic::error()
-            .with_message(format!(
-                "cannot find path `{}` in module `{}`",
-                path, module_name,
-            ))
-            .with_labels(vec![Label::primary(
-                import.span.file_id,
-                import.span.range().clone(),
-            )
-            .with_message(format!("not found in `{}`", module_name))])),
-    }
+        })
+        .collect()
 }

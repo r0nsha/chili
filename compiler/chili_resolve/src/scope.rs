@@ -13,10 +13,6 @@ impl Scope {
             bindings: Default::default(),
         }
     }
-
-    pub fn clear(&mut self) {
-        self.bindings.clear();
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

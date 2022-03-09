@@ -1,7 +1,7 @@
 use crate::{scope::ScopeSymbol, Resolver};
 use chili_ast::{
     ast,
-    workspace::{BindingInfoKind, Workspace},
+    workspace::{BindingInfoKind, ModuleId, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;

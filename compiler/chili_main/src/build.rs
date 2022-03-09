@@ -61,6 +61,10 @@ pub fn do_build(build_options: BuildOptions) {
 
     sw.print();
 
+    for ast in asts {
+        ast.print();
+    }
+
     // let sw = Stopwatch::start_new("lower");
 
     // let ir = match chili_pass::gen_ir(asts, workspace.files.clone()) {
@@ -73,7 +77,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     // sw.print();
 
-    // // ir.print();
+    // ir.print();
 
     // let sw = Stopwatch::start_new("analyze");
 

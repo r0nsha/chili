@@ -68,15 +68,10 @@ impl<'w> Resolve<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        self.module_id = ModuleId(
-            workspace
-                .module_infos
-                .iter()
-                .position(|m| *m == self.module_info)
-                .unwrap(),
-        );
-
         if !resolver.in_global_scope() {
+            // import.module_id =
+            //     workspace.find_module_info(ast.module_info).unwrap();
+
             // TODO: add binding info to workspace
             // TODO: assign id to binding
             // TODO: add self to current scope using

@@ -85,6 +85,16 @@ impl<'w> Workspace<'w> {
         self.module_infos.get(id.0)
     }
 
+    pub fn find_module_info(
+        &self,
+        module_info: ModuleInfo,
+    ) -> Option<ModuleId> {
+        self.module_infos
+            .iter()
+            .position(|m| *m == module_info)
+            .map(|i| ModuleId(i))
+    }
+
     pub fn add_module(&mut self, ast: Ast) -> ModuleId {
         self.modules.push(ast);
         ModuleId(self.modules.len() - 1)

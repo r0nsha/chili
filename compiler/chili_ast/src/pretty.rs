@@ -1,5 +1,5 @@
 use crate::ast::{
-    ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn,
+    ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn,
     ForIter, Ir, LiteralKind, Proto,
 };
 use ptree::{
@@ -42,6 +42,50 @@ impl Ir {
 
             b.end_child();
         }
+
+        let tree = b.build();
+
+        print_tree_with(&tree, &config).expect("error printing ir tree");
+
+        println!();
+    }
+}
+
+impl Ast {
+    pub fn print(&self) {
+        let config = {
+            let mut config = PrintConfig::from_env();
+            config.branch = Style {
+                foreground: Some(Color::Green),
+                dimmed: true,
+                ..Style::default()
+            };
+            config.leaf = Style {
+                bold: true,
+                ..Style::default()
+            };
+            config.characters = UTF_CHARS_BOLD.into();
+            config.indent = 3;
+            config
+        };
+
+        let mut b = TreeBuilder::new("program".to_string());
+
+        b.begin_child(format!(
+            "module '{}' ({})",
+            self.module_info.name, self.module_info.file_path
+        ));
+
+        for import in self.imports.iter() {
+            b.add_empty_child(format!(
+                "use {} as {}",
+                import.module_info.name, import.alias
+            ));
+        }
+
+        self.bindings.build(&mut b);
+
+        b.end_child();
 
         let tree = b.build();
 
