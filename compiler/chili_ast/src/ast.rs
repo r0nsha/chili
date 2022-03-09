@@ -16,6 +16,7 @@ use ustr::{ustr, UstrMap};
 
 #[derive(Clone)]
 pub struct Ast {
+    pub module_id: ModuleId,
     pub module_info: ModuleInfo,
     pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
@@ -25,6 +26,7 @@ pub struct Ast {
 impl Ast {
     pub fn new(module_info: ModuleInfo) -> Self {
         Self {
+            module_id: Default::default(),
             module_info,
             imports: Default::default(),
             bindings: Default::default(),

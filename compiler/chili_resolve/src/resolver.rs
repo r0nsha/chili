@@ -1,15 +1,23 @@
+use std::collections::HashMap;
+
 use crate::scope::Scope;
 use chili_ast::{
     ast::ModuleInfo,
     workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
-use ustr::Ustr;
+use ustr::{Ustr, UstrMap};
 
 pub(crate) struct Resolver {
+    // The current module's id and information
     pub(crate) module_id: ModuleId,
     pub(crate) module_info: ModuleInfo,
-    pub(crate) global_scope: Scope,
+
+    // Symbols maps / Scopes
+    pub(crate) builtin_types: UstrMap<BindingInfoId>,
+    pub(crate) global_scopes: HashMap<ModuleId, Scope>,
     pub(crate) scopes: Vec<Scope>,
+
+    // Scope information
     pub(crate) scope_level: ScopeLevel,
     pub(crate) function_scope_level: ScopeLevel,
 }
@@ -19,7 +27,8 @@ impl Resolver {
         Self {
             module_id: Default::default(),
             module_info: Default::default(),
-            global_scope: Scope::new(""),
+            builtin_types: Default::default(),
+            global_scopes: Default::default(),
             scopes: vec![],
             scope_level: ScopeLevel::Global,
             function_scope_level: ScopeLevel::Global,
@@ -30,8 +39,20 @@ impl Resolver {
         self.scope_level.is_global()
     }
 
-    pub(crate) fn current_scope(&mut self) -> &mut Scope {
-        self.scopes.last_mut().unwrap()
+    pub(crate) fn current_scope(&self) -> &Scope {
+        if self.scopes.is_empty() {
+            self.global_scopes.get(&self.module_id).unwrap()
+        } else {
+            self.scopes.last().unwrap()
+        }
+    }
+
+    pub(crate) fn current_scope_mut(&mut self) -> &mut Scope {
+        if self.scopes.is_empty() {
+            self.global_scopes.get_mut(&self.module_id).unwrap()
+        } else {
+            self.scopes.last_mut().unwrap()
+        }
     }
 
     pub(crate) fn push_scope(&mut self) {
@@ -49,11 +70,18 @@ impl Resolver {
     }
 
     pub(crate) fn current_scope_name(&mut self) -> String {
-        self.scopes
+        let scopes_str = self
+            .scopes
             .iter()
             .map(|s| s.name.as_str())
             .collect::<Vec<&str>>()
-            .join(".")
+            .join(".");
+
+        if self.module_info.name.is_empty() {
+            scopes_str
+        } else {
+            format!("{}.{}", self.module_info.name, scopes_str)
+        }
     }
 
     pub(crate) fn lookup_binding<'w>(
@@ -66,6 +94,16 @@ impl Resolver {
                 workspace.binding_infos[symbol.id.0].uses += 1;
                 return Some(symbol.id);
             }
+        }
+
+        let global_scope = self.global_scopes.get(&self.module_id).unwrap();
+        if let Some(symbol) = global_scope.bindings.get(&symbol) {
+            workspace.binding_infos[symbol.id.0].uses += 1;
+            return Some(symbol.id);
+        }
+
+        if let Some(id) = self.builtin_types.get(&symbol) {
+            return Some(*id);
         }
 
         None

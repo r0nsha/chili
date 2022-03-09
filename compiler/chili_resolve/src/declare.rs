@@ -86,7 +86,7 @@ impl<'w> Declare<'w> for ast::Import {
         );
 
         resolver
-            .global_scope
+            .current_scope_mut()
             .bindings
             .insert(self.alias, ScopeSymbol::persistent(id));
 
@@ -124,7 +124,7 @@ impl<'w> Declare<'w> for ast::Binding {
             pattern.span,
         );
 
-        resolver.global_scope.bindings.insert(
+        resolver.current_scope_mut().bindings.insert(
             pattern.symbol,
             ScopeSymbol::persistent(self.binding_info_id),
         );
@@ -139,13 +139,14 @@ fn check_duplicate_global_symbol<'w>(
     symbol: Ustr,
     span: Span,
 ) -> DiagnosticResult<()> {
-    match resolver.global_scope.bindings.get(&symbol) {
+    match resolver.current_scope().bindings.get(&symbol) {
         Some(symbol) => {
             if symbol.is_shadowable() {
                 Ok(())
             } else {
                 let binding_info =
                     workspace.get_binding_info(symbol.id).unwrap();
+
                 Err(SyntaxError::duplicate_symbol(
                     binding_info.span,
                     span,
