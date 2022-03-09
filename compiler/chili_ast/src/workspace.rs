@@ -1,4 +1,4 @@
-use crate::ast::{Ast, ForeignLibrary, Visibility};
+use crate::ast::{Ast, ForeignLibrary, ModuleInfo, Visibility};
 use chili_span::{FileId, Span};
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
@@ -17,6 +17,10 @@ pub struct Workspace<'w> {
 
     // Std library's root directory
     pub std_dir: &'w Path,
+
+    // Parsed modules/trees info. Resolved during ast generation
+    // ModuleId -> ModuleInfo
+    pub module_infos: Vec<ModuleInfo>,
 
     // Parsed modules/trees, aka Ast's. Resolved during ast generation
     // ModuleId -> Ast
@@ -40,6 +44,7 @@ impl<'w> Workspace<'w> {
             root_file_id: Default::default(),
             root_dir,
             std_dir,
+            module_infos: Default::default(),
             modules: Default::default(),
             root_module: Default::default(),
             binding_infos: Default::default(),
@@ -57,7 +62,7 @@ pub struct BindingInfo {
     pub ty: Ty,
     pub is_mutable: bool,
     pub kind: BindingInfoKind,
-    pub level: BindingLevel,
+    pub level: ScopeLevel,
     pub scope_name: Ustr,
     pub uses: usize,
     pub span: Span,
@@ -71,6 +76,15 @@ pub enum BindingInfoKind {
 }
 
 impl<'w> Workspace<'w> {
+    pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {
+        self.module_infos.push(module_info);
+        ModuleId(self.module_infos.len() - 1)
+    }
+
+    pub fn get_module_info(&self, id: ModuleId) -> Option<&ModuleInfo> {
+        self.module_infos.get(id.0)
+    }
+
     pub fn add_module(&mut self, ast: Ast) -> ModuleId {
         self.modules.push(ast);
         ModuleId(self.modules.len() - 1)
@@ -80,10 +94,6 @@ impl<'w> Workspace<'w> {
         self.modules.get(id.0)
     }
 
-    pub fn next_module_id(&self) -> ModuleId {
-        ModuleId(self.modules.len())
-    }
-
     pub fn add_binding_info(
         &mut self,
         module_id: ModuleId,
@@ -91,7 +101,32 @@ impl<'w> Workspace<'w> {
         visibility: Visibility,
         is_mutable: bool,
         kind: BindingInfoKind,
-        level: BindingLevel,
+        level: ScopeLevel,
+        scope_name: Ustr,
+        span: Span,
+    ) -> BindingInfoId {
+        self.add_typed_binding_info(
+            module_id,
+            symbol,
+            visibility,
+            Ty::Unknown,
+            is_mutable,
+            kind,
+            level,
+            scope_name,
+            span,
+        )
+    }
+
+    pub fn add_typed_binding_info(
+        &mut self,
+        module_id: ModuleId,
+        symbol: Ustr,
+        visibility: Visibility,
+        ty: Ty,
+        is_mutable: bool,
+        kind: BindingInfoKind,
+        level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
     ) -> BindingInfoId {
@@ -101,7 +136,7 @@ impl<'w> Workspace<'w> {
             module_id,
             symbol,
             visibility,
-            ty: Ty::Unknown,
+            ty,
             is_mutable,
             kind,
             level,
@@ -124,14 +159,61 @@ impl<'w> Workspace<'w> {
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct ModuleId(pub usize);
 
+impl ModuleId {
+    pub fn invalid() -> Self {
+        Self(usize::MAX)
+    }
+}
+
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct BindingInfoId(pub usize);
 
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BindingLevel(pub usize);
+impl BindingInfoId {
+    pub fn invalid() -> Self {
+        Self(usize::MAX)
+    }
+}
 
-impl BindingLevel {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub enum ScopeLevel {
+    Global,
+    Scope(usize),
+}
+
+impl ScopeLevel {
     pub fn is_global(&self) -> bool {
-        self.0 == 1
+        match self {
+            ScopeLevel::Global => true,
+            _ => false,
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        match self {
+            ScopeLevel::Global => 0,
+            ScopeLevel::Scope(i) => *i,
+        }
+    }
+
+    pub fn next(&self) -> ScopeLevel {
+        match self {
+            ScopeLevel::Global => ScopeLevel::Scope(1),
+            ScopeLevel::Scope(i) => ScopeLevel::Scope(*i + 1),
+        }
+    }
+
+    pub fn previous(&self) -> ScopeLevel {
+        match self {
+            ScopeLevel::Global => {
+                panic!("tried to go to previous scope from global scope")
+            }
+            ScopeLevel::Scope(i) => {
+                if *i == 1 {
+                    ScopeLevel::Global
+                } else {
+                    ScopeLevel::Scope(*i - 1)
+                }
+            }
+        }
     }
 }

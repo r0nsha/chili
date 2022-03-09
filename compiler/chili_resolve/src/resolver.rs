@@ -1,29 +1,33 @@
 use crate::scope::Scope;
 use chili_ast::{
     ast::ModuleInfo,
-    workspace::{BindingInfoId, BindingLevel, ModuleId, Workspace},
+    workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
 use ustr::Ustr;
 
 pub(crate) struct Resolver {
     pub(crate) module_id: ModuleId,
     pub(crate) module_info: ModuleInfo,
+    pub(crate) global_scope: Scope,
     pub(crate) scopes: Vec<Scope>,
-    pub(crate) function_scope: usize,
+    pub(crate) scope_level: ScopeLevel,
+    pub(crate) function_scope_level: ScopeLevel,
 }
 
 impl Resolver {
-    pub(crate) fn new(module_id: ModuleId, module_info: ModuleInfo) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            module_id,
-            module_info,
-            scopes: Default::default(),
-            function_scope: Default::default(),
+            module_id: Default::default(),
+            module_info: Default::default(),
+            global_scope: Scope::new(""),
+            scopes: vec![],
+            scope_level: ScopeLevel::Global,
+            function_scope_level: ScopeLevel::Global,
         }
     }
 
     pub(crate) fn in_global_scope(&self) -> bool {
-        self.scopes.len() == 1
+        self.scope_level.is_global()
     }
 
     pub(crate) fn current_scope(&mut self) -> &mut Scope {
@@ -31,19 +35,17 @@ impl Resolver {
     }
 
     pub(crate) fn push_scope(&mut self) {
-        self.scopes.push(Scope::new("_"));
+        self.push_named_scope("_");
     }
 
     pub(crate) fn push_named_scope(&mut self, name: impl ToString) {
         self.scopes.push(Scope::new(name));
+        self.scope_level = self.scope_level.next();
     }
 
     pub(crate) fn pop_scope(&mut self) {
         self.scopes.pop();
-    }
-
-    pub(crate) fn current_binding_level(&mut self) -> BindingLevel {
-        BindingLevel(self.scopes.len())
+        self.scope_level = self.scope_level.previous();
     }
 
     pub(crate) fn current_scope_name(&mut self) -> String {
@@ -60,9 +62,9 @@ impl Resolver {
         symbol: Ustr,
     ) -> Option<BindingInfoId> {
         for scope in self.scopes.iter().rev() {
-            if let Some(id) = scope.bindings.get(&symbol) {
-                workspace.binding_infos[id.0].uses += 1;
-                return Some(*id);
+            if let Some(symbol) = scope.bindings.get(&symbol) {
+                workspace.binding_infos[symbol.id.0].uses += 1;
+                return Some(symbol.id);
             }
         }
 

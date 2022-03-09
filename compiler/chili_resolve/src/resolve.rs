@@ -70,13 +70,15 @@ impl<'w> Resolve<'w> for ast::Import {
     ) -> DiagnosticResult<()> {
         self.module_id = ModuleId(
             workspace
-                .modules
+                .module_infos
                 .iter()
-                .position(|m| m.module_info == self.module_info)
+                .position(|m| *m == self.module_info)
                 .unwrap(),
         );
 
         if !resolver.in_global_scope() {
+            // TODO: add binding info to workspace
+            // TODO: assign id to binding
             // TODO: add self to current scope using
             // TODO: `resolver.current_scope().add_binding(Kind::Import)`
         }
@@ -95,6 +97,8 @@ impl<'w> Resolve<'w> for ast::Binding {
         self.value.resolve(resolver, workspace)?;
 
         if !resolver.in_global_scope() {
+            // TODO: add binding info to workspace
+            // TODO: assign id to binding
             // TODO: add self to current scope using
             // TODO: `resolver.current_scope().add_binding(Kind::Let/Type)`
         }
@@ -304,7 +308,7 @@ impl<'w> Resolve<'w> for ast::Fn {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        let old_scope = resolver.function_scope;
+        let old_scope_level = resolver.function_scope_level;
 
         // TODO: add parameters to current scope
         // TODO: check duplicate parameters
@@ -316,12 +320,12 @@ impl<'w> Resolve<'w> for ast::Fn {
         self.proto.ret.resolve(resolver, workspace)?;
 
         resolver.push_named_scope(self.proto.name);
-        resolver.function_scope = resolver.current_binding_level().0;
+        resolver.function_scope_level = resolver.scope_level;
 
         self.body.resolve(resolver, workspace)?;
 
         resolver.pop_scope();
-        resolver.function_scope = old_scope;
+        resolver.function_scope_level = old_scope_level;
 
         Ok(())
     }

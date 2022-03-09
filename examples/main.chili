@@ -19,6 +19,8 @@ let main = fn {
 
     5
 
+    printf("bee: %d\n".data, bee)
+
     let yep = true
 
     if yep {

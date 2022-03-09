@@ -1,10 +1,15 @@
+mod builtin;
 mod declare;
 mod import;
 mod resolve;
 mod resolver;
 mod scope;
 
-use chili_ast::{ast::Ast, workspace::Workspace};
+use builtin::add_builtin_types;
+use chili_ast::{
+    ast::Ast,
+    workspace::{ModuleId, Workspace},
+};
 use chili_error::DiagnosticResult;
 use declare::Declare;
 use resolve::Resolve;
@@ -14,18 +19,34 @@ pub fn resolve<'w>(
     workspace: &mut Workspace<'w>,
     mut asts: Vec<Ast>,
 ) -> DiagnosticResult<()> {
-    for ast in asts.iter_mut() {
-        let mut resolver =
-            Resolver::new(workspace.next_module_id(), ast.module_info);
+    let mut resolver = Resolver::new();
 
-        resolver.push_scope();
+    add_builtin_types(workspace, &mut resolver.global_scope);
+
+    for ast in asts.iter_mut() {
+        let module_id = workspace.add_module_info(ast.module_info);
+
+        resolver.module_id = module_id;
+        resolver.module_info = ast.module_info;
 
         ast.declare(&mut resolver, workspace)?;
+    }
+
+    for ast in asts.iter_mut() {
+        let module_id = ModuleId(
+            workspace
+                .module_infos
+                .iter()
+                .position(|m| *m == ast.module_info)
+                .unwrap(),
+        );
+
+        resolver.module_id = module_id;
+        resolver.module_info = ast.module_info;
+
         ast.resolve(&mut resolver, workspace)?;
 
         workspace.add_module(ast.clone());
-
-        resolver.pop_scope();
     }
 
     Ok(())

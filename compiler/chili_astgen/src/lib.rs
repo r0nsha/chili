@@ -107,7 +107,7 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
                 .to_string(),
         );
 
-        let parse_result = parser.parse()?;
+        let mut parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
         // add_intrinsic_std_import(

@@ -1,4 +1,4 @@
-use crate::Resolver;
+use crate::{scope::ScopeSymbol, Resolver};
 use chili_ast::{
     ast,
     workspace::{BindingInfoKind, Workspace},
@@ -74,16 +74,21 @@ impl<'w> Declare<'w> for ast::Import {
             resolver, workspace, self.alias, self.span,
         )?;
 
-        workspace.add_binding_info(
+        let id = workspace.add_binding_info(
             resolver.module_id,
             self.alias,
             self.visibility,
             false,
             BindingInfoKind::Import,
-            resolver.current_binding_level(),
+            resolver.scope_level,
             ustr(&resolver.current_scope_name()),
             self.span,
         );
+
+        resolver
+            .global_scope
+            .bindings
+            .insert(self.alias, ScopeSymbol::persistent(id));
 
         Ok(())
     }
@@ -114,9 +119,14 @@ impl<'w> Declare<'w> for ast::Binding {
                 ast::BindingKind::Let => BindingInfoKind::Let,
                 ast::BindingKind::Type => BindingInfoKind::Type,
             },
-            resolver.current_binding_level(),
+            resolver.scope_level,
             ustr(&resolver.current_scope_name()),
             pattern.span,
+        );
+
+        resolver.global_scope.bindings.insert(
+            pattern.symbol,
+            ScopeSymbol::persistent(self.binding_info_id),
         );
 
         Ok(())
@@ -129,20 +139,20 @@ fn check_duplicate_global_symbol<'w>(
     symbol: Ustr,
     span: Span,
 ) -> DiagnosticResult<()> {
-    if resolver.in_global_scope() {
-        if let Some(binding) = workspace
-            .binding_infos
-            .iter()
-            .filter(|b| b.module_id == resolver.module_id)
-            .find(|b| b.symbol == symbol)
-        {
-            return Err(SyntaxError::duplicate_symbol(
-                binding.span,
-                span,
-                binding.symbol,
-            ));
+    match resolver.global_scope.bindings.get(&symbol) {
+        Some(symbol) => {
+            if symbol.is_shadowable() {
+                Ok(())
+            } else {
+                let binding_info =
+                    workspace.get_binding_info(symbol.id).unwrap();
+                Err(SyntaxError::duplicate_symbol(
+                    binding_info.span,
+                    span,
+                    binding_info.symbol,
+                ))
+            }
         }
+        None => Ok(()),
     }
-
-    Ok(())
 }
