@@ -70,7 +70,7 @@ impl<'w> Resolve<'w> for ast::Import {
     ) -> DiagnosticResult<()> {
         if !resolver.in_global_scope() {
             // import.module_id =
-            //     workspace.find_module_info(ast.module_info).unwrap();
+            //     workspace.find_module_info(import.module_info).unwrap();
 
             // TODO: add binding info to workspace
             // TODO: assign id to binding

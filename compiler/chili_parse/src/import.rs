@@ -237,10 +237,13 @@ impl<'w> Parser<'w> {
 
         let path_str = path.to_str().unwrap();
 
+        const DOT: &str = ".";
         path_str
+            .trim_start_matches(DOT)
+            .trim_end_matches(DOT)
             .replace(self.root_dir.to_str().unwrap(), "")
             .replace(&std_root_dir, "")
-            .replace(std::path::MAIN_SEPARATOR, ".")
+            .replace(std::path::MAIN_SEPARATOR, DOT)
     }
 }
 

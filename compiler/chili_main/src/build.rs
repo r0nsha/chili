@@ -61,7 +61,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     sw.print();
 
-    for ast in asts {
+    for ast in workspace.modules.iter() {
         ast.print();
     }
 

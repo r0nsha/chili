@@ -5,10 +5,7 @@ mod resolve;
 mod resolver;
 mod scope;
 
-use chili_ast::{
-    ast::Ast,
-    workspace::{ModuleId, Workspace},
-};
+use chili_ast::{ast::Ast, workspace::Workspace};
 use chili_error::DiagnosticResult;
 use declare::Declare;
 use import::{collect_module_exports, expand_and_replace_glob_imports};
@@ -37,7 +34,7 @@ pub fn resolve<'w>(
     for ast in asts.iter_mut() {
         for import in ast.imports.iter_mut() {
             import.module_id =
-                workspace.find_module_info(ast.module_info).unwrap();
+                workspace.find_module_info(import.module_info).unwrap();
         }
     }
 
