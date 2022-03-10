@@ -1,8 +1,7 @@
 use crate::Resolver;
 use chili_ast::{
-    ast::{self, BindingKind, Visibility},
-    pattern::Pattern,
-    workspace::{ModuleId, Workspace},
+    ast::{self, BindingKind, ForeignLibrary, Visibility},
+    workspace::Workspace,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -93,6 +92,15 @@ impl<'w> Resolve<'w> for ast::Binding {
     ) -> DiagnosticResult<()> {
         self.ty_expr.resolve(resolver, workspace)?;
         self.value.resolve(resolver, workspace)?;
+
+        // Collect foreign libraries to be linked later
+        if let Some(lib) = self.lib_name {
+            workspace.foreign_libraries.insert(ForeignLibrary::from_str(
+                &lib,
+                resolver.module_info.file_path,
+                self.pattern.span(),
+            )?);
+        }
 
         if !resolver.in_global_scope() {
             resolver.add_binding_with_pattern(
@@ -257,7 +265,6 @@ impl<'w> Resolve<'w> for ast::Expr {
             ast::ExprKind::StructLiteral { type_expr, fields } => {
                 type_expr.resolve(resolver, workspace)?;
 
-                // TODO: check there are no duplicate fields
                 for field in fields {
                     field.value.resolve(resolver, workspace)?;
                 }
@@ -275,8 +282,20 @@ impl<'w> Resolve<'w> for ast::Expr {
                 inner.resolve(resolver, workspace)?;
             }
             ast::ExprKind::StructType(typ) => {
+                let mut field_map = UstrMap::default();
+
                 for field in typ.fields.iter_mut() {
                     field.ty.resolve(resolver, workspace)?;
+
+                    if let Some(already_defined_span) =
+                        field_map.insert(field.name, field.span)
+                    {
+                        return Err(SyntaxError::duplicate_symbol(
+                            already_defined_span,
+                            field.span,
+                            field.name,
+                        ));
+                    }
                 }
             }
             ast::ExprKind::FnType(proto) => {
@@ -323,8 +342,7 @@ impl<'w> Resolve<'w> for ast::Fn {
     ) -> DiagnosticResult<()> {
         let old_scope_level = resolver.function_scope_level;
 
-        // TODO: check duplicate parameters
-        let mut param_name_map = UstrMap::default();
+        let mut param_map = UstrMap::default();
 
         for param in self.proto.params.iter_mut() {
             param.ty.resolve(resolver, workspace)?;
@@ -339,7 +357,7 @@ impl<'w> Resolve<'w> for ast::Fn {
 
             for pat in param.pattern.symbols() {
                 if let Some(already_defined_span) =
-                    param_name_map.insert(pat.symbol, pat.span)
+                    param_map.insert(pat.symbol, pat.span)
                 {
                     return Err(SyntaxError::duplicate_symbol(
                         already_defined_span,
