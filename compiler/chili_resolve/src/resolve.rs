@@ -1,9 +1,12 @@
 use crate::Resolver;
 use chili_ast::{
-    ast,
+    ast::{self, BindingKind, Visibility},
+    pattern::Pattern,
     workspace::{ModuleId, Workspace},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{DiagnosticResult, SyntaxError};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use ustr::UstrMap;
 
 // Trait for resolving binding/import uses
 pub(crate) trait Resolve<'w> {
@@ -92,10 +95,13 @@ impl<'w> Resolve<'w> for ast::Binding {
         self.value.resolve(resolver, workspace)?;
 
         if !resolver.in_global_scope() {
-            // TODO: add binding info to workspace
-            // TODO: assign id to binding
-            // TODO: add self to current scope using
-            // TODO: `resolver.current_scope().add_binding(Kind::Let/Type)`
+            resolver.add_binding_with_pattern(
+                workspace,
+                &mut self.pattern,
+                self.visibility,
+                self.kind,
+                false,
+            );
         }
 
         Ok(())
@@ -221,9 +227,21 @@ impl<'w> Resolve<'w> for ast::Expr {
                 is_mutable: _,
                 binding_span: _,
                 binding_info_id,
-            } => {
-                // TODO: resolve here!
-            }
+            } => match resolver.lookup_binding(workspace, *symbol) {
+                Some(id) => *binding_info_id = id,
+                None => {
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "cannot find value `{}` in this scope",
+                            symbol
+                        ))
+                        .with_labels(vec![Label::primary(
+                            self.span.file_id,
+                            self.span.range(),
+                        )
+                        .with_message("not found in this scope")]))
+                }
+            },
             ast::ExprKind::ArrayLiteral(kind) => match kind {
                 ast::ArrayLiteralKind::List(list) => {
                     list.resolve(resolver, workspace)?;
@@ -305,11 +323,31 @@ impl<'w> Resolve<'w> for ast::Fn {
     ) -> DiagnosticResult<()> {
         let old_scope_level = resolver.function_scope_level;
 
-        // TODO: add parameters to current scope
         // TODO: check duplicate parameters
-        // TODO: support destructor patterns
+        let mut param_name_map = UstrMap::default();
+
         for param in self.proto.params.iter_mut() {
             param.ty.resolve(resolver, workspace)?;
+
+            resolver.add_binding_with_pattern(
+                workspace,
+                &mut param.pattern,
+                Visibility::Private,
+                BindingKind::Let,
+                false,
+            );
+
+            for pat in param.pattern.symbols() {
+                if let Some(already_defined_span) =
+                    param_name_map.insert(pat.symbol, pat.span)
+                {
+                    return Err(SyntaxError::duplicate_symbol(
+                        already_defined_span,
+                        pat.span,
+                        pat.symbol,
+                    ));
+                }
+            }
         }
 
         self.proto.ret.resolve(resolver, workspace)?;

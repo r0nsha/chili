@@ -1,7 +1,7 @@
 use crate::{scope::ScopeSymbol, Resolver};
 use chili_ast::{
     ast,
-    workspace::{BindingInfoKind, ModuleId, Workspace},
+    workspace::{BindingInfoKind, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
@@ -100,33 +100,20 @@ impl<'w> Declare<'w> for ast::Binding {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        // TODO: support destructor patterns
-        let pattern = self.pattern.into_single();
+        // TODO: support global destructor patterns
+
+        let pat = self.pattern.into_single_mut();
 
         check_duplicate_global_symbol(
-            resolver,
-            workspace,
-            pattern.symbol,
-            pattern.span,
+            resolver, workspace, pat.symbol, pat.span,
         )?;
 
-        self.binding_info_id = workspace.add_binding_info(
-            resolver.module_id,
-            pattern.symbol,
+        pat.binding_info_id = resolver.add_binding_with_symbol_pattern(
+            workspace,
+            pat,
             self.visibility,
-            pattern.is_mutable,
-            match self.kind {
-                ast::BindingKind::Let => BindingInfoKind::Let,
-                ast::BindingKind::Type => BindingInfoKind::Type,
-            },
-            resolver.scope_level,
-            ustr(&resolver.current_scope_name()),
-            pattern.span,
-        );
-
-        resolver.current_scope_mut().bindings.insert(
-            pattern.symbol,
-            ScopeSymbol::persistent(self.binding_info_id),
+            self.kind,
+            false,
         );
 
         Ok(())

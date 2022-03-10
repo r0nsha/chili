@@ -1,9 +1,7 @@
-use std::fmt::Display;
-
-use chili_span::Span;
-use ustr::Ustr;
-
 use crate::workspace::BindingInfoId;
+use chili_span::Span;
+use std::fmt::Display;
+use ustr::Ustr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
@@ -34,6 +32,13 @@ impl Pattern {
         }
     }
 
+    pub fn into_single_mut(&mut self) -> &mut SymbolPattern {
+        match self {
+            Pattern::Single(ps) => ps,
+            _ => panic!("expected a name, got {}", self),
+        }
+    }
+
     pub fn span(&self) -> Span {
         match self {
             Pattern::Single(p) => p.span,
@@ -41,6 +46,30 @@ impl Pattern {
                 p.span
             }
         }
+    }
+
+    pub fn symbols(&self) -> Vec<&SymbolPattern> {
+        match self {
+            Pattern::Single(p) => vec![p],
+            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
+                p.symbols.iter().collect::<Vec<_>>()
+            }
+        }
+    }
+}
+
+impl IntoIterator for Pattern {
+    type Item = SymbolPattern;
+    type IntoIter = <Vec<SymbolPattern> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let vec = match self {
+            Pattern::Single(p) => vec![p],
+            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
+                p.symbols
+            }
+        };
+        vec.into_iter()
     }
 }
 
