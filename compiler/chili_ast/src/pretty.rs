@@ -261,13 +261,8 @@ impl BuildNode for Expr {
             }
             ExprKind::While { cond, expr } => {
                 b.begin_child("while".to_string());
-
-                b.begin_child("cond".to_string());
                 cond.build(b);
-                b.end_child();
-
                 expr.build(b);
-
                 b.end_child();
             }
             ExprKind::For {

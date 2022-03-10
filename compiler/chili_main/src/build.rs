@@ -14,6 +14,8 @@ pub fn do_build(build_options: BuildOptions) {
 
     let mut all_sw = Stopwatch::start_new("time");
 
+    // Set up workspace
+
     let source_path = build_options.source_path();
     let absolute_path = source_path.absolutize().unwrap();
 
@@ -33,9 +35,11 @@ pub fn do_build(build_options: BuildOptions) {
         return;
     }
 
+    // Parse all source files into ast's
+
     let sw = Stopwatch::start_new("parse");
 
-    let asts = {
+    let mut asts = {
         let mut generator = AstGenerator::new(&mut workspace);
 
         match generator.start(build_options.source_file.clone()) {
@@ -52,16 +56,18 @@ pub fn do_build(build_options: BuildOptions) {
 
     sw.print();
 
+    // Resolve ast definition/binding information
+
     let sw = Stopwatch::start_new("resolve");
 
-    if let Err(diagnostic) = chili_resolve::resolve(&mut workspace, asts) {
+    if let Err(diagnostic) = chili_resolve::resolve(&mut asts, &mut workspace) {
         emit_single_diagnostic(&workspace.files, diagnostic);
         return;
     }
 
     sw.print();
 
-    for ast in workspace.modules.iter() {
+    for ast in asts.iter() {
         ast.print();
     }
 

@@ -14,8 +14,8 @@ use resolver::Resolver;
 use scope::Scope;
 
 pub fn resolve<'w>(
+    asts: &mut Vec<Ast>,
     workspace: &mut Workspace<'w>,
-    mut asts: Vec<Ast>,
 ) -> DiagnosticResult<()> {
     let mut resolver = Resolver::new();
 
@@ -51,7 +51,6 @@ pub fn resolve<'w>(
         resolver.module_id = ast.module_id;
         resolver.module_info = ast.module_info;
         ast.resolve(&mut resolver, workspace)?;
-        workspace.add_module(ast.clone());
     }
 
     Ok(())

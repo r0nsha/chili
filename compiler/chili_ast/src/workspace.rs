@@ -18,16 +18,12 @@ pub struct Workspace<'w> {
     // Std library's root directory
     pub std_dir: &'w Path,
 
+    // The root module's id. Resolved after ast generation
+    pub root_module_id: ModuleId,
+
     // Parsed modules/trees info. Resolved during ast generation
     // ModuleId -> ModuleInfo
     pub module_infos: Vec<ModuleInfo>,
-
-    // Parsed modules/trees, aka Ast's. Resolved during ast generation
-    // ModuleId -> Ast
-    pub modules: Vec<Ast>,
-
-    // The root module's id. Resolved after ast generation
-    pub root_module: ModuleId,
 
     // Bindings resolved during name resolution
     // BindingInfoId -> BindingInfo
@@ -45,8 +41,7 @@ impl<'w> Workspace<'w> {
             root_dir,
             std_dir,
             module_infos: Default::default(),
-            modules: Default::default(),
-            root_module: Default::default(),
+            root_module_id: Default::default(),
             binding_infos: Default::default(),
             foreign_libraries: Default::default(),
         }
@@ -93,15 +88,6 @@ impl<'w> Workspace<'w> {
             .iter()
             .position(|m| *m == module_info)
             .map(|i| ModuleId(i))
-    }
-
-    pub fn add_module(&mut self, ast: Ast) -> ModuleId {
-        self.modules.push(ast);
-        ModuleId(self.modules.len() - 1)
-    }
-
-    pub fn get_module(&self, id: ModuleId) -> Option<&Ast> {
-        self.modules.get(id.0)
     }
 
     pub fn add_binding_info(
