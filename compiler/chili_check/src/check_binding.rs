@@ -1,9 +1,8 @@
-use crate::{
-    BindingInfo, CheckContext, CheckFrame, ProcessedItem, TopLevelLookupKind,
-};
+use crate::{CheckContext, CheckFrame, ProcessedItem, TopLevelLookupKind};
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
+    workspace::BindingInfo,
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::substitute::Substitute;
@@ -138,107 +137,106 @@ impl<'a> CheckContext<'a> {
         symbol_span: Span,
         lookup_kind: TopLevelLookupKind,
     ) -> DiagnosticResult<BindingInfo> {
-        todo!()
-        // // if the binding is already in new_ir, get its type instead
-        // match self.new_ir.modules.get(&module_info.name) {
-        //     Some(module) => match module.find_binding(symbol) {
-        //         Some(binding) => {
-        //             let SymbolPattern { symbol, span, .. } =
-        //                 binding.pattern.into_single();
+        // if the binding is already in new_ir, get its type instead
+        match self.new_ir.modules.get(&module_info.name) {
+            Some(module) => match module.find_binding(symbol) {
+                Some(binding) => {
+                    let SymbolPattern { symbol, span, .. } =
+                        binding.pattern.into_single();
 
-        //             self.is_item_accessible(
-        //                 binding.visibility,
-        //                 symbol,
-        //                 span,
-        //                 module_info,
-        //                 calling_module,
-        //                 symbol_span,
-        //             )?;
+                    self.is_item_accessible(
+                        binding.visibility,
+                        symbol,
+                        span,
+                        module_info,
+                        calling_module,
+                        symbol_span,
+                    )?;
 
-        //             return Ok(BindingInfo::from_binding(binding));
-        //         }
-        //         None => (),
-        //     },
-        //     None => (),
-        // };
+                    return Ok(BindingInfo::from_binding(binding));
+                }
+                None => (),
+            },
+            None => (),
+        };
 
-        // // binding has not been checked yet
-        // let module = self
-        //     .old_ir
-        //     .modules
-        //     .get(&module_info.name)
-        //     .expect(&format!("couldn't find module `{}`", module_info.name));
+        // binding has not been checked yet
+        let module = self
+            .old_ir
+            .modules
+            .get(&module_info.name)
+            .expect(&format!("couldn't find module `{}`", module_info.name));
 
-        // match module.find_binding(symbol) {
-        //     Some(binding) => self.check_top_level_binding_internal(
-        //         module_info,
-        //         binding,
-        //         calling_module,
-        //         symbol_span,
-        //     ),
-        //     None => {
-        //         match module.find_import(symbol) {
-        //             Some(import) => {
-        //                 let new_module =
-        //                     self.get_or_insert_new_module(module_info);
+        match module.find_binding(symbol) {
+            Some(binding) => self.check_top_level_binding_internal(
+                module_info,
+                binding,
+                calling_module,
+                symbol_span,
+            ),
+            None => {
+                match module.find_import(symbol) {
+                    Some(import) => {
+                        let new_module =
+                            self.get_or_insert_new_module(module_info);
 
-        //                 if let None = new_module.find_import(import.alias) {
-        //                     new_module.imports.push(import.clone());
-        //                 }
+                        if let None = new_module.find_import(import.alias) {
+                            new_module.imports.push(import.clone());
+                        }
 
-        //                 self.is_item_accessible(
-        //                     import.visibility,
-        //                     import.alias,
-        //                     import.span(),
-        //                     module_info,
-        //                     calling_module,
-        //                     symbol_span,
-        //                 )?;
+                        self.is_item_accessible(
+                            import.visibility,
+                            import.alias,
+                            import.span(),
+                            module_info,
+                            calling_module,
+                            symbol_span,
+                        )?;
 
-        //                 return self.check_import(calling_module, &import);
-        //             }
-        //             None => (),
-        //         }
+                        return self.check_import(calling_module, &import);
+                    }
+                    None => (),
+                }
 
-        //         // * search builtin symbols
-        //         match self.builtin_types.get(&symbol) {
-        //             Some(ty) => Ok(BindingInfo {
-        //                 ty: ty.clone(),
-        //                 const_value: Some(Value::Type(ty.clone())),
-        //                 is_mutable: false,
-        //                 is_init: true,
-        //                 span: symbol_span,
-        //             }),
-        //             None => Err(match lookup_kind {
-        //                 TopLevelLookupKind::CurrentModule => {
-        //                     Diagnostic::error()
-        //                         .with_message(format!(
-        //                             "cannot find value `{}` in this scope",
-        //                             symbol
-        //                         ))
-        //                         .with_labels(vec![Label::primary(
-        //                             symbol_span.file_id,
-        //                             symbol_span.range(),
-        //                         )
-        //                         .with_message("not found in this scope")])
-        //                 }
-        //                 TopLevelLookupKind::OtherModule =>
-        // Diagnostic::error()
-        // .with_message(format!(                         "cannot find
-        // value `{}` in module `{}`",                         symbol,
-        // module_info.name,                     ))
-        //                     .with_labels(vec![Label::primary(
-        //                         symbol_span.file_id,
-        //                         symbol_span.range(),
-        //                     )
-        //                     .with_message(format!(
-        //                         "not found in `{}`",
-        //                         module_info.name
-        //                     ))]),
-        //             }),
-        //         }
-        //     }
-        // }
+                // * search builtin symbols
+                match self.builtin_types.get(&symbol) {
+                    Some(ty) => Ok(BindingInfo {
+                        ty: ty.clone(),
+                        const_value: Some(Value::Type(ty.clone())),
+                        is_mutable: false,
+                        is_init: true,
+                        span: symbol_span,
+                    }),
+                    None => Err(match lookup_kind {
+                        TopLevelLookupKind::CurrentModule => {
+                            Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot find value `{}` in this scope",
+                                    symbol
+                                ))
+                                .with_labels(vec![Label::primary(
+                                    symbol_span.file_id,
+                                    symbol_span.range(),
+                                )
+                                .with_message("not found in this scope")])
+                        }
+                        TopLevelLookupKind::OtherModule => Diagnostic::error()
+                            .with_message(format!(
+                                "cannot find value `{}` in module `{}`",
+                                symbol, module_info.name,
+                            ))
+                            .with_labels(vec![Label::primary(
+                                symbol_span.file_id,
+                                symbol_span.range(),
+                            )
+                            .with_message(format!(
+                                "not found in `{}`",
+                                module_info.name
+                            ))]),
+                    }),
+                }
+            }
+        }
     }
 
     #[inline]

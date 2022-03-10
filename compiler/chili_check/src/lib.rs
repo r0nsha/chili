@@ -11,8 +11,7 @@ mod lints;
 
 use builtin::get_builtin_types;
 use chili_ast::{
-    ast::{Ast, Binding, Expr, ExprKind, ModuleInfo},
-    pattern::SymbolPattern,
+    ast::{Ast, Expr, ExprKind, ModuleInfo},
     value::Value,
     workspace::Workspace,
 };
@@ -21,7 +20,6 @@ use chili_infer::infer::InferenceContext;
 use chili_span::Span;
 use chili_ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::env::{Env, Scope};
 use ustr::{Ustr, UstrMap};
 
 pub fn check<'w>(
@@ -87,123 +85,21 @@ pub(crate) struct CheckContext<'a> {
 
 pub(crate) struct CheckFrame {
     pub(crate) module_info: ModuleInfo,
-    pub(crate) env: CheckEnv,
     pub(crate) expected_return_ty: Option<Ty>,
     pub(crate) loop_depth: usize,
     pub(crate) self_types: Vec<Ty>,
-    pub(crate) min_env_depth: usize,
-}
-
-pub(crate) type CheckEnv = Env<BindingInfo>;
-
-impl CheckFrame {
-    pub(crate) fn insert_binding(
-        &mut self,
-        name: Ustr,
-        ty: Ty,
-        span: Span,
-        is_init: bool,
-    ) {
-        self.env.insert(
-            name,
-            BindingInfo {
-                ty,
-                const_value: None,
-                is_mutable: false,
-                is_init,
-                span,
-            },
-        );
-    }
-
-    pub(crate) fn insert_const_binding(
-        &mut self,
-        name: Ustr,
-        ty: Ty,
-        const_value: Value,
-        span: Span,
-    ) {
-        self.env.insert(
-            name,
-            BindingInfo {
-                ty,
-                const_value: Some(const_value),
-                is_mutable: false,
-                is_init: true,
-                span,
-            },
-        );
-    }
-
-    pub(crate) fn insert_binding_info(
-        &mut self,
-        name: Ustr,
-        binding_info: BindingInfo,
-    ) {
-        self.env.insert(name, binding_info);
-    }
-
-    pub(crate) fn push_scope(&mut self) {
-        self.env.push_scope();
-    }
-
-    #[allow(unused)]
-    pub(crate) fn push_named_scope(&mut self, name: Ustr) {
-        self.env.push_named_scope(name);
-    }
-
-    pub(crate) fn pop_scope(&mut self) -> Scope<BindingInfo> {
-        self.env.pop_scope().unwrap()
-    }
 }
 
 impl CheckFrame {
     pub(crate) fn new(
         module_info: ModuleInfo,
         expected_return_ty: Option<Ty>,
-        mut env: CheckEnv,
     ) -> Self {
-        env.push_named_scope(module_info.name);
-        let min_env_depth = env.depth();
-
         Self {
             module_info,
-            env,
             expected_return_ty,
             loop_depth: 0,
             self_types: vec![],
-            min_env_depth,
-        }
-    }
-}
-
-impl Drop for CheckFrame {
-    fn drop(&mut self) {
-        self.env.clear();
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct BindingInfo {
-    pub(crate) ty: Ty,
-    pub(crate) const_value: Option<Value>,
-    pub(crate) is_mutable: bool,
-    pub(crate) is_init: bool,
-    pub(crate) span: Span,
-}
-
-impl BindingInfo {
-    pub(crate) fn from_binding(binding: &Binding) -> Self {
-        let SymbolPattern {
-            span, is_mutable, ..
-        } = binding.pattern.into_single();
-
-        Self {
-            ty: binding.ty.clone(),
-            const_value: binding.const_value.clone(),
-            is_mutable,
-            is_init: binding.value.is_some() || binding.const_value.is_some(),
-            span: span,
         }
     }
 }
@@ -246,37 +142,6 @@ impl<'a> CheckContext<'a> {
                 &self.infcx.normalize_ty_and_untyped(ty),
                 "compile-time known integer",
             )),
-        }
-    }
-
-    pub(crate) fn find_symbol(
-        &mut self,
-        frame: &mut CheckFrame,
-        symbol: Ustr,
-        span: Span,
-    ) -> DiagnosticResult<BindingInfo> {
-        match frame.env.get_with_depth(&symbol) {
-            Some((binding_info, depth)) => {
-                if depth < frame.min_env_depth {
-                    return Err(Diagnostic::error()
-                        .with_message(
-                            "can't capture dynamic environment in a fn",
-                        )
-                        .with_labels(vec![Label::primary(
-                            span.file_id,
-                            span.range().clone(),
-                        )]));
-                }
-
-                Ok(binding_info.clone())
-            }
-            None => self.check_top_level_binding(
-                frame.module_info,
-                frame.module_info,
-                symbol,
-                span,
-                TopLevelLookupKind::CurrentModule,
-            ),
         }
     }
 }

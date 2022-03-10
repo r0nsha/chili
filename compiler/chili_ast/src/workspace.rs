@@ -3,7 +3,7 @@ use chili_span::{FileId, Span};
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
-use std::{collections::HashSet, path::Path};
+use std::{cmp::Ordering, collections::HashSet, path::Path};
 use ustr::Ustr;
 
 pub struct Workspace<'w> {
@@ -178,10 +178,29 @@ impl BindingInfoId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum ScopeLevel {
     Global,
     Scope(usize),
+}
+
+impl PartialOrd for ScopeLevel {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ScopeLevel {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use ScopeLevel::*;
+
+        match (self, other) {
+            (Global, Global) => Ordering::Equal,
+            (Global, Scope(_)) => Ordering::Less,
+            (Scope(_), Global) => Ordering::Greater,
+            (Scope(s1), Scope(s2)) => s1.cmp(s2),
+        }
+    }
 }
 
 impl ScopeLevel {

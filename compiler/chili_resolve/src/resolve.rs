@@ -236,7 +236,22 @@ impl<'w> Resolve<'w> for ast::Expr {
                 binding_span: _,
                 binding_info_id,
             } => match resolver.lookup_binding(workspace, *symbol) {
-                Some(id) => *binding_info_id = id,
+                Some(id) => {
+                    let info = workspace.get_binding_info(id).unwrap();
+
+                    if info.level < resolver.function_scope_level {
+                        return Err(Diagnostic::error()
+                            .with_message(
+                                "can't capture dynamic environment in a fn",
+                            )
+                            .with_labels(vec![Label::primary(
+                                self.span.file_id,
+                                self.span.range().clone(),
+                            )]));
+                    }
+
+                    *binding_info_id = id
+                }
                 None => {
                     return Err(Diagnostic::error()
                         .with_message(format!(
