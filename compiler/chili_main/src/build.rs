@@ -22,7 +22,8 @@ pub fn do_build(build_options: BuildOptions) {
     let root_dir = absolute_path.parent().unwrap();
     let std_dir = common::compiler_info::std_module_root_dir();
 
-    let mut workspace = Workspace::new(root_dir, &std_dir);
+    let mut workspace =
+        Workspace::new(build_options.clone(), root_dir, &std_dir);
 
     if !source_path.exists() {
         emit_single_diagnostic(
@@ -67,37 +68,20 @@ pub fn do_build(build_options: BuildOptions) {
 
     sw.print();
 
-    for ast in asts.iter() {
-        ast.print();
+    // type check pass
+
+    let sw = Stopwatch::start_new("check");
+
+    if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
+        emit_single_diagnostic(&workspace.files, diagnostic);
+        return;
     }
 
-    // let sw = Stopwatch::start_new("lower");
+    sw.print();
 
-    // let ir = match chili_pass::gen_ir(asts, workspace.files.clone()) {
-    //     Ok(ir) => ir,
-    //     Err(diagnostic) => {
-    //         emit_single_diagnostic(&workspace.files, diagnostic);
-    //         return;
-    //     }
-    // };
-
-    // sw.print();
-
-    // ir.print();
-
-    // let sw = Stopwatch::start_new("analyze");
-
-    // let ir = match chili_check::check_ir(&build_options, ir) {
-    //     Ok(ir) => ir,
-    //     Err(diagnostic) => {
-    //         emit_single_diagnostic(&workspace.files, diagnostic);
-    //         return;
-    //     }
-    // };
-
-    // sw.print();
-
-    // // ir.print();
+    // for ast in asts.iter() {
+    //     ast.print();
+    // }
 
     // codegen(&build_options, &ir);
 

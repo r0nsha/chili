@@ -13,7 +13,7 @@ fn main() {
     }
 
     // Note (Ron): this is a (hopefully temporary) workaround to prevent stack
-    // overflows, especially during the analysis phase. I haven't found any
+    // overflows, especially during the check phase. I haven't found any
     // other solution for this.
     std::thread::Builder::new()
         .name(String::from("main"))

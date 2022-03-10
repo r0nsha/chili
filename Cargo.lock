@@ -161,9 +161,9 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
+ "chili_infer",
  "chili_span",
  "chili_ty",
- "chili_typeck",
  "codespan",
  "codespan-reporting",
  "common",
@@ -179,6 +179,20 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "ustr",
+]
+
+[[package]]
+name = "chili_infer"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "chili_ty",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "ena",
 ]
 
 [[package]]
@@ -298,20 +312,6 @@ dependencies = [
  "chili_span",
  "common",
  "ustr",
-]
-
-[[package]]
-name = "chili_typeck"
-version = "0.1.0"
-dependencies = [
- "chili_ast",
- "chili_error",
- "chili_span",
- "chili_ty",
- "codespan",
- "codespan-reporting",
- "common",
- "ena",
 ]
 
 [[package]]

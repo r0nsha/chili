@@ -5,12 +5,12 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
-use crate::{AnalysisContext, AnalysisFrame, CheckedExpr};
+use crate::{CheckContext, CheckFrame, CheckedExpr};
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_call(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         call: &Call,
         span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
@@ -27,7 +27,7 @@ impl<'a> AnalysisContext<'a> {
 
     fn check_call_fn(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         fn_type: &FnTy,
         call: &Call,
         callee: CheckedExpr,

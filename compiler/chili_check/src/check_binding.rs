@@ -1,24 +1,22 @@
 use crate::{
-    AnalysisContext, AnalysisFrame, BindingInfo, ProcessedItem,
-    TopLevelLookupKind,
+    BindingInfo, CheckContext, CheckFrame, ProcessedItem, TopLevelLookupKind,
 };
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
-    value::Value,
 };
 use chili_error::{DiagnosticResult, TypeError};
+use chili_infer::substitute::Substitute;
 use chili_span::Span;
 use chili_ty::*;
-use chili_typeck::substitute::Substitute;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::env::Env;
 use ustr::{ustr, Ustr};
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_binding(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         binding: &Binding,
     ) -> DiagnosticResult<Binding> {
         let (ty_expr, expected_var) = match &binding.ty_expr {
@@ -127,10 +125,7 @@ impl<'a> AnalysisContext<'a> {
             value,
             visibility: binding.visibility,
             const_value,
-            should_codegen: self.in_main_path
-                || frame.module_info.name.starts_with("std"), /* TODO: this
-                                                               * could cause
-                                                               * bugs */
+            should_codegen: true,
             lib_name: binding.lib_name,
         })
     }
@@ -138,111 +133,112 @@ impl<'a> AnalysisContext<'a> {
     pub(crate) fn check_top_level_binding(
         &mut self,
         module_info: ModuleInfo,
-        calling_module: Ustr,
+        calling_module: ModuleInfo,
         symbol: Ustr,
         symbol_span: Span,
         lookup_kind: TopLevelLookupKind,
     ) -> DiagnosticResult<BindingInfo> {
-        // if the binding is already in new_ir, get its type instead
-        match self.new_ir.modules.get(&module_info.name) {
-            Some(module) => match module.find_binding(symbol) {
-                Some(binding) => {
-                    let SymbolPattern { symbol, span, .. } =
-                        binding.pattern.into_single();
+        todo!()
+        // // if the binding is already in new_ir, get its type instead
+        // match self.new_ir.modules.get(&module_info.name) {
+        //     Some(module) => match module.find_binding(symbol) {
+        //         Some(binding) => {
+        //             let SymbolPattern { symbol, span, .. } =
+        //                 binding.pattern.into_single();
 
-                    self.is_item_accessible(
-                        binding.visibility,
-                        symbol,
-                        span,
-                        module_info,
-                        calling_module,
-                        symbol_span,
-                    )?;
+        //             self.is_item_accessible(
+        //                 binding.visibility,
+        //                 symbol,
+        //                 span,
+        //                 module_info,
+        //                 calling_module,
+        //                 symbol_span,
+        //             )?;
 
-                    return Ok(BindingInfo::from_binding(binding));
-                }
-                None => (),
-            },
-            None => (),
-        };
+        //             return Ok(BindingInfo::from_binding(binding));
+        //         }
+        //         None => (),
+        //     },
+        //     None => (),
+        // };
 
-        // binding has not been checked yet
-        let module = self
-            .old_ir
-            .modules
-            .get(&module_info.name)
-            .expect(&format!("couldn't find module `{}`", module_info.name));
+        // // binding has not been checked yet
+        // let module = self
+        //     .old_ir
+        //     .modules
+        //     .get(&module_info.name)
+        //     .expect(&format!("couldn't find module `{}`", module_info.name));
 
-        match module.find_binding(symbol) {
-            Some(binding) => self.check_top_level_binding_internal(
-                module_info,
-                binding,
-                calling_module,
-                symbol_span,
-            ),
-            None => {
-                match module.find_import(symbol) {
-                    Some(import) => {
-                        let new_module =
-                            self.get_or_insert_new_module(module_info);
+        // match module.find_binding(symbol) {
+        //     Some(binding) => self.check_top_level_binding_internal(
+        //         module_info,
+        //         binding,
+        //         calling_module,
+        //         symbol_span,
+        //     ),
+        //     None => {
+        //         match module.find_import(symbol) {
+        //             Some(import) => {
+        //                 let new_module =
+        //                     self.get_or_insert_new_module(module_info);
 
-                        if let None = new_module.find_import(import.alias) {
-                            new_module.imports.push(import.clone());
-                        }
+        //                 if let None = new_module.find_import(import.alias) {
+        //                     new_module.imports.push(import.clone());
+        //                 }
 
-                        self.is_item_accessible(
-                            import.visibility,
-                            import.alias,
-                            import.span(),
-                            module_info,
-                            calling_module,
-                            symbol_span,
-                        )?;
+        //                 self.is_item_accessible(
+        //                     import.visibility,
+        //                     import.alias,
+        //                     import.span(),
+        //                     module_info,
+        //                     calling_module,
+        //                     symbol_span,
+        //                 )?;
 
-                        return self.check_import(calling_module, &import);
-                    }
-                    None => (),
-                }
+        //                 return self.check_import(calling_module, &import);
+        //             }
+        //             None => (),
+        //         }
 
-                // * search builtin symbols
-                match self.builtin_types.get(&symbol) {
-                    Some(ty) => Ok(BindingInfo {
-                        ty: ty.clone(),
-                        const_value: Some(Value::Type(ty.clone())),
-                        is_mutable: false,
-                        is_init: true,
-                        span: symbol_span,
-                    }),
-                    None => Err(match lookup_kind {
-                        TopLevelLookupKind::CurrentModule => {
-                            Diagnostic::error()
-                                .with_message(format!(
-                                    "cannot find value `{}` in this scope",
-                                    symbol
-                                ))
-                                .with_labels(vec![Label::primary(
-                                    symbol_span.file_id,
-                                    symbol_span.range(),
-                                )
-                                .with_message("not found in this scope")])
-                        }
-                        TopLevelLookupKind::OtherModule => Diagnostic::error()
-                            .with_message(format!(
-                                "cannot find value `{}` in module `{}`",
-                                symbol, module_info.name,
-                            ))
-                            .with_labels(vec![Label::primary(
-                                symbol_span.file_id,
-                                symbol_span.range(),
-                            )
-                            .with_message(format!(
-                                "not found in `{}`",
-                                module_info.name
-                            ))]),
-                    }),
-                }
-            }
-        }
+        //         // * search builtin symbols
+        //         match self.builtin_types.get(&symbol) {
+        //             Some(ty) => Ok(BindingInfo {
+        //                 ty: ty.clone(),
+        //                 const_value: Some(Value::Type(ty.clone())),
+        //                 is_mutable: false,
+        //                 is_init: true,
+        //                 span: symbol_span,
+        //             }),
+        //             None => Err(match lookup_kind {
+        //                 TopLevelLookupKind::CurrentModule => {
+        //                     Diagnostic::error()
+        //                         .with_message(format!(
+        //                             "cannot find value `{}` in this scope",
+        //                             symbol
+        //                         ))
+        //                         .with_labels(vec![Label::primary(
+        //                             symbol_span.file_id,
+        //                             symbol_span.range(),
+        //                         )
+        //                         .with_message("not found in this scope")])
+        //                 }
+        //                 TopLevelLookupKind::OtherModule =>
+        // Diagnostic::error()
+        // .with_message(format!(                         "cannot find
+        // value `{}` in module `{}`",                         symbol,
+        // module_info.name,                     ))
+        //                     .with_labels(vec![Label::primary(
+        //                         symbol_span.file_id,
+        //                         symbol_span.range(),
+        //                     )
+        //                     .with_message(format!(
+        //                         "not found in `{}`",
+        //                         module_info.name
+        //                     ))]),
+        //             }),
+        //         }
+        //     }
+        // }
     }
 
     #[inline]
@@ -250,10 +246,11 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         module_info: ModuleInfo,
     ) -> &mut Module {
-        self.new_ir
-            .modules
-            .entry(module_info.name)
-            .or_insert_with(|| Module::new(module_info))
+        todo!()
+        // self.new_ir
+        //     .modules
+        //     .entry(module_info.name)
+        //     .or_insert_with(|| Module::new(module_info))
     }
 
     #[inline]
@@ -261,7 +258,7 @@ impl<'a> AnalysisContext<'a> {
         &mut self,
         module_info: ModuleInfo,
         binding: &Binding,
-        calling_module: Ustr,
+        calling_module: ModuleInfo,
         calling_span: Span,
     ) -> DiagnosticResult<BindingInfo> {
         let SymbolPattern { symbol, span, .. } = binding.pattern.into_single();
@@ -304,7 +301,7 @@ impl<'a> AnalysisContext<'a> {
             calling_span,
         )?;
 
-        let mut frame = AnalysisFrame::new(module_info, None, Env::new());
+        let mut frame = CheckFrame::new(module_info, None, Env::new());
 
         let mut binding = self.check_binding(&mut frame, &binding)?;
         binding.substitute(self.infcx.get_table_mut())?;
@@ -320,7 +317,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn check_import(
         &mut self,
-        calling_module: Ustr,
+        calling_module: ModuleInfo,
         import: &Import,
     ) -> DiagnosticResult<BindingInfo> {
         let mut ty = Ty::Module {
@@ -382,12 +379,10 @@ impl<'a> AnalysisContext<'a> {
         symbol: Ustr,
         symbol_span: Span,
         module_info: ModuleInfo,
-        calling_module: Ustr,
+        calling_module: ModuleInfo,
         calling_span: Span,
     ) -> DiagnosticResult<()> {
-        if visibility == Visibility::Private
-            && module_info.name != calling_module
-        {
+        if visibility == Visibility::Private && module_info != calling_module {
             Err(Diagnostic::error()
                 .with_message(format!(
                     "associated symbol `{}` is private",

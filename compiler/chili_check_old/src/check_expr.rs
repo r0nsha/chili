@@ -1,4 +1,4 @@
-use crate::{AnalysisContext, AnalysisFrame, CheckedExpr, TopLevelLookupKind};
+use crate::{CheckContext, CheckFrame, CheckedExpr, TopLevelLookupKind};
 use chili_ast::{
     ast::{
         ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter,
@@ -9,17 +9,17 @@ use chili_ast::{
     value::Value,
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
+use chili_infer::{cast::ty_can_be_casted, infer::InferenceValue};
 use chili_span::Span;
 use chili_ty::*;
-use chili_typeck::{cast::ty_can_be_casted, infer::InferenceValue};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_expr(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         expr: &Expr,
         expected_ty: Option<Ty>,
     ) -> DiagnosticResult<CheckedExpr> {
@@ -1168,7 +1168,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn check_type_expr(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         expr: &Expr,
     ) -> DiagnosticResult<CheckedExpr> {
         let mut result = self.check_expr(frame, expr, Some(Ty::anytype()))?;
@@ -1189,7 +1189,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn check_expr_list(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         exprs: &Vec<Expr>,
     ) -> DiagnosticResult<Vec<Expr>> {
         let mut new_exprs = vec![];
@@ -1204,7 +1204,7 @@ impl<'a> AnalysisContext<'a> {
     #[inline]
     fn check_named_struct_literal(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         type_expr: Option<Box<Expr>>,
         fields: &Vec<StructLiteralField>,
         struct_ty: StructTy,
@@ -1298,7 +1298,7 @@ impl<'a> AnalysisContext<'a> {
     #[inline]
     fn check_anonymous_struct_literal(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         fields: &Vec<StructLiteralField>,
         span: Span,
     ) -> DiagnosticResult<CheckedExpr> {
@@ -1421,7 +1421,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn check_id(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         symbol: Ustr,
         span: Span,
         is_lvalue: bool,
@@ -1471,7 +1471,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn check_block(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         block: &Block,
         expected_ty: Option<Ty>,
     ) -> DiagnosticResult<(Block, Ty)> {
@@ -1510,7 +1510,7 @@ impl<'a> AnalysisContext<'a> {
 
     fn check_cast(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         info: &Cast,
         expected_ty: Option<Ty>,
         expr_span: Span,

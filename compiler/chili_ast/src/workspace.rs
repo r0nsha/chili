@@ -1,11 +1,14 @@
-use crate::ast::{Ast, ForeignLibrary, ModuleInfo, Visibility};
+use crate::ast::{ForeignLibrary, ModuleInfo, Visibility};
 use chili_span::{FileId, Span};
 use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
+use common::build_options::BuildOptions;
 use std::{collections::HashSet, path::Path};
 use ustr::Ustr;
 
 pub struct Workspace<'w> {
+    pub build_options: BuildOptions,
+
     // Mapping from file id's to their source. Stored for diagnostics
     pub files: SimpleFiles<String, String>,
 
@@ -34,8 +37,13 @@ pub struct Workspace<'w> {
 }
 
 impl<'w> Workspace<'w> {
-    pub fn new(root_dir: &'w Path, std_dir: &'w Path) -> Self {
+    pub fn new(
+        build_options: BuildOptions,
+        root_dir: &'w Path,
+        std_dir: &'w Path,
+    ) -> Self {
         Self {
+            build_options,
             files: SimpleFiles::new(),
             root_file_id: Default::default(),
             root_dir,

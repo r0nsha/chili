@@ -1,4 +1,4 @@
-use crate::{AnalysisContext, AnalysisFrame, CheckedExpr};
+use crate::{CheckContext, CheckFrame, CheckedExpr};
 use chili_ast::{
     ast::{Expr, ExprKind, LiteralKind, UnaryOp},
     value::Value,
@@ -7,10 +7,10 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use chili_ty::*;
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(super) fn check_unary_expr(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         op: UnaryOp,
         lhs: &Expr,
         expected_ty: Option<Ty>,

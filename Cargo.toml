@@ -10,7 +10,7 @@ members = [
     "compiler/chili_astgen",
     "compiler/chili_pass",
     "compiler/chili_resolve",
-    "compiler/chili_typeck",
+    "compiler/chili_infer",
     "compiler/chili_check",
     "compiler/chili_llvm",
     "compiler/chili_main",

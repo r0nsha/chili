@@ -3,16 +3,16 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrSet;
 
-use crate::{AnalysisContext, AnalysisFrame, BindingInfo};
+use crate::{BindingInfo, CheckContext, CheckFrame};
 use chili_ast::{
     pattern::{DestructorPattern, Pattern, SymbolPattern},
     value::Value,
 };
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_binding_pattern(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         pattern: &Pattern,
         expected_ty: Ty,
         const_value: Option<Value>,
@@ -55,7 +55,7 @@ impl<'a> AnalysisContext<'a> {
 
     fn check_struct_destructor(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         expected_ty: &Ty,
         pattern: &DestructorPattern,
         is_init: bool,
@@ -160,7 +160,7 @@ impl<'a> AnalysisContext<'a> {
 
     fn check_tuple_destructor(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         expected_ty: &Ty,
         pattern: &DestructorPattern,
         is_init: bool,

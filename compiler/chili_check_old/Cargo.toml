@@ -13,4 +13,4 @@ common = { path = "../common" }
 chili_error = { path = "../chili_error" }
 chili_ty = { path = "../chili_ty" }
 chili_ast = { path = "../chili_ast" }
-chili_typeck = { path = "../chili_typeck" }
+chili_infer = { path = "../chili_infer" }

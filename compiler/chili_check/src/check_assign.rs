@@ -1,5 +1,5 @@
 use crate::{
-    BindingInfo, CheckedExpr, {AnalysisContext, AnalysisFrame},
+    BindingInfo, CheckedExpr, {CheckContext, CheckFrame},
 };
 use chili_ast::ast::{Expr, ExprKind, UnaryOp};
 use chili_error::DiagnosticResult;
@@ -8,10 +8,10 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_assign_expr(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         lvalue: &Expr,
         rvalue: &Expr,
         span: Span,

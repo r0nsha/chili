@@ -1,6 +1,5 @@
 use crate::{
-    AnalysisContext, AnalysisFrame, BindingInfo, ProcessedItem,
-    TopLevelLookupKind,
+    BindingInfo, CheckContext, CheckFrame, ProcessedItem, TopLevelLookupKind,
 };
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
@@ -8,17 +7,17 @@ use chili_ast::{
     value::Value,
 };
 use chili_error::{DiagnosticResult, TypeError};
+use chili_infer::substitute::Substitute;
 use chili_span::Span;
 use chili_ty::*;
-use chili_typeck::substitute::Substitute;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::env::Env;
 use ustr::{ustr, Ustr};
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_binding(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         binding: &Binding,
     ) -> DiagnosticResult<Binding> {
         let (ty_expr, expected_var) = match &binding.ty_expr {
@@ -304,7 +303,7 @@ impl<'a> AnalysisContext<'a> {
             calling_span,
         )?;
 
-        let mut frame = AnalysisFrame::new(module_info, None, Env::new());
+        let mut frame = CheckFrame::new(module_info, None, Env::new());
 
         let mut binding = self.check_binding(&mut frame, &binding)?;
         binding.substitute(self.infcx.get_table_mut())?;

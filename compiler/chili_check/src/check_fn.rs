@@ -4,16 +4,16 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
-use crate::{AnalysisContext, AnalysisFrame};
+use crate::{CheckContext, CheckFrame};
 use chili_ast::{
     ast::{Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn check_fn(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         func: &Fn,
         span: Span,
         expected_ty: Option<Ty>,
@@ -22,7 +22,7 @@ impl<'a> AnalysisContext<'a> {
 
         let ty = proto.ty.into_fn();
 
-        let mut fn_frame = AnalysisFrame::new(
+        let mut fn_frame = CheckFrame::new(
             frame.module_info,
             Some(*ty.ret.clone()),
             frame.env.clone(),
@@ -104,7 +104,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn check_proto(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         proto: &Proto,
         expected_ty: Option<Ty>,
         span: Span,

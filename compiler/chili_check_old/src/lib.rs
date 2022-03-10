@@ -16,9 +16,9 @@ use chili_ast::{
     value::Value,
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
+use chili_infer::infer::InferenceContext;
 use chili_span::Span;
 use chili_ty::Ty;
-use chili_typeck::infer::InferenceContext;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::{
     build_options::BuildOptions,
@@ -71,7 +71,7 @@ pub fn check_ir(build_options: &BuildOptions, ir: Ir) -> DiagnosticResult<Ir> {
 
     let target_metrics = build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
-    let mut ancx = AnalysisContext::new(&mut infcx, &ir, &mut new_ir);
+    let mut ancx = CheckContext::new(&mut infcx, &ir, &mut new_ir);
 
     let root_module = ir.root_module();
 
@@ -175,7 +175,7 @@ pub(crate) struct ProcessedItem {
     pub(crate) symbol: Ustr,
 }
 
-pub(crate) struct AnalysisContext<'a> {
+pub(crate) struct CheckContext<'a> {
     pub(crate) infcx: &'a mut InferenceContext,
     pub(crate) old_ir: &'a Ir,
     pub(crate) new_ir: &'a mut Ir,
@@ -184,18 +184,18 @@ pub(crate) struct AnalysisContext<'a> {
     pub(crate) in_main_path: bool,
 }
 
-pub(crate) struct AnalysisFrame {
+pub(crate) struct CheckFrame {
     pub(crate) module_info: ModuleInfo,
-    pub(crate) env: AnalysisEnv,
+    pub(crate) env: CheckEnv,
     pub(crate) expected_return_ty: Option<Ty>,
     pub(crate) loop_depth: usize,
     pub(crate) self_types: Vec<Ty>,
     pub(crate) min_env_depth: usize,
 }
 
-pub(crate) type AnalysisEnv = Env<BindingInfo>;
+pub(crate) type CheckEnv = Env<BindingInfo>;
 
-impl AnalysisFrame {
+impl CheckFrame {
     pub(crate) fn insert_binding(
         &mut self,
         name: Ustr,
@@ -256,11 +256,11 @@ impl AnalysisFrame {
     }
 }
 
-impl AnalysisFrame {
+impl CheckFrame {
     pub(crate) fn new(
         module_info: ModuleInfo,
         expected_return_ty: Option<Ty>,
-        mut env: AnalysisEnv,
+        mut env: CheckEnv,
     ) -> Self {
         env.push_named_scope(module_info.name);
         let min_env_depth = env.depth();
@@ -276,7 +276,7 @@ impl AnalysisFrame {
     }
 }
 
-impl Drop for AnalysisFrame {
+impl Drop for CheckFrame {
     fn drop(&mut self) {
         self.env.clear();
     }
@@ -313,7 +313,7 @@ pub(crate) enum TopLevelLookupKind {
     OtherModule,
 }
 
-impl<'a> AnalysisContext<'a> {
+impl<'a> CheckContext<'a> {
     pub(crate) fn new(
         infcx: &'a mut InferenceContext,
         old_ir: &'a Ir,
@@ -357,7 +357,7 @@ impl<'a> AnalysisContext<'a> {
 
     pub(crate) fn find_symbol(
         &mut self,
-        frame: &mut AnalysisFrame,
+        frame: &mut CheckFrame,
         symbol: Ustr,
         span: Span,
     ) -> DiagnosticResult<BindingInfo> {
