@@ -1,7 +1,10 @@
 use crate::{
-    BindingInfo, CheckedExpr, {CheckContext, CheckFrame},
+    CheckedExpr, {CheckContext, CheckFrame},
 };
-use chili_ast::ast::{Expr, ExprKind, UnaryOp};
+use chili_ast::{
+    ast::{Expr, ExprKind, UnaryOp},
+    workspace::BindingInfo,
+};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span};
 use chili_ty::*;

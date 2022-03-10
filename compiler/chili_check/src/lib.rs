@@ -9,11 +9,13 @@ mod check_pattern;
 mod check_unary;
 mod lints;
 
+use std::collections::HashMap;
+
 use builtin::get_builtin_types;
 use chili_ast::{
     ast::{Ast, Expr, ExprKind, ModuleInfo},
     value::Value,
-    workspace::Workspace,
+    workspace::{BindingInfoId, Workspace},
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::infer::InferenceContext;
@@ -81,6 +83,13 @@ pub(crate) struct CheckContext<'a> {
     pub(crate) infcx: &'a mut InferenceContext,
     pub(crate) builtin_types: UstrMap<Ty>,
     pub(crate) processed_items_stack: Vec<ProcessedItem>,
+    pub(crate) init_scopes: Vec<HashMap<BindingInfoId, InitState>>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum InitState {
+    NotInit,
+    Init,
 }
 
 pub(crate) struct CheckFrame {
