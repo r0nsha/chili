@@ -1,18 +1,18 @@
-use crate::{CheckFrame, CheckSess, ProcessedItem, TopLevelLookupKind};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
+use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
-    ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
+    ast::{Binding, BindingKind, Import, Visibility},
     pattern::{Pattern, SymbolPattern},
-    workspace::{BindingInfo, BindingInfoIdx},
+    workspace::BindingInfo,
 };
 use chili_error::{DiagnosticResult, TypeError};
-use chili_infer::substitute::Substitute;
+use chili_infer::substitute::{substitute_ty, Substitute};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::env::Env;
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
-impl<'a> CheckSess<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_binding(
         &mut self,
         frame: &mut CheckFrame,
@@ -27,19 +27,22 @@ impl<'a> CheckSess<'a> {
             None => (None, self.infcx.fresh_type_var()),
         };
 
-        let (value, const_value) = if let Some(value) = &binding.value {
-            let mut result =
-                self.check_expr(frame, value, Some(expected_var.into()))?;
+        self.workspace
+            .get_binding_info_mut(binding.binding_info_idx)
+            .unwrap()
+            .ty = expected_var.into();
 
-            let is_a_type =
-                result.value.as_ref().map_or(false, |v| v.is_type());
+        let (value, const_value) = if let Some(value) = &binding.value {
+            let mut result = self.check_expr(frame, value, Some(expected_var.into()))?;
+
+            let is_a_type = result.value.as_ref().map_or(false, |v| v.is_type());
 
             match &binding.kind {
                 BindingKind::Let => {
                     if is_a_type {
                         return Err(TypeError::expected(
                             value.span,
-                            &self.infcx.normalize_ty_and_untyped(&result.ty),
+                            self.infcx.normalize_ty_and_untyped(&result.ty).to_string(),
                             "a value",
                         ));
                     }
@@ -48,7 +51,7 @@ impl<'a> CheckSess<'a> {
                     if !is_a_type {
                         return Err(TypeError::expected(
                             value.span,
-                            &self.infcx.normalize_ty_and_untyped(&result.ty),
+                            self.infcx.normalize_ty_and_untyped(&result.ty).to_string(),
                             "a type",
                         ));
                     }
@@ -57,11 +60,8 @@ impl<'a> CheckSess<'a> {
             }
 
             let span = result.expr.span;
-            self.infcx.unify_or_coerce_ty_expr(
-                &Ty::from(expected_var),
-                &mut result.expr,
-                span,
-            )?;
+            self.infcx
+                .unify_or_coerce_ty_expr(&Ty::from(expected_var), &mut result.expr, span)?;
 
             (Some(result.expr), result.value)
         } else {
@@ -76,13 +76,8 @@ impl<'a> CheckSess<'a> {
                 }) => {
                     if *is_mutable {
                         return Err(Diagnostic::error()
-                            .with_message(
-                                "variable of type `type` must be immutable",
-                            )
-                            .with_labels(vec![Label::primary(
-                                span.file_id,
-                                span.range().clone(),
-                            )])
+                            .with_message("variable of type `type` must be immutable")
+                            .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
                             .with_notes(vec![String::from(
                                 "try removing the `mut` from the declaration",
                             )]));
@@ -132,234 +127,66 @@ impl<'a> CheckSess<'a> {
 
     pub(crate) fn check_top_level_binding(
         &mut self,
-        module_info: ModuleInfo,
-        calling_module: ModuleInfo,
-        binding_info_idx: BindingInfoIdx,
-        symbol_span: Span,
-        lookup_kind: TopLevelLookupKind,
+        binding: &Binding,
+        calling_module_idx: ModuleIdx,
+        calling_symbol_span: Span,
     ) -> DiagnosticResult<Ty> {
-        let binding_info =
-            self.workspace.get_binding_info(binding_info_idx).unwrap();
+        let binding_info = self
+            .workspace
+            .get_binding_info(binding.binding_info_idx)
+            .unwrap()
+            .clone();
 
         if !binding_info.ty.is_unknown() {
+            println!("{} => {}", binding_info.symbol, binding_info.ty);
             return Ok(binding_info.ty.clone());
         }
 
-        let module = self
-            .old_ir
-            .modules
-            .get(&module_info.name)
-            .expect(&format!("couldn't find module `{}`", module_info.name));
+        self.is_item_accessible(&binding_info, calling_module_idx, calling_symbol_span)?;
 
-        match module.find_binding(symbol) {
-            Some(binding) => self.check_top_level_binding_internal(
-                module_info,
-                binding,
-                calling_module,
-                symbol_span,
-            ),
-            None => {
-                match module.find_import(symbol) {
-                    Some(import) => {
-                        let new_module =
-                            self.get_or_insert_new_module(module_info);
-
-                        if let None = new_module.find_import(import.alias) {
-                            new_module.imports.push(import.clone());
-                        }
-
-                        self.is_item_accessible(
-                            import.visibility,
-                            import.alias,
-                            import.span(),
-                            module_info,
-                            calling_module,
-                            symbol_span,
-                        )?;
-
-                        return self.check_import(calling_module, &import);
-                    }
-                    None => (),
-                }
-
-                // * search builtin symbols
-                match self.builtin_types.get(&symbol) {
-                    Some(ty) => Ok(BindingInfo {
-                        ty: ty.clone(),
-                        const_value: Some(Value::Type(ty.clone())),
-                        is_mutable: false,
-                        is_init: true,
-                        span: symbol_span,
-                    }),
-                    None => Err(match lookup_kind {
-                        TopLevelLookupKind::CurrentModule => {
-                            Diagnostic::error()
-                                .with_message(format!(
-                                    "cannot find value `{}` in this scope",
-                                    symbol
-                                ))
-                                .with_labels(vec![Label::primary(
-                                    symbol_span.file_id,
-                                    symbol_span.range(),
-                                )
-                                .with_message("not found in this scope")])
-                        }
-                        TopLevelLookupKind::OtherModule => Diagnostic::error()
-                            .with_message(format!(
-                                "cannot find value `{}` in module `{}`",
-                                symbol, module_info.name,
-                            ))
-                            .with_labels(vec![Label::primary(
-                                symbol_span.file_id,
-                                symbol_span.range(),
-                            )
-                            .with_message(format!(
-                                "not found in `{}`",
-                                module_info.name
-                            ))]),
-                    }),
-                }
-            }
-        }
-    }
-
-    #[inline]
-    pub(crate) fn get_or_insert_new_module(
-        &mut self,
-        module_info: ModuleInfo,
-    ) -> &mut Module {
-        todo!()
-        // self.new_ir
-        //     .modules
-        //     .entry(module_info.name)
-        //     .or_insert_with(|| Module::new(module_info))
-    }
-
-    #[inline]
-    pub(crate) fn check_top_level_binding_internal(
-        &mut self,
-        module_info: ModuleInfo,
-        binding: &Binding,
-        calling_module: ModuleInfo,
-        calling_span: Span,
-    ) -> DiagnosticResult<Ty> {
-        let SymbolPattern { symbol, span, .. } = binding.pattern.into_single();
-
-        if !self.processed_items_stack.is_empty() {
-            if self.processed_items_stack.iter().any(|item| {
-                module_info.name == item.module_name && symbol == item.symbol
-            }) {
-                return Err(Diagnostic::error()
-                    .with_message(format!(
-                        "item `{}` cannot refer to itself",
-                        symbol
-                    ))
-                    .with_labels(vec![
-                        Label::primary(
-                            calling_span.file_id,
-                            calling_span.range(),
-                        )
-                        .with_message("reference is here"),
-                        Label::secondary(span.file_id, span.range().clone())
-                            .with_message(format!(
-                                "`{}` declared here",
-                                symbol
-                            )),
-                    ]));
-            }
-        }
-
-        self.processed_items_stack.push(ProcessedItem {
-            module_name: module_info.name,
-            symbol,
-        });
-
-        self.is_item_accessible(
-            binding.visibility,
-            symbol,
-            span,
-            module_info,
-            calling_module,
-            calling_span,
-        )?;
-
-        let mut frame = CheckFrame::new(module_info, None, Env::new());
+        let mut frame = CheckFrame::new(0, binding_info.module_idx, None);
 
         let mut binding = self.check_binding(&mut frame, &binding)?;
         binding.substitute(self.infcx.get_table_mut())?;
 
-        let new_module = self.get_or_insert_new_module(module_info);
-        let binding_info = BindingInfo::from_binding(&binding);
-        new_module.bindings.push(binding);
+        let binding_info_mut = self
+            .workspace
+            .get_binding_info_mut(binding.binding_info_idx)
+            .unwrap();
 
-        self.processed_items_stack.pop();
+        binding_info_mut.ty = substitute_ty(
+            &binding_info_mut.ty,
+            self.infcx.get_table_mut(),
+            binding.ty_expr.map_or(binding.pattern.span(), |e| e.span),
+        )?;
 
-        Ok(binding_info)
+        Ok(binding_info_mut.ty.clone())
     }
 
-    pub(crate) fn check_import(
-        &mut self,
-        calling_module: ModuleInfo,
-        import: &Import,
-    ) -> DiagnosticResult<Ty> {
-        let mut ty = Ty::Module {
-            name: import.module_info.name,
-            file_path: import.module_info.file_path,
-        };
-
-        let mut span = Span::unknown();
+    pub(crate) fn check_import(&mut self, import: &Import) -> DiagnosticResult<Ty> {
+        let mut ty = Ty::Module(import.module_idx);
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
             let mut current_module_idx = import.module_idx;
-            let mut current_module_info = import.module_info;
 
             for (index, symbol) in import.import_path.iter().enumerate() {
-                let idx =
-                    match self.workspace.binding_infos.iter().position(|b| {
-                        b.module_idx == current_module_idx
-                            && b.symbol == symbol.value.as_symbol()
-                    }) {
-                        Some(idx) => BindingInfoIdx(idx),
-                        None => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "cannot find value `{}` in module `{}`",
-                                    symbol.value.as_symbol(),
-                                    current_module_info.name
-                                ))
-                                .with_labels(vec![Label::primary(
-                                    symbol.span.file_id,
-                                    symbol.span.range(),
-                                )]))
-                        }
-                    };
-                let binding_info = self.check_top_level_binding(
+                let binding_info = self.find_binding_info_in_module(
                     current_module_idx,
-                    calling_module,
                     symbol.value.as_symbol(),
                     symbol.span,
-                    TopLevelLookupKind::OtherModule,
                 )?;
 
-                ty = binding_info.ty;
-                span = binding_info.span;
+                ty = binding_info.ty.clone();
 
                 match ty {
-                    Ty::Module(idx) => {
-                        current_module_idx = idx;
-                        current_module_info =
-                            self.workspace.get_module_info(idx).unwrap();
-                    }
+                    Ty::Module(idx) => current_module_idx = idx,
                     _ => {
                         if index < import.import_path.len() - 1 {
                             return Err(TypeError::type_mismatch(
                                 symbol.span,
-                                &Ty::Module {
-                                    name: ustr(""),
-                                    file_path: ustr(""),
-                                },
-                                &ty,
+                                Ty::Module(Default::default()).to_string(),
+                                ty.to_string(),
                             ));
                         }
                     }
@@ -370,25 +197,52 @@ impl<'a> CheckSess<'a> {
         Ok(ty)
     }
 
-    fn is_item_accessible(
+    pub fn find_binding_info_in_module(
         &self,
-        visibility: Visibility,
+        module_idx: ModuleIdx,
         symbol: Ustr,
         symbol_span: Span,
-        module_info: ModuleInfo,
-        calling_module: ModuleInfo,
-        calling_span: Span,
+    ) -> DiagnosticResult<&BindingInfo> {
+        match self
+            .workspace
+            .binding_infos
+            .iter()
+            .find(|b| b.module_idx == module_idx && b.symbol == symbol)
+        {
+            Some(b) => Ok(b),
+            None => {
+                let module_info = self.workspace.get_module_info(module_idx).unwrap();
+                Err(Diagnostic::error()
+                    .with_message(format!(
+                        "cannot find value `{}` in module `{}`",
+                        symbol, module_info.name
+                    ))
+                    .with_labels(vec![Label::primary(
+                        symbol_span.file_id,
+                        symbol_span.range(),
+                    )]))
+            }
+        }
+    }
+
+    fn is_item_accessible(
+        &self,
+        binding_info: &BindingInfo,
+        calling_module_idx: ModuleIdx,
+        calling_symbol_span: Span,
     ) -> DiagnosticResult<()> {
-        if visibility == Visibility::Private && module_info != calling_module {
+        if binding_info.visibility == Visibility::Private
+            && binding_info.module_idx != calling_module_idx
+        {
             Err(Diagnostic::error()
                 .with_message(format!(
                     "associated symbol `{}` is private",
-                    symbol
+                    binding_info.symbol
                 ))
                 .with_labels(vec![
-                    Label::primary(calling_span.file_id, calling_span.range())
+                    Label::primary(calling_symbol_span.file_id, calling_symbol_span.range())
                         .with_message("symbol is private"),
-                    Label::secondary(symbol_span.file_id, symbol_span.range())
+                    Label::secondary(binding_info.span.file_id, binding_info.span.range())
                         .with_message("symbol defined here"),
                 ]))
         } else {

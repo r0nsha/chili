@@ -7,7 +7,7 @@ use ustr::UstrMap;
 
 use crate::{CheckFrame, CheckSess, CheckedExpr};
 
-impl<'a> CheckSess<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_call(
         &mut self,
         frame: &mut CheckFrame,
@@ -18,9 +18,7 @@ impl<'a> CheckSess<'a> {
         let ty = self.infcx.normalize_ty(&callee.ty);
 
         match ty {
-            Ty::Fn(fn_type) => {
-                self.check_call_fn(frame, &fn_type, call, callee, span)
-            }
+            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, callee, span),
             _ => Err(TypeError::expected(
                 call.callee.span,
                 ty.to_string(),
@@ -60,40 +58,23 @@ impl<'a> CheckSess<'a> {
             let new_arg = if let Some(symbol) = &arg.symbol {
                 // * this is a named argument
 
-                if let Some(passed_span) =
-                    passed_args.insert(symbol.value, symbol.span)
-                {
+                if let Some(passed_span) = passed_args.insert(symbol.value, symbol.span) {
                     return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "duplicate argument `{}`",
-                            symbol.value
-                        ))
+                        .with_message(format!("duplicate argument `{}`", symbol.value))
                         .with_labels(vec![
-                            Label::primary(
-                                symbol.span.file_id,
-                                symbol.span.range().clone(),
-                            )
-                            .with_message("duplicate passed here"),
-                            Label::secondary(
-                                passed_span.file_id,
-                                passed_span.range(),
-                            )
-                            .with_message("has already been passed here"),
+                            Label::primary(symbol.span.file_id, symbol.span.range().clone())
+                                .with_message("duplicate passed here"),
+                            Label::secondary(passed_span.file_id, passed_span.range())
+                                .with_message("has already been passed here"),
                         ]));
                 }
 
-                let found_param_index = fn_type
-                    .params
-                    .iter()
-                    .position(|p| p.symbol == symbol.value);
+                let found_param_index =
+                    fn_type.params.iter().position(|p| p.symbol == symbol.value);
                 if let Some(index) = found_param_index {
                     let param = &fn_type.params[index];
 
-                    let mut arg = self.check_expr(
-                        frame,
-                        &arg.value,
-                        Some(param.ty.clone()),
-                    )?;
+                    let mut arg = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
@@ -106,10 +87,7 @@ impl<'a> CheckSess<'a> {
                     arg
                 } else {
                     return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "unknown argument `{}`",
-                            symbol.value
-                        ))
+                        .with_message(format!("unknown argument `{}`", symbol.value))
                         .with_labels(vec![Label::primary(
                             symbol.span.file_id,
                             symbol.span.range().clone(),
@@ -120,11 +98,7 @@ impl<'a> CheckSess<'a> {
                 if let Some(param) = fn_type.params.get(index) {
                     passed_args.insert(param.symbol, arg.value.span);
 
-                    let mut arg = self.check_expr(
-                        frame,
-                        &arg.value,
-                        Some(param.ty.clone()),
-                    )?;
+                    let mut arg = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
@@ -136,8 +110,7 @@ impl<'a> CheckSess<'a> {
 
                     arg
                 } else {
-                    // * this is a variadic argument, meaning that the
-                    //   argument's
+                    // * this is a variadic argument, meaning that the argument's
                     // * index is greater than the function param length
                     self.check_expr(frame, &arg.value, None)?
                 }

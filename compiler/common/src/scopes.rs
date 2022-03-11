@@ -30,7 +30,7 @@ impl<Idx: Hash + Eq, Value> Scopes<Idx, Value> {
         None
     }
 
-    pub fn get_mut(&mut self, idx: Idx) -> Option<&Value> {
+    pub fn get_mut(&mut self, idx: Idx) -> Option<&mut Value> {
         for scope in self.inner.iter_mut().rev() {
             if let Some(decl) = scope.get_mut(&idx) {
                 return Some(decl);

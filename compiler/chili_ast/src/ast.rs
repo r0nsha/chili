@@ -102,33 +102,19 @@ impl Expr {
 
     pub fn display_name_and_binding_span(&self) -> MaybeSpanned<String> {
         match &self.kind {
-            ExprKind::Builtin(_) => {
-                MaybeSpanned::not_spanned("@_(_)".to_string())
-            }
+            ExprKind::Builtin(_) => MaybeSpanned::not_spanned("@_(_)".to_string()),
             ExprKind::Fn(_) => MaybeSpanned::not_spanned("fn..".to_string()),
-            ExprKind::For { .. } => {
-                MaybeSpanned::not_spanned("for..".to_string())
-            }
-            ExprKind::Break { .. } => {
-                MaybeSpanned::not_spanned("break".to_string())
-            }
-            ExprKind::Continue { .. } => {
-                MaybeSpanned::not_spanned("continue".to_string())
-            }
-            ExprKind::Block { .. } => {
-                MaybeSpanned::not_spanned("{..}".to_string())
-            }
-            ExprKind::If { .. } => {
-                MaybeSpanned::not_spanned("if..".to_string())
-            }
-            ExprKind::Binary { op, lhs, rhs } => {
-                MaybeSpanned::not_spanned(format!(
-                    "{} {} {}",
-                    lhs.display_name_and_binding_span().value,
-                    op.to_string(),
-                    rhs.display_name_and_binding_span().value
-                ))
-            }
+            ExprKind::For { .. } => MaybeSpanned::not_spanned("for..".to_string()),
+            ExprKind::Break { .. } => MaybeSpanned::not_spanned("break".to_string()),
+            ExprKind::Continue { .. } => MaybeSpanned::not_spanned("continue".to_string()),
+            ExprKind::Block { .. } => MaybeSpanned::not_spanned("{..}".to_string()),
+            ExprKind::If { .. } => MaybeSpanned::not_spanned("if..".to_string()),
+            ExprKind::Binary { op, lhs, rhs } => MaybeSpanned::not_spanned(format!(
+                "{} {} {}",
+                lhs.display_name_and_binding_span().value,
+                op.to_string(),
+                rhs.display_name_and_binding_span().value
+            )),
             ExprKind::Unary { op, lhs } => {
                 let lhs = lhs.display_name_and_binding_span();
                 lhs.map(|v| format!("{}{}", op.to_string(), v))
@@ -155,15 +141,9 @@ impl Expr {
                 binding_span,
                 binding_info_idx: _,
             } => MaybeSpanned::spanned(symbol.to_string(), *binding_span),
-            ExprKind::ArrayLiteral { .. } => {
-                MaybeSpanned::not_spanned("[_]{..}".to_string())
-            }
-            ExprKind::TupleLiteral(_) => {
-                MaybeSpanned::not_spanned("(..)".to_string())
-            }
-            ExprKind::StructLiteral { .. } => {
-                MaybeSpanned::not_spanned("_{..}".to_string())
-            }
+            ExprKind::ArrayLiteral { .. } => MaybeSpanned::not_spanned("[_]{..}".to_string()),
+            ExprKind::TupleLiteral(_) => MaybeSpanned::not_spanned("(..)".to_string()),
+            ExprKind::StructLiteral { .. } => MaybeSpanned::not_spanned("_{..}".to_string()),
             ExprKind::Literal(kind) => MaybeSpanned::not_spanned(match kind {
                 LiteralKind::Unit => "()".to_string(),
                 LiteralKind::Nil => "nil".to_string(),
@@ -276,9 +256,9 @@ pub struct Block {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructType {
     pub name: Ustr,
-    pub qualified_name: Ustr,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTyKind,
+    pub binding_info_idx: Option<BindingInfoIdx>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -331,9 +311,7 @@ impl LiteralKind {
             LiteralKind::Bool(_) => Ty::Bool,
             LiteralKind::Str(_) => Ty::str(),
             LiteralKind::Char(_) => Ty::UInt(UIntTy::U8),
-            LiteralKind::Nil | LiteralKind::Int(_) | LiteralKind::Float(_) => {
-                Ty::Unknown
-            }
+            LiteralKind::Nil | LiteralKind::Int(_) | LiteralKind::Float(_) => Ty::Unknown,
         }
     }
 }
@@ -482,11 +460,7 @@ pub enum ForeignLibrary {
 }
 
 impl ForeignLibrary {
-    pub fn from_str(
-        string: &str,
-        module_path: Ustr,
-        span: Span,
-    ) -> DiagnosticResult<Self> {
+    pub fn from_str(string: &str, module_path: Ustr, span: Span) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 
         if string.starts_with(SYSTEM_PREFIX) {
@@ -504,12 +478,7 @@ impl ForeignLibrary {
 
             Ok(ForeignLibrary::Path {
                 lib_path: path.parent().unwrap().to_str().unwrap().to_string(),
-                lib_name: path
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
+                lib_name: path.file_name().unwrap().to_str().unwrap().to_string(),
             })
         }
     }
@@ -695,8 +664,7 @@ impl Display for UnaryOp {
             f,
             "{}",
             match self {
-                UnaryOp::Ref(is_mutable) =>
-                    format!("&{}", if *is_mutable { "mut " } else { "" }),
+                UnaryOp::Ref(is_mutable) => format!("&{}", if *is_mutable { "mut " } else { "" }),
                 UnaryOp::Deref => "*".to_string(),
                 UnaryOp::Neg => "-".to_string(),
                 UnaryOp::Plus => "+".to_string(),

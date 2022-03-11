@@ -22,16 +22,13 @@ pub fn do_build(build_options: BuildOptions) {
     let root_dir = absolute_path.parent().unwrap();
     let std_dir = common::compiler_info::std_module_root_dir();
 
-    let mut workspace =
-        Workspace::new(build_options.clone(), root_dir, &std_dir);
+    let mut workspace = Workspace::new(build_options.clone(), root_dir, &std_dir);
 
     if !source_path.exists() {
         emit_single_diagnostic(
             &workspace.files,
-            Diagnostic::error().with_message(format!(
-                "file `{}` doesn't exist",
-                source_path.display()
-            )),
+            Diagnostic::error()
+                .with_message(format!("file `{}` doesn't exist", source_path.display())),
         );
         return;
     }
@@ -46,10 +43,7 @@ pub fn do_build(build_options: BuildOptions) {
         match generator.start(build_options.source_file.clone()) {
             Ok(asts) => asts,
             Err(diagnostic) => {
-                emit_single_diagnostic(
-                    &generator.workspace.lock().unwrap().files,
-                    diagnostic,
-                );
+                emit_single_diagnostic(&generator.workspace.lock().unwrap().files, diagnostic);
                 return;
             }
         }
@@ -61,7 +55,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     let sw = Stopwatch::start_new("resolve");
 
-    if let Err(diagnostic) = chili_resolve::resolve(&mut asts, &mut workspace) {
+    if let Err(diagnostic) = chili_resolve::resolve(&mut workspace, &mut asts) {
         emit_single_diagnostic(&workspace.files, diagnostic);
         return;
     }
@@ -94,13 +88,8 @@ pub fn do_build(build_options: BuildOptions) {
     );
 }
 
-fn print_stats(
-    files: &SimpleFiles<String, String>,
-    root_file_id: usize,
-    elapsed_ms: u128,
-) {
-    let file_line_count =
-        files.get(root_file_id).unwrap().source().lines().count();
+fn print_stats(files: &SimpleFiles<String, String>, root_file_id: usize, elapsed_ms: u128) {
+    let file_line_count = files.get(root_file_id).unwrap().source().lines().count();
     println!();
     println!(
         "{}\t{}",

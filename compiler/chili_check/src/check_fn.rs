@@ -10,7 +10,7 @@ use chili_ast::{
     pattern::{Pattern, SymbolPattern},
 };
 
-impl<'a> CheckSess<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_fn(
         &mut self,
         frame: &mut CheckFrame,
@@ -22,32 +22,21 @@ impl<'a> CheckSess<'a> {
 
         let ty = proto.ty.into_fn();
 
-        let mut fn_frame =
-            CheckFrame::new(frame.module_info, Some(*ty.ret.clone()));
+        let mut fn_frame = CheckFrame::new(frame.depth, frame.module_idx, Some(*ty.ret.clone()));
 
         if let Some(idx) = proto.binding_info_idx {
-            self.workspace.get_binding_info_mut(idx).unwrap().ty =
-                proto.ty.clone();
+            self.workspace.get_binding_info_mut(idx).unwrap().ty = proto.ty.clone();
         }
 
         for (index, param) in proto.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
-            self.check_binding_pattern(
-                &mut fn_frame,
-                &param.pattern,
-                param_ty,
-                None,
-                true,
-            )?;
+            self.check_binding_pattern(&mut fn_frame, &param.pattern, param_ty, None, true)?;
         }
 
         self.init_scopes.push_scope();
 
-        let (mut body, result_ty) = self.check_block(
-            &mut fn_frame,
-            &func.body,
-            Some(proto.ty.clone()),
-        )?;
+        let (mut body, result_ty) =
+            self.check_block(&mut fn_frame, &func.body, Some(proto.ty.clone()))?;
 
         self.init_scopes.pop_scope();
 
@@ -60,11 +49,8 @@ impl<'a> CheckSess<'a> {
 
         if !result_ty.is_never() {
             if body.exprs.is_empty() {
-                self.infcx.unify(
-                    ty.ret.as_ref().clone(),
-                    Ty::Unit,
-                    last_stmt_span,
-                )?;
+                self.infcx
+                    .unify(ty.ret.as_ref().clone(), Ty::Unit, last_stmt_span)?;
             } else {
                 if body.yields && !ty.ret.is_unit() {
                     let last_expr_mut = body.exprs.last_mut().unwrap();
@@ -74,11 +60,7 @@ impl<'a> CheckSess<'a> {
                         last_stmt_span,
                     )?;
                 } else {
-                    self.infcx.unify(
-                        ty.ret.as_ref().clone(),
-                        Ty::Unit,
-                        span,
-                    )?;
+                    self.infcx.unify(ty.ret.as_ref().clone(), Ty::Unit, span)?;
                 }
             }
         }
@@ -125,9 +107,7 @@ impl<'a> CheckSess<'a> {
         let mut param_name_map = UstrMap::default();
 
         let mut check_symbol = |symbol: Ustr, span: Span| {
-            if let Some(already_defined_span) =
-                param_name_map.insert(symbol, span)
-            {
+            if let Some(already_defined_span) = param_name_map.insert(symbol, span) {
                 Err(SyntaxError::duplicate_symbol(
                     already_defined_span,
                     span,
@@ -152,8 +132,7 @@ impl<'a> CheckSess<'a> {
                         }
                     }
                 }
-                Pattern::StructDestructor(destructor)
-                | Pattern::TupleDestructor(destructor) => {
+                Pattern::StructDestructor(destructor) | Pattern::TupleDestructor(destructor) => {
                     for SymbolPattern {
                         symbol,
                         alias,
@@ -163,9 +142,7 @@ impl<'a> CheckSess<'a> {
                     } in destructor.symbols.iter()
                     {
                         if !ignore {
-                            if let Err(e) =
-                                check_symbol(alias.unwrap_or(*symbol), *span)
-                            {
+                            if let Err(e) = check_symbol(alias.unwrap_or(*symbol), *span) {
                                 return Err(e);
                             }
                         }
@@ -182,8 +159,7 @@ impl<'a> CheckSess<'a> {
                     Some(ref expected_fn_ty) => {
                         // infer this param's type from the expected param's
                         // type
-                        let expected_param_ty =
-                            expected_fn_ty.params[index].ty.clone();
+                        let expected_param_ty = expected_fn_ty.params[index].ty.clone();
                         (
                             Box::new(Expr::typed(
                                 ExprKind::Noop,
@@ -274,9 +250,7 @@ impl<'a> CheckSess<'a> {
                 (Some(Box::new(type_expr.expr)), ty)
             }
             None => match expected_fn_ty {
-                Some(expected_fn_ty) => {
-                    (None, expected_fn_ty.ret.as_ref().clone())
-                }
+                Some(expected_fn_ty) => (None, expected_fn_ty.ret.as_ref().clone()),
                 None => (None, Ty::Unit),
             },
         };
@@ -289,8 +263,7 @@ impl<'a> CheckSess<'a> {
         });
 
         if let Some(idx) = proto.binding_info_idx {
-            self.workspace.get_binding_info_mut(idx).unwrap().ty =
-                fn_ty.clone();
+            self.workspace.get_binding_info_mut(idx).unwrap().ty = fn_ty.clone();
         }
 
         Ok(Proto {

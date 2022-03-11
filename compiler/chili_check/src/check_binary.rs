@@ -7,7 +7,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 
-impl<'a> CheckSess<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     #[inline]
     pub(super) fn check_binary_expr(
         &mut self,
@@ -22,11 +22,9 @@ impl<'a> CheckSess<'a> {
         let mut rhs = self.check_expr(frame, rhs, expected_ty)?;
 
         let rhs_span = rhs.expr.span;
-        let ty = self.infcx.unify_or_coerce_expr_expr(
-            &mut lhs.expr,
-            &mut rhs.expr,
-            rhs_span,
-        )?;
+        let ty = self
+            .infcx
+            .unify_or_coerce_expr_expr(&mut lhs.expr, &mut rhs.expr, rhs_span)?;
 
         match op {
             BinaryOp::Add

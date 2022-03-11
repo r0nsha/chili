@@ -4,7 +4,7 @@ use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
 use std::{cmp::Ordering, collections::HashSet, path::Path};
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 pub struct Workspace<'w> {
     pub build_options: BuildOptions,
@@ -37,11 +37,7 @@ pub struct Workspace<'w> {
 }
 
 impl<'w> Workspace<'w> {
-    pub fn new(
-        build_options: BuildOptions,
-        root_dir: &'w Path,
-        std_dir: &'w Path,
-    ) -> Self {
+    pub fn new(build_options: BuildOptions, root_dir: &'w Path, std_dir: &'w Path) -> Self {
         Self {
             build_options,
             files: SimpleFiles::new(),
@@ -71,11 +67,26 @@ pub struct BindingInfo {
     pub span: Span,
 }
 
+impl BindingInfo {
+    pub fn qualified_name(&self) -> Ustr {
+        ustr(&format!("{}.{}", self.scope_name, self.symbol))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingInfoKind {
     Let,
     Type,
     Import,
+}
+
+impl BindingInfoKind {
+    pub fn is_type(&self) -> bool {
+        match self {
+            BindingInfoKind::Type => true,
+            _ => false,
+        }
+    }
 }
 
 impl<'w> Workspace<'w> {
@@ -88,10 +99,7 @@ impl<'w> Workspace<'w> {
         self.module_infos.get(id.0)
     }
 
-    pub fn find_module_info(
-        &self,
-        module_info: ModuleInfo,
-    ) -> Option<ModuleIdx> {
+    pub fn find_module_info(&self, module_info: ModuleInfo) -> Option<ModuleIdx> {
         self.module_infos
             .iter()
             .position(|m| *m == module_info)
@@ -155,10 +163,7 @@ impl<'w> Workspace<'w> {
         self.binding_infos.get(id.0)
     }
 
-    pub fn get_binding_info_mut(
-        &mut self,
-        id: BindingInfoIdx,
-    ) -> Option<&mut BindingInfo> {
+    pub fn get_binding_info_mut(&mut self, id: BindingInfoIdx) -> Option<&mut BindingInfo> {
         self.binding_infos.get_mut(id.0)
     }
 }

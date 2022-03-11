@@ -8,10 +8,7 @@ use chili_token::TokenKind::*;
 const SELF_SYMBOL: &str = "Self";
 
 impl<'w> Parser<'w> {
-    pub(super) fn parse_decl_ty(
-        &mut self,
-        decl_name: Ustr,
-    ) -> DiagnosticResult<Expr> {
+    pub(super) fn parse_decl_ty(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
         self.skip_redundant_tokens();
         self.decl_name_frames.push(decl_name);
         let ty = self.parse_ty()?;
@@ -112,13 +109,7 @@ impl<'w> Parser<'w> {
     fn parse_tuple_ty(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
 
-        let tys = parse_delimited_list!(
-            self,
-            CloseParen,
-            Comma,
-            self.parse_ty()?,
-            ", or )"
-        );
+        let tys = parse_delimited_list!(self, CloseParen, Comma, self.parse_ty()?, ", or )");
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(tys),
@@ -135,17 +126,15 @@ impl<'w> Parser<'w> {
         Ok(Expr::new(
             ExprKind::StructType(StructType {
                 name,
-                qualified_name: name,
                 fields,
                 kind: StructTyKind::Struct,
+                binding_info_idx: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))
     }
 
-    fn parse_struct_ty_fields(
-        &mut self,
-    ) -> DiagnosticResult<Vec<StructTypeField>> {
+    fn parse_struct_ty_fields(&mut self) -> DiagnosticResult<Vec<StructTypeField>> {
         let fields = parse_delimited_list!(
             self,
             CloseCurly,
@@ -181,9 +170,9 @@ impl<'w> Parser<'w> {
         Ok(Expr::new(
             ExprKind::StructType(StructType {
                 name,
-                qualified_name: name,
                 fields,
                 kind: StructTyKind::Union,
+                binding_info_idx: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))

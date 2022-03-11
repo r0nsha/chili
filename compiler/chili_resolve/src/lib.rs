@@ -13,10 +13,7 @@ use resolve::Resolve;
 use resolver::Resolver;
 use scope::Scope;
 
-pub fn resolve<'w>(
-    asts: &mut Vec<Ast>,
-    workspace: &mut Workspace<'w>,
-) -> DiagnosticResult<()> {
+pub fn resolve<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let mut resolver = Resolver::new();
 
     resolver.add_builtin_types(workspace);
@@ -33,8 +30,7 @@ pub fn resolve<'w>(
     // Assign module ids to all imports
     for ast in asts.iter_mut() {
         for import in ast.imports.iter_mut() {
-            import.module_idx =
-                workspace.find_module_info(import.module_info).unwrap();
+            import.module_idx = workspace.find_module_info(import.module_info).unwrap();
         }
     }
 

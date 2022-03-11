@@ -72,8 +72,7 @@ impl<'w> Resolve<'w> for ast::Import {
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
         if !resolver.in_global_scope() {
-            self.module_idx =
-                workspace.find_module_info(self.module_info).unwrap();
+            self.module_idx = workspace.find_module_info(self.module_info).unwrap();
 
             self.binding_info_idx = resolver.add_binding(
                 workspace,
@@ -243,13 +242,14 @@ impl<'w> Resolve<'w> for ast::Expr {
                 binding_info_idx,
             } => match resolver.lookup_binding(workspace, *symbol) {
                 Some(id) => {
-                    let info = workspace.get_binding_info(id).unwrap();
+                    let binding_info = workspace.get_binding_info(id).unwrap();
 
-                    if info.level < resolver.function_scope_level {
+                    if !binding_info.kind.is_type()
+                        && !binding_info.level.is_global()
+                        && binding_info.level < resolver.function_scope_level
+                    {
                         return Err(Diagnostic::error()
-                            .with_message(
-                                "can't capture dynamic environment in a fn",
-                            )
+                            .with_message("can't capture dynamic environment in a fn")
                             .with_labels(vec![Label::primary(
                                 self.span.file_id,
                                 self.span.range().clone(),
@@ -260,15 +260,9 @@ impl<'w> Resolve<'w> for ast::Expr {
                 }
                 None => {
                     return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "cannot find value `{}` in this scope",
-                            symbol
-                        ))
-                        .with_labels(vec![Label::primary(
-                            self.span.file_id,
-                            self.span.range(),
-                        )
-                        .with_message("not found in this scope")]))
+                        .with_message(format!("cannot find value `{}` in this scope", symbol))
+                        .with_labels(vec![Label::primary(self.span.file_id, self.span.range())
+                            .with_message("not found in this scope")]))
                 }
             },
             ast::ExprKind::ArrayLiteral(kind) => match kind {
@@ -303,14 +297,24 @@ impl<'w> Resolve<'w> for ast::Expr {
                 inner.resolve(resolver, workspace)?;
             }
             ast::ExprKind::StructType(typ) => {
+                if !typ.name.is_empty() {
+                    typ.binding_info_idx = Some(resolver.add_binding(
+                        workspace,
+                        typ.name,
+                        Visibility::Private,
+                        false,
+                        BindingKind::Type,
+                        self.span,
+                        true,
+                    ));
+                }
+
                 let mut field_map = UstrMap::default();
 
                 for field in typ.fields.iter_mut() {
                     field.ty.resolve(resolver, workspace)?;
 
-                    if let Some(already_defined_span) =
-                        field_map.insert(field.name, field.span)
-                    {
+                    if let Some(already_defined_span) = field_map.insert(field.name, field.span) {
                         return Err(SyntaxError::duplicate_symbol(
                             already_defined_span,
                             field.span,
@@ -377,9 +381,7 @@ impl<'w> Resolve<'w> for ast::Fn {
             );
 
             for pat in param.pattern.symbols() {
-                if let Some(already_defined_span) =
-                    param_map.insert(pat.symbol, pat.span)
-                {
+                if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
                     return Err(SyntaxError::duplicate_symbol(
                         already_defined_span,
                         pat.span,

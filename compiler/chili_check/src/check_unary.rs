@@ -7,7 +7,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 
-impl<'a> CheckSess<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     pub(super) fn check_unary_expr(
         &mut self,
         frame: &mut CheckFrame,
@@ -40,9 +40,7 @@ impl<'a> CheckSess<'a> {
                 if !lhs_ty.is_bool() {
                     return Err(TypeError::invalid_ty_in_condition(
                         span,
-                        self.infcx
-                            .normalize_ty_and_untyped(&lhs_ty)
-                            .to_string(),
+                        self.infcx.normalize_ty_and_untyped(&lhs_ty).to_string(),
                     ));
                 }
 
@@ -61,15 +59,11 @@ impl<'a> CheckSess<'a> {
                 }
             }
             UnaryOp::Neg => {
-                if !self.infcx.is_integer(&lhs_ty)
-                    && !self.infcx.is_float(&lhs_ty)
-                {
+                if !self.infcx.is_integer(&lhs_ty) && !self.infcx.is_float(&lhs_ty) {
                     return Err(TypeError::invalid_ty_in_unary(
                         span,
                         "neg",
-                        self.infcx
-                            .normalize_ty_and_untyped(&lhs_ty)
-                            .to_string(),
+                        self.infcx.normalize_ty_and_untyped(&lhs_ty).to_string(),
                     ));
                 }
 
@@ -78,30 +72,21 @@ impl<'a> CheckSess<'a> {
                         Value::Int(i) => {
                             let result_value = -i;
                             (
-                                ExprKind::Literal(LiteralKind::Int(
-                                    result_value,
-                                )),
+                                ExprKind::Literal(LiteralKind::Int(result_value)),
                                 Value::Int(result_value),
                             )
                         }
                         Value::Float(f) => {
                             let result_value = -f;
                             (
-                                ExprKind::Literal(LiteralKind::Float(
-                                    result_value,
-                                )),
+                                ExprKind::Literal(LiteralKind::Float(result_value)),
                                 Value::Float(result_value),
                             )
                         }
                         value => unreachable!("got {}", value),
                     };
 
-                    return Ok(CheckedExpr::new(
-                        expr_kind,
-                        lhs_ty,
-                        Some(value),
-                        span,
-                    ));
+                    return Ok(CheckedExpr::new(expr_kind, lhs_ty, Some(value), span));
                 } else {
                     lhs_ty
                 }
@@ -111,9 +96,7 @@ impl<'a> CheckSess<'a> {
                     return Err(TypeError::invalid_ty_in_unary(
                         span,
                         "plus",
-                        self.infcx
-                            .normalize_ty_and_untyped(&lhs_ty)
-                            .to_string(),
+                        self.infcx.normalize_ty_and_untyped(&lhs_ty).to_string(),
                     ));
                 }
 
@@ -124,9 +107,7 @@ impl<'a> CheckSess<'a> {
                     return Err(TypeError::invalid_ty_in_unary(
                         span,
                         "bitwise_not",
-                        self.infcx
-                            .normalize_ty_and_untyped(&lhs_ty)
-                            .to_string(),
+                        self.infcx.normalize_ty_and_untyped(&lhs_ty).to_string(),
                     ));
                 }
 

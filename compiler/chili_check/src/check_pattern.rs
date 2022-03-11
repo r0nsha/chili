@@ -9,7 +9,7 @@ use chili_ast::{
     value::Value,
 };
 
-impl<'a> CheckSess<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_binding_pattern(
         &mut self,
         frame: &mut CheckFrame,
@@ -46,10 +46,7 @@ impl<'a> CheckSess<'a> {
             Ty::Struct(ref struct_ty) => {
                 if struct_ty.is_union() {
                     return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "can't destruct `{}`",
-                            expected_ty
-                        ))
+                        .with_message(format!("can't destruct `{}`", expected_ty))
                         .with_labels(vec![Label::primary(
                             pattern.span.file_id,
                             pattern.span.range().clone(),
@@ -63,19 +60,13 @@ impl<'a> CheckSess<'a> {
                         continue;
                     }
 
-                    match struct_ty
-                        .fields
-                        .iter()
-                        .find(|f| f.symbol == pat.symbol)
-                    {
+                    match struct_ty.fields.iter().find(|f| f.symbol == pat.symbol) {
                         Some(field) => {
                             if !field_set.insert(pat.symbol) {
-                                return Err(
-                                    TypeError::duplicate_destructor_field(
-                                        pat.span,
-                                        field.symbol,
-                                    ),
-                                );
+                                return Err(TypeError::duplicate_destructor_field(
+                                    pat.span,
+                                    field.symbol,
+                                ));
                             }
 
                             let symbol = pat.alias.unwrap_or(pat.symbol);
@@ -94,9 +85,7 @@ impl<'a> CheckSess<'a> {
                     }
                 }
 
-                if pattern.exhaustive
-                    && field_set.len() < struct_ty.fields.len()
-                {
+                if pattern.exhaustive && field_set.len() < struct_ty.fields.len() {
                     return Err(Diagnostic::error()
                         .with_message(format!(
                             "missing struct fields: {}",
@@ -150,10 +139,7 @@ impl<'a> CheckSess<'a> {
                         continue;
                     }
 
-                    self.update_symbol_pattern_ty(
-                        pat,
-                        get_destructed_ty(expected_ty, &tys[i]),
-                    );
+                    self.update_symbol_pattern_ty(pat, get_destructed_ty(expected_ty, &tys[i]));
                 }
 
                 Ok(())
@@ -177,9 +163,7 @@ impl<'a> CheckSess<'a> {
 
 fn get_destructed_ty(expected_ty: &Ty, ty: &Ty) -> Ty {
     match expected_ty {
-        Ty::Pointer(_, is_mutable) => {
-            Ty::Pointer(Box::new(ty.clone()), *is_mutable)
-        }
+        Ty::Pointer(_, is_mutable) => Ty::Pointer(Box::new(ty.clone()), *is_mutable),
         _ => ty.clone(),
     }
 }

@@ -11,8 +11,9 @@ mod lints;
 
 use builtin::get_builtin_types;
 use chili_ast::ty::Ty;
+use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
-    ast::{Ast, Expr, ExprKind, ModuleInfo},
+    ast::{Ast, Expr, ExprKind},
     value::Value,
     workspace::{BindingInfoIdx, Workspace},
 };
@@ -20,27 +21,19 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::infer::InferenceContext;
 use chili_span::Span;
 use common::scopes::Scopes;
-use ustr::{Ustr, UstrMap};
+use ustr::UstrMap;
 
-pub fn check<'w>(
-    workspace: &'w mut Workspace<'w>,
-    asts: &mut Vec<Ast>,
-) -> DiagnosticResult<()> {
+pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
     let mut sess = CheckSess::new(workspace, &mut infcx);
 
     for ast in asts {
         for import in ast.imports.iter() {
-            sess.check_import(ast.module_info, import)?;
+            sess.check_import(import)?;
         }
         for binding in ast.bindings.iter() {
-            sess.check_top_level_binding_internal(
-                ast.module_info,
-                binding,
-                ast.module_info,
-                Span::unknown(),
-            )?;
+            sess.check_top_level_binding(binding, ast.module_idx, binding.pattern.span())?;
         }
     }
 
@@ -54,12 +47,7 @@ pub(crate) struct CheckedExpr {
 }
 
 impl CheckedExpr {
-    pub(crate) fn new(
-        expr: ExprKind,
-        ty: Ty,
-        value: Option<Value>,
-        span: Span,
-    ) -> Self {
+    pub(crate) fn new(expr: ExprKind, ty: Ty, value: Option<Value>, span: Span) -> Self {
         Self {
             expr: Expr::typed(expr, ty.clone(), span),
             ty,
@@ -68,29 +56,19 @@ impl CheckedExpr {
     }
 }
 
-pub(crate) struct ProcessedItem {
-    pub(crate) module_name: Ustr,
-    pub(crate) symbol: Ustr,
-}
-
-pub(crate) struct CheckSess<'a> {
-    pub(crate) workspace: &'a mut Workspace<'a>,
+pub(crate) struct CheckSess<'w, 'a> {
+    pub(crate) workspace: &'a mut Workspace<'w>,
     pub(crate) infcx: &'a mut InferenceContext,
     pub(crate) builtin_types: UstrMap<Ty>,
-    pub(crate) processed_items_stack: Vec<ProcessedItem>,
     pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
 }
 
-impl<'a> CheckSess<'a> {
-    pub(crate) fn new(
-        workspace: &'a mut Workspace<'a>,
-        infcx: &'a mut InferenceContext,
-    ) -> Self {
+impl<'w, 'a> CheckSess<'w, 'a> {
+    pub(crate) fn new(workspace: &'a mut Workspace<'w>, infcx: &'a mut InferenceContext) -> Self {
         Self {
             workspace,
             infcx,
             builtin_types: get_builtin_types(),
-            processed_items_stack: vec![],
             init_scopes: Scopes::new(),
         }
     }
@@ -145,28 +123,25 @@ impl InitState {
 }
 
 pub(crate) struct CheckFrame {
-    pub(crate) module_info: ModuleInfo,
-    pub(crate) expected_return_ty: Option<Ty>,
+    pub(crate) depth: usize,
     pub(crate) loop_depth: usize,
+    pub(crate) module_idx: ModuleIdx,
+    pub(crate) expected_return_ty: Option<Ty>,
     pub(crate) self_types: Vec<Ty>,
 }
 
 impl CheckFrame {
     pub(crate) fn new(
-        module_info: ModuleInfo,
+        previous_depth: usize,
+        module_idx: ModuleIdx,
         expected_return_ty: Option<Ty>,
     ) -> Self {
         Self {
-            module_info,
-            expected_return_ty,
+            depth: previous_depth + 1,
             loop_depth: 0,
+            module_idx,
+            expected_return_ty,
             self_types: vec![],
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub(crate) enum TopLevelLookupKind {
-    CurrentModule,
-    OtherModule,
 }

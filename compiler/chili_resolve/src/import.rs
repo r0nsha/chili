@@ -32,10 +32,7 @@ pub(crate) fn collect_module_exports(asts: &Vec<Ast>) -> ModuleExports {
     exports
 }
 
-pub(crate) fn expand_and_replace_glob_imports(
-    imports: &mut Vec<Import>,
-    exports: &ModuleExports,
-) {
+pub(crate) fn expand_and_replace_glob_imports(imports: &mut Vec<Import>, exports: &ModuleExports) {
     let mut to_remove: Vec<usize> = vec![];
     let mut to_add: Vec<Import> = vec![];
 
@@ -73,6 +70,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
         .iter()
         .map(|symbol| {
             let mut import_path = import.import_path.clone();
+            import_path.pop();
             import_path.push(Spanned::new(
                 ImportPathNode::Symbol(*symbol),
                 import.span().clone(),
