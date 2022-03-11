@@ -165,13 +165,15 @@ impl<'w> Resolve<'w> for ast::Expr {
             }
             ast::ExprKind::While { cond, expr } => {
                 cond.resolve(resolver, workspace)?;
+                resolver.loop_depth += 1;
                 expr.resolve(resolver, workspace)?;
+                resolver.loop_depth -= 1;
             }
             ast::ExprKind::For {
                 iter_name,
                 iter_index_name,
                 iterator,
-                expr,
+                expr: block,
             } => {
                 // TODO: add iter_id
                 // TODO: add iter_ty
@@ -189,15 +191,27 @@ impl<'w> Resolve<'w> for ast::Expr {
                     }
                 }
 
-                expr.resolve(resolver, workspace)?;
+                resolver.loop_depth += 1;
+                block.resolve(resolver, workspace)?;
+                resolver.loop_depth -= 1;
             }
             ast::ExprKind::Break { deferred } => {
+                if resolver.loop_depth == 0 {
+                    return Err(SyntaxError::outside_of_loop(self.span, "break"));
+                }
                 deferred.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Continue { deferred } => {
+                if resolver.loop_depth == 0 {
+                    return Err(SyntaxError::outside_of_loop(self.span, "continue"));
+                }
                 deferred.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Return { expr, deferred } => {
+                if resolver.function_scope_level.is_global() {
+                    return Err(SyntaxError::outside_of_function(self.span, "return"));
+                }
+
                 expr.resolve(resolver, workspace)?;
                 deferred.resolve(resolver, workspace)?;
             }

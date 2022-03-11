@@ -3,10 +3,7 @@ pub mod display;
 pub mod hash;
 pub mod size;
 
-use std::{
-    fmt::Display,
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 use chili_span::Span;
 use ustr::{ustr, Ustr};

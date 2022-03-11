@@ -22,23 +22,23 @@ impl UnifyValue for Constraint {
         match (a, b) {
             (Unbound, Unbound) => Ok(Unbound),
 
-            (Unbound, v @ Int)
-            | (v @ Int, Unbound)
+            (Unbound, v @ AnyInt)
+            | (v @ AnyInt, Unbound)
             | (Unbound, v @ Float)
             | (v @ Float, Unbound)
             | (Unbound, v @ Bound(_))
             | (v @ Bound(_), Unbound) => Ok(v.clone()),
 
-            (Int, Int) => Ok(Int),
+            (AnyInt, AnyInt) => Ok(AnyInt),
 
-            (Int, Float) | (Float, Int) | (Float, Float) => Ok(Float),
+            (AnyInt, Float) | (Float, AnyInt) | (Float, Float) => Ok(Float),
 
-            (Int, v @ Bound(TyKind::Int(_)))
-            | (Int, v @ Bound(TyKind::UInt(_)))
-            | (Int, v @ Bound(TyKind::Float(_)))
-            | (v @ Bound(TyKind::Int(_)), Int)
-            | (v @ Bound(TyKind::UInt(_)), Int)
-            | (v @ Bound(TyKind::Float(_)), Int) => Ok(v.clone()),
+            (AnyInt, v @ Bound(TyKind::Int(_)))
+            | (AnyInt, v @ Bound(TyKind::UInt(_)))
+            | (AnyInt, v @ Bound(TyKind::Float(_)))
+            | (v @ Bound(TyKind::Int(_)), AnyInt)
+            | (v @ Bound(TyKind::UInt(_)), AnyInt)
+            | (v @ Bound(TyKind::Float(_)), AnyInt) => Ok(v.clone()),
 
             (v @ Bound(TyKind::Pointer(..)), Pointer)
             | (Pointer, v @ Bound(TyKind::Pointer(..)))
@@ -186,7 +186,10 @@ impl InferSess {
 
             (TyKind::Var(var), actual) => match self.value_of(Ty::from(*var)) {
                 Constraint::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
-                Constraint::Int | Constraint::Float | Constraint::Pointer | Constraint::Unbound => {
+                Constraint::AnyInt
+                | Constraint::Float
+                | Constraint::Pointer
+                | Constraint::Unbound => {
                     self.table
                         .unify_var_value(Ty::from(*var), Constraint::Bound(actual.clone()))?;
                     Ok(actual.clone())
@@ -196,7 +199,7 @@ impl InferSess {
             (expected, TyKind::Var(var)) => {
                 match self.value_of(Ty::from(*var)) {
                     Constraint::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
-                    value @ Constraint::Int
+                    value @ Constraint::AnyInt
                     | value @ Constraint::Float
                     | value @ Constraint::Pointer
                     | value @ Constraint::Unbound => {

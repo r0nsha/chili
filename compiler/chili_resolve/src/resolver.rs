@@ -7,9 +7,7 @@ use crate::{
 use chili_ast::{
     ast::{self, BindingKind, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
-    workspace::{
-        BindingInfoIdx, BindingInfoKind, ModuleIdx, ScopeLevel, Workspace,
-    },
+    workspace::{BindingInfoIdx, BindingInfoKind, ModuleIdx, ScopeLevel, Workspace},
 };
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};
@@ -31,6 +29,8 @@ pub(crate) struct Resolver {
     // Scope information
     pub(crate) scope_level: ScopeLevel,
     pub(crate) function_scope_level: ScopeLevel,
+
+    pub(crate) loop_depth: usize,
 }
 
 impl Resolver {
@@ -44,6 +44,7 @@ impl Resolver {
             scopes: vec![],
             scope_level: ScopeLevel::Global,
             function_scope_level: ScopeLevel::Global,
+            loop_depth: 0,
         }
     }
 
@@ -187,9 +188,8 @@ impl Resolver {
     ) {
         match pattern {
             Pattern::Single(pat) => {
-                pat.binding_info_idx = self.add_binding_with_symbol_pattern(
-                    workspace, pat, visibility, kind, shadowable,
-                );
+                pat.binding_info_idx = self
+                    .add_binding_with_symbol_pattern(workspace, pat, visibility, kind, shadowable);
             }
             Pattern::StructDestructor(pat) | Pattern::TupleDestructor(pat) => {
                 for pat in pat.symbols.iter_mut() {

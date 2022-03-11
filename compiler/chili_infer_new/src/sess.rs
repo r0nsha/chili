@@ -54,7 +54,7 @@ impl InferSess {
             TyKind::Int(_) => true,
             TyKind::Var(var) => match self.value_of(Ty::from(*var)) {
                 Constraint::Bound(ty) => self.is_integer(&ty),
-                Constraint::Int => true,
+                Constraint::AnyInt => true,
                 _ => false,
             },
             _ => false,
@@ -66,7 +66,7 @@ impl InferSess {
             TyKind::Int(_) | TyKind::UInt(_) => true,
             TyKind::Var(var) => match self.value_of(Ty::from(*var)) {
                 Constraint::Bound(ty) => self.is_any_integer(&ty),
-                Constraint::Int => true,
+                Constraint::AnyInt => true,
                 _ => false,
             },
             _ => false,
@@ -90,7 +90,7 @@ impl InferSess {
             TyKind::Int(_) | TyKind::UInt(_) | TyKind::Float(_) => true,
             TyKind::Var(var) => match self.value_of(Ty::from(*var)) {
                 Constraint::Bound(ty) => self.is_number(&ty),
-                Constraint::Int | Constraint::Float => true,
+                Constraint::AnyInt | Constraint::Float => true,
                 _ => false,
             },
             _ => false,
@@ -100,7 +100,7 @@ impl InferSess {
     pub(crate) fn is_untyped_integer(&mut self, ty: &TyKind) -> bool {
         match ty {
             TyKind::Var(var) => match self.value_of(Ty::from(*var)) {
-                Constraint::Int => true,
+                Constraint::AnyInt => true,
                 _ => false,
             },
             _ => false,
@@ -120,7 +120,7 @@ impl InferSess {
     pub(crate) fn is_untyped_number(&mut self, ty: &TyKind) -> bool {
         match ty {
             TyKind::Var(var) => match self.value_of(Ty::from(*var)) {
-                Constraint::Int | Constraint::Float => true,
+                Constraint::AnyInt | Constraint::Float => true,
                 _ => false,
             },
             _ => false,

@@ -263,7 +263,7 @@ pub(crate) fn substitute_ty(
             let tyval = table.probe_value(Ty::from(*id));
             let new_ty = match tyval {
                 Constraint::Bound(ty) => substitute_ty(&ty, table, span)?,
-                Constraint::Int => TyKind::Int(IntTy::default()),
+                Constraint::AnyInt => TyKind::Int(IntTy::default()),
                 Constraint::Float => TyKind::Float(FloatTy::default()),
                 Constraint::Pointer => TyKind::raw_pointer(true),
                 Constraint::Unbound => {
