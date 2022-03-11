@@ -154,20 +154,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chili_check"
-version = "0.1.0"
-dependencies = [
- "chili_ast",
- "chili_error",
- "chili_infer",
- "chili_span",
- "codespan",
- "codespan-reporting",
- "common",
- "ustr",
-]
-
-[[package]]
 name = "chili_error"
 version = "0.1.0"
 dependencies = [
@@ -188,6 +174,20 @@ dependencies = [
  "codespan-reporting",
  "common",
  "ena",
+]
+
+[[package]]
+name = "chili_lint"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_infer",
+ "chili_span",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "ustr",
 ]
 
 [[package]]
@@ -213,13 +213,13 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_astgen",
- "chili_check",
  "chili_error",
  "chili_llvm",
  "chili_parse",
  "chili_pass",
  "chili_resolve",
  "chili_span",
+ "chili_typeck",
  "clap",
  "codespan",
  "codespan-reporting",
@@ -293,6 +293,20 @@ dependencies = [
  "codespan-reporting",
  "strum_macros",
  "unicode-xid",
+ "ustr",
+]
+
+[[package]]
+name = "chili_typeck"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_infer",
+ "chili_span",
+ "codespan",
+ "codespan-reporting",
+ "common",
  "ustr",
 ]
 

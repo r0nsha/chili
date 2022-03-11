@@ -66,7 +66,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     let sw = Stopwatch::start_new("check");
 
-    if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
+    if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
         emit_single_diagnostic(&workspace.files, diagnostic);
         return;
     }

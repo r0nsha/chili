@@ -6,7 +6,6 @@ mod check_expr;
 mod check_fn;
 mod check_pattern;
 mod check_unary;
-mod lints;
 
 use chili_ast::ty::Ty;
 use chili_ast::workspace::ModuleIdx;

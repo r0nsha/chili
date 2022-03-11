@@ -1,5 +1,5 @@
 [package]
-name = "chili_check"
+name = "chili_typeck"
 version = "0.1.0"
 edition = "2021"
 
