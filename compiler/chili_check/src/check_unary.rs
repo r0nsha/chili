@@ -1,4 +1,4 @@
-use crate::{CheckContext, CheckFrame, CheckedExpr};
+use crate::{CheckFrame, CheckSess, CheckedExpr};
 use chili_ast::{
     ast::{Expr, ExprKind, LiteralKind, UnaryOp},
     value::Value,
@@ -7,7 +7,7 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use chili_ty::*;
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(super) fn check_unary_expr(
         &mut self,
         frame: &mut CheckFrame,

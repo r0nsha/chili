@@ -20,7 +20,7 @@ impl<'a> CheckContext<'a> {
     ) -> DiagnosticResult<()> {
         match pattern {
             Pattern::Single(SymbolPattern {
-                binding_info_id: _,
+                binding_info_idx: _,
                 symbol,
                 alias: _,
                 span,
@@ -77,7 +77,7 @@ impl<'a> CheckContext<'a> {
                 let mut field_set = UstrSet::default();
 
                 for SymbolPattern {
-                    binding_info_id: _,
+                    binding_info_idx: _,
                     symbol,
                     alias,
                     span,
@@ -178,7 +178,7 @@ impl<'a> CheckContext<'a> {
 
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern {
-                        binding_info_id: _,
+                        binding_info_idx: _,
                         symbol,
                         alias: _,
                         span,

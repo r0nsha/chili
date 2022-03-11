@@ -4,13 +4,13 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
-use crate::{CheckContext, CheckFrame};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::{
     ast::{Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(crate) fn check_fn(
         &mut self,
         frame: &mut CheckFrame,
@@ -242,7 +242,7 @@ impl<'a> CheckContext<'a> {
                     let symbol = ustr("it");
 
                     let pattern = Pattern::Single(SymbolPattern {
-                        binding_info_id: Default::default(),
+                        binding_info_idx: Default::default(),
                         symbol,
                         alias: None,
                         span: span,

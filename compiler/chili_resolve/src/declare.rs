@@ -75,7 +75,7 @@ impl<'w> Declare<'w> for ast::Import {
         )?;
 
         let id = workspace.add_binding_info(
-            resolver.module_id,
+            resolver.module_idx,
             self.alias,
             self.visibility,
             false,
@@ -108,7 +108,7 @@ impl<'w> Declare<'w> for ast::Binding {
             resolver, workspace, pat.symbol, pat.span,
         )?;
 
-        pat.binding_info_id = resolver.add_binding_with_symbol_pattern(
+        pat.binding_info_idx = resolver.add_binding_with_symbol_pattern(
             workspace,
             pat,
             self.visibility,

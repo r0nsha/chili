@@ -5,9 +5,9 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
-use crate::{CheckContext, CheckFrame, CheckedExpr};
+use crate::{CheckFrame, CheckSess, CheckedExpr};
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(crate) fn check_call(
         &mut self,
         frame: &mut CheckFrame,

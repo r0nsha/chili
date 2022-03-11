@@ -9,19 +9,17 @@ mod check_pattern;
 mod check_unary;
 mod lints;
 
-use std::collections::HashMap;
-
 use builtin::get_builtin_types;
 use chili_ast::{
     ast::{Ast, Expr, ExprKind, ModuleInfo},
     value::Value,
-    workspace::{BindingInfoId, Workspace},
+    workspace::{BindingInfoIdx, Workspace},
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::infer::InferenceContext;
 use chili_span::Span;
 use chili_ty::Ty;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use common::scopes::Scopes;
 use ustr::{Ustr, UstrMap};
 
 pub fn check<'w>(
@@ -30,7 +28,7 @@ pub fn check<'w>(
 ) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
-    let mut ancx = CheckContext::new(&mut infcx);
+    let mut ancx = CheckSess::new(&mut infcx);
 
     for ast in asts {
         for import in ast.imports.iter() {
@@ -79,11 +77,48 @@ pub(crate) struct ProcessedItem {
     pub(crate) symbol: Ustr,
 }
 
-pub(crate) struct CheckContext<'a> {
+pub(crate) struct CheckSess<'a> {
     pub(crate) infcx: &'a mut InferenceContext,
     pub(crate) builtin_types: UstrMap<Ty>,
     pub(crate) processed_items_stack: Vec<ProcessedItem>,
-    pub(crate) init_scopes: Vec<HashMap<BindingInfoId, InitState>>,
+    pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
+}
+
+impl<'a> CheckSess<'a> {
+    pub(crate) fn new(infcx: &'a mut InferenceContext) -> Self {
+        Self {
+            infcx,
+            builtin_types: get_builtin_types(),
+            processed_items_stack: vec![],
+            init_scopes: Scopes::new(),
+        }
+    }
+
+    pub(crate) fn expect_value_is_int(
+        &mut self,
+        value: Option<Value>,
+        ty: &Ty,
+        span: Span,
+    ) -> DiagnosticResult<i64> {
+        match &value {
+            Some(value) => {
+                if !value.is_int() {
+                    Err(TypeError::expected(
+                        span,
+                        &self.infcx.normalize_ty_and_untyped(ty),
+                        "compile-time known integer",
+                    ))
+                } else {
+                    Ok(value.clone().into_int())
+                }
+            }
+            None => Err(TypeError::expected(
+                span,
+                &self.infcx.normalize_ty_and_untyped(ty),
+                "compile-time known integer",
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -117,40 +152,4 @@ impl CheckFrame {
 pub(crate) enum TopLevelLookupKind {
     CurrentModule,
     OtherModule,
-}
-
-impl<'a> CheckContext<'a> {
-    pub(crate) fn new(infcx: &'a mut InferenceContext) -> Self {
-        Self {
-            infcx,
-            builtin_types: get_builtin_types(),
-            processed_items_stack: vec![],
-        }
-    }
-
-    pub(crate) fn expect_value_is_int(
-        &mut self,
-        value: Option<Value>,
-        ty: &Ty,
-        span: Span,
-    ) -> DiagnosticResult<i64> {
-        match &value {
-            Some(value) => {
-                if !value.is_int() {
-                    Err(TypeError::expected(
-                        span,
-                        &self.infcx.normalize_ty_and_untyped(ty),
-                        "compile-time known integer",
-                    ))
-                } else {
-                    Ok(value.clone().into_int())
-                }
-            }
-            None => Err(TypeError::expected(
-                span,
-                &self.infcx.normalize_ty_and_untyped(ty),
-                "compile-time known integer",
-            )),
-        }
-    }
 }

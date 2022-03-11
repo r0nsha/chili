@@ -71,7 +71,7 @@ impl<'w> Resolve<'w> for ast::Import {
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
         if !resolver.in_global_scope() {
-            // import.module_id =
+            // import.module_idx =
             //     workspace.find_module_info(import.module_info).unwrap();
 
             // TODO: add binding info to workspace
@@ -234,7 +234,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                 symbol,
                 is_mutable: _,
                 binding_span: _,
-                binding_info_id,
+                binding_info_idx,
             } => match resolver.lookup_binding(workspace, *symbol) {
                 Some(id) => {
                     let info = workspace.get_binding_info(id).unwrap();
@@ -250,7 +250,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                             )]));
                     }
 
-                    *binding_info_id = id
+                    *binding_info_idx = id
                 }
                 None => {
                     return Err(Diagnostic::error()

@@ -118,7 +118,7 @@ impl<'a> CheckContext<'a> {
         )?;
 
         Ok(Binding {
-            binding_info_id: binding.binding_info_id,
+            binding_info_idx: binding.binding_info_idx,
             kind: binding.kind,
             pattern: binding.pattern.clone(),
             ty_expr,

@@ -1,5 +1,5 @@
 use crate::{
-    CheckedExpr, {CheckContext, CheckFrame},
+    CheckedExpr, {CheckFrame, CheckSess},
 };
 use chili_ast::{
     ast::{Expr, ExprKind, UnaryOp},
@@ -11,7 +11,7 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(crate) fn check_assign_expr(
         &mut self,
         frame: &mut CheckFrame,
@@ -196,7 +196,7 @@ fn check_lvalue_mutability_internal(
             symbol,
             is_mutable,
             binding_span,
-            binding_info_id: _,
+            binding_info_idx: _,
         } => check_id(
             *symbol,
             *is_mutable,

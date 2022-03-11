@@ -199,7 +199,7 @@ impl<'w> Parser<'w> {
                     self.previous().span,
                 ));
                 Ok(vec![Import {
-                    module_id: Default::default(),
+                    module_idx: Default::default(),
                     module_info: ModuleInfo::new(module, path),
                     alias: ustr(""),
                     import_path: import_path.clone(),
@@ -217,7 +217,7 @@ impl<'w> Parser<'w> {
             };
 
             Ok(vec![Import {
-                module_id: Default::default(),
+                module_idx: Default::default(),
                 module_info: ModuleInfo::new(module, path),
                 alias,
                 import_path: import_path.clone(),

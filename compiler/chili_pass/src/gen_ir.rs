@@ -1,6 +1,6 @@
 use crate::{
     expand_glob_imports::expand_glob_imports,
-    solve_defer::{DeferContext, SolveDefer},
+    solve_defer::{DeferSess, SolveDefer},
 };
 use chili_ast::ast::{Ast, Ir, Module};
 use chili_error::DiagnosticResult;
@@ -18,7 +18,7 @@ pub fn gen_ir(
         module.imports.extend(ast.imports);
         module.bindings.extend(ast.bindings);
 
-        module.bindings.solve_defer(&mut DeferContext::new());
+        module.bindings.solve_defer(&mut DeferSess::new());
 
         ir.modules.insert(ast.module_info.name, module);
         ir.foreign_libraries.extend(ast.foreign_libraries);

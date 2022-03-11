@@ -1,11 +1,12 @@
-use crate::{CheckContext, CheckFrame, CheckedExpr, TopLevelLookupKind};
+use crate::{
+    CheckFrame, CheckSess, CheckedExpr, InitState, TopLevelLookupKind,
+};
 use chili_ast::{
     ast::{
         ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter,
         LiteralKind, ModuleInfo, StructLiteralField, StructType,
         StructTypeField,
     },
-    pattern::SymbolPattern,
     value::Value,
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
@@ -16,7 +17,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(crate) fn check_expr(
         &mut self,
         frame: &mut CheckFrame,
@@ -717,10 +718,45 @@ impl<'a> CheckContext<'a> {
                     expr.span,
                 )
             }
-            ExprKind::Id { symbol, .. } => {
-                let (expr, _) =
-                    self.check_id(frame, *symbol, expr.span, false)?;
-                expr
+            ExprKind::Id {
+                symbol,
+                binding_info_idx,
+                ..
+            } => {
+                let binding_info =
+                    self.workspace.get_binding_info(*binding_info_idx).unwrap();
+
+                if let InitState::NotInit =
+                    self.init_scopes.get(*binding_info_idx).unwrap()
+                {
+                    let msg = format!("`{}` is possibly uninitialized", symbol);
+                    return Err(Diagnostic::error()
+                        .with_message(msg.clone())
+                        .with_labels(vec![
+                            Label::primary(
+                                expr.span.file_id,
+                                expr.span.range().clone(),
+                            )
+                            .with_message(msg),
+                            Label::secondary(
+                                binding_info.span.file_id,
+                                binding_info.span.range().clone(),
+                            )
+                            .with_message("defined here"),
+                        ]));
+                }
+
+                CheckedExpr::new(
+                    ExprKind::Id {
+                        symbol: *symbol,
+                        is_mutable: binding_info.is_mutable,
+                        binding_span: binding_info.span,
+                        binding_info_idx: Default::default(),
+                    },
+                    binding_info.ty,
+                    binding_info.const_value,
+                    expr.span,
+                )
             }
             ExprKind::ArrayLiteral(kind) => match kind {
                 ArrayLiteralKind::List(elements) => {
@@ -1459,7 +1495,7 @@ impl<'a> CheckContext<'a> {
                     symbol,
                     is_mutable: binding.is_mutable,
                     binding_span: binding.span,
-                    binding_info_id: Default::default(),
+                    binding_info_idx: Default::default(),
                 },
                 binding.ty,
                 binding.const_value,
@@ -1742,7 +1778,7 @@ impl<'a> CheckContext<'a> {
                 symbol,
                 is_mutable,
                 binding_span,
-                binding_info_id: _,
+                binding_info_idx: _,
             } => {
                 match ty {
                     Ty::Slice(_, is_mutable)

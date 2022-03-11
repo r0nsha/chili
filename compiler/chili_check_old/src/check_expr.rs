@@ -1459,7 +1459,7 @@ impl<'a> CheckContext<'a> {
                     symbol,
                     is_mutable: binding.is_mutable,
                     binding_span: binding.span,
-                    binding_info_id: Default::default(),
+                    binding_info_idx: Default::default(),
                 },
                 binding.ty,
                 binding.const_value,
@@ -1740,7 +1740,7 @@ impl<'a> CheckContext<'a> {
                 symbol,
                 is_mutable,
                 binding_span,
-                binding_info_id: _,
+                binding_info_idx: _,
             } => {
                 match ty {
                     Ty::Slice(_, is_mutable)

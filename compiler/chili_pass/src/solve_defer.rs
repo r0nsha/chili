@@ -4,11 +4,11 @@ use chili_ast::ast::{
 };
 
 #[derive(Clone)]
-pub(crate) struct DeferContext {
+pub(crate) struct DeferSess {
     stacks: Vec<DeferStack>,
 }
 
-impl DeferContext {
+impl DeferSess {
     pub fn new() -> Self {
         Self { stacks: vec![] }
     }
@@ -64,100 +64,100 @@ impl DeferStack {
 }
 
 pub(crate) trait SolveDefer {
-    fn solve_defer(&mut self, ctx: &mut DeferContext);
+    fn solve_defer(&mut self, sess: &mut DeferSess);
 }
 
 impl<T: SolveDefer> SolveDefer for Vec<T> {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
-        self.iter_mut().for_each(|a| a.solve_defer(ctx));
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
+        self.iter_mut().for_each(|a| a.solve_defer(sess));
     }
 }
 
 impl<T: SolveDefer> SolveDefer for Option<T> {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
         if let Some(s) = self {
-            s.solve_defer(ctx);
+            s.solve_defer(sess);
         }
     }
 }
 
 impl<T: SolveDefer> SolveDefer for Box<T> {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
-        self.as_mut().solve_defer(ctx);
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
+        self.as_mut().solve_defer(sess);
     }
 }
 
 impl SolveDefer for Fn {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
-        self.proto.solve_defer(ctx);
-        self.body.solve_defer(ctx);
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
+        self.proto.solve_defer(sess);
+        self.body.solve_defer(sess);
     }
 }
 
 impl SolveDefer for Block {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
-        ctx.push_stack(DeferStackKind::Block);
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
+        sess.push_stack(DeferStackKind::Block);
 
-        self.exprs.solve_defer(ctx);
-        self.deferred = ctx.collect_deferred();
+        self.exprs.solve_defer(sess);
+        self.deferred = sess.collect_deferred();
 
-        ctx.pop_stack();
+        sess.pop_stack();
     }
 }
 
 impl SolveDefer for Binding {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
-        self.ty_expr.solve_defer(ctx);
-        self.value.solve_defer(ctx);
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
+        self.ty_expr.solve_defer(sess);
+        self.value.solve_defer(sess);
     }
 }
 
 impl SolveDefer for Expr {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
         match &mut self.kind {
             ExprKind::Import(..) => (),
             ExprKind::Foreign(bindings) => {
-                bindings.solve_defer(ctx);
+                bindings.solve_defer(sess);
             }
             ExprKind::Binding(binding) => {
-                binding.solve_defer(ctx);
+                binding.solve_defer(sess);
             }
             ExprKind::Defer(expr) => {
-                ctx.current_stack_mut().deferred.push(*expr.clone());
+                sess.current_stack_mut().deferred.push(*expr.clone());
             }
             ExprKind::Assign { lvalue, rvalue } => {
-                lvalue.solve_defer(ctx);
-                rvalue.solve_defer(ctx);
+                lvalue.solve_defer(sess);
+                rvalue.solve_defer(sess);
             }
-            ExprKind::Cast(cast) => cast.solve_defer(ctx),
+            ExprKind::Cast(cast) => cast.solve_defer(sess),
             ExprKind::Builtin(builtin) => match builtin {
                 Builtin::SizeOf(expr) | Builtin::AlignOf(expr) => {
-                    expr.solve_defer(ctx)
+                    expr.solve_defer(sess)
                 }
-                Builtin::Panic(expr) => expr.solve_defer(ctx),
+                Builtin::Panic(expr) => expr.solve_defer(sess),
             },
-            ExprKind::Fn(func) => func.solve_defer(ctx),
+            ExprKind::Fn(func) => func.solve_defer(sess),
             ExprKind::While { cond, expr } => {
-                cond.solve_defer(ctx);
-                expr.solve_defer(ctx);
+                cond.solve_defer(sess);
+                expr.solve_defer(sess);
             }
             ExprKind::For { iterator, expr, .. } => {
-                ctx.push_stack(DeferStackKind::Loop);
+                sess.push_stack(DeferStackKind::Loop);
 
                 match iterator {
                     ForIter::Range(start, end) => {
-                        start.solve_defer(ctx);
-                        end.solve_defer(ctx);
+                        start.solve_defer(sess);
+                        end.solve_defer(sess);
                     }
-                    ForIter::Value(value) => value.solve_defer(ctx),
+                    ForIter::Value(value) => value.solve_defer(sess),
                 }
 
-                expr.solve_defer(ctx);
+                expr.solve_defer(sess);
 
-                ctx.pop_stack();
+                sess.pop_stack();
             }
             ExprKind::Break { deferred } | ExprKind::Continue { deferred } => {
-                for stack in ctx.stacks().iter().rev() {
+                for stack in sess.stacks().iter().rev() {
                     if let DeferStackKind::Loop = stack.kind {
                         break;
                     }
@@ -168,82 +168,82 @@ impl SolveDefer for Expr {
                 }
             }
             ExprKind::Return { expr, deferred } => {
-                for stack in ctx.stacks().iter().rev() {
+                for stack in sess.stacks().iter().rev() {
                     for expr in stack.deferred.iter().rev() {
                         deferred.push(expr.clone())
                     }
                 }
 
-                expr.solve_defer(ctx);
+                expr.solve_defer(sess);
             }
             ExprKind::If {
                 cond,
                 then_expr,
                 else_expr,
             } => {
-                cond.solve_defer(ctx);
-                then_expr.solve_defer(ctx);
-                else_expr.solve_defer(ctx);
+                cond.solve_defer(sess);
+                then_expr.solve_defer(sess);
+                else_expr.solve_defer(sess);
             }
-            ExprKind::Block(block) => block.solve_defer(ctx),
+            ExprKind::Block(block) => block.solve_defer(sess),
             ExprKind::Binary { lhs, op: _, rhs } => {
-                lhs.solve_defer(ctx);
-                rhs.solve_defer(ctx);
+                lhs.solve_defer(sess);
+                rhs.solve_defer(sess);
             }
-            ExprKind::Unary { op: _, lhs } => lhs.solve_defer(ctx),
+            ExprKind::Unary { op: _, lhs } => lhs.solve_defer(sess),
             ExprKind::Subscript { expr, index } => {
-                expr.solve_defer(ctx);
-                index.solve_defer(ctx);
+                expr.solve_defer(sess);
+                index.solve_defer(sess);
             }
             ExprKind::Slice { expr, low, high } => {
-                expr.solve_defer(ctx);
-                low.solve_defer(ctx);
-                high.solve_defer(ctx);
+                expr.solve_defer(sess);
+                low.solve_defer(sess);
+                high.solve_defer(sess);
             }
             ExprKind::Call(call) => {
-                call.callee.solve_defer(ctx);
+                call.callee.solve_defer(sess);
                 for arg in call.args.iter_mut() {
-                    arg.value.solve_defer(ctx);
+                    arg.value.solve_defer(sess);
                 }
             }
             ExprKind::MemberAccess { expr, .. } => {
-                expr.solve_defer(ctx);
+                expr.solve_defer(sess);
             }
             ExprKind::Id { .. } => (),
             ExprKind::ArrayLiteral(kind) => match kind {
                 ArrayLiteralKind::List(elements) => {
-                    elements.solve_defer(ctx);
+                    elements.solve_defer(sess);
                 }
                 ArrayLiteralKind::Fill { expr, len } => {
-                    len.solve_defer(ctx);
-                    expr.solve_defer(ctx);
+                    len.solve_defer(sess);
+                    expr.solve_defer(sess);
                 }
             },
-            ExprKind::TupleLiteral(elements) => elements.solve_defer(ctx),
+            ExprKind::TupleLiteral(elements) => elements.solve_defer(sess),
             ExprKind::StructLiteral { type_expr, fields } => {
-                type_expr.solve_defer(ctx);
+                type_expr.solve_defer(sess);
                 for field in fields.iter_mut() {
-                    field.value.solve_defer(ctx);
+                    field.value.solve_defer(sess);
                 }
             }
             ExprKind::Literal(..) => (),
-            ExprKind::PointerType(expr, ..) => expr.solve_defer(ctx),
+            ExprKind::PointerType(expr, ..) => expr.solve_defer(sess),
             ExprKind::MultiPointerType(expr, ..) => {
-                expr.solve_defer(ctx);
+                expr.solve_defer(sess);
             }
             ExprKind::ArrayType(expr, size) => {
-                expr.solve_defer(ctx);
-                size.solve_defer(ctx);
+                expr.solve_defer(sess);
+                size.solve_defer(sess);
             }
             ExprKind::SliceType(expr, ..) => {
-                expr.solve_defer(ctx);
+                expr.solve_defer(sess);
             }
             ExprKind::StructType(t) => {
                 for field in t.fields.iter_mut() {
-                    field.ty.solve_defer(ctx);
+                    field.ty.solve_defer(sess);
                 }
             }
-            ExprKind::FnType(proto) => proto.solve_defer(ctx),
+            ExprKind::FnType(proto) => proto.solve_defer(sess),
 
             ExprKind::SelfType
             | ExprKind::NeverType
@@ -255,17 +255,17 @@ impl SolveDefer for Expr {
 }
 
 impl SolveDefer for Proto {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
         for p in self.params.iter_mut() {
-            p.ty.solve_defer(ctx);
+            p.ty.solve_defer(sess);
         }
-        self.ret.solve_defer(ctx);
+        self.ret.solve_defer(sess);
     }
 }
 
 impl SolveDefer for Cast {
-    fn solve_defer(&mut self, ctx: &mut DeferContext) {
-        self.expr.solve_defer(ctx);
-        self.type_expr.solve_defer(ctx);
+    fn solve_defer(&mut self, sess: &mut DeferSess) {
+        self.expr.solve_defer(sess);
+        self.type_expr.solve_defer(sess);
     }
 }

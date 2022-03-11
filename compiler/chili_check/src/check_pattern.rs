@@ -3,13 +3,13 @@ use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrSet;
 
-use crate::{CheckContext, CheckFrame, BindingInfo};
+use crate::{BindingInfo, CheckFrame, CheckSess};
 use chili_ast::{
     pattern::{DestructorPattern, Pattern, SymbolPattern},
     value::Value,
 };
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(crate) fn check_binding_pattern(
         &mut self,
         frame: &mut CheckFrame,
@@ -20,7 +20,7 @@ impl<'a> CheckContext<'a> {
     ) -> DiagnosticResult<()> {
         match pattern {
             Pattern::Single(SymbolPattern {
-                binding_info_id: _,
+                binding_info_idx: _,
                 symbol,
                 alias: _,
                 span,
@@ -77,7 +77,7 @@ impl<'a> CheckContext<'a> {
                 let mut field_set = UstrSet::default();
 
                 for SymbolPattern {
-                    binding_info_id: _,
+                    binding_info_idx: _,
                     symbol,
                     alias,
                     span,
@@ -178,7 +178,7 @@ impl<'a> CheckContext<'a> {
 
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern {
-                        binding_info_id: _,
+                        binding_info_idx: _,
                         symbol,
                         alias: _,
                         span,

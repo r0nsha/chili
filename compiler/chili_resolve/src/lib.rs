@@ -24,23 +24,23 @@ pub fn resolve<'w>(
 
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
-        ast.module_id = workspace.add_module_info(ast.module_info);
+        ast.module_idx = workspace.add_module_info(ast.module_info);
         resolver
             .global_scopes
-            .insert(ast.module_id, Scope::new(ast.module_info.name));
+            .insert(ast.module_idx, Scope::new(ast.module_info.name));
     }
 
     // Assign module ids to all imports
     for ast in asts.iter_mut() {
         for import in ast.imports.iter_mut() {
-            import.module_id =
+            import.module_idx =
                 workspace.find_module_info(import.module_info).unwrap();
         }
     }
 
     // Declare all global symbols
     for ast in asts.iter_mut() {
-        resolver.module_id = ast.module_id;
+        resolver.module_idx = ast.module_idx;
         resolver.module_info = ast.module_info;
         expand_and_replace_glob_imports(&mut ast.imports, &resolver.exports);
         ast.declare(&mut resolver, workspace)?;
@@ -48,7 +48,7 @@ pub fn resolve<'w>(
 
     // Resolve all bindings, scopes, uses, etc...
     for ast in asts.iter_mut() {
-        resolver.module_id = ast.module_id;
+        resolver.module_idx = ast.module_idx;
         resolver.module_info = ast.module_info;
         ast.resolve(&mut resolver, workspace)?;
     }

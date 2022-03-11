@@ -1,4 +1,4 @@
-use crate::{CheckContext, CheckFrame, ProcessedItem, TopLevelLookupKind};
+use crate::{CheckFrame, CheckSess, ProcessedItem, TopLevelLookupKind};
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
@@ -12,7 +12,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::env::Env;
 use ustr::{ustr, Ustr};
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     pub(crate) fn check_binding(
         &mut self,
         frame: &mut CheckFrame,
@@ -116,7 +116,7 @@ impl<'a> CheckContext<'a> {
         )?;
 
         Ok(Binding {
-            binding_info_id: binding.binding_info_id,
+            binding_info_idx: binding.binding_info_idx,
             kind: binding.kind,
             pattern: binding.pattern.clone(),
             ty_expr,

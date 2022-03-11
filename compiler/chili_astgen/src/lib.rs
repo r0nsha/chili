@@ -156,7 +156,7 @@ fn add_intrinsic_module(
     );
 
     ast.imports.push(Import {
-        module_id: Default::default(),
+        module_idx: Default::default(),
         module_info: intrinsic_module_info,
         alias: intrinsic_module_info.name,
         import_path: vec![],

@@ -242,7 +242,7 @@ impl<'a> CheckContext<'a> {
                     let symbol = ustr("it");
 
                     let pattern = Pattern::Single(SymbolPattern {
-                        binding_info_id: Default::default(),
+                        binding_info_idx: Default::default(),
                         symbol,
                         alias: None,
                         span: span,

@@ -22,7 +22,7 @@ pub struct Workspace<'w> {
     pub std_dir: &'w Path,
 
     // The root module's id. Resolved after ast generation
-    pub root_module_id: ModuleId,
+    pub root_module_id: ModuleIdx,
 
     // Parsed modules/trees info. Resolved during ast generation
     // ModuleId -> ModuleInfo
@@ -58,8 +58,8 @@ impl<'w> Workspace<'w> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingInfo {
-    pub id: BindingInfoId,
-    pub module_id: ModuleId,
+    pub id: BindingInfoIdx,
+    pub module_idx: ModuleIdx,
     pub symbol: Ustr,
     pub visibility: Visibility,
     pub ty: Ty,
@@ -79,28 +79,28 @@ pub enum BindingInfoKind {
 }
 
 impl<'w> Workspace<'w> {
-    pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {
+    pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleIdx {
         self.module_infos.push(module_info);
-        ModuleId(self.module_infos.len() - 1)
+        ModuleIdx(self.module_infos.len() - 1)
     }
 
-    pub fn get_module_info(&self, id: ModuleId) -> Option<&ModuleInfo> {
+    pub fn get_module_info(&self, id: ModuleIdx) -> Option<&ModuleInfo> {
         self.module_infos.get(id.0)
     }
 
     pub fn find_module_info(
         &self,
         module_info: ModuleInfo,
-    ) -> Option<ModuleId> {
+    ) -> Option<ModuleIdx> {
         self.module_infos
             .iter()
             .position(|m| *m == module_info)
-            .map(|i| ModuleId(i))
+            .map(|i| ModuleIdx(i))
     }
 
     pub fn add_binding_info(
         &mut self,
-        module_id: ModuleId,
+        module_idx: ModuleIdx,
         symbol: Ustr,
         visibility: Visibility,
         is_mutable: bool,
@@ -108,9 +108,9 @@ impl<'w> Workspace<'w> {
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
-    ) -> BindingInfoId {
+    ) -> BindingInfoIdx {
         self.add_typed_binding_info(
-            module_id,
+            module_idx,
             symbol,
             visibility,
             Ty::Unknown,
@@ -124,7 +124,7 @@ impl<'w> Workspace<'w> {
 
     pub fn add_typed_binding_info(
         &mut self,
-        module_id: ModuleId,
+        module_idx: ModuleIdx,
         symbol: Ustr,
         visibility: Visibility,
         ty: Ty,
@@ -133,11 +133,11 @@ impl<'w> Workspace<'w> {
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
-    ) -> BindingInfoId {
-        let id = BindingInfoId(self.binding_infos.len());
+    ) -> BindingInfoIdx {
+        let id = BindingInfoIdx(self.binding_infos.len());
         self.binding_infos.push(BindingInfo {
             id,
-            module_id,
+            module_idx,
             symbol,
             visibility,
             ty,
@@ -151,28 +151,28 @@ impl<'w> Workspace<'w> {
         id
     }
 
-    pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {
+    pub fn get_binding_info(&self, id: BindingInfoIdx) -> Option<&BindingInfo> {
         self.binding_infos.get(id.0)
     }
 
-    pub fn next_binding_info_id(&self) -> BindingInfoId {
-        BindingInfoId(self.binding_infos.len())
+    pub fn next_binding_info_id(&self) -> BindingInfoIdx {
+        BindingInfoIdx(self.binding_infos.len())
     }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ModuleId(pub usize);
+pub struct ModuleIdx(pub usize);
 
-impl ModuleId {
+impl ModuleIdx {
     pub fn invalid() -> Self {
         Self(usize::MAX)
     }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BindingInfoId(pub usize);
+pub struct BindingInfoIdx(pub usize);
 
-impl BindingInfoId {
+impl BindingInfoIdx {
     pub fn invalid() -> Self {
         Self(usize::MAX)
     }

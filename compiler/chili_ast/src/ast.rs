@@ -1,7 +1,7 @@
 use crate::path::resolve_relative_path;
 use crate::pattern::Pattern;
 use crate::value::Value;
-use crate::workspace::{BindingInfoId, ModuleId};
+use crate::workspace::{BindingInfoIdx, ModuleIdx};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
 use chili_token::TokenKind;
@@ -16,7 +16,7 @@ use ustr::{ustr, UstrMap};
 
 #[derive(Clone)]
 pub struct Ast {
-    pub module_id: ModuleId,
+    pub module_idx: ModuleIdx,
     pub module_info: ModuleInfo,
     pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
@@ -26,7 +26,7 @@ pub struct Ast {
 impl Ast {
     pub fn new(module_info: ModuleInfo) -> Self {
         Self {
-            module_id: Default::default(),
+            module_idx: Default::default(),
             module_info,
             imports: Default::default(),
             bindings: Default::default(),
@@ -153,7 +153,7 @@ impl Expr {
                 symbol,
                 is_mutable: _,
                 binding_span,
-                binding_info_id: _,
+                binding_info_idx: _,
             } => MaybeSpanned::spanned(symbol.to_string(), *binding_span),
             ExprKind::ArrayLiteral { .. } => {
                 MaybeSpanned::not_spanned("[_]{..}".to_string())
@@ -244,7 +244,7 @@ pub enum ExprKind {
         symbol: Ustr,
         is_mutable: bool,
         binding_span: Span,
-        binding_info_id: BindingInfoId,
+        binding_info_idx: BindingInfoIdx,
     },
     ArrayLiteral(ArrayLiteralKind),
     TupleLiteral(Vec<Expr>),
@@ -516,7 +516,7 @@ impl ForeignLibrary {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
-    pub binding_info_id: BindingInfoId,
+    pub binding_info_idx: BindingInfoIdx,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub pattern: Pattern,
@@ -538,7 +538,7 @@ impl Binding {
         lib_name: Option<Ustr>,
     ) -> Self {
         Self {
-            binding_info_id: Default::default(),
+            binding_info_idx: Default::default(),
             visibility,
             kind,
             pattern,
@@ -720,7 +720,7 @@ impl From<TokenKind> for UnaryOp {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Import {
-    pub module_id: ModuleId,
+    pub module_idx: ModuleIdx,
     pub module_info: ModuleInfo,
     pub alias: Ustr,
     pub import_path: ImportPath,

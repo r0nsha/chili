@@ -75,7 +75,7 @@ fn expand_glob_import(
                         import.span().clone(),
                     ));
                     Import {
-                        module_id: Default::default(),
+                        module_idx: Default::default(),
                         module_info: import.module_info,
                         alias: *symbol,
                         import_path,

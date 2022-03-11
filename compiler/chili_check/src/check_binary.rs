@@ -1,4 +1,4 @@
-use crate::{CheckContext, CheckFrame, CheckedExpr};
+use crate::{CheckFrame, CheckSess, CheckedExpr};
 use chili_ast::{
     ast::{BinaryOp, Expr, ExprKind, LiteralKind},
     value::Value,
@@ -7,7 +7,7 @@ use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use chili_ty::*;
 
-impl<'a> CheckContext<'a> {
+impl<'a> CheckSess<'a> {
     #[inline]
     pub(super) fn check_binary_expr(
         &mut self,
