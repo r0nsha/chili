@@ -35,13 +35,14 @@ impl InferSess {
     }
 
     #[inline]
-    pub(crate) fn fresh_type_var(&mut self) -> TyVar {
+    pub(crate) fn new_variable(&mut self) -> TyVar {
         self.new_key(Constraint::Unbound)
     }
 
     #[inline]
-    pub(crate) fn fresh_bound_type_var(&mut self, ty: TyKind) -> TyVar {
-        self.new_key(ty.into())
+    pub(crate) fn new_bound_variable(&mut self, ty: TyKind) -> TyVar {
+        todo!()
+        // self.new_key(ty.into())
     }
 
     #[inline]

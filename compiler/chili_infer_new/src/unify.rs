@@ -53,7 +53,7 @@ impl UnifyValue for Constraint {
                 panic!("can't unify two bound variables {} and {}", t1, t2)
             }
 
-            _ => Err(UnifyError(a.clone().into(), b.clone().into())),
+            _ => todo!(), // Err(UnifyError(a.clone().into(), b.clone().into())),
         }
     }
 }
@@ -204,11 +204,13 @@ impl InferSess {
                     | value @ Constraint::Unbound => {
                         // We map the error so that the error message matches
                         // the types
-                        self.table
-                            .unify_var_value(TyVar::from(*var), Constraint::Bound(expected.clone()))
-                            .map_err(|_| UnifyError(expected.clone(), value.into()))?;
+                        todo!()
 
-                        Ok(expected.clone())
+                        // self.table
+                        //     .unify_var_value(TyVar::from(*var), Constraint::Bound(expected.clone()))
+                        //     .map_err(|_| UnifyError(expected.clone(), value.into()))?;
+
+                        // Ok(expected.clone())
                     }
                 }
             }

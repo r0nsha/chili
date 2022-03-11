@@ -28,6 +28,8 @@ pub enum TyKind {
     Module(ModuleIdx),
     Type(Box<TyKind>),
     Var(u32),
+    AnyInt,
+    AnyFloat,
     Unknown,
 }
 

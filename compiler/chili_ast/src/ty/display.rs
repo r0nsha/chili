@@ -49,11 +49,8 @@ impl Display for TyKind {
                 ),
                 Fn(func) => func.to_string(),
                 Array(inner, size) => format!("[{}]{}", size, inner,),
-                Slice(inner, is_mutable) => format!(
-                    "[]{}{}",
-                    if *is_mutable { "mut " } else { "" },
-                    inner
-                ),
+                Slice(inner, is_mutable) =>
+                    format!("[]{}{}", if *is_mutable { "mut " } else { "" }, inner),
                 Tuple(tys) => format!(
                     "{{ {} }}",
                     tys.iter()
@@ -65,6 +62,8 @@ impl Display for TyKind {
                 Module { .. } => "[module]".to_string(),
                 Type(_) => "type".to_string(),
                 Never => "!".to_string(),
+                AnyInt => "[int]".to_string(),
+                AnyFloat => "[float]".to_string(),
                 Unknown | Var(_) => "[unknown]".to_string(),
             }
         )

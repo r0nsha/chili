@@ -105,7 +105,8 @@ impl InferSess {
                     }
                     Constraint::AnyInt | Constraint::Float => {
                         if normalize_untyped {
-                            TyKind::from(value)
+                            todo!()
+                            // TyKind::from(value)
                         } else {
                             ty.clone()
                         }
