@@ -6,14 +6,14 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use ena::unify::InPlaceUnificationTable;
 
-use super::{constraint::Constraint, ty::Ty};
+use super::{constraint::Constraint, ty::TyVar};
 
 pub(crate) trait Substitute {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()>;
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()>;
 }
 
 impl<T: Substitute> Substitute for Vec<T> {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         for element in self {
             element.substitute(table)?;
         }
@@ -22,7 +22,7 @@ impl<T: Substitute> Substitute for Vec<T> {
 }
 
 impl<T: Substitute> Substitute for Option<T> {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         if let Some(e) = self {
             e.substitute(table)?;
         }
@@ -31,13 +31,13 @@ impl<T: Substitute> Substitute for Option<T> {
 }
 
 impl<T: Substitute> Substitute for Box<T> {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         self.as_mut().substitute(table)
     }
 }
 
 impl Substitute for Ir {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         for (_, module) in self.modules.iter_mut() {
             module.bindings.substitute(table)?;
 
@@ -51,7 +51,7 @@ impl Substitute for Ir {
 }
 
 impl Substitute for Block {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         self.exprs.substitute(table)?;
         self.deferred.substitute(table)?;
         Ok(())
@@ -59,7 +59,7 @@ impl Substitute for Block {
 }
 
 impl Substitute for Fn {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         self.proto.substitute(table)?;
         self.body.substitute(table)?;
         Ok(())
@@ -67,7 +67,7 @@ impl Substitute for Fn {
 }
 
 impl Substitute for Proto {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         for param in self.params.iter_mut() {
             param.ty.substitute(table)?;
         }
@@ -82,7 +82,7 @@ impl Substitute for Proto {
 }
 
 impl Substitute for Binding {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         let span = match &mut self.ty_expr {
             Some(e) => {
                 e.substitute(table)?;
@@ -100,7 +100,7 @@ impl Substitute for Binding {
 }
 
 impl Substitute for Cast {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         self.expr.substitute(table)?;
 
         self.type_expr.substitute(table)?;
@@ -112,7 +112,7 @@ impl Substitute for Cast {
 }
 
 impl Substitute for Expr {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()> {
+    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
         match &mut self.kind {
             ExprKind::Import(..) | ExprKind::Defer(_) => (),
             ExprKind::Foreign(bindings) => {
@@ -255,12 +255,12 @@ impl Substitute for Expr {
 
 pub(crate) fn substitute_ty(
     ty: &TyKind,
-    table: &mut InPlaceUnificationTable<Ty>,
+    table: &mut InPlaceUnificationTable<TyVar>,
     span: Span,
 ) -> DiagnosticResult<TyKind> {
     match ty {
         TyKind::Var(id) => {
-            let tyval = table.probe_value(Ty::from(*id));
+            let tyval = table.probe_value(TyVar::from(*id));
             let new_ty = match tyval {
                 Constraint::Bound(ty) => substitute_ty(&ty, table, span)?,
                 Constraint::AnyInt => TyKind::Int(IntTy::default()),

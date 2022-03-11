@@ -2,19 +2,19 @@ use crate::{
     coerce::{can_coerce_mut, Coerce, CoercionResult, TryCoerce},
     constraint::Constraint,
     sess::InferSess,
-    ty::Ty,
+    ty::TyVar,
 };
 use chili_ast::ast::Expr;
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::Diagnostic;
-use ena::unify::UnifyValue;
+use ena::unify::{NoError, UnifyValue};
 
-pub(crate) struct UnificationError(pub TyKind, pub TyKind);
+pub(crate) struct UnifyError(pub TyKind, pub TyKind);
 
 impl UnifyValue for Constraint {
-    type Error = UnificationError;
+    type Error = UnifyError;
 
     fn unify_values(a: &Self, b: &Self) -> Result<Self, Self::Error> {
         use Constraint::*;
@@ -53,7 +53,7 @@ impl UnifyValue for Constraint {
                 panic!("can't unify two bound variables {} and {}", t1, t2)
             }
 
-            _ => Err(UnificationError(a.clone().into(), b.clone().into())),
+            _ => Err(UnifyError(a.clone().into(), b.clone().into())),
         }
     }
 }
@@ -80,10 +80,9 @@ impl InferSess {
                         *left_expr = left_expr.coerce(right_expr_ty.clone());
                         Ok(right_expr_ty)
                     }
-                    CoercionResult::NoCoercion => Err(self.map_unification_error(
-                        UnificationError(left_expr_ty, right_expr_ty),
-                        span,
-                    )),
+                    CoercionResult::NoCoercion => {
+                        Err(self.map_err(UnifyError(left_expr_ty, right_expr_ty), span))
+                    }
                 }
             }
         }
@@ -106,7 +105,7 @@ impl InferSess {
                         Ok(ty)
                     }
                     CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => {
-                        Err(self.map_unification_error(UnificationError(ty, expr_ty), expr.span))
+                        Err(self.map_err(UnifyError(ty, expr_ty), expr.span))
                     }
                 }
             }
@@ -123,7 +122,7 @@ impl InferSess {
         let actual: TyKind = actual.into();
 
         self.unify_ty_ty(&expected, &actual, span)
-            .map_err(|_| self.map_unification_error(UnificationError(expected, actual), span))
+            .map_err(|_| self.map_err(UnifyError(expected, actual), span))
     }
 
     pub(crate) fn unify_ty_ty(
@@ -131,7 +130,7 @@ impl InferSess {
         expected: &TyKind,
         actual: &TyKind,
         span: Span,
-    ) -> Result<TyKind, UnificationError> {
+    ) -> Result<TyKind, UnifyError> {
         match (expected, actual) {
             (TyKind::Unit, TyKind::Unit)
             | (TyKind::Bool, TyKind::Bool)
@@ -153,7 +152,7 @@ impl InferSess {
 
             (TyKind::Pointer(t1, m1), TyKind::Pointer(t2, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
-                    return Err(UnificationError(expected.clone(), actual.clone()));
+                    return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(t1, t2, span)?;
@@ -162,7 +161,7 @@ impl InferSess {
 
             (TyKind::MultiPointer(t1, m1), TyKind::MultiPointer(t2, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
-                    return Err(UnificationError(expected.clone(), actual.clone()));
+                    return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(t1, t2, span)?;
@@ -170,8 +169,8 @@ impl InferSess {
             }
 
             (TyKind::Var(v1), TyKind::Var(v2)) => {
-                let v1 = Ty::from(*v1);
-                let v2 = Ty::from(*v2);
+                let v1 = TyVar::from(*v1);
+                let v2 = TyVar::from(*v2);
 
                 match (self.value_of(v1), self.value_of(v2)) {
                     (Constraint::Bound(t1), Constraint::Bound(t2)) => {
@@ -184,20 +183,20 @@ impl InferSess {
                 }
             }
 
-            (TyKind::Var(var), actual) => match self.value_of(Ty::from(*var)) {
+            (TyKind::Var(var), actual) => match self.value_of(TyVar::from(*var)) {
                 Constraint::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
                 Constraint::AnyInt
                 | Constraint::Float
                 | Constraint::Pointer
                 | Constraint::Unbound => {
                     self.table
-                        .unify_var_value(Ty::from(*var), Constraint::Bound(actual.clone()))?;
+                        .unify_var_value(TyVar::from(*var), Constraint::Bound(actual.clone()))?;
                     Ok(actual.clone())
                 }
             },
 
             (expected, TyKind::Var(var)) => {
-                match self.value_of(Ty::from(*var)) {
+                match self.value_of(TyVar::from(*var)) {
                     Constraint::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
                     value @ Constraint::AnyInt
                     | value @ Constraint::Float
@@ -206,8 +205,8 @@ impl InferSess {
                         // We map the error so that the error message matches
                         // the types
                         self.table
-                            .unify_var_value(Ty::from(*var), Constraint::Bound(expected.clone()))
-                            .map_err(|_| UnificationError(expected.clone(), value.into()))?;
+                            .unify_var_value(TyVar::from(*var), Constraint::Bound(expected.clone()))
+                            .map_err(|_| UnifyError(expected.clone(), value.into()))?;
 
                         Ok(expected.clone())
                     }
@@ -216,7 +215,7 @@ impl InferSess {
 
             (TyKind::Fn(fn_a), TyKind::Fn(fn_b)) => {
                 if fn_a.variadic != fn_b.variadic || fn_a.params.len() != fn_b.params.len() {
-                    return Err(UnificationError(expected.clone(), actual.clone()));
+                    return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
                 self.unify_ty_ty(&fn_a.ret, &fn_b.ret, span)?;
@@ -230,7 +229,7 @@ impl InferSess {
 
             (TyKind::Array(inner_a, len_a), TyKind::Array(inner_b, len_b)) => {
                 if len_a != len_b {
-                    return Err(UnificationError(expected.clone(), actual.clone()));
+                    return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
                 let unified_inner = self.unify_ty_ty(inner_a, inner_b, span)?;
@@ -240,7 +239,7 @@ impl InferSess {
 
             (TyKind::Slice(inner_a, m1), TyKind::Slice(inner_b, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
-                    return Err(UnificationError(expected.clone(), actual.clone()));
+                    return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(inner_a, inner_b, span)?;
@@ -249,7 +248,7 @@ impl InferSess {
 
             (TyKind::Tuple(tys_a), TyKind::Tuple(tys_b)) => {
                 if tys_a.len() != tys_b.len() {
-                    return Err(UnificationError(expected.clone(), actual.clone()));
+                    return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
                 let mut unified_tys = vec![];
@@ -266,20 +265,20 @@ impl InferSess {
                 if t1.qualified_name == t2.qualified_name {
                     Ok(expected.clone())
                 } else {
-                    Err(UnificationError(expected.clone(), actual.clone()))
+                    Err(UnifyError(expected.clone(), actual.clone()))
                 }
             }
 
             (TyKind::Never, t) | (t, TyKind::Never) => Ok(t.clone()),
 
-            (expected, actual) => Err(UnificationError(expected.clone(), actual.clone())),
+            (expected, actual) => Err(UnifyError(expected.clone(), actual.clone())),
         }
     }
 
     #[inline]
-    pub(crate) fn map_unification_error(
+    pub(crate) fn map_err(
         &mut self,
-        UnificationError(expected, actual): UnificationError,
+        UnifyError(expected, actual): UnifyError,
         span: Span,
     ) -> Diagnostic<usize> {
         TypeError::type_mismatch(

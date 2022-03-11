@@ -1,4 +1,4 @@
-use crate::{constraint::Constraint, sess::InferSess, ty::Ty};
+use crate::{constraint::Constraint, sess::InferSess, ty::TyVar};
 use chili_ast::ty::*;
 
 impl InferSess {
@@ -97,7 +97,7 @@ impl InferSess {
             }
 
             TyKind::Var(var) => {
-                let value = self.value_of(Ty::from(*var));
+                let value = self.value_of(TyVar::from(*var));
 
                 match value {
                     Constraint::Bound(ty) => {
