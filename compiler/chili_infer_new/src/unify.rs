@@ -138,32 +138,6 @@ impl InferSess {
                 Ok(TyKind::MultiPointer(Box::new(unified), *m1))
             }
 
-            (TyKind::Var(v1), TyKind::Var(v2)) => {
-                let v1 = TyVar::from(*v1);
-                let v2 = TyVar::from(*v2);
-
-                match (self.value_of(v1), self.value_of(v2)) {
-                    (Constraint::Bound(t1), Constraint::Bound(t2)) => {
-                        self.unify_ty_ty(&t1, &t2, span)
-                    }
-                    _ => {
-                        self.table.unify_var_var(v1, v2)?;
-                        Ok(expected.clone())
-                    }
-                }
-            }
-
-            (TyKind::Var(var), ty) | (ty, TyKind::Var(var)) => {
-                match self.value_of(TyVar::from(*var)) {
-                    Constraint::Bound(expected) => self.unify_ty_ty(&expected, ty, span),
-                    Constraint::Unbound => {
-                        self.table
-                            .unify_var_value(TyVar::from(*var), Constraint::Bound(ty.clone()))?;
-                        Ok(ty.clone())
-                    }
-                }
-            }
-
             (TyKind::Fn(fn_a), TyKind::Fn(fn_b)) => {
                 if fn_a.variadic != fn_b.variadic || fn_a.params.len() != fn_b.params.len() {
                     return Err(UnifyError(expected.clone(), actual.clone()));
@@ -222,32 +196,51 @@ impl InferSess {
 
             (TyKind::Never, t) | (t, TyKind::Never) => Ok(t.clone()),
 
-            // (Unbound, v @ AnyInt)
-            // | (v @ AnyInt, Unbound)
-            // | (Unbound, v @ Float)
-            // | (v @ Float, Unbound)
-            // | (Unbound, v @ Bound(_))
-            // | (v @ Bound(_), Unbound) => Ok(v.clone()),
+            (TyKind::Var(v1), TyKind::Var(v2)) => {
+                let v1 = TyVar::from(*v1);
+                let v2 = TyVar::from(*v2);
 
-            // (AnyInt, AnyInt) => Ok(AnyInt),
+                match (self.value_of(v1), self.value_of(v2)) {
+                    (Constraint::Bound(t1), Constraint::Bound(t2)) => {
+                        self.unify_ty_ty(&t1, &t2, span)
+                    }
+                    _ => {
+                        self.table.unify_var_var(v1, v2)?;
+                        Ok(expected.clone())
+                    }
+                }
+            }
 
-            // (AnyInt, Float) | (Float, AnyInt) | (Float, Float) => Ok(Float),
+            (TyKind::Var(var), ty) | (ty, TyKind::Var(var)) => {
+                match self.value_of(TyVar::from(*var)) {
+                    Constraint::Bound(expected) => self.unify_ty_ty(&expected, ty, span),
+                    Constraint::Unbound => {
+                        self.table
+                            .unify_var_value(TyVar::from(*var), Constraint::Bound(ty.clone()))?;
+                        Ok(ty.clone())
+                    }
+                }
+            }
 
-            // (AnyInt, v @ Bound(TyKind::Int(_)))
-            // | (AnyInt, v @ Bound(TyKind::UInt(_)))
-            // | (AnyInt, v @ Bound(TyKind::Float(_)))
-            // | (v @ Bound(TyKind::Int(_)), AnyInt)
-            // | (v @ Bound(TyKind::UInt(_)), AnyInt)
-            // | (v @ Bound(TyKind::Float(_)), AnyInt) => Ok(v.clone()),
+            (TyKind::Unknown, TyKind::AnyInt)
+            | (TyKind::AnyInt, TyKind::Unknown)
+            | (TyKind::AnyInt, TyKind::AnyInt) => Ok(TyKind::AnyInt),
 
-            // (v @ Bound(TyKind::Pointer(..)), Pointer)
-            // | (Pointer, v @ Bound(TyKind::Pointer(..)))
-            // | (v @ Bound(TyKind::MultiPointer(..)), Pointer)
-            // | (Pointer, v @ Bound(TyKind::MultiPointer(..))) => Ok(v.clone()),
+            (TyKind::Unknown, TyKind::AnyFloat)
+            | (TyKind::AnyFloat, TyKind::Unknown)
+            | (TyKind::AnyFloat, TyKind::AnyInt)
+            | (TyKind::AnyInt, TyKind::AnyFloat)
+            | (TyKind::AnyFloat, TyKind::AnyFloat) => Ok(TyKind::AnyFloat),
 
-            // (Float, v @ Bound(TyKind::Float(_))) | (v @ Bound(TyKind::Float(_)), Float) => {
-            //     Ok(v.clone())
-            // }
+            (TyKind::AnyInt, t @ TyKind::Int(_))
+            | (TyKind::AnyInt, t @ TyKind::UInt(_))
+            | (TyKind::AnyInt, t @ TyKind::Float(_))
+            | (TyKind::AnyFloat, t @ TyKind::Float(_))
+            | (t @ TyKind::Int(_), TyKind::AnyInt)
+            | (t @ TyKind::UInt(_), TyKind::AnyInt)
+            | (t @ TyKind::Float(_), TyKind::AnyInt)
+            | (t @ TyKind::Float(_), TyKind::AnyFloat) => Ok(t.clone()),
+
             (expected, actual) => Err(UnifyError(expected.clone(), actual.clone())),
         }
     }

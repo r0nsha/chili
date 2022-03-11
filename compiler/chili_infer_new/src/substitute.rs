@@ -263,9 +263,6 @@ pub(crate) fn substitute_ty(
             let tyval = table.probe_value(TyVar::from(*id));
             let new_ty = match tyval {
                 Constraint::Bound(ty) => substitute_ty(&ty, table, span)?,
-                Constraint::AnyInt => TyKind::Int(IntTy::default()),
-                Constraint::Float => TyKind::Float(FloatTy::default()),
-                Constraint::Pointer => TyKind::raw_pointer(true),
                 Constraint::Unbound => {
                     return Err(TypeError::type_annotations_needed(span));
                 }
@@ -350,6 +347,8 @@ pub(crate) fn substitute_ty(
             let inner = substitute_ty(inner, table, span)?;
             Ok(TyKind::Type(Box::new(inner)))
         }
+        TyKind::AnyInt => Ok(TyKind::Int(IntTy::default())),
+        TyKind::AnyFloat => Ok(TyKind::Float(FloatTy::default())),
         _ => Ok(ty.clone()),
     }
 }

@@ -103,15 +103,7 @@ impl InferSess {
                     Constraint::Bound(ty) => {
                         self.normalize_ty_internal(&ty, expand_types, normalize_untyped)
                     }
-                    Constraint::AnyInt | Constraint::Float => {
-                        if normalize_untyped {
-                            todo!()
-                            // TyKind::from(value)
-                        } else {
-                            ty.clone()
-                        }
-                    }
-                    _ => ty.clone(),
+                    Constraint::Unbound => ty.clone(),
                 }
             }
 
