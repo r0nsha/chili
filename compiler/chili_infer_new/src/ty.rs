@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use chili_ast::ty::TyKind;
 use ena::unify::UnifyKey;
 
 use crate::constraint::Constraint;
@@ -10,6 +11,12 @@ pub(crate) struct TyVar(u32);
 impl From<u32> for TyVar {
     fn from(index: u32) -> TyVar {
         TyVar(index)
+    }
+}
+
+impl Into<TyKind> for TyVar {
+    fn into(self) -> TyKind {
+        TyKind::Var(self.index())
     }
 }
 

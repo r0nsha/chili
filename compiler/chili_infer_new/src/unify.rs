@@ -9,7 +9,7 @@ use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::Diagnostic;
-use ena::unify::{NoError, UnifyValue};
+use ena::unify::UnifyValue;
 
 pub(crate) struct UnifyError(pub TyKind, pub TyKind);
 
@@ -18,42 +18,12 @@ impl UnifyValue for Constraint {
 
     fn unify_values(a: &Self, b: &Self) -> Result<Self, Self::Error> {
         use Constraint::*;
-
         match (a, b) {
             (Unbound, Unbound) => Ok(Unbound),
-
-            (Unbound, v @ AnyInt)
-            | (v @ AnyInt, Unbound)
-            | (Unbound, v @ Float)
-            | (v @ Float, Unbound)
-            | (Unbound, v @ Bound(_))
-            | (v @ Bound(_), Unbound) => Ok(v.clone()),
-
-            (AnyInt, AnyInt) => Ok(AnyInt),
-
-            (AnyInt, Float) | (Float, AnyInt) | (Float, Float) => Ok(Float),
-
-            (AnyInt, v @ Bound(TyKind::Int(_)))
-            | (AnyInt, v @ Bound(TyKind::UInt(_)))
-            | (AnyInt, v @ Bound(TyKind::Float(_)))
-            | (v @ Bound(TyKind::Int(_)), AnyInt)
-            | (v @ Bound(TyKind::UInt(_)), AnyInt)
-            | (v @ Bound(TyKind::Float(_)), AnyInt) => Ok(v.clone()),
-
-            (v @ Bound(TyKind::Pointer(..)), Pointer)
-            | (Pointer, v @ Bound(TyKind::Pointer(..)))
-            | (v @ Bound(TyKind::MultiPointer(..)), Pointer)
-            | (Pointer, v @ Bound(TyKind::MultiPointer(..))) => Ok(v.clone()),
-
-            (Float, v @ Bound(TyKind::Float(_))) | (v @ Bound(TyKind::Float(_)), Float) => {
-                Ok(v.clone())
-            }
-
+            (Unbound, t @ Bound(_)) | (t @ Bound(_), Unbound) => Ok(t.clone()),
             (Bound(t1), Bound(t2)) => {
                 panic!("can't unify two bound variables {} and {}", t1, t2)
             }
-
-            _ => todo!(), // Err(UnifyError(a.clone().into(), b.clone().into())),
         }
     }
 }
@@ -183,34 +153,13 @@ impl InferSess {
                 }
             }
 
-            (TyKind::Var(var), actual) => match self.value_of(TyVar::from(*var)) {
-                Constraint::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
-                Constraint::AnyInt
-                | Constraint::Float
-                | Constraint::Pointer
-                | Constraint::Unbound => {
-                    self.table
-                        .unify_var_value(TyVar::from(*var), Constraint::Bound(actual.clone()))?;
-                    Ok(actual.clone())
-                }
-            },
-
-            (expected, TyKind::Var(var)) => {
+            (TyKind::Var(var), ty) | (ty, TyKind::Var(var)) => {
                 match self.value_of(TyVar::from(*var)) {
-                    Constraint::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
-                    value @ Constraint::AnyInt
-                    | value @ Constraint::Float
-                    | value @ Constraint::Pointer
-                    | value @ Constraint::Unbound => {
-                        // We map the error so that the error message matches
-                        // the types
-                        todo!()
-
-                        // self.table
-                        //     .unify_var_value(TyVar::from(*var), Constraint::Bound(expected.clone()))
-                        //     .map_err(|_| UnifyError(expected.clone(), value.into()))?;
-
-                        // Ok(expected.clone())
+                    Constraint::Bound(expected) => self.unify_ty_ty(&expected, ty, span),
+                    Constraint::Unbound => {
+                        self.table
+                            .unify_var_value(TyVar::from(*var), Constraint::Bound(ty.clone()))?;
+                        Ok(ty.clone())
                     }
                 }
             }
@@ -234,9 +183,9 @@ impl InferSess {
                     return Err(UnifyError(expected.clone(), actual.clone()));
                 }
 
-                let unified_inner = self.unify_ty_ty(inner_a, inner_b, span)?;
+                let unified = self.unify_ty_ty(inner_a, inner_b, span)?;
 
-                Ok(TyKind::Array(Box::new(unified_inner), *len_a))
+                Ok(TyKind::Array(Box::new(unified), *len_a))
             }
 
             (TyKind::Slice(inner_a, m1), TyKind::Slice(inner_b, m2)) => {
@@ -273,6 +222,32 @@ impl InferSess {
 
             (TyKind::Never, t) | (t, TyKind::Never) => Ok(t.clone()),
 
+            // (Unbound, v @ AnyInt)
+            // | (v @ AnyInt, Unbound)
+            // | (Unbound, v @ Float)
+            // | (v @ Float, Unbound)
+            // | (Unbound, v @ Bound(_))
+            // | (v @ Bound(_), Unbound) => Ok(v.clone()),
+
+            // (AnyInt, AnyInt) => Ok(AnyInt),
+
+            // (AnyInt, Float) | (Float, AnyInt) | (Float, Float) => Ok(Float),
+
+            // (AnyInt, v @ Bound(TyKind::Int(_)))
+            // | (AnyInt, v @ Bound(TyKind::UInt(_)))
+            // | (AnyInt, v @ Bound(TyKind::Float(_)))
+            // | (v @ Bound(TyKind::Int(_)), AnyInt)
+            // | (v @ Bound(TyKind::UInt(_)), AnyInt)
+            // | (v @ Bound(TyKind::Float(_)), AnyInt) => Ok(v.clone()),
+
+            // (v @ Bound(TyKind::Pointer(..)), Pointer)
+            // | (Pointer, v @ Bound(TyKind::Pointer(..)))
+            // | (v @ Bound(TyKind::MultiPointer(..)), Pointer)
+            // | (Pointer, v @ Bound(TyKind::MultiPointer(..))) => Ok(v.clone()),
+
+            // (Float, v @ Bound(TyKind::Float(_))) | (v @ Bound(TyKind::Float(_)), Float) => {
+            //     Ok(v.clone())
+            // }
             (expected, actual) => Err(UnifyError(expected.clone(), actual.clone())),
         }
     }
