@@ -12,15 +12,14 @@ mod util;
 
 use chili_ast::ast::{ForeignLibrary, Ir};
 use codegen::Codegen;
-use common::{build_options::BuildOptions, sw, target::TargetPlatform};
+use common::{build_options::BuildOptions, target::TargetPlatform, time};
 use execute::Execute;
 use inkwell::{
     context::Context,
     module::Module,
     passes::PassManager,
     targets::{
-        CodeModel, FileType, InitializationConfig, RelocMode, Target,
-        TargetMachine, TargetTriple,
+        CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
     },
     values::FunctionValue,
     OptimizationLevel,
@@ -58,15 +57,14 @@ pub fn codegen(build_options: &BuildOptions, ir: &Ir) {
         module: &module,
         fpm: &fpm,
         builder: &builder,
-        ptr_sized_int_type: context
-            .ptr_sized_int_type(&target_machine.get_target_data(), None),
+        ptr_sized_int_type: context.ptr_sized_int_type(&target_machine.get_target_data(), None),
         module_decl_map: UstrMap::default(),
         type_map: UstrMap::default(),
         global_str_map: UstrMap::default(),
         fn_type_map: HashMap::new(),
     };
 
-    sw!("llvm", {
+    time!("llvm", {
         cg.codegen();
     });
 
@@ -174,7 +172,7 @@ fn build_executable(
     let object_file = source_path.with_extension("obj");
     let executable_file = source_path.with_extension("exe");
 
-    sw!("write obj", {
+    time!("write obj", {
         target_machine
             .write_to_file(&module, FileType::Object, &object_file)
             .unwrap();
@@ -186,7 +184,7 @@ fn build_executable(
     // &file_path.with_extension("s"))         .unwrap();
     // });
 
-    sw!("link", {
+    time!("link", {
         Command::new("lld-link")
             .arg(format!("/out:{}", executable_file.to_str().unwrap()))
             .arg("/entry:mainCRTStartup")

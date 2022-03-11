@@ -59,10 +59,11 @@ impl<'s> Stopwatch<'s> {
 }
 
 #[macro_export]
-macro_rules! sw {
-    ($label: literal, $body: block) => {
+macro_rules! time {
+    ($label: literal, $body: expr) => {{
         let sw = common::Stopwatch::start_new($label);
-        $body
+        let res = $body;
         sw.print();
-    };
+        res
+    }};
 }

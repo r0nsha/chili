@@ -5,7 +5,7 @@ use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
 use colored::Colorize;
 
 use chili_error::emit_single_diagnostic;
-use common::{build_options::BuildOptions, Stopwatch};
+use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
@@ -35,43 +35,45 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Parse all source files into ast's
 
-    let sw = Stopwatch::start_new("parse");
+    let mut asts = time! { "parse", {
+            let mut generator = AstGenerator::new(&mut workspace);
 
-    let mut asts = {
-        let mut generator = AstGenerator::new(&mut workspace);
-
-        match generator.start(build_options.source_file.clone()) {
-            Ok(asts) => asts,
-            Err(diagnostic) => {
-                emit_single_diagnostic(&generator.workspace.lock().unwrap().files, diagnostic);
-                return;
+            match generator.start(build_options.source_file.clone()) {
+                Ok(asts) => asts,
+                Err(diagnostic) => {
+                    emit_single_diagnostic(&generator.workspace.lock().unwrap().files, diagnostic);
+                    return;
+                }
             }
         }
     };
 
-    sw.print();
-
     // Resolve ast definition/binding information
 
-    let sw = Stopwatch::start_new("resolve");
-
-    if let Err(diagnostic) = chili_resolve::resolve(&mut workspace, &mut asts) {
-        emit_single_diagnostic(&workspace.files, diagnostic);
-        return;
+    time! { "resolve",
+        if let Err(diagnostic) = chili_resolve::resolve(&mut workspace, &mut asts) {
+            emit_single_diagnostic(&workspace.files, diagnostic);
+            return;
+        }
     }
 
-    sw.print();
+    // infer types and apply constraints
 
-    // type check pass
-
-    let sw = Stopwatch::start_new("check");
-
-    if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
-        emit_single_diagnostic(&workspace.files, diagnostic);
-        return;
+    time! { "infer",
+        if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
+            emit_single_diagnostic(&workspace.files, diagnostic);
+            return;
+        }
     }
 
-    sw.print();
+    // type check
+
+    time! { "typeck",
+        if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
+            emit_single_diagnostic(&workspace.files, diagnostic);
+            return;
+        }
+    }
 
     // for ast in asts.iter() {
     //     ast.print();
