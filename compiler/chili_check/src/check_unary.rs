@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess, CheckedExpr};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
 use chili_ast::{
     ast::{Expr, ExprKind, LiteralKind, UnaryOp},

@@ -1,11 +1,11 @@
-use chili_ast::ast::{Call, CallArg, ExprKind};
+use chili_ast::ast::{Call, Expr};
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
-use crate::{CheckFrame, CheckSess, CheckedExpr};
+use crate::{CheckFrame, CheckSess};
 
 impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_call(
@@ -14,12 +14,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         call: &Call,
         span: Span,
     ) -> DiagnosticResult<Ty> {
-        let callee = self.check_expr(frame, &call.callee, None)?;
-        let ty = self.infcx.normalize_ty(&callee.ty);
+        call.callee.ty = self.check_expr(frame, &call.callee, None)?;
+        call.callee.ty = self.infcx.normalize_ty(&call.callee.ty);
 
-        match ty {
-            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, callee, span),
-            _ => Err(TypeError::expected(
+        match &call.callee.ty {
+            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, &call.callee, span),
+            ty => Err(TypeError::expected(
                 call.callee.span,
                 ty.to_string(),
                 "a function",
@@ -32,7 +32,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         fn_type: &FnTy,
         call: &Call,
-        callee: CheckedExpr,
+        callee: &Expr,
         span: Span,
     ) -> DiagnosticResult<Ty> {
         if fn_type.variadic {
@@ -51,7 +51,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             ));
         }
 
-        let mut new_args = vec![];
         let mut passed_args = UstrMap::default();
 
         for (index, arg) in call.args.iter().enumerate() {
@@ -71,20 +70,19 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 let found_param_index =
                     fn_type.params.iter().position(|p| p.symbol == symbol.value);
+
                 if let Some(index) = found_param_index {
                     let param = &fn_type.params[index];
 
-                    let mut arg = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
                     self.infcx.unify_or_coerce_ty_expr(
                         &param_ty,
-                        &mut arg.expr,
+                        &mut arg.value,
                         call.args[index].value.span,
                     )?;
-
-                    arg
                 } else {
                     return Err(Diagnostic::error()
                         .with_message(format!("unknown argument `{}`", symbol.value))
@@ -98,38 +96,23 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(param) = fn_type.params.get(index) {
                     passed_args.insert(param.symbol, arg.value.span);
 
-                    let mut arg = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
                     self.infcx.unify_or_coerce_ty_expr(
                         &param_ty,
-                        &mut arg.expr,
+                        &mut arg.value,
                         call.args[index].value.span,
                     )?;
-
-                    arg
                 } else {
                     // * this is a variadic argument, meaning that the argument's
                     // * index is greater than the function param length
-                    self.check_expr(frame, &arg.value, None)?
+                    self.check_expr(frame, &arg.value, None)?;
                 }
             };
-
-            new_args.push(CallArg {
-                symbol: arg.symbol.clone(),
-                value: new_arg.expr,
-            });
         }
 
-        Ok(CheckedExpr::new(
-            ExprKind::Call(Call {
-                callee: Box::new(callee.expr),
-                args: new_args,
-            }),
-            fn_type.ret.as_ref().clone(),
-            None,
-            span,
-        ))
+        Ok(fn_type.ret.as_ref().clone())
     }
 }
