@@ -9,18 +9,16 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(super) fn check_binary_expr(
         &mut self,
         frame: &mut CheckFrame,
-        lhs: &Box<Expr>,
+        lhs: &mut Expr,
         op: BinaryOp,
-        rhs: &Box<Expr>,
+        rhs: &mut Expr,
         expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<Ty> {
         lhs.ty = self.check_expr(frame, lhs, expected_ty.clone())?;
         rhs.ty = self.check_expr(frame, rhs, expected_ty)?;
 
-        let ty = self
-            .infcx
-            .unify_or_coerce_expr_expr(lhs.as_mut(), rhs.as_mut(), rhs.span)?;
+        let ty = self.infcx.unify_or_coerce_expr_expr(lhs, rhs, rhs.span)?;
 
         lhs.ty = ty.clone();
         rhs.ty = ty.clone();

@@ -13,7 +13,7 @@ use builtin::get_builtin_types;
 use chili_ast::ty::Ty;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
-    ast::{Ast, Expr, ExprKind},
+    ast::Ast,
     value::Value,
     workspace::{BindingInfoIdx, Workspace},
 };

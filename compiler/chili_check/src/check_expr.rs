@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess, CheckedExpr};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
 use chili_ast::{
     ast::{
@@ -18,51 +18,40 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_expr(
         &mut self,
         frame: &mut CheckFrame,
-        expr: &Expr,
+        expr: &mut Expr,
         expected_ty: Option<Ty>,
     ) -> DiagnosticResult<Ty> {
-        let checked_expr = match &expr.kind {
+        match &mut expr.kind {
             ExprKind::Import(imports) => {
-                for import in imports.iter() {
+                for import in imports.iter_mut() {
                     self.check_import(import)?;
                 }
-
-                CheckedExpr::new(ExprKind::Import(imports.clone()), Ty::Unit, None, expr.span)
+                Ok(Ty::Unit)
             }
             ExprKind::Foreign(bindings) => {
-                let mut new_bindings = vec![];
-
                 for binding in bindings.iter() {
-                    new_bindings.push(self.check_binding(frame, binding)?);
+                    self.check_binding(frame, binding)?;
                 }
-
-                CheckedExpr::new(ExprKind::Foreign(new_bindings), Ty::Unit, None, expr.span)
+                Ok(Ty::Unit)
             }
-            ExprKind::Binding(binding) => {
-                let binding = self.check_binding(frame, binding)?;
-                CheckedExpr::new(
-                    ExprKind::Binding(Box::new(binding)),
-                    Ty::Unit,
-                    None,
-                    expr.span,
-                )
-            }
+            ExprKind::Binding(binding) => self.check_binding(frame, binding),
             ExprKind::Defer(deferred) => {
-                CheckedExpr::new(ExprKind::Defer(deferred.clone()), Ty::Unit, None, expr.span)
+                self.check_expr(frame, deferred.as_mut(), expected_ty)?;
+                Ok(Ty::Unit)
             }
             ExprKind::Assign { lvalue, rvalue } => {
-                self.check_assign_expr(frame, lvalue, rvalue, expr.span)?
+                self.check_assign_expr(frame, lvalue, rvalue, expr.span)?;
+                Ok(Ty::Unit)
             }
             ExprKind::Cast(info) => {
-                let info = self.check_cast(frame, info, expected_ty, expr.span)?;
+                let target_ty = self.check_cast(frame, info, expected_ty, expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
-                if ty_can_be_casted(&source_ty, &info.target_ty) {
-                    let target_ty = info.target_ty.clone();
-                    CheckedExpr::new(ExprKind::Cast(info), target_ty, None, expr.span)
+                if ty_can_be_casted(&source_ty, &target_ty) {
+                    Ok(target_ty)
                 } else {
                     let source_ty = self.infcx.normalize_ty_and_untyped(&source_ty);
-                    return Err(Diagnostic::error()
+                    Err(Diagnostic::error()
                         .with_message(format!(
                             "cannot cast from `{}` to `{}`",
                             source_ty, info.target_ty
@@ -71,38 +60,20 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             info.expr.span.file_id,
                             info.expr.span.range().clone(),
                         )
-                        .with_message(format!("invalid cast to `{}`", info.target_ty))]));
+                        .with_message(format!("invalid cast to `{}`", info.target_ty))]))
                 }
             }
-            ExprKind::Fn(func) => {
-                let func = self.check_fn(frame, func, expr.span, expected_ty)?;
-                let ty = func.proto.ty.clone();
-                CheckedExpr::new(ExprKind::Fn(func), ty, None, expr.span)
-            }
+            ExprKind::Fn(func) => self.check_fn(frame, func, expr.span, expected_ty),
             ExprKind::Builtin(builtin) => match builtin {
                 Builtin::SizeOf(type_expr) | Builtin::AlignOf(type_expr) => {
-                    let result = self.check_type_expr(frame, type_expr)?;
-                    CheckedExpr::new(
-                        ExprKind::Builtin(Builtin::SizeOf(Box::new(result.expr))),
-                        Ty::UInt(UIntTy::Usize),
-                        None,
-                        expr.span,
-                    )
+                    self.check_type_expr(frame, type_expr)?;
+                    Ok(Ty::UInt(UIntTy::Usize))
                 }
                 Builtin::Panic(msg_expr) => {
-                    let msg_expr = if let Some(e) = msg_expr {
-                        let result = self.check_expr(frame, e, Some(Ty::str()))?;
-                        Some(Box::new(result.expr))
-                    } else {
-                        None
-                    };
-
-                    CheckedExpr::new(
-                        ExprKind::Builtin(Builtin::Panic(msg_expr)),
-                        Ty::Unit,
-                        None,
-                        expr.span,
-                    )
+                    if let Some(expr) = msg_expr {
+                        self.check_expr(frame, expr, Some(Ty::str()))?;
+                    }
+                    Ok(Ty::Unit)
                 }
             },
             ExprKind::While {
@@ -1012,9 +983,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 None,
                 expr.span,
             ),
-        };
-
-        Ok(checked_expr)
+        }
     }
 
     pub(crate) fn check_type_expr(
@@ -1040,15 +1009,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_expr_list(
         &mut self,
         frame: &mut CheckFrame,
-        exprs: &Vec<Expr>,
-    ) -> DiagnosticResult<Vec<Expr>> {
-        let mut new_exprs = vec![];
-
+        exprs: &mut Vec<Expr>,
+    ) -> DiagnosticResult<()> {
         for expr in exprs {
-            new_exprs.push(self.check_expr(frame, expr, None)?.expr);
+            self.check_expr(frame, expr, None)?;
         }
-
-        Ok(new_exprs)
+        Ok(())
     }
 
     #[inline]
@@ -1286,7 +1252,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        new_block.deferred = self.check_expr_list(frame, &block.deferred)?;
+        self.check_expr_list(frame, &mut block.deferred)?;
 
         self.init_scopes.pop_scope();
 
@@ -1296,10 +1262,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     fn check_cast(
         &mut self,
         frame: &mut CheckFrame,
-        info: &Cast,
+        info: &mut Cast,
         expected_ty: Option<Ty>,
         expr_span: Span,
-    ) -> DiagnosticResult<Cast> {
+    ) -> DiagnosticResult<Ty> {
         let casted_expr = self.check_expr(frame, &info.expr, None)?;
 
         let (type_expr, target_ty) = if let Some(type_expr) = &info.type_expr {
@@ -1320,11 +1286,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         };
 
-        Ok(Cast {
-            expr: Box::new(casted_expr.expr),
-            type_expr,
-            target_ty,
-        })
+        Ok(target_ty)
     }
 
     pub(super) fn check_expr_can_be_mutably_referenced(

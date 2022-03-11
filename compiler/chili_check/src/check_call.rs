@@ -11,10 +11,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_call(
         &mut self,
         frame: &mut CheckFrame,
-        call: &Call,
+        call: &mut Call,
         span: Span,
     ) -> DiagnosticResult<Ty> {
-        call.callee.ty = self.check_expr(frame, &call.callee, None)?;
+        call.callee.ty = self.check_expr(frame, &mut call.callee, None)?;
         call.callee.ty = self.infcx.normalize_ty(&call.callee.ty);
 
         match &call.callee.ty {
@@ -74,7 +74,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(index) = found_param_index {
                     let param = &fn_type.params[index];
 
-                    arg.value.ty = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty =
+                        self.check_expr(frame, &mut arg.value, Some(param.ty.clone()))?;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
@@ -96,7 +97,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(param) = fn_type.params.get(index) {
                     passed_args.insert(param.symbol, arg.value.span);
 
-                    arg.value.ty = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty =
+                        self.check_expr(frame, &mut arg.value, Some(param.ty.clone()))?;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
@@ -108,7 +110,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 } else {
                     // * this is a variadic argument, meaning that the argument's
                     // * index is greater than the function param length
-                    self.check_expr(frame, &arg.value, None)?;
+                    self.check_expr(frame, &mut arg.value, None)?;
                 }
             };
         }
