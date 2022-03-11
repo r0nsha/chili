@@ -6,8 +6,9 @@ pub mod size;
 use std::hash::{Hash, Hasher};
 
 use chili_span::Span;
-use common::mem::calculate_align_from_offset;
 use ustr::{ustr, Ustr};
+
+use crate::workspace::ModuleIdx;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Ty {
@@ -24,7 +25,7 @@ pub enum Ty {
     Slice(Box<Ty>, bool),
     Tuple(Vec<Ty>),
     Struct(StructTy),
-    Module { name: Ustr, file_path: Ustr },
+    Module(ModuleIdx),
     Type(Box<Ty>),
     Var(u32),
     Unknown,

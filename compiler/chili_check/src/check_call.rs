@@ -1,7 +1,7 @@
 use chili_ast::ast::{Call, CallArg, ExprKind};
+use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
-use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
@@ -21,7 +21,11 @@ impl<'a> CheckSess<'a> {
             Ty::Fn(fn_type) => {
                 self.check_call_fn(frame, &fn_type, call, callee, span)
             }
-            _ => Err(TypeError::expected(call.callee.span, &ty, "a function")),
+            _ => Err(TypeError::expected(
+                call.callee.span,
+                ty.to_string(),
+                "a function",
+            )),
         }
     }
 

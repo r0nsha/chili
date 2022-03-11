@@ -1,6 +1,5 @@
 use std::process::exit;
 
-use chili_ty::Ty;
 use codespan_reporting::{
     diagnostic::*,
     files::SimpleFiles,
@@ -248,7 +247,7 @@ impl TypeError {
     pub fn tuple_field_out_of_bounds(
         span: Span,
         field: &str,
-        ty: &Ty,
+        ty: String,
         max: usize,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
@@ -265,7 +264,7 @@ impl TypeError {
     pub fn non_numeric_tuple_field(
         span: Span,
         field: &str,
-        ty: &Ty,
+        ty: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!(
@@ -281,7 +280,7 @@ impl TypeError {
 
     pub fn struct_destructor_on_invalid_type(
         span: Span,
-        ty: &Ty,
+        ty: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!(
@@ -296,7 +295,7 @@ impl TypeError {
 
     pub fn tuple_destructor_on_invalid_type(
         span: Span,
-        ty: &Ty,
+        ty: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!(
@@ -311,7 +310,7 @@ impl TypeError {
 
     pub fn too_many_destructor_variables(
         span: Span,
-        ty: &Ty,
+        ty: String,
         expected_len: usize,
         actual_len: usize,
     ) -> Diagnostic<usize> {
@@ -341,7 +340,7 @@ impl TypeError {
     pub fn invalid_struct_field(
         span: Span,
         field: Ustr,
-        ty: &Ty,
+        ty: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("no field `{}` on type `{}`", field, ty))
@@ -353,7 +352,7 @@ impl TypeError {
 
     pub fn field_access_on_invalid_type(
         span: Span,
-        ty: &Ty,
+        ty: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("type `{}` has no fields", ty))
@@ -373,8 +372,8 @@ impl TypeError {
 
     pub fn type_mismatch(
         span: Span,
-        expected: &Ty,
-        actual: &Ty,
+        expected: String,
+        actual: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!(
@@ -388,7 +387,11 @@ impl TypeError {
             .with_message(format!("expected {}", expected))])
     }
 
-    pub fn invalid_cast(span: Span, from: &Ty, to: &Ty) -> Diagnostic<usize> {
+    pub fn invalid_cast(
+        span: Span,
+        from: String,
+        to: String,
+    ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot cast from `{}` to `{}`", from, to))
             .with_labels(vec![Label::primary(
@@ -423,7 +426,10 @@ impl TypeError {
             .with_message("not callable")])
     }
 
-    pub fn invalid_ty_in_condition(span: Span, ty: &Ty) -> Diagnostic<usize> {
+    pub fn invalid_ty_in_condition(
+        span: Span,
+        ty: String,
+    ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("expected type `bool`, but found `{}`", ty))
             .with_labels(vec![Label::primary(
@@ -488,7 +494,7 @@ impl TypeError {
             ))])
     }
 
-    pub fn deref_non_pointer_ty(span: Span, ty: &Ty) -> Diagnostic<usize> {
+    pub fn deref_non_pointer_ty(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot dereference type `{}`", ty))
             .with_labels(vec![Label::primary(
@@ -500,7 +506,7 @@ impl TypeError {
 
     pub fn expected(
         span: Span,
-        ty: &Ty,
+        ty: String,
         expectation: &str,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
@@ -518,7 +524,7 @@ impl TypeError {
     pub fn invalid_ty_in_unary(
         span: Span,
         action: &str,
-        ty: &Ty,
+        ty: String,
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("can't `{}` on `{}`", action, ty,))
@@ -529,7 +535,7 @@ impl TypeError {
             .with_message("invalid type in unary operation")])
     }
 
-    pub fn invalid_expr_in_slice(span: Span, ty: &Ty) -> Diagnostic<usize> {
+    pub fn invalid_expr_in_slice(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot slice type `{}`", ty))
             .with_labels(vec![Label::primary(
@@ -538,7 +544,10 @@ impl TypeError {
             )])
     }
 
-    pub fn invalid_expr_in_subscript(span: Span, ty: &Ty) -> Diagnostic<usize> {
+    pub fn invalid_expr_in_subscript(
+        span: Span,
+        ty: String,
+    ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot subscript type `{}`", ty))
             .with_labels(vec![Label::primary(
@@ -547,7 +556,7 @@ impl TypeError {
             )])
     }
 
-    pub fn invalid_ty_in_neg(span: Span, ty: &Ty) -> Diagnostic<usize> {
+    pub fn invalid_ty_in_neg(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot negate `{}`", ty))
             .with_labels(vec![Label::primary(

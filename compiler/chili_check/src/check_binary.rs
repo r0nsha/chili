@@ -1,11 +1,11 @@
 use crate::{CheckFrame, CheckSess, CheckedExpr};
+use chili_ast::ty::*;
 use chili_ast::{
     ast::{BinaryOp, Expr, ExprKind, LiteralKind},
     value::Value,
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
-use chili_ty::*;
 
 impl<'a> CheckSess<'a> {
     #[inline]
@@ -41,7 +41,7 @@ impl<'a> CheckSess<'a> {
                 if !self.infcx.is_number(&ty) {
                     return Err(TypeError::expected(
                         span,
-                        &self.infcx.normalize_ty_and_untyped(&ty),
+                        self.infcx.normalize_ty_and_untyped(&ty).to_string(),
                         "number",
                     ));
                 }
@@ -55,7 +55,7 @@ impl<'a> CheckSess<'a> {
                 if !self.infcx.is_any_integer(&ty) {
                     return Err(TypeError::expected(
                         span,
-                        &self.infcx.normalize_ty_and_untyped(&ty),
+                        self.infcx.normalize_ty_and_untyped(&ty).to_string(),
                         "any integer",
                     ));
                 }
@@ -67,8 +67,8 @@ impl<'a> CheckSess<'a> {
                 if !ty.is_bool() {
                     return Err(TypeError::type_mismatch(
                         span,
-                        &Ty::Bool,
-                        &self.infcx.normalize_ty_and_untyped(&ty),
+                        Ty::Bool.to_string(),
+                        self.infcx.normalize_ty_and_untyped(&ty).to_string(),
                     ));
                 }
             }

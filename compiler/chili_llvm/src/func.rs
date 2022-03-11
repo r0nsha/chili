@@ -5,7 +5,7 @@ use crate::{
     CallingConv,
 };
 use chili_ast::ast::{BindingKind, Call, ExprKind, Fn, ModuleInfo, Proto};
-use chili_ty::*;
+use chili_ast::ty::*;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,

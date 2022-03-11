@@ -1,11 +1,11 @@
 use crate::path::resolve_relative_path;
 use crate::pattern::Pattern;
+use crate::ty::{StructTyKind, Ty, UIntTy};
 use crate::value::Value;
 use crate::workspace::{BindingInfoIdx, ModuleIdx};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
 use chili_token::TokenKind;
-use chili_ty::{StructTyKind, Ty, UIntTy};
 use codespan_reporting::files::SimpleFiles;
 use common::compiler_info::STD;
 use std::collections::HashSet;
@@ -373,6 +373,7 @@ pub struct Proto {
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
     pub ty: Ty,
+    pub binding_info_idx: Option<BindingInfoIdx>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -560,6 +561,7 @@ impl Binding {
 pub enum BindingKind {
     Let,
     Type,
+    Import,
 }
 
 impl Display for BindingKind {
@@ -570,6 +572,7 @@ impl Display for BindingKind {
             match self {
                 BindingKind::Let => "value",
                 BindingKind::Type => "type",
+                BindingKind::Import => "import",
             }
         )
     }
@@ -720,6 +723,7 @@ impl From<TokenKind> for UnaryOp {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Import {
+    pub binding_info_idx: BindingInfoIdx,
     pub module_idx: ModuleIdx,
     pub module_info: ModuleInfo,
     pub alias: Ustr,
@@ -771,7 +775,7 @@ pub enum ImportPathNode {
 }
 
 impl ImportPathNode {
-    pub fn into_symbol(&self) -> Ustr {
+    pub fn as_symbol(&self) -> Ustr {
         match self {
             ImportPathNode::Symbol(s) => *s,
             _ => panic!(),

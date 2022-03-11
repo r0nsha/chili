@@ -1,4 +1,4 @@
-use chili_ty::*;
+use chili_ast::ty::*;
 use ena::unify::{InPlaceUnificationTable, UnifyKey};
 use std::fmt::Display;
 

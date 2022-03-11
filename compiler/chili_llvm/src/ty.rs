@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use chili_ty::{size::SizeOf, *};
+use chili_ast::ty::{size::SizeOf, *};
 
 use inkwell::{
     types::{

@@ -1,4 +1,4 @@
-use chili_ty::{FloatTy, IntTy, Ty, UIntTy};
+use chili_ast::ty::{FloatTy, IntTy, Ty, UIntTy};
 use ustr::{ustr, UstrMap};
 
 pub(crate) fn get_builtin_types() -> UstrMap<Ty> {

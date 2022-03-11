@@ -1,4 +1,4 @@
-use chili_ty::Ty;
+use crate::ty::Ty;
 use strum_macros::Display;
 
 #[derive(Debug, Display, PartialEq, Clone)]

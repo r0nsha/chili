@@ -1,9 +1,9 @@
 use crate::{func::ParseProtoKind, *};
 use chili_ast::ast::{Expr, ExprKind, StructType, StructTypeField};
+use chili_ast::ty::StructTyKind;
 use chili_error::SyntaxError;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
-use chili_ty::StructTyKind;
 
 const SELF_SYMBOL: &str = "Self";
 

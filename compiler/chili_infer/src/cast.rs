@@ -1,5 +1,5 @@
 use crate::coerce::can_coerce_mut;
-use chili_ty::*;
+use chili_ast::ty::*;
 
 pub fn ty_can_be_casted(from: &Ty, to: &Ty) -> bool {
     from == to

@@ -1,9 +1,9 @@
+use chili_ast::ty::{FloatTy, IntTy, Ty, UIntTy};
 use chili_ast::{
     ast,
     workspace::{BindingInfoKind, ScopeLevel, Workspace},
 };
 use chili_span::Span;
-use chili_ty::{FloatTy, IntTy, Ty, UIntTy};
 use ustr::ustr;
 
 use crate::resolver::Resolver;

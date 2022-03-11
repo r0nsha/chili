@@ -1,9 +1,9 @@
+use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
-use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrSet;
 
-use crate::{BindingInfo, CheckFrame, CheckSess};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::{
     pattern::{DestructorPattern, Pattern, SymbolPattern},
     value::Value,
@@ -19,26 +19,8 @@ impl<'a> CheckSess<'a> {
         is_init: bool,
     ) -> DiagnosticResult<()> {
         match pattern {
-            Pattern::Single(SymbolPattern {
-                binding_info_idx: _,
-                symbol,
-                alias: _,
-                span,
-                is_mutable,
-                ignore,
-            }) => {
-                if !ignore {
-                    frame.insert_binding_info(
-                        *symbol,
-                        BindingInfo {
-                            ty: expected_ty,
-                            const_value: const_value.clone(),
-                            is_mutable: *is_mutable,
-                            is_init,
-                            span: *span,
-                        },
-                    );
-                }
+            Pattern::Single(pat) => {
+                self.update_symbol_pattern_ty(pat, expected_ty);
             }
             Pattern::StructDestructor(pattern) => {
                 let ty = self.infcx.normalize_ty(&expected_ty);
@@ -76,52 +58,37 @@ impl<'a> CheckSess<'a> {
 
                 let mut field_set = UstrSet::default();
 
-                for SymbolPattern {
-                    binding_info_idx: _,
-                    symbol,
-                    alias,
-                    span,
-                    is_mutable,
-                    ignore,
-                } in pattern.symbols.iter()
-                {
-                    if *ignore {
+                for pat in pattern.symbols.iter() {
+                    if pat.ignore {
                         continue;
                     }
 
-                    match struct_ty.fields.iter().find(|f| f.symbol == *symbol)
+                    match struct_ty
+                        .fields
+                        .iter()
+                        .find(|f| f.symbol == pat.symbol)
                     {
                         Some(field) => {
-                            if !field_set.insert(*symbol) {
+                            if !field_set.insert(pat.symbol) {
                                 return Err(
                                     TypeError::duplicate_destructor_field(
-                                        *span,
+                                        pat.span,
                                         field.symbol,
                                     ),
                                 );
                             }
 
-                            let symbol = alias.unwrap_or(*symbol);
-
-                            frame.insert_binding_info(
-                                symbol,
-                                BindingInfo {
-                                    ty: get_destructed_ty(
-                                        expected_ty,
-                                        &field.ty,
-                                    ),
-                                    const_value: None,
-                                    is_mutable: *is_mutable,
-                                    is_init,
-                                    span: *span,
-                                },
+                            let symbol = pat.alias.unwrap_or(pat.symbol);
+                            self.update_symbol_pattern_ty(
+                                pat,
+                                get_destructed_ty(expected_ty, &field.ty),
                             );
                         }
                         None => {
                             return Err(TypeError::invalid_struct_field(
-                                *span,
-                                *symbol,
-                                &expected_ty,
+                                pat.span,
+                                pat.symbol,
+                                expected_ty.to_string(),
                             ))
                         }
                     }
@@ -152,7 +119,7 @@ impl<'a> CheckSess<'a> {
             ty => {
                 return Err(TypeError::struct_destructor_on_invalid_type(
                     pattern.span,
-                    &ty,
+                    ty.to_string(),
                 ))
             }
         }
@@ -170,35 +137,22 @@ impl<'a> CheckSess<'a> {
                 if pattern.symbols.len() > tys.len() {
                     return Err(TypeError::too_many_destructor_variables(
                         pattern.span,
-                        expected_ty,
+                        expected_ty.to_string(),
                         tys.len(),
                         pattern.symbols.len(),
                     ));
                 }
 
                 for i in 0..pattern.symbols.len() {
-                    let SymbolPattern {
-                        binding_info_idx: _,
-                        symbol,
-                        alias: _,
-                        span,
-                        is_mutable,
-                        ignore,
-                    } = &pattern.symbols[i];
+                    let pat = &pattern.symbols[i];
 
-                    if *ignore {
+                    if pat.ignore {
                         continue;
                     }
 
-                    frame.insert_binding_info(
-                        *symbol,
-                        BindingInfo {
-                            ty: get_destructed_ty(expected_ty, &tys[i]),
-                            const_value: None,
-                            is_mutable: *is_mutable,
-                            is_init,
-                            span: *span,
-                        },
+                    self.update_symbol_pattern_ty(
+                        pat,
+                        get_destructed_ty(expected_ty, &tys[i]),
                     );
                 }
 
@@ -206,8 +160,17 @@ impl<'a> CheckSess<'a> {
             }
             ty => Err(TypeError::tuple_destructor_on_invalid_type(
                 pattern.span,
-                &ty,
+                ty.to_string(),
             )),
+        }
+    }
+
+    fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: Ty) {
+        if !pattern.ignore {
+            self.workspace
+                .get_binding_info_mut(pattern.binding_info_idx)
+                .unwrap()
+                .ty = ty;
         }
     }
 }

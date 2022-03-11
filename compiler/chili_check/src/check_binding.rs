@@ -1,13 +1,13 @@
 use crate::{CheckFrame, CheckSess, ProcessedItem, TopLevelLookupKind};
+use chili_ast::ty::*;
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
-    workspace::BindingInfo,
+    workspace::{BindingInfo, BindingInfoIdx},
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::substitute::Substitute;
 use chili_span::Span;
-use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::env::Env;
 use ustr::{ustr, Ustr};
@@ -53,6 +53,7 @@ impl<'a> CheckSess<'a> {
                         ));
                     }
                 }
+                _ => (),
             }
 
             let span = result.expr.span;
@@ -133,34 +134,17 @@ impl<'a> CheckSess<'a> {
         &mut self,
         module_info: ModuleInfo,
         calling_module: ModuleInfo,
-        symbol: Ustr,
+        binding_info_idx: BindingInfoIdx,
         symbol_span: Span,
         lookup_kind: TopLevelLookupKind,
-    ) -> DiagnosticResult<BindingInfo> {
-        // if the binding is already in new_ir, get its type instead
-        match self.new_ir.modules.get(&module_info.name) {
-            Some(module) => match module.find_binding(symbol) {
-                Some(binding) => {
-                    let SymbolPattern { symbol, span, .. } =
-                        binding.pattern.into_single();
+    ) -> DiagnosticResult<Ty> {
+        let binding_info =
+            self.workspace.get_binding_info(binding_info_idx).unwrap();
 
-                    self.is_item_accessible(
-                        binding.visibility,
-                        symbol,
-                        span,
-                        module_info,
-                        calling_module,
-                        symbol_span,
-                    )?;
+        if !binding_info.ty.is_unknown() {
+            return Ok(binding_info.ty.clone());
+        }
 
-                    return Ok(BindingInfo::from_binding(binding));
-                }
-                None => (),
-            },
-            None => (),
-        };
-
-        // binding has not been checked yet
         let module = self
             .old_ir
             .modules
@@ -258,7 +242,7 @@ impl<'a> CheckSess<'a> {
         binding: &Binding,
         calling_module: ModuleInfo,
         calling_span: Span,
-    ) -> DiagnosticResult<BindingInfo> {
+    ) -> DiagnosticResult<Ty> {
         let SymbolPattern { symbol, span, .. } = binding.pattern.into_single();
 
         if !self.processed_items_stack.is_empty() {
@@ -317,34 +301,55 @@ impl<'a> CheckSess<'a> {
         &mut self,
         calling_module: ModuleInfo,
         import: &Import,
-    ) -> DiagnosticResult<BindingInfo> {
+    ) -> DiagnosticResult<Ty> {
         let mut ty = Ty::Module {
             name: import.module_info.name,
             file_path: import.module_info.file_path,
         };
-        let mut const_value = None;
+
         let mut span = Span::unknown();
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
-            let mut current_module = import.module_info;
+            let mut current_module_idx = import.module_idx;
+            let mut current_module_info = import.module_info;
 
             for (index, symbol) in import.import_path.iter().enumerate() {
+                let idx =
+                    match self.workspace.binding_infos.iter().position(|b| {
+                        b.module_idx == current_module_idx
+                            && b.symbol == symbol.value.as_symbol()
+                    }) {
+                        Some(idx) => BindingInfoIdx(idx),
+                        None => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot find value `{}` in module `{}`",
+                                    symbol.value.as_symbol(),
+                                    current_module_info.name
+                                ))
+                                .with_labels(vec![Label::primary(
+                                    symbol.span.file_id,
+                                    symbol.span.range(),
+                                )]))
+                        }
+                    };
                 let binding_info = self.check_top_level_binding(
-                    current_module,
+                    current_module_idx,
                     calling_module,
-                    symbol.value.into_symbol(),
+                    symbol.value.as_symbol(),
                     symbol.span,
                     TopLevelLookupKind::OtherModule,
                 )?;
 
                 ty = binding_info.ty;
-                const_value = binding_info.const_value;
                 span = binding_info.span;
 
                 match ty {
-                    Ty::Module { name, file_path } => {
-                        current_module = ModuleInfo::new(name, file_path)
+                    Ty::Module(idx) => {
+                        current_module_idx = idx;
+                        current_module_info =
+                            self.workspace.get_module_info(idx).unwrap();
                     }
                     _ => {
                         if index < import.import_path.len() - 1 {
@@ -362,13 +367,7 @@ impl<'a> CheckSess<'a> {
             }
         }
 
-        Ok(BindingInfo {
-            ty,
-            const_value,
-            is_mutable: false,
-            is_init: true,
-            span,
-        })
+        Ok(ty)
     }
 
     fn is_item_accessible(

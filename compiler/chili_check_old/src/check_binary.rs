@@ -5,7 +5,7 @@ use chili_ast::{
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
-use chili_ty::*;
+use chili_ast::ty::*;
 
 impl<'a> CheckContext<'a> {
     #[inline]

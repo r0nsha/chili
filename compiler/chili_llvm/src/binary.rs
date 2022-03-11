@@ -1,7 +1,7 @@
 use crate::codegen::{Codegen, CodegenState};
 use chili_ast::ast::{BinaryOp, Expr};
 use chili_span::Span;
-use chili_ty::*;
+use chili_ast::ty::*;
 use inkwell::{
     types::IntType,
     values::{BasicValue, BasicValueEnum, FunctionValue, IntValue},

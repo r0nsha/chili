@@ -81,6 +81,7 @@ fn expand_glob_import(
                         import_path,
                         visibility: *visibility,
                         span: import.span().clone(),
+                        binding_info_idx: import.binding_info_idx,
                     }
                 })
                 .collect())

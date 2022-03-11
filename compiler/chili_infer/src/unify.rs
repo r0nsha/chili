@@ -4,9 +4,9 @@ use crate::{
     infer::{InferenceContext, InferenceValue, InferenceValue::*, TyVar},
 };
 use chili_ast::ast::Expr;
+use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
-use chili_ty::*;
 use codespan_reporting::diagnostic::Diagnostic;
 use ena::unify::UnifyValue;
 
@@ -321,8 +321,8 @@ impl InferenceContext {
     ) -> Diagnostic<usize> {
         TypeError::type_mismatch(
             span,
-            &self.normalize_ty_and_untyped(&expected),
-            &self.normalize_ty_and_untyped(&actual),
+            self.normalize_ty_and_untyped(&expected).to_string(),
+            self.normalize_ty_and_untyped(&actual).to_string(),
         )
     }
 }

@@ -1,6 +1,6 @@
 use crate::ast::{ForeignLibrary, ModuleInfo, Visibility};
+use crate::ty::Ty;
 use chili_span::{FileId, Span};
-use chili_ty::Ty;
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
 use std::{cmp::Ordering, collections::HashSet, path::Path};
@@ -155,8 +155,11 @@ impl<'w> Workspace<'w> {
         self.binding_infos.get(id.0)
     }
 
-    pub fn next_binding_info_id(&self) -> BindingInfoIdx {
-        BindingInfoIdx(self.binding_infos.len())
+    pub fn get_binding_info_mut(
+        &mut self,
+        id: BindingInfoIdx,
+    ) -> Option<&mut BindingInfo> {
+        self.binding_infos.get_mut(id.0)
     }
 }
 

@@ -1,11 +1,11 @@
 use crate::{CheckFrame, CheckSess, CheckedExpr};
+use chili_ast::ty::*;
 use chili_ast::{
     ast::{Expr, ExprKind, LiteralKind, UnaryOp},
     value::Value,
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
-use chili_ty::*;
 
 impl<'a> CheckSess<'a> {
     pub(super) fn check_unary_expr(
@@ -32,7 +32,7 @@ impl<'a> CheckSess<'a> {
                 ty => {
                     return Err(TypeError::deref_non_pointer_ty(
                         span,
-                        &self.infcx.normalize_ty_and_untyped(&ty),
+                        self.infcx.normalize_ty_and_untyped(&ty).to_string(),
                     ))
                 }
             },
@@ -40,7 +40,9 @@ impl<'a> CheckSess<'a> {
                 if !lhs_ty.is_bool() {
                     return Err(TypeError::invalid_ty_in_condition(
                         span,
-                        &self.infcx.normalize_ty_and_untyped(&lhs_ty),
+                        self.infcx
+                            .normalize_ty_and_untyped(&lhs_ty)
+                            .to_string(),
                     ));
                 }
 
@@ -65,7 +67,9 @@ impl<'a> CheckSess<'a> {
                     return Err(TypeError::invalid_ty_in_unary(
                         span,
                         "neg",
-                        &self.infcx.normalize_ty_and_untyped(&lhs_ty),
+                        self.infcx
+                            .normalize_ty_and_untyped(&lhs_ty)
+                            .to_string(),
                     ));
                 }
 
@@ -107,7 +111,9 @@ impl<'a> CheckSess<'a> {
                     return Err(TypeError::invalid_ty_in_unary(
                         span,
                         "plus",
-                        &self.infcx.normalize_ty_and_untyped(&lhs_ty),
+                        self.infcx
+                            .normalize_ty_and_untyped(&lhs_ty)
+                            .to_string(),
                     ));
                 }
 
@@ -118,7 +124,9 @@ impl<'a> CheckSess<'a> {
                     return Err(TypeError::invalid_ty_in_unary(
                         span,
                         "bitwise_not",
-                        &self.infcx.normalize_ty_and_untyped(&lhs_ty),
+                        self.infcx
+                            .normalize_ty_and_untyped(&lhs_ty)
+                            .to_string(),
                     ));
                 }
 

@@ -3,7 +3,6 @@ members = [
     "compiler/common",
     "compiler/chili_span",
     "compiler/chili_error",
-    "compiler/chili_ty",
     "compiler/chili_ast",
     "compiler/chili_token",
     "compiler/chili_parse",

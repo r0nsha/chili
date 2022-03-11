@@ -1,7 +1,7 @@
 use chili_ast::ast::{Call, CallArg, ExprKind};
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
-use chili_ty::*;
+use chili_ast::ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 

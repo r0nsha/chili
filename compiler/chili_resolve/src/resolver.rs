@@ -139,6 +139,7 @@ impl Resolver {
             match kind {
                 ast::BindingKind::Let => BindingInfoKind::Let,
                 ast::BindingKind::Type => BindingInfoKind::Type,
+                ast::BindingKind::Import => BindingInfoKind::Import,
             },
             self.scope_level,
             ustr(&self.current_scope_name()),

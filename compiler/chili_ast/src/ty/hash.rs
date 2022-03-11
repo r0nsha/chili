@@ -1,4 +1,4 @@
-use crate::*;
+use super::*;
 
 impl Hash for StructTy {
     fn hash<H: Hasher>(&self, state: &mut H) {

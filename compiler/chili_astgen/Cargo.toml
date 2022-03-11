@@ -16,6 +16,5 @@ common = { path = "../common" }
 chili_span = { path = "../chili_span" }
 chili_token = { path = "../chili_token" }
 chili_error = { path = "../chili_error" }
-chili_ty = { path = "../chili_ty" }
 chili_parse = { path = "../chili_parse" }
 chili_ast = { path = "../chili_ast" }

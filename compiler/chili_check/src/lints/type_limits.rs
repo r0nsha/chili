@@ -1,7 +1,7 @@
 use chili_ast::ast::{Expr, ExprKind, LiteralKind};
 use chili_error::DiagnosticResult;
 use chili_span::Span;
-use chili_ty::{IntTy, Ty, UIntTy};
+use chili_ast::ty::{IntTy, Ty, UIntTy};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::fmt::Display;
 

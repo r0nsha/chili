@@ -1,11 +1,11 @@
 use crate::*;
+use chili_ast::ty::Ty;
 use chili_ast::{
     ast::{Block, Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, To};
-use chili_ty::Ty;
 use ustr::{ustr, Ustr};
 
 impl<'w> Parser<'w> {
@@ -47,6 +47,7 @@ impl<'w> Parser<'w> {
             variadic,
             ret: ret_ty,
             ty: Ty::Unknown,
+            binding_info_idx: None,
         })
     }
 

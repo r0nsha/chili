@@ -1,6 +1,6 @@
+use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
-use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
@@ -22,13 +22,13 @@ impl<'a> CheckSess<'a> {
 
         let ty = proto.ty.into_fn();
 
-        let mut fn_frame = CheckFrame::new(
-            frame.module_info,
-            Some(*ty.ret.clone()),
-            frame.env.clone(),
-        );
+        let mut fn_frame =
+            CheckFrame::new(frame.module_info, Some(*ty.ret.clone()));
 
-        fn_frame.insert_binding(proto.name, proto.ty.clone(), span, true);
+        if let Some(idx) = proto.binding_info_idx {
+            self.workspace.get_binding_info_mut(idx).unwrap().ty =
+                proto.ty.clone();
+        }
 
         for (index, param) in proto.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
@@ -41,7 +41,7 @@ impl<'a> CheckSess<'a> {
             )?;
         }
 
-        fn_frame.push_named_scope(proto.name);
+        self.init_scopes.push_scope();
 
         let (mut body, result_ty) = self.check_block(
             &mut fn_frame,
@@ -49,7 +49,7 @@ impl<'a> CheckSess<'a> {
             Some(proto.ty.clone()),
         )?;
 
-        fn_frame.pop_scope();
+        self.init_scopes.pop_scope();
 
         let last_stmt_span = match func.body.exprs.last() {
             Some(stmt) => stmt.span,
@@ -288,6 +288,11 @@ impl<'a> CheckSess<'a> {
             lib_name: proto.lib_name,
         });
 
+        if let Some(idx) = proto.binding_info_idx {
+            self.workspace.get_binding_info_mut(idx).unwrap().ty =
+                fn_ty.clone();
+        }
+
         Ok(Proto {
             name: proto.name,
             params,
@@ -295,6 +300,7 @@ impl<'a> CheckSess<'a> {
             ret: ret_expr,
             lib_name: proto.lib_name,
             ty: fn_ty.clone(),
+            binding_info_idx: proto.binding_info_idx,
         })
     }
 }

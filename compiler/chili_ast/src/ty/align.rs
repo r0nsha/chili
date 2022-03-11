@@ -1,4 +1,4 @@
-use crate::*;
+use super::*;
 
 pub trait AlignOf {
     fn align_of(&self, word_size: usize) -> usize;

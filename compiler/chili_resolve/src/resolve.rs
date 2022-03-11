@@ -4,6 +4,7 @@ use chili_ast::{
     workspace::Workspace,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
+use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
@@ -71,13 +72,18 @@ impl<'w> Resolve<'w> for ast::Import {
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
         if !resolver.in_global_scope() {
-            // import.module_idx =
-            //     workspace.find_module_info(import.module_info).unwrap();
+            self.module_idx =
+                workspace.find_module_info(self.module_info).unwrap();
 
-            // TODO: add binding info to workspace
-            // TODO: assign id to binding
-            // TODO: add self to current scope using
-            // TODO: `resolver.current_scope().add_binding(Kind::Import)`
+            self.binding_info_idx = resolver.add_binding(
+                workspace,
+                self.alias,
+                self.visibility,
+                false,
+                BindingKind::Import,
+                self.span,
+                true,
+            );
         }
 
         Ok(())
@@ -392,6 +398,18 @@ impl<'w> Resolve<'w> for ast::Fn {
 
         resolver.pop_scope();
         resolver.function_scope_level = old_scope_level;
+
+        if !self.proto.name.is_empty() {
+            resolver.add_binding(
+                workspace,
+                self.proto.name,
+                Visibility::Private,
+                false,
+                BindingKind::Let,
+                Span::unknown(),
+                true,
+            );
+        }
 
         Ok(())
     }

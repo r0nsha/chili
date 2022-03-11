@@ -18,7 +18,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_infer::infer::InferenceContext;
 use chili_span::Span;
-use chili_ty::Ty;
+use chili_ast::ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::{
     build_options::BuildOptions,

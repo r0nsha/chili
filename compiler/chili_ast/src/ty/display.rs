@@ -1,4 +1,4 @@
-use crate::*;
+use super::*;
 use std::fmt::Display;
 
 impl Display for Ty {

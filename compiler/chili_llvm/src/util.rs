@@ -3,7 +3,7 @@ use crate::{
     codegen::{Codegen, CodegenDeclsMap, CodegenState},
 };
 use chili_ast::ast::Proto;
-use chili_ty::*;
+use chili_ast::ty::*;
 use common::mem::calculate_align;
 use inkwell::{
     basic_block::BasicBlock,

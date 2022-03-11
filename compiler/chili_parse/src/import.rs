@@ -205,6 +205,7 @@ impl<'w> Parser<'w> {
                     import_path: import_path.clone(),
                     visibility,
                     span,
+                    binding_info_idx: Default::default(),
                 }])
             } else {
                 Err(SyntaxError::expected(self.span(), "an identifier, { or ?"))
@@ -223,6 +224,7 @@ impl<'w> Parser<'w> {
                 import_path: import_path.clone(),
                 visibility,
                 span,
+                binding_info_idx: Default::default(),
             }])
         }
     }

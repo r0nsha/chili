@@ -2,6 +2,7 @@ use super::{
     abi::{align_of, size_of, AbiFn},
     util::is_a_load_inst,
 };
+use chili_ast::ty::*;
 use chili_ast::{
     ast::{
         ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import,
@@ -9,7 +10,6 @@ use chili_ast::{
     },
     pattern::{Pattern, SymbolPattern},
 };
-use chili_ty::*;
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     env::Env,
@@ -212,7 +212,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             for symbol in import.import_path.iter() {
                 decl = self.find_or_gen_top_level_decl(
                     current_module_info,
-                    symbol.value.into_symbol(),
+                    symbol.value.as_symbol(),
                 );
 
                 match decl {
@@ -1046,24 +1046,25 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         }
                         _ => unreachable!("got field `{}`", field),
                     },
-                    Ty::Module { name, file_path } => {
-                        let decl = self.find_or_gen_top_level_decl(
-                            ModuleInfo::new(*name, *file_path),
-                            *field,
-                        );
+                    Ty::Module(idx) => {
+                        todo!()
+                        // let decl = self.find_or_gen_top_level_decl(
+                        //     ModuleInfo::new(*name, *file_path),
+                        //     *field,
+                        // );
 
-                        match decl {
-                            CodegenDecl::Module { .. } => self.gen_unit(),
-                            _ => {
-                                let ptr = decl.into_pointer_value();
+                        // match decl {
+                        //     CodegenDecl::Module { .. } => self.gen_unit(),
+                        //     _ => {
+                        //         let ptr = decl.into_pointer_value();
 
-                                if deref {
-                                    self.build_load(ptr.into())
-                                } else {
-                                    ptr.into()
-                                }
-                            }
-                        }
+                        //         if deref {
+                        //             self.build_load(ptr.into())
+                        //         } else {
+                        //             ptr.into()
+                        //         }
+                        //     }
+                        // }
                     }
                     _ => unreachable!("invalid ty `{}`", accessed_expr.ty),
                 };

@@ -124,7 +124,6 @@ dependencies = [
  "chili_error",
  "chili_span",
  "chili_token",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -144,7 +143,6 @@ dependencies = [
  "chili_parse",
  "chili_span",
  "chili_token",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "common",
@@ -163,7 +161,6 @@ dependencies = [
  "chili_error",
  "chili_infer",
  "chili_span",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "common",
@@ -175,7 +172,6 @@ name = "chili_error"
 version = "0.1.0"
 dependencies = [
  "chili_span",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "ustr",
@@ -188,7 +184,6 @@ dependencies = [
  "chili_ast",
  "chili_error",
  "chili_span",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "common",
@@ -203,7 +198,6 @@ dependencies = [
  "chili_error",
  "chili_parse",
  "chili_span",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -246,7 +240,6 @@ dependencies = [
  "chili_error",
  "chili_span",
  "chili_token",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "colored",
@@ -265,7 +258,6 @@ dependencies = [
  "chili_parse",
  "chili_span",
  "chili_token",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "common",
@@ -281,7 +273,6 @@ dependencies = [
  "chili_parse",
  "chili_span",
  "chili_token",
- "chili_ty",
  "codespan",
  "codespan-reporting",
  "common",
@@ -302,15 +293,6 @@ dependencies = [
  "codespan-reporting",
  "strum_macros",
  "unicode-xid",
- "ustr",
-]
-
-[[package]]
-name = "chili_ty"
-version = "0.1.0"
-dependencies = [
- "chili_span",
- "common",
  "ustr",
 ]
 

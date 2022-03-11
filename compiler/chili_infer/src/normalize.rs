@@ -1,5 +1,5 @@
 use crate::infer::{InferenceContext, InferenceValue, TyVar};
-use chili_ty::*;
+use chili_ast::ty::*;
 
 impl InferenceContext {
     pub fn normalize_ty(&mut self, ty: &Ty) -> Ty {

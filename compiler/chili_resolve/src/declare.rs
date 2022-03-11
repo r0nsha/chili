@@ -1,6 +1,6 @@
 use crate::{scope::ScopeSymbol, Resolver};
 use chili_ast::{
-    ast,
+    ast::{self, BindingKind},
     workspace::{BindingInfoKind, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -74,21 +74,20 @@ impl<'w> Declare<'w> for ast::Import {
             resolver, workspace, self.alias, self.span,
         )?;
 
-        let id = workspace.add_binding_info(
-            resolver.module_idx,
+        self.binding_info_idx = resolver.add_binding(
+            workspace,
             self.alias,
             self.visibility,
             false,
-            BindingInfoKind::Import,
-            resolver.scope_level,
-            ustr(&resolver.current_scope_name()),
+            BindingKind::Import,
             self.span,
+            false,
         );
 
         resolver
             .current_scope_mut()
             .bindings
-            .insert(self.alias, ScopeSymbol::persistent(id));
+            .insert(self.alias, ScopeSymbol::persistent(self.binding_info_idx));
 
         Ok(())
     }

@@ -1,5 +1,5 @@
 use chili_ast::ast::{Cast, Expr, ExprKind};
-use chili_ty::{size::SizeOf, *};
+use chili_ast::ty::{size::SizeOf, *};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {

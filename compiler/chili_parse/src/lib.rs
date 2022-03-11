@@ -10,10 +10,7 @@ mod top_level;
 mod ty;
 
 use bitflags::bitflags;
-use chili_ast::{
-    ast::{Ast, ForeignLibrary, ModuleInfo},
-    workspace::Workspace,
-};
+use chili_ast::ast::{Ast, ForeignLibrary, ModuleInfo};
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
 use chili_token::{Token, TokenKind::*};

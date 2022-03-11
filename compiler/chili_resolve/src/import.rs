@@ -84,6 +84,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
                 import_path,
                 visibility: import.visibility,
                 span: import.span().clone(),
+                binding_info_idx: import.binding_info_idx,
             }
         })
         .collect()

@@ -1,4 +1,6 @@
-use crate::{align::AlignOf, *};
+use common::mem::calculate_align_from_offset;
+
+use super::{align::AlignOf, *};
 
 pub trait SizeOf {
     fn size_of(&self, word_size: usize) -> usize;

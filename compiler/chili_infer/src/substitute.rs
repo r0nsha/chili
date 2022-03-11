@@ -2,9 +2,9 @@ use chili_ast::ast::{
     ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn,
     ForIter, Ir, Proto,
 };
+use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
-use chili_ty::*;
 use ena::unify::InPlaceUnificationTable;
 
 use super::infer::{InferenceValue, TyVar};

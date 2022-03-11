@@ -9,7 +9,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::substitute::Substitute;
 use chili_span::Span;
-use chili_ty::*;
+use chili_ast::ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::env::Env;
 use ustr::{ustr, Ustr};

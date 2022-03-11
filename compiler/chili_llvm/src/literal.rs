@@ -1,6 +1,6 @@
 use crate::codegen::{Codegen, CodegenState};
 use chili_ast::ast::{LiteralKind, StructLiteralField};
-use chili_ty::*;
+use chili_ast::ty::*;
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
     values::{BasicValueEnum, PointerValue},

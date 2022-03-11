@@ -1,6 +1,6 @@
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
-use chili_ty::*;
+use chili_ast::ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 

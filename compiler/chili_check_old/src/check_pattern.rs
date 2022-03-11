@@ -1,5 +1,5 @@
 use chili_error::{DiagnosticResult, TypeError};
-use chili_ty::*;
+use chili_ast::ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrSet;
 

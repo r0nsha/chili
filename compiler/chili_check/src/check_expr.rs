@@ -1,6 +1,5 @@
-use crate::{
-    CheckFrame, CheckSess, CheckedExpr, InitState, TopLevelLookupKind,
-};
+use crate::{CheckFrame, CheckSess, CheckedExpr, TopLevelLookupKind};
+use chili_ast::ty::*;
 use chili_ast::{
     ast::{
         ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter,
@@ -12,7 +11,6 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_infer::{cast::ty_can_be_casted, infer::InferenceValue};
 use chili_span::Span;
-use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
@@ -27,9 +25,7 @@ impl<'a> CheckSess<'a> {
         let checked_expr = match &expr.kind {
             ExprKind::Import(imports) => {
                 for import in imports.iter() {
-                    let binding_info =
-                        self.check_import(frame.module_info, import)?;
-                    frame.insert_binding_info(import.alias, binding_info);
+                    self.check_import(frame.module_info, import)?;
                 }
 
                 CheckedExpr::new(
@@ -175,7 +171,6 @@ impl<'a> CheckSess<'a> {
                 // it can be an interface like Go, or trait like Rust..
 
                 frame.loop_depth += 1;
-                frame.push_scope();
 
                 let iterator = match iterator {
                     ForIter::Range(start, end) => {
@@ -308,7 +303,6 @@ impl<'a> CheckSess<'a> {
 
                 let result = self.check_expr(frame, looped_expr, None)?;
 
-                frame.pop_scope();
                 frame.loop_depth -= 1;
 
                 CheckedExpr::new(
@@ -472,12 +466,8 @@ impl<'a> CheckSess<'a> {
                 }
             }
             ExprKind::Block(block) => {
-                frame.push_scope();
-
                 let (block, result_ty) =
                     self.check_block(frame, block, expected_ty)?;
-
-                frame.pop_scope();
 
                 CheckedExpr::new(
                     ExprKind::Block(block),
@@ -549,7 +539,7 @@ impl<'a> CheckSess<'a> {
                     _ => {
                         return Err(TypeError::invalid_expr_in_subscript(
                             accessed_expr_result.expr.span,
-                            &ty,
+                            ty.to_string(),
                         ))
                     }
                 }
@@ -616,7 +606,7 @@ impl<'a> CheckSess<'a> {
                     _ => {
                         return Err(TypeError::invalid_expr_in_slice(
                             sliced_expr.expr.span,
-                            &sliced_expr_ty,
+                            sliced_expr_ty.to_string(),
                         ))
                     }
                 };
@@ -652,7 +642,7 @@ impl<'a> CheckSess<'a> {
                                         TypeError::tuple_field_out_of_bounds(
                                             expr.span,
                                             &field,
-                                            &ty,
+                                            ty.to_string(),
                                             tys.len() - 1,
                                         ),
                                     ),
@@ -661,7 +651,9 @@ impl<'a> CheckSess<'a> {
                             Err(_) => {
                                 return Err(
                                     TypeError::non_numeric_tuple_field(
-                                        expr.span, &field, &ty,
+                                        expr.span,
+                                        &field,
+                                        ty.to_string(),
                                     ),
                                 );
                             }
@@ -674,7 +666,7 @@ impl<'a> CheckSess<'a> {
                                 return Err(TypeError::invalid_struct_field(
                                     expr.span,
                                     *field,
-                                    &ty.clone().into(),
+                                    ty.clone().into().to_string(),
                                 ))
                             }
                         }
@@ -689,7 +681,7 @@ impl<'a> CheckSess<'a> {
                     {
                         (Ty::MultiPointer(inner.clone(), *is_mutable), None)
                     }
-                    Ty::Module { name, file_path } => {
+                    Ty::Module(idx) => {
                         let binding_info = self.check_top_level_binding(
                             ModuleInfo::new(*name, *file_path),
                             frame.module_info,
@@ -1215,7 +1207,11 @@ impl<'a> CheckSess<'a> {
         let is_type = result.value.as_ref().map_or(false, |v| v.is_type());
 
         if !is_type {
-            return Err(TypeError::expected(expr.span, &result.ty, "a type"));
+            return Err(TypeError::expected(
+                expr.span,
+                result.ty.to_string(),
+                "a type",
+            ));
         }
 
         let ty = result.value.unwrap().into_type();
@@ -1292,7 +1288,7 @@ impl<'a> CheckSess<'a> {
                     return Err(TypeError::invalid_struct_field(
                         field.span,
                         field.symbol,
-                        &Ty::Struct(struct_ty),
+                        Ty::Struct(struct_ty).to_string(),
                     ))
                 }
             }
@@ -1470,6 +1466,8 @@ impl<'a> CheckSess<'a> {
             yields: block.yields,
         };
 
+        self.init_scopes.push_scope();
+
         let mut result_ty = Ty::Unit;
 
         if !block.exprs.is_empty() {
@@ -1493,6 +1491,8 @@ impl<'a> CheckSess<'a> {
         }
 
         new_block.deferred = self.check_expr_list(frame, &block.deferred)?;
+
+        self.init_scopes.pop_scope();
 
         Ok((new_block, result_ty))
     }
@@ -1645,10 +1645,7 @@ impl<'a> CheckSess<'a> {
                                 _ => Ok(()),
                             }
                         }
-                        Ty::Module {
-                            name: module_name,
-                            file_path: _,
-                        } => {
+                        Ty::Module(idx) => {
                             todo!()
                             // let module =
                             //     self.new_ir.modules.get(&module_name).

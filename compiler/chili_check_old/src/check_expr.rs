@@ -11,7 +11,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_infer::{cast::ty_can_be_casted, infer::InferenceValue};
 use chili_span::Span;
-use chili_ty::*;
+use chili_ast::ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};

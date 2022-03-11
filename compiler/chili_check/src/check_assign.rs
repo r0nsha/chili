@@ -2,9 +2,9 @@ use crate::{
     CheckedExpr, InitState, {CheckFrame, CheckSess},
 };
 use chili_ast::ast::{Expr, ExprKind, UnaryOp};
+use chili_ast::ty::*;
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span};
-use chili_ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 

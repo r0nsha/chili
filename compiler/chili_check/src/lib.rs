@@ -10,6 +10,7 @@ mod check_unary;
 mod lints;
 
 use builtin::get_builtin_types;
+use chili_ast::ty::Ty;
 use chili_ast::{
     ast::{Ast, Expr, ExprKind, ModuleInfo},
     value::Value,
@@ -18,7 +19,6 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::infer::InferenceContext;
 use chili_span::Span;
-use chili_ty::Ty;
 use common::scopes::Scopes;
 use ustr::{Ustr, UstrMap};
 
@@ -106,7 +106,7 @@ impl<'a> CheckSess<'a> {
                 if !value.is_int() {
                     Err(TypeError::expected(
                         span,
-                        &self.infcx.normalize_ty_and_untyped(ty),
+                        self.infcx.normalize_ty_and_untyped(ty).to_string(),
                         "compile-time known integer",
                     ))
                 } else {
@@ -115,7 +115,7 @@ impl<'a> CheckSess<'a> {
             }
             None => Err(TypeError::expected(
                 span,
-                &self.infcx.normalize_ty_and_untyped(ty),
+                self.infcx.normalize_ty_and_untyped(ty).to_string(),
                 "compile-time known integer",
             )),
         }

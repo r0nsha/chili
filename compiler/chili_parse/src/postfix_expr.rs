@@ -1,9 +1,9 @@
 use crate::*;
 use chili_ast::ast::{BinaryOp, Call, CallArg, Cast, Expr, ExprKind, UnaryOp};
+use chili_ast::ty::Ty;
 use chili_error::*;
 use chili_span::{EndPosition, Spanned, To};
 use chili_token::TokenKind::*;
-use chili_ty::Ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
