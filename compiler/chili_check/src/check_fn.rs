@@ -4,7 +4,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
-use crate::{CheckFrame, CheckSess};
+use crate::{CheckFrame, CheckResult, CheckSess};
 use chili_ast::{
     ast::{Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
@@ -17,7 +17,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         func: &mut Fn,
         span: Span,
         expected_ty: Option<TyKind>,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let proto_ty = self.check_proto(frame, &mut func.proto, expected_ty, span)?;
 
         let ty = proto_ty.into_fn();
@@ -56,7 +56,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     self.infcx
                         .unify_or_coerce_ty_expr(ty.ret.as_ref(), last_expr_mut)?;
                 } else {
-                    self.infcx.unify(ty.ret.as_ref().clone(), TyKind::Unit, span)?;
+                    self.infcx
+                        .unify(ty.ret.as_ref().clone(), TyKind::Unit, span)?;
                 }
             }
         }
@@ -83,7 +84,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         proto: &mut Proto,
         expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let mut expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))

@@ -9,6 +9,7 @@ mod check_unary;
 mod const_fold;
 
 use chili_ast::ty::TyKind;
+use chili_ast::value::Value;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
     ast::Ast,
@@ -103,7 +104,6 @@ impl InitState {
 
 pub(crate) struct CheckFrame {
     pub(crate) depth: usize,
-    pub(crate) loop_depth: usize,
     pub(crate) module_idx: ModuleIdx,
     pub(crate) expected_return_ty: Option<TyKind>,
     pub(crate) self_types: Vec<TyKind>,
@@ -117,10 +117,20 @@ impl CheckFrame {
     ) -> Self {
         Self {
             depth: previous_depth + 1,
-            loop_depth: 0,
             module_idx,
             expected_return_ty,
             self_types: vec![],
         }
+    }
+}
+
+pub(crate) struct CheckResult {
+    pub(crate) ty: TyKind,
+    pub(crate) value: Option<Value>,
+}
+
+impl CheckResult {
+    pub(crate) fn new(ty: TyKind, value: Option<Value>) -> Self {
+        Self { ty, value }
     }
 }

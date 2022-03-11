@@ -1,5 +1,5 @@
 use crate::{
-    InitState, {CheckFrame, CheckSess},
+    CheckResult, InitState, {CheckFrame, CheckSess},
 };
 use chili_ast::ast::{Expr, ExprKind, UnaryOp};
 use chili_ast::ty::*;
@@ -14,7 +14,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         lvalue: &mut Expr,
         rvalue: &mut Expr,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         match &lvalue.kind {
             ExprKind::Id {
                 symbol,
@@ -51,16 +51,16 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 lvalue.ty = binding_info.ty.clone()
             }
             _ => {
-                lvalue.ty = self.check_expr(frame, lvalue, None)?;
+                lvalue.ty = self.check_expr(frame, lvalue, None)?.ty;
                 check_lvalue_is_mut(&lvalue, lvalue.span)?;
             }
         }
 
-        rvalue.ty = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
+        rvalue.ty = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?.ty;
 
         self.infcx.unify_or_coerce_ty_expr(&lvalue.ty, rvalue)?;
 
-        Ok(TyKind::Unit)
+        Ok(CheckResult::new(TyKind::Unit, None))
     }
 }
 
@@ -243,7 +243,9 @@ fn check_subscript(expr: &Expr, original_expr_span: Span) -> Result<(), Mutabili
     use MutabilityCheckErr::*;
 
     match &expr.ty {
-        TyKind::Slice(_, is_mutable) | TyKind::MultiPointer(_, is_mutable) | TyKind::Pointer(_, is_mutable) => {
+        TyKind::Slice(_, is_mutable)
+        | TyKind::MultiPointer(_, is_mutable)
+        | TyKind::Pointer(_, is_mutable) => {
             return if *is_mutable {
                 Ok(())
             } else {

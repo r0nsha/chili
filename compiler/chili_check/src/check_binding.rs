@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess, InitState};
+use crate::{CheckFrame, CheckResult, CheckSess, InitState};
 use chili_ast::ty::*;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
@@ -7,7 +7,6 @@ use chili_ast::{
     workspace::BindingInfo,
 };
 use chili_error::{DiagnosticResult, TypeError};
-use chili_infer::substitute::Substitute;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
@@ -17,7 +16,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         binding: &mut Binding,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let expected_var = match &mut binding.ty_expr {
             Some(expr) => {
                 let ty = self.check_type_expr(frame, expr)?;
@@ -111,7 +110,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         binding: &mut Binding,
         calling_module_idx: ModuleIdx,
         calling_symbol_span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let idx = binding.pattern.into_single().binding_info_idx;
 
         let binding_info = self.workspace.get_binding_info(idx).unwrap().clone();
@@ -129,7 +128,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         Ok(binding.ty.clone())
     }
 
-    pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<TyKind> {
+    pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<CheckResult> {
         let mut ty = TyKind::Module(import.module_idx);
 
         if !import.import_path.is_empty() {

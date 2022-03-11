@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess};
+use crate::{CheckFrame, CheckResult, CheckSess};
 use chili_ast::ast::{Expr, UnaryOp};
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
@@ -12,7 +12,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         lhs: &mut Expr,
         expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         lhs.ty = self.check_expr(frame, lhs, expected_ty)?;
 
         let lhs_ty = self.infcx.normalize_ty(&lhs.ty);

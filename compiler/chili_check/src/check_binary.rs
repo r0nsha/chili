@@ -1,4 +1,5 @@
-use crate::{CheckFrame, CheckSess};
+use crate::const_fold::binary::const_fold_binary;
+use crate::{CheckFrame, CheckResult, CheckSess};
 use chili_ast::ast::{BinaryOp, Expr};
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
@@ -14,9 +15,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         rhs: &mut Expr,
         expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
-        lhs.ty = self.check_expr(frame, lhs, expected_ty.clone())?;
-        rhs.ty = self.check_expr(frame, rhs, expected_ty)?;
+    ) -> DiagnosticResult<CheckResult> {
+        let lhs_result = self.check_expr(frame, lhs, expected_ty.clone())?;
+        let rhs_result = self.check_expr(frame, rhs, expected_ty.clone())?;
 
         let ty = self.infcx.unify_or_coerce_expr_expr(lhs, rhs, rhs.span)?;
 
@@ -91,6 +92,16 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             | BinaryOp::Or => TyKind::Bool,
         };
 
-        Ok(result_ty)
+        if lhs_result.value.is_some() && rhs_result.value.is_some() {
+            let value = const_fold_binary(
+                lhs_result.value.unwrap(),
+                rhs_result.value.unwrap(),
+                op,
+                span,
+            )?;
+            Ok(CheckResult::new(result_ty, Some(value)))
+        } else {
+            Ok(CheckResult::new(result_ty, None))
+        }
     }
 }

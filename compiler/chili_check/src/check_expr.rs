@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess};
+use crate::{CheckFrame, CheckResult, CheckSess};
 use chili_ast::ty::*;
 use chili_ast::{ast, value::Value};
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
@@ -14,7 +14,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         expr: &mut ast::Expr,
         expected_ty: Option<TyKind>,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let ty = match &mut expr.kind {
             ast::ExprKind::Import(imports) => {
                 for import in imports.iter_mut() {
@@ -71,19 +71,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
             },
             ast::ExprKind::While { cond, expr: block } => {
-                frame.loop_depth += 1;
-
                 cond.ty = self.check_expr(frame, cond, Some(TyKind::Bool))?;
                 self.infcx.unify_or_coerce_ty_expr(&TyKind::Bool, cond)?;
                 self.check_expr(frame, block, None)?;
 
-                frame.loop_depth -= 1;
-
                 Ok(TyKind::Unit)
             }
             ast::ExprKind::For(for_) => {
-                frame.loop_depth += 1;
-
                 match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
                         self.check_expr(frame, start, None)?;
@@ -118,22 +112,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                         let start_ty = self.infcx.normalize_ty(&start.ty);
 
-                        // TODO: get span from actual ids
-                        todo!("iter type");
-                        // frame.insert_binding(
-                        //     *iter_name,
-                        //     start_ty,
-                        //     start.expr.span,
-                        //     true,
-                        // );
-                        // TODO: remove index variable once i have proper iterators
-                        todo!("iter index type");
-                        // frame.insert_binding(
-                        //     *iter_index_name,
-                        //     Ty::UInt(UIntTy::Usize),
-                        //     start.expr.span,
-                        //     true,
-                        // );
+                        self.update_binding_info_ty(for_.iter_idx, start_ty);
+                        self.update_binding_info_ty(
+                            for_.iter_index_idx,
+                            TyKind::UInt(UIntTy::Usize),
+                        );
                     }
                     ast::ForIter::Value(value) => {
                         self.check_expr(frame, value, None)?;
@@ -155,16 +138,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                     inner.as_ref().clone()
                                 };
 
-                                // TODO: get span from actual ids
-                                todo!("iter type");
-                                // frame.insert_binding(*iter_name, iter_ty, value.expr.span, true);
-                                todo!("iter index type");
-                                // frame.insert_binding(
-                                //     *iter_index_name,
-                                //     Ty::UInt(UIntTy::Usize),
-                                //     value.expr.span,
-                                //     true,
-                                // );
+                                self.update_binding_info_ty(for_.iter_idx, iter_ty);
+                                self.update_binding_info_ty(
+                                    for_.iter_index_idx,
+                                    TyKind::UInt(UIntTy::Usize),
+                                );
                             }
                             _ => {
                                 return Err(Diagnostic::error()
@@ -183,21 +161,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 self.check_expr(frame, &mut for_.expr, None)?;
 
-                frame.loop_depth -= 1;
-
                 Ok(TyKind::Unit)
             }
             ast::ExprKind::Break { deferred } => {
-                if frame.loop_depth == 0 {
-                    return Err(SyntaxError::outside_of_loop(expr.span, "break"));
-                }
                 self.check_expr_list(frame, deferred)?;
                 Ok(TyKind::Never)
             }
             ast::ExprKind::Continue { deferred } => {
-                if frame.loop_depth == 0 {
-                    return Err(SyntaxError::outside_of_loop(expr.span, "continue"));
-                }
                 self.check_expr_list(frame, deferred)?;
                 Ok(TyKind::Never)
             }
@@ -649,7 +619,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         expr: &mut ast::Expr,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         self.check_expr(frame, expr, Some(TyKind::anytype()))?;
 
         if !expr.ty.is_type() {
@@ -681,7 +651,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         fields: &mut Vec<ast::StructLiteralField>,
         struct_ty: StructTy,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let mut field_set = UstrSet::default();
 
         let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
@@ -741,7 +711,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         fields: &mut Vec<ast::StructLiteralField>,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let mut field_set = UstrSet::default();
 
         let mut struct_ty_fields = vec![];
@@ -845,7 +815,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         block: &mut ast::Block,
         expected_ty: Option<TyKind>,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         self.init_scopes.push_scope();
 
         let mut result_ty = TyKind::Unit;
@@ -881,7 +851,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         info: &mut ast::Cast,
         expected_ty: Option<TyKind>,
         expr_span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         let casted_expr = self.check_expr(frame, &mut info.expr, None)?;
 
         if let Some(type_expr) = &mut info.type_expr {

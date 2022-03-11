@@ -5,7 +5,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
-use crate::{CheckFrame, CheckSess};
+use crate::{CheckFrame, CheckResult, CheckSess};
 
 impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_call(
@@ -13,7 +13,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         call: &mut Call,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         call.callee.ty = self.check_expr(frame, &mut call.callee, None)?;
         call.callee.ty = self.infcx.normalize_ty(&call.callee.ty);
 
@@ -33,7 +33,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         fn_type: &FnTy,
         call: &mut Call,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<CheckResult> {
         if fn_type.variadic {
             if call.args.len() < fn_type.params.len() {
                 return Err(TypeError::fn_call_arity_mismatch(
