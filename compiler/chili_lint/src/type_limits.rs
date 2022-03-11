@@ -1,7 +1,7 @@
 use chili_ast::ast::{Expr, ExprKind, LiteralKind};
 use chili_error::DiagnosticResult;
 use chili_span::Span;
-use chili_ast::ty::{IntTy, Ty, UIntTy};
+use chili_ast::ty::{IntTy, TyKind, UIntTy};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::fmt::Display;
 
@@ -9,7 +9,7 @@ pub fn check_type_limits(e: &Expr) -> DiagnosticResult<()> {
     match &e.kind {
         ExprKind::Literal(k) => match k {
             &LiteralKind::Int(value) => match &e.ty {
-                Ty::Int(int_ty) => {
+                TyKind::Int(int_ty) => {
                     let (min, max) = int_ty_range(*int_ty);
 
                     if value < min || value > max {
@@ -18,7 +18,7 @@ pub fn check_type_limits(e: &Expr) -> DiagnosticResult<()> {
                         Ok(())
                     }
                 }
-                Ty::UInt(uint_ty) => {
+                TyKind::UInt(uint_ty) => {
                     let (min, max) = uint_ty_range(*uint_ty);
 
                     if value.is_negative() {
@@ -68,7 +68,7 @@ fn uint_ty_range(uint_ty: UIntTy) -> (u64, u64) {
 
 fn overflow_err<V: Copy + Display, M: Copy + Display>(
     value: V,
-    ty: &Ty,
+    ty: &TyKind,
     min: M,
     max: M,
     span: Span,

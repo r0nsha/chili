@@ -1,16 +1,16 @@
-use crate::sess::{InferSess, InferValue, Ty};
+use crate::{constraint::Constraint, sess::InferSess, ty::Ty};
 use chili_ast::ty::*;
 
 impl InferSess {
-    pub fn normalize_ty(&mut self, ty: &TyKind) -> TyKind {
+    pub(crate) fn normalize_ty(&mut self, ty: &TyKind) -> TyKind {
         self.normalize_ty_internal(ty, false, false)
     }
 
-    pub fn normalize_ty_and_untyped(&mut self, ty: &TyKind) -> TyKind {
+    pub(crate) fn normalize_ty_and_untyped(&mut self, ty: &TyKind) -> TyKind {
         self.normalize_ty_internal(ty, false, true)
     }
 
-    pub fn normalize_ty_and_expand_types(&mut self, ty: &TyKind) -> TyKind {
+    pub(crate) fn normalize_ty_and_expand_types(&mut self, ty: &TyKind) -> TyKind {
         self.normalize_ty_internal(ty, true, false)
     }
 
@@ -100,10 +100,10 @@ impl InferSess {
                 let value = self.value_of(Ty::from(*var));
 
                 match value {
-                    InferValue::Bound(ty) => {
+                    Constraint::Bound(ty) => {
                         self.normalize_ty_internal(&ty, expand_types, normalize_untyped)
                     }
-                    InferValue::UntypedInt | InferValue::UntypedFloat => {
+                    Constraint::Int | Constraint::Float => {
                         if normalize_untyped {
                             TyKind::from(value)
                         } else {

@@ -14,7 +14,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         lvalue: &mut Expr,
         rvalue: &mut Expr,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         match &lvalue.kind {
             ExprKind::Id {
                 symbol,
@@ -60,7 +60,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         self.infcx.unify_or_coerce_ty_expr(&lvalue.ty, rvalue)?;
 
-        Ok(Ty::Unit)
+        Ok(TyKind::Unit)
     }
 }
 
@@ -182,7 +182,7 @@ fn check_lvalue_mutability_internal(
 fn check_deref(lhs: &Expr) -> Result<(), MutabilityCheckErr> {
     use MutabilityCheckErr::*;
 
-    if let Ty::Pointer(_, is_mutable) = &lhs.ty {
+    if let TyKind::Pointer(_, is_mutable) = &lhs.ty {
         if *is_mutable {
             Ok(())
         } else {
@@ -243,7 +243,7 @@ fn check_subscript(expr: &Expr, original_expr_span: Span) -> Result<(), Mutabili
     use MutabilityCheckErr::*;
 
     match &expr.ty {
-        Ty::Slice(_, is_mutable) | Ty::MultiPointer(_, is_mutable) | Ty::Pointer(_, is_mutable) => {
+        TyKind::Slice(_, is_mutable) | TyKind::MultiPointer(_, is_mutable) | TyKind::Pointer(_, is_mutable) => {
             return if *is_mutable {
                 Ok(())
             } else {
@@ -292,16 +292,16 @@ fn check_id(
     symbol: Ustr,
     is_mutable: bool,
     binding_span: Span,
-    ty: &Ty,
+    ty: &TyKind,
     is_direct_assign: bool,
 ) -> Result<(), MutabilityCheckErr> {
     use MutabilityCheckErr::*;
 
     if !is_direct_assign {
         match ty {
-            Ty::Slice(_, is_mutable)
-            | Ty::MultiPointer(_, is_mutable)
-            | Ty::Pointer(_, is_mutable) => {
+            TyKind::Slice(_, is_mutable)
+            | TyKind::MultiPointer(_, is_mutable)
+            | TyKind::Pointer(_, is_mutable) => {
                 return if *is_mutable {
                     Ok(())
                 } else {

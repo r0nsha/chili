@@ -4,10 +4,7 @@ use super::{
 };
 use chili_ast::ty::*;
 use chili_ast::{
-    ast::{
-        ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import,
-        Ir, ModuleInfo,
-    },
+    ast::{ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import, Ir, ModuleInfo},
     pattern::{Pattern, SymbolPattern},
 };
 use common::{
@@ -22,9 +19,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, IntType},
-    values::{
-        BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue,
-    },
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     AddressSpace, IntPredicate,
 };
 use std::collections::HashMap;
@@ -153,10 +148,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         module_name: impl Into<Ustr>,
         symbol: impl Into<Ustr>,
     ) -> CodegenDecl<'ctx> {
-        self.find_or_gen_top_level_decl(
-            self.ir.module_info(module_name.into()),
-            symbol.into(),
-        )
+        self.find_or_gen_top_level_decl(self.ir.module_info(module_name.into()), symbol.into())
     }
 
     pub(super) fn find_or_gen_top_level_decl(
@@ -199,10 +191,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(crate) fn resolve_decl_from_import(
-        &mut self,
-        import: &Import,
-    ) -> CodegenDecl<'ctx> {
+    pub(crate) fn resolve_decl_from_import(&mut self, import: &Import) -> CodegenDecl<'ctx> {
         let mut decl = CodegenDecl::Module(import.module_info);
 
         if !import.import_path.is_empty() {
@@ -210,10 +199,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let mut current_module_info = import.module_info;
 
             for symbol in import.import_path.iter() {
-                decl = self.find_or_gen_top_level_decl(
-                    current_module_info,
-                    symbol.value.as_symbol(),
-                );
+                decl =
+                    self.find_or_gen_top_level_decl(current_module_info, symbol.value.as_symbol());
 
                 match decl {
                     CodegenDecl::Module(info) => {
@@ -311,7 +298,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
-        ty: &Ty,
+        ty: &TyKind,
         expr: &Option<Expr>,
     ) {
         match pattern {
@@ -319,12 +306,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_local_and_store_expr(state, *symbol, &expr, ty);
             }
             Pattern::StructDestructor(pattern) => {
-                let ptr = self.gen_local_and_store_expr(
-                    state,
-                    ustr("struct_destr_alloca"),
-                    &expr,
-                    ty,
-                );
+                let ptr =
+                    self.gen_local_and_store_expr(state, ustr("struct_destr_alloca"), &expr, ty);
 
                 let struct_ty = ty.maybe_deref_once().into_struct().clone();
 
@@ -346,11 +329,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         .unwrap();
 
                     let llvm_type = Some(self.llvm_type(ty));
-                    let value = self.gen_struct_access(
-                        ptr.into(),
-                        field_index as u32,
-                        llvm_type,
-                    );
+                    let value = self.gen_struct_access(ptr.into(), field_index as u32, llvm_type);
 
                     self.gen_local_with_alloca(
                         state,
@@ -364,23 +343,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             Pattern::TupleDestructor(pattern) => {
-                let ptr = self.gen_local_and_store_expr(
-                    state,
-                    ustr("tuple_destr_alloca"),
-                    &expr,
-                    ty,
-                );
+                let ptr =
+                    self.gen_local_and_store_expr(state, ustr("tuple_destr_alloca"), &expr, ty);
 
-                for (i, SymbolPattern { symbol, ignore, .. }) in
-                    pattern.symbols.iter().enumerate()
+                for (i, SymbolPattern { symbol, ignore, .. }) in pattern.symbols.iter().enumerate()
                 {
                     if *ignore {
                         continue;
                     }
 
                     let llvm_type = Some(self.llvm_type(ty));
-                    let value =
-                        self.gen_struct_access(ptr.into(), i as u32, llvm_type);
+                    let value = self.gen_struct_access(ptr.into(), i as u32, llvm_type);
                     self.gen_local_with_alloca(
                         state,
                         *symbol,
@@ -399,7 +372,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
-        ty: &Ty,
+        ty: &TyKind,
         value: BasicValueEnum<'ctx>,
     ) {
         match pattern {
@@ -428,36 +401,26 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         .unwrap();
 
                     let llvm_type = Some(self.llvm_type(ty));
-                    let value = self.gen_struct_access(
-                        value,
-                        field_index as u32,
-                        llvm_type,
-                    );
+                    let value = self.gen_struct_access(value, field_index as u32, llvm_type);
                     let value = if ty.is_pointer() {
                         value
                     } else {
                         self.build_load(value)
                     };
 
-                    self.gen_local_with_alloca(
-                        state,
-                        alias.unwrap_or(symbol),
-                        value,
-                    );
+                    self.gen_local_with_alloca(state, alias.unwrap_or(symbol), value);
                 }
             }
             Pattern::TupleDestructor(pattern) => {
                 for i in 0..pattern.symbols.len() {
-                    let SymbolPattern { symbol, ignore, .. } =
-                        pattern.symbols[i];
+                    let SymbolPattern { symbol, ignore, .. } = pattern.symbols[i];
 
                     if ignore {
                         continue;
                     }
 
                     let llvm_type = Some(self.llvm_type(ty));
-                    let value =
-                        self.gen_struct_access(value, i as u32, llvm_type);
+                    let value = self.gen_struct_access(value, i as u32, llvm_type);
                     let value = if ty.is_pointer() {
                         value
                     } else {
@@ -474,7 +437,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         name: Ustr,
-        ty: &Ty,
+        ty: &TyKind,
     ) -> PointerValue<'ctx> {
         let ty = self.llvm_type(ty);
         let ptr = self.build_alloca_named(state, ty, name);
@@ -574,14 +537,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     } else {
                         let symbol = binding.pattern.into_single().symbol;
                         let ty = self.llvm_type(&binding.ty);
-                        let global_value = self.add_global_uninit(
-                            &symbol,
-                            ty,
-                            Linkage::External,
-                        );
-                        state
-                            .env
-                            .insert(symbol, CodegenDecl::Global(global_value));
+                        let global_value = self.add_global_uninit(&symbol, ty, Linkage::External);
+                        state.env.insert(symbol, CodegenDecl::Global(global_value));
                     }
                 }
 
@@ -599,8 +556,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ExprKind::Defer(_) => self.gen_unit(),
             ExprKind::Assign { lvalue, rvalue } => {
-                let left =
-                    self.gen_expr(state, lvalue, false).into_pointer_value();
+                let left = self.gen_expr(state, lvalue, false).into_pointer_value();
                 let right = self.gen_expr(state, rvalue, true);
 
                 // println!("left: {:#?}", left);
@@ -610,18 +566,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Cast(info) => {
-                self.gen_cast(state, &info.expr, &info.target_ty)
-            }
+            ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
             ExprKind::Builtin(builtin) => match builtin {
                 Builtin::SizeOf(expr) => match &expr.ty {
-                    Ty::Type(ty) => {
-                        self.llvm_type(ty).size_of().unwrap().into()
-                    }
+                    TyKind::Type(ty) => self.llvm_type(ty).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
                 Builtin::AlignOf(expr) => match &expr.ty {
-                    Ty::Type(ty) => self.llvm_type(ty).align_of().into(),
+                    TyKind::Type(ty) => self.llvm_type(ty).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
                 Builtin::Panic(msg_expr) => {
@@ -636,8 +588,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             },
             ExprKind::Fn(func) => {
-                let function =
-                    self.gen_fn(state.module_info, func, Some(state.clone()));
+                let function = self.gen_fn(state.module_info, func, Some(state.clone()));
 
                 self.start_block(state, state.curr_block);
 
@@ -687,20 +638,18 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let (start, end) = match iterator {
                     ForIter::Range(start, end) => {
-                        let start =
-                            self.gen_expr(state, start, true).into_int_value();
-                        let end =
-                            self.gen_expr(state, end, true).into_int_value();
+                        let start = self.gen_expr(state, start, true).into_int_value();
+                        let end = self.gen_expr(state, end, true).into_int_value();
 
                         (start, end)
                     }
                     ForIter::Value(value, ..) => {
                         let start = self.ptr_sized_int_type.const_zero();
                         let end = match &value.ty.maybe_deref_once() {
-                            Ty::Array(_, len) => self
-                                .ptr_sized_int_type
-                                .const_int(*len as u64, false),
-                            Ty::Slice(..) => {
+                            TyKind::Array(_, len) => {
+                                self.ptr_sized_int_type.const_int(*len as u64, false)
+                            }
+                            TyKind::Slice(..) => {
                                 let agg = self.gen_expr(state, value, true);
                                 self.gen_load_slice_len(agg)
                             }
@@ -714,41 +663,27 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 state.push_scope();
 
                 let it = match iterator {
-                    ForIter::Range(_, _) => self.gen_local_with_alloca(
-                        state,
-                        *iter_name,
-                        start.into(),
-                    ),
+                    ForIter::Range(_, _) => {
+                        self.gen_local_with_alloca(state, *iter_name, start.into())
+                    }
                     ForIter::Value(value) => {
                         let by_ref = value.ty.is_pointer();
 
-                        let agg = self
-                            .gen_expr(state, value, false)
-                            .into_pointer_value();
+                        let agg = self.gen_expr(state, value, false).into_pointer_value();
                         let agg = self.maybe_load_double_pointer(agg);
 
-                        let item = self.gen_subscript(
-                            agg.into(),
-                            &value.ty,
-                            start,
-                            !by_ref,
-                        );
+                        let item = self.gen_subscript(agg.into(), &value.ty, start, !by_ref);
 
                         self.gen_local_with_alloca(state, *iter_name, item)
                     }
                 };
 
-                let it_index = self.gen_local_with_alloca(
-                    state,
-                    *iter_index_name,
-                    start.into(),
-                );
+                let it_index = self.gen_local_with_alloca(state, *iter_index_name, start.into());
 
                 self.builder.build_unconditional_branch(loop_head);
                 self.start_block(state, loop_head);
 
-                let curr_index =
-                    self.build_load(it_index.into()).into_int_value();
+                let curr_index = self.build_load(it_index.into()).into_int_value();
 
                 let continue_condition = self.builder.build_int_compare(
                     match iterator {
@@ -760,11 +695,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     "for_loop_cond",
                 );
 
-                self.builder.build_conditional_branch(
-                    continue_condition,
-                    loop_body,
-                    loop_exit,
-                );
+                self.builder
+                    .build_conditional_branch(continue_condition, loop_body, loop_exit);
 
                 self.start_block(state, loop_body);
 
@@ -778,40 +710,28 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 if self.current_block().get_terminator().is_none() {
                     let step = start.get_type().const_int(1, true);
 
-                    let next_index = self.builder.build_int_add(
-                        curr_index,
-                        step,
-                        "for_next_index",
-                    );
+                    let next_index = self
+                        .builder
+                        .build_int_add(curr_index, step, "for_next_index");
 
                     self.build_store(it_index, next_index.into());
 
                     match iterator {
                         ForIter::Range(_, _) => {
-                            let it_value =
-                                self.build_load(it.into()).into_int_value();
-                            let next_it = self.builder.build_int_add(
-                                it_value,
-                                step,
-                                "for_next_index",
-                            );
+                            let it_value = self.build_load(it.into()).into_int_value();
+                            let next_it =
+                                self.builder.build_int_add(it_value, step, "for_next_index");
 
                             self.build_store(it, next_it.into());
                         }
                         ForIter::Value(value) => {
                             let by_ref = value.ty.is_pointer();
 
-                            let agg = self
-                                .gen_expr(state, value, false)
-                                .into_pointer_value();
+                            let agg = self.gen_expr(state, value, false).into_pointer_value();
                             let agg = self.maybe_load_double_pointer(agg);
 
-                            let item = self.gen_subscript(
-                                agg.into(),
-                                &value.ty,
-                                next_index,
-                                !by_ref,
-                            );
+                            let item =
+                                self.gen_subscript(agg.into(), &value.ty, next_index, !by_ref);
 
                             self.build_store(it, item);
                         }
@@ -844,8 +764,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_unit()
             }
             ExprKind::Return { expr, deferred } => {
-                let value =
-                    expr.as_ref().map(|expr| self.gen_expr(state, expr, true));
+                let value = expr.as_ref().map(|expr| self.gen_expr(state, expr, true));
                 self.gen_return(state, value, deferred)
             }
             ExprKind::If {
@@ -868,12 +787,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 value
             }
-            ExprKind::Binary { lhs, op, rhs } => {
-                self.gen_binary(state, lhs, op, rhs, expr.span)
-            }
-            ExprKind::Unary { op, lhs } => {
-                self.gen_unary(state, op, lhs, expr.span, deref)
-            }
+            ExprKind::Binary { lhs, op, rhs } => self.gen_binary(state, lhs, op, rhs, expr.span),
+            ExprKind::Unary { op, lhs } => self.gen_unary(state, op, lhs, expr.span, deref),
             ExprKind::Subscript {
                 expr: accessed_expr,
                 index,
@@ -882,18 +797,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let index = self.gen_expr(state, index, true).into_int_value();
 
                 let len = match accessed_expr.ty.maybe_deref_once() {
-                    Ty::Array(_, size) => {
-                        Some(index.get_type().const_int(size as _, false))
-                    }
-                    Ty::Slice(..) => Some(self.gen_load_slice_len(value)),
-                    Ty::MultiPointer(..) => None,
+                    TyKind::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
+                    TyKind::Slice(..) => Some(self.gen_load_slice_len(value)),
+                    TyKind::MultiPointer(..) => None,
                     ty => unreachable!("got {}", ty),
                 };
 
                 if let Some(len) = len {
-                    self.gen_runtime_check_index_out_of_bounds(
-                        state, index, len, expr.span,
-                    );
+                    self.gen_runtime_check_index_out_of_bounds(state, index, len, expr.span);
                 }
 
                 self.gen_subscript(value, &accessed_expr.ty, index, deref)
@@ -909,21 +820,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let ty = &sliced_expr.ty;
 
                 let data = match ty {
-                    Ty::Slice(..) => {
+                    TyKind::Slice(..) => {
                         let data = self.gen_load_slice_data(ptr.into());
                         self.build_load(data.into()).into_pointer_value()
                     }
-                    Ty::MultiPointer(..) => {
-                        self.build_load(ptr.into()).into_pointer_value()
-                    }
-                    Ty::Array(..) => ptr,
+                    TyKind::MultiPointer(..) => self.build_load(ptr.into()).into_pointer_value(),
+                    TyKind::Array(..) => ptr,
                     _ => unreachable!("got {}", ty),
                 };
 
                 let low = match low {
-                    Some(low) => {
-                        self.gen_expr(state, low, true).into_int_value()
-                    }
+                    Some(low) => self.gen_expr(state, low, true).into_int_value(),
                     None => match high {
                         Some(high) => self.llvm_type(&high.ty).into_int_type(),
                         None => self.ptr_sized_int_type,
@@ -932,28 +839,22 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 };
 
                 let high = match high {
-                    Some(high) => {
-                        self.gen_expr(state, high, true).into_int_value()
-                    }
+                    Some(high) => self.gen_expr(state, high, true).into_int_value(),
                     None => match ty {
-                        Ty::Array(_, len) => {
-                            low.get_type().const_int(*len as u64, false)
-                        }
-                        Ty::Slice(..) => self.gen_load_slice_len(ptr.into()),
+                        TyKind::Array(_, len) => low.get_type().const_int(*len as u64, false),
+                        TyKind::Slice(..) => self.gen_load_slice_len(ptr.into()),
                         _ => unreachable!(),
                     },
                 };
 
-                self.gen_runtime_check_slice_end_before_start(
-                    state, low, high, expr.span,
-                );
+                self.gen_runtime_check_slice_end_before_start(state, low, high, expr.span);
 
                 let len = match ty {
-                    Ty::Slice(..) => Some(self.gen_load_slice_len(ptr.into())),
-                    Ty::Array(_, size) => Some(
-                        self.ptr_sized_int_type.const_int(*size as _, false),
-                    ),
-                    Ty::MultiPointer(..) => None,
+                    TyKind::Slice(..) => Some(self.gen_load_slice_len(ptr.into())),
+                    TyKind::Array(_, size) => {
+                        Some(self.ptr_sized_int_type.const_int(*size as _, false))
+                    }
+                    TyKind::MultiPointer(..) => None,
                     _ => unreachable!("got {}", ty),
                 };
 
@@ -980,9 +881,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     slice_ptr.into()
                 }
             }
-            ExprKind::Call(call) => {
-                self.gen_fn_call_expr(state, call, &expr.ty)
-            }
+            ExprKind::Call(call) => self.gen_fn_call_expr(state, call, &expr.ty),
             ExprKind::MemberAccess {
                 expr: accessed_expr,
                 member: field,
@@ -996,12 +895,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 };
 
                 let value = match &accessed_expr.ty.maybe_deref_once() {
-                    ty @ Ty::Tuple(_) => {
+                    ty @ TyKind::Tuple(_) => {
                         let index = field.parse::<usize>().unwrap();
                         let llvm_ty = Some(self.llvm_type(ty));
                         self.gen_struct_access(value, index as u32, llvm_ty)
                     }
-                    ty @ Ty::Struct(struct_ty) => {
+                    ty @ TyKind::Struct(struct_ty) => {
                         let struct_llvm_ty = Some(self.llvm_type(ty));
 
                         if struct_ty.is_union() {
@@ -1023,30 +922,21 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                                 .iter()
                                 .position(|f| f.symbol == *field)
                                 .unwrap();
-                            self.gen_struct_access(
-                                value,
-                                index as u32,
-                                struct_llvm_ty,
-                            )
+                            self.gen_struct_access(value, index as u32, struct_llvm_ty)
                         }
                     }
-                    Ty::Array(_, len) => match field.as_str() {
-                        BUILTIN_FIELD_LEN => self
-                            .ptr_sized_int_type
-                            .const_int(*len as u64, false)
-                            .into(),
-                        _ => unreachable!("got field `{}`", field),
-                    },
-                    Ty::Slice(..) => match field.as_str() {
+                    TyKind::Array(_, len) => match field.as_str() {
                         BUILTIN_FIELD_LEN => {
-                            self.gen_load_slice_len(value).into()
-                        }
-                        BUILTIN_FIELD_DATA => {
-                            self.gen_load_slice_data(value).into()
+                            self.ptr_sized_int_type.const_int(*len as u64, false).into()
                         }
                         _ => unreachable!("got field `{}`", field),
                     },
-                    Ty::Module(idx) => {
+                    TyKind::Slice(..) => match field.as_str() {
+                        BUILTIN_FIELD_LEN => self.gen_load_slice_len(value).into(),
+                        BUILTIN_FIELD_DATA => self.gen_load_slice_data(value).into(),
+                        _ => unreachable!("got field `{}`", field),
+                    },
+                    TyKind::Module(idx) => {
                         todo!()
                         // let decl = self.find_or_gen_top_level_decl(
                         //     ModuleInfo::new(*name, *file_path),
@@ -1078,8 +968,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ExprKind::Id { symbol, .. } => {
                 let decl = match state.env.get(&symbol) {
                     Some(decl) => decl.clone(),
-                    None => self
-                        .find_or_gen_top_level_decl(state.module_info, *symbol),
+                    None => self.find_or_gen_top_level_decl(state.module_info, *symbol),
                 };
 
                 match decl {
@@ -1103,7 +992,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .collect();
 
                         let size = match &expr.ty {
-                            Ty::Array(_, size) => *size,
+                            TyKind::Array(_, size) => *size,
                             _ => unreachable!("got ty `{}`", expr.ty),
                         };
 
@@ -1116,9 +1005,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                                     array_ptr,
                                     &[
                                         self.context.i32_type().const_zero(),
-                                        self.context
-                                            .i32_type()
-                                            .const_int(index as u64, true),
+                                        self.context.i32_type().const_int(index as u64, true),
                                     ],
                                     "",
                                 )
@@ -1136,64 +1023,46 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let value = self.gen_expr(state, element_expr, true);
 
                         let array_type = self.llvm_type(&expr.ty);
-                        let element_type =
-                            array_type.into_array_type().get_element_type();
+                        let element_type = array_type.into_array_type().get_element_type();
                         let array_ptr = self.build_alloca(state, array_type);
 
-                        let src_ptr =
-                            self.build_alloca_or_load_addr(state, value);
+                        let src_ptr = self.build_alloca_or_load_addr(state, value);
 
-                        let loop_head =
-                            self.append_basic_block(state, "array_fill_head");
-                        let loop_body =
-                            self.append_basic_block(state, "array_fill_body");
-                        let loop_exit =
-                            self.append_basic_block(state, "array_fill_exit");
+                        let loop_head = self.append_basic_block(state, "array_fill_head");
+                        let loop_body = self.append_basic_block(state, "array_fill_body");
+                        let loop_exit = self.append_basic_block(state, "array_fill_exit");
 
                         let start = self.ptr_sized_int_type.const_zero();
-                        let end = self.ptr_sized_int_type.const_int(
-                            array_type.into_array_type().len() as _,
-                            false,
-                        );
+                        let end = self
+                            .ptr_sized_int_type
+                            .const_int(array_type.into_array_type().len() as _, false);
 
-                        let it =
-                            self.build_alloca(state, start.get_type().into());
+                        let it = self.build_alloca(state, start.get_type().into());
                         self.build_store(it, start.into());
 
                         self.builder.build_unconditional_branch(loop_head);
                         self.start_block(state, loop_head);
 
-                        let it_value =
-                            self.build_load(it.into()).into_int_value();
+                        let it_value = self.build_load(it.into()).into_int_value();
 
-                        let cond = self.builder.build_int_compare(
-                            IntPredicate::SLT,
-                            it_value,
-                            end,
-                            "",
-                        );
+                        let cond =
+                            self.builder
+                                .build_int_compare(IntPredicate::SLT, it_value, end, "");
 
-                        self.builder.build_conditional_branch(
-                            cond, loop_body, loop_exit,
-                        );
+                        self.builder
+                            .build_conditional_branch(cond, loop_body, loop_exit);
 
                         self.start_block(state, loop_body);
 
                         let dst_ptr = unsafe {
                             self.builder.build_in_bounds_gep(
                                 array_ptr,
-                                &[
-                                    self.ptr_sized_int_type.const_zero(),
-                                    it_value,
-                                ],
+                                &[self.ptr_sized_int_type.const_zero(), it_value],
                                 "",
                             )
                         };
 
-                        let sz = size_of(
-                            element_type,
-                            self.target_metrics.word_size,
-                        );
+                        let sz = size_of(element_type, self.target_metrics.word_size);
                         self.build_copy_nonoverlapping(
                             src_ptr,
                             dst_ptr,
@@ -1238,11 +1107,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 for (i, value) in values.iter().enumerate() {
                     self.build_store(
                         self.builder
-                            .build_struct_gep(
-                                tuple,
-                                i as u32,
-                                &format!("tuple_value_{}", i),
-                            )
+                            .build_struct_gep(tuple, i as u32, &format!("tuple_value_{}", i))
                             .unwrap(),
                         *value,
                     );
@@ -1259,9 +1124,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 fields,
             } => self.gen_struct_literal_named(state, &expr.ty, fields, deref),
 
-            ExprKind::Literal(value) => {
-                self.gen_literal_value(value, &expr.ty, deref)
-            }
+            ExprKind::Literal(value) => self.gen_literal_value(value, &expr.ty, deref),
 
             ExprKind::Noop
             | ExprKind::PointerType(..)
@@ -1293,11 +1156,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         value
     }
 
-    pub(super) fn gen_expr_list(
-        &mut self,
-        state: &mut CodegenState<'ctx>,
-        expr_list: &Vec<Expr>,
-    ) {
+    pub(super) fn gen_expr_list(&mut self, state: &mut CodegenState<'ctx>, expr_list: &Vec<Expr>) {
         for expr in expr_list {
             self.gen_expr(state, expr, true);
         }
@@ -1308,7 +1167,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         symbol: Ustr,
         expr: &Option<Expr>,
-        ty: &Ty,
+        ty: &TyKind,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
             let ptr = self.gen_local_uninit(state, symbol, ty);
@@ -1324,7 +1183,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         expr: &Box<Expr>,
-        target_ty: &Ty,
+        target_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {
         let value = self.gen_expr(state, expr, true);
         self.gen_cast_internal(state, value, &expr.ty, target_ty)
@@ -1334,8 +1193,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         value: BasicValueEnum<'ctx>,
-        from_ty: &Ty,
-        target_ty: &Ty,
+        from_ty: &TyKind,
+        target_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {
         if from_ty == target_ty {
             return value;
@@ -1346,27 +1205,19 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let cast_type = self.llvm_type(target_ty);
 
         match (from_ty, target_ty) {
-            (Ty::Bool, Ty::Int(_)) | (Ty::Bool, Ty::UInt(_)) => self
+            (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::UInt(_)) => self
                 .builder
-                .build_int_z_extend(
-                    value.into_int_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
+                .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
-            (Ty::UInt(_), Ty::Int(_))
-            | (Ty::Int(_), Ty::UInt(_))
-            | (Ty::Int(_), Ty::Int(_))
-            | (Ty::UInt(_), Ty::UInt(_)) => self
+            (TyKind::UInt(_), TyKind::Int(_))
+            | (TyKind::Int(_), TyKind::UInt(_))
+            | (TyKind::Int(_), TyKind::Int(_))
+            | (TyKind::UInt(_), TyKind::UInt(_)) => self
                 .builder
-                .build_int_cast(
-                    value.into_int_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
+                .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
 
-            (Ty::Int(_), Ty::Float(_)) => self
+            (TyKind::Int(_), TyKind::Float(_)) => self
                 .builder
                 .build_signed_int_to_float(
                     value.into_int_value(),
@@ -1375,7 +1226,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (Ty::UInt(_), Ty::Float(_)) => self
+            (TyKind::UInt(_), TyKind::Float(_)) => self
                 .builder
                 .build_unsigned_int_to_float(
                     value.into_int_value(),
@@ -1384,7 +1235,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (Ty::Float(_), Ty::Int(_)) => self
+            (TyKind::Float(_), TyKind::Int(_)) => self
                 .builder
                 .build_float_to_signed_int(
                     value.into_float_value(),
@@ -1392,7 +1243,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     INST_NAME,
                 )
                 .into(),
-            (Ty::Float(_), Ty::UInt(_)) => self
+            (TyKind::Float(_), TyKind::UInt(_)) => self
                 .builder
                 .build_float_to_unsigned_int(
                     value.into_float_value(),
@@ -1400,7 +1251,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     INST_NAME,
                 )
                 .into(),
-            (Ty::Float(_), Ty::Float(_)) => self
+            (TyKind::Float(_), TyKind::Float(_)) => self
                 .builder
                 .build_float_cast(
                     value.into_float_value(),
@@ -1409,9 +1260,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (Ty::Pointer(..), Ty::Pointer(..))
-            | (Ty::Pointer(..), Ty::MultiPointer(..))
-            | (Ty::MultiPointer(..), Ty::Pointer(..)) => self
+            (TyKind::Pointer(..), TyKind::Pointer(..))
+            | (TyKind::Pointer(..), TyKind::MultiPointer(..))
+            | (TyKind::MultiPointer(..), TyKind::Pointer(..)) => self
                 .builder
                 .build_pointer_cast(
                     value.into_pointer_value(),
@@ -1421,30 +1272,30 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             // pointer <=> int | uint
-            (Ty::Pointer(..), Ty::Int(..))
-            | (Ty::Pointer(..), Ty::UInt(..)) => self
-                .builder
-                .build_ptr_to_int(
-                    value.into_pointer_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
-                .into(),
+            (TyKind::Pointer(..), TyKind::Int(..)) | (TyKind::Pointer(..), TyKind::UInt(..)) => {
+                self.builder
+                    .build_ptr_to_int(
+                        value.into_pointer_value(),
+                        cast_type.into_int_type(),
+                        INST_NAME,
+                    )
+                    .into()
+            }
 
             // int | uint <=> pointer
-            (Ty::Int(..), Ty::Pointer(..))
-            | (Ty::UInt(..), Ty::Pointer(..)) => self
-                .builder
-                .build_int_to_ptr(
-                    value.into_int_value(),
-                    cast_type.into_pointer_type(),
-                    INST_NAME,
-                )
-                .into(),
+            (TyKind::Int(..), TyKind::Pointer(..)) | (TyKind::UInt(..), TyKind::Pointer(..)) => {
+                self.builder
+                    .build_int_to_ptr(
+                        value.into_int_value(),
+                        cast_type.into_pointer_type(),
+                        INST_NAME,
+                    )
+                    .into()
+            }
 
-            (Ty::Pointer(t, _), Ty::Slice(t_slice, ..))
-            | (Ty::Slice(t_slice, ..), Ty::Pointer(t, _)) => match t.as_ref() {
-                Ty::Array(_, size) => {
+            (TyKind::Pointer(t, _), TyKind::Slice(t_slice, ..))
+            | (TyKind::Slice(t_slice, ..), TyKind::Pointer(t, _)) => match t.as_ref() {
+                TyKind::Array(_, size) => {
                     let slice_ty = self.slice_type(t_slice);
                     let ptr = self.build_alloca(state, slice_ty);
 
@@ -1477,17 +1328,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let return_ptr = state.return_ptr.unwrap();
             match value {
                 Some(value) => {
-                    let size =
-                        size_of(abi_fn.ret.ty, self.target_metrics.word_size);
-                    if is_a_load_inst(value)
-                        && size > self.target_metrics.word_size
-                    {
+                    let size = size_of(abi_fn.ret.ty, self.target_metrics.word_size);
+                    if is_a_load_inst(value) && size > self.target_metrics.word_size {
                         let ptr = self.build_alloca_or_load_addr(state, value);
                         self.build_copy_nonoverlapping(
                             ptr,
                             return_ptr,
-                            self.ptr_sized_int_type
-                                .const_int(size as u64, true),
+                            self.ptr_sized_int_type.const_int(size as u64, true),
                         );
                     } else {
                         self.build_store(return_ptr, value);

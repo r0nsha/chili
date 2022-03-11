@@ -1,11 +1,11 @@
 use super::*;
 use std::fmt::Display;
 
-impl Display for Ty {
+impl Display for TyKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use FloatTy::*;
         use IntTy::*;
-        use Ty::*;
+        use TyKind::*;
         use UIntTy::*;
 
         write!(

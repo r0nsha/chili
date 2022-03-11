@@ -1,7 +1,8 @@
-use crate::coerce::can_coerce_mut;
 use crate::{
-    coerce::{Coerce, CoercionResult, TryCoerce},
-    sess::{InferSess, InferValue, InferValue::*, Ty},
+    coerce::{can_coerce_mut, Coerce, CoercionResult, TryCoerce},
+    constraint::Constraint,
+    sess::InferSess,
+    ty::Ty,
 };
 use chili_ast::ast::Expr;
 use chili_ast::ty::*;
@@ -10,42 +11,43 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::Diagnostic;
 use ena::unify::UnifyValue;
 
-pub struct UnificationError(pub TyKind, pub TyKind);
+pub(crate) struct UnificationError(pub TyKind, pub TyKind);
 
-impl UnifyValue for InferValue {
+impl UnifyValue for Constraint {
     type Error = UnificationError;
 
     fn unify_values(a: &Self, b: &Self) -> Result<Self, Self::Error> {
+        use Constraint::*;
+
         match (a, b) {
             (Unbound, Unbound) => Ok(Unbound),
 
-            (Unbound, v @ UntypedInt)
-            | (v @ UntypedInt, Unbound)
-            | (Unbound, v @ UntypedFloat)
-            | (v @ UntypedFloat, Unbound)
+            (Unbound, v @ Int)
+            | (v @ Int, Unbound)
+            | (Unbound, v @ Float)
+            | (v @ Float, Unbound)
             | (Unbound, v @ Bound(_))
             | (v @ Bound(_), Unbound) => Ok(v.clone()),
 
-            (UntypedInt, UntypedInt) => Ok(UntypedInt),
+            (Int, Int) => Ok(Int),
 
-            (UntypedInt, UntypedFloat)
-            | (UntypedFloat, UntypedInt)
-            | (UntypedFloat, UntypedFloat) => Ok(UntypedFloat),
+            (Int, Float) | (Float, Int) | (Float, Float) => Ok(Float),
 
-            (UntypedInt, v @ Bound(TyKind::Int(_)))
-            | (UntypedInt, v @ Bound(TyKind::UInt(_)))
-            | (UntypedInt, v @ Bound(TyKind::Float(_)))
-            | (v @ Bound(TyKind::Int(_)), UntypedInt)
-            | (v @ Bound(TyKind::UInt(_)), UntypedInt)
-            | (v @ Bound(TyKind::Float(_)), UntypedInt) => Ok(v.clone()),
+            (Int, v @ Bound(TyKind::Int(_)))
+            | (Int, v @ Bound(TyKind::UInt(_)))
+            | (Int, v @ Bound(TyKind::Float(_)))
+            | (v @ Bound(TyKind::Int(_)), Int)
+            | (v @ Bound(TyKind::UInt(_)), Int)
+            | (v @ Bound(TyKind::Float(_)), Int) => Ok(v.clone()),
 
-            (v @ Bound(TyKind::Pointer(..)), UntypedNil)
-            | (UntypedNil, v @ Bound(TyKind::Pointer(..)))
-            | (v @ Bound(TyKind::MultiPointer(..)), UntypedNil)
-            | (UntypedNil, v @ Bound(TyKind::MultiPointer(..))) => Ok(v.clone()),
+            (v @ Bound(TyKind::Pointer(..)), Pointer)
+            | (Pointer, v @ Bound(TyKind::Pointer(..)))
+            | (v @ Bound(TyKind::MultiPointer(..)), Pointer)
+            | (Pointer, v @ Bound(TyKind::MultiPointer(..))) => Ok(v.clone()),
 
-            (UntypedFloat, v @ Bound(TyKind::Float(_)))
-            | (v @ Bound(TyKind::Float(_)), UntypedFloat) => Ok(v.clone()),
+            (Float, v @ Bound(TyKind::Float(_))) | (v @ Bound(TyKind::Float(_)), Float) => {
+                Ok(v.clone())
+            }
 
             (Bound(t1), Bound(t2)) => {
                 panic!("can't unify two bound variables {} and {}", t1, t2)
@@ -57,7 +59,7 @@ impl UnifyValue for InferValue {
 }
 
 impl InferSess {
-    pub fn unify_or_coerce_expr_expr(
+    pub(crate) fn unify_or_coerce_expr_expr(
         &mut self,
         left_expr: &mut Expr,
         right_expr: &mut Expr,
@@ -87,7 +89,7 @@ impl InferSess {
         }
     }
 
-    pub fn unify_or_coerce_ty_expr(
+    pub(crate) fn unify_or_coerce_ty_expr(
         &mut self,
         ty: &TyKind,
         expr: &mut Expr,
@@ -111,7 +113,7 @@ impl InferSess {
         }
     }
 
-    pub fn unify(
+    pub(crate) fn unify(
         &mut self,
         expected: impl Into<TyKind>,
         actual: impl Into<TyKind>,
@@ -124,7 +126,7 @@ impl InferSess {
             .map_err(|_| self.map_unification_error(UnificationError(expected, actual), span))
     }
 
-    pub fn unify_ty_ty(
+    pub(crate) fn unify_ty_ty(
         &mut self,
         expected: &TyKind,
         actual: &TyKind,
@@ -172,7 +174,7 @@ impl InferSess {
                 let v2 = Ty::from(*v2);
 
                 match (self.value_of(v1), self.value_of(v2)) {
-                    (InferValue::Bound(t1), InferValue::Bound(t2)) => {
+                    (Constraint::Bound(t1), Constraint::Bound(t2)) => {
                         self.unify_ty_ty(&t1, &t2, span)
                     }
                     _ => {
@@ -183,28 +185,25 @@ impl InferSess {
             }
 
             (TyKind::Var(var), actual) => match self.value_of(Ty::from(*var)) {
-                InferValue::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
-                InferValue::UntypedInt
-                | InferValue::UntypedFloat
-                | InferValue::UntypedNil
-                | InferValue::Unbound => {
+                Constraint::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
+                Constraint::Int | Constraint::Float | Constraint::Pointer | Constraint::Unbound => {
                     self.table
-                        .unify_var_value(Ty::from(*var), InferValue::Bound(actual.clone()))?;
+                        .unify_var_value(Ty::from(*var), Constraint::Bound(actual.clone()))?;
                     Ok(actual.clone())
                 }
             },
 
             (expected, TyKind::Var(var)) => {
                 match self.value_of(Ty::from(*var)) {
-                    InferValue::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
-                    value @ InferValue::UntypedInt
-                    | value @ InferValue::UntypedFloat
-                    | value @ InferValue::UntypedNil
-                    | value @ InferValue::Unbound => {
+                    Constraint::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
+                    value @ Constraint::Int
+                    | value @ Constraint::Float
+                    | value @ Constraint::Pointer
+                    | value @ Constraint::Unbound => {
                         // We map the error so that the error message matches
                         // the types
                         self.table
-                            .unify_var_value(Ty::from(*var), InferValue::Bound(expected.clone()))
+                            .unify_var_value(Ty::from(*var), Constraint::Bound(expected.clone()))
                             .map_err(|_| UnificationError(expected.clone(), value.into()))?;
 
                         Ok(expected.clone())
@@ -275,7 +274,7 @@ impl InferSess {
     }
 
     #[inline]
-    pub fn map_unification_error(
+    pub(crate) fn map_unification_error(
         &mut self,
         UnificationError(expected, actual): UnificationError,
         span: Span,

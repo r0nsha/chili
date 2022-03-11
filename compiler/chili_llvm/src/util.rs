@@ -8,9 +8,7 @@ use common::mem::calculate_align;
 use inkwell::{
     basic_block::BasicBlock,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
-    values::{
-        BasicValue, BasicValueEnum, InstructionOpcode, IntValue, PointerValue,
-    },
+    values::{BasicValue, BasicValueEnum, InstructionOpcode, IntValue, PointerValue},
     AddressSpace, IntPredicate,
 };
 use std::mem;
@@ -18,10 +16,7 @@ use ustr::{ustr, Ustr, UstrMap};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[inline]
-    pub(super) fn get_or_insert_new_module(
-        &mut self,
-        module: Ustr,
-    ) -> &mut CodegenDeclsMap<'ctx> {
+    pub(super) fn get_or_insert_new_module(&mut self, module: Ustr) -> &mut CodegenDeclsMap<'ctx> {
         self.module_decl_map
             .entry(module)
             .or_insert(UstrMap::default())
@@ -41,11 +36,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .build_global_string_ptr(&value, name)
                 .as_pointer_value();
 
-            let element_ty = Ty::UInt(UIntTy::U8);
+            let element_ty = TyKind::UInt(UIntTy::U8);
             let ty = self.slice_type(&element_ty);
 
-            let str_slice_ptr =
-                self.module.add_global(ty, Some(AddressSpace::Generic), "");
+            let str_slice_ptr = self.module.add_global(ty, Some(AddressSpace::Generic), "");
 
             str_slice_ptr.set_initializer(&ty.const_zero());
 
@@ -71,7 +65,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(super) fn gen_nil(&mut self, ty: &Ty) -> BasicValueEnum<'ctx> {
+    pub(super) fn gen_nil(&mut self, ty: &TyKind) -> BasicValueEnum<'ctx> {
         let llvm_ty = self.llvm_type(ty);
         llvm_ty.into_pointer_type().const_null().into()
     }
@@ -80,17 +74,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.context.const_struct(&[], false).into()
     }
 
-    pub(super) fn gen_load_slice_data(
-        &self,
-        slice: BasicValueEnum<'ctx>,
-    ) -> PointerValue<'ctx> {
+    pub(super) fn gen_load_slice_data(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
         self.gen_struct_access(slice, 0, None).into_pointer_value()
     }
 
-    pub(super) fn gen_load_slice_len(
-        &self,
-        slice: BasicValueEnum<'ctx>,
-    ) -> IntValue<'ctx> {
+    pub(super) fn gen_load_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
         let value = self.gen_struct_access(slice, 1, None);
         self.build_load(value).into_int_value()
     }
@@ -101,7 +89,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         sliced_value: BasicValueEnum<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
-        element_ty: &Ty,
+        element_ty: &TyKind,
     ) {
         let data = self.builder.build_bitcast(
             sliced_value,
@@ -110,15 +98,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         );
 
         let data = unsafe {
-            self.builder.build_gep(
-                data.into_pointer_value(),
-                &[low],
-                "slice_low_addr",
-            )
+            self.builder
+                .build_gep(data.into_pointer_value(), &[low], "slice_low_addr")
         };
 
-        let data_ptr =
-            self.builder.build_struct_gep(ptr, 0, "slice_data").unwrap();
+        let data_ptr = self.builder.build_struct_gep(ptr, 0, "slice_data").unwrap();
 
         self.build_store(data_ptr, data.into());
 
@@ -129,8 +113,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             "cast_slice_len_to_int",
         );
 
-        let len_ptr =
-            self.builder.build_struct_gep(ptr, 1, "slice_len").unwrap();
+        let len_ptr = self.builder.build_struct_gep(ptr, 1, "slice_len").unwrap();
 
         self.build_store(len_ptr, slice_len.into());
     }
@@ -147,11 +130,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.context.append_basic_block(state.function, name)
     }
 
-    pub(super) fn start_block(
-        &self,
-        state: &mut CodegenState<'ctx>,
-        block: BasicBlock<'ctx>,
-    ) {
+    pub(super) fn start_block(&self, state: &mut CodegenState<'ctx>, block: BasicBlock<'ctx>) {
         state.curr_block = block;
         self.builder.position_at_end(block);
     }
@@ -185,8 +164,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             if let Some((decl, depth)) = state.env.get_with_depth(&symbol) {
                 let is_same_depth = depth == state.env.depth();
                 let ptr = decl.into_pointer_value();
-                let is_same_type = ptr.get_type().get_element_type()
-                    == llvm_ty.as_any_type_enum();
+                let is_same_type = ptr.get_type().get_element_type() == llvm_ty.as_any_type_enum();
                 if is_same_depth && is_same_type {
                     return ptr;
                 }
@@ -233,10 +211,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         ptr
     }
 
-    pub(super) fn build_load(
-        &self,
-        value: BasicValueEnum<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    pub(super) fn build_load(&self, value: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
         if value.is_pointer_value() {
             let ptr = value.into_pointer_value();
             let element_type = ptr.get_type().get_element_type();
@@ -250,36 +225,21 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(super) fn get_operand(
-        &self,
-        value: BasicValueEnum<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    pub(super) fn get_operand(&self, value: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
         let inst = value.as_instruction_value().unwrap();
         let operand = inst.get_operand(0).unwrap();
         operand.unwrap_left()
     }
 
-    pub(super) fn build_store(
-        &self,
-        ptr: PointerValue<'ctx>,
-        value: BasicValueEnum<'ctx>,
-    ) {
+    pub(super) fn build_store(&self, ptr: PointerValue<'ctx>, value: BasicValueEnum<'ctx>) {
         let ty = value.get_type();
         if ty.is_pointer_type() {
             let ptr_type = ty.into_pointer_type();
             if ptr_type.get_element_type().is_array_type() {
                 let array_ty = ptr_type.get_element_type();
-                let size = size_of(
-                    array_ty.try_into().unwrap(),
-                    self.target_metrics.word_size,
-                );
-                let size_value =
-                    self.ptr_sized_int_type.const_int(size as _, true);
-                self.build_copy_nonoverlapping(
-                    value.into_pointer_value(),
-                    ptr,
-                    size_value,
-                );
+                let size = size_of(array_ty.try_into().unwrap(), self.target_metrics.word_size);
+                let size_value = self.ptr_sized_int_type.const_int(size as _, true);
+                self.build_copy_nonoverlapping(value.into_pointer_value(), ptr, size_value);
                 return;
             }
         }
@@ -292,10 +252,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(super) fn maybe_load_double_pointer(
-        &self,
-        ptr: PointerValue<'ctx>,
-    ) -> PointerValue<'ctx> {
+    pub(super) fn maybe_load_double_pointer(&self, ptr: PointerValue<'ctx>) -> PointerValue<'ctx> {
         if ptr.get_type().get_element_type().is_pointer_type() {
             self.build_load(ptr.into()).into_pointer_value()
         } else {
@@ -304,11 +261,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     #[allow(unused)]
-    pub(super) fn build_memset_zero(
-        &mut self,
-        ptr: PointerValue<'ctx>,
-        ty: &Ty,
-    ) {
+    pub(super) fn build_memset_zero(&mut self, ptr: PointerValue<'ctx>, ty: &TyKind) {
         self.build_memset(ptr, ty, self.context.i8_type().const_zero())
     }
 
@@ -316,7 +269,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn build_memset(
         &mut self,
         ptr: PointerValue<'ctx>,
-        ty: &Ty,
+        ty: &TyKind,
         value: IntValue<'ctx>,
     ) {
         let ty = self.llvm_type(ty);
@@ -362,9 +315,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let src_ptr = self.builder.build_pointer_cast(src_ptr, t_rawptr, "");
         let dst_ptr = self.builder.build_pointer_cast(dst_ptr, t_rawptr, "");
-        let size =
-            self.builder
-                .build_int_cast(size, self.ptr_sized_int_type, "");
+        let size = self
+            .builder
+            .build_int_cast(size, self.ptr_sized_int_type, "");
 
         self.builder
             .build_memmove(
@@ -388,9 +341,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let src_ptr = self.builder.build_pointer_cast(src_ptr, t_rawptr, "");
         let dst_ptr = self.builder.build_pointer_cast(dst_ptr, t_rawptr, "");
 
-        let size =
-            self.builder
-                .build_int_cast(size, self.ptr_sized_int_type, "");
+        let size = self
+            .builder
+            .build_int_cast(size, self.ptr_sized_int_type, "");
 
         self.builder
             .build_memcpy(
@@ -457,34 +410,21 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             (PointerType(_), PointerType(_)) => self
                 .builder
-                .build_pointer_cast(
-                    value.into_pointer_value(),
-                    dst_type.into_pointer_type(),
-                    "",
-                )
+                .build_pointer_cast(value.into_pointer_value(), dst_type.into_pointer_type(), "")
                 .into(),
 
             (PointerType(_), IntType(_)) => self
                 .builder
-                .build_ptr_to_int(
-                    value.into_pointer_value(),
-                    dst_type.into_int_type(),
-                    "",
-                )
+                .build_ptr_to_int(value.into_pointer_value(), dst_type.into_int_type(), "")
                 .into(),
 
             (IntType(_), PointerType(_)) => self
                 .builder
-                .build_int_to_ptr(
-                    value.into_int_value(),
-                    dst_type.into_pointer_type(),
-                    "",
-                )
+                .build_int_to_ptr(value.into_int_value(), dst_type.into_pointer_type(), "")
                 .into(),
 
             (src_type, dst_type)
-                if mem::discriminant(&src_type)
-                    == mem::discriminant(&dst_type)
+                if mem::discriminant(&src_type) == mem::discriminant(&dst_type)
                     && !src_type.is_aggregate_type() =>
             {
                 self.builder.build_bitcast(value, dst_type, "")
@@ -506,15 +446,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                                     .as_instruction_value()
                                     .expect(&format!("{:#?}", value_ptr));
 
-                                src_align = value_inst
-                                    .get_alignment()
-                                    .unwrap()
-                                    .max(dst_align as _)
-                                    as _;
+                                src_align =
+                                    value_inst.get_alignment().unwrap().max(dst_align as _) as _;
 
-                                value_inst
-                                    .set_alignment(src_align as _)
-                                    .unwrap();
+                                value_inst.set_alignment(src_align as _).unwrap();
                             }
                         }
                     }
@@ -527,12 +462,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 // println!("src_align: {}, dst_align: {}", src_align,
                 // dst_align);
 
-                if is_a_load_inst(value)
-                    && src_size >= dst_size
-                    && src_align >= dst_align
-                {
-                    let value_ptr =
-                        self.get_operand(value).into_pointer_value();
+                if is_a_load_inst(value) && src_size >= dst_size && src_align >= dst_align {
+                    let value_ptr = self.get_operand(value).into_pointer_value();
 
                     let ptr = self.builder.build_pointer_cast(
                         value_ptr,
@@ -545,12 +476,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     let ptr = self.build_alloca(state, dst_type);
 
                     if let Some(inst) = ptr.as_instruction_value() {
-                        let max_align =
-                            align_of(src_type, self.target_metrics.word_size)
-                                .max(align_of(
-                                    dst_type,
-                                    self.target_metrics.word_size,
-                                ));
+                        let max_align = align_of(src_type, self.target_metrics.word_size)
+                            .max(align_of(dst_type, self.target_metrics.word_size));
                         let max_align = max_align.max(4);
                         inst.set_alignment(max_align as _).unwrap();
                     }
@@ -582,17 +509,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         struct_ty: Option<BasicTypeEnum<'ctx>>,
     ) -> BasicValueEnum<'ctx> {
         if agg_or_ptr.is_pointer_value() {
-            let agg_or_ptr =
-                self.maybe_load_double_pointer(agg_or_ptr.into_pointer_value());
+            let agg_or_ptr = self.maybe_load_double_pointer(agg_or_ptr.into_pointer_value());
             let el_type = agg_or_ptr.get_type().get_element_type();
 
             if el_type.is_struct_type() {
                 self.builder
-                    .build_struct_gep(
-                        agg_or_ptr,
-                        index,
-                        &format!("get_struct_ptr_{}", index),
-                    )
+                    .build_struct_gep(agg_or_ptr, index, &format!("get_struct_ptr_{}", index))
                     .expect(&format!("{:#?}", agg_or_ptr))
                     .into()
             } else {
@@ -605,11 +527,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 );
 
                 self.builder
-                    .build_struct_gep(
-                        ptr,
-                        index,
-                        &format!("get_struct_ptr_2_{}", index),
-                    )
+                    .build_struct_gep(ptr, index, &format!("get_struct_ptr_2_{}", index))
                     .expect(&format!("{:#?}", ptr))
                     .into()
             }
@@ -627,17 +545,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_subscript(
         &mut self,
         agg: BasicValueEnum<'ctx>,
-        agg_ty: &Ty,
+        agg_ty: &TyKind,
         index: IntValue<'ctx>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let ty = agg_ty.maybe_deref_once();
 
         let agg = match ty {
-            Ty::Array(..) | Ty::MultiPointer(..) => {
+            TyKind::Array(..) | TyKind::MultiPointer(..) => {
                 self.maybe_load_double_pointer(agg.into_pointer_value())
             }
-            Ty::Slice(..) => {
+            TyKind::Slice(..) => {
                 let value = if agg.is_pointer_value() {
                     self.maybe_load_double_pointer(agg.into_pointer_value())
                         .into()
@@ -654,12 +572,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let access = unsafe {
             match ty {
-                Ty::Array(..) => self.builder.build_gep(
+                TyKind::Array(..) => self.builder.build_gep(
                     agg,
                     &[index.get_type().const_zero(), index],
                     "array_subscript",
                 ),
-                Ty::MultiPointer(..) | Ty::Slice(..) => {
+                TyKind::MultiPointer(..) | TyKind::Slice(..) => {
                     self.builder.build_gep(agg, &[index], "subscript")
                 }
                 ty => unreachable!("{}", ty),

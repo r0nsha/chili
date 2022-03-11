@@ -177,6 +177,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "chili_infer_new"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "ena",
+]
+
+[[package]]
 name = "chili_lint"
 version = "0.1.0"
 dependencies = [
@@ -214,9 +227,9 @@ dependencies = [
  "chili_ast",
  "chili_astgen",
  "chili_error",
+ "chili_infer",
+ "chili_infer_new",
  "chili_llvm",
- "chili_parse",
- "chili_pass",
  "chili_resolve",
  "chili_span",
  "chili_typeck",
@@ -246,21 +259,6 @@ dependencies = [
  "common",
  "ptree",
  "strum_macros",
- "ustr",
-]
-
-[[package]]
-name = "chili_pass"
-version = "0.1.0"
-dependencies = [
- "chili_ast",
- "chili_error",
- "chili_parse",
- "chili_span",
- "chili_token",
- "codespan",
- "codespan-reporting",
- "common",
  "ustr",
 ]
 

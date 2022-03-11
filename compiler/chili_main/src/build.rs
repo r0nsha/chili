@@ -60,7 +60,7 @@ pub fn do_build(build_options: BuildOptions) {
     // infer types and apply constraints
 
     time! { "infer",
-        if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
+        if let Err(diagnostic) = chili_infer_new::infer(&mut workspace, &mut asts) {
             emit_single_diagnostic(&workspace.files, diagnostic);
             return;
         }
@@ -68,18 +68,20 @@ pub fn do_build(build_options: BuildOptions) {
 
     // type check
 
-    time! { "typeck",
-        if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
-            emit_single_diagnostic(&workspace.files, diagnostic);
-            return;
-        }
-    }
+    // time! { "typeck",
+    //     if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
+    //         emit_single_diagnostic(&workspace.files, diagnostic);
+    //         return;
+    //     }
+    // }
 
     // for ast in asts.iter() {
     //     ast.print();
     // }
 
-    // codegen(&build_options, &ir);
+    // time! { "codegen (llvm)",
+    //     codegen(&build_options, &ir)
+    // }
 
     all_sw.stop();
 

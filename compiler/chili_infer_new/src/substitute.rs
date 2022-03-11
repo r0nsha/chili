@@ -6,9 +6,9 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use ena::unify::InPlaceUnificationTable;
 
-use super::sess::{InferValue, Ty};
+use super::{constraint::Constraint, ty::Ty};
 
-pub trait Substitute {
+pub(crate) trait Substitute {
     fn substitute(&mut self, table: &mut InPlaceUnificationTable<Ty>) -> DiagnosticResult<()>;
 }
 
@@ -253,7 +253,7 @@ impl Substitute for Expr {
     }
 }
 
-pub fn substitute_ty(
+pub(crate) fn substitute_ty(
     ty: &TyKind,
     table: &mut InPlaceUnificationTable<Ty>,
     span: Span,
@@ -262,11 +262,11 @@ pub fn substitute_ty(
         TyKind::Var(id) => {
             let tyval = table.probe_value(Ty::from(*id));
             let new_ty = match tyval {
-                InferValue::Bound(ty) => substitute_ty(&ty, table, span)?,
-                InferValue::UntypedInt => TyKind::Int(IntTy::default()),
-                InferValue::UntypedFloat => TyKind::Float(FloatTy::default()),
-                InferValue::UntypedNil => TyKind::raw_pointer(true),
-                InferValue::Unbound => {
+                Constraint::Bound(ty) => substitute_ty(&ty, table, span)?,
+                Constraint::Int => TyKind::Int(IntTy::default()),
+                Constraint::Float => TyKind::Float(FloatTy::default()),
+                Constraint::Pointer => TyKind::raw_pointer(true),
+                Constraint::Unbound => {
                     return Err(TypeError::type_annotations_needed(span));
                 }
             };

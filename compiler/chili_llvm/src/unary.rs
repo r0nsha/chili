@@ -29,14 +29,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             UnaryOp::Neg => match &lhs.ty {
-                Ty::Int(_) => self
+                TyKind::Int(_) => self
                     .builder
                     .build_int_neg(
                         self.gen_expr(state, lhs, true).into_int_value(),
                         "sneg",
                     )
                     .into(),
-                Ty::Float(_) => self
+                TyKind::Float(_) => self
                     .builder
                     .build_float_neg(
                         self.gen_expr(state, lhs, true).into_float_value(),
@@ -47,14 +47,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             },
             UnaryOp::Plus => self.gen_expr(state, lhs, true),
             UnaryOp::Not => match &lhs.ty {
-                Ty::Pointer(_, _) => {
+                TyKind::Pointer(_, _) => {
                     let value = self.gen_expr(state, lhs, true);
 
                     self.builder
                         .build_is_null(value.into_pointer_value(), "ptr_is_nil")
                         .into()
                 }
-                Ty::Bool => self
+                TyKind::Bool => self
                     .builder
                     .build_int_compare(
                         IntPredicate::EQ,

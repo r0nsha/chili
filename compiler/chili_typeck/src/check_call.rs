@@ -13,12 +13,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         call: &mut Call,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         call.callee.ty = self.check_expr(frame, &mut call.callee, None)?;
         call.callee.ty = self.infcx.normalize_ty(&call.callee.ty);
 
         match call.callee.ty.clone() {
-            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, span),
+            TyKind::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, span),
             ty => Err(TypeError::expected(
                 call.callee.span,
                 ty.to_string(),
@@ -33,7 +33,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         fn_type: &FnTy,
         call: &mut Call,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         if fn_type.variadic {
             if call.args.len() < fn_type.params.len() {
                 return Err(TypeError::fn_call_arity_mismatch(

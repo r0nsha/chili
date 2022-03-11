@@ -7,20 +7,20 @@ mod check_fn;
 mod check_pattern;
 mod check_unary;
 
-use chili_ast::ty::Ty;
+use chili_ast::ty::TyKind;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
     ast::Ast,
     workspace::{BindingInfoIdx, Workspace},
 };
 use chili_error::DiagnosticResult;
-use chili_infer::infer::InferenceContext;
+use chili_infer::sess::InferSess;
 use chili_infer::substitute::{substitute_ty, Substitute};
 use common::scopes::Scopes;
 
 pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
-    let mut infcx = InferenceContext::new(target_metrics.word_size);
+    let mut infcx = InferSess::new(target_metrics.word_size);
 
     // infer types
     {
@@ -54,21 +54,17 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
         substitute_ty(&binding_info.ty, table, binding_info.span)?;
     }
 
-    for binding in workspace.binding_infos.iter() {
-        println!("{} -> {:?}", binding.symbol, binding.ty);
-    }
-
     Ok(())
 }
 
 pub(crate) struct CheckSess<'w, 'a> {
     pub(crate) workspace: &'a mut Workspace<'w>,
-    pub(crate) infcx: &'a mut InferenceContext,
+    pub(crate) infcx: &'a mut InferSess,
     pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
 }
 
 impl<'w, 'a> CheckSess<'w, 'a> {
-    pub(crate) fn new(workspace: &'a mut Workspace<'w>, infcx: &'a mut InferenceContext) -> Self {
+    pub(crate) fn new(workspace: &'a mut Workspace<'w>, infcx: &'a mut InferSess) -> Self {
         Self {
             workspace,
             infcx,
@@ -76,7 +72,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         }
     }
 
-    pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: Ty) {
+    pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: TyKind) {
         self.workspace.get_binding_info_mut(idx).unwrap().ty = ty;
     }
 }
@@ -108,15 +104,15 @@ pub(crate) struct CheckFrame {
     pub(crate) depth: usize,
     pub(crate) loop_depth: usize,
     pub(crate) module_idx: ModuleIdx,
-    pub(crate) expected_return_ty: Option<Ty>,
-    pub(crate) self_types: Vec<Ty>,
+    pub(crate) expected_return_ty: Option<TyKind>,
+    pub(crate) self_types: Vec<TyKind>,
 }
 
 impl CheckFrame {
     pub(crate) fn new(
         previous_depth: usize,
         module_idx: ModuleIdx,
-        expected_return_ty: Option<Ty>,
+        expected_return_ty: Option<TyKind>,
     ) -> Self {
         Self {
             depth: previous_depth + 1,

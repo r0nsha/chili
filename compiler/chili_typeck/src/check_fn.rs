@@ -16,8 +16,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         func: &mut Fn,
         span: Span,
-        expected_ty: Option<Ty>,
-    ) -> DiagnosticResult<Ty> {
+        expected_ty: Option<TyKind>,
+    ) -> DiagnosticResult<TyKind> {
         let proto_ty = self.check_proto(frame, &mut func.proto, expected_ty, span)?;
 
         let ty = proto_ty.into_fn();
@@ -49,14 +49,14 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         if !result_ty.is_never() {
             if func.body.exprs.is_empty() {
                 self.infcx
-                    .unify(ty.ret.as_ref().clone(), Ty::Unit, last_stmt_span)?;
+                    .unify(ty.ret.as_ref().clone(), TyKind::Unit, last_stmt_span)?;
             } else {
                 if func.body.yields && !ty.ret.is_unit() {
                     let last_expr_mut = func.body.exprs.last_mut().unwrap();
                     self.infcx
                         .unify_or_coerce_ty_expr(ty.ret.as_ref(), last_expr_mut)?;
                 } else {
-                    self.infcx.unify(ty.ret.as_ref().clone(), Ty::Unit, span)?;
+                    self.infcx.unify(ty.ret.as_ref().clone(), TyKind::Unit, span)?;
                 }
             }
         }
@@ -81,9 +81,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         proto: &mut Proto,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         let mut expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
@@ -234,11 +234,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
             None => match expected_fn_ty {
                 Some(expected_fn_ty) => expected_fn_ty.ret.as_ref().clone(),
-                None => Ty::Unit,
+                None => TyKind::Unit,
             },
         };
 
-        let fn_ty = Ty::Fn(FnTy {
+        let fn_ty = TyKind::Fn(FnTy {
             params: param_tys,
             ret: Box::new(ret_ty),
             variadic: proto.variadic,

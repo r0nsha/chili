@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::ast::{BinaryOp, Call, CallArg, Cast, Expr, ExprKind, UnaryOp};
-use chili_ast::ty::Ty;
+use chili_ast::ty::TyKind;
 use chili_error::*;
 use chili_span::{EndPosition, Spanned, To};
 use chili_token::TokenKind::*;
@@ -8,14 +8,9 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
 impl<'w> Parser<'w> {
-    pub(crate) fn parse_postfix_expr(
-        &mut self,
-        mut expr: Expr,
-    ) -> DiagnosticResult<Expr> {
+    pub(crate) fn parse_postfix_expr(&mut self, mut expr: Expr) -> DiagnosticResult<Expr> {
         // named struct literal
-        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL)
-            && eat!(self, OpenCurly)
-        {
+        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && eat!(self, OpenCurly) {
             let start_span = expr.span;
             return self.parse_struct_literal(Some(Box::new(expr)), start_span);
         }
@@ -104,10 +99,7 @@ impl<'w> Parser<'w> {
         ))
     }
 
-    fn parse_compound_assign(
-        &mut self,
-        lvalue: Expr,
-    ) -> DiagnosticResult<Expr> {
+    fn parse_compound_assign(&mut self, lvalue: Expr) -> DiagnosticResult<Expr> {
         let op: BinaryOp = self.previous().kind.into();
         let rvalue = self.parse_expr()?;
 
@@ -144,7 +136,7 @@ impl<'w> Parser<'w> {
             ExprKind::Cast(Cast {
                 expr: Box::new(expr.clone()),
                 type_expr,
-                target_ty: Ty::Unknown,
+                target_ty: TyKind::Unknown,
             }),
             start_span.to(self.previous_span()),
         ))
@@ -244,13 +236,8 @@ impl<'w> Parser<'w> {
                 } else if used_named_argument {
                     let span = self.span();
                     return Err(Diagnostic::error()
-                        .with_message(
-                            "can't use positional arguments after named arguments",
-                        )
-                        .with_labels(vec![Label::primary(
-                            span.file_id,
-                            span.range(),
-                        )]));
+                        .with_message("can't use positional arguments after named arguments")
+                        .with_labels(vec![Label::primary(span.file_id, span.range())]));
                 }
 
                 let value = self.parse_expr()?;
@@ -269,10 +256,7 @@ impl<'w> Parser<'w> {
         ))
     }
 
-    fn parse_subscript_or_slice(
-        &mut self,
-        expr: Expr,
-    ) -> DiagnosticResult<Expr> {
+    fn parse_subscript_or_slice(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
         let start_span = expr.span;
 
         match self.parse_expr() {

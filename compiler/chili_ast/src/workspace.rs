@@ -1,5 +1,5 @@
 use crate::ast::{ForeignLibrary, ModuleInfo, Visibility};
-use crate::ty::Ty;
+use crate::ty::TyKind;
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
@@ -58,7 +58,7 @@ pub struct BindingInfo {
     pub module_idx: ModuleIdx,
     pub symbol: Ustr,
     pub visibility: Visibility,
-    pub ty: Ty,
+    pub ty: TyKind,
     pub is_mutable: bool,
     pub kind: BindingInfoKind,
     pub level: ScopeLevel,
@@ -121,7 +121,7 @@ impl<'w> Workspace<'w> {
             module_idx,
             symbol,
             visibility,
-            Ty::Unknown,
+            TyKind::Unknown,
             is_mutable,
             kind,
             level,
@@ -135,7 +135,7 @@ impl<'w> Workspace<'w> {
         module_idx: ModuleIdx,
         symbol: Ustr,
         visibility: Visibility,
-        ty: Ty,
+        ty: TyKind,
         is_mutable: bool,
         kind: BindingInfoKind,
         level: ScopeLevel,

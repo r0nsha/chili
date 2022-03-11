@@ -8,7 +8,7 @@ use chili_ast::{
     value::Value,
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
-use chili_infer::{cast::ty_can_be_casted, infer::InferenceValue};
+use chili_infer::{cast::ty_can_be_casted, sess::InferValue};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
@@ -19,29 +19,29 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         expr: &mut Expr,
-        expected_ty: Option<Ty>,
-    ) -> DiagnosticResult<Ty> {
+        expected_ty: Option<TyKind>,
+    ) -> DiagnosticResult<TyKind> {
         let ty = match &mut expr.kind {
             ExprKind::Import(imports) => {
                 for import in imports.iter_mut() {
                     self.check_import(import)?;
                 }
-                Ok(Ty::Unit)
+                Ok(TyKind::Unit)
             }
             ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter_mut() {
                     self.check_binding(frame, binding)?;
                 }
-                Ok(Ty::Unit)
+                Ok(TyKind::Unit)
             }
             ExprKind::Binding(binding) => self.check_binding(frame, binding),
             ExprKind::Defer(deferred) => {
                 self.check_expr(frame, deferred.as_mut(), expected_ty)?;
-                Ok(Ty::Unit)
+                Ok(TyKind::Unit)
             }
             ExprKind::Assign { lvalue, rvalue } => {
                 self.check_assign_expr(frame, lvalue, rvalue)?;
-                Ok(Ty::Unit)
+                Ok(TyKind::Unit)
             }
             ExprKind::Cast(info) => {
                 let target_ty = self.check_cast(frame, info, expected_ty, expr.span)?;
@@ -67,25 +67,25 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             ExprKind::Builtin(builtin) => match builtin {
                 Builtin::SizeOf(type_expr) | Builtin::AlignOf(type_expr) => {
                     self.check_type_expr(frame, type_expr)?;
-                    Ok(Ty::UInt(UIntTy::Usize))
+                    Ok(TyKind::UInt(UIntTy::Usize))
                 }
                 Builtin::Panic(msg_expr) => {
                     if let Some(expr) = msg_expr {
-                        self.check_expr(frame, expr, Some(Ty::str()))?;
+                        self.check_expr(frame, expr, Some(TyKind::str()))?;
                     }
-                    Ok(Ty::Unit)
+                    Ok(TyKind::Unit)
                 }
             },
             ExprKind::While { cond, expr: block } => {
                 frame.loop_depth += 1;
 
-                cond.ty = self.check_expr(frame, cond, Some(Ty::Bool))?;
-                self.infcx.unify_or_coerce_ty_expr(&Ty::Bool, cond)?;
+                cond.ty = self.check_expr(frame, cond, Some(TyKind::Bool))?;
+                self.infcx.unify_or_coerce_ty_expr(&TyKind::Bool, cond)?;
                 self.check_expr(frame, block, None)?;
 
                 frame.loop_depth -= 1;
 
-                Ok(Ty::Unit)
+                Ok(TyKind::Unit)
             }
             ExprKind::For {
                 iter_name,
@@ -121,7 +121,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                         if self.infcx.is_untyped_integer(&start.ty) {
                             self.infcx
-                                .unify_or_coerce_ty_expr(&Ty::Int(IntTy::Isize), start)?;
+                                .unify_or_coerce_ty_expr(&TyKind::Int(IntTy::Isize), start)?;
                         }
                         if self.infcx.is_untyped_integer(&end.ty) {
                             self.infcx.unify_or_coerce_ty_expr(&start.ty, end)?;
@@ -153,15 +153,15 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         let by_ref = value_ty.is_pointer();
 
                         match &value_ty.maybe_deref_once() {
-                            t @ Ty::Array(inner, ..) | t @ Ty::Slice(inner, ..) => {
+                            t @ TyKind::Array(inner, ..) | t @ TyKind::Slice(inner, ..) => {
                                 let iter_ty = if by_ref {
                                     let is_mutable = match t {
-                                        Ty::Array(..) => value.is_mutable(),
-                                        Ty::Slice(_, is_mutable) => *is_mutable,
+                                        TyKind::Array(..) => value.is_mutable(),
+                                        TyKind::Slice(_, is_mutable) => *is_mutable,
                                         _ => unreachable!("got {}", t),
                                     };
 
-                                    Ty::Pointer(inner.clone(), is_mutable)
+                                    TyKind::Pointer(inner.clone(), is_mutable)
                                 } else {
                                     inner.as_ref().clone()
                                 };
@@ -196,21 +196,21 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 frame.loop_depth -= 1;
 
-                Ok(Ty::Unit)
+                Ok(TyKind::Unit)
             }
             ExprKind::Break { deferred } => {
                 if frame.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(expr.span, "break"));
                 }
                 self.check_expr_list(frame, deferred)?;
-                Ok(Ty::Never)
+                Ok(TyKind::Never)
             }
             ExprKind::Continue { deferred } => {
                 if frame.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(expr.span, "continue"));
                 }
                 self.check_expr_list(frame, deferred)?;
-                Ok(Ty::Never)
+                Ok(TyKind::Never)
             }
             ExprKind::Return {
                 expr: returned_expr,
@@ -232,12 +232,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             self.infcx
                                 .unify_or_coerce_ty_expr(&return_ty, returned_expr)?;
                         } else {
-                            self.infcx.unify(return_ty.clone(), Ty::Unit, expr.span)?;
+                            self.infcx
+                                .unify(return_ty.clone(), TyKind::Unit, expr.span)?;
                         }
 
                         self.check_expr_list(frame, deferred)?;
 
-                        Ok(Ty::Never)
+                        Ok(TyKind::Never)
                     }
                     None => Err(SyntaxError::outside_of_function(expr.span, "return")),
                 }
@@ -250,7 +251,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 self.check_expr(frame, cond, None)?;
                 let cond_ty = self.infcx.normalize_ty(&cond.ty);
 
-                self.infcx.unify(Ty::Bool, cond_ty, cond.span)?;
+                self.infcx.unify(TyKind::Bool, cond_ty, cond.span)?;
 
                 self.check_expr(frame, then_expr, expected_ty.clone())?;
 
@@ -267,7 +268,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                     result_ty
                 } else {
-                    Ty::Unit
+                    TyKind::Unit
                 };
 
                 then_expr.ty = result_ty.clone();
@@ -288,7 +289,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 self.check_expr(frame, index, None)?;
 
                 self.infcx
-                    .unify_or_coerce_ty_expr(&Ty::UInt(UIntTy::Usize), index)?;
+                    .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), index)?;
 
                 self.check_expr(frame, accessed_expr, None)?;
 
@@ -296,9 +297,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 let ty_deref = ty.maybe_deref_once();
 
                 match ty_deref {
-                    Ty::Array(inner, ..) | Ty::Slice(inner, ..) | Ty::MultiPointer(inner, ..) => {
-                        Ok(inner.as_ref().clone())
-                    }
+                    TyKind::Array(inner, ..)
+                    | TyKind::Slice(inner, ..)
+                    | TyKind::MultiPointer(inner, ..) => Ok(inner.as_ref().clone()),
                     _ => {
                         return Err(TypeError::invalid_expr_in_subscript(
                             accessed_expr.span,
@@ -318,13 +319,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(low) = low {
                     self.check_expr(frame, low, None)?;
                     self.infcx
-                        .unify_or_coerce_ty_expr(&Ty::UInt(UIntTy::Usize), low)?;
+                        .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), low)?;
                 }
 
                 if let Some(high) = high {
                     self.check_expr(frame, high, None)?;
                     self.infcx
-                        .unify_or_coerce_ty_expr(&Ty::UInt(UIntTy::Usize), high)?;
+                        .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), high)?;
                 } else {
                     if sliced_expr_ty.is_multi_pointer() {
                         return Err(Diagnostic::error()
@@ -339,9 +340,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
 
                 let (result_ty, is_mutable) = match sliced_expr_ty {
-                    Ty::Array(inner, ..) => (inner, sliced_expr.is_mutable()),
+                    TyKind::Array(inner, ..) => (inner, sliced_expr.is_mutable()),
 
-                    Ty::Slice(inner, is_mutable) | Ty::MultiPointer(inner, is_mutable) => {
+                    TyKind::Slice(inner, is_mutable) | TyKind::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
                     }
 
@@ -353,7 +354,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 };
 
-                Ok(Ty::Slice(result_ty, is_mutable))
+                Ok(TyKind::Slice(result_ty, is_mutable))
             }
             ExprKind::Call(call) => self.check_call(frame, call, expr.span),
             ExprKind::MemberAccess {
@@ -364,7 +365,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 let accessed_expr_ty = self.infcx.normalize_ty(&accessed_expr.ty);
 
                 let ty = match &accessed_expr_ty.maybe_deref_once() {
-                    ty @ Ty::Tuple(tys) => match field.as_str().parse::<i32>() {
+                    ty @ TyKind::Tuple(tys) => match field.as_str().parse::<i32>() {
                         Ok(index) => match tys.get(index as usize) {
                             Some(field_ty) => field_ty.clone(),
                             None => {
@@ -384,7 +385,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             ));
                         }
                     },
-                    Ty::Struct(ty) => match ty.fields.iter().find(|f| f.symbol == *field) {
+                    TyKind::Struct(ty) => match ty.fields.iter().find(|f| f.symbol == *field) {
                         Some(field) => field.ty.clone(),
                         None => {
                             return Err(TypeError::invalid_struct_field(
@@ -394,13 +395,15 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             ))
                         }
                     },
-                    Ty::Array(..) | Ty::Slice(..) if field.as_str() == BUILTIN_FIELD_LEN => {
-                        Ty::UInt(UIntTy::Usize)
+                    TyKind::Array(..) | TyKind::Slice(..)
+                        if field.as_str() == BUILTIN_FIELD_LEN =>
+                    {
+                        TyKind::UInt(UIntTy::Usize)
                     }
-                    Ty::Slice(inner, is_mutable) if field.as_str() == BUILTIN_FIELD_DATA => {
-                        Ty::MultiPointer(inner.clone(), *is_mutable)
+                    TyKind::Slice(inner, is_mutable) if field.as_str() == BUILTIN_FIELD_DATA => {
+                        TyKind::MultiPointer(inner.clone(), *is_mutable)
                     }
-                    Ty::Module(module_idx) => {
+                    TyKind::Module(module_idx) => {
                         let binding_info =
                             self.find_binding_info_in_module(*module_idx, *field, expr.span)?;
                         binding_info.ty.clone()
@@ -443,19 +446,19 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
             ExprKind::ArrayLiteral(kind) => match kind {
                 ArrayLiteralKind::List(elements) => {
-                    let element_ty: Ty = self.infcx.fresh_type_var().into();
+                    let element_ty: TyKind = self.infcx.fresh_type_var().into();
 
                     for el in elements.iter_mut() {
                         self.check_expr(frame, el, Some(element_ty.clone()))?;
                         self.infcx.unify_or_coerce_ty_expr(&element_ty, el)?;
                     }
 
-                    Ok(Ty::Array(Box::new(element_ty), elements.len()))
+                    Ok(TyKind::Array(Box::new(element_ty), elements.len()))
                 }
                 ArrayLiteralKind::Fill { expr, len } => {
                     self.check_expr(frame, len, None)?;
                     let inner = self.check_expr(frame, expr, None)?;
-                    Ok(Ty::Array(Box::new(inner), 0))
+                    Ok(TyKind::Array(Box::new(inner), 0))
                 }
             },
             ExprKind::TupleLiteral(elements) => {
@@ -464,7 +467,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
 
                 let is_type_expression = elements.iter().all(|el| el.ty.is_type());
-                let ty = Ty::Tuple(elements.iter().map(|el| el.ty.clone()).collect());
+                let ty = TyKind::Tuple(elements.iter().map(|el| el.ty.clone()).collect());
 
                 if is_type_expression {
                     Ok(ty.clone().create_type())
@@ -476,7 +479,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 Some(type_expr) => {
                     let ty = self.check_type_expr(frame, type_expr)?;
                     match ty {
-                        Ty::Struct(struct_ty) => {
+                        TyKind::Struct(struct_ty) => {
                             self.check_named_struct_literal(frame, fields, struct_ty, expr.span)
                         }
                         _ => Err(Diagnostic::error()
@@ -495,10 +498,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         let ty = self.infcx.normalize_ty(&ty);
 
                         match ty.maybe_deref_once() {
-                            Ty::Struct(struct_ty) => {
+                            TyKind::Struct(struct_ty) => {
                                 self.check_named_struct_literal(frame, fields, struct_ty, expr.span)
                             }
-                            Ty::Var(_) => {
+                            TyKind::Var(_) => {
                                 self.check_anonymous_struct_literal(frame, fields, expr.span)
                             }
                             _ => Err(Diagnostic::error()
@@ -516,36 +519,36 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 },
             },
             ExprKind::Literal(kind) => Ok(match kind {
-                LiteralKind::Int(i) => self.infcx.new_key(InferenceValue::UntypedInt).into(),
-                LiteralKind::Float(f) => self.infcx.new_key(InferenceValue::UntypedFloat).into(),
-                LiteralKind::Nil => self.infcx.new_key(InferenceValue::UntypedNil).into(),
+                LiteralKind::Int(i) => self.infcx.new_key(InferValue::UntypedInt).into(),
+                LiteralKind::Float(f) => self.infcx.new_key(InferValue::UntypedFloat).into(),
+                LiteralKind::Nil => self.infcx.new_key(InferValue::UntypedNil).into(),
                 LiteralKind::Unit => match expected_ty {
-                    Some(expected_ty) if expected_ty.is_type() => Ty::Unit.create_type(),
-                    _ => Ty::Unit,
+                    Some(expected_ty) if expected_ty.is_type() => TyKind::Unit.create_type(),
+                    _ => TyKind::Unit,
                 },
-                LiteralKind::Bool(b) => Ty::Bool,
-                LiteralKind::Str(_) => Ty::str(),
-                LiteralKind::Char(_) => Ty::char(),
+                LiteralKind::Bool(b) => TyKind::Bool,
+                LiteralKind::Str(_) => TyKind::str(),
+                LiteralKind::Char(_) => TyKind::char(),
             }),
             ExprKind::PointerType(expr, is_mutable) => {
                 let ty = self.check_type_expr(frame, expr)?;
-                let new_ty = Ty::Pointer(Box::new(ty.clone()), *is_mutable);
+                let new_ty = TyKind::Pointer(Box::new(ty.clone()), *is_mutable);
                 Ok(new_ty.clone().create_type())
             }
             ExprKind::MultiPointerType(expr, is_mutable) => {
                 let ty = self.check_type_expr(frame, expr)?;
-                let new_ty = Ty::MultiPointer(Box::new(ty.clone()), *is_mutable);
+                let new_ty = TyKind::MultiPointer(Box::new(ty.clone()), *is_mutable);
                 Ok(new_ty.clone().create_type())
             }
             ExprKind::ArrayType(expr, size) => {
                 let ty = self.check_type_expr(frame, expr)?;
                 let size = self.check_expr(frame, size, None)?;
-                let new_ty = Ty::Array(Box::new(ty.clone()), 0);
+                let new_ty = TyKind::Array(Box::new(ty.clone()), 0);
                 Ok(new_ty.clone().create_type())
             }
             ExprKind::SliceType(expr, is_mutable) => {
                 let ty = self.check_type_expr(frame, expr)?;
-                let new_ty = Ty::Slice(Box::new(ty.clone()), *is_mutable);
+                let new_ty = TyKind::Slice(Box::new(ty.clone()), *is_mutable);
                 Ok(new_ty.clone().create_type())
             }
             ExprKind::StructType(struct_type) => {
@@ -561,7 +564,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 let qualified_name = binding_info.as_ref().map_or(name, |b| b.qualified_name());
 
-                let opaque_struct = Ty::Struct(StructTy::opaque(
+                let opaque_struct = TyKind::Struct(StructTy::opaque(
                     struct_type.name,
                     qualified_name,
                     struct_type.kind,
@@ -618,7 +621,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 frame.self_types.pop();
 
-                Ok(Ty::Struct(struct_ty.clone()).create_type())
+                Ok(TyKind::Struct(struct_ty.clone()).create_type())
             }
             ExprKind::FnType(proto) => {
                 let proto_ty = self.check_proto(frame, proto, expected_ty, expr.span)?;
@@ -640,9 +643,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         expr.span.range().clone(),
                     )])),
             },
-            ExprKind::NeverType => Ok(Ty::Never.create_type()),
-            ExprKind::UnitType => Ok(Ty::Unit.create_type()),
-            ExprKind::PlaceholderType => Ok(Ty::from(self.infcx.fresh_type_var()).create_type()),
+            ExprKind::NeverType => Ok(TyKind::Never.create_type()),
+            ExprKind::UnitType => Ok(TyKind::Unit.create_type()),
+            ExprKind::PlaceholderType => {
+                Ok(TyKind::from(self.infcx.fresh_type_var()).create_type())
+            }
             ExprKind::Noop => Ok(self.infcx.fresh_type_var().into()),
         }?;
 
@@ -655,8 +660,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         expr: &mut Expr,
-    ) -> DiagnosticResult<Ty> {
-        self.check_expr(frame, expr, Some(Ty::anytype()))?;
+    ) -> DiagnosticResult<TyKind> {
+        self.check_expr(frame, expr, Some(TyKind::anytype()))?;
 
         if !expr.ty.is_type() {
             return Err(TypeError::expected(
@@ -687,7 +692,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         fields: &mut Vec<StructLiteralField>,
         struct_ty: StructTy,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         let mut field_set = UstrSet::default();
 
         let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
@@ -713,7 +718,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     return Err(TypeError::invalid_struct_field(
                         field.span,
                         field.symbol,
-                        Ty::Struct(struct_ty).to_string(),
+                        TyKind::Struct(struct_ty).to_string(),
                     ))
                 }
             }
@@ -738,7 +743,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
         }
 
-        Ok(Ty::Struct(struct_ty))
+        Ok(TyKind::Struct(struct_ty))
     }
 
     #[inline]
@@ -747,7 +752,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         fields: &mut Vec<StructLiteralField>,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         let mut field_set = UstrSet::default();
 
         let mut struct_ty_fields = vec![];
@@ -778,20 +783,20 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             fields: struct_ty_fields,
         };
 
-        Ok(Ty::Struct(struct_ty))
+        Ok(TyKind::Struct(struct_ty))
     }
 
-    fn occurs_check(&self, ty: &Ty, struct_name: Ustr) -> bool {
+    fn occurs_check(&self, ty: &TyKind, struct_name: Ustr) -> bool {
         match ty {
-            Ty::Fn(func) => {
+            TyKind::Fn(func) => {
                 func.params
                     .iter()
                     .any(|p| self.occurs_check(&p.ty, struct_name))
                     || self.occurs_check(&func.ret, struct_name)
             }
-            Ty::Array(ty, _) => self.occurs_check(ty, struct_name),
-            Ty::Tuple(tys) => tys.iter().any(|ty| self.occurs_check(ty, struct_name)),
-            Ty::Struct(ty) => {
+            TyKind::Array(ty, _) => self.occurs_check(ty, struct_name),
+            TyKind::Tuple(tys) => tys.iter().any(|ty| self.occurs_check(ty, struct_name)),
+            TyKind::Struct(ty) => {
                 if ty.qualified_name == struct_name {
                     true
                 } else {
@@ -806,9 +811,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     }
 
     // TODO: this function is probably redundant?
-    fn emplace_struct_ty(&self, ty: &mut Ty, struct_ty: &StructTy) {
+    fn emplace_struct_ty(&self, ty: &mut TyKind, struct_ty: &StructTy) {
         match ty {
-            Ty::Fn(func) => {
+            TyKind::Fn(func) => {
                 for p in func.params.iter_mut() {
                     self.emplace_struct_ty(&mut p.ty, struct_ty)
                 }
@@ -816,13 +821,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 self.emplace_struct_ty(&mut func.ret, struct_ty)
             }
 
-            Ty::Tuple(tys) => {
+            TyKind::Tuple(tys) => {
                 for ty in tys.iter_mut() {
                     self.emplace_struct_ty(ty, struct_ty)
                 }
             }
 
-            Ty::Struct(ty) => {
+            TyKind::Struct(ty) => {
                 if ty.qualified_name == struct_ty.qualified_name {
                     *ty = struct_ty.clone();
                 } else {
@@ -832,11 +837,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
             }
 
-            Ty::Type(ty)
-            | Ty::Array(ty, ..)
-            | Ty::Pointer(ty, ..)
-            | Ty::MultiPointer(ty, ..)
-            | Ty::Slice(ty, ..) => self.emplace_struct_ty(ty, struct_ty),
+            TyKind::Type(ty)
+            | TyKind::Array(ty, ..)
+            | TyKind::Pointer(ty, ..)
+            | TyKind::MultiPointer(ty, ..)
+            | TyKind::Slice(ty, ..) => self.emplace_struct_ty(ty, struct_ty),
 
             _ => (),
         }
@@ -850,11 +855,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         block: &mut Block,
-        expected_ty: Option<Ty>,
-    ) -> DiagnosticResult<Ty> {
+        expected_ty: Option<TyKind>,
+    ) -> DiagnosticResult<TyKind> {
         self.init_scopes.push_scope();
 
-        let mut result_ty = Ty::Unit;
+        let mut result_ty = TyKind::Unit;
 
         if !block.exprs.is_empty() {
             let last_index = block.exprs.len() - 1;
@@ -885,9 +890,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         info: &mut Cast,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TyKind>,
         expr_span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         let casted_expr = self.check_expr(frame, &mut info.expr, None)?;
 
         if let Some(type_expr) = &mut info.type_expr {
@@ -970,14 +975,14 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             ExprKind::MemberAccess { expr, member } => {
                 match self.check_expr_can_be_mutably_referenced_internal(expr, true) {
                     Ok(_) => match ty {
-                        Ty::Tuple(tys) => {
+                        TyKind::Tuple(tys) => {
                             let index = member.parse::<usize>().unwrap();
                             let ty = &tys[index];
 
                             match ty {
-                                Ty::Slice(_, is_mutable)
-                                | Ty::MultiPointer(_, is_mutable)
-                                | Ty::Pointer(_, is_mutable)
+                                TyKind::Slice(_, is_mutable)
+                                | TyKind::MultiPointer(_, is_mutable)
+                                | TyKind::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -988,7 +993,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                 _ => Ok(()),
                             }
                         }
-                        Ty::Struct(struct_ty) => {
+                        TyKind::Struct(struct_ty) => {
                             let field_ty = struct_ty
                                 .fields
                                 .iter()
@@ -997,9 +1002,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                 .unwrap();
 
                             match field_ty {
-                                Ty::Slice(_, is_mutable)
-                                | Ty::MultiPointer(_, is_mutable)
-                                | Ty::Pointer(_, is_mutable)
+                                TyKind::Slice(_, is_mutable)
+                                | TyKind::MultiPointer(_, is_mutable)
+                                | TyKind::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -1010,7 +1015,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                 _ => Ok(()),
                             }
                         }
-                        Ty::Module(idx) => {
+                        TyKind::Module(idx) => {
                             todo!()
                             // let module =
                             //     self.new_ir.modules.get(&module_name).
@@ -1094,9 +1099,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 binding_info_idx: _,
             } => {
                 match ty {
-                    Ty::Slice(_, is_mutable)
-                    | Ty::MultiPointer(_, is_mutable)
-                    | Ty::Pointer(_, is_mutable) => {
+                    TyKind::Slice(_, is_mutable)
+                    | TyKind::MultiPointer(_, is_mutable)
+                    | TyKind::Pointer(_, is_mutable) => {
                         if is_mutable && is_direct_ref {
                             return Ok(());
                         } else {

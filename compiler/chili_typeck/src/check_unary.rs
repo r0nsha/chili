@@ -10,9 +10,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         op: UnaryOp,
         lhs: &mut Expr,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         lhs.ty = self.check_expr(frame, lhs, expected_ty)?;
 
         let lhs_ty = self.infcx.normalize_ty(&lhs.ty);
@@ -23,10 +23,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     self.check_expr_can_be_mutably_referenced(&lhs)?;
                 }
 
-                Ty::Pointer(Box::new(lhs_ty), is_mutable_ref)
+                TyKind::Pointer(Box::new(lhs_ty), is_mutable_ref)
             }
             UnaryOp::Deref => match lhs_ty {
-                Ty::Pointer(inner, _) => inner.as_ref().clone(),
+                TyKind::Pointer(inner, _) => inner.as_ref().clone(),
                 ty => {
                     return Err(TypeError::deref_non_pointer_ty(
                         span,

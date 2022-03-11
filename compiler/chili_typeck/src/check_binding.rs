@@ -17,7 +17,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         binding: &mut Binding,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         let expected_var = match &mut binding.ty_expr {
             Some(expr) => {
                 let ty = self.check_type_expr(frame, expr)?;
@@ -111,7 +111,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         binding: &mut Binding,
         calling_module_idx: ModuleIdx,
         calling_symbol_span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         let idx = binding.pattern.into_single().binding_info_idx;
 
         let binding_info = self.workspace.get_binding_info(idx).unwrap().clone();
@@ -129,8 +129,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         Ok(binding.ty.clone())
     }
 
-    pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<Ty> {
-        let mut ty = Ty::Module(import.module_idx);
+    pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<TyKind> {
+        let mut ty = TyKind::Module(import.module_idx);
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
@@ -146,12 +146,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 ty = binding_info.ty.clone();
 
                 match ty {
-                    Ty::Module(idx) => current_module_idx = idx,
+                    TyKind::Module(idx) => current_module_idx = idx,
                     _ => {
                         if index < import.import_path.len() - 1 {
                             return Err(TypeError::type_mismatch(
                                 symbol.span,
-                                Ty::Module(Default::default()).to_string(),
+                                TyKind::Module(Default::default()).to_string(),
                                 ty.to_string(),
                             ));
                         }

@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ty::Ty;
+use chili_ast::ty::TyKind;
 use chili_ast::{
     ast::{Block, Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
@@ -46,7 +46,7 @@ impl<'w> Parser<'w> {
             params,
             variadic,
             ret: ret_ty,
-            ty: Ty::Unknown,
+            ty: TyKind::Unknown,
             binding_info_idx: None,
         })
     }

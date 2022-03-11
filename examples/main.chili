@@ -1,45 +1,61 @@
-use c.?
+# use c.?
 
-type Foo = { a: int, b: int }
+# type Foo = { a: int, b: int }
 
 let main = fn {
-    Foo { a: 1, b: 2 }
-    Foo { a: 4, b: 3 }
-    Foo { a: 3, b: 1 }
+    let a = 5
+    let b = {
+        let c = a * 2
+        c * a * 3
+    }
 
-    defer printf("2\n".data)
+    let hello = "Hello"
+
+    let t = true || false
+
+    let d = if t {
+        hello
+    } else {
+        "Goodbye"
+    }
+
+    # Foo { a: 1, b: 2 }
+    # Foo { a: 4, b: 3 }
+    # Foo { a: 3, b: 1 }
+
+    # defer printf("2\n".data)
     
-    printf("1\n".data)
+    # printf("1\n".data)
 
-    let bee = if true {
-        5
-    } else {
-        10
-    }
+    # let bee = if true {
+    #     5
+    # } else {
+    #     10
+    # }
 
-    5
+    # 5
 
-    printf("bee: %d\n".data, bee)
+    # printf("bee: %d\n".data, bee)
 
-    let yep = true
+    # let yep = true
 
-    if yep {
-        printf("yep\n".data)
-    } else {
-        printf("nope\n".data)
-    }
+    # if yep {
+    #     printf("yep\n".data)
+    # } else {
+    #     printf("nope\n".data)
+    # }
 
-    printf("gcd: %d\n".data, gcd(13, 7))
+    # printf("gcd: %d\n".data, gcd(13, 7))
 }
 
-let gcd = fn(mut a: int, mut b: int) -> int {
-    while a != b {
-        if a > b {
-            a -= b
-        } else {
-            b -= a
-        }
-    }
+# let gcd = fn(mut a: int, mut b: int) -> int {
+#     while a != b {
+#         if a > b {
+#             a -= b
+#         } else {
+#             b -= a
+#         }
+#     }
 
-    a
-}
+#     a
+# }

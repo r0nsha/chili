@@ -14,7 +14,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         pattern: &Pattern,
-        expected_ty: Ty,
+        expected_ty: TyKind,
         const_value: Option<Value>,
         is_init: bool,
     ) -> DiagnosticResult<()> {
@@ -38,12 +38,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     fn check_struct_destructor(
         &mut self,
         frame: &mut CheckFrame,
-        expected_ty: &Ty,
+        expected_ty: &TyKind,
         pattern: &DestructorPattern,
         is_init: bool,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
-            Ty::Struct(ref struct_ty) => {
+            TyKind::Struct(ref struct_ty) => {
                 if struct_ty.is_union() {
                     return Err(Diagnostic::error()
                         .with_message(format!("can't destruct `{}`", expected_ty))
@@ -117,12 +117,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     fn check_tuple_destructor(
         &mut self,
         frame: &mut CheckFrame,
-        expected_ty: &Ty,
+        expected_ty: &TyKind,
         pattern: &DestructorPattern,
         is_init: bool,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
-            Ty::Tuple(tys) => {
+            TyKind::Tuple(tys) => {
                 if pattern.symbols.len() > tys.len() {
                     return Err(TypeError::too_many_destructor_variables(
                         pattern.span,
@@ -151,16 +151,16 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         }
     }
 
-    fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: Ty) {
+    fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: TyKind) {
         if !pattern.ignore {
             self.update_binding_info_ty(pattern.binding_info_idx, ty);
         }
     }
 }
 
-fn get_destructed_ty(expected_ty: &Ty, ty: &Ty) -> Ty {
+fn get_destructed_ty(expected_ty: &TyKind, ty: &TyKind) -> TyKind {
     match expected_ty {
-        Ty::Pointer(_, is_mutable) => Ty::Pointer(Box::new(ty.clone()), *is_mutable),
+        TyKind::Pointer(_, is_mutable) => TyKind::Pointer(Box::new(ty.clone()), *is_mutable),
         _ => ty.clone(),
     }
 }

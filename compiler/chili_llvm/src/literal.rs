@@ -11,7 +11,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_struct_literal_named(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        ty: &Ty,
+        ty: &TyKind,
         fields: &Vec<StructLiteralField>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
@@ -90,7 +90,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_literal_value(
         &mut self,
         value: &LiteralKind,
-        ty: &Ty,
+        ty: &TyKind,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         match value {
@@ -105,13 +105,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             LiteralKind::Int(v) => match ty {
-                Ty::Int(_) | Ty::UInt(_) => self
+                TyKind::Int(_) | TyKind::UInt(_) => self
                     .llvm_type(ty)
                     .into_int_type()
                     .const_int(*v as u64, ty.is_int())
                     .into(),
 
-                Ty::Float(_) => self
+                TyKind::Float(_) => self
                     .llvm_type(ty)
                     .into_float_type()
                     .const_float(*v as f64)

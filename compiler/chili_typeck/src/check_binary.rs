@@ -12,9 +12,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         lhs: &mut Expr,
         op: BinaryOp,
         rhs: &mut Expr,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TyKind> {
         lhs.ty = self.check_expr(frame, lhs, expected_ty.clone())?;
         rhs.ty = self.check_expr(frame, rhs, expected_ty)?;
 
@@ -62,7 +62,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if !ty.is_bool() {
                     return Err(TypeError::type_mismatch(
                         span,
-                        Ty::Bool.to_string(),
+                        TyKind::Bool.to_string(),
                         self.infcx.normalize_ty_and_untyped(&ty).to_string(),
                     ));
                 }
@@ -88,7 +88,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             | BinaryOp::Gt
             | BinaryOp::GtEq
             | BinaryOp::And
-            | BinaryOp::Or => Ty::Bool,
+            | BinaryOp::Or => TyKind::Bool,
         };
 
         Ok(result_ty)
