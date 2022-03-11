@@ -30,6 +30,16 @@ impl<Idx: Hash + Eq, Value> Scopes<Idx, Value> {
         None
     }
 
+    pub fn get_mut(&mut self, idx: Idx) -> Option<&Value> {
+        for scope in self.inner.iter_mut().rev() {
+            if let Some(decl) = scope.get_mut(&idx) {
+                return Some(decl);
+            }
+        }
+
+        None
+    }
+
     pub fn insert(&mut self, idx: Idx, value: Value) -> Option<Value> {
         self.inner.last_mut().unwrap().insert(idx, value)
     }

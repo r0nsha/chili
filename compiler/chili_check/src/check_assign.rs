@@ -1,10 +1,7 @@
 use crate::{
-    CheckedExpr, {CheckFrame, CheckSess},
+    CheckedExpr, InitState, {CheckFrame, CheckSess},
 };
-use chili_ast::{
-    ast::{Expr, ExprKind, UnaryOp},
-    workspace::BindingInfo,
-};
+use chili_ast::ast::{Expr, ExprKind, UnaryOp};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span};
 use chili_ty::*;
@@ -21,28 +18,52 @@ impl<'a> CheckSess<'a> {
     ) -> DiagnosticResult<CheckedExpr> {
         let lvalue = match &lvalue.kind {
             ExprKind::Id {
-                symbol, is_mutable, ..
+                symbol,
+                is_mutable,
+                binding_info_idx,
+                ..
             } => {
-                let (lvalue, is_init) =
-                    self.check_id(frame, *symbol, lvalue.span, true)?;
+                let binding_info =
+                    self.workspace.get_binding_info(*binding_info_idx).unwrap();
 
-                if is_init {
-                    check_lvalue_is_mut(&lvalue.expr, lvalue.expr.span)?;
-                } else {
-                    // set binding as init in the current scope
-                    frame.insert_binding_info(
-                        *symbol,
-                        BindingInfo {
-                            ty: lvalue.ty.clone(),
-                            const_value: None,
-                            is_mutable: *is_mutable,
-                            is_init: true,
-                            span: lvalue.expr.span,
-                        },
+                let init_state =
+                    self.init_scopes.get(*binding_info_idx).unwrap();
+
+                if init_state.is_init() && !binding_info.is_mutable {
+                    let msg = format!(
+                        "cannot assign twice to immutable variable `{}`",
+                        symbol
                     );
+                    return Err(Diagnostic::error()
+                        .with_message(msg.clone())
+                        .with_labels(vec![
+                            Label::primary(
+                                lvalue.span.file_id,
+                                lvalue.span.range().clone(),
+                            )
+                            .with_message(msg),
+                            Label::secondary(
+                                binding_info.span.file_id,
+                                binding_info.span.range().clone(),
+                            )
+                            .with_message("defined here"),
+                        ]));
                 }
 
-                lvalue
+                if init_state.is_init() {
+                    check_lvalue_is_mut(lvalue, lvalue.span)?;
+                } else {
+                    // set binding as init in the current scope
+                    *self.init_scopes.get_mut(*binding_info_idx).unwrap() =
+                        InitState::Init;
+                }
+
+                CheckedExpr::new(
+                    lvalue.kind.clone(),
+                    binding_info.ty,
+                    None,
+                    lvalue.span,
+                )
             }
             _ => {
                 let lvalue = self.check_expr(frame, lvalue, None)?;

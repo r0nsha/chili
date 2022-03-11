@@ -23,19 +23,19 @@ use common::scopes::Scopes;
 use ustr::{Ustr, UstrMap};
 
 pub fn check<'w>(
-    workspace: &mut Workspace<'w>,
+    workspace: &'w mut Workspace<'w>,
     asts: &mut Vec<Ast>,
 ) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
-    let mut ancx = CheckSess::new(&mut infcx);
+    let mut sess = CheckSess::new(workspace, &mut infcx);
 
     for ast in asts {
         for import in ast.imports.iter() {
-            ancx.check_import(ast.module_info, import)?;
+            sess.check_import(ast.module_info, import)?;
         }
         for binding in ast.bindings.iter() {
-            ancx.check_top_level_binding_internal(
+            sess.check_top_level_binding_internal(
                 ast.module_info,
                 binding,
                 ast.module_info,
@@ -45,10 +45,6 @@ pub fn check<'w>(
     }
 
     Ok(())
-}
-
-pub(crate) struct CheckData {
-    ty: Ty,
 }
 
 pub(crate) struct CheckedExpr {
@@ -78,6 +74,7 @@ pub(crate) struct ProcessedItem {
 }
 
 pub(crate) struct CheckSess<'a> {
+    pub(crate) workspace: &'a mut Workspace<'a>,
     pub(crate) infcx: &'a mut InferenceContext,
     pub(crate) builtin_types: UstrMap<Ty>,
     pub(crate) processed_items_stack: Vec<ProcessedItem>,
@@ -85,8 +82,12 @@ pub(crate) struct CheckSess<'a> {
 }
 
 impl<'a> CheckSess<'a> {
-    pub(crate) fn new(infcx: &'a mut InferenceContext) -> Self {
+    pub(crate) fn new(
+        workspace: &'a mut Workspace<'a>,
+        infcx: &'a mut InferenceContext,
+    ) -> Self {
         Self {
+            workspace,
             infcx,
             builtin_types: get_builtin_types(),
             processed_items_stack: vec![],
@@ -125,6 +126,22 @@ impl<'a> CheckSess<'a> {
 pub(crate) enum InitState {
     NotInit,
     Init,
+}
+
+impl InitState {
+    pub(crate) fn is_not_init(&self) -> bool {
+        match self {
+            InitState::NotInit => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_init(&self) -> bool {
+        match self {
+            InitState::Init => true,
+            _ => false,
+        }
+    }
 }
 
 pub(crate) struct CheckFrame {

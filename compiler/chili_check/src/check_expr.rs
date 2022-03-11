@@ -726,8 +726,11 @@ impl<'a> CheckSess<'a> {
                 let binding_info =
                     self.workspace.get_binding_info(*binding_info_idx).unwrap();
 
-                if let InitState::NotInit =
-                    self.init_scopes.get(*binding_info_idx).unwrap()
+                if self
+                    .init_scopes
+                    .get(*binding_info_idx)
+                    .unwrap()
+                    .is_not_init()
                 {
                     let msg = format!("`{}` is possibly uninitialized", symbol);
                     return Err(Diagnostic::error()
@@ -1453,56 +1456,6 @@ impl<'a> CheckSess<'a> {
 
     fn get_anonymous_struct_name(&self, span: Span) -> Ustr {
         ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
-    }
-
-    pub(crate) fn check_id(
-        &mut self,
-        frame: &mut CheckFrame,
-        symbol: Ustr,
-        span: Span,
-        is_lvalue: bool,
-    ) -> DiagnosticResult<(CheckedExpr, bool)> {
-        let binding = self.find_symbol(frame, symbol, span)?;
-
-        let error_msg = if !is_lvalue && !binding.is_init {
-            Some(format!("`{}` is possibly uninitialized", symbol))
-        } else if is_lvalue && binding.is_init && !binding.is_mutable {
-            Some(format!(
-                "cannot assign twice to immutable variable `{}`",
-                symbol
-            ))
-        } else {
-            None
-        };
-
-        if let Some(msg) = error_msg {
-            return Err(Diagnostic::error()
-                .with_message(msg.clone())
-                .with_labels(vec![
-                    Label::primary(span.file_id, span.range().clone())
-                        .with_message(msg),
-                    Label::secondary(
-                        binding.span.file_id,
-                        binding.span.range().clone(),
-                    )
-                    .with_message("defined here"),
-                ]));
-        }
-
-        Ok((
-            CheckedExpr::new(
-                ExprKind::Id {
-                    symbol,
-                    is_mutable: binding.is_mutable,
-                    binding_span: binding.span,
-                    binding_info_idx: Default::default(),
-                },
-                binding.ty,
-                binding.const_value,
-                span,
-            ),
-            binding.is_init,
-        ))
     }
 
     pub(crate) fn check_block(
