@@ -25,7 +25,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let mut fn_frame = CheckFrame::new(frame.depth, frame.module_idx, Some(*ty.ret.clone()));
 
         if let Some(idx) = proto.binding_info_idx {
-            self.workspace.get_binding_info_mut(idx).unwrap().ty = proto.ty.clone();
+            self.update_binding_info_ty(idx, proto.ty.clone());
         }
 
         for (index, param) in proto.params.iter().enumerate() {
@@ -263,7 +263,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         });
 
         if let Some(idx) = proto.binding_info_idx {
-            self.workspace.get_binding_info_mut(idx).unwrap().ty = fn_ty.clone();
+            self.update_binding_info_ty(idx, fn_ty.clone());
         }
 
         Ok(Proto {

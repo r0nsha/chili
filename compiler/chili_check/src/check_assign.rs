@@ -1,5 +1,5 @@
 use crate::{
-    CheckedExpr, InitState, {CheckFrame, CheckSess},
+    InitState, {CheckFrame, CheckSess},
 };
 use chili_ast::ast::{Expr, ExprKind, UnaryOp};
 use chili_ast::ty::*;
@@ -12,11 +12,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_assign_expr(
         &mut self,
         frame: &mut CheckFrame,
-        lvalue: &Expr,
-        rvalue: &Expr,
+        lvalue: &mut Expr,
+        rvalue: &mut Expr,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
-        let lvalue = match &lvalue.kind {
+    ) -> DiagnosticResult<Ty> {
+        match &lvalue.kind {
             ExprKind::Id {
                 symbol,
                 is_mutable,
@@ -49,35 +49,20 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     *self.init_scopes.get_mut(*binding_info_idx).unwrap() = InitState::Init;
                 }
 
-                CheckedExpr::new(
-                    lvalue.kind.clone(),
-                    binding_info.ty.clone(),
-                    None,
-                    lvalue.span,
-                )
+                lvalue.ty = binding_info.ty.clone()
             }
             _ => {
-                let lvalue = self.check_expr(frame, lvalue, None)?;
-                check_lvalue_is_mut(&lvalue.expr, lvalue.expr.span)?;
-                lvalue
+                lvalue.ty = self.check_expr(frame, lvalue, None)?;
+                check_lvalue_is_mut(&lvalue, lvalue.span)?;
             }
-        };
+        }
 
-        let mut rvalue = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
+        rvalue.ty = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
 
-        let rvalue_span = rvalue.expr.span;
         self.infcx
-            .unify_or_coerce_ty_expr(&lvalue.ty, &mut rvalue.expr, rvalue_span)?;
+            .unify_or_coerce_ty_expr(&lvalue.ty, rvalue, rvalue.span)?;
 
-        Ok(CheckedExpr::new(
-            ExprKind::Assign {
-                lvalue: Box::new(lvalue.expr),
-                rvalue: Box::new(rvalue.expr),
-            },
-            Ty::Unit,
-            None,
-            span,
-        ))
+        Ok(Ty::Unit)
     }
 }
 

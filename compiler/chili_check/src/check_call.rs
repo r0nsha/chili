@@ -13,7 +13,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         call: &Call,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<Ty> {
         let callee = self.check_expr(frame, &call.callee, None)?;
         let ty = self.infcx.normalize_ty(&callee.ty);
 
@@ -34,7 +34,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         call: &Call,
         callee: CheckedExpr,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<Ty> {
         if fn_type.variadic {
             if call.args.len() < fn_type.params.len() {
                 return Err(TypeError::fn_call_arity_mismatch(

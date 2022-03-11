@@ -15,7 +15,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         lhs: &Expr,
         expected_ty: Option<Ty>,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<Ty> {
         let lhs = self.check_expr(frame, lhs, expected_ty)?;
         let lhs_ty = self.infcx.normalize_ty(&lhs.ty);
 

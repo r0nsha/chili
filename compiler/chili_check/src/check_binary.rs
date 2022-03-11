@@ -1,10 +1,7 @@
-use crate::{CheckFrame, CheckSess, CheckedExpr};
+use crate::{CheckFrame, CheckSess};
+use chili_ast::ast::{BinaryOp, Expr};
 use chili_ast::ty::*;
-use chili_ast::{
-    ast::{BinaryOp, Expr, ExprKind, LiteralKind},
-    value::Value,
-};
-use chili_error::{DiagnosticResult, SyntaxError, TypeError};
+use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 
 impl<'w, 'a> CheckSess<'w, 'a> {
@@ -17,14 +14,16 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         rhs: &Box<Expr>,
         expected_ty: Option<Ty>,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
-        let mut lhs = self.check_expr(frame, lhs, expected_ty.clone())?;
-        let mut rhs = self.check_expr(frame, rhs, expected_ty)?;
+    ) -> DiagnosticResult<Ty> {
+        lhs.ty = self.check_expr(frame, lhs, expected_ty.clone())?;
+        rhs.ty = self.check_expr(frame, rhs, expected_ty)?;
 
-        let rhs_span = rhs.expr.span;
         let ty = self
             .infcx
-            .unify_or_coerce_expr_expr(&mut lhs.expr, &mut rhs.expr, rhs_span)?;
+            .unify_or_coerce_expr_expr(lhs.as_mut(), rhs.as_mut(), rhs.span)?;
+
+        lhs.ty = ty.clone();
+        rhs.ty = ty.clone();
 
         match op {
             BinaryOp::Add
@@ -94,223 +93,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             | BinaryOp::Or => Ty::Bool,
         };
 
-        if lhs.value.is_some() && rhs.value.is_some() {
-            let lhs = lhs.value.unwrap();
-            let rhs = rhs.value.unwrap();
-
-            // TODO: the logic here is a really bad copypasta. i HAVE to make
-            // this generic somehow
-            match (lhs, rhs) {
-                (Value::Bool(lhs), Value::Bool(rhs)) => {
-                    let value = match op {
-                        BinaryOp::Eq => lhs == rhs,
-                        BinaryOp::NEq => lhs != rhs,
-                        BinaryOp::And => lhs && rhs,
-                        BinaryOp::Or => lhs || rhs,
-                        _ => unreachable!("got {}", op),
-                    };
-
-                    Ok(CheckedExpr::new(
-                        ExprKind::Literal(LiteralKind::Bool(value)),
-                        Ty::Bool,
-                        Some(Value::Bool(value)),
-                        span,
-                    ))
-                }
-                (Value::Int(lhs), Value::Int(rhs)) => {
-                    let int_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Int(value)),
-                            result_ty,
-                            Some(Value::Int(value)),
-                        )
-                    };
-
-                    let bool_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Bool(value)),
-                            Ty::Bool,
-                            Some(Value::Bool(value)),
-                        )
-                    };
-
-                    let (expr, ty, value) = match op {
-                        BinaryOp::Add => int_result(lhs + rhs),
-                        BinaryOp::Sub => int_result(lhs - rhs),
-                        BinaryOp::Mul => int_result(lhs * rhs),
-                        BinaryOp::Div => {
-                            if rhs == 0 {
-                                return Err(SyntaxError::divide_by_zero(span));
-                            }
-
-                            int_result(lhs / rhs)
-                        }
-                        BinaryOp::Rem => {
-                            if rhs == 0 {
-                                return Err(SyntaxError::divide_by_zero(span));
-                            }
-
-                            int_result(lhs % rhs)
-                        }
-                        BinaryOp::Shl => int_result(lhs << rhs),
-                        BinaryOp::Shr => int_result(lhs >> rhs),
-                        BinaryOp::BitwiseOr => int_result(lhs | rhs),
-                        BinaryOp::BitwiseXor => int_result(lhs ^ rhs),
-                        BinaryOp::BitwiseAnd => int_result(lhs & rhs),
-                        BinaryOp::Eq => bool_result(lhs == rhs),
-                        BinaryOp::NEq => bool_result(lhs != rhs),
-                        BinaryOp::Lt => bool_result(lhs < rhs),
-                        BinaryOp::LtEq => bool_result(lhs <= rhs),
-                        BinaryOp::Gt => bool_result(lhs > rhs),
-                        BinaryOp::GtEq => bool_result(lhs >= rhs),
-                        _ => unreachable!("got {}", op),
-                    };
-
-                    Ok(CheckedExpr::new(expr, ty, value, span))
-                }
-                (Value::Float(lhs), Value::Float(rhs)) => {
-                    let float_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Float(value)),
-                            result_ty,
-                            Some(Value::Float(value)),
-                        )
-                    };
-
-                    let bool_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Bool(value)),
-                            Ty::Bool,
-                            Some(Value::Bool(value)),
-                        )
-                    };
-
-                    let (expr, ty, value) = match op {
-                        BinaryOp::Add => float_result(lhs + rhs),
-                        BinaryOp::Sub => float_result(lhs - rhs),
-                        BinaryOp::Mul => float_result(lhs * rhs),
-                        BinaryOp::Div => float_result(lhs / rhs),
-                        BinaryOp::Rem => float_result(lhs % rhs),
-                        BinaryOp::Eq => bool_result(lhs == rhs),
-                        BinaryOp::NEq => bool_result(lhs != rhs),
-                        BinaryOp::Lt => bool_result(lhs < rhs),
-                        BinaryOp::LtEq => bool_result(lhs <= rhs),
-                        BinaryOp::Gt => bool_result(lhs > rhs),
-                        BinaryOp::GtEq => bool_result(lhs >= rhs),
-                        _ => unreachable!("got {}", op),
-                    };
-
-                    Ok(CheckedExpr::new(expr, ty, value, span))
-                }
-                (Value::Float(lhs), Value::Int(rhs)) => {
-                    let float_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Float(value)),
-                            result_ty,
-                            Some(Value::Float(value)),
-                        )
-                    };
-
-                    let bool_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Bool(value)),
-                            Ty::Bool,
-                            Some(Value::Bool(value)),
-                        )
-                    };
-
-                    let rhs = rhs as f64;
-
-                    let (expr, ty, value) = match op {
-                        BinaryOp::Add => float_result(lhs + rhs),
-                        BinaryOp::Sub => float_result(lhs - rhs),
-                        BinaryOp::Mul => float_result(lhs * rhs),
-                        BinaryOp::Div => {
-                            if rhs == 0.0 {
-                                return Err(SyntaxError::divide_by_zero(span));
-                            }
-
-                            float_result(lhs / rhs)
-                        }
-                        BinaryOp::Rem => {
-                            if rhs == 0.0 {
-                                return Err(SyntaxError::divide_by_zero(span));
-                            }
-
-                            float_result(lhs % rhs)
-                        }
-                        BinaryOp::Eq => bool_result(lhs == rhs),
-                        BinaryOp::NEq => bool_result(lhs != rhs),
-                        BinaryOp::Lt => bool_result(lhs < rhs),
-                        BinaryOp::LtEq => bool_result(lhs <= rhs),
-                        BinaryOp::Gt => bool_result(lhs > rhs),
-                        BinaryOp::GtEq => bool_result(lhs >= rhs),
-                        _ => unreachable!("got {}", op),
-                    };
-
-                    Ok(CheckedExpr::new(expr, ty, value, span))
-                }
-                (Value::Int(lhs), Value::Float(rhs)) => {
-                    let float_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Float(value)),
-                            result_ty,
-                            Some(Value::Float(value)),
-                        )
-                    };
-
-                    let bool_result = |value| {
-                        (
-                            ExprKind::Literal(LiteralKind::Bool(value)),
-                            Ty::Bool,
-                            Some(Value::Bool(value)),
-                        )
-                    };
-
-                    let lhs = lhs as f64;
-
-                    let (expr, ty, value) = match op {
-                        BinaryOp::Add => float_result(lhs + rhs),
-                        BinaryOp::Sub => float_result(lhs - rhs),
-                        BinaryOp::Mul => float_result(lhs * rhs),
-                        BinaryOp::Div => {
-                            if rhs == 0.0 {
-                                return Err(SyntaxError::divide_by_zero(span));
-                            }
-
-                            float_result(lhs / rhs)
-                        }
-                        BinaryOp::Rem => {
-                            if rhs == 0.0 {
-                                return Err(SyntaxError::divide_by_zero(span));
-                            }
-
-                            float_result(lhs % rhs)
-                        }
-                        BinaryOp::Eq => bool_result(lhs == rhs),
-                        BinaryOp::NEq => bool_result(lhs != rhs),
-                        BinaryOp::Lt => bool_result(lhs < rhs),
-                        BinaryOp::LtEq => bool_result(lhs <= rhs),
-                        BinaryOp::Gt => bool_result(lhs > rhs),
-                        BinaryOp::GtEq => bool_result(lhs >= rhs),
-                        _ => unreachable!("got {}", op),
-                    };
-
-                    Ok(CheckedExpr::new(expr, ty, value, span))
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            Ok(CheckedExpr::new(
-                ExprKind::Binary {
-                    lhs: Box::new(lhs.expr),
-                    op,
-                    rhs: Box::new(rhs.expr),
-                },
-                result_ty,
-                None,
-                span,
-            ))
-        }
+        Ok(result_ty)
     }
 }

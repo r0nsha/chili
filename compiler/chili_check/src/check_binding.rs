@@ -17,32 +17,30 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         binding: &Binding,
-    ) -> DiagnosticResult<Binding> {
-        let (ty_expr, expected_var) = match &binding.ty_expr {
+    ) -> DiagnosticResult<Ty> {
+        let expected_var = match &mut binding.ty_expr {
             Some(expr) => {
-                let type_expr = self.check_type_expr(frame, expr)?;
-                let ty = type_expr.value.unwrap().into_type();
-                (Some(type_expr.expr), self.infcx.fresh_bound_type_var(ty))
+                let ty = self.check_type_expr(frame, expr)?;
+                self.infcx.fresh_bound_type_var(ty)
             }
-            None => (None, self.infcx.fresh_type_var()),
+            None => self.infcx.fresh_type_var(),
         };
 
-        self.workspace
-            .get_binding_info_mut(binding.binding_info_idx)
-            .unwrap()
-            .ty = expected_var.into();
+        self.update_binding_info_ty(binding.binding_info_idx, expected_var.into());
 
-        let (value, const_value) = if let Some(value) = &binding.value {
-            let mut result = self.check_expr(frame, value, Some(expected_var.into()))?;
+        let mut is_a_type = binding.kind == BindingKind::Type;
 
-            let is_a_type = result.value.as_ref().map_or(false, |v| v.is_type());
+        if let Some(value) = &mut binding.value {
+            value.ty = self.check_expr(frame, value, Some(expected_var.into()))?;
+
+            is_a_type = value.ty.is_type();
 
             match &binding.kind {
                 BindingKind::Let => {
                     if is_a_type {
                         return Err(TypeError::expected(
                             value.span,
-                            self.infcx.normalize_ty_and_untyped(&result.ty).to_string(),
+                            self.infcx.normalize_ty_and_untyped(&value.ty).to_string(),
                             "a value",
                         ));
                     }
@@ -51,7 +49,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     if !is_a_type {
                         return Err(TypeError::expected(
                             value.span,
-                            self.infcx.normalize_ty_and_untyped(&result.ty).to_string(),
+                            self.infcx.normalize_ty_and_untyped(&value.ty).to_string(),
                             "a type",
                         ));
                     }
@@ -59,17 +57,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 _ => (),
             }
 
-            let span = result.expr.span;
             self.infcx
-                .unify_or_coerce_ty_expr(&Ty::from(expected_var), &mut result.expr, span)?;
-
-            (Some(result.expr), result.value)
-        } else {
-            (None, None)
-        };
+                .unify_or_coerce_ty_expr(&expected_var.into(), value, value.span)?;
+        }
 
         // * don't allow types to be bounded to mutable bindings
-        if const_value.as_ref().map_or(false, |v| v.is_type()) {
+        if is_a_type {
             match &binding.pattern {
                 Pattern::Single(SymbolPattern {
                     span, is_mutable, ..
@@ -89,40 +82,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        // * don't allow const values with mutable bindings
-        let const_value = match &binding.pattern {
-            Pattern::Single(SymbolPattern { is_mutable, .. }) => {
-                if *is_mutable {
-                    None
-                } else {
-                    const_value
-                }
-            }
-            Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => None,
-        };
-
         let ty = self.infcx.normalize_ty(&expected_var.into());
 
-        self.check_binding_pattern(
-            frame,
-            &binding.pattern,
-            ty,
-            const_value.clone(),
-            value.is_some() || const_value.is_some(),
-        )?;
+        self.check_binding_pattern(frame, &binding.pattern, ty, None, binding.value.is_some())?;
 
-        Ok(Binding {
-            binding_info_idx: binding.binding_info_idx,
-            kind: binding.kind,
-            pattern: binding.pattern.clone(),
-            ty_expr,
-            ty: expected_var.into(),
-            value,
-            visibility: binding.visibility,
-            const_value,
-            should_codegen: true,
-            lib_name: binding.lib_name,
-        })
+        Ok(ty)
     }
 
     pub(crate) fn check_top_level_binding(
@@ -146,7 +110,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let mut frame = CheckFrame::new(0, binding_info.module_idx, None);
 
-        let mut binding = self.check_binding(&mut frame, &binding)?;
+        self.check_binding(&mut frame, &binding)?;
         binding.substitute(self.infcx.get_table_mut())?;
 
         let binding_info_mut = self
@@ -163,7 +127,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         Ok(binding_info_mut.ty.clone())
     }
 
-    pub(crate) fn check_import(&mut self, import: &Import) -> DiagnosticResult<Ty> {
+    pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<Ty> {
         let mut ty = Ty::Module(import.module_idx);
 
         if !import.import_path.is_empty() {
@@ -193,6 +157,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
             }
         }
+
+        self.update_binding_info_ty(import.binding_info_idx, ty);
 
         Ok(ty)
     }

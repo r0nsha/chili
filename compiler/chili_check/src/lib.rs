@@ -29,31 +29,15 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
     let mut sess = CheckSess::new(workspace, &mut infcx);
 
     for ast in asts {
-        for import in ast.imports.iter() {
+        for import in ast.imports.iter_mut() {
             sess.check_import(import)?;
         }
-        for binding in ast.bindings.iter() {
+        for binding in ast.bindings.iter_mut() {
             sess.check_top_level_binding(binding, ast.module_idx, binding.pattern.span())?;
         }
     }
 
     Ok(())
-}
-
-pub(crate) struct CheckedExpr {
-    expr: Expr,
-    ty: Ty,
-    value: Option<Value>,
-}
-
-impl CheckedExpr {
-    pub(crate) fn new(expr: ExprKind, ty: Ty, value: Option<Value>, span: Span) -> Self {
-        Self {
-            expr: Expr::typed(expr, ty.clone(), span),
-            ty,
-            value,
-        }
-    }
 }
 
 pub(crate) struct CheckSess<'w, 'a> {
@@ -97,6 +81,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 "compile-time known integer",
             )),
         }
+    }
+
+    pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: Ty) {
+        self.workspace.get_binding_info_mut(idx).unwrap().ty = ty;
     }
 }
 

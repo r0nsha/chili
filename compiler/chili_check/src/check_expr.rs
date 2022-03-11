@@ -20,7 +20,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         expr: &Expr,
         expected_ty: Option<Ty>,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<Ty> {
         let checked_expr = match &expr.kind {
             ExprKind::Import(imports) => {
                 for import in imports.iter() {
@@ -1021,25 +1021,20 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         expr: &Expr,
-    ) -> DiagnosticResult<CheckedExpr> {
-        let mut result = self.check_expr(frame, expr, Some(Ty::anytype()))?;
+    ) -> DiagnosticResult<Ty> {
+        expr.ty = self.check_expr(frame, expr, Some(Ty::anytype()))?;
 
-        let is_type = result.value.as_ref().map_or(false, |v| v.is_type());
-
-        if !is_type {
+        if !expr.ty.is_type() {
             return Err(TypeError::expected(
                 expr.span,
-                result.ty.to_string(),
+                self.infcx.normalize_ty_and_untyped(&expr.ty).to_string(),
                 "a type",
             ));
         }
 
-        let ty = result.value.unwrap().into_type();
-        let ty = self.infcx.normalize_ty_and_expand_types(&ty);
+        expr.ty = self.infcx.normalize_ty_and_expand_types(&expr.ty);
 
-        result.value = Some(Value::Type(ty));
-
-        Ok(result)
+        Ok(expr.ty.clone())
     }
 
     pub(crate) fn check_expr_list(
@@ -1064,7 +1059,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         fields: &Vec<StructLiteralField>,
         struct_ty: StructTy,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<Ty> {
         let mut field_set = UstrSet::default();
 
         let mut new_fields = vec![];
@@ -1141,7 +1136,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         fields: &Vec<StructLiteralField>,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<Ty> {
         let mut field_set = UstrSet::default();
 
         let mut new_fields = vec![];

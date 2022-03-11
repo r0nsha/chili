@@ -153,10 +153,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: Ty) {
         if !pattern.ignore {
-            self.workspace
-                .get_binding_info_mut(pattern.binding_info_idx)
-                .unwrap()
-                .ty = ty;
+            self.update_binding_info_ty(pattern.binding_info_idx, ty);
         }
     }
 }
