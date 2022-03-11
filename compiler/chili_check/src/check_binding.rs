@@ -125,11 +125,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let mut frame = CheckFrame::new(0, binding_info.module_idx, None);
 
         self.check_binding(&mut frame, binding)?;
-        binding.substitute(self.infcx.get_table_mut())?;
-
-        self.update_binding_info_ty(idx, binding.ty.clone());
-
-        println!("{}", binding.ty);
 
         Ok(binding.ty.clone())
     }

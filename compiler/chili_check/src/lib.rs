@@ -16,25 +16,48 @@ use chili_ast::{
 };
 use chili_error::DiagnosticResult;
 use chili_infer::infer::InferenceContext;
+use chili_infer::substitute::{substitute_ty, Substitute};
 use common::scopes::Scopes;
 
 pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
-    let mut sess = CheckSess::new(workspace, &mut infcx);
 
-    sess.init_scopes.push_scope();
+    // infer types
+    {
+        let mut sess = CheckSess::new(workspace, &mut infcx);
 
-    for ast in asts {
-        for import in ast.imports.iter_mut() {
-            sess.check_import(import)?;
+        sess.init_scopes.push_scope();
+
+        for ast in asts.iter_mut() {
+            for import in ast.imports.iter_mut() {
+                sess.check_import(import)?;
+            }
+
+            for binding in ast.bindings.iter_mut() {
+                sess.check_top_level_binding(binding, ast.module_idx, binding.pattern.span())?;
+            }
         }
+
+        sess.init_scopes.pop_scope();
+    }
+
+    // substitute type variables
+    let table = infcx.get_table_mut();
+
+    for ast in asts.iter_mut() {
         for binding in ast.bindings.iter_mut() {
-            sess.check_top_level_binding(binding, ast.module_idx, binding.pattern.span())?;
+            binding.substitute(table)?;
         }
     }
 
-    sess.init_scopes.pop_scope();
+    for binding_info in workspace.binding_infos.iter_mut() {
+        substitute_ty(&binding_info.ty, table, binding_info.span)?;
+    }
+
+    for binding in workspace.binding_infos.iter() {
+        println!("{} -> {:?}", binding.symbol, binding.ty);
+    }
 
     Ok(())
 }

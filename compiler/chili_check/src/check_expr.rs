@@ -439,11 +439,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 }
 
-                if binding_info.ty.is_unknown() {
-                    self.check_top_level_binding(binding, calling_module_idx, calling_symbol_span)
-                } else {
-                    Ok(binding_info.ty.clone())
-                }
+                Ok(binding_info.ty.clone())
             }
             ExprKind::ArrayLiteral(kind) => match kind {
                 ArrayLiteralKind::List(elements) => {
