@@ -6,6 +6,7 @@ mod check_expr;
 mod check_fn;
 mod check_pattern;
 mod check_unary;
+mod const_fold;
 
 use chili_ast::ty::TyKind;
 use chili_ast::workspace::ModuleIdx;
@@ -15,7 +16,7 @@ use chili_ast::{
 };
 use chili_error::DiagnosticResult;
 use chili_infer::sess::InferSess;
-use chili_infer::substitute::{substitute_ty, Substitute};
+use chili_infer::substitute::{Substitute, SubstituteTy};
 use common::scopes::Scopes;
 
 pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
@@ -51,7 +52,7 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
     }
 
     for binding_info in workspace.binding_infos.iter_mut() {
-        substitute_ty(&binding_info.ty, table, binding_info.span)?;
+        binding_info.ty = binding_info.ty.substitute(table, binding_info.span)?;
     }
 
     Ok(())

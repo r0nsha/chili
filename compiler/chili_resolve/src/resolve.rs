@@ -169,19 +169,8 @@ impl<'w> Resolve<'w> for ast::Expr {
                 expr.resolve(resolver, workspace)?;
                 resolver.loop_depth -= 1;
             }
-            ast::ExprKind::For {
-                iter_name,
-                iter_index_name,
-                iterator,
-                expr: block,
-            } => {
-                // TODO: add iter_id
-                // TODO: add iter_ty
-                // TODO: add iter_index_id
-                // TODO: add iter_name to current scope
-                // TODO: add iter_index_name to current scope
-
-                match iterator {
+            ast::ExprKind::For(for_) => {
+                match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
                         start.resolve(resolver, workspace)?;
                         end.resolve(resolver, workspace)?;
@@ -191,8 +180,28 @@ impl<'w> Resolve<'w> for ast::Expr {
                     }
                 }
 
+                for_.iter_idx = resolver.add_binding(
+                    workspace,
+                    for_.iter_name,
+                    Visibility::Private,
+                    false,
+                    BindingKind::Let,
+                    self.span,
+                    true,
+                );
+
+                for_.iter_index_idx = resolver.add_binding(
+                    workspace,
+                    for_.iter_index_name,
+                    Visibility::Private,
+                    false,
+                    BindingKind::Let,
+                    self.span,
+                    true,
+                );
+
                 resolver.loop_depth += 1;
-                block.resolve(resolver, workspace)?;
+                for_.expr.resolve(resolver, workspace)?;
                 resolver.loop_depth -= 1;
             }
             ast::ExprKind::Break { deferred } => {
@@ -439,7 +448,6 @@ impl<'w> Resolve<'w> for ast::Call {
     ) -> DiagnosticResult<()> {
         self.callee.resolve(resolver, workspace)?;
 
-        // TODO: check there are no duplicate arguments
         for arg in self.args.iter_mut() {
             arg.value.resolve(resolver, workspace)?;
         }

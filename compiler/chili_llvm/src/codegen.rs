@@ -626,17 +626,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 return self.gen_unit();
             }
-            ExprKind::For {
-                iter_name,
-                iter_index_name,
-                iterator,
-                expr,
-            } => {
+            ExprKind::For(for_) => {
                 let loop_head = self.append_basic_block(state, "loop_head");
                 let loop_body = self.append_basic_block(state, "loop_body");
                 let loop_exit = self.append_basic_block(state, "loop_exit");
 
-                let (start, end) = match iterator {
+                let (start, end) = match &for_.iterator {
                     ForIter::Range(start, end) => {
                         let start = self.gen_expr(state, start, true).into_int_value();
                         let end = self.gen_expr(state, end, true).into_int_value();
@@ -662,9 +657,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 state.push_scope();
 
-                let it = match iterator {
+                let it = match &for_.iterator {
                     ForIter::Range(_, _) => {
-                        self.gen_local_with_alloca(state, *iter_name, start.into())
+                        self.gen_local_with_alloca(state, for_.iter_name, start.into())
                     }
                     ForIter::Value(value) => {
                         let by_ref = value.ty.is_pointer();
@@ -674,11 +669,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         let item = self.gen_subscript(agg.into(), &value.ty, start, !by_ref);
 
-                        self.gen_local_with_alloca(state, *iter_name, item)
+                        self.gen_local_with_alloca(state, for_.iter_name, item)
                     }
                 };
 
-                let it_index = self.gen_local_with_alloca(state, *iter_index_name, start.into());
+                let it_index =
+                    self.gen_local_with_alloca(state, for_.iter_index_name, start.into());
 
                 self.builder.build_unconditional_branch(loop_head);
                 self.start_block(state, loop_head);
@@ -686,7 +682,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let curr_index = self.build_load(it_index.into()).into_int_value();
 
                 let continue_condition = self.builder.build_int_compare(
-                    match iterator {
+                    match &for_.iterator {
                         ForIter::Range(..) => IntPredicate::SLE,
                         ForIter::Value(..) => IntPredicate::SLT,
                     },
@@ -716,7 +712,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                     self.build_store(it_index, next_index.into());
 
-                    match iterator {
+                    match &for_.iterator {
                         ForIter::Range(_, _) => {
                             let it_value = self.build_load(it.into()).into_int_value();
                             let next_it =

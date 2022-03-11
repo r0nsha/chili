@@ -1,7 +1,7 @@
 use crate::*;
 use chili_ast::ast::{
-    BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter,
-    LiteralKind, UnaryOp, Visibility,
+    self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, LiteralKind, UnaryOp,
+    Visibility,
 };
 use chili_error::*;
 use chili_span::{Span, To};
@@ -12,9 +12,7 @@ use ustr::ustr;
 
 impl<'w> Parser<'w> {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
-        self.with_res(Restrictions::empty(), |p| {
-            p.parse_expr_internal(ustr(""))
-        })
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_internal(ustr("")))
     }
 
     pub(crate) fn parse_expr_with_res(
@@ -24,19 +22,11 @@ impl<'w> Parser<'w> {
         self.with_res(restrictions, |p| p.parse_expr_internal(ustr("")))
     }
 
-    pub(crate) fn parse_decl_expr(
-        &mut self,
-        decl_name: Ustr,
-    ) -> DiagnosticResult<Expr> {
-        self.with_res(Restrictions::empty(), |p| {
-            p.parse_expr_internal(decl_name)
-        })
+    pub(crate) fn parse_decl_expr(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_internal(decl_name))
     }
 
-    fn parse_expr_internal(
-        &mut self,
-        decl_name: Ustr,
-    ) -> DiagnosticResult<Expr> {
+    fn parse_expr_internal(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
         let is_stmt = self.restrictions.contains(Restrictions::STMT_EXPR);
 
         self.decl_name_frames.push(decl_name);
@@ -57,11 +47,7 @@ impl<'w> Parser<'w> {
             } else if eat!(self, Type) {
                 let start_span = self.previous().span;
 
-                let binding = self.parse_binding(
-                    BindingKind::Type,
-                    Visibility::Private,
-                    false,
-                )?;
+                let binding = self.parse_binding(BindingKind::Type, Visibility::Private, false)?;
 
                 Ok(Expr::new(
                     ExprKind::Binding(Box::new(binding)),
@@ -71,19 +57,15 @@ impl<'w> Parser<'w> {
                 let start_span = self.previous().span;
 
                 if eat!(self, Foreign) {
-                    let binding =
-                        self.parse_foreign_single(Visibility::Private)?;
+                    let binding = self.parse_foreign_single(Visibility::Private)?;
 
                     Ok(Expr::new(
                         ExprKind::Foreign(vec![binding]),
                         start_span.to(self.previous_span()),
                     ))
                 } else {
-                    let binding = self.parse_binding(
-                        BindingKind::Let,
-                        Visibility::Private,
-                        false,
-                    )?;
+                    let binding =
+                        self.parse_binding(BindingKind::Let, Visibility::Private, false)?;
 
                     Ok(Expr::new(
                         ExprKind::Binding(Box::new(binding)),
@@ -540,12 +522,10 @@ impl<'w> Parser<'w> {
         }
 
         // actual expression
-        let iter_start =
-            self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let iter_start = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         let iterator = if eat!(self, DotDot) {
-            let iter_end =
-                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+            let iter_end = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
             ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ForIter::Value(Box::new(iter_start))
@@ -555,12 +535,14 @@ impl<'w> Parser<'w> {
         let expr = self.parse_block()?;
 
         Ok(Expr::new(
-            ExprKind::For {
+            ExprKind::For(ast::For {
                 iter_name,
+                iter_idx: Default::default(),
                 iter_index_name,
+                iter_index_idx: Default::default(),
                 iterator,
                 expr: Box::new(expr),
-            },
+            }),
             start_span.to(self.previous_span()),
         ))
     }
@@ -573,9 +555,7 @@ impl<'w> Parser<'w> {
             Break => ExprKind::Break { deferred: vec![] },
             Continue => ExprKind::Continue { deferred: vec![] },
             Return => {
-                let expr = if !self.peek().kind.is_expr_start()
-                    && token_is!(self, Semicolon)
-                {
+                let expr = if !self.peek().kind.is_expr_start() && token_is!(self, Semicolon) {
                     None
                 } else {
                     let expr = self.parse_expr()?;
@@ -588,9 +568,7 @@ impl<'w> Parser<'w> {
                 }
             }
             _ => {
-                return Err(
-                    Diagnostic::bug().with_message("got an invalid terminator")
-                );
+                return Err(Diagnostic::bug().with_message("got an invalid terminator"));
             }
         };
 

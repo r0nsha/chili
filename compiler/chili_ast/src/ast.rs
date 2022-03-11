@@ -175,12 +175,7 @@ pub enum ExprKind {
         cond: Box<Expr>,
         expr: Box<Expr>,
     },
-    For {
-        iter_name: Ustr,
-        iter_index_name: Ustr,
-        iterator: ForIter,
-        expr: Box<Expr>,
-    },
+    For(For),
     Break {
         deferred: Vec<Expr>,
     },
@@ -328,6 +323,16 @@ pub struct Cast {
     pub type_expr: Option<Box<Expr>>,
     pub expr: Box<Expr>,
     pub target_ty: TyKind,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct For {
+    pub iter_name: Ustr,
+    pub iter_idx: BindingInfoIdx,
+    pub iter_index_name: Ustr,
+    pub iter_index_idx: BindingInfoIdx,
+    pub iterator: ForIter,
+    pub expr: Box<Expr>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

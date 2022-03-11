@@ -57,23 +57,14 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    // infer types and apply constraints
+    // Check
 
-    time! { "infer",
-        if let Err(diagnostic) = chili_infer_new::infer(&mut workspace, &mut asts) {
+    time! { "typeck",
+        if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
             emit_single_diagnostic(&workspace.files, diagnostic);
             return;
         }
     }
-
-    // type check
-
-    // time! { "typeck",
-    //     if let Err(diagnostic) = chili_typeck::check(&mut workspace, &mut asts) {
-    //         emit_single_diagnostic(&workspace.files, diagnostic);
-    //         return;
-    //     }
-    // }
 
     // for ast in asts.iter() {
     //     ast.print();

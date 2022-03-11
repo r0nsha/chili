@@ -1,10 +1,9 @@
 use crate::ast::{
-    ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn,
-    ForIter, Ir, LiteralKind, Proto,
+    ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter, Ir,
+    LiteralKind, Proto,
 };
 use ptree::{
-    print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style,
-    TreeBuilder,
+    print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 use std::fmt::Display;
 
@@ -181,11 +180,7 @@ impl BuildNode for Proto {
 
 impl BuildNode for Binding {
     fn build(&self, b: &mut TreeBuilder) {
-        b.begin_child(format!(
-            "let {} <{}>",
-            self.pattern.to_string(),
-            self.ty
-        ));
+        b.begin_child(format!("let {} <{}>", self.pattern.to_string(), self.ty));
 
         if let Some(value) = &self.value {
             value.build(b);
@@ -265,18 +260,13 @@ impl BuildNode for Expr {
                 expr.build(b);
                 b.end_child();
             }
-            ExprKind::For {
-                iter_name,
-                iter_index_name,
-                iterator,
-                expr,
-            } => {
+            ExprKind::For(for_) => {
                 b.begin_child(format!(
                     "for ({}, {})",
-                    iter_name, iter_index_name
+                    for_.iter_name, for_.iter_index_name
                 ));
 
-                match iterator {
+                match &for_.iterator {
                     ForIter::Range(start, end) => {
                         b.begin_child("start".to_string());
                         start.build(b);
@@ -293,7 +283,7 @@ impl BuildNode for Expr {
                     }
                 }
 
-                expr.build(b);
+                for_.expr.build(b);
 
                 b.end_child();
             }
@@ -432,11 +422,7 @@ impl BuildNode for Expr {
                 b.end_child();
             }
             ExprKind::Literal(kind) => {
-                b.add_empty_child(format!(
-                    "{} <{}>",
-                    kind.to_string(),
-                    self.ty
-                ));
+                b.add_empty_child(format!("{} <{}>", kind.to_string(), self.ty));
             }
             ExprKind::PointerType(expr, is_mutable) => {
                 b.begin_child(format!(

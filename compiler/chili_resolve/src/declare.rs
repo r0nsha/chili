@@ -1,11 +1,11 @@
 use crate::{scope::ScopeSymbol, Resolver};
 use chili_ast::{
     ast::{self, BindingKind},
-    workspace::{BindingInfoKind, Workspace},
+    workspace::Workspace,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
 // Trait for declaring top level bindings/imports/etc...
 pub(crate) trait Declare<'w> {
@@ -70,9 +70,7 @@ impl<'w> Declare<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace<'w>,
     ) -> DiagnosticResult<()> {
-        check_duplicate_global_symbol(
-            resolver, workspace, self.alias, self.span,
-        )?;
+        check_duplicate_global_symbol(resolver, workspace, self.alias, self.span)?;
 
         self.binding_info_idx = resolver.add_binding(
             workspace,
@@ -103,9 +101,7 @@ impl<'w> Declare<'w> for ast::Binding {
 
         let pat = self.pattern.into_single_mut();
 
-        check_duplicate_global_symbol(
-            resolver, workspace, pat.symbol, pat.span,
-        )?;
+        check_duplicate_global_symbol(resolver, workspace, pat.symbol, pat.span)?;
 
         pat.binding_info_idx = resolver.add_binding_with_symbol_pattern(
             workspace,
@@ -130,8 +126,7 @@ fn check_duplicate_global_symbol<'w>(
             if symbol.is_shadowable() {
                 Ok(())
             } else {
-                let binding_info =
-                    workspace.get_binding_info(symbol.id).unwrap();
+                let binding_info = workspace.get_binding_info(symbol.id).unwrap();
 
                 Err(SyntaxError::duplicate_symbol(
                     binding_info.span,

@@ -1,14 +1,8 @@
 use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
-use chili_ast::{
-    ast::{
-        ArrayLiteralKind, Block, Builtin, Cast, Expr, ExprKind, ForIter, LiteralKind,
-        StructLiteralField, StructType, StructTypeField,
-    },
-    value::Value,
-};
+use chili_ast::{ast, value::Value};
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
-use chili_infer::{cast::ty_can_be_casted, sess::InferValue};
+use chili_infer::{cast::Cast, sess::InferValue};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
@@ -18,36 +12,36 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_expr(
         &mut self,
         frame: &mut CheckFrame,
-        expr: &mut Expr,
+        expr: &mut ast::Expr,
         expected_ty: Option<TyKind>,
     ) -> DiagnosticResult<TyKind> {
         let ty = match &mut expr.kind {
-            ExprKind::Import(imports) => {
+            ast::ExprKind::Import(imports) => {
                 for import in imports.iter_mut() {
                     self.check_import(import)?;
                 }
                 Ok(TyKind::Unit)
             }
-            ExprKind::Foreign(bindings) => {
+            ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter_mut() {
                     self.check_binding(frame, binding)?;
                 }
                 Ok(TyKind::Unit)
             }
-            ExprKind::Binding(binding) => self.check_binding(frame, binding),
-            ExprKind::Defer(deferred) => {
+            ast::ExprKind::Binding(binding) => self.check_binding(frame, binding),
+            ast::ExprKind::Defer(deferred) => {
                 self.check_expr(frame, deferred.as_mut(), expected_ty)?;
                 Ok(TyKind::Unit)
             }
-            ExprKind::Assign { lvalue, rvalue } => {
+            ast::ExprKind::Assign { lvalue, rvalue } => {
                 self.check_assign_expr(frame, lvalue, rvalue)?;
                 Ok(TyKind::Unit)
             }
-            ExprKind::Cast(info) => {
+            ast::ExprKind::Cast(info) => {
                 let target_ty = self.check_cast(frame, info, expected_ty, expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
-                if ty_can_be_casted(&source_ty, &target_ty) {
+                if source_ty.can_cast(&target_ty) {
                     Ok(target_ty)
                 } else {
                     let source_ty = self.infcx.normalize_ty_and_untyped(&source_ty);
@@ -63,20 +57,20 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         .with_message(format!("invalid cast to `{}`", info.target_ty))]))
                 }
             }
-            ExprKind::Fn(func) => self.check_fn(frame, func, expr.span, expected_ty),
-            ExprKind::Builtin(builtin) => match builtin {
-                Builtin::SizeOf(type_expr) | Builtin::AlignOf(type_expr) => {
+            ast::ExprKind::Fn(func) => self.check_fn(frame, func, expr.span, expected_ty),
+            ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::Builtin::SizeOf(type_expr) | ast::Builtin::AlignOf(type_expr) => {
                     self.check_type_expr(frame, type_expr)?;
                     Ok(TyKind::UInt(UIntTy::Usize))
                 }
-                Builtin::Panic(msg_expr) => {
+                ast::Builtin::Panic(msg_expr) => {
                     if let Some(expr) = msg_expr {
                         self.check_expr(frame, expr, Some(TyKind::str()))?;
                     }
                     Ok(TyKind::Unit)
                 }
             },
-            ExprKind::While { cond, expr: block } => {
+            ast::ExprKind::While { cond, expr: block } => {
                 frame.loop_depth += 1;
 
                 cond.ty = self.check_expr(frame, cond, Some(TyKind::Bool))?;
@@ -87,16 +81,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 Ok(TyKind::Unit)
             }
-            ExprKind::For {
-                iter_name,
-                iter_index_name,
-                iterator,
-                expr: block,
-            } => {
+            ast::ExprKind::For(for_) => {
                 frame.loop_depth += 1;
 
-                match iterator {
-                    ForIter::Range(start, end) => {
+                match &mut for_.iterator {
+                    ast::ForIter::Range(start, end) => {
                         self.check_expr(frame, start, None)?;
                         self.check_expr(frame, end, None)?;
 
@@ -146,7 +135,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         //     true,
                         // );
                     }
-                    ForIter::Value(value) => {
+                    ast::ForIter::Value(value) => {
                         self.check_expr(frame, value, None)?;
                         let value_ty = self.infcx.normalize_ty(&value.ty);
 
@@ -192,27 +181,27 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 };
 
-                self.check_expr(frame, block, None)?;
+                self.check_expr(frame, &mut for_.expr, None)?;
 
                 frame.loop_depth -= 1;
 
                 Ok(TyKind::Unit)
             }
-            ExprKind::Break { deferred } => {
+            ast::ExprKind::Break { deferred } => {
                 if frame.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(expr.span, "break"));
                 }
                 self.check_expr_list(frame, deferred)?;
                 Ok(TyKind::Never)
             }
-            ExprKind::Continue { deferred } => {
+            ast::ExprKind::Continue { deferred } => {
                 if frame.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(expr.span, "continue"));
                 }
                 self.check_expr_list(frame, deferred)?;
                 Ok(TyKind::Never)
             }
-            ExprKind::Return {
+            ast::ExprKind::Return {
                 expr: returned_expr,
                 deferred,
             } => {
@@ -243,7 +232,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     None => Err(SyntaxError::outside_of_function(expr.span, "return")),
                 }
             }
-            ExprKind::If {
+            ast::ExprKind::If {
                 cond,
                 then_expr,
                 else_expr,
@@ -275,14 +264,14 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 Ok(result_ty)
             }
-            ExprKind::Block(block) => self.check_block(frame, block, expected_ty),
-            ExprKind::Binary { lhs, op, rhs } => {
+            ast::ExprKind::Block(block) => self.check_block(frame, block, expected_ty),
+            ast::ExprKind::Binary { lhs, op, rhs } => {
                 self.check_binary_expr(frame, lhs, *op, rhs, expected_ty, expr.span)
             }
-            ExprKind::Unary { op, lhs } => {
+            ast::ExprKind::Unary { op, lhs } => {
                 self.check_unary_expr(frame, *op, lhs, expected_ty, expr.span)
             }
-            ExprKind::Subscript {
+            ast::ExprKind::Subscript {
                 expr: accessed_expr,
                 index,
             } => {
@@ -308,7 +297,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 }
             }
-            ExprKind::Slice {
+            ast::ExprKind::Slice {
                 expr: sliced_expr,
                 low,
                 high,
@@ -356,8 +345,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 Ok(TyKind::Slice(result_ty, is_mutable))
             }
-            ExprKind::Call(call) => self.check_call(frame, call, expr.span),
-            ExprKind::MemberAccess {
+            ast::ExprKind::Call(call) => self.check_call(frame, call, expr.span),
+            ast::ExprKind::MemberAccess {
                 expr: accessed_expr,
                 member: field,
             } => {
@@ -418,7 +407,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 Ok(ty)
             }
-            ExprKind::Id {
+            ast::ExprKind::Id {
                 symbol,
                 binding_info_idx,
                 ..
@@ -444,8 +433,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 Ok(binding_info.ty.clone())
             }
-            ExprKind::ArrayLiteral(kind) => match kind {
-                ArrayLiteralKind::List(elements) => {
+            ast::ExprKind::ArrayLiteral(kind) => match kind {
+                ast::ArrayLiteralKind::List(elements) => {
                     let element_ty: TyKind = self.infcx.fresh_type_var().into();
 
                     for el in elements.iter_mut() {
@@ -455,13 +444,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                     Ok(TyKind::Array(Box::new(element_ty), elements.len()))
                 }
-                ArrayLiteralKind::Fill { expr, len } => {
+                ast::ArrayLiteralKind::Fill { expr, len } => {
                     self.check_expr(frame, len, None)?;
                     let inner = self.check_expr(frame, expr, None)?;
                     Ok(TyKind::Array(Box::new(inner), 0))
                 }
             },
-            ExprKind::TupleLiteral(elements) => {
+            ast::ExprKind::TupleLiteral(elements) => {
                 for el in elements.iter_mut() {
                     self.check_expr(frame, el, None)?;
                 }
@@ -475,7 +464,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     Ok(ty)
                 }
             }
-            ExprKind::StructLiteral { type_expr, fields } => match type_expr {
+            ast::ExprKind::StructLiteral { type_expr, fields } => match type_expr {
                 Some(type_expr) => {
                     let ty = self.check_type_expr(frame, type_expr)?;
                     match ty {
@@ -518,40 +507,40 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     None => self.check_anonymous_struct_literal(frame, fields, expr.span),
                 },
             },
-            ExprKind::Literal(kind) => Ok(match kind {
-                LiteralKind::Int(i) => self.infcx.new_key(InferValue::UntypedInt).into(),
-                LiteralKind::Float(f) => self.infcx.new_key(InferValue::UntypedFloat).into(),
-                LiteralKind::Nil => self.infcx.new_key(InferValue::UntypedNil).into(),
-                LiteralKind::Unit => match expected_ty {
+            ast::ExprKind::Literal(kind) => Ok(match kind {
+                ast::LiteralKind::Int(i) => self.infcx.new_key(InferValue::UntypedInt).into(),
+                ast::LiteralKind::Float(f) => self.infcx.new_key(InferValue::UntypedFloat).into(),
+                ast::LiteralKind::Nil => self.infcx.new_key(InferValue::UntypedNil).into(),
+                ast::LiteralKind::Unit => match expected_ty {
                     Some(expected_ty) if expected_ty.is_type() => TyKind::Unit.create_type(),
                     _ => TyKind::Unit,
                 },
-                LiteralKind::Bool(b) => TyKind::Bool,
-                LiteralKind::Str(_) => TyKind::str(),
-                LiteralKind::Char(_) => TyKind::char(),
+                ast::LiteralKind::Bool(b) => TyKind::Bool,
+                ast::LiteralKind::Str(_) => TyKind::str(),
+                ast::LiteralKind::Char(_) => TyKind::char(),
             }),
-            ExprKind::PointerType(expr, is_mutable) => {
+            ast::ExprKind::PointerType(expr, is_mutable) => {
                 let ty = self.check_type_expr(frame, expr)?;
                 let new_ty = TyKind::Pointer(Box::new(ty.clone()), *is_mutable);
                 Ok(new_ty.clone().create_type())
             }
-            ExprKind::MultiPointerType(expr, is_mutable) => {
+            ast::ExprKind::MultiPointerType(expr, is_mutable) => {
                 let ty = self.check_type_expr(frame, expr)?;
                 let new_ty = TyKind::MultiPointer(Box::new(ty.clone()), *is_mutable);
                 Ok(new_ty.clone().create_type())
             }
-            ExprKind::ArrayType(expr, size) => {
+            ast::ExprKind::ArrayType(expr, size) => {
                 let ty = self.check_type_expr(frame, expr)?;
                 let size = self.check_expr(frame, size, None)?;
                 let new_ty = TyKind::Array(Box::new(ty.clone()), 0);
                 Ok(new_ty.clone().create_type())
             }
-            ExprKind::SliceType(expr, is_mutable) => {
+            ast::ExprKind::SliceType(expr, is_mutable) => {
                 let ty = self.check_type_expr(frame, expr)?;
                 let new_ty = TyKind::Slice(Box::new(ty.clone()), *is_mutable);
                 Ok(new_ty.clone().create_type())
             }
-            ExprKind::StructType(struct_type) => {
+            ast::ExprKind::StructType(struct_type) => {
                 let name = if struct_type.name.is_empty() {
                     self.get_anonymous_struct_name(expr.span)
                 } else {
@@ -623,7 +612,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 Ok(TyKind::Struct(struct_ty.clone()).create_type())
             }
-            ExprKind::FnType(proto) => {
+            ast::ExprKind::FnType(proto) => {
                 let proto_ty = self.check_proto(frame, proto, expected_ty, expr.span)?;
 
                 Ok(if proto.lib_name.is_some() {
@@ -634,7 +623,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     proto_ty.create_type()
                 })
             }
-            ExprKind::SelfType => match frame.self_types.last() {
+            ast::ExprKind::SelfType => match frame.self_types.last() {
                 Some(self_type) => Ok(self_type.clone()),
                 None => Err(Diagnostic::error()
                     .with_message("`Self` is only available within struct definitions")
@@ -643,12 +632,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         expr.span.range().clone(),
                     )])),
             },
-            ExprKind::NeverType => Ok(TyKind::Never.create_type()),
-            ExprKind::UnitType => Ok(TyKind::Unit.create_type()),
-            ExprKind::PlaceholderType => {
+            ast::ExprKind::NeverType => Ok(TyKind::Never.create_type()),
+            ast::ExprKind::UnitType => Ok(TyKind::Unit.create_type()),
+            ast::ExprKind::PlaceholderType => {
                 Ok(TyKind::from(self.infcx.fresh_type_var()).create_type())
             }
-            ExprKind::Noop => Ok(self.infcx.fresh_type_var().into()),
+            ast::ExprKind::Noop => Ok(self.infcx.fresh_type_var().into()),
         }?;
 
         expr.ty = ty.clone();
@@ -659,7 +648,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_type_expr(
         &mut self,
         frame: &mut CheckFrame,
-        expr: &mut Expr,
+        expr: &mut ast::Expr,
     ) -> DiagnosticResult<TyKind> {
         self.check_expr(frame, expr, Some(TyKind::anytype()))?;
 
@@ -677,7 +666,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_expr_list(
         &mut self,
         frame: &mut CheckFrame,
-        exprs: &mut Vec<Expr>,
+        exprs: &mut Vec<ast::Expr>,
     ) -> DiagnosticResult<()> {
         for expr in exprs {
             self.check_expr(frame, expr, None)?;
@@ -689,7 +678,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     fn check_named_struct_literal(
         &mut self,
         frame: &mut CheckFrame,
-        fields: &mut Vec<StructLiteralField>,
+        fields: &mut Vec<ast::StructLiteralField>,
         struct_ty: StructTy,
         span: Span,
     ) -> DiagnosticResult<TyKind> {
@@ -750,7 +739,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     fn check_anonymous_struct_literal(
         &mut self,
         frame: &mut CheckFrame,
-        fields: &mut Vec<StructLiteralField>,
+        fields: &mut Vec<ast::StructLiteralField>,
         span: Span,
     ) -> DiagnosticResult<TyKind> {
         let mut field_set = UstrSet::default();
@@ -854,7 +843,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_block(
         &mut self,
         frame: &mut CheckFrame,
-        block: &mut Block,
+        block: &mut ast::Block,
         expected_ty: Option<TyKind>,
     ) -> DiagnosticResult<TyKind> {
         self.init_scopes.push_scope();
@@ -889,7 +878,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     fn check_cast(
         &mut self,
         frame: &mut CheckFrame,
-        info: &mut Cast,
+        info: &mut ast::Cast,
         expected_ty: Option<TyKind>,
         expr_span: Span,
     ) -> DiagnosticResult<TyKind> {
@@ -909,7 +898,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     pub(super) fn check_expr_can_be_mutably_referenced(
         &mut self,
-        expr: &Expr,
+        expr: &ast::Expr,
     ) -> DiagnosticResult<()> {
         use MutabilityRefCheckErr::*;
 
@@ -964,7 +953,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     fn check_expr_can_be_mutably_referenced_internal(
         &mut self,
-        expr: &Expr,
+        expr: &ast::Expr,
         is_direct_ref: bool,
     ) -> Result<(), MutabilityRefCheckErr> {
         use MutabilityRefCheckErr::*;
@@ -972,7 +961,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let ty = self.infcx.normalize_ty_and_untyped(&expr.ty);
 
         match &expr.kind {
-            ExprKind::MemberAccess { expr, member } => {
+            ast::ExprKind::MemberAccess { expr, member } => {
                 match self.check_expr_can_be_mutably_referenced_internal(expr, true) {
                     Ok(_) => match ty {
                         TyKind::Tuple(tys) => {
@@ -1092,7 +1081,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }),
                 }
             }
-            ExprKind::Id {
+            ast::ExprKind::Id {
                 symbol,
                 is_mutable,
                 binding_span,

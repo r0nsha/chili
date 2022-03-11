@@ -94,13 +94,8 @@ impl<'w> Lint<'w> for ast::Expr {
                 cond.lint(workspace)?;
                 expr.lint(workspace)?;
             }
-            ast::ExprKind::For {
-                iter_name: _,
-                iter_index_name: _,
-                iterator,
-                expr,
-            } => {
-                match iterator {
+            ast::ExprKind::For(for_) => {
+                match &for_.iterator {
                     ast::ForIter::Range(s, e) => {
                         s.lint(workspace)?;
                         e.lint(workspace)?;
@@ -109,7 +104,7 @@ impl<'w> Lint<'w> for ast::Expr {
                         v.lint(workspace)?;
                     }
                 }
-                expr.lint(workspace)?;
+                for_.expr.lint(workspace)?;
             }
             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
                 deferred.lint(workspace)?;
