@@ -1,4 +1,3 @@
-mod builtin;
 mod check_assign;
 mod check_binary;
 mod check_binding;
@@ -9,24 +8,22 @@ mod check_pattern;
 mod check_unary;
 mod lints;
 
-use builtin::get_builtin_types;
 use chili_ast::ty::Ty;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
     ast::Ast,
-    value::Value,
     workspace::{BindingInfoIdx, Workspace},
 };
-use chili_error::{DiagnosticResult, TypeError};
+use chili_error::DiagnosticResult;
 use chili_infer::infer::InferenceContext;
-use chili_span::Span;
 use common::scopes::Scopes;
-use ustr::UstrMap;
 
 pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferenceContext::new(target_metrics.word_size);
     let mut sess = CheckSess::new(workspace, &mut infcx);
+
+    sess.init_scopes.push_scope();
 
     for ast in asts {
         for import in ast.imports.iter_mut() {
@@ -37,13 +34,14 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
         }
     }
 
+    sess.init_scopes.pop_scope();
+
     Ok(())
 }
 
 pub(crate) struct CheckSess<'w, 'a> {
     pub(crate) workspace: &'a mut Workspace<'w>,
     pub(crate) infcx: &'a mut InferenceContext,
-    pub(crate) builtin_types: UstrMap<Ty>,
     pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
 }
 
@@ -52,34 +50,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         Self {
             workspace,
             infcx,
-            builtin_types: get_builtin_types(),
             init_scopes: Scopes::new(),
-        }
-    }
-
-    pub(crate) fn expect_value_is_int(
-        &mut self,
-        value: Option<Value>,
-        ty: &Ty,
-        span: Span,
-    ) -> DiagnosticResult<i64> {
-        match &value {
-            Some(value) => {
-                if !value.is_int() {
-                    Err(TypeError::expected(
-                        span,
-                        self.infcx.normalize_ty_and_untyped(ty).to_string(),
-                        "compile-time known integer",
-                    ))
-                } else {
-                    Ok(value.clone().into_int())
-                }
-            }
-            None => Err(TypeError::expected(
-                span,
-                self.infcx.normalize_ty_and_untyped(ty).to_string(),
-                "compile-time known integer",
-            )),
         }
     }
 
@@ -88,7 +59,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum InitState {
     NotInit,
     Init,

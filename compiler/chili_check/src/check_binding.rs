@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess};
+use crate::{CheckFrame, CheckSess, InitState};
 use chili_ast::ty::*;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
@@ -7,7 +7,7 @@ use chili_ast::{
     workspace::BindingInfo,
 };
 use chili_error::{DiagnosticResult, TypeError};
-use chili_infer::substitute::{substitute_ty, Substitute};
+use chili_infer::substitute::Substitute;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
@@ -16,7 +16,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_binding(
         &mut self,
         frame: &mut CheckFrame,
-        binding: &Binding,
+        binding: &mut Binding,
     ) -> DiagnosticResult<Ty> {
         let expected_var = match &mut binding.ty_expr {
             Some(expr) => {
@@ -26,7 +26,18 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             None => self.infcx.fresh_type_var(),
         };
 
-        self.update_binding_info_ty(binding.binding_info_idx, expected_var.into());
+        for symbol in binding.pattern.symbols_mut() {
+            let var = self.infcx.fresh_type_var();
+            self.update_binding_info_ty(symbol.binding_info_idx, var.into());
+            self.init_scopes.insert(
+                symbol.binding_info_idx,
+                if binding.value.is_some() {
+                    InitState::Init
+                } else {
+                    InitState::NotInit
+                },
+            );
+        }
 
         let mut is_a_type = binding.kind == BindingKind::Type;
 
@@ -58,7 +69,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
 
             self.infcx
-                .unify_or_coerce_ty_expr(&expected_var.into(), value, value.span)?;
+                .unify_or_coerce_ty_expr(&expected_var.into(), value)?;
         }
 
         // * don't allow types to be bounded to mutable bindings
@@ -82,27 +93,30 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        let ty = self.infcx.normalize_ty(&expected_var.into());
+        binding.ty = self.infcx.normalize_ty(&expected_var.into());
 
-        self.check_binding_pattern(frame, &binding.pattern, ty, None, binding.value.is_some())?;
+        self.check_binding_pattern(
+            frame,
+            &binding.pattern,
+            binding.ty.clone(),
+            None,
+            binding.value.is_some(),
+        )?;
 
-        Ok(ty)
+        Ok(binding.ty.clone())
     }
 
     pub(crate) fn check_top_level_binding(
         &mut self,
-        binding: &Binding,
+        binding: &mut Binding,
         calling_module_idx: ModuleIdx,
         calling_symbol_span: Span,
     ) -> DiagnosticResult<Ty> {
-        let binding_info = self
-            .workspace
-            .get_binding_info(binding.binding_info_idx)
-            .unwrap()
-            .clone();
+        let idx = binding.pattern.into_single().binding_info_idx;
+
+        let binding_info = self.workspace.get_binding_info(idx).unwrap().clone();
 
         if !binding_info.ty.is_unknown() {
-            println!("{} => {}", binding_info.symbol, binding_info.ty);
             return Ok(binding_info.ty.clone());
         }
 
@@ -110,21 +124,14 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let mut frame = CheckFrame::new(0, binding_info.module_idx, None);
 
-        self.check_binding(&mut frame, &binding)?;
+        self.check_binding(&mut frame, binding)?;
         binding.substitute(self.infcx.get_table_mut())?;
 
-        let binding_info_mut = self
-            .workspace
-            .get_binding_info_mut(binding.binding_info_idx)
-            .unwrap();
+        self.update_binding_info_ty(idx, binding.ty.clone());
 
-        binding_info_mut.ty = substitute_ty(
-            &binding_info_mut.ty,
-            self.infcx.get_table_mut(),
-            binding.ty_expr.map_or(binding.pattern.span(), |e| e.span),
-        )?;
+        println!("{}", binding.ty);
 
-        Ok(binding_info_mut.ty.clone())
+        Ok(binding.ty.clone())
     }
 
     pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<Ty> {
@@ -158,7 +165,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        self.update_binding_info_ty(import.binding_info_idx, ty);
+        self.update_binding_info_ty(import.binding_info_idx, ty.clone());
 
         Ok(ty)
     }

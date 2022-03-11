@@ -44,8 +44,9 @@ impl UnifyValue for InferenceValue {
             | (v @ Bound(Ty::MultiPointer(..)), UntypedNil)
             | (UntypedNil, v @ Bound(Ty::MultiPointer(..))) => Ok(v.clone()),
 
-            (UntypedFloat, v @ Bound(Ty::Float(_)))
-            | (v @ Bound(Ty::Float(_)), UntypedFloat) => Ok(v.clone()),
+            (UntypedFloat, v @ Bound(Ty::Float(_))) | (v @ Bound(Ty::Float(_)), UntypedFloat) => {
+                Ok(v.clone())
+            }
 
             (Bound(t1), Bound(t2)) => {
                 panic!("can't unify two bound variables {} and {}", t1, t2)
@@ -78,23 +79,17 @@ impl InferenceContext {
                         *left_expr = left_expr.coerce(right_expr_ty.clone());
                         Ok(right_expr_ty)
                     }
-                    CoercionResult::NoCoercion => Err(self
-                        .map_unification_error(
-                            UnificationError(left_expr_ty, right_expr_ty),
-                            span,
-                        )),
+                    CoercionResult::NoCoercion => Err(self.map_unification_error(
+                        UnificationError(left_expr_ty, right_expr_ty),
+                        span,
+                    )),
                 }
             }
         }
     }
 
-    pub fn unify_or_coerce_ty_expr(
-        &mut self,
-        ty: &Ty,
-        expr: &mut Expr,
-        span: Span,
-    ) -> DiagnosticResult<Ty> {
-        match self.unify_ty_ty(ty, &expr.ty, span) {
+    pub fn unify_or_coerce_ty_expr(&mut self, ty: &Ty, expr: &mut Expr) -> DiagnosticResult<Ty> {
+        match self.unify_ty_ty(ty, &expr.ty, expr.span) {
             Ok(ty) => Ok(ty),
             Err(_) => {
                 let ty = self.normalize_ty(ty);
@@ -105,12 +100,9 @@ impl InferenceContext {
                         *expr = expr.coerce(ty.clone());
                         Ok(ty)
                     }
-                    CoercionResult::CoerceToLeft
-                    | CoercionResult::NoCoercion => Err(self
-                        .map_unification_error(
-                            UnificationError(ty, expr_ty),
-                            span,
-                        )),
+                    CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => {
+                        Err(self.map_unification_error(UnificationError(ty, expr_ty), expr.span))
+                    }
                 }
             }
         }
@@ -125,9 +117,8 @@ impl InferenceContext {
         let expected: Ty = expected.into();
         let actual: Ty = actual.into();
 
-        self.unify_ty_ty(&expected, &actual, span).map_err(|_| {
-            self.map_unification_error(UnificationError(expected, actual), span)
-        })
+        self.unify_ty_ty(&expected, &actual, span)
+            .map_err(|_| self.map_unification_error(UnificationError(expected, actual), span))
     }
 
     pub fn unify_ty_ty(
@@ -157,10 +148,7 @@ impl InferenceContext {
 
             (Ty::Pointer(t1, m1), Ty::Pointer(t2, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
-                    return Err(UnificationError(
-                        expected.clone(),
-                        actual.clone(),
-                    ));
+                    return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(t1, t2, span)?;
@@ -169,10 +157,7 @@ impl InferenceContext {
 
             (Ty::MultiPointer(t1, m1), Ty::MultiPointer(t2, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
-                    return Err(UnificationError(
-                        expected.clone(),
-                        actual.clone(),
-                    ));
+                    return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(t1, t2, span)?;
@@ -195,9 +180,7 @@ impl InferenceContext {
             }
 
             (Ty::Var(var), actual) => match self.value_of(TyVar::from(*var)) {
-                InferenceValue::Bound(expected) => {
-                    self.unify_ty_ty(&expected, actual, span)
-                }
+                InferenceValue::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
                 InferenceValue::UntypedInt
                 | InferenceValue::UntypedFloat
                 | InferenceValue::UntypedNil
@@ -212,9 +195,7 @@ impl InferenceContext {
 
             (expected, Ty::Var(var)) => {
                 match self.value_of(TyVar::from(*var)) {
-                    InferenceValue::Bound(actual) => {
-                        self.unify_ty_ty(expected, &actual, span)
-                    }
+                    InferenceValue::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
                     value @ InferenceValue::UntypedInt
                     | value @ InferenceValue::UntypedFloat
                     | value @ InferenceValue::UntypedNil
@@ -226,9 +207,7 @@ impl InferenceContext {
                                 TyVar::from(*var),
                                 InferenceValue::Bound(expected.clone()),
                             )
-                            .map_err(|_| {
-                                UnificationError(expected.clone(), value.into())
-                            })?;
+                            .map_err(|_| UnificationError(expected.clone(), value.into()))?;
 
                         Ok(expected.clone())
                     }
@@ -236,13 +215,8 @@ impl InferenceContext {
             }
 
             (Ty::Fn(fn_a), Ty::Fn(fn_b)) => {
-                if fn_a.variadic != fn_b.variadic
-                    || fn_a.params.len() != fn_b.params.len()
-                {
-                    return Err(UnificationError(
-                        expected.clone(),
-                        actual.clone(),
-                    ));
+                if fn_a.variadic != fn_b.variadic || fn_a.params.len() != fn_b.params.len() {
+                    return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 self.unify_ty_ty(&fn_a.ret, &fn_b.ret, span)?;
@@ -256,10 +230,7 @@ impl InferenceContext {
 
             (Ty::Array(inner_a, len_a), Ty::Array(inner_b, len_b)) => {
                 if len_a != len_b {
-                    return Err(UnificationError(
-                        expected.clone(),
-                        actual.clone(),
-                    ));
+                    return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified_inner = self.unify_ty_ty(inner_a, inner_b, span)?;
@@ -269,10 +240,7 @@ impl InferenceContext {
 
             (Ty::Slice(inner_a, m1), Ty::Slice(inner_b, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
-                    return Err(UnificationError(
-                        expected.clone(),
-                        actual.clone(),
-                    ));
+                    return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(inner_a, inner_b, span)?;
@@ -281,10 +249,7 @@ impl InferenceContext {
 
             (Ty::Tuple(tys_a), Ty::Tuple(tys_b)) => {
                 if tys_a.len() != tys_b.len() {
-                    return Err(UnificationError(
-                        expected.clone(),
-                        actual.clone(),
-                    ));
+                    return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let mut unified_tys = vec![];
@@ -307,9 +272,7 @@ impl InferenceContext {
 
             (Ty::Never, t) | (t, Ty::Never) => Ok(t.clone()),
 
-            (expected, actual) => {
-                Err(UnificationError(expected.clone(), actual.clone()))
-            }
+            (expected, actual) => Err(UnificationError(expected.clone(), actual.clone())),
         }
     }
 

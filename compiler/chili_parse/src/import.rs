@@ -1,7 +1,5 @@
 use crate::*;
-use chili_ast::ast::{
-    Import, ImportPath, ImportPathNode, ModuleInfo, Visibility,
-};
+use chili_ast::ast::{Import, ImportPath, ImportPathNode, ModuleInfo, Visibility};
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, Spanned};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -13,10 +11,7 @@ use std::path::{Path, PathBuf};
 use ustr::{ustr, Ustr};
 
 impl<'w> Parser<'w> {
-    pub(crate) fn parse_import(
-        &mut self,
-        visibility: Visibility,
-    ) -> DiagnosticResult<Vec<Import>> {
+    pub(crate) fn parse_import(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
         let imports = self.parse_import_internal(visibility)?;
         imports.iter().for_each(|import| {
             self.used_modules.insert(import.module_info);
@@ -24,10 +19,7 @@ impl<'w> Parser<'w> {
         Ok(imports)
     }
 
-    fn parse_import_internal(
-        &mut self,
-        visibility: Visibility,
-    ) -> DiagnosticResult<Vec<Import>> {
+    fn parse_import_internal(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
         if eat!(self, Tilde) {
             expect!(self, Dot, ".")?;
             todo!("implement `from_root` use: `use ~.foo.bar`");
@@ -45,13 +37,7 @@ impl<'w> Parser<'w> {
                 let module = info.name;
                 let alias = info.name;
 
-                self.parse_import_postfix(
-                    path_buf,
-                    module,
-                    alias,
-                    visibility,
-                    id_token.span,
-                )
+                self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
             }
             _ => {
                 let mut path_buf = PathBuf::from(&self.current_dir);
@@ -63,25 +49,11 @@ impl<'w> Parser<'w> {
 
                 if path_buf.with_extension(SOURCE_FILE_EXT).is_file() {
                     path_buf.set_extension(SOURCE_FILE_EXT);
-                    check_path_is_under_root_or_std(
-                        self.root_dir,
-                        &path_buf,
-                        id_token.span,
-                    )?;
+                    check_path_is_under_root_or_std(self.root_dir, &path_buf, id_token.span)?;
 
-                    self.parse_import_postfix(
-                        path_buf,
-                        module,
-                        alias,
-                        visibility,
-                        id_token.span,
-                    )
+                    self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
                 } else if path_buf.is_dir() {
-                    check_path_is_under_root_or_std(
-                        self.root_dir,
-                        &path_buf,
-                        id_token.span,
-                    )?;
+                    check_path_is_under_root_or_std(self.root_dir, &path_buf, id_token.span)?;
 
                     let mut mod_path = path_buf.clone();
 
@@ -97,11 +69,7 @@ impl<'w> Parser<'w> {
                             id_token.span,
                         )
                     } else {
-                        Err(module_not_found_err(
-                            &path_buf,
-                            &module,
-                            id_token.span,
-                        ))
+                        Err(module_not_found_err(&path_buf, &module, id_token.span))
                     }
                 } else {
                     Err(module_not_found_err(&path_buf, &module, id_token.span))
@@ -147,10 +115,7 @@ impl<'w> Parser<'w> {
                 let id_token_span = id_token.span;
                 let alias = id_token.symbol();
 
-                import_path.push(Spanned::new(
-                    ImportPathNode::Symbol(alias),
-                    id_token.span,
-                ));
+                import_path.push(Spanned::new(ImportPathNode::Symbol(alias), id_token.span));
 
                 self.parse_import_postfix_internal(
                     path,
@@ -170,10 +135,8 @@ impl<'w> Parser<'w> {
                     let alias = id_token.symbol();
 
                     let mut local_import_path = import_path.clone();
-                    local_import_path.push(Spanned::new(
-                        ImportPathNode::Symbol(alias),
-                        id_token.span,
-                    ));
+                    local_import_path
+                        .push(Spanned::new(ImportPathNode::Symbol(alias), id_token.span));
 
                     let import = self.parse_import_postfix_internal(
                         path,
@@ -194,10 +157,7 @@ impl<'w> Parser<'w> {
 
                 Ok(imports)
             } else if eat!(self, QuestionMark) {
-                import_path.push(Spanned::new(
-                    ImportPathNode::Glob,
-                    self.previous().span,
-                ));
+                import_path.push(Spanned::new(ImportPathNode::Glob, self.previous().span));
                 Ok(vec![Import {
                     module_idx: Default::default(),
                     module_info: ModuleInfo::new(module, path),
@@ -231,29 +191,26 @@ impl<'w> Parser<'w> {
 
     fn get_module_name_from_path(&self, path: &Path) -> String {
         // TODO: this `std_root_dir` thing is very hacky. we should probably get
-        // `std` from `root_dir`, and not do this ad-hoc.
-        let mut std_root_dir =
-            self.std_dir.parent().unwrap().to_str().unwrap().to_string();
+        // TODO: `std` from `root_dir`, and not do this ad-hoc.
+        let root_dir = self.root_dir.to_str().unwrap();
+        let std_root_dir = self.std_dir.parent().unwrap().to_str().unwrap();
 
-        std_root_dir.push(std::path::MAIN_SEPARATOR);
-
-        let path_str = path.to_str().unwrap();
+        let path_str = path.to_str().unwrap().to_string();
 
         const DOT: &str = ".";
-        path_str
+        let path_str = path_str
+            .replace(root_dir, "")
+            .replace(std_root_dir, "")
+            .replace(std::path::MAIN_SEPARATOR, DOT)
             .trim_start_matches(DOT)
             .trim_end_matches(DOT)
-            .replace(self.root_dir.to_str().unwrap(), "")
-            .replace(&std_root_dir, "")
-            .replace(std::path::MAIN_SEPARATOR, DOT)
+            .to_string();
+
+        path_str
     }
 }
 
-fn module_not_found_err(
-    path_buf: &PathBuf,
-    module: &str,
-    span: Span,
-) -> Diagnostic<usize> {
+fn module_not_found_err(path_buf: &PathBuf, module: &str, span: Span) -> Diagnostic<usize> {
     Diagnostic::error()
         .with_message(format!("couldn't find module `{}`", module))
         .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
@@ -268,16 +225,12 @@ fn check_path_is_under_root_or_std(
     path_buf: &PathBuf,
     span: Span,
 ) -> DiagnosticResult<()> {
-    if path_buf.starts_with(root_path)
-        || path_buf.starts_with(compiler_info::std_module_root_dir())
+    if path_buf.starts_with(root_path) || path_buf.starts_with(compiler_info::std_module_root_dir())
     {
         Ok(())
     } else {
         Err(Diagnostic::error()
             .with_message("cannot use modules outside of the root module scope")
-            .with_labels(vec![Label::primary(
-                span.file_id,
-                span.range().clone(),
-            )]))
+            .with_labels(vec![Label::primary(span.file_id, span.range().clone())]))
     }
 }

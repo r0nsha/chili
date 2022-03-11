@@ -1,4 +1,4 @@
-use chili_ast::ast::{Call, Expr};
+use chili_ast::ast::Call;
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
@@ -17,8 +17,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         call.callee.ty = self.check_expr(frame, &mut call.callee, None)?;
         call.callee.ty = self.infcx.normalize_ty(&call.callee.ty);
 
-        match &call.callee.ty {
-            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, &call.callee, span),
+        match call.callee.ty.clone() {
+            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, span),
             ty => Err(TypeError::expected(
                 call.callee.span,
                 ty.to_string(),
@@ -31,8 +31,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         fn_type: &FnTy,
-        call: &Call,
-        callee: &Expr,
+        call: &mut Call,
         span: Span,
     ) -> DiagnosticResult<Ty> {
         if fn_type.variadic {
@@ -53,8 +52,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let mut passed_args = UstrMap::default();
 
-        for (index, arg) in call.args.iter().enumerate() {
-            let new_arg = if let Some(symbol) = &arg.symbol {
+        for (index, arg) in call.args.iter_mut().enumerate() {
+            if let Some(symbol) = &mut arg.symbol {
                 // * this is a named argument
 
                 if let Some(passed_span) = passed_args.insert(symbol.value, symbol.span) {
@@ -79,11 +78,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
-                    self.infcx.unify_or_coerce_ty_expr(
-                        &param_ty,
-                        &mut arg.value,
-                        call.args[index].value.span,
-                    )?;
+                    self.infcx
+                        .unify_or_coerce_ty_expr(&param_ty, &mut arg.value)?;
                 } else {
                     return Err(Diagnostic::error()
                         .with_message(format!("unknown argument `{}`", symbol.value))
@@ -102,11 +98,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
-                    self.infcx.unify_or_coerce_ty_expr(
-                        &param_ty,
-                        &mut arg.value,
-                        call.args[index].value.span,
-                    )?;
+                    self.infcx
+                        .unify_or_coerce_ty_expr(&param_ty, &mut arg.value)?;
                 } else {
                     // * this is a variadic argument, meaning that the argument's
                     // * index is greater than the function param length

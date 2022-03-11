@@ -42,9 +42,7 @@ impl Pattern {
     pub fn span(&self) -> Span {
         match self {
             Pattern::Single(p) => p.span,
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
-                p.span
-            }
+            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => p.span,
         }
     }
 
@@ -53,6 +51,15 @@ impl Pattern {
             Pattern::Single(p) => vec![p],
             Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
                 p.symbols.iter().collect::<Vec<_>>()
+            }
+        }
+    }
+
+    pub fn symbols_mut(&mut self) -> Vec<&mut SymbolPattern> {
+        match self {
+            Pattern::Single(p) => vec![p],
+            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
+                p.symbols.iter_mut().collect::<Vec<_>>()
             }
         }
     }
@@ -65,9 +72,7 @@ impl IntoIterator for Pattern {
     fn into_iter(self) -> Self::IntoIter {
         let vec = match self {
             Pattern::Single(p) => vec![p],
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
-                p.symbols
-            }
+            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => p.symbols,
         };
         vec.into_iter()
     }
@@ -80,8 +85,7 @@ impl Display for Pattern {
             "{}",
             match self {
                 Pattern::Single(s) => s.to_string(),
-                Pattern::StructDestructor(s) =>
-                    format!("{{{}}}", s.to_string()),
+                Pattern::StructDestructor(s) => format!("{{{}}}", s.to_string()),
                 Pattern::TupleDestructor(s) => format!("({})", s.to_string()),
             }
         )

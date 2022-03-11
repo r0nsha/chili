@@ -14,12 +14,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         frame: &mut CheckFrame,
         lvalue: &mut Expr,
         rvalue: &mut Expr,
-        span: Span,
     ) -> DiagnosticResult<Ty> {
         match &lvalue.kind {
             ExprKind::Id {
                 symbol,
-                is_mutable,
+                is_mutable: _,
                 binding_info_idx,
                 ..
             } => {
@@ -59,8 +58,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         rvalue.ty = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
 
-        self.infcx
-            .unify_or_coerce_ty_expr(&lvalue.ty, rvalue, rvalue.span)?;
+        self.infcx.unify_or_coerce_ty_expr(&lvalue.ty, rvalue)?;
 
         Ok(Ty::Unit)
     }

@@ -486,7 +486,6 @@ impl ForeignLibrary {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
-    pub binding_info_idx: BindingInfoIdx,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub pattern: Pattern,
@@ -508,7 +507,6 @@ impl Binding {
         lib_name: Option<Ustr>,
     ) -> Self {
         Self {
-            binding_info_idx: Default::default(),
             visibility,
             kind,
             pattern,

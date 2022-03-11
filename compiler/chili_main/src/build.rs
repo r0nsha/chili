@@ -77,6 +77,10 @@ pub fn do_build(build_options: BuildOptions) {
     //     ast.print();
     // }
 
+    // for binding in workspace.binding_infos.iter() {
+    //     println!("{} -> {:?}", binding.symbol, binding.ty);
+    // }
+
     // codegen(&build_options, &ir);
 
     all_sw.stop();

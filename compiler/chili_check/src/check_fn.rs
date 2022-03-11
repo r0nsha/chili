@@ -35,8 +35,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         self.init_scopes.push_scope();
 
-        let (mut body, result_ty) =
-            self.check_block(&mut fn_frame, &func.body, Some(proto_ty.clone()))?;
+        let result_ty = self.check_block(&mut fn_frame, &mut func.body, Some(proto_ty.clone()))?;
 
         self.init_scopes.pop_scope();
 
@@ -48,17 +47,14 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let result_ty = self.infcx.normalize_ty(&result_ty);
 
         if !result_ty.is_never() {
-            if body.exprs.is_empty() {
+            if func.body.exprs.is_empty() {
                 self.infcx
                     .unify(ty.ret.as_ref().clone(), Ty::Unit, last_stmt_span)?;
             } else {
-                if body.yields && !ty.ret.is_unit() {
-                    let last_expr_mut = body.exprs.last_mut().unwrap();
-                    self.infcx.unify_or_coerce_ty_expr(
-                        ty.ret.as_ref(),
-                        last_expr_mut,
-                        last_stmt_span,
-                    )?;
+                if func.body.yields && !ty.ret.is_unit() {
+                    let last_expr_mut = func.body.exprs.last_mut().unwrap();
+                    self.infcx
+                        .unify_or_coerce_ty_expr(ty.ret.as_ref(), last_expr_mut)?;
                 } else {
                     self.infcx.unify(ty.ret.as_ref().clone(), Ty::Unit, span)?;
                 }
@@ -88,7 +84,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<Ty> {
-        let expected_fn_ty = expected_ty
+        let mut expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
             .and_then(|t| {
@@ -148,7 +144,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
             let ty = if let Some(ty_expr) = &mut param.ty {
                 ty_expr.ty = self.check_type_expr(frame, ty_expr)?;
-                ty_expr.ty
+                ty_expr.ty.clone()
             } else {
                 match &mut expected_fn_ty {
                     Some(expected_fn_ty) => {
