@@ -1,7 +1,7 @@
 use crate::coerce::can_coerce_mut;
 use crate::{
     coerce::{Coerce, CoercionResult, TryCoerce},
-    sess::{InferSess, InferValue, InferValue::*, Ty},
+    sess::{InferSess, InferValue, InferValue::*, TyVar},
 };
 use chili_ast::ast::Expr;
 use chili_ast::ty::*;
@@ -168,8 +168,8 @@ impl InferSess {
             }
 
             (TyKind::Var(v1), TyKind::Var(v2)) => {
-                let v1 = Ty::from(*v1);
-                let v2 = Ty::from(*v2);
+                let v1 = TyVar::from(*v1);
+                let v2 = TyVar::from(*v2);
 
                 match (self.value_of(v1), self.value_of(v2)) {
                     (InferValue::Bound(t1), InferValue::Bound(t2)) => {
@@ -182,20 +182,20 @@ impl InferSess {
                 }
             }
 
-            (TyKind::Var(var), actual) => match self.value_of(Ty::from(*var)) {
+            (TyKind::Var(var), actual) => match self.value_of(TyVar::from(*var)) {
                 InferValue::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
                 InferValue::UntypedInt
                 | InferValue::UntypedFloat
                 | InferValue::UntypedNil
                 | InferValue::Unbound => {
                     self.table
-                        .unify_var_value(Ty::from(*var), InferValue::Bound(actual.clone()))?;
+                        .unify_var_value(TyVar::from(*var), InferValue::Bound(actual.clone()))?;
                     Ok(actual.clone())
                 }
             },
 
             (expected, TyKind::Var(var)) => {
-                match self.value_of(Ty::from(*var)) {
+                match self.value_of(TyVar::from(*var)) {
                     InferValue::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
                     value @ InferValue::UntypedInt
                     | value @ InferValue::UntypedFloat
@@ -204,7 +204,7 @@ impl InferSess {
                         // We map the error so that the error message matches
                         // the types
                         self.table
-                            .unify_var_value(Ty::from(*var), InferValue::Bound(expected.clone()))
+                            .unify_var_value(TyVar::from(*var), InferValue::Bound(expected.clone()))
                             .map_err(|_| UnificationError(expected.clone(), value.into()))?;
 
                         Ok(expected.clone())
