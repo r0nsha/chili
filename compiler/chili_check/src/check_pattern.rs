@@ -3,7 +3,7 @@ use chili_error::{DiagnosticResult, TypeError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrSet;
 
-use crate::{CheckFrame, CheckSess};
+use crate::CheckSess;
 use chili_ast::{
     pattern::{DestructorPattern, Pattern, SymbolPattern},
     value::Value,
@@ -12,23 +12,24 @@ use chili_ast::{
 impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_binding_pattern(
         &mut self,
-        frame: &mut CheckFrame,
         pattern: &Pattern,
         expected_ty: TyKind,
         const_value: Option<Value>,
-        is_init: bool,
     ) -> DiagnosticResult<()> {
         match pattern {
             Pattern::Single(pat) => {
                 self.update_symbol_pattern_ty(pat, expected_ty);
+                if let Some(const_value) = const_value {
+                    self.consts_map.insert(pat.binding_info_idx, const_value);
+                }
             }
             Pattern::StructDestructor(pattern) => {
                 let ty = self.infcx.normalize_ty(&expected_ty);
-                self.check_struct_destructor(frame, &ty, pattern, is_init)?;
+                self.check_struct_destructor(&ty, pattern)?;
             }
             Pattern::TupleDestructor(pattern) => {
                 let ty = self.infcx.normalize_ty(&expected_ty);
-                self.check_tuple_destructor(frame, &ty, pattern, is_init)?;
+                self.check_tuple_destructor(&ty, pattern)?;
             }
         }
 
@@ -37,10 +38,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     fn check_struct_destructor(
         &mut self,
-        frame: &mut CheckFrame,
         expected_ty: &TyKind,
         pattern: &DestructorPattern,
-        is_init: bool,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
             TyKind::Struct(ref struct_ty) => {
@@ -68,8 +67,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                     field.symbol,
                                 ));
                             }
-
-                            let symbol = pat.alias.unwrap_or(pat.symbol);
 
                             self.update_symbol_pattern_ty(
                                 pat,
@@ -117,10 +114,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     fn check_tuple_destructor(
         &mut self,
-        frame: &mut CheckFrame,
         expected_ty: &TyKind,
         pattern: &DestructorPattern,
-        is_init: bool,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
             TyKind::Tuple(tys) => {

@@ -11,18 +11,15 @@ use inkwell::{
     module::Linkage,
     types::{AnyType, FunctionType},
     values::{
-        BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue,
-        FunctionValue, PointerValue,
+        BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue,
+        PointerValue,
     },
     AddressSpace,
 };
 use ustr::ustr;
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
-    fn gen_startup(
-        &mut self,
-        entry_point_func: FunctionValue<'ctx>,
-    ) -> FunctionValue<'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+    fn gen_startup(&mut self, entry_point_func: FunctionValue<'ctx>) -> FunctionValue<'ctx> {
         let name = "main";
 
         let linkage = Some(Linkage::External);
@@ -115,8 +112,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             state.module_info = module.info;
 
             for binding in module.bindings.iter() {
-                if !binding.should_codegen || binding.kind == BindingKind::Type
-                {
+                if !binding.should_codegen || binding.kind == BindingKind::Type {
                     continue;
                 }
 
@@ -129,9 +125,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                                 //   initialize its value
                                 // * i can probably come up with cleaner code
                                 //   here...
-                                ExprKind::Fn(_) | ExprKind::FnType(_) => {
-                                    continue
-                                }
+                                ExprKind::Fn(_) | ExprKind::FnType(_) => continue,
                                 _ => (),
                             },
                             None => (),
@@ -140,17 +134,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let symbol = binding.pattern.into_single().symbol;
 
                         let ptr = self
-                            .find_or_gen_top_level_decl(
-                                state.module_info,
-                                symbol,
-                            )
+                            .find_or_gen_top_level_decl(state.module_info, symbol)
                             .into_pointer_value();
 
-                        let value = self.gen_expr(
-                            &mut state,
-                            binding.value.as_ref().unwrap(),
-                            true,
-                        );
+                        let value =
+                            self.gen_expr(&mut state, binding.value.as_ref().unwrap(), true);
                         self.build_store(ptr, value);
                     }
                 }
@@ -215,8 +203,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let abi_fn = self.fn_type_map.get(fn_ty).unwrap().clone();
 
         let return_ptr = if abi_fn.ret.kind.is_indirect() {
-            let return_ptr =
-                function.get_first_param().unwrap().into_pointer_value();
+            let return_ptr = function.get_first_param().unwrap().into_pointer_value();
             return_ptr.set_name(&format!("{}.result", fn_name));
             Some(return_ptr)
         } else {
@@ -246,9 +233,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             params.remove(0);
         }
 
-        for (index, (&value, param)) in
-            params.iter().zip(func.proto.params.iter()).enumerate()
-        {
+        for (index, (&value, param)) in params.iter().zip(func.proto.params.iter()).enumerate() {
             let value = if abi_fn.params[index].kind.is_indirect() {
                 self.build_load(value)
             } else {
@@ -264,12 +249,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             let value = self.build_transmute(&state, value, llvm_param_ty);
 
-            self.gen_binding_pattern_from_value(
-                &mut state,
-                &param.pattern,
-                param_ty,
-                value,
-            );
+            self.gen_binding_pattern_from_value(&mut state, &param.pattern, param_ty, value);
         }
 
         for (index, expr) in func.body.exprs.iter().enumerate() {
@@ -293,8 +273,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.start_block(&mut state, decl_block);
         self.builder.build_unconditional_branch(entry_block);
 
-        let function_value =
-            self.verify_and_optimize_function(function, &func.proto.name);
+        let function_value = self.verify_and_optimize_function(function, &func.proto.name);
 
         if func.is_startup {
             self.gen_startup(function_value);
@@ -333,22 +312,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let llvm_name = proto.llvm_name(module_info.name);
 
-        let function = self.get_or_add_function(
-            llvm_name,
-            fn_type,
-            Some(Linkage::External),
-        );
+        let function = self.get_or_add_function(llvm_name, fn_type, Some(Linkage::External));
 
         self.add_fn_attributes(function, abi_fn);
 
         function
     }
 
-    fn add_fn_attributes(
-        &self,
-        function: FunctionValue<'ctx>,
-        abi_fn: &AbiFn<'ctx>,
-    ) {
+    fn add_fn_attributes(&self, function: FunctionValue<'ctx>, abi_fn: &AbiFn<'ctx>) {
         for (index, param) in abi_fn.params.iter().enumerate() {
             if param.kind.is_ignore() {
                 continue;
@@ -359,25 +330,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
 
             if let Some(align_attr) = param.align_attr {
-                function.add_attribute(
-                    AttributeLoc::Param(index as u32),
-                    align_attr,
-                );
+                function.add_attribute(AttributeLoc::Param(index as u32), align_attr);
             }
         }
 
         if abi_fn.ret.kind.is_indirect() && abi_fn.ret.attr.is_some() {
             // TODO: maybe this should be AttributeLoc::Return
+            function.add_attribute(AttributeLoc::Param(0), abi_fn.ret.attr.unwrap());
             function.add_attribute(
                 AttributeLoc::Param(0),
-                abi_fn.ret.attr.unwrap(),
-            );
-            function.add_attribute(
-                AttributeLoc::Param(0),
-                self.context.create_enum_attribute(
-                    Attribute::get_named_enum_kind_id("noalias"),
-                    0,
-                ),
+                self.context
+                    .create_enum_attribute(Attribute::get_named_enum_kind_id("noalias"), 0),
             );
         }
 

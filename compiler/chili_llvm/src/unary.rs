@@ -1,10 +1,10 @@
 use crate::codegen::{Codegen, CodegenState};
 use chili_ast::ast::{Expr, UnaryOp};
-use chili_span::Span;
 use chili_ast::ty::*;
+use chili_span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn gen_unary(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -17,11 +17,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             UnaryOp::Ref(_) => self.gen_expr(state, &lhs, false),
             UnaryOp::Deref => {
                 let ptr = self.gen_expr(state, lhs, true);
-                self.gen_runtime_check_null_pointer_deref(
-                    state,
-                    ptr.into_pointer_value(),
-                    span,
-                );
+                self.gen_runtime_check_null_pointer_deref(state, ptr.into_pointer_value(), span);
                 if deref {
                     self.build_load(ptr)
                 } else {
@@ -31,17 +27,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             UnaryOp::Neg => match &lhs.ty {
                 TyKind::Int(_) => self
                     .builder
-                    .build_int_neg(
-                        self.gen_expr(state, lhs, true).into_int_value(),
-                        "sneg",
-                    )
+                    .build_int_neg(self.gen_expr(state, lhs, true).into_int_value(), "sneg")
                     .into(),
                 TyKind::Float(_) => self
                     .builder
-                    .build_float_neg(
-                        self.gen_expr(state, lhs, true).into_float_value(),
-                        "fneg",
-                    )
+                    .build_float_neg(self.gen_expr(state, lhs, true).into_float_value(), "fneg")
                     .into(),
                 _ => unreachable!("{}", lhs.ty),
             },

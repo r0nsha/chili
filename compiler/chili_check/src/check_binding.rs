@@ -2,16 +2,14 @@ use crate::{CheckFrame, CheckSess, InitState};
 use chili_ast::ty::*;
 use chili_ast::workspace::{BindingInfo, BindingInfoIdx, ModuleIdx};
 use chili_ast::{
-    ast::{Binding, BindingKind, Import, Module, ModuleInfo, Visibility},
+    ast::{Binding, BindingKind, Import, Visibility},
     pattern::{Pattern, SymbolPattern},
     value::Value,
 };
 use chili_error::{DiagnosticResult, TypeError};
-use chili_infer::substitute::Substitute;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::env::Env;
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
 impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_binding(
@@ -28,7 +26,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             None => (None, self.infcx.fresh_type_var()),
         };
 
-        for symbol in binding.pattern.symbols_mut() {
+        for symbol in binding.pattern.symbols() {
             let var = self.infcx.fresh_type_var();
             self.update_binding_info_ty(symbol.binding_info_idx, var.into());
             self.init_scopes.insert(
@@ -111,13 +109,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let ty = self.infcx.normalize_ty(&expected_var.into());
 
-        self.check_binding_pattern(
-            frame,
-            &binding.pattern,
-            ty,
-            const_value.clone(),
-            value.is_some() || const_value.is_some(),
-        )?;
+        self.check_binding_pattern(&binding.pattern, ty.clone(), const_value.clone())?;
 
         Ok(Binding {
             kind: binding.kind,
@@ -158,7 +150,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     pub(crate) fn check_import(&mut self, import: &Import) -> DiagnosticResult<()> {
         let mut ty = TyKind::Module(import.module_idx);
-        let mut idx = Default::default();
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
@@ -171,8 +162,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     symbol.span,
                 )?;
 
-                ty = binding_info.ty;
-                idx = binding_info.idx;
+                ty = binding_info.ty.clone();
 
                 match ty {
                     TyKind::Module(idx) => current_module_idx = idx,
@@ -190,7 +180,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         }
 
         self.update_binding_info_ty(import.binding_info_idx, ty.clone());
-        let const_value = self.get_binding_const_value(idx);
 
         Ok(())
     }

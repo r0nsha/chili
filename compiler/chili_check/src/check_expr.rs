@@ -121,9 +121,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 expr: looped_expr,
             } => {
                 let mut cond = self.check_expr(frame, cond, None)?;
-                let cond_span = cond.expr.span;
+
                 self.infcx
                     .unify_or_coerce_ty_expr(&TyKind::Bool, &mut cond.expr)?;
+
                 let looped_expr = self.check_expr(frame, looped_expr, None)?;
 
                 CheckedExpr::new(
@@ -367,7 +368,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             } => {
                 let mut index = self.check_expr(frame, index, None)?;
 
-                let index_span = index.expr.span;
                 self.infcx
                     .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), &mut index.expr)?;
 
@@ -425,7 +425,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 let low = if let Some(low) = low {
                     let mut low = self.check_expr(frame, low, None)?;
 
-                    let span = low.expr.span;
                     self.infcx
                         .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), &mut low.expr)?;
 
@@ -437,7 +436,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 let high = if let Some(high) = high {
                     let mut high = self.check_expr(frame, high, None)?;
 
-                    let span = high.expr.span;
                     self.infcx
                         .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), &mut high.expr)?;
 
@@ -535,7 +533,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             self.find_binding_info_in_module(*module_idx, *field, expr.span)?;
 
                         (
-                            binding_info.ty,
+                            binding_info.ty.clone(),
                             self.get_binding_const_value(binding_info.idx),
                         )
                     }
@@ -588,7 +586,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         binding_span: binding_info.span,
                         binding_info_idx: Default::default(),
                     },
-                    binding_info.ty,
+                    binding_info.ty.clone(),
                     self.get_binding_const_value(*binding_info_idx),
                     expr.span,
                 )
@@ -602,7 +600,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     for el in elements {
                         let mut el = self.check_expr(frame, el, Some(element_ty.clone()))?;
 
-                        let el_span = el.expr.span;
                         self.infcx
                             .unify_or_coerce_ty_expr(&element_ty, &mut el.expr)?;
 
@@ -1035,7 +1032,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     let mut field_value =
                         self.check_expr(frame, &field.value, Some(f.ty.clone()))?;
 
-                    let field_span = field.value.span;
                     self.infcx
                         .unify_or_coerce_ty_expr(&f.ty, &mut field_value.expr)?;
 

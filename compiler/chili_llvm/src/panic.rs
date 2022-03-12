@@ -2,7 +2,7 @@ use super::codegen::{Codegen, CodegenState};
 use chili_span::Span;
 use inkwell::values::{BasicValueEnum, IntValue};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     #[allow(unused)]
     pub(super) fn gen_panic_with_message(
         &mut self,
@@ -21,10 +21,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) {
         let panic_fn = self
-            .find_or_gen_binding_by_name(
-                "std.panicking",
-                "default_panic_handler",
-            )
+            .find_or_gen_binding_by_name("std.panicking", "default_panic_handler")
             .into_function_value();
 
         let panic_type = self
@@ -42,11 +39,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let program = self.gen_global_str("panic_program", "main", true);
 
-        let file_path = self.gen_global_str(
-            "panic_file_path",
-            state.module_info.file_path,
-            true,
-        );
+        let file_path = self.gen_global_str("panic_file_path", state.module_info.file_path, true);
 
         let line = self
             .ptr_sized_int_type
@@ -88,11 +81,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let panic_block = self.append_basic_block(state, name);
         let no_panic_block = self.append_basic_block(state, "__no_panic");
 
-        self.builder.build_conditional_branch(
-            cond,
-            panic_block,
-            no_panic_block,
-        );
+        self.builder
+            .build_conditional_branch(cond, panic_block, no_panic_block);
 
         self.start_block(state, panic_block);
         self.gen_panic(state, message, span);

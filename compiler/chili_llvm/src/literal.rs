@@ -7,7 +7,7 @@ use inkwell::{
     AddressSpace,
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn gen_struct_literal_named(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -48,10 +48,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .build_struct_gep(
                         struct_ptr,
                         field_index as u32,
-                        &format!(
-                            "set_{}",
-                            struct_ty.fields[field_index].symbol
-                        ),
+                        &format!("set_{}", struct_ty.fields[field_index].symbol),
                     )
                     .unwrap();
 
@@ -79,8 +76,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let ptr = self.build_alloca(state, llvm_type.into());
 
         for (i, value) in values.iter().enumerate() {
-            let field_ptr =
-                self.builder.build_struct_gep(ptr, i as _, "").unwrap();
+            let field_ptr = self.builder.build_struct_gep(ptr, i as _, "").unwrap();
             self.build_store(field_ptr, *value);
         }
 
@@ -120,9 +116,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 _ => unreachable!(),
             },
 
-            LiteralKind::Float(v) => {
-                self.llvm_type(ty).into_float_type().const_float(*v).into()
-            }
+            LiteralKind::Float(v) => self.llvm_type(ty).into_float_type().const_float(*v).into(),
 
             LiteralKind::Str(v) => self.gen_global_str("", v.as_str(), deref),
 

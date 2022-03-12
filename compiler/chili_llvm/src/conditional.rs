@@ -5,7 +5,7 @@ use inkwell::{
     values::{BasicValueEnum, IntValue},
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn gen_if_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -15,15 +15,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let cond = self.gen_expr(state, cond, true).into_int_value();
 
-        let then = |cg: &mut Codegen<'cg, 'ctx>,
-                    state: &mut CodegenState<'ctx>| {
+        let then = |cg: &mut Codegen<'w, 'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
             cg.gen_expr(state, then_expr, true)
         };
 
         let else_ = if let Some(else_expr) = else_expr {
             Some(
-                |cg: &mut Codegen<'cg, 'ctx>,
-                 state: &mut CodegenState<'ctx>| {
+                |cg: &mut Codegen<'w, 'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
                     cg.gen_expr(state, else_expr, true)
                 },
             )
@@ -35,14 +33,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_conditional<
-        Then: FnOnce(
-            &mut Codegen<'cg, 'ctx>,
-            &mut CodegenState<'ctx>,
-        ) -> BasicValueEnum<'ctx>,
-        Else: FnOnce(
-            &mut Codegen<'cg, 'ctx>,
-            &mut CodegenState<'ctx>,
-        ) -> BasicValueEnum<'ctx>,
+        Then: FnOnce(&mut Codegen<'w, 'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
+        Else: FnOnce(&mut Codegen<'w, 'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
     >(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -68,8 +60,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.gen_unit()
         };
 
-        let then_has_terminator =
-            self.current_block().get_terminator().is_some();
+        let then_has_terminator = self.current_block().get_terminator().is_some();
         if !then_has_terminator {
             if merge_block.is_none() {
                 merge_block = Some(self.append_basic_block(state, "if_merge"));
@@ -88,8 +79,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.gen_unit()
         };
 
-        let else_has_terminator =
-            self.current_block().get_terminator().is_some();
+        let else_has_terminator = self.current_block().get_terminator().is_some();
         let else_block = self.current_block();
 
         if !then_has_terminator && !else_has_terminator {
@@ -106,16 +96,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
 
             let phi = self.builder.build_phi(then_type, "if_result");
-            phi.add_incoming(&[
-                (&then_value, then_block),
-                (&else_value, else_block),
-            ]);
+            phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
             phi.as_basic_value()
         } else {
             if !else_has_terminator {
                 if merge_block.is_none() {
-                    merge_block =
-                        Some(self.append_basic_block(state, "if_merge"));
+                    merge_block = Some(self.append_basic_block(state, "if_merge"));
                 }
                 self.builder
                     .build_unconditional_branch(merge_block.unwrap());

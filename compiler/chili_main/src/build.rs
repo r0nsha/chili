@@ -1,10 +1,9 @@
 use chili_ast::workspace::Workspace;
 use chili_astgen::AstGenerator;
-use chili_llvm::codegen;
+use chili_error::emit_single_diagnostic;
+// use chili_llvm::codegen;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
 use colored::Colorize;
-
-use chili_error::emit_single_diagnostic;
 use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
@@ -59,19 +58,19 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Check
 
-    time! { "typeck",
+    time! { "check",
         if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
             emit_single_diagnostic(&workspace.files, diagnostic);
             return;
         }
     }
 
-    // for ast in asts.iter() {
-    //     ast.print();
-    // }
+    for ast in asts.iter() {
+        ast.print();
+    }
 
-    // time! { "codegen (llvm)",
-    //     codegen(&build_options, &ir)
+    // time! { "codegen(llvm)",
+    //     codegen(&workspace, &asts)
     // }
 
     all_sw.stop();

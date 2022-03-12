@@ -30,7 +30,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         for (index, param) in proto.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
-            self.check_binding_pattern(&mut fn_frame, &param.pattern, param_ty, None, true)?;
+            self.check_binding_pattern(&param.pattern, param_ty, None)?;
         }
 
         let (mut body, result_ty) =

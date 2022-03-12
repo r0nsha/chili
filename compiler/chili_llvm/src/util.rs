@@ -14,7 +14,7 @@ use inkwell::{
 use std::mem;
 use ustr::{ustr, Ustr, UstrMap};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     #[inline]
     pub(super) fn get_or_insert_new_module(&mut self, module: Ustr) -> &mut CodegenDeclsMap<'ctx> {
         self.module_decl_map

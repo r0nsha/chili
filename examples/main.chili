@@ -4,20 +4,20 @@
 
 let main = fn {
     let a = 5
-    # let b = {
-    #     let c = a * 2
-    #     c * a * 3
-    # }
+    let b = {
+        let c = a * 2
+        c * a * 3
+    }
 
-    # let hello = "Hello"
+    let hello = "Hello"
 
-    # let t = true || false
+    let t = true || false
 
-    # let d = if t {
-    #     hello
-    # } else {
-    #     "Goodbye"
-    # }
+    let d = if t {
+        hello
+    } else {
+        "Goodbye"
+    }
 
     # Foo { a: 1, b: 2 }
     # Foo { a: 4, b: 3 }

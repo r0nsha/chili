@@ -10,7 +10,10 @@ mod ty;
 mod unary;
 mod util;
 
-use chili_ast::ast::{ForeignLibrary, Ir};
+use chili_ast::{
+    ast::{Ast, ForeignLibrary, Ir},
+    workspace::Workspace,
+};
 use codegen::Codegen;
 use common::{build_options::BuildOptions, target::TargetPlatform, time};
 use execute::Execute;
@@ -31,10 +34,11 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen(build_options: &BuildOptions, ir: &Ir) {
+pub fn codegen<'w>(workspace: &Workspace<'w>, asts: &Vec<Ast>) {
     let context = Context::create();
     let module = context.create_module(
-        build_options
+        workspace
+            .build_options
             .source_path()
             .file_stem()
             .unwrap()
@@ -51,8 +55,8 @@ pub fn codegen(build_options: &BuildOptions, ir: &Ir) {
     init_pass_manager(&fpm);
 
     let mut cg = Codegen {
-        ir: &ir,
-        target_metrics: &build_options.target_platform.metrics(),
+        workspace,
+        target_metrics: workspace.build_options.target_platform.metrics(),
         context: &context,
         module: &module,
         fpm: &fpm,

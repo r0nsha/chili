@@ -5,7 +5,7 @@ use inkwell::{
     IntPredicate,
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn gen_runtime_check_division_by_zero(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -19,8 +19,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             divisor.get_type().const_zero(),
             "",
         );
-        let message =
-            self.gen_global_str(NAME, "attempt to divide by zero", true);
+        let message = self.gen_global_str(NAME, "attempt to divide by zero", true);
         self.gen_conditional_panic(state, NAME, cond, message, span)
     }
 
@@ -32,11 +31,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         const NAME: &str = "__runtime_check_null_pointer_dereference";
         let cond = self.builder.build_is_null(ptr, "");
-        let message = self.gen_global_str(
-            NAME,
-            "attempt to dereference a null pointer",
-            true,
-        );
+        let message = self.gen_global_str(NAME, "attempt to dereference a null pointer", true);
         self.gen_conditional_panic(state, NAME, cond, message, span)
     }
 
@@ -49,11 +44,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         let name = format!("__runtime_check_overflow_{}", op);
 
-        let message = self.gen_global_str(
-            &name,
-            format!("attempt to {} with overflow", op),
-            true,
-        );
+        let message = self.gen_global_str(&name, format!("attempt to {} with overflow", op), true);
 
         self.gen_conditional_panic(state, &name, cond, message, span);
     }
@@ -80,13 +71,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             "",
         );
 
-        let is_larger_than_len =
-            self.builder
-                .build_int_compare(IntPredicate::UGE, index, len, "");
+        let is_larger_than_len = self
+            .builder
+            .build_int_compare(IntPredicate::UGE, index, len, "");
 
-        let cond =
-            self.builder
-                .build_or(is_lower_than_zero, is_larger_than_len, "");
+        let cond = self
+            .builder
+            .build_or(is_lower_than_zero, is_larger_than_len, "");
 
         self.gen_conditional_panic(state, &NAME, cond, message, span);
     }
@@ -106,9 +97,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             true,
         );
 
-        let cond =
-            self.builder
-                .build_int_compare(IntPredicate::ULT, high, low, "");
+        let cond = self
+            .builder
+            .build_int_compare(IntPredicate::ULT, high, low, "");
 
         self.gen_conditional_panic(state, &NAME, cond, message, span);
     }
@@ -129,22 +120,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             true,
         );
 
-        let is_low_less_than_zero = self.builder.build_int_compare(
-            IntPredicate::ULT,
-            low,
-            low.get_type().const_zero(),
-            "",
-        );
+        let is_low_less_than_zero =
+            self.builder
+                .build_int_compare(IntPredicate::ULT, low, low.get_type().const_zero(), "");
 
         let is_high_larger_than_len =
             self.builder
                 .build_int_compare(IntPredicate::UGT, high, len, "");
 
-        let cond = self.builder.build_or(
-            is_low_less_than_zero,
-            is_high_larger_than_len,
-            "",
-        );
+        let cond = self
+            .builder
+            .build_or(is_low_less_than_zero, is_high_larger_than_len, "");
 
         self.gen_conditional_panic(state, &NAME, cond, message, span);
     }

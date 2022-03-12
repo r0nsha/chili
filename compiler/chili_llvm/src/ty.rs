@@ -15,7 +15,7 @@ use super::{
     codegen::Codegen,
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn llvm_type(&mut self, ty: &TyKind) -> BasicTypeEnum<'ctx> {
         match ty {
             TyKind::Bool => self.context.bool_type().into(),

@@ -18,7 +18,7 @@ use chili_ast::{
     ast::Ast,
     workspace::{BindingInfoIdx, Workspace},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::sess::InferSess;
 use chili_infer::substitute::{Substitute, SubstituteTy};
 use chili_span::Span;
@@ -28,7 +28,6 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferSess::new(target_metrics.word_size);
 
-    // infer types
     {
         let mut sess = CheckSess::new(workspace, &mut infcx);
 
@@ -47,7 +46,6 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
         sess.init_scopes.pop_scope();
     }
 
-    // substitute type variables
     let table = infcx.get_table_mut();
 
     for ast in asts.iter_mut() {
@@ -82,6 +80,32 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: TyKind) {
         self.workspace.get_binding_info_mut(idx).unwrap().ty = ty;
+    }
+
+    pub(crate) fn expect_value_is_int(
+        &mut self,
+        value: Option<Value>,
+        ty: &TyKind,
+        span: Span,
+    ) -> DiagnosticResult<i64> {
+        match &value {
+            Some(value) => {
+                if !value.is_int() {
+                    Err(TypeError::expected(
+                        span,
+                        self.infcx.normalize_ty_and_untyped(ty).to_string(),
+                        "compile-time known integer",
+                    ))
+                } else {
+                    Ok(value.clone().into_int())
+                }
+            }
+            None => Err(TypeError::expected(
+                span,
+                self.infcx.normalize_ty_and_untyped(ty).to_string(),
+                "compile-time known integer",
+            )),
+        }
     }
 }
 

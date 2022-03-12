@@ -19,7 +19,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let lvalue = match &lvalue.kind {
             ExprKind::Id {
                 symbol,
-                is_mutable,
                 binding_info_idx,
                 ..
             } => {
@@ -60,7 +59,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let mut rvalue = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
 
-        let rvalue_span = rvalue.expr.span;
         self.infcx
             .unify_or_coerce_ty_expr(&lvalue.ty, &mut rvalue.expr)?;
 

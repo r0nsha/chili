@@ -99,7 +99,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             let value = const_fold_binary(lhs, rhs, op, span)?;
 
             Ok(CheckedExpr::new(
-                ExprKind::Literal(value.into()),
+                ExprKind::Literal(value.clone().into()),
                 result_ty,
                 Some(value),
                 span,

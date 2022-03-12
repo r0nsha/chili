@@ -2,11 +2,11 @@ use super::{
     abi::{align_of, size_of, AbiFn},
     util::is_a_load_inst,
 };
-use chili_ast::ty::*;
 use chili_ast::{
-    ast::{ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import, Ir, ModuleInfo},
+    ast::{ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import, ModuleInfo},
     pattern::{Pattern, SymbolPattern},
 };
+use chili_ast::{ty::*, workspace::Workspace};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     env::Env,
@@ -53,9 +53,9 @@ impl<'ctx> CodegenDecl<'ctx> {
     }
 }
 
-pub struct Codegen<'cg, 'ctx> {
-    pub ir: &'cg Ir,
-    pub target_metrics: &'cg TargetMetrics,
+pub struct Codegen<'w, 'cg, 'ctx> {
+    pub workspace: &'cg Workspace<'w>,
+    pub target_metrics: TargetMetrics,
 
     pub context: &'ctx Context,
     pub module: &'cg Module<'ctx>,
@@ -124,7 +124,7 @@ pub(super) struct LoopBlock<'ctx> {
     exit: BasicBlock<'ctx>,
 }
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub fn codegen(&mut self) {
         let root_module = self.ir.root_module();
 

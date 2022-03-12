@@ -1,14 +1,14 @@
 use crate::codegen::{Codegen, CodegenState};
 use chili_ast::ast::{BinaryOp, Expr};
-use chili_span::Span;
 use chili_ast::ty::*;
+use chili_span::Span;
 use inkwell::{
     types::IntType,
     values::{BasicValue, BasicValueEnum, FunctionValue, IntValue},
     FloatPredicate, IntPredicate,
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn gen_binary(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -25,18 +25,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let (lhs, rhs) = if lhs.is_pointer_value() {
             (
                 self.builder
-                    .build_ptr_to_int(
-                        lhs.into_pointer_value(),
-                        self.ptr_sized_int_type,
-                        "",
-                    )
+                    .build_ptr_to_int(lhs.into_pointer_value(), self.ptr_sized_int_type, "")
                     .as_basic_value_enum(),
                 self.builder
-                    .build_ptr_to_int(
-                        rhs.into_pointer_value(),
-                        self.ptr_sized_int_type,
-                        "",
-                    )
+                    .build_ptr_to_int(rhs.into_pointer_value(), self.ptr_sized_int_type, "")
                     .as_basic_value_enum(),
             )
         } else {
@@ -105,27 +97,15 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn =
-                    self.get_overflow_fn(BinaryOp::Add, ty, lhs.get_type());
+                let overflow_fn = self.get_overflow_fn(BinaryOp::Add, ty, lhs.get_type());
 
-                let result = self.gen_call_overflow_fn(
-                    state,
-                    overflow_fn,
-                    lhs,
-                    rhs,
-                    span,
-                    "add",
-                );
+                let result = self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "add");
 
                 result.into()
             }
             TyKind::Float(_) => self
                 .builder
-                .build_float_add(
-                    lhs.into_float_value(),
-                    rhs.into_float_value(),
-                    "fadd",
-                )
+                .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "fadd")
                 .into(),
             _ => panic!("unexpected type `{}`", ty),
         }
@@ -152,27 +132,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn =
-                    self.get_overflow_fn(BinaryOp::Sub, ty, lhs.get_type());
+                let overflow_fn = self.get_overflow_fn(BinaryOp::Sub, ty, lhs.get_type());
 
-                let result = self.gen_call_overflow_fn(
-                    state,
-                    overflow_fn,
-                    lhs,
-                    rhs,
-                    span,
-                    "subtract",
-                );
+                let result =
+                    self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "subtract");
 
                 result.into()
             }
             TyKind::Float(_) => self
                 .builder
-                .build_float_sub(
-                    lhs.into_float_value(),
-                    rhs.into_float_value(),
-                    "fsub",
-                )
+                .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "fsub")
                 .into(),
             _ => panic!("unexpected type `{}`", ty),
         }
@@ -199,27 +168,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn =
-                    self.get_overflow_fn(BinaryOp::Mul, ty, lhs.get_type());
+                let overflow_fn = self.get_overflow_fn(BinaryOp::Mul, ty, lhs.get_type());
 
-                let result = self.gen_call_overflow_fn(
-                    state,
-                    overflow_fn,
-                    lhs,
-                    rhs,
-                    span,
-                    "multiply",
-                );
+                let result =
+                    self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "multiply");
 
                 result.into()
             }
             TyKind::Float(_) => self
                 .builder
-                .build_float_mul(
-                    lhs.into_float_value(),
-                    rhs.into_float_value(),
-                    "fmul",
-                )
+                .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "fmul")
                 .into(),
             _ => panic!("unexpected type `{}`", ty),
         }
@@ -235,40 +193,20 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             TyKind::Int(_) => {
-                self.gen_runtime_check_division_by_zero(
-                    state,
-                    rhs.into_int_value(),
-                    span,
-                );
+                self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
-                    .build_int_signed_div(
-                        lhs.into_int_value(),
-                        rhs.into_int_value(),
-                        "idiv",
-                    )
+                    .build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "idiv")
                     .into()
             }
             TyKind::UInt(_) => {
-                self.gen_runtime_check_division_by_zero(
-                    state,
-                    rhs.into_int_value(),
-                    span,
-                );
+                self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
-                    .build_int_unsigned_div(
-                        lhs.into_int_value(),
-                        rhs.into_int_value(),
-                        "udiv",
-                    )
+                    .build_int_unsigned_div(lhs.into_int_value(), rhs.into_int_value(), "udiv")
                     .into()
             }
             TyKind::Float(_) => self
                 .builder
-                .build_float_div(
-                    lhs.into_float_value(),
-                    rhs.into_float_value(),
-                    "fdiv",
-                )
+                .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "fdiv")
                 .into(),
             _ => panic!("unexpected type `{}`", ty),
         }
@@ -284,40 +222,20 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             TyKind::Int(_) => {
-                self.gen_runtime_check_division_by_zero(
-                    state,
-                    rhs.into_int_value(),
-                    span,
-                );
+                self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
-                    .build_int_signed_rem(
-                        lhs.into_int_value(),
-                        rhs.into_int_value(),
-                        "irem",
-                    )
+                    .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "irem")
                     .into()
             }
             TyKind::UInt(_) => {
-                self.gen_runtime_check_division_by_zero(
-                    state,
-                    rhs.into_int_value(),
-                    span,
-                );
+                self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
-                    .build_int_unsigned_rem(
-                        lhs.into_int_value(),
-                        rhs.into_int_value(),
-                        "urem",
-                    )
+                    .build_int_unsigned_rem(lhs.into_int_value(), rhs.into_int_value(), "urem")
                     .into()
             }
             TyKind::Float(_) => self
                 .builder
-                .build_float_rem(
-                    lhs.into_float_value(),
-                    rhs.into_float_value(),
-                    "frem",
-                )
+                .build_float_rem(lhs.into_float_value(), rhs.into_float_value(), "frem")
                 .into(),
             _ => panic!("unexpected type `{}`", ty),
         }
@@ -349,11 +267,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         rhs: BasicValueEnum<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         self.builder
-            .build_left_shift(
-                lhs.into_int_value(),
-                rhs.into_int_value(),
-                "ishl",
-            )
+            .build_left_shift(lhs.into_int_value(), rhs.into_int_value(), "ishl")
             .into()
     }
 
@@ -394,8 +308,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             false,
         );
 
-        let overflow_fn_type = overflow_fn_return_type
-            .fn_type(&[operand_type.into(), operand_type.into()], false);
+        let overflow_fn_type =
+            overflow_fn_return_type.fn_type(&[operand_type.into(), operand_type.into()], false);
 
         let llvm_op = format!(
             "{}{}",
@@ -426,8 +340,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
         op: &str,
     ) -> IntValue<'ctx> {
-        let call_value =
-            self.builder.build_call(f, &[lhs.into(), rhs.into()], "");
+        let call_value = self.builder.build_call(f, &[lhs.into(), rhs.into()], "");
 
         let return_value = call_value.try_as_basic_value().left().unwrap();
 
@@ -435,12 +348,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let overflow_bit = self.gen_struct_access(return_value, 1, None);
 
-        self.gen_runtime_check_overflow(
-            state,
-            overflow_bit.into_int_value(),
-            span,
-            op,
-        );
+        self.gen_runtime_check_overflow(state, overflow_bit.into_int_value(), span, op);
 
         result.into_int_value()
     }
