@@ -1,12 +1,6 @@
 use super::*;
 use std::fmt::Display;
 
-impl Display for TyVar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "v{}", self.index())
-    }
-}
-
 impl Display for TyKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use FloatTy::*;
