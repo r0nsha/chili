@@ -8,8 +8,6 @@ mod check_pattern;
 mod check_unary;
 mod const_fold;
 
-use std::collections::HashMap;
-
 use chili_ast::ast::{Expr, ExprKind};
 use chili_ast::ty::TyKind;
 use chili_ast::value::Value;
@@ -22,7 +20,6 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::sess::InferSess;
 use chili_infer::substitute::{Substitute, SubstituteTy};
 use chili_span::Span;
-use common::scopes::Scopes;
 
 pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();

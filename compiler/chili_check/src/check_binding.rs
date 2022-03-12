@@ -1,4 +1,4 @@
-use crate::{CheckFrame, CheckSess, InitState};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
 use chili_ast::workspace::{BindingInfo, ModuleIdx};
 use chili_ast::{

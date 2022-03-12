@@ -20,13 +20,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let lhs_ty = self.infcx.normalize_ty(&lhs.ty);
 
         let ty = match op {
-            UnaryOp::Ref(is_mutable_ref) => {
-                if is_mutable_ref {
-                    self.check_expr_can_be_mutably_referenced(&lhs.expr)?;
-                }
-
-                TyKind::Pointer(Box::new(lhs_ty), is_mutable_ref)
-            }
+            UnaryOp::Ref(is_mutable_ref) => TyKind::Pointer(Box::new(lhs_ty), is_mutable_ref),
             UnaryOp::Deref => match lhs_ty {
                 TyKind::Pointer(inner, _) => inner.as_ref().clone(),
                 ty => {

@@ -10,7 +10,7 @@ pub(crate) enum LvalueAccessErr {
         binding_span: Option<Span>,
         ty_str: String,
     },
-    ImmutableFieldAccess {
+    ImmutableMemberAccess {
         root_symbol: String,
         binding_span: Span,
         full_path: String,
@@ -49,7 +49,7 @@ pub(crate) fn check_lvalue_access(expr: &ast::Expr, expr_span: Span) -> Diagnost
                 ))
                 .with_labels(labels)
         }
-        ImmutableFieldAccess {
+        ImmutableMemberAccess {
             root_symbol,
             binding_span,
             full_path,
@@ -146,11 +146,11 @@ fn check_member_access(
     use LvalueAccessErr::*;
 
     check_lvalue_mutability_internal(expr, original_expr_span, false).map_err(|err| match err {
-        ImmutableFieldAccess {
+        ImmutableMemberAccess {
             root_symbol,
             binding_span,
             full_path,
-        } => ImmutableFieldAccess {
+        } => ImmutableMemberAccess {
             root_symbol,
             binding_span,
             full_path: format!("{}.{}", full_path, member),
@@ -169,7 +169,7 @@ fn check_member_access(
             binding_span,
         } => {
             let full_path = format!("{}.{}", symbol, member);
-            ImmutableFieldAccess {
+            ImmutableMemberAccess {
                 root_symbol: symbol,
                 binding_span,
                 full_path,
@@ -201,11 +201,11 @@ fn check_subscript(expr: &ast::Expr, original_expr_span: Span) -> Result<(), Lva
     }
 
     check_lvalue_mutability_internal(expr, original_expr_span, false).map_err(|err| match err {
-        ImmutableFieldAccess {
+        ImmutableMemberAccess {
             root_symbol,
             binding_span,
             full_path,
-        } => ImmutableFieldAccess {
+        } => ImmutableMemberAccess {
             root_symbol,
             binding_span,
             full_path: format!("{}[_]", full_path),

@@ -1,5 +1,6 @@
 mod access;
 mod lvalue_access;
+mod ref_access;
 mod sess;
 mod type_limits;
 
@@ -8,6 +9,7 @@ use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;
 use common::scopes::Scopes;
 use lvalue_access::check_lvalue_access;
+use ref_access::check_expr_can_be_mutably_referenced;
 use sess::{InitState, Sess};
 use type_limits::check_type_limits;
 
@@ -169,8 +171,17 @@ impl<'w> Lint<'w> for ast::Expr {
                 lhs.lint(sess)?;
                 rhs.lint(sess)?;
             }
-            ast::ExprKind::Unary { op: _, lhs } => {
+            ast::ExprKind::Unary { op, lhs } => {
                 lhs.lint(sess)?;
+
+                match op {
+                    ast::UnaryOp::Ref(is_mutable_ref) => {
+                        if *is_mutable_ref {
+                            check_expr_can_be_mutably_referenced(sess, lhs)?;
+                        }
+                    }
+                    _ => (),
+                }
             }
             ast::ExprKind::Subscript { expr, index } => {
                 expr.lint(sess)?;
