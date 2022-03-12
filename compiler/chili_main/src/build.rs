@@ -1,5 +1,5 @@
 use chili_ast::workspace::Workspace;
-use chili_astgen::AstGenerator;
+use chili_astgen::{AstGenerationStats, AstGenerator};
 use chili_error::emit_single_diagnostic;
 // use chili_llvm::codegen;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
@@ -23,6 +23,8 @@ pub fn do_build(build_options: BuildOptions) {
 
     let mut workspace = Workspace::new(build_options.clone(), root_dir, &std_dir);
 
+    // Check that root file exists
+
     if !source_path.exists() {
         emit_single_diagnostic(
             &workspace.files,
@@ -34,11 +36,11 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Parse all source files into ast's
 
-    let mut asts = time! { "parse", {
+    let (mut asts, stats) = time! { "parse", {
             let mut generator = AstGenerator::new(&mut workspace);
 
             match generator.start(build_options.source_file.clone()) {
-                Ok(asts) => asts,
+                Ok(result) => result,
                 Err(diagnostic) => {
                     emit_single_diagnostic(&generator.workspace.lock().unwrap().files, diagnostic);
                     return;
@@ -91,20 +93,15 @@ pub fn do_build(build_options: BuildOptions) {
 
     all_sw.stop();
 
-    print_stats(
-        &workspace.files,
-        workspace.root_file_id,
-        all_sw.elapsed().as_millis(),
-    );
+    print_stats(stats, all_sw.elapsed().as_millis());
 }
 
-fn print_stats(files: &SimpleFiles<String, String>, root_file_id: usize, elapsed_ms: u128) {
-    let file_line_count = files.get(root_file_id).unwrap().source().lines().count();
+fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {
     println!();
     println!(
         "{}\t{}",
-        "span:".cyan().bold(),
-        file_line_count.to_formatted_string(&Locale::en)
+        "lines:".cyan().bold(),
+        stats.total_lines.to_formatted_string(&Locale::en)
     );
     println!("{}\t{}m", "time:".cyan().bold(), elapsed_ms);
     println!();

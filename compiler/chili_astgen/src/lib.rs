@@ -13,14 +13,23 @@ use dashmap::DashSet;
 use std::{
     collections::HashSet,
     path::PathBuf,
-    sync::{Mutex, RwLock},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex, RwLock,
+    },
 };
 use unindent::unindent;
 use ustr::ustr;
 
+#[derive(Debug, Clone, Copy)]
+pub struct AstGenerationStats {
+    pub total_lines: usize,
+}
+
 pub struct AstGenerator<'a, 'w> {
     pub workspace: Mutex<&'a mut Workspace<'w>>,
     pub parsed_modules: DashSet<ModuleInfo>,
+    pub(crate) total_lines: AtomicUsize,
 }
 
 impl<'a, 'w> AstGenerator<'a, 'w> {
@@ -28,26 +37,27 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
         Self {
             workspace: Mutex::new(workspace),
             parsed_modules: Default::default(),
+            total_lines: Default::default(),
         }
     }
 
-    pub fn start(&mut self, file_path: String) -> DiagnosticResult<Vec<Ast>> {
+    pub fn start(&mut self, file_path: String) -> DiagnosticResult<(Vec<Ast>, AstGenerationStats)> {
         let asts: RwLock<Vec<Ast>> = RwLock::default();
 
-        let root_file_path = resolve_relative_path(
-            &file_path,
-            &common::builtin::root_module(),
-            None,
-        )?;
+        let root_file_path =
+            resolve_relative_path(&file_path, &common::builtin::root_module(), None)?;
 
-        let root_module_info = ModuleInfo::new(
-            common::builtin::root_module(),
-            ustr(&root_file_path),
-        );
+        let root_module_info =
+            ModuleInfo::new(common::builtin::root_module(), ustr(&root_file_path));
 
         self.add_source_file(&asts, root_module_info, true)?;
 
-        Ok(asts.into_inner().unwrap())
+        Ok((
+            asts.into_inner().unwrap(),
+            AstGenerationStats {
+                total_lines: self.total_lines.load(Ordering::SeqCst),
+            },
+        ))
     }
 
     fn add_source_file(
@@ -62,6 +72,10 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
 
         let source = std::fs::read_to_string(module_info.file_path.as_str())
             .expect(&format!("failed to read `{}`", module_info.file_path));
+
+        // TODO: this should be behind a `verbose` or `debug` flag or something
+        self.total_lines
+            .fetch_add(source.lines().count(), Ordering::SeqCst);
 
         let file_id = {
             let mut workspace = self.workspace.lock().unwrap();
@@ -150,10 +164,8 @@ fn add_intrinsic_module(
     imports: &mut HashSet<ModuleInfo>,
     intrinsic_module_info: IntrinsticModuleInfo,
 ) {
-    let intrinsic_module_info = ModuleInfo::new(
-        intrinsic_module_info.name,
-        intrinsic_module_info.file_path,
-    );
+    let intrinsic_module_info =
+        ModuleInfo::new(intrinsic_module_info.name, intrinsic_module_info.file_path);
 
     ast.imports.push(Import {
         binding_info_idx: Default::default(),
