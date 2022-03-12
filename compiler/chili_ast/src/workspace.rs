@@ -73,7 +73,7 @@ pub struct BindingInfo {
     pub is_mutable: bool,
     pub kind: BindingInfoKind,
     // the scope depth of the binding
-    pub level: ScopeLevel,
+    pub scope_level: ScopeLevel,
     // the scope name of the binding, i.e: `foo._.symbol._._`
     pub scope_name: Ustr,
     // the amount of times this binding was used
@@ -148,7 +148,7 @@ impl<'w> Workspace<'w> {
             const_value,
             is_mutable,
             kind,
-            level,
+            scope_level: level,
             scope_name,
             uses: 0,
             codegen: false,

@@ -268,8 +268,8 @@ impl<'w> Resolve<'w> for ast::Expr {
                     let binding_info = workspace.get_binding_info(id).unwrap();
 
                     if !binding_info.kind.is_type()
-                        && !binding_info.level.is_global()
-                        && binding_info.level < resolver.function_scope_level
+                        && !binding_info.scope_level.is_global()
+                        && binding_info.scope_level < resolver.function_scope_level
                     {
                         return Err(Diagnostic::error()
                             .with_message("can't capture dynamic environment in a fn")

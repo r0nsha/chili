@@ -1,7 +1,7 @@
 # use c.?
 
 let main = fn {
-    let a = 5
+    let a: int = 5
     let b = {
         let c = a * 2
         c * a * 3

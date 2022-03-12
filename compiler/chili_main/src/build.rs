@@ -56,23 +56,30 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    // Check - does type inference, type checking and const folding
-
-    time! { "check",
-        if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
+    time! { "infer",
+        if let Err(diagnostic) = chili_infer_new::infer(&mut workspace, &mut asts) {
             emit_single_diagnostic(&workspace.files, diagnostic);
             return;
         }
     }
 
-    // Lint - does auxillary checks which are not _required_ for type inference
+    // // Check - does type inference, type checking and const folding
 
-    time! { "lint",
-        if let Err(diagnostic) = chili_lint::lint(&mut workspace, &mut asts) {
-            emit_single_diagnostic(&workspace.files, diagnostic);
-            return;
-        }
-    }
+    // time! { "check",
+    //     if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
+    //         emit_single_diagnostic(&workspace.files, diagnostic);
+    //         return;
+    //     }
+    // }
+
+    // // Lint - does auxillary checks which are not _required_ for type inference
+
+    // time! { "lint",
+    //     if let Err(diagnostic) = chili_lint::lint(&mut workspace, &mut asts) {
+    //         emit_single_diagnostic(&workspace.files, diagnostic);
+    //         return;
+    //     }
+    // }
 
     for ast in asts.iter() {
         ast.print();
