@@ -8,6 +8,8 @@ mod check_pattern;
 mod check_unary;
 mod const_fold;
 
+use std::collections::HashMap;
+
 use chili_ast::ty::TyKind;
 use chili_ast::value::Value;
 use chili_ast::workspace::ModuleIdx;
@@ -62,6 +64,7 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
 pub(crate) struct CheckSess<'w, 'a> {
     pub(crate) workspace: &'a mut Workspace<'w>,
     pub(crate) infcx: &'a mut InferSess,
+    pub(crate) consts_map: HashMap<BindingInfoIdx, Value>,
     pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
 }
 
@@ -70,6 +73,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         Self {
             workspace,
             infcx,
+            consts_map: Default::default(),
             init_scopes: Scopes::new(),
         }
     }

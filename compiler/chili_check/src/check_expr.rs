@@ -1,4 +1,5 @@
 use crate::{CheckFrame, CheckResult, CheckSess};
+use chili_ast::ast::ExprKind;
 use chili_ast::ty::*;
 use chili_ast::{ast, value::Value};
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
@@ -20,28 +21,27 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 for import in imports.iter_mut() {
                     self.check_import(import)?;
                 }
-                Ok(TyKind::Unit)
+                Ok(CheckResult::new(TyKind::Unit, None))
             }
             ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter_mut() {
                     self.check_binding(frame, binding)?;
                 }
-                Ok(TyKind::Unit)
+                Ok(CheckResult::new(TyKind::Unit, None))
             }
             ast::ExprKind::Binding(binding) => self.check_binding(frame, binding),
             ast::ExprKind::Defer(deferred) => {
                 self.check_expr(frame, deferred.as_mut(), expected_ty)?;
-                Ok(TyKind::Unit)
+                Ok(CheckResult::new(TyKind::Unit, None))
             }
             ast::ExprKind::Assign { lvalue, rvalue } => {
-                self.check_assign_expr(frame, lvalue, rvalue)?;
-                Ok(TyKind::Unit)
+                self.check_assign_expr(frame, lvalue, rvalue)
             }
             ast::ExprKind::Cast(info) => {
                 let target_ty = self.check_cast(frame, info, expected_ty, expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
-                if source_ty.can_cast(&target_ty) {
+                if source_ty.can_cast(&target_ty.ty) {
                     Ok(target_ty)
                 } else {
                     let source_ty = self.infcx.normalize_ty_and_untyped(&source_ty);
@@ -61,21 +61,20 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(type_expr) | ast::Builtin::AlignOf(type_expr) => {
                     self.check_type_expr(frame, type_expr)?;
-                    Ok(TyKind::UInt(UIntTy::Usize))
+                    Ok(CheckResult::new(TyKind::UInt(UIntTy::Usize), None))
                 }
                 ast::Builtin::Panic(msg_expr) => {
                     if let Some(expr) = msg_expr {
                         self.check_expr(frame, expr, Some(TyKind::str()))?;
                     }
-                    Ok(TyKind::Unit)
+                    Ok(CheckResult::new(TyKind::Unit, None))
                 }
             },
             ast::ExprKind::While { cond, expr: block } => {
-                cond.ty = self.check_expr(frame, cond, Some(TyKind::Bool))?;
+                cond.ty = self.check_expr(frame, cond, Some(TyKind::Bool))?.ty;
                 self.infcx.unify_or_coerce_ty_expr(&TyKind::Bool, cond)?;
                 self.check_expr(frame, block, None)?;
-
-                Ok(TyKind::Unit)
+                Ok(CheckResult::new(TyKind::Unit, None))
             }
             ast::ExprKind::For(for_) => {
                 match &mut for_.iterator {
@@ -161,15 +160,15 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 self.check_expr(frame, &mut for_.expr, None)?;
 
-                Ok(TyKind::Unit)
+                Ok(CheckResult::new(TyKind::Unit, None))
             }
             ast::ExprKind::Break { deferred } => {
                 self.check_expr_list(frame, deferred)?;
-                Ok(TyKind::Never)
+                Ok(CheckResult::new(TyKind::Never, None))
             }
             ast::ExprKind::Continue { deferred } => {
                 self.check_expr_list(frame, deferred)?;
-                Ok(TyKind::Never)
+                Ok(CheckResult::new(TyKind::Never, None))
             }
             ast::ExprKind::Return {
                 expr: returned_expr,
@@ -197,7 +196,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                         self.check_expr_list(frame, deferred)?;
 
-                        Ok(TyKind::Never)
+                        Ok(CheckResult::new(TyKind::Never, None))
                     }
                     None => Err(SyntaxError::outside_of_function(expr.span, "return")),
                 }
@@ -207,7 +206,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 then_expr,
                 else_expr,
             } => {
-                self.check_expr(frame, cond, None)?;
+                let cond_result = self.check_expr(frame, cond, None)?;
                 let cond_ty = self.infcx.normalize_ty(&cond.ty);
 
                 self.infcx.unify(TyKind::Bool, cond_ty, cond.span)?;
@@ -232,11 +231,43 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 then_expr.ty = result_ty.clone();
 
+                if cond_result.value.is_some() {
+                    if cond_result.value.unwrap().into_bool() {
+                        then_result
+                    } else {
+                        else_result.unwrap_or(CheckedExpr::new(
+                            ExprKind::Noop,
+                            Ty::Unit,
+                            None,
+                            expr.span,
+                        ))
+                    }
+                } else {
+                    CheckedExpr::new(
+                        ExprKind::If {
+                            cond: Box::new(cond.expr),
+                            then_expr: Box::new(then_result.expr),
+                            else_expr: else_result.map(|r| Box::new(r.expr)),
+                        },
+                        result_ty,
+                        None,
+                        expr.span,
+                    )
+                }
+
                 Ok(result_ty)
             }
             ast::ExprKind::Block(block) => self.check_block(frame, block, expected_ty),
             ast::ExprKind::Binary { lhs, op, rhs } => {
-                self.check_binary_expr(frame, lhs, *op, rhs, expected_ty, expr.span)
+                let result =
+                    self.check_binary_expr(frame, lhs, *op, rhs, expected_ty, expr.span)?;
+
+                if let Some(value) = result.value {
+                    expr.kind = ExprKind::Noop;
+                }
+
+                todo!();
+                result
             }
             ast::ExprKind::Unary { op, lhs } => {
                 self.check_unary_expr(frame, *op, lhs, expected_ty, expr.span)

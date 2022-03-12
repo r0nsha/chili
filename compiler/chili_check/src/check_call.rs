@@ -14,8 +14,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         call: &mut Call,
         span: Span,
     ) -> DiagnosticResult<CheckResult> {
-        call.callee.ty = self.check_expr(frame, &mut call.callee, None)?;
-        call.callee.ty = self.infcx.normalize_ty(&call.callee.ty);
+        let result = self.check_expr(frame, &mut call.callee, None)?;
+        call.callee.ty = self.infcx.normalize_ty(&result.ty);
 
         match call.callee.ty.clone() {
             TyKind::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, span),
@@ -73,8 +73,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(index) = found_param_index {
                     let param = &fn_type.params[index];
 
-                    arg.value.ty =
-                        self.check_expr(frame, &mut arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty = self
+                        .check_expr(frame, &mut arg.value, Some(param.ty.clone()))?
+                        .ty;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
@@ -93,8 +94,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(param) = fn_type.params.get(index) {
                     passed_args.insert(param.symbol, arg.value.span);
 
-                    arg.value.ty =
-                        self.check_expr(frame, &mut arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty = self
+                        .check_expr(frame, &mut arg.value, Some(param.ty.clone()))?
+                        .ty;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
@@ -108,6 +110,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             };
         }
 
-        Ok(fn_type.ret.as_ref().clone())
+        Ok(CheckResult::new(fn_type.ret.as_ref().clone(), None))
     }
 }

@@ -99,6 +99,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 op,
                 span,
             )?;
+
             Ok(CheckResult::new(result_ty, Some(value)))
         } else {
             Ok(CheckResult::new(result_ty, None))

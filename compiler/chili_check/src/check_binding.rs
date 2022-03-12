@@ -1,6 +1,7 @@
 use crate::{CheckFrame, CheckResult, CheckSess, InitState};
 use chili_ast::ty::*;
-use chili_ast::workspace::ModuleIdx;
+use chili_ast::value::Value;
+use chili_ast::workspace::{BindingInfoIdx, ModuleIdx};
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Visibility},
     pattern::{Pattern, SymbolPattern},
@@ -19,7 +20,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     ) -> DiagnosticResult<CheckResult> {
         let expected_var = match &mut binding.ty_expr {
             Some(expr) => {
-                let ty = self.check_type_expr(frame, expr)?;
+                let ty = self.check_type_expr(frame, expr)?.ty;
                 self.infcx.fresh_bound_type_var(ty)
             }
             None => self.infcx.fresh_type_var(),
@@ -41,9 +42,17 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let mut is_a_type = binding.kind == BindingKind::Type;
 
         if let Some(value) = &mut binding.value {
-            value.ty = self.check_expr(frame, value, Some(expected_var.into()))?;
+            let result = self.check_expr(frame, value, Some(expected_var.into()))?;
 
+            value.ty = result.ty;
             is_a_type = value.ty.is_type();
+
+            if let Some(value) = result.value {
+                if binding.pattern.is_single() {
+                    self.consts_map
+                        .insert(binding.pattern.into_single_mut().binding_info_idx, value);
+                }
+            }
 
             match &binding.kind {
                 BindingKind::Let => {
@@ -102,7 +111,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             binding.value.is_some(),
         )?;
 
-        Ok(binding.ty.clone())
+        Ok(CheckResult::new(binding.ty.clone(), None))
     }
 
     pub(crate) fn check_top_level_binding(
@@ -116,20 +125,22 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let binding_info = self.workspace.get_binding_info(idx).unwrap().clone();
 
         if !binding_info.ty.is_unknown() {
-            return Ok(binding_info.ty.clone());
+            return Ok(CheckResult::new(
+                binding_info.ty.clone(),
+                self.get_binding_const_value(idx),
+            ));
         }
 
         self.is_item_accessible(&binding_info, calling_module_idx, calling_symbol_span)?;
 
         let mut frame = CheckFrame::new(0, binding_info.module_idx, None);
 
-        self.check_binding(&mut frame, binding)?;
-
-        Ok(binding.ty.clone())
+        self.check_binding(&mut frame, binding)
     }
 
     pub(crate) fn check_import(&mut self, import: &mut Import) -> DiagnosticResult<CheckResult> {
         let mut ty = TyKind::Module(import.module_idx);
+        let mut idx = Default::default();
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
@@ -143,6 +154,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 )?;
 
                 ty = binding_info.ty.clone();
+                idx = binding_info.idx;
 
                 match ty {
                     TyKind::Module(idx) => current_module_idx = idx,
@@ -161,7 +173,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         self.update_binding_info_ty(import.binding_info_idx, ty.clone());
 
-        Ok(ty)
+        let value = self.get_binding_const_value(idx);
+
+        Ok(CheckResult::new(ty, value))
+    }
+
+    pub fn get_binding_const_value(&self, idx: BindingInfoIdx) -> Option<Value> {
+        self.consts_map.get(&idx).map(|v| v.clone())
     }
 
     pub fn find_binding_info_in_module(

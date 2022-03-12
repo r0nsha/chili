@@ -54,7 +54,7 @@ impl<'w> Workspace<'w> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingInfo {
-    pub id: BindingInfoIdx,
+    pub idx: BindingInfoIdx,
     pub module_idx: ModuleIdx,
     pub symbol: Ustr,
     pub visibility: Visibility,
@@ -144,7 +144,7 @@ impl<'w> Workspace<'w> {
     ) -> BindingInfoIdx {
         let id = BindingInfoIdx(self.binding_infos.len());
         self.binding_infos.push(BindingInfo {
-            id,
+            idx: id,
             module_idx,
             symbol,
             visibility,
