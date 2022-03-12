@@ -184,10 +184,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         Ok(())
     }
 
-    pub fn get_binding_const_value(&self, idx: BindingInfoIdx) -> Option<Value> {
-        self.consts_map.get(&idx).map(|v| v.clone())
-    }
-
     pub fn find_binding_info_in_module(
         &self,
         module_idx: ModuleIdx,

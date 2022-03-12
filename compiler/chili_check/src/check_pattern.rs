@@ -19,9 +19,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         match pattern {
             Pattern::Single(pat) => {
                 self.update_symbol_pattern_ty(pat, expected_ty);
-                if let Some(const_value) = const_value {
-                    self.consts_map.insert(pat.binding_info_idx, const_value);
-                }
+                self.workspace
+                    .get_binding_info_mut(pat.binding_info_idx)
+                    .unwrap()
+                    .const_value = const_value;
             }
             Pattern::StructDestructor(pattern) => {
                 let ty = self.infcx.normalize_ty(&expected_ty);

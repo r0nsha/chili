@@ -1,5 +1,7 @@
 use crate::ast::{ForeignLibrary, ModuleInfo, Visibility};
 use crate::ty::TyKind;
+use crate::value::Value;
+use bitflags::bitflags;
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
@@ -58,40 +60,27 @@ impl<'w> Workspace<'w> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingInfo {
+    // a reference to the info's own index
     pub idx: BindingInfoIdx,
+    // the module where this binding lives
     pub module_idx: ModuleIdx,
+    // the symbol(name) used for the binding
     pub symbol: Ustr,
     pub visibility: Visibility,
     pub ty: TyKind,
+    pub const_value: Option<Value>,
+    // what kind of access the binding has
     pub is_mutable: bool,
     pub kind: BindingInfoKind,
+    // the scope depth of the binding
     pub level: ScopeLevel,
+    // the scope name of the binding, i.e: `foo._.symbol._._`
     pub scope_name: Ustr,
+    // the amount of times this binding was used
     pub uses: usize,
+    // whether to codegen this binding or not
     pub codegen: bool,
     pub span: Span,
-}
-
-impl BindingInfo {
-    pub fn qualified_name(&self) -> Ustr {
-        ustr(&format!("{}.{}", self.scope_name, self.symbol))
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum BindingInfoKind {
-    Let,
-    Type,
-    Import,
-}
-
-impl BindingInfoKind {
-    pub fn is_type(&self) -> bool {
-        match self {
-            BindingInfoKind::Type => true,
-            _ => false,
-        }
-    }
 }
 
 impl<'w> Workspace<'w> {
@@ -122,11 +111,12 @@ impl<'w> Workspace<'w> {
         scope_name: Ustr,
         span: Span,
     ) -> BindingInfoIdx {
-        self.add_typed_binding_info(
+        self.add_binding_info_ex(
             module_idx,
             symbol,
             visibility,
             TyKind::Unknown,
+            None,
             is_mutable,
             kind,
             level,
@@ -135,25 +125,27 @@ impl<'w> Workspace<'w> {
         )
     }
 
-    pub fn add_typed_binding_info(
+    pub fn add_binding_info_ex(
         &mut self,
         module_idx: ModuleIdx,
         symbol: Ustr,
         visibility: Visibility,
         ty: TyKind,
+        const_value: Option<Value>,
         is_mutable: bool,
         kind: BindingInfoKind,
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
     ) -> BindingInfoIdx {
-        let id = BindingInfoIdx(self.binding_infos.len());
+        let idx = BindingInfoIdx(self.binding_infos.len());
         self.binding_infos.push(BindingInfo {
-            idx: id,
+            idx,
             module_idx,
             symbol,
             visibility,
             ty,
+            const_value,
             is_mutable,
             kind,
             level,
@@ -162,7 +154,7 @@ impl<'w> Workspace<'w> {
             codegen: false,
             span,
         });
-        id
+        idx
     }
 
     pub fn get_binding_info(&self, id: BindingInfoIdx) -> Option<&BindingInfo> {
@@ -171,6 +163,35 @@ impl<'w> Workspace<'w> {
 
     pub fn get_binding_info_mut(&mut self, id: BindingInfoIdx) -> Option<&mut BindingInfo> {
         self.binding_infos.get_mut(id.0)
+    }
+}
+
+impl BindingInfo {
+    pub fn qualified_name(&self) -> Ustr {
+        ustr(&format!("{}.{}", self.scope_name, self.symbol))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum BindingInfoKind {
+    Let,
+    Type,
+    Import,
+}
+
+impl BindingInfoKind {
+    pub fn is_type(&self) -> bool {
+        match self {
+            BindingInfoKind::Type => true,
+            _ => false,
+        }
+    }
+}
+
+bitflags! {
+    struct Restrictions : u8 {
+        const STMT_EXPR = 1 << 0;
+        const NO_STRUCT_LITERAL = 1 << 1;
     }
 }
 

@@ -1,4 +1,5 @@
 use chili_ast::ty::{FloatTy, IntTy, TyKind, UIntTy};
+use chili_ast::value::Value;
 use chili_ast::{
     ast,
     workspace::{BindingInfoKind, ScopeLevel, Workspace},
@@ -9,17 +10,15 @@ use ustr::ustr;
 use crate::resolver::Resolver;
 
 impl Resolver {
-    pub(crate) fn add_builtin_types<'w>(
-        &mut self,
-        workspace: &mut Workspace<'w>,
-    ) {
+    pub(crate) fn add_builtin_types<'w>(&mut self, workspace: &mut Workspace<'w>) {
         let mut add_builtin_type = |name: &str, ty: TyKind| {
             let symbol = ustr(name);
-            let id = workspace.add_typed_binding_info(
+            let id = workspace.add_binding_info_ex(
                 Default::default(),
                 symbol,
                 ast::Visibility::Private,
-                ty.create_type(),
+                ty.clone().create_type(),
+                Some(Value::Type(ty)),
                 false,
                 BindingInfoKind::Type,
                 ScopeLevel::Global,

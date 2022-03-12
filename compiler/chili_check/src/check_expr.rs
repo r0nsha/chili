@@ -532,10 +532,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         let binding_info =
                             self.find_binding_info_in_module(*module_idx, *field, expr.span)?;
 
-                        (
-                            binding_info.ty.clone(),
-                            self.get_binding_const_value(binding_info.idx),
-                        )
+                        (binding_info.ty.clone(), binding_info.const_value.clone())
                     }
                     ty => {
                         return Err(TypeError::field_access_on_invalid_type(
@@ -587,7 +584,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         binding_info_idx: Default::default(),
                     },
                     binding_info.ty.clone(),
-                    self.get_binding_const_value(*binding_info_idx),
+                    binding_info.const_value.clone(),
                     expr.span,
                 )
             }
