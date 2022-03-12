@@ -25,16 +25,16 @@ let add_five = fn(a) {
     a + 5
 }
 
-let multiply = fn(a, b) {
-    a * b
-}
-
-let max = fn(a, b) {
-    if a > b { a } else { b }
-}
-
 # let add = fn(a, b) {
 #     a + b
+# }
+
+# let multiply = fn(a, b) {
+#     a * b
+# }
+
+# let max = fn(a, b) {
+#     if a > b { a } else { b }
 # }
 
 # use c.?
