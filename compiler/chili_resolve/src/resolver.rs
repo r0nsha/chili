@@ -99,7 +99,7 @@ impl Resolver {
 
     pub(crate) fn lookup_binding<'w>(
         &self,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
         symbol: Ustr,
     ) -> Option<BindingInfoIdx> {
         for scope in self.scopes.iter().rev() {
@@ -124,7 +124,7 @@ impl Resolver {
 
     pub(crate) fn add_binding<'w>(
         &mut self,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
         symbol: Ustr,
         visibility: Visibility,
         is_mutable: bool,
@@ -161,7 +161,7 @@ impl Resolver {
 
     pub(crate) fn add_binding_with_symbol_pattern<'w>(
         &mut self,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
         pattern: &SymbolPattern,
         visibility: Visibility,
         kind: BindingKind,
@@ -180,7 +180,7 @@ impl Resolver {
 
     pub(crate) fn add_binding_with_pattern<'w>(
         &mut self,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
         pattern: &mut Pattern,
         visibility: Visibility,
         kind: BindingKind,

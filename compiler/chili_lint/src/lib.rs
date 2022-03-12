@@ -11,11 +11,11 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::scopes::Scopes;
 use lvalue_access::check_lvalue_access;
 use ref_access::check_expr_can_be_mutably_referenced;
-use sess::{InitState, Sess};
+use sess::{InitState, LintSess};
 use type_limits::check_type_limits;
 
-pub fn lint<'w>(workspace: &Workspace<'w>, asts: &Vec<ast::Ast>) -> DiagnosticResult<()> {
-    let mut sess = Sess {
+pub fn lint(workspace: &Workspace, asts: &Vec<ast::Ast>) -> DiagnosticResult<()> {
+    let mut sess = LintSess {
         workspace,
         init_scopes: Scopes::new(),
     };
@@ -31,12 +31,12 @@ pub fn lint<'w>(workspace: &Workspace<'w>, asts: &Vec<ast::Ast>) -> DiagnosticRe
     Ok(())
 }
 
-trait Lint<'w> {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()>;
+trait Lint {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()>;
 }
 
-impl<'w, T: Lint<'w>> Lint<'w> for Vec<T> {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl<T: Lint> Lint for Vec<T> {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         for element in self {
             element.lint(sess)?;
         }
@@ -44,8 +44,8 @@ impl<'w, T: Lint<'w>> Lint<'w> for Vec<T> {
     }
 }
 
-impl<'w, T: Lint<'w>> Lint<'w> for Option<T> {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl<T: Lint> Lint for Option<T> {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         if let Some(e) = self {
             e.lint(sess)?;
         }
@@ -53,14 +53,14 @@ impl<'w, T: Lint<'w>> Lint<'w> for Option<T> {
     }
 }
 
-impl<'w, T: Lint<'w>> Lint<'w> for Box<T> {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl<T: Lint> Lint for Box<T> {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         self.as_ref().lint(sess)
     }
 }
 
-impl<'w> Lint<'w> for ast::Ast {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl Lint for ast::Ast {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         for binding in self.bindings.iter() {
             binding.lint(sess)?;
         }
@@ -68,8 +68,8 @@ impl<'w> Lint<'w> for ast::Ast {
     }
 }
 
-impl<'w> Lint<'w> for ast::Binding {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl Lint for ast::Binding {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         let init_state = if self.value.is_some() {
             InitState::Init
         } else {
@@ -130,8 +130,8 @@ impl<'w> Lint<'w> for ast::Binding {
     }
 }
 
-impl<'w> Lint<'w> for ast::Block {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl Lint for ast::Block {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         sess.init_scopes.push_scope();
         self.exprs.lint(sess)?;
         self.deferred.lint(sess)?;
@@ -140,8 +140,8 @@ impl<'w> Lint<'w> for ast::Block {
     }
 }
 
-impl<'w> Lint<'w> for ast::Expr {
-    fn lint(&self, sess: &mut Sess) -> DiagnosticResult<()> {
+impl Lint for ast::Expr {
+    fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
         match &self.kind {
             ast::ExprKind::Import(_) | ast::ExprKind::Defer(_) => (),
             ast::ExprKind::Foreign(e) => {

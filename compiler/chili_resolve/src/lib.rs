@@ -16,7 +16,7 @@ use resolve::Resolve;
 use resolver::Resolver;
 use scope::Scope;
 
-pub fn resolve<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
+pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let mut resolver = Resolver::new();
 
     resolver.add_builtin_types(workspace);

@@ -5,7 +5,7 @@ use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     #[inline]
     pub(super) fn check_binary_expr(
         &mut self,

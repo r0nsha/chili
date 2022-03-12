@@ -10,7 +10,7 @@ use ustr::ustr;
 use crate::resolver::Resolver;
 
 impl Resolver {
-    pub(crate) fn add_builtin_types<'w>(&mut self, workspace: &mut Workspace<'w>) {
+    pub(crate) fn add_builtin_types(&mut self, workspace: &mut Workspace) {
         let mut add_builtin_type = |name: &str, ty: TyKind| {
             let symbol = ustr(name);
             let id = workspace.add_binding_info_ex(

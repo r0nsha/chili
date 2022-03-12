@@ -10,7 +10,7 @@ use common::{
 use std::path::{Path, PathBuf};
 use ustr::{ustr, Ustr};
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(crate) fn parse_import(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
         let imports = self.parse_import_internal(visibility)?;
         imports.iter().for_each(|import| {

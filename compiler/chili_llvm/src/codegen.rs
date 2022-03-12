@@ -54,7 +54,7 @@ impl<'ctx> CodegenDecl<'ctx> {
 }
 
 pub struct Codegen<'w, 'cg, 'ctx> {
-    pub workspace: &'cg Workspace<'w>,
+    pub workspace: &'cg Workspace,
     pub target_metrics: TargetMetrics,
 
     pub context: &'ctx Context,

@@ -5,11 +5,11 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::{
     lvalue_access::check_lvalue_access,
-    sess::{InitState, Sess},
+    sess::{InitState, LintSess},
 };
 
 pub(crate) fn check_id_access(
-    sess: &Sess,
+    sess: &LintSess,
     binding_info_idx: BindingInfoIdx,
     span: Span,
 ) -> DiagnosticResult<()> {
@@ -36,7 +36,7 @@ pub(crate) fn check_id_access(
 }
 
 pub(crate) fn check_assign_lvalue_id_access(
-    sess: &mut Sess,
+    sess: &mut LintSess,
     lvalue: &ast::Expr,
     binding_info_idx: BindingInfoIdx,
 ) -> DiagnosticResult<()> {

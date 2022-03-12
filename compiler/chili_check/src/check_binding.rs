@@ -10,7 +10,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(crate) fn check_binding(
         &mut self,
         frame: &mut CheckFrame,

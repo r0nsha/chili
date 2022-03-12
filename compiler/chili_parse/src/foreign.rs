@@ -7,10 +7,8 @@ use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
 use ustr::{ustr, Ustr};
 
-impl<'w> Parser<'w> {
-    pub(crate) fn parse_foreign_block(
-        &mut self,
-    ) -> DiagnosticResult<Vec<Binding>> {
+impl<'p> Parser<'p> {
+    pub(crate) fn parse_foreign_block(&mut self) -> DiagnosticResult<Vec<Binding>> {
         let lib_name = self.parse_lib_name()?;
 
         expect!(self, OpenCurly, "{")?;
@@ -65,8 +63,7 @@ impl<'w> Parser<'w> {
             expect!(self, Fn, "fn")?;
 
             let proto_start_span = self.previous().span;
-            let mut proto =
-                self.parse_fn_proto(id.symbol(), ParseProtoKind::Value)?;
+            let mut proto = self.parse_fn_proto(id.symbol(), ParseProtoKind::Value)?;
             proto.lib_name = Some(lib_name);
 
             Binding::new(

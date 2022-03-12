@@ -7,7 +7,7 @@ use chili_token::TokenKind::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(crate) fn parse_postfix_expr(&mut self, mut expr: Expr) -> DiagnosticResult<Expr> {
         // named struct literal
         if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && eat!(self, OpenCurly) {

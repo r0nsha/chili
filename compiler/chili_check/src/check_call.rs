@@ -7,7 +7,7 @@ use ustr::UstrMap;
 
 use crate::{CheckFrame, CheckSess, CheckedExpr};
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(crate) fn check_call(
         &mut self,
         frame: &mut CheckFrame,

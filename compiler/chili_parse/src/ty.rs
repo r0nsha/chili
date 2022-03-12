@@ -7,7 +7,7 @@ use chili_token::TokenKind::*;
 
 const SELF_SYMBOL: &str = "Self";
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(super) fn parse_decl_ty(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
         self.skip_redundant_tokens();
         self.decl_name_frames.push(decl_name);

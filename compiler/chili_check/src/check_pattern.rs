@@ -9,7 +9,7 @@ use chili_ast::{
     value::Value,
 };
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(crate) fn check_binding_pattern(
         &mut self,
         pattern: &Pattern,

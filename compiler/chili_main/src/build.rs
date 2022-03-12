@@ -2,7 +2,7 @@ use chili_ast::workspace::Workspace;
 use chili_astgen::{AstGenerationStats, AstGenerator};
 use chili_error::emit_single_diagnostic;
 // use chili_llvm::codegen;
-use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
+use codespan_reporting::diagnostic::Diagnostic;
 use colored::Colorize;
 use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
@@ -18,10 +18,10 @@ pub fn do_build(build_options: BuildOptions) {
     let source_path = build_options.source_path();
     let absolute_path = source_path.absolutize().unwrap();
 
-    let root_dir = absolute_path.parent().unwrap();
+    let root_dir = absolute_path.parent().unwrap().to_path_buf();
     let std_dir = common::compiler_info::std_module_root_dir();
 
-    let mut workspace = Workspace::new(build_options.clone(), root_dir, &std_dir);
+    let mut workspace = Workspace::new(build_options.clone(), root_dir, std_dir);
 
     // Check that root file exists
 

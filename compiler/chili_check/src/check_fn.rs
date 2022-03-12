@@ -10,7 +10,7 @@ use chili_ast::{
     pattern::{Pattern, SymbolPattern},
 };
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(crate) fn check_fn(
         &mut self,
         frame: &mut CheckFrame,

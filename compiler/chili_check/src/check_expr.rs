@@ -12,7 +12,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(crate) fn check_expr(
         &mut self,
         frame: &mut CheckFrame,

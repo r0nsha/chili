@@ -7,7 +7,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(super) fn check_unary_expr(
         &mut self,
         frame: &mut CheckFrame,

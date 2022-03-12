@@ -4,7 +4,7 @@ use chili_ast::{
     pattern::Pattern,
 };
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(crate) fn parse_binding(
         &mut self,
         kind: BindingKind,
@@ -24,9 +24,7 @@ impl<'w> Parser<'w> {
                 if require_value {
                     expect!(self, Eq, "=")?;
                 } else if !eat!(self, Eq) {
-                    return Ok(Binding::new(
-                        visibility, kind, pattern, ty_expr, None, None,
-                    ));
+                    return Ok(Binding::new(visibility, kind, pattern, ty_expr, None, None));
                 }
 
                 let value = if pattern.is_single() {

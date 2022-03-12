@@ -1,8 +1,8 @@
 use chili_ast::workspace::{BindingInfoIdx, Workspace};
 use common::scopes::Scopes;
 
-pub(crate) struct Sess<'w> {
-    pub(crate) workspace: &'w Workspace<'w>,
+pub(crate) struct LintSess<'l> {
+    pub(crate) workspace: &'l Workspace,
     pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
 }
 

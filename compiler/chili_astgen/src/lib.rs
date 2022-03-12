@@ -26,14 +26,14 @@ pub struct AstGenerationStats {
     pub total_lines: usize,
 }
 
-pub struct AstGenerator<'a, 'w> {
-    pub workspace: Mutex<&'a mut Workspace<'w>>,
+pub struct AstGenerator<'a> {
+    pub workspace: Mutex<&'a mut Workspace>,
     pub parsed_modules: DashSet<ModuleInfo>,
     pub(crate) total_lines: AtomicUsize,
 }
 
-impl<'a, 'w> AstGenerator<'a, 'w> {
-    pub fn new(workspace: &'a mut Workspace<'w>) -> Self {
+impl<'a> AstGenerator<'a> {
+    pub fn new(workspace: &'a mut Workspace) -> Self {
         Self {
             workspace: Mutex::new(workspace),
             parsed_modules: Default::default(),
@@ -105,14 +105,14 @@ impl<'a, 'w> AstGenerator<'a, 'w> {
 
         let (root_dir, std_dir) = {
             let w = self.workspace.lock().unwrap();
-            (w.root_dir, w.std_dir)
+            (w.root_dir.clone(), w.std_dir.clone())
         };
 
         let mut parser = Parser::new(
             tokens,
             module_info,
-            root_dir,
-            std_dir,
+            &root_dir,
+            &std_dir,
             PathBuf::from(module_info.file_path.as_str())
                 .parent()
                 .unwrap()

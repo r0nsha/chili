@@ -84,13 +84,13 @@ pub(crate) use expect;
 pub(crate) use parse_delimited_list;
 pub(crate) use token_is;
 
-pub struct Parser<'w> {
+pub struct Parser<'p> {
     tokens: Vec<Token>,
     current: usize,
     marked: Vec<usize>,
     module_info: ModuleInfo,
-    root_dir: &'w Path,
-    std_dir: &'w Path,
+    root_dir: &'p Path,
+    std_dir: &'p Path,
     current_dir: String,
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
@@ -103,12 +103,12 @@ pub struct ParserResult {
     pub imports: HashSet<ModuleInfo>,
 }
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub fn new(
         tokens: Vec<Token>,
         module_info: ModuleInfo,
-        root_dir: &'w Path,
-        std_dir: &'w Path,
+        root_dir: &'p Path,
+        std_dir: &'p Path,
         current_dir: String,
     ) -> Self {
         Self {

@@ -6,7 +6,7 @@ use chili_ast::ty::*;
 use chili_error::DiagnosticResult;
 use chili_span::Span;
 
-impl<'w, 'a> CheckSess<'w, 'a> {
+impl<'c> CheckSess<'c> {
     pub(crate) fn check_assign_expr(
         &mut self,
         frame: &mut CheckFrame,

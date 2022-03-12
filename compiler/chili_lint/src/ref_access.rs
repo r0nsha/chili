@@ -8,7 +8,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr};
 
-use crate::sess::Sess;
+use crate::sess::LintSess;
 
 enum RefAccessErr {
     ImmutableReference {
@@ -27,7 +27,7 @@ enum RefAccessErr {
 }
 
 pub(super) fn check_expr_can_be_mutably_referenced(
-    sess: &Sess,
+    sess: &LintSess,
     expr: &ast::Expr,
 ) -> DiagnosticResult<()> {
     use RefAccessErr::*;
@@ -80,7 +80,7 @@ pub(super) fn check_expr_can_be_mutably_referenced(
 }
 
 fn check_expr_can_be_mutably_referenced_internal(
-    sess: &Sess,
+    sess: &LintSess,
     expr: &ast::Expr,
     is_direct_ref: bool,
 ) -> Result<(), RefAccessErr> {
@@ -224,8 +224,8 @@ fn check_expr_can_be_mutably_referenced_internal(
     }
 }
 
-fn find_binding_info_in_module<'w>(
-    workspace: &'w Workspace<'w>,
+fn find_binding_info_in_module(
+    workspace: &Workspace,
     module_idx: ModuleIdx,
     symbol: Ustr,
 ) -> &BindingInfo {

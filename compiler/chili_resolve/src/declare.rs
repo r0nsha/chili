@@ -12,7 +12,7 @@ pub(crate) trait Declare<'w> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()>;
 }
 
@@ -20,7 +20,7 @@ impl<'w, T: Declare<'w>> Declare<'w> for Vec<T> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         for element in self {
             element.declare(resolver, workspace)?;
@@ -33,7 +33,7 @@ impl<'w, T: Declare<'w>> Declare<'w> for Option<T> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         if let Some(e) = self {
             e.declare(resolver, workspace)?;
@@ -46,7 +46,7 @@ impl<'w, T: Declare<'w>> Declare<'w> for Box<T> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.as_mut().declare(resolver, workspace)
     }
@@ -56,7 +56,7 @@ impl<'w> Declare<'w> for ast::Ast {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.imports.declare(resolver, workspace)?;
         self.bindings.declare(resolver, workspace)?;
@@ -68,7 +68,7 @@ impl<'w> Declare<'w> for ast::Import {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         check_duplicate_global_symbol(resolver, workspace, self.alias, self.span)?;
 
@@ -95,7 +95,7 @@ impl<'w> Declare<'w> for ast::Binding {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         // TODO: support global destructor patterns
 
@@ -133,7 +133,7 @@ impl<'w> Declare<'w> for ast::Binding {
 
 fn check_duplicate_global_symbol<'w>(
     resolver: &Resolver,
-    workspace: &Workspace<'w>,
+    workspace: &Workspace,
     symbol: Ustr,
     span: Span,
 ) -> DiagnosticResult<()> {

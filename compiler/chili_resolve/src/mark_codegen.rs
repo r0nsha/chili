@@ -55,11 +55,11 @@ impl Sess {
 }
 
 trait MarkCodegen<'w> {
-    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace<'w>);
+    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace);
 }
 
 impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Vec<T> {
-    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace<'w>) {
+    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {
         for element in self {
             element.mark_codegen(sess, workspace);
         }
@@ -67,7 +67,7 @@ impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Vec<T> {
 }
 
 impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Option<T> {
-    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace<'w>) {
+    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {
         if let Some(e) = self {
             e.mark_codegen(sess, workspace);
         }
@@ -75,11 +75,11 @@ impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Option<T> {
 }
 
 impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Box<T> {
-    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace<'w>) {
+    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {
         self.as_ref().mark_codegen(sess, workspace);
     }
 }
 
 impl<'w> MarkCodegen<'w> for ast::Binding {
-    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace<'w>) {}
+    fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {}
 }

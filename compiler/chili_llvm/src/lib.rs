@@ -34,7 +34,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace<'w>, asts: &Vec<Ast>) {
+pub fn codegen<'w>(workspace: &Workspace, asts: &Vec<Ast>) {
     let context = Context::create();
     let module = context.create_module(
         workspace

@@ -13,7 +13,7 @@ pub(crate) trait Resolve<'w> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()>;
 }
 
@@ -21,7 +21,7 @@ impl<'w, T: Resolve<'w>> Resolve<'w> for Vec<T> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         for element in self {
             element.resolve(resolver, workspace)?;
@@ -34,7 +34,7 @@ impl<'w, T: Resolve<'w>> Resolve<'w> for Option<T> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         if let Some(e) = self {
             e.resolve(resolver, workspace)?;
@@ -47,7 +47,7 @@ impl<'w, T: Resolve<'w>> Resolve<'w> for Box<T> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.as_mut().resolve(resolver, workspace)
     }
@@ -57,7 +57,7 @@ impl<'w> Resolve<'w> for ast::Ast {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.imports.resolve(resolver, workspace)?;
         self.bindings.resolve(resolver, workspace)?;
@@ -69,7 +69,7 @@ impl<'w> Resolve<'w> for ast::Import {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         if !resolver.in_global_scope() {
             self.module_idx = workspace.find_module_info(self.module_info).unwrap();
@@ -93,7 +93,7 @@ impl<'w> Resolve<'w> for ast::Binding {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.ty_expr.resolve(resolver, workspace)?;
         self.value.resolve(resolver, workspace)?;
@@ -125,7 +125,7 @@ impl<'w> Resolve<'w> for ast::Expr {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         match &mut self.kind {
             ast::ExprKind::Import(imports) => {
@@ -369,7 +369,7 @@ impl<'w> Resolve<'w> for ast::Block {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         resolver.push_scope();
 
@@ -386,7 +386,7 @@ impl<'w> Resolve<'w> for ast::Fn {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         let old_scope_level = resolver.function_scope_level;
 
@@ -444,7 +444,7 @@ impl<'w> Resolve<'w> for ast::Call {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
-        workspace: &mut Workspace<'w>,
+        workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.callee.resolve(resolver, workspace)?;
 

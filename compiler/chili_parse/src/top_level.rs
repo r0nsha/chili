@@ -2,11 +2,8 @@ use crate::*;
 use chili_ast::ast::{Ast, BindingKind, Visibility};
 use chili_error::{DiagnosticResult, SyntaxError};
 
-impl<'w> Parser<'w> {
-    pub(crate) fn parse_top_level(
-        &mut self,
-        ast: &mut Ast,
-    ) -> DiagnosticResult<()> {
+impl<'p> Parser<'p> {
+    pub(crate) fn parse_top_level(&mut self, ast: &mut Ast) -> DiagnosticResult<()> {
         self.skip_redundant_tokens();
 
         let visibility = if eat!(self, Pub) {
@@ -19,8 +16,7 @@ impl<'w> Parser<'w> {
             let imports = self.parse_import(visibility)?;
             ast.imports.extend(imports);
         } else if eat!(self, Type) {
-            let binding =
-                self.parse_binding(BindingKind::Type, visibility, true)?;
+            let binding = self.parse_binding(BindingKind::Type, visibility, true)?;
 
             ast.bindings.push(binding);
         } else if eat!(self, Let) {

@@ -1,13 +1,11 @@
 use crate::*;
-use chili_ast::ast::{
-    ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField,
-};
+use chili_ast::ast::{ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField};
 use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(crate) fn parse_literal(&mut self) -> DiagnosticResult<Expr> {
         let token = self.previous();
         let span = token.span;
@@ -22,15 +20,10 @@ impl<'w> Parser<'w> {
             Char(value) => LiteralKind::Char(*value),
             _ => {
                 return Err(Diagnostic::bug()
-                    .with_message(format!(
-                        "unexpected literal `{}`",
-                        token.lexeme
-                    ))
-                    .with_labels(vec![Label::primary(
-                        span.file_id,
-                        span.range(),
-                    )
-                    .with_message("unknown literal")]));
+                    .with_message(format!("unexpected literal `{}`", token.lexeme))
+                    .with_labels(vec![
+                        Label::primary(span.file_id, span.range()).with_message("unknown literal")
+                    ]));
             }
         };
 
@@ -83,13 +76,8 @@ impl<'w> Parser<'w> {
         first_expr: Expr,
         start_span: Span,
     ) -> DiagnosticResult<Expr> {
-        let mut exprs = parse_delimited_list!(
-            self,
-            CloseParen,
-            Comma,
-            self.parse_expr()?,
-            ", or )"
-        );
+        let mut exprs =
+            parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
 
         exprs.insert(0, first_expr);
 

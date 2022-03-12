@@ -8,7 +8,7 @@ use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, To};
 use ustr::{ustr, Ustr};
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
         let name = self.get_decl_name();
         let start_span = self.previous().span;

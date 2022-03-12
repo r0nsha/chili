@@ -1,14 +1,16 @@
-use crate::ast::{ForeignLibrary, ModuleInfo, Visibility};
-use crate::ty::TyKind;
-use crate::value::Value;
+use crate::{
+    ast::{ForeignLibrary, ModuleInfo, Visibility},
+    ty::TyKind,
+    value::Value,
+};
 use bitflags::bitflags;
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
-use std::{cmp::Ordering, collections::HashSet, path::Path};
+use std::{cmp::Ordering, collections::HashSet, path::PathBuf};
 use ustr::{ustr, Ustr};
 
-pub struct Workspace<'w> {
+pub struct Workspace {
     pub build_options: BuildOptions,
 
     // Mapping from file id's to their source. Stored for diagnostics
@@ -18,10 +20,10 @@ pub struct Workspace<'w> {
     pub root_file_id: FileId,
 
     // The workspace's root directory
-    pub root_dir: &'w Path,
+    pub root_dir: PathBuf,
 
     // Std library's root directory
-    pub std_dir: &'w Path,
+    pub std_dir: PathBuf,
 
     // The root module's id. Resolved after ast generation
     pub root_module_id: ModuleIdx,
@@ -41,8 +43,8 @@ pub struct Workspace<'w> {
     pub foreign_libraries: HashSet<ForeignLibrary>,
 }
 
-impl<'w> Workspace<'w> {
-    pub fn new(build_options: BuildOptions, root_dir: &'w Path, std_dir: &'w Path) -> Self {
+impl Workspace {
+    pub fn new(build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
         Self {
             build_options,
             files: SimpleFiles::new(),
@@ -83,7 +85,7 @@ pub struct BindingInfo {
     pub span: Span,
 }
 
-impl<'w> Workspace<'w> {
+impl Workspace {
     pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleIdx {
         self.module_infos.push(module_info);
         ModuleIdx(self.module_infos.len() - 1)

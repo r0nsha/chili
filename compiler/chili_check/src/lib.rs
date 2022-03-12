@@ -21,7 +21,7 @@ use chili_infer::sess::InferSess;
 use chili_infer::substitute::{Substitute, SubstituteTy};
 use chili_span::Span;
 
-pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
+pub fn check(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
     let target_metrics = workspace.build_options.target_platform.metrics();
     let mut infcx = InferSess::new(target_metrics.word_size);
 
@@ -54,13 +54,13 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
     Ok(())
 }
 
-pub(crate) struct CheckSess<'w, 'a> {
-    pub(crate) workspace: &'a mut Workspace<'w>,
-    pub(crate) infcx: &'a mut InferSess,
+pub(crate) struct CheckSess<'c> {
+    pub(crate) workspace: &'c mut Workspace,
+    pub(crate) infcx: &'c mut InferSess,
 }
 
-impl<'w, 'a> CheckSess<'w, 'a> {
-    pub(crate) fn new(workspace: &'a mut Workspace<'w>, infcx: &'a mut InferSess) -> Self {
+impl<'c> CheckSess<'c> {
+    pub(crate) fn new(workspace: &'c mut Workspace, infcx: &'c mut InferSess) -> Self {
         Self { workspace, infcx }
     }
 

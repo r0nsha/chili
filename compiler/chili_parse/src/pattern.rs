@@ -3,7 +3,7 @@ use chili_ast::pattern::{DestructorPattern, Pattern, SymbolPattern};
 use chili_error::SyntaxError;
 use chili_span::To;
 
-impl<'w> Parser<'w> {
+impl<'p> Parser<'p> {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
         match self.parse_symbol_pattern() {
             Ok(symbol) => Ok(Pattern::Single(symbol)),
