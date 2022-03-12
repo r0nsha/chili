@@ -1,7 +1,6 @@
 use chili_ast::workspace::Workspace;
 use chili_astgen::{AstGenerationStats, AstGenerator};
 use chili_error::emit_single_diagnostic;
-// use chili_llvm::codegen;
 use codespan_reporting::diagnostic::Diagnostic;
 use colored::Colorize;
 use common::{build_options::BuildOptions, time, Stopwatch};
@@ -88,7 +87,7 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     // time! { "codegen(llvm)",
-    //     codegen(&workspace, &asts)
+    //     chili_llvm::codegen(&workspace, &asts)
     // }
 
     all_sw.stop();
