@@ -64,27 +64,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             ExprKind::Assign { lvalue, rvalue } => {
                 self.check_assign_expr(frame, lvalue, rvalue, expr.span)?
             }
-            ExprKind::Cast(info) => {
-                let info = self.check_cast(frame, info, expected_ty, expr.span)?;
-                let source_ty = self.infcx.normalize_ty(&info.expr.ty);
-
-                if source_ty.can_cast(&info.target_ty) {
-                    let target_ty = info.target_ty.clone();
-                    CheckedExpr::new(ExprKind::Cast(info), target_ty, None, expr.span)
-                } else {
-                    let source_ty = self.infcx.normalize_ty_and_untyped(&source_ty);
-                    return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "cannot cast from `{}` to `{}`",
-                            source_ty, info.target_ty
-                        ))
-                        .with_labels(vec![Label::primary(
-                            info.expr.span.file_id,
-                            info.expr.span.range().clone(),
-                        )
-                        .with_message(format!("invalid cast to `{}`", info.target_ty))]));
-                }
-            }
+            ExprKind::Cast(info) => self.check_cast(frame, info, expected_ty, expr.span)?,
             ExprKind::Fn(func) => {
                 let func = self.check_fn(frame, func, expr.span, expected_ty)?;
                 let ty = func.proto.ty.clone();
@@ -1240,7 +1220,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         info: &ast::Cast,
         expected_ty: Option<TyKind>,
         expr_span: Span,
-    ) -> DiagnosticResult<ast::Cast> {
+    ) -> DiagnosticResult<CheckedExpr> {
         let casted_expr = self.check_expr(frame, &info.expr, None)?;
 
         let (type_expr, target_ty) = if let Some(type_expr) = &info.type_expr {
@@ -1261,11 +1241,35 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         };
 
-        Ok(ast::Cast {
+        let cast = ast::Cast {
             expr: Box::new(casted_expr.expr),
             type_expr,
             target_ty,
-        })
+        };
+
+        let source_ty = self.infcx.normalize_ty(&cast.expr.ty);
+
+        if source_ty.can_cast(&cast.target_ty) {
+            let target_ty = cast.target_ty.clone();
+            Ok(CheckedExpr::new(
+                ExprKind::Cast(cast),
+                target_ty,
+                None,
+                expr_span,
+            ))
+        } else {
+            let source_ty = self.infcx.normalize_ty_and_untyped(&source_ty);
+            Err(Diagnostic::error()
+                .with_message(format!(
+                    "cannot cast from `{}` to `{}`",
+                    source_ty, cast.target_ty
+                ))
+                .with_labels(vec![Label::primary(
+                    cast.expr.span.file_id,
+                    cast.expr.span.range().clone(),
+                )
+                .with_message(format!("invalid cast to `{}`", cast.target_ty))]))
+        }
     }
 
     pub(super) fn check_expr_can_be_mutably_referenced(
