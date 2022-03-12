@@ -59,7 +59,7 @@ impl Display for TyKind {
                 TyKind::Never => "!".to_string(),
                 TyKind::AnyInt => "[int]".to_string(),
                 TyKind::AnyFloat => "[float]".to_string(),
-                TyKind::Var(v) => format!("${}", v),
+                TyKind::Var(v) => format!("'{}", v),
                 TyKind::Unknown => "[unknown]".to_string(),
             }
         )
