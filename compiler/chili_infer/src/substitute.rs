@@ -74,8 +74,7 @@ impl Substitute for Proto {
 
         self.ret.substitute(table)?;
 
-        // TODO: put a real span here
-        self.ty = self.ty.substitute(table, Span::unknown())?;
+        self.ty = self.ty.substitute_ty(table, Span::unknown())?;
 
         Ok(())
     }
@@ -93,7 +92,7 @@ impl Substitute for Binding {
 
         self.value.substitute(table)?;
 
-        self.ty = self.ty.substitute(table, span)?;
+        self.ty = self.ty.substitute_ty(table, span)?;
 
         Ok(())
     }
@@ -105,7 +104,7 @@ impl Substitute for Cast {
 
         self.type_expr.substitute(table)?;
 
-        self.target_ty = self.target_ty.substitute(table, self.expr.span)?;
+        self.target_ty = self.target_ty.substitute_ty(table, self.expr.span)?;
 
         Ok(())
     }
@@ -242,14 +241,14 @@ impl Substitute for Expr {
             ExprKind::Noop => return Ok(()), /* Noop is skipped */
         }
 
-        self.ty = self.ty.substitute(table, self.span)?;
+        self.ty = self.ty.substitute_ty(table, self.span)?;
 
         Ok(())
     }
 }
 
 pub trait SubstituteTy {
-    fn substitute(
+    fn substitute_ty(
         &self,
         table: &mut InPlaceUnificationTable<TyVar>,
         span: Span,
@@ -257,7 +256,7 @@ pub trait SubstituteTy {
 }
 
 impl SubstituteTy for TyKind {
-    fn substitute(
+    fn substitute_ty(
         &self,
         table: &mut InPlaceUnificationTable<TyVar>,
         span: Span,
@@ -266,7 +265,7 @@ impl SubstituteTy for TyKind {
             TyKind::Var(id) => {
                 let tyval = table.probe_value(TyVar::from(*id));
                 let new_ty = match tyval {
-                    InferValue::Bound(ty) => ty.substitute(table, span)?,
+                    InferValue::Bound(ty) => ty.substitute_ty(table, span)?,
                     InferValue::UntypedInt => TyKind::Int(IntTy::default()),
                     InferValue::UntypedFloat => TyKind::Float(FloatTy::default()),
                     InferValue::UntypedNil => TyKind::raw_pointer(true),
@@ -292,11 +291,11 @@ impl SubstituteTy for TyKind {
                 for param in &func.params {
                     new_params.push(FnTyParam {
                         symbol: param.symbol,
-                        ty: param.ty.substitute(table, span)?,
+                        ty: param.ty.substitute_ty(table, span)?,
                     });
                 }
 
-                let new_ret = func.ret.substitute(table, span)?;
+                let new_ret = func.ret.substitute_ty(table, span)?;
 
                 Ok(TyKind::Fn(FnTy {
                     params: new_params,
@@ -306,26 +305,26 @@ impl SubstituteTy for TyKind {
                 }))
             }
             TyKind::Pointer(inner, is_mutable) => {
-                let inner = inner.substitute(table, span)?;
+                let inner = inner.substitute_ty(table, span)?;
                 Ok(TyKind::Pointer(Box::new(inner), *is_mutable))
             }
             TyKind::MultiPointer(inner, is_mutable) => {
-                let inner = inner.substitute(table, span)?;
+                let inner = inner.substitute_ty(table, span)?;
                 Ok(TyKind::MultiPointer(Box::new(inner), *is_mutable))
             }
             TyKind::Slice(inner, is_mutable) => {
-                let inner = inner.substitute(table, span)?;
+                let inner = inner.substitute_ty(table, span)?;
                 Ok(TyKind::Slice(Box::new(inner), *is_mutable))
             }
             TyKind::Array(inner, size) => {
-                let inner = inner.substitute(table, span)?;
+                let inner = inner.substitute_ty(table, span)?;
                 Ok(TyKind::Array(Box::new(inner), *size))
             }
             TyKind::Tuple(tys) => {
                 let mut new_tys = vec![];
 
                 for ty in tys {
-                    new_tys.push(ty.substitute(table, span)?);
+                    new_tys.push(ty.substitute_ty(table, span)?);
                 }
 
                 Ok(TyKind::Tuple(new_tys))
@@ -334,7 +333,7 @@ impl SubstituteTy for TyKind {
                 let mut fields = vec![];
 
                 for field in &struct_ty.fields {
-                    let ty = field.ty.substitute(table, field.span)?;
+                    let ty = field.ty.substitute_ty(table, field.span)?;
 
                     fields.push(StructTyField {
                         symbol: field.symbol,
@@ -351,7 +350,7 @@ impl SubstituteTy for TyKind {
                 }))
             }
             TyKind::Type(inner) => {
-                let inner = inner.substitute(table, span)?;
+                let inner = inner.substitute_ty(table, span)?;
                 Ok(TyKind::Type(Box::new(inner)))
             }
             _ => Ok(self.clone()),

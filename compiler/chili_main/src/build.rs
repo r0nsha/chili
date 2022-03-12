@@ -56,7 +56,7 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    // Check
+    // Check - does type inference, type checking and const folding
 
     time! { "check",
         if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
@@ -65,7 +65,7 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    // Lint
+    // Lint - does auxillary checks which are not _required_ for type inference
 
     time! { "lint",
         if let Err(diagnostic) = chili_lint::lint(&mut workspace, &mut asts) {

@@ -48,7 +48,7 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
     }
 
     for binding_info in workspace.binding_infos.iter_mut() {
-        binding_info.ty = binding_info.ty.substitute(table, binding_info.span)?;
+        binding_info.ty = binding_info.ty.substitute_ty(table, binding_info.span)?;
     }
 
     Ok(())
