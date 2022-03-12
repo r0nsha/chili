@@ -32,6 +32,13 @@ impl Pattern {
         }
     }
 
+    pub fn into_single_ref(&self) -> &SymbolPattern {
+        match self {
+            Pattern::Single(ps) => ps,
+            _ => panic!("expected a name, got {}", self),
+        }
+    }
+
     pub fn into_single_mut(&mut self) -> &mut SymbolPattern {
         match self {
             Pattern::Single(ps) => ps,

@@ -1,6 +1,7 @@
 mod builtin;
 mod declare;
 mod import;
+mod mark_codegen;
 mod resolve;
 mod resolver;
 mod scope;
@@ -51,7 +52,7 @@ pub fn resolve<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagno
     }
 
     // Check that an entry point function exists
-    if workspace.entry_point_function.is_none() {
+    if workspace.entry_point_function_idx.is_none() {
         return Err(Diagnostic::error()
             .with_message("entry point function `main` is not defined")
             .with_notes(vec![
