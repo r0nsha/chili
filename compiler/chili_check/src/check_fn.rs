@@ -20,7 +20,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     ) -> DiagnosticResult<Fn> {
         let proto = self.check_proto(frame, &func.proto, expected_ty, span)?;
 
-        let ty = proto.ty.into_fn();
+        let ty = proto.ty.as_fn();
 
         let mut fn_frame = CheckFrame::new(frame.depth, frame.module_idx, Some(*ty.ret.clone()));
 
@@ -59,22 +59,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        let fn_ty = self.infcx.normalize_ty(&proto.ty).into_fn().clone();
-
-        if func.is_startup
-            && (!(fn_ty.ret.is_unit() || fn_ty.ret.is_never())
-                || !fn_ty.params.is_empty()
-                || fn_ty.variadic)
-        {
-            return Err(Diagnostic::error()
-                .with_message("entry point function `main` has wrong type, expected `fn() -> ()`")
-                .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
-        }
-
         Ok(Fn {
             proto,
             body,
-            is_startup: func.is_startup,
+            is_entry_point: func.is_entry_point,
         })
     }
 
@@ -90,7 +78,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             .map(|t| self.infcx.normalize_ty(t))
             .and_then(|t| {
                 if t.is_fn() {
-                    Some(t.into_fn().clone())
+                    Some(t.as_fn().clone())
                 } else {
                     None
                 }

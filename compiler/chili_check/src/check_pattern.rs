@@ -84,24 +84,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 }
 
-                if pattern.exhaustive && field_set.len() < struct_ty.fields.len() {
-                    return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "missing struct fields: {}",
-                            struct_ty
-                                .fields
-                                .iter()
-                                .filter(|f| field_set.get(&f.symbol).is_none())
-                                .map(|f| f.symbol.as_str())
-                                .collect::<Vec<&str>>()
-                                .join(", ")
-                        ))
-                        .with_labels(vec![Label::primary(
-                            pattern.span.file_id,
-                            pattern.span.range().clone(),
-                        )]));
-                }
-
                 Ok(())
             }
             ty => {

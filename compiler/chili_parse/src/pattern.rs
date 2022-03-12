@@ -21,19 +21,12 @@ impl<'w> Parser<'w> {
 
     fn parse_struct_destructor(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous().span;
-        let mut exhaustive = true;
 
         let symbols = parse_delimited_list!(
             self,
             CloseCurly,
             Comma,
             {
-                if eat!(self, DotDot) {
-                    expect!(self, CloseCurly, "}")?;
-                    exhaustive = false;
-                    break;
-                }
-
                 let mut symbol_pattern = self.parse_symbol_pattern()?;
 
                 if eat!(self, Colon) {
@@ -49,7 +42,6 @@ impl<'w> Parser<'w> {
 
         let destructor = DestructorPattern {
             symbols,
-            exhaustive,
             span: start_span.to(self.previous_span()),
         };
 
@@ -58,36 +50,24 @@ impl<'w> Parser<'w> {
 
     fn parse_tuple_destructor(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous().span;
-        let mut exhaustive = true;
 
         let symbols = parse_delimited_list!(
             self,
             CloseParen,
             Comma,
-            {
-                if eat!(self, DotDot) {
-                    expect!(self, CloseParen, ")")?;
-                    exhaustive = false;
-                    break;
-                }
-
-                self.parse_symbol_pattern()?
-            },
+            self.parse_symbol_pattern()?,
             ", or )"
         );
 
         let destructor = DestructorPattern {
             symbols,
-            exhaustive,
             span: start_span.to(self.previous_span()),
         };
 
         Ok(Pattern::TupleDestructor(destructor))
     }
 
-    pub(super) fn parse_symbol_pattern(
-        &mut self,
-    ) -> DiagnosticResult<SymbolPattern> {
+    pub(super) fn parse_symbol_pattern(&mut self) -> DiagnosticResult<SymbolPattern> {
         let is_mutable = eat!(self, Mut);
 
         let (symbol, ignore) = if eat!(self, Id(_)) {

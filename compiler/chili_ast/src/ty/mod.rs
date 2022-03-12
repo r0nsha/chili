@@ -343,7 +343,7 @@ impl TyKind {
         }
     }
 
-    pub fn into_fn(&self) -> &FnTy {
+    pub fn as_fn(&self) -> &FnTy {
         match self {
             TyKind::Fn(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),

@@ -13,7 +13,6 @@ pub enum Pattern {
 #[derive(Debug, PartialEq, Clone)]
 pub struct DestructorPattern {
     pub symbols: Vec<SymbolPattern>,
-    pub exhaustive: bool,
     pub span: Span,
 }
 

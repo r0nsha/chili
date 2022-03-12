@@ -177,6 +177,24 @@ impl<'w> Lint<'w> for ast::Expr {
                 }
             },
             ast::ExprKind::Fn(f) => {
+                let ty = f.proto.ty.as_fn();
+
+                // if this is the main function, check its type matches a fn() -> [() | !]
+                if f.is_entry_point
+                    && (!(ty.ret.is_unit() || ty.ret.is_never())
+                        || !ty.params.is_empty()
+                        || ty.variadic)
+                {
+                    return Err(Diagnostic::error()
+                        .with_message(
+                            "entry point function `main` has wrong type, expected `fn() -> ()`",
+                        )
+                        .with_labels(vec![Label::primary(
+                            self.span.file_id,
+                            self.span.range().clone(),
+                        )]));
+                }
+
                 f.body.lint(sess)?;
             }
             ast::ExprKind::While { cond, expr } => {

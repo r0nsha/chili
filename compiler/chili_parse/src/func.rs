@@ -21,7 +21,7 @@ impl<'w> Parser<'w> {
             ExprKind::Fn(Fn {
                 proto,
                 body,
-                is_startup: false,
+                is_entry_point: false,
             }),
             start_span.to(self.previous_span()),
         ))
@@ -93,9 +93,7 @@ impl<'w> Parser<'w> {
                             if eat!(self, Colon) {
                                 // (a: type, ..)
                                 self.revert(2);
-                                let pattern = Pattern::Single(
-                                    self.parse_symbol_pattern()?,
-                                );
+                                let pattern = Pattern::Single(self.parse_symbol_pattern()?);
                                 expect!(self, Colon, ":")?;
                                 let ty = Some(Box::new(self.parse_ty()?));
                                 FnParam { pattern, ty }
@@ -116,8 +114,7 @@ impl<'w> Parser<'w> {
                             }
                         } else {
                             // (a: type, ..)
-                            let pattern =
-                                Pattern::Single(self.parse_symbol_pattern()?);
+                            let pattern = Pattern::Single(self.parse_symbol_pattern()?);
                             expect!(self, Colon, ":")?;
                             let ty = Some(Box::new(self.parse_ty()?));
                             FnParam { pattern, ty }

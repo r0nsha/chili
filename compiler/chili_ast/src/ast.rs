@@ -88,8 +88,15 @@ impl Expr {
         }
     }
 
-    pub fn into_fn(&self) -> &Fn {
+    pub fn as_fn(&self) -> &Fn {
         match &self.kind {
+            ExprKind::Fn(func) => func,
+            _ => panic!(),
+        }
+    }
+
+    pub fn as_fn_mut(&mut self) -> &mut Fn {
+        match &mut self.kind {
             ExprKind::Fn(func) => func,
             _ => panic!(),
         }
@@ -363,7 +370,7 @@ pub enum ForIter {
 pub struct Fn {
     pub proto: Proto,
     pub body: Block,
-    pub is_startup: bool,
+    pub is_entry_point: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
