@@ -7,6 +7,7 @@ mod scope;
 
 use chili_ast::{ast::Ast, workspace::Workspace};
 use chili_error::DiagnosticResult;
+use codespan_reporting::diagnostic::Diagnostic;
 use declare::Declare;
 use import::{collect_module_exports, expand_and_replace_glob_imports};
 use resolve::Resolve;
@@ -47,6 +48,15 @@ pub fn resolve<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagno
         resolver.module_idx = ast.module_idx;
         resolver.module_info = ast.module_info;
         ast.resolve(&mut resolver, workspace)?;
+    }
+
+    // Check that an entry point function exists
+    if workspace.entry_point_function.is_none() {
+        return Err(Diagnostic::error()
+            .with_message("entry point function `main` is not defined")
+            .with_notes(vec![
+                "define function `let main = fn() {}` in your entry file".to_string(),
+            ]));
     }
 
     Ok(())

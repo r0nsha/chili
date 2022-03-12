@@ -111,6 +111,12 @@ impl<'w> Declare<'w> for ast::Binding {
             false,
         );
 
+        if let Some(value) = &self.value {
+            if workspace.entry_point_function.is_none() && pat.symbol == "main" && value.is_fn() {
+                workspace.entry_point_function = Some(pat.binding_info_idx);
+            }
+        }
+
         Ok(())
     }
 }

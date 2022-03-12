@@ -32,6 +32,9 @@ pub struct Workspace<'w> {
     // BindingInfoId -> BindingInfo
     pub binding_infos: Vec<BindingInfo>,
 
+    // The entry point function's id (usually main). Resolved during name resolution
+    pub entry_point_function: Option<BindingInfoIdx>,
+
     // Foreign libraries needed to be linked. Resolved during name resolution
     pub foreign_libraries: HashSet<ForeignLibrary>,
 }
@@ -47,6 +50,7 @@ impl<'w> Workspace<'w> {
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
+            entry_point_function: None,
             foreign_libraries: Default::default(),
         }
     }
