@@ -1,5 +1,5 @@
-mod type_var;
-mod union;
+mod infer;
+mod ty_var;
 
 use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;

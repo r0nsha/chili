@@ -2,20 +2,20 @@
 
 let main = fn {
     let a: int = 5
-    let b = {
-        let c = a * 2
-        c * a * 3
-    }
+    # let b = {
+    #     let c = a * 2
+    #     c * a * 3
+    # }
 
-    let hello = "Hello"
+    # let hello = "Hello"
 
-    let t = true || false
+    # let t = true || false
 
-    let d = if t {
-        hello
-    } else {
-        "Goodbye"
-    }
+    # let d = if t {
+    #     hello
+    # } else {
+    #     "Goodbye"
+    # }
 
     # printf("1\n".data)
 }
