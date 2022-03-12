@@ -104,9 +104,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                     arg
                 } else {
-                    // * this is a variadic argument, meaning that the
-                    //   argument's
-                    // * index is greater than the function param length
+                    // * this is a variadic argument, meaning that the argument's
+                    // * index is greater than the function's param length
                     self.check_expr(frame, &arg.value, None)?
                 }
             };

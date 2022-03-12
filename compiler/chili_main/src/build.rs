@@ -65,6 +65,15 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
+    // Lint
+
+    time! { "lint",
+        if let Err(diagnostic) = chili_lint::lint(&mut workspace, &mut asts) {
+            emit_single_diagnostic(&workspace.files, diagnostic);
+            return;
+        }
+    }
+
     for ast in asts.iter() {
         ast.print();
     }
