@@ -643,16 +643,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     new_elements.push(self.check_expr(frame, el, None)?);
                 }
 
-                let mut is_type_expression = true;
-
-                for element in &new_elements {
-                    let is_type = element.value.as_ref().map_or(false, |v| v.is_type());
-
-                    if !is_type {
-                        is_type_expression = false;
-                        break;
-                    }
-                }
+                let is_type_expression = new_elements
+                    .iter()
+                    .all(|el| el.value.as_ref().map_or(false, |v| v.is_type()));
 
                 let ty = TyKind::Tuple(new_elements.iter().map(|el| el.ty.clone()).collect());
                 let new_elements = new_elements.iter().map(|e| e.expr.clone()).collect();

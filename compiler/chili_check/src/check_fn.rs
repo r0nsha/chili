@@ -1,8 +1,8 @@
 use chili_ast::ty::*;
-use chili_error::{DiagnosticResult, SyntaxError};
+use chili_error::DiagnosticResult;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::ustr;
 
 use crate::{CheckFrame, CheckSess};
 use chili_ast::{
@@ -98,52 +98,8 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let mut params = vec![];
         let mut param_tys = vec![];
-        let mut param_name_map = UstrMap::default();
-
-        let mut check_symbol = |symbol: Ustr, span: Span| {
-            if let Some(already_defined_span) = param_name_map.insert(symbol, span) {
-                Err(SyntaxError::duplicate_symbol(
-                    already_defined_span,
-                    span,
-                    symbol,
-                ))
-            } else {
-                Ok(())
-            }
-        };
 
         for (index, param) in proto.params.iter().enumerate() {
-            match &param.pattern {
-                Pattern::Single(SymbolPattern {
-                    symbol,
-                    span,
-                    ignore,
-                    ..
-                }) => {
-                    if !ignore {
-                        if let Err(e) = check_symbol(*symbol, *span) {
-                            return Err(e);
-                        }
-                    }
-                }
-                Pattern::StructDestructor(destructor) | Pattern::TupleDestructor(destructor) => {
-                    for SymbolPattern {
-                        symbol,
-                        alias,
-                        span,
-                        ignore,
-                        ..
-                    } in destructor.symbols.iter()
-                    {
-                        if !ignore {
-                            if let Err(e) = check_symbol(alias.unwrap_or(*symbol), *span) {
-                                return Err(e);
-                            }
-                        }
-                    }
-                }
-            }
-
             let (type_expr, ty) = if let Some(ty) = &param.ty {
                 let type_expr = self.check_type_expr(frame, ty)?;
                 let ty = type_expr.value.unwrap().into_type();

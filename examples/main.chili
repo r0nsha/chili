@@ -1,4 +1,4 @@
-# use c.?
+use c.?
 
 # type Foo = { a: int, b: int }
 
@@ -25,7 +25,7 @@ let main = fn {
 
     # defer printf("2\n".data)
     
-    # printf("1\n".data)
+    printf("1\n".data)
 
     # let bee = if true {
     #     5
