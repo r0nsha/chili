@@ -95,29 +95,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum InitState {
-    NotInit,
-    Init,
-}
-
-impl InitState {
-    pub(crate) fn is_not_init(&self) -> bool {
-        match self {
-            InitState::NotInit => true,
-            _ => false,
-        }
-    }
-
-    pub(crate) fn is_init(&self) -> bool {
-        match self {
-            InitState::Init => true,
-            _ => false,
-        }
-    }
-}
-
 pub(crate) struct CheckFrame {
     pub(crate) depth: usize,
     pub(crate) module_idx: ModuleIdx,
