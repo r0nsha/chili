@@ -2,7 +2,7 @@ use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
 use chili_ast::workspace::{BindingInfo, ModuleIdx};
 use chili_ast::{
-    ast::{Binding, BindingKind, Import, Visibility},
+    ast::{Binding, Import, Visibility},
     pattern::{Pattern, SymbolPattern},
 };
 use chili_error::{DiagnosticResult, TypeError};
@@ -33,30 +33,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let (value, const_value) = if let Some(value) = &binding.value {
             let mut result = self.check_expr(frame, value, Some(expected_var.into()))?;
 
-            let is_a_type = result.value.as_ref().map_or(false, |v| v.is_type());
-
-            match &binding.kind {
-                BindingKind::Let => {
-                    if is_a_type {
-                        return Err(TypeError::expected(
-                            value.span,
-                            self.infcx.normalize_ty_and_untyped(&result.ty).to_string(),
-                            "a value",
-                        ));
-                    }
-                }
-                BindingKind::Type => {
-                    if !is_a_type {
-                        return Err(TypeError::expected(
-                            value.span,
-                            self.infcx.normalize_ty_and_untyped(&result.ty).to_string(),
-                            "a type",
-                        ));
-                    }
-                }
-                BindingKind::Import => (),
-            }
-
             self.infcx
                 .unify_or_coerce_ty_expr(&TyKind::from(expected_var), &mut result.expr)?;
 
@@ -64,27 +40,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         } else {
             (None, None)
         };
-
-        // * don't allow types to be bounded to mutable bindings
-        if const_value.as_ref().map_or(false, |v| v.is_type()) {
-            match &binding.pattern {
-                Pattern::Single(SymbolPattern {
-                    span, is_mutable, ..
-                }) => {
-                    if *is_mutable {
-                        return Err(Diagnostic::error()
-                            .with_message("variable of type `type` must be immutable")
-                            .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
-                            .with_notes(vec![String::from(
-                                "try removing the `mut` from the declaration",
-                            )]));
-                    }
-                }
-                Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => {
-                    unreachable!()
-                }
-            }
-        }
 
         // * don't allow const values with mutable bindings
         let const_value = match &binding.pattern {

@@ -5,8 +5,9 @@ mod sess;
 mod type_limits;
 
 use access::{check_assign_lvalue_id_access, check_id_access};
-use chili_ast::{ast, workspace::Workspace};
-use chili_error::DiagnosticResult;
+use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
+use chili_error::{DiagnosticResult, TypeError};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::scopes::Scopes;
 use lvalue_access::check_lvalue_access;
 use ref_access::check_expr_can_be_mutably_referenced;
@@ -79,7 +80,53 @@ impl<'w> Lint<'w> for ast::Binding {
             sess.init_scopes.insert(symbol.binding_info_idx, init_state);
         }
 
-        self.value.lint(sess)
+        self.value.lint(sess)?;
+
+        if let Some(value) = &self.value {
+            let is_a_type = value.ty.is_type();
+
+            match &self.kind {
+                ast::BindingKind::Let => {
+                    if is_a_type {
+                        return Err(TypeError::expected(
+                            value.span,
+                            value.ty.to_string(),
+                            "a value",
+                        ));
+                    }
+                }
+                ast::BindingKind::Type => {
+                    if !is_a_type {
+                        return Err(TypeError::expected(
+                            value.span,
+                            value.ty.to_string(),
+                            "a type",
+                        ));
+                    }
+                }
+                ast::BindingKind::Import => (),
+            }
+
+            // * don't allow types to be bounded to mutable bindings
+            match &self.pattern {
+                Pattern::Single(pat) => {
+                    if pat.is_mutable {
+                        return Err(Diagnostic::error()
+                            .with_message("variable of type `type` must be immutable")
+                            .with_labels(vec![Label::primary(
+                                pat.span.file_id,
+                                pat.span.range().clone(),
+                            )])
+                            .with_notes(vec![String::from(
+                                "try removing the `mut` from the declaration",
+                            )]));
+                    }
+                }
+                Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => (),
+            }
+        }
+
+        Ok(())
     }
 }
 

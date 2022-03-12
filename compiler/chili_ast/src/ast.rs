@@ -45,7 +45,7 @@ impl Ast {
 
     pub fn find_binding(&self, idx: BindingInfoIdx) -> Option<&Binding> {
         for binding in self.bindings.iter() {
-            if binding.pattern.into_single_ref().binding_info_idx == idx {
+            if binding.pattern.as_single_ref().binding_info_idx == idx {
                 return Some(binding);
             }
         }

@@ -99,7 +99,7 @@ impl<'w> Declare<'w> for ast::Binding {
     ) -> DiagnosticResult<()> {
         // TODO: support global destructor patterns
 
-        let pat = self.pattern.into_single_mut();
+        let pat = self.pattern.as_single_mut();
 
         check_duplicate_global_symbol(resolver, workspace, pat.symbol, pat.span)?;
 
