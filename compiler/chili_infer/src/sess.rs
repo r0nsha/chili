@@ -31,7 +31,7 @@ impl InferSess {
     }
 
     #[inline]
-    pub fn fresh_bound_type_var(&mut self, ty: TyKind) -> TyVar {
+    pub fn fresh_bound_type_var(&mut self, ty: Ty) -> TyVar {
         self.new_key(ty.into())
     }
 
@@ -41,17 +41,17 @@ impl InferSess {
     }
 
     #[inline]
-    pub fn ty_of(&mut self, var: TyVar) -> TyKind {
+    pub fn ty_of(&mut self, var: TyVar) -> Ty {
         match self.value_of(var) {
             InferValue::Bound(ty) => ty,
-            _ => TyKind::Var(var.index()),
+            _ => Ty::Var(var.index()),
         }
     }
 
-    pub fn is_integer(&mut self, ty: &TyKind) -> bool {
+    pub fn is_integer(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Int(_) => true,
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Int(_) => true,
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::Bound(ty) => self.is_integer(&ty),
                 InferValue::UntypedInt => true,
                 _ => false,
@@ -60,10 +60,10 @@ impl InferSess {
         }
     }
 
-    pub fn is_any_integer(&mut self, ty: &TyKind) -> bool {
+    pub fn is_any_integer(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Int(_) | TyKind::UInt(_) => true,
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Int(_) | Ty::UInt(_) => true,
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::Bound(ty) => self.is_any_integer(&ty),
                 InferValue::UntypedInt => true,
                 _ => false,
@@ -72,10 +72,10 @@ impl InferSess {
         }
     }
 
-    pub fn is_float(&mut self, ty: &TyKind) -> bool {
+    pub fn is_float(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Float(_) => true,
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Float(_) => true,
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::Bound(ty) => self.is_float(&ty),
                 InferValue::UntypedFloat => true,
                 _ => false,
@@ -84,10 +84,10 @@ impl InferSess {
         }
     }
 
-    pub fn is_number(&mut self, ty: &TyKind) -> bool {
+    pub fn is_number(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Int(_) | TyKind::UInt(_) | TyKind::Float(_) => true,
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Int(_) | Ty::UInt(_) | Ty::Float(_) => true,
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::Bound(ty) => self.is_number(&ty),
                 InferValue::UntypedInt | InferValue::UntypedFloat => true,
                 _ => false,
@@ -96,9 +96,9 @@ impl InferSess {
         }
     }
 
-    pub fn is_untyped_integer(&mut self, ty: &TyKind) -> bool {
+    pub fn is_untyped_integer(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::UntypedInt => true,
                 _ => false,
             },
@@ -106,9 +106,9 @@ impl InferSess {
         }
     }
 
-    pub fn is_untyped_float(&mut self, ty: &TyKind) -> bool {
+    pub fn is_untyped_float(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::UntypedFloat => true,
                 _ => false,
             },
@@ -116,9 +116,9 @@ impl InferSess {
         }
     }
 
-    pub fn is_untyped_number(&mut self, ty: &TyKind) -> bool {
+    pub fn is_untyped_number(&mut self, ty: &Ty) -> bool {
         match ty {
-            TyKind::Var(var) => match self.value_of(TyVar::from(*var)) {
+            Ty::Var(var) => match self.value_of(TyVar::from(*var)) {
                 InferValue::UntypedInt | InferValue::UntypedFloat => true,
                 _ => false,
             },
@@ -168,33 +168,33 @@ impl UnifyKey for TyVar {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum InferValue {
-    Bound(TyKind),
+    Bound(Ty),
     UntypedInt,
     UntypedFloat,
     UntypedNil,
     Unbound,
 }
 
-impl From<TyKind> for InferValue {
-    fn from(ty: TyKind) -> Self {
+impl From<Ty> for InferValue {
+    fn from(ty: Ty) -> Self {
         InferValue::Bound(ty)
     }
 }
 
-impl From<InferValue> for TyKind {
+impl From<InferValue> for Ty {
     fn from(value: InferValue) -> Self {
         match value {
             InferValue::Bound(ty) => ty,
-            InferValue::UntypedInt => TyKind::Int(IntTy::default()),
-            InferValue::UntypedFloat => TyKind::Float(FloatTy::default()),
-            InferValue::UntypedNil => TyKind::raw_pointer(true),
+            InferValue::UntypedInt => Ty::Int(IntTy::default()),
+            InferValue::UntypedFloat => Ty::Float(FloatTy::default()),
+            InferValue::UntypedNil => Ty::raw_pointer(true),
             InferValue::Unbound => panic!("expected type, found InferenceValue::Unbound"),
         }
     }
 }
 
-impl From<TyVar> for TyKind {
+impl From<TyVar> for Ty {
     fn from(var: TyVar) -> Self {
-        TyKind::Var(var.index())
+        Ty::Var(var.index())
     }
 }

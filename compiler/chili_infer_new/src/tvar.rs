@@ -1,5 +1,5 @@
 use chili_ast::ast;
-use chili_ast::ty::TyKind;
+use chili_ast::ty::Ty;
 use chili_ast::workspace::BindingInfoIdx;
 use chili_error::DiagnosticResult;
 use codespan_reporting::diagnostic::Diagnostic;
@@ -38,17 +38,17 @@ impl fmt::Display for TyVar {
     }
 }
 
-impl Into<TyKind> for TyVar {
-    fn into(self) -> TyKind {
-        TyKind::Var(self.0)
+impl Into<Ty> for TyVar {
+    fn into(self) -> Ty {
+        Ty::Var(self.0)
     }
 }
 
 impl TyVar {
     // Attempt to bind a type variable to a type, returning an appropriate substitution.
-    fn bind(&self, ty: &TyKind) -> DiagnosticResult<Subst> {
+    fn bind(&self, ty: &Ty) -> DiagnosticResult<Subst> {
         // Check for binding a variable to itself
-        if let TyKind::Var(u) = ty {
+        if let Ty::Var(u) = ty {
             if *u == self.0 {
                 return Ok(Subst::new());
             }
@@ -107,7 +107,7 @@ impl<T: Types> Types for Vec<T> {
     }
 }
 
-impl Types for TyKind {
+impl Types for Ty {
     fn ftv(&self) -> HashSet<TyVar> {
         // match self {
         //     // For a type variable, there is one free variable: the variable itself.
@@ -122,7 +122,7 @@ impl Types for TyKind {
         HashSet::new()
     }
 
-    fn apply(&self, s: &Subst) -> TyKind {
+    fn apply(&self, s: &Subst) -> Ty {
         // match self {
         //     // If this type references a variable that is in the substitution, return it's
         //     // replacement type. Otherwise, return the existing type.
@@ -142,7 +142,7 @@ pub(crate) trait MostGeneralUnifier {
     fn most_general_unifier(&self, other: &Self) -> DiagnosticResult<Subst>;
 }
 
-impl MostGeneralUnifier for TyKind {
+impl MostGeneralUnifier for Ty {
     // Most general unifier, a substitution S such that S(self) is congruent to S(other).
     fn most_general_unifier(&self, other: &Self) -> DiagnosticResult<Subst> {
         match (self, other) {
@@ -174,16 +174,16 @@ impl MostGeneralUnifier for TyKind {
 
 // A substitution is a mapping from type variables to types.
 #[derive(Clone, Debug)]
-pub(crate) struct Subst(HashMap<TyVar, TyKind>);
+pub(crate) struct Subst(HashMap<TyVar, Ty>);
 
 impl Deref for Subst {
-    type Target = HashMap<TyVar, TyKind>;
-    fn deref(&self) -> &HashMap<TyVar, TyKind> {
+    type Target = HashMap<TyVar, Ty>;
+    fn deref(&self) -> &HashMap<TyVar, Ty> {
         &self.0
     }
 }
 impl DerefMut for Subst {
-    fn deref_mut(&mut self) -> &mut HashMap<TyVar, TyKind> {
+    fn deref_mut(&mut self) -> &mut HashMap<TyVar, Ty> {
         &mut self.0
     }
 }
@@ -213,7 +213,7 @@ impl Subst {
 #[derive(Clone, Debug)]
 pub(crate) struct Polytype {
     pub vars: Vec<TyVar>,
-    pub ty: TyKind,
+    pub ty: Ty,
 }
 
 impl Types for Polytype {
@@ -245,8 +245,8 @@ impl Types for Polytype {
 impl Polytype {
     // Instantiates a polytype into a type. Replaces all bound type variables with fresh type
     // variables and return the resulting type.
-    fn instantiate(&self, tvg: &mut TyVarGen) -> TyKind {
-        let newvars = self.vars.iter().map(|_| TyKind::Var(tvg.next().0));
+    fn instantiate(&self, tvg: &mut TyVarGen) -> Ty {
+        let newvars = self.vars.iter().map(|_| Ty::Var(tvg.next().0));
         self.ty
             .apply(&Subst(self.vars.iter().cloned().zip(newvars).collect()))
     }
@@ -291,7 +291,7 @@ impl TypeEnv {
     }
 
     // Generalize creates a polytype
-    fn generalize(&self, ty: &TyKind) -> Polytype {
+    fn generalize(&self, ty: &Ty) -> Polytype {
         Polytype {
             vars: ty.ftv().difference(&self.ftv()).cloned().collect(),
             ty: ty.clone(),
@@ -299,7 +299,7 @@ impl TypeEnv {
     }
 
     // The meat of the type inference algorithm.
-    fn ti(&self, exp: &ast::Expr, tvg: &mut TyVarGen) -> DiagnosticResult<(Subst, TyKind)> {
+    fn ti(&self, exp: &ast::Expr, tvg: &mut TyVarGen) -> DiagnosticResult<(Subst, Ty)> {
         let (s, t) = match *exp {
             // A variable is typed as an instantiation of the corresponding type in the
             // environment.

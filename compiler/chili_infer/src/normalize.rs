@@ -2,26 +2,26 @@ use crate::sess::{InferSess, InferValue, TyVar};
 use chili_ast::ty::*;
 
 impl InferSess {
-    pub fn normalize_ty(&mut self, ty: &TyKind) -> TyKind {
+    pub fn normalize_ty(&mut self, ty: &Ty) -> Ty {
         self.normalize_ty_internal(ty, false, false)
     }
 
-    pub fn normalize_ty_and_untyped(&mut self, ty: &TyKind) -> TyKind {
+    pub fn normalize_ty_and_untyped(&mut self, ty: &Ty) -> Ty {
         self.normalize_ty_internal(ty, false, true)
     }
 
-    pub fn normalize_ty_and_expand_types(&mut self, ty: &TyKind) -> TyKind {
+    pub fn normalize_ty_and_expand_types(&mut self, ty: &Ty) -> Ty {
         self.normalize_ty_internal(ty, true, false)
     }
 
     fn normalize_ty_internal(
         &mut self,
-        ty: &TyKind,
+        ty: &Ty,
         expand_types: bool,
         normalize_untyped: bool,
-    ) -> TyKind {
+    ) -> Ty {
         match ty {
-            TyKind::Type(inner) => {
+            Ty::Type(inner) => {
                 if expand_types {
                     self.normalize_ty_internal(inner, expand_types, normalize_untyped)
                 } else {
@@ -29,24 +29,24 @@ impl InferSess {
                 }
             }
 
-            TyKind::Pointer(ty, is_mutable) => TyKind::Pointer(
+            Ty::Pointer(ty, is_mutable) => Ty::Pointer(
                 Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
                 *is_mutable,
             ),
-            TyKind::MultiPointer(ty, is_mutable) => TyKind::MultiPointer(
+            Ty::MultiPointer(ty, is_mutable) => Ty::MultiPointer(
                 Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
                 *is_mutable,
             ),
-            TyKind::Array(ty, size) => TyKind::Array(
+            Ty::Array(ty, size) => Ty::Array(
                 Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
                 *size,
             ),
-            TyKind::Slice(ty, is_mutable) => TyKind::Slice(
+            Ty::Slice(ty, is_mutable) => Ty::Slice(
                 Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
                 *is_mutable,
             ),
 
-            TyKind::Fn(ty) => {
+            Ty::Fn(ty) => {
                 let mut params = vec![];
 
                 for param in &ty.params {
@@ -59,7 +59,7 @@ impl InferSess {
                 let ret =
                     Box::new(self.normalize_ty_internal(&ty.ret, expand_types, normalize_untyped));
 
-                TyKind::Fn(FnTy {
+                Ty::Fn(FnTy {
                     params,
                     ret,
                     variadic: ty.variadic,
@@ -67,17 +67,17 @@ impl InferSess {
                 })
             }
 
-            TyKind::Tuple(tys) => {
+            Ty::Tuple(tys) => {
                 let mut new_tys = vec![];
 
                 for ty in tys {
                     new_tys.push(self.normalize_ty_internal(ty, expand_types, normalize_untyped));
                 }
 
-                TyKind::Tuple(new_tys)
+                Ty::Tuple(new_tys)
             }
 
-            TyKind::Struct(struct_ty) => {
+            Ty::Struct(struct_ty) => {
                 let mut new_fields = vec![];
 
                 for field in &struct_ty.fields {
@@ -88,7 +88,7 @@ impl InferSess {
                     });
                 }
 
-                TyKind::Struct(StructTy {
+                Ty::Struct(StructTy {
                     name: struct_ty.name,
                     qualified_name: struct_ty.qualified_name,
                     kind: struct_ty.kind,
@@ -96,7 +96,7 @@ impl InferSess {
                 })
             }
 
-            TyKind::Var(var) => {
+            Ty::Var(var) => {
                 let value = self.value_of(TyVar::from(*var));
 
                 match value {
@@ -105,7 +105,7 @@ impl InferSess {
                     }
                     InferValue::UntypedInt | InferValue::UntypedFloat => {
                         if normalize_untyped {
-                            TyKind::from(value)
+                            Ty::from(value)
                         } else {
                             ty.clone()
                         }

@@ -9,18 +9,18 @@ pub enum CoercionResult {
 }
 
 pub trait TryCoerce {
-    fn try_coerce(&self, to: &TyKind, word_size: usize) -> CoercionResult;
+    fn try_coerce(&self, to: &Ty, word_size: usize) -> CoercionResult;
 }
 
-impl TryCoerce for TyKind {
-    fn try_coerce(&self, to: &TyKind, word_size: usize) -> CoercionResult {
+impl TryCoerce for Ty {
+    fn try_coerce(&self, to: &Ty, word_size: usize) -> CoercionResult {
         use CoercionResult::*;
 
         let (left, right) = (self, to);
 
         match (left, right) {
             // * int -> same or bigger int
-            (TyKind::Int(left), TyKind::Int(right)) => {
+            (Ty::Int(left), Ty::Int(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -29,7 +29,7 @@ impl TryCoerce for TyKind {
             }
 
             // * uint -> same or bigger uint
-            (TyKind::UInt(left), TyKind::UInt(right)) => {
+            (Ty::UInt(left), Ty::UInt(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -38,7 +38,7 @@ impl TryCoerce for TyKind {
             }
 
             // * float -> same or bigger float
-            (TyKind::Float(left), TyKind::Float(right)) => {
+            (Ty::Float(left), Ty::Float(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -47,11 +47,9 @@ impl TryCoerce for TyKind {
             }
 
             // * array[N] of T -> slice of T
-            (TyKind::Pointer(t, lmut), TyKind::Slice(t_slice, rmut))
-                if can_coerce_mut(*lmut, *rmut) =>
-            {
+            (Ty::Pointer(t, lmut), Ty::Slice(t_slice, rmut)) if can_coerce_mut(*lmut, *rmut) => {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Ty::Array(t_array, ..) => {
                         if t_array == t_slice {
                             CoerceToRight
                         } else {
@@ -63,11 +61,9 @@ impl TryCoerce for TyKind {
             }
 
             // * slice of T <- array[N] of T
-            (TyKind::Slice(t_slice, lmut), TyKind::Pointer(t, rmut))
-                if can_coerce_mut(*lmut, *rmut) =>
-            {
+            (Ty::Slice(t_slice, lmut), Ty::Pointer(t, rmut)) if can_coerce_mut(*lmut, *rmut) => {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Ty::Array(t_array, ..) => {
                         if t_array == t_slice {
                             CoerceToLeft
                         } else {
@@ -79,11 +75,11 @@ impl TryCoerce for TyKind {
             }
 
             // * array[N] of T -> multi-pointer of T
-            (TyKind::Pointer(t, lmut), TyKind::MultiPointer(t_ptr, rmut))
+            (Ty::Pointer(t, lmut), Ty::MultiPointer(t_ptr, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Ty::Array(t_array, ..) => {
                         if t_array == t_ptr {
                             CoerceToRight
                         } else {
@@ -95,11 +91,11 @@ impl TryCoerce for TyKind {
             }
 
             // * multi-pointer of T <- array[N] of T
-            (TyKind::MultiPointer(t_ptr, lmut), TyKind::Pointer(t, rmut))
+            (Ty::MultiPointer(t_ptr, lmut), Ty::Pointer(t, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Ty::Array(t_array, ..) => {
                         if t_array == t_ptr {
                             CoerceToLeft
                         } else {
@@ -116,11 +112,11 @@ impl TryCoerce for TyKind {
 }
 
 pub(super) trait Coerce {
-    fn coerce(&self, target_ty: TyKind) -> Self;
+    fn coerce(&self, target_ty: Ty) -> Self;
 }
 
 impl Coerce for Expr {
-    fn coerce(&self, target_ty: TyKind) -> Self {
+    fn coerce(&self, target_ty: Ty) -> Self {
         let span = self.span;
         Expr::typed(
             ExprKind::Cast(Cast {

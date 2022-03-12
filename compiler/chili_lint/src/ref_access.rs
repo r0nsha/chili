@@ -1,6 +1,6 @@
 use chili_ast::{
     ast,
-    ty::TyKind,
+    ty::Ty,
     workspace::{BindingInfo, ModuleIdx, Workspace},
 };
 use chili_error::DiagnosticResult;
@@ -92,14 +92,14 @@ fn check_expr_can_be_mutably_referenced_internal(
         ast::ExprKind::MemberAccess { expr, member } => {
             match check_expr_can_be_mutably_referenced_internal(sess, expr, true) {
                 Ok(_) => match ty {
-                    TyKind::Tuple(tys) => {
+                    Ty::Tuple(tys) => {
                         let index = member.parse::<usize>().unwrap();
                         let ty = &tys[index];
 
                         match ty {
-                            TyKind::Slice(_, is_mutable)
-                            | TyKind::MultiPointer(_, is_mutable)
-                            | TyKind::Pointer(_, is_mutable)
+                            Ty::Slice(_, is_mutable)
+                            | Ty::MultiPointer(_, is_mutable)
+                            | Ty::Pointer(_, is_mutable)
                                 if !is_mutable =>
                             {
                                 Err(ImmutableReference {
@@ -110,7 +110,7 @@ fn check_expr_can_be_mutably_referenced_internal(
                             _ => Ok(()),
                         }
                     }
-                    TyKind::Struct(struct_ty) => {
+                    Ty::Struct(struct_ty) => {
                         let field_ty = struct_ty
                             .fields
                             .iter()
@@ -119,9 +119,9 @@ fn check_expr_can_be_mutably_referenced_internal(
                             .unwrap();
 
                         match field_ty {
-                            TyKind::Slice(_, is_mutable)
-                            | TyKind::MultiPointer(_, is_mutable)
-                            | TyKind::Pointer(_, is_mutable)
+                            Ty::Slice(_, is_mutable)
+                            | Ty::MultiPointer(_, is_mutable)
+                            | Ty::Pointer(_, is_mutable)
                                 if !is_mutable =>
                             {
                                 Err(ImmutableReference {
@@ -132,14 +132,14 @@ fn check_expr_can_be_mutably_referenced_internal(
                             _ => Ok(()),
                         }
                     }
-                    TyKind::Module(module_idx) => {
+                    Ty::Module(module_idx) => {
                         let binding_info =
                             find_binding_info_in_module(sess.workspace, *module_idx, *member);
 
                         match &binding_info.ty {
-                            TyKind::Slice(_, is_mutable)
-                            | TyKind::MultiPointer(_, is_mutable)
-                            | TyKind::Pointer(_, is_mutable)
+                            Ty::Slice(_, is_mutable)
+                            | Ty::MultiPointer(_, is_mutable)
+                            | Ty::Pointer(_, is_mutable)
                                 if !is_mutable =>
                             {
                                 Err(ImmutableReference {
@@ -196,9 +196,9 @@ fn check_expr_can_be_mutably_referenced_internal(
             binding_info_idx: _,
         } => {
             match ty {
-                TyKind::Slice(_, is_mutable)
-                | TyKind::MultiPointer(_, is_mutable)
-                | TyKind::Pointer(_, is_mutable) => {
+                Ty::Slice(_, is_mutable)
+                | Ty::MultiPointer(_, is_mutable)
+                | Ty::Pointer(_, is_mutable) => {
                     if *is_mutable && is_direct_ref {
                         return Ok(());
                     } else {

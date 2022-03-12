@@ -60,14 +60,10 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         // };
         let startup_fn_type = FnTy {
             params: vec![
-                FnTyParam::unnamed(TyKind::UInt(UIntTy::U32)),
-                FnTyParam::unnamed(
-                    TyKind::UInt(UIntTy::U8)
-                        .pointer_type(false)
-                        .pointer_type(false),
-                ),
+                FnTyParam::unnamed(Ty::UInt(UIntTy::U32)),
+                FnTyParam::unnamed(Ty::UInt(UIntTy::U8).pointer_type(false).pointer_type(false)),
             ],
-            ret: Box::new(TyKind::UInt(UIntTy::U32)),
+            ret: Box::new(Ty::UInt(UIntTy::U32)),
             variadic: false,
             lib_name: None,
         };
@@ -117,7 +113,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                 }
 
                 match binding.ty {
-                    TyKind::Module { .. } | TyKind::Type(..) => (),
+                    Ty::Module { .. } | Ty::Type(..) => (),
                     _ => {
                         match binding.value.as_ref() {
                             Some(expr) => match &expr.kind {
@@ -150,12 +146,12 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             entry_point_func,
             &FnTy {
                 params: vec![],
-                ret: Box::new(TyKind::Unit),
+                ret: Box::new(Ty::Unit),
                 variadic: false,
                 lib_name: None,
             },
             vec![],
-            &TyKind::Unit,
+            &Ty::Unit,
         );
 
         // TODO: if this is DLL Main, return 1 instead of 0
@@ -241,7 +237,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             };
 
             let param_ty = match &param.ty.as_ref().unwrap().ty {
-                TyKind::Type(inner) => inner,
+                Ty::Type(inner) => inner,
                 t => unreachable!("got {}", t),
             };
 
@@ -351,7 +347,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         call: &Call,
-        result_ty: &TyKind,
+        result_ty: &Ty,
     ) -> BasicValueEnum<'ctx> {
         let fn_ty = call.callee.ty.into_fn();
         let mut args = vec![];
@@ -394,7 +390,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         callee: impl Into<CallableValue<'ctx>>,
         callee_ty: &FnTy,
         args: Vec<BasicValueEnum<'ctx>>,
-        result_ty: &TyKind,
+        result_ty: &Ty,
     ) -> BasicValueEnum<'ctx> {
         let abi_fn = self
             .fn_type_map

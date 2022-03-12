@@ -25,7 +25,7 @@ impl<'c> CheckSess<'c> {
                 lvalue: Box::new(lvalue.expr),
                 rvalue: Box::new(rvalue.expr),
             },
-            TyKind::Unit,
+            Ty::Unit,
             None,
             span,
         ))

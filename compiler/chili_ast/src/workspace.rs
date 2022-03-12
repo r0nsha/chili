@@ -1,6 +1,6 @@
 use crate::{
     ast::{ForeignLibrary, ModuleInfo, Visibility},
-    ty::TyKind,
+    ty::Ty,
     value::Value,
 };
 use bitflags::bitflags;
@@ -69,7 +69,7 @@ pub struct BindingInfo {
     // the symbol(name) used for the binding
     pub symbol: Ustr,
     pub visibility: Visibility,
-    pub ty: TyKind,
+    pub ty: Ty,
     pub const_value: Option<Value>,
     // what kind of access the binding has
     pub is_mutable: bool,
@@ -117,7 +117,7 @@ impl Workspace {
             module_idx,
             symbol,
             visibility,
-            TyKind::Unknown,
+            Ty::Unknown,
             None,
             is_mutable,
             kind,
@@ -132,7 +132,7 @@ impl Workspace {
         module_idx: ModuleIdx,
         symbol: Ustr,
         visibility: Visibility,
-        ty: TyKind,
+        ty: Ty,
         const_value: Option<Value>,
         is_mutable: bool,
         kind: BindingInfoKind,

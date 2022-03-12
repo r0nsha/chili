@@ -36,7 +36,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                 .build_global_string_ptr(&value, name)
                 .as_pointer_value();
 
-            let element_ty = TyKind::UInt(UIntTy::U8);
+            let element_ty = Ty::UInt(UIntTy::U8);
             let ty = self.slice_type(&element_ty);
 
             let str_slice_ptr = self.module.add_global(ty, Some(AddressSpace::Generic), "");
@@ -65,7 +65,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         }
     }
 
-    pub(super) fn gen_nil(&mut self, ty: &TyKind) -> BasicValueEnum<'ctx> {
+    pub(super) fn gen_nil(&mut self, ty: &Ty) -> BasicValueEnum<'ctx> {
         let llvm_ty = self.llvm_type(ty);
         llvm_ty.into_pointer_type().const_null().into()
     }
@@ -89,7 +89,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         sliced_value: BasicValueEnum<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
-        element_ty: &TyKind,
+        element_ty: &Ty,
     ) {
         let data = self.builder.build_bitcast(
             sliced_value,
@@ -261,17 +261,12 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     }
 
     #[allow(unused)]
-    pub(super) fn build_memset_zero(&mut self, ptr: PointerValue<'ctx>, ty: &TyKind) {
+    pub(super) fn build_memset_zero(&mut self, ptr: PointerValue<'ctx>, ty: &Ty) {
         self.build_memset(ptr, ty, self.context.i8_type().const_zero())
     }
 
     #[allow(unused)]
-    pub(super) fn build_memset(
-        &mut self,
-        ptr: PointerValue<'ctx>,
-        ty: &TyKind,
-        value: IntValue<'ctx>,
-    ) {
+    pub(super) fn build_memset(&mut self, ptr: PointerValue<'ctx>, ty: &Ty, value: IntValue<'ctx>) {
         let ty = self.llvm_type(ty);
         let bytes_to_set = ty.size_of().unwrap();
         self.builder
@@ -545,17 +540,17 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     pub(super) fn gen_subscript(
         &mut self,
         agg: BasicValueEnum<'ctx>,
-        agg_ty: &TyKind,
+        agg_ty: &Ty,
         index: IntValue<'ctx>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let ty = agg_ty.maybe_deref_once();
 
         let agg = match ty {
-            TyKind::Array(..) | TyKind::MultiPointer(..) => {
+            Ty::Array(..) | Ty::MultiPointer(..) => {
                 self.maybe_load_double_pointer(agg.into_pointer_value())
             }
-            TyKind::Slice(..) => {
+            Ty::Slice(..) => {
                 let value = if agg.is_pointer_value() {
                     self.maybe_load_double_pointer(agg.into_pointer_value())
                         .into()
@@ -572,12 +567,12 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
         let access = unsafe {
             match ty {
-                TyKind::Array(..) => self.builder.build_gep(
+                Ty::Array(..) => self.builder.build_gep(
                     agg,
                     &[index.get_type().const_zero(), index],
                     "array_subscript",
                 ),
-                TyKind::MultiPointer(..) | TyKind::Slice(..) => {
+                Ty::MultiPointer(..) | Ty::Slice(..) => {
                     self.builder.build_gep(agg, &[index], "subscript")
                 }
                 ty => unreachable!("{}", ty),

@@ -3,10 +3,7 @@ use std::cmp::Ordering;
 use chili_ast::ty::{size::SizeOf, *};
 
 use inkwell::{
-    types::{
-        AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType,
-        PointerType,
-    },
+    types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, PointerType},
     AddressSpace,
 };
 
@@ -16,24 +13,24 @@ use super::{
 };
 
 impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
-    pub(super) fn llvm_type(&mut self, ty: &TyKind) -> BasicTypeEnum<'ctx> {
+    pub(super) fn llvm_type(&mut self, ty: &Ty) -> BasicTypeEnum<'ctx> {
         match ty {
-            TyKind::Bool => self.context.bool_type().into(),
-            TyKind::Int(inner) => match inner {
+            Ty::Bool => self.context.bool_type().into(),
+            Ty::Int(inner) => match inner {
                 IntTy::I8 => self.context.i8_type().into(),
                 IntTy::I16 => self.context.i16_type().into(),
                 IntTy::I32 => self.context.i32_type().into(),
                 IntTy::I64 => self.context.i64_type().into(),
                 IntTy::Isize => self.ptr_sized_int_type.into(),
             },
-            TyKind::UInt(inner) => match inner {
+            Ty::UInt(inner) => match inner {
                 UIntTy::U8 => self.context.i8_type().into(),
                 UIntTy::U16 => self.context.i16_type().into(),
                 UIntTy::U32 => self.context.i32_type().into(),
                 UIntTy::U64 => self.context.i64_type().into(),
                 UIntTy::Usize => self.ptr_sized_int_type.into(),
             },
-            TyKind::Float(inner) => match inner {
+            Ty::Float(inner) => match inner {
                 FloatTy::F16 => self.context.f16_type().into(),
                 FloatTy::F32 => self.context.f32_type().into(),
                 FloatTy::F64 => self.context.f64_type().into(),
@@ -44,21 +41,15 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                 }
                 .into(),
             },
-            TyKind::Pointer(inner, _) | TyKind::MultiPointer(inner, ..) => {
+            Ty::Pointer(inner, _) | Ty::MultiPointer(inner, ..) => {
                 let ty = self.llvm_type(&inner);
                 ty.ptr_type(AddressSpace::Generic).into()
             }
-            TyKind::Type(_) | TyKind::Unit | TyKind::Never | TyKind::Module { .. } => {
-                self.unit_type()
-            }
-            TyKind::Fn(func) => {
-                self.fn_type(func).ptr_type(AddressSpace::Generic).into()
-            }
-            TyKind::Array(inner, size) => {
-                self.llvm_type(inner).array_type(*size as u32).into()
-            }
-            TyKind::Slice(inner, ..) => self.slice_type(inner),
-            TyKind::Tuple(tys) => self
+            Ty::Type(_) | Ty::Unit | Ty::Never | Ty::Module { .. } => self.unit_type(),
+            Ty::Fn(func) => self.fn_type(func).ptr_type(AddressSpace::Generic).into(),
+            Ty::Array(inner, size) => self.llvm_type(inner).array_type(*size as u32).into(),
+            Ty::Slice(inner, ..) => self.slice_type(inner),
+            Ty::Tuple(tys) => self
                 .context
                 .struct_type(
                     &tys.iter()
@@ -67,7 +58,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                     false,
                 )
                 .into(),
-            TyKind::Struct(struct_ty) => {
+            Ty::Struct(struct_ty) => {
                 let struct_type = if struct_ty.name.is_empty() {
                     self.create_anonymous_struct_type(struct_ty)
                 } else {
@@ -90,10 +81,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub(super) fn slice_type(
-        &mut self,
-        element_ty: &TyKind,
-    ) -> BasicTypeEnum<'ctx> {
+    pub(super) fn slice_type(&mut self, element_ty: &Ty) -> BasicTypeEnum<'ctx> {
         self.context
             .struct_type(
                 &[
@@ -127,10 +115,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
 
-    pub(super) fn abi_fn_to_type(
-        &mut self,
-        abi_fn: &AbiFn<'ctx>,
-    ) -> FunctionType<'ctx> {
+    pub(super) fn abi_fn_to_type(&mut self, abi_fn: &AbiFn<'ctx>) -> FunctionType<'ctx> {
         let mut offset = 0;
 
         let ret = match abi_fn.ret.kind {
@@ -157,9 +142,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                     Some(cast_to) => cast_to,
                     None => param.ty,
                 },
-                AbiTyKind::Indirect => {
-                    param.ty.ptr_type(AddressSpace::Generic).into()
-                }
+                AbiTyKind::Indirect => param.ty.ptr_type(AddressSpace::Generic).into(),
                 AbiTyKind::Ignore => unimplemented!("ignore '{:?}'", param.ty),
             };
 
@@ -188,8 +171,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        let struct_type =
-            self.context.opaque_struct_type(&struct_ty.qualified_name);
+        let struct_type = self.context.opaque_struct_type(&struct_ty.qualified_name);
 
         self.type_map
             .insert(struct_ty.qualified_name, struct_type.into());
@@ -210,10 +192,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             .struct_type(&fields, struct_ty.is_packed_struct())
     }
 
-    fn create_struct_type_fields(
-        &mut self,
-        struct_ty: &StructTy,
-    ) -> Vec<BasicTypeEnum<'ctx>> {
+    fn create_struct_type_fields(&mut self, struct_ty: &StructTy) -> Vec<BasicTypeEnum<'ctx>> {
         if struct_ty.fields.is_empty() {
             vec![]
         } else if struct_ty.is_union() {

@@ -80,11 +80,11 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
-        ty: &TyKind,
+        ty: &Ty,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Int(_) | TyKind::UInt(_) => {
+            Ty::Int(_) | Ty::UInt(_) => {
                 // self
                 // .builder
                 // .build_int_add(
@@ -103,7 +103,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
                 result.into()
             }
-            TyKind::Float(_) => self
+            Ty::Float(_) => self
                 .builder
                 .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "fadd")
                 .into(),
@@ -116,11 +116,11 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
-        ty: &TyKind,
+        ty: &Ty,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Int(_) | TyKind::UInt(_) => {
+            Ty::Int(_) | Ty::UInt(_) => {
                 // self.builder
                 //     .build_int_sub(
                 //         lhs.into_int_value(),
@@ -139,7 +139,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
                 result.into()
             }
-            TyKind::Float(_) => self
+            Ty::Float(_) => self
                 .builder
                 .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "fsub")
                 .into(),
@@ -152,11 +152,11 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
-        ty: &TyKind,
+        ty: &Ty,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Int(_) | TyKind::UInt(_) => {
+            Ty::Int(_) | Ty::UInt(_) => {
                 // self.builder
                 //     .build_int_mul(
                 //         lhs.into_int_value(),
@@ -175,7 +175,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
                 result.into()
             }
-            TyKind::Float(_) => self
+            Ty::Float(_) => self
                 .builder
                 .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "fmul")
                 .into(),
@@ -188,23 +188,23 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
-        ty: &TyKind,
+        ty: &Ty,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Int(_) => {
+            Ty::Int(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "idiv")
                     .into()
             }
-            TyKind::UInt(_) => {
+            Ty::UInt(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_unsigned_div(lhs.into_int_value(), rhs.into_int_value(), "udiv")
                     .into()
             }
-            TyKind::Float(_) => self
+            Ty::Float(_) => self
                 .builder
                 .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "fdiv")
                 .into(),
@@ -217,23 +217,23 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
-        ty: &TyKind,
+        ty: &Ty,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Int(_) => {
+            Ty::Int(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "irem")
                     .into()
             }
-            TyKind::UInt(_) => {
+            Ty::UInt(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_unsigned_rem(lhs.into_int_value(), rhs.into_int_value(), "urem")
                     .into()
             }
-            TyKind::Float(_) => self
+            Ty::Float(_) => self
                 .builder
                 .build_float_rem(lhs.into_float_value(), rhs.into_float_value(), "frem")
                 .into(),
@@ -275,7 +275,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         &mut self,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
-        ty: &TyKind,
+        ty: &Ty,
     ) -> BasicValueEnum<'ctx> {
         self.builder
             .build_right_shift(
@@ -300,7 +300,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     fn get_overflow_fn(
         &mut self,
         op: BinaryOp,
-        ty: &TyKind,
+        ty: &Ty,
         operand_type: IntType<'ctx>,
     ) -> FunctionValue<'ctx> {
         let overflow_fn_return_type = self.context.struct_type(

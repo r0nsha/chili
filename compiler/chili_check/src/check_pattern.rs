@@ -13,7 +13,7 @@ impl<'c> CheckSess<'c> {
     pub(crate) fn check_binding_pattern(
         &mut self,
         pattern: &Pattern,
-        expected_ty: TyKind,
+        expected_ty: Ty,
         const_value: Option<Value>,
     ) -> DiagnosticResult<()> {
         match pattern {
@@ -39,11 +39,11 @@ impl<'c> CheckSess<'c> {
 
     fn check_struct_destructor(
         &mut self,
-        expected_ty: &TyKind,
+        expected_ty: &Ty,
         pattern: &DestructorPattern,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
-            TyKind::Struct(ref struct_ty) => {
+            Ty::Struct(ref struct_ty) => {
                 if struct_ty.is_union() {
                     return Err(Diagnostic::error()
                         .with_message(format!("can't destruct `{}`", expected_ty))
@@ -97,11 +97,11 @@ impl<'c> CheckSess<'c> {
 
     fn check_tuple_destructor(
         &mut self,
-        expected_ty: &TyKind,
+        expected_ty: &Ty,
         pattern: &DestructorPattern,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
-            TyKind::Tuple(tys) => {
+            Ty::Tuple(tys) => {
                 if pattern.symbols.len() > tys.len() {
                     return Err(TypeError::too_many_destructor_variables(
                         pattern.span,
@@ -130,16 +130,16 @@ impl<'c> CheckSess<'c> {
         }
     }
 
-    fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: TyKind) {
+    fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: Ty) {
         if !pattern.ignore {
             self.update_binding_info_ty(pattern.binding_info_idx, ty);
         }
     }
 }
 
-fn get_destructed_ty(expected_ty: &TyKind, ty: &TyKind) -> TyKind {
+fn get_destructed_ty(expected_ty: &Ty, ty: &Ty) -> Ty {
     match expected_ty {
-        TyKind::Pointer(_, is_mutable) => TyKind::Pointer(Box::new(ty.clone()), *is_mutable),
+        Ty::Pointer(_, is_mutable) => Ty::Pointer(Box::new(ty.clone()), *is_mutable),
         _ => ty.clone(),
     }
 }

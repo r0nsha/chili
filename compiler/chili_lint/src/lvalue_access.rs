@@ -1,4 +1,4 @@
-use chili_ast::{ast, ty::TyKind};
+use chili_ast::{ast, ty::Ty};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -122,7 +122,7 @@ fn check_lvalue_mutability_internal(
 fn check_deref(lhs: &ast::Expr) -> Result<(), LvalueAccessErr> {
     use LvalueAccessErr::*;
 
-    if let TyKind::Pointer(_, is_mutable) = &lhs.ty {
+    if let Ty::Pointer(_, is_mutable) = &lhs.ty {
         if *is_mutable {
             Ok(())
         } else {
@@ -183,9 +183,9 @@ fn check_subscript(expr: &ast::Expr, original_expr_span: Span) -> Result<(), Lva
     use LvalueAccessErr::*;
 
     match &expr.ty {
-        TyKind::Slice(_, is_mutable)
-        | TyKind::MultiPointer(_, is_mutable)
-        | TyKind::Pointer(_, is_mutable) => {
+        Ty::Slice(_, is_mutable)
+        | Ty::MultiPointer(_, is_mutable)
+        | Ty::Pointer(_, is_mutable) => {
             return if *is_mutable {
                 Ok(())
             } else {
@@ -234,16 +234,16 @@ fn check_id(
     symbol: Ustr,
     is_mutable: bool,
     binding_span: Span,
-    ty: &TyKind,
+    ty: &Ty,
     is_direct_assign: bool,
 ) -> Result<(), LvalueAccessErr> {
     use LvalueAccessErr::*;
 
     if !is_direct_assign {
         match ty {
-            TyKind::Slice(_, is_mutable)
-            | TyKind::MultiPointer(_, is_mutable)
-            | TyKind::Pointer(_, is_mutable) => {
+            Ty::Slice(_, is_mutable)
+            | Ty::MultiPointer(_, is_mutable)
+            | Ty::Pointer(_, is_mutable) => {
                 return if *is_mutable {
                     Ok(())
                 } else {

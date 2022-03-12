@@ -11,22 +11,22 @@ use ustr::{ustr, Ustr};
 use crate::workspace::ModuleIdx;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-pub enum TyKind {
+pub enum Ty {
     Never,
     Unit,
     Bool,
     Int(IntTy),
     UInt(UIntTy),
     Float(FloatTy),
-    Pointer(Box<TyKind>, bool),
-    MultiPointer(Box<TyKind>, bool),
+    Pointer(Box<Ty>, bool),
+    MultiPointer(Box<Ty>, bool),
     Fn(FnTy),
-    Array(Box<TyKind>, usize),
-    Slice(Box<TyKind>, bool),
-    Tuple(Vec<TyKind>),
+    Array(Box<Ty>, usize),
+    Slice(Box<Ty>, bool),
+    Tuple(Vec<Ty>),
     Struct(StructTy),
     Module(ModuleIdx),
-    Type(Box<TyKind>),
+    Type(Box<Ty>),
     Var(u32),
     AnyInt,
     AnyFloat,
@@ -36,7 +36,7 @@ pub enum TyKind {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FnTy {
     pub params: Vec<FnTyParam>,
-    pub ret: Box<TyKind>,
+    pub ret: Box<Ty>,
     pub variadic: bool,
     pub lib_name: Option<Ustr>,
 }
@@ -44,18 +44,18 @@ pub struct FnTy {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FnTyParam {
     pub symbol: Ustr,
-    pub ty: TyKind,
+    pub ty: Ty,
 }
 
 impl FnTyParam {
-    pub fn named(symbol: impl Into<Ustr>, ty: TyKind) -> Self {
+    pub fn named(symbol: impl Into<Ustr>, ty: Ty) -> Self {
         Self {
             symbol: symbol.into(),
             ty,
         }
     }
 
-    pub fn unnamed(ty: TyKind) -> Self {
+    pub fn unnamed(ty: Ty) -> Self {
         Self {
             symbol: ustr(""),
             ty,
@@ -115,9 +115,9 @@ pub struct StructTy {
     pub kind: StructTyKind,
 }
 
-impl From<StructTy> for TyKind {
+impl From<StructTy> for Ty {
     fn from(ty: StructTy) -> Self {
-        TyKind::Struct(ty)
+        Ty::Struct(ty)
     }
 }
 
@@ -178,12 +178,12 @@ impl StructTy {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructTyField {
     pub symbol: Ustr,
-    pub ty: TyKind,
+    pub ty: Ty,
     pub span: Span,
 }
 
 impl StructTyField {
-    pub fn temp(ty: TyKind) -> Self {
+    pub fn temp(ty: Ty) -> Self {
         Self {
             symbol: ustr(""),
             ty,
@@ -192,36 +192,36 @@ impl StructTyField {
     }
 }
 
-impl Into<String> for TyKind {
+impl Into<String> for Ty {
     fn into(self) -> String {
         self.to_string()
     }
 }
 
-impl TyKind {
-    pub fn raw_pointer(is_mutable: bool) -> TyKind {
-        TyKind::Pointer(Box::new(TyKind::Int(IntTy::I8)), is_mutable)
+impl Ty {
+    pub fn raw_pointer(is_mutable: bool) -> Ty {
+        Ty::Pointer(Box::new(Ty::Int(IntTy::I8)), is_mutable)
     }
 
-    pub fn str() -> TyKind {
-        TyKind::Slice(Box::new(TyKind::char()), false)
+    pub fn str() -> Ty {
+        Ty::Slice(Box::new(Ty::char()), false)
     }
 
-    pub fn char() -> TyKind {
-        TyKind::UInt(UIntTy::U8)
+    pub fn char() -> Ty {
+        Ty::UInt(UIntTy::U8)
     }
 
-    pub fn create_type(self) -> TyKind {
-        TyKind::Type(Box::new(self))
+    pub fn create_type(self) -> Ty {
+        Ty::Type(Box::new(self))
     }
 
-    pub fn anytype() -> TyKind {
-        TyKind::Unknown.create_type()
+    pub fn anytype() -> Ty {
+        Ty::Unknown.create_type()
     }
 
     pub fn is_type(&self) -> bool {
         match self {
-            TyKind::Type(_) => true,
+            Ty::Type(_) => true,
             _ => false,
         }
     }
@@ -236,98 +236,98 @@ impl TyKind {
 
     pub fn is_int(&self) -> bool {
         match self {
-            TyKind::Int(_) => true,
+            Ty::Int(_) => true,
             _ => false,
         }
     }
 
     pub fn is_uint(&self) -> bool {
         match self {
-            TyKind::UInt(_) => true,
+            Ty::UInt(_) => true,
             _ => false,
         }
     }
 
     pub fn is_float(&self) -> bool {
         match self {
-            TyKind::Float(_) => true,
+            Ty::Float(_) => true,
             _ => false,
         }
     }
 
     pub fn is_pointer(&self) -> bool {
         match self {
-            TyKind::Pointer(..) => true,
+            Ty::Pointer(..) => true,
             _ => false,
         }
     }
 
     pub fn is_multi_pointer(&self) -> bool {
         match self {
-            TyKind::MultiPointer(..) => true,
+            Ty::MultiPointer(..) => true,
             _ => false,
         }
     }
 
     pub fn is_bool(&self) -> bool {
         match self {
-            TyKind::Bool => true,
+            Ty::Bool => true,
             _ => false,
         }
     }
 
     pub fn is_fn(&self) -> bool {
         match self {
-            TyKind::Fn { .. } => true,
+            Ty::Fn { .. } => true,
             _ => false,
         }
     }
 
     pub fn is_var(&self) -> bool {
         match self {
-            TyKind::Var(..) => true,
+            Ty::Var(..) => true,
             _ => false,
         }
     }
 
     pub fn is_array(&self) -> bool {
         match self {
-            TyKind::Array(..) => true,
+            Ty::Array(..) => true,
             _ => false,
         }
     }
 
     pub fn is_slice(&self) -> bool {
         match self {
-            TyKind::Slice(..) => true,
+            Ty::Slice(..) => true,
             _ => false,
         }
     }
 
     pub fn is_unknown(&self) -> bool {
         match self {
-            TyKind::Unknown => true,
+            Ty::Unknown => true,
             _ => false,
         }
     }
 
     pub fn is_unit(&self) -> bool {
         match self {
-            TyKind::Unit => true,
+            Ty::Unit => true,
             _ => false,
         }
     }
 
     pub fn is_never(&self) -> bool {
         match self {
-            TyKind::Never => true,
+            Ty::Never => true,
             _ => false,
         }
     }
 
     pub fn is_struct(&self) -> bool {
         match self {
-            TyKind::Struct(_) => true,
+            Ty::Struct(_) => true,
             _ => false,
         }
     }
@@ -338,36 +338,36 @@ impl TyKind {
 
     pub fn into_struct(&self) -> &StructTy {
         match self {
-            TyKind::Struct(ty) => ty,
+            Ty::Struct(ty) => ty,
             _ => panic!("expected struct, got {:?}", self),
         }
     }
 
     pub fn as_fn(&self) -> &FnTy {
         match self {
-            TyKind::Fn(ty) => ty,
+            Ty::Fn(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }
 
-    pub fn element_type(&self) -> Result<&TyKind, ()> {
+    pub fn element_type(&self) -> Result<&Ty, ()> {
         match self {
-            TyKind::Pointer(inner, _)
-            | TyKind::MultiPointer(inner, _)
-            | TyKind::Array(inner, _)
-            | TyKind::Slice(inner, _)
-            | TyKind::Type(inner) => Ok(&inner),
+            Ty::Pointer(inner, _)
+            | Ty::MultiPointer(inner, _)
+            | Ty::Array(inner, _)
+            | Ty::Slice(inner, _)
+            | Ty::Type(inner) => Ok(&inner),
             _ => Err(()),
         }
     }
 
-    pub fn pointer_type(self, mutable: bool) -> TyKind {
-        TyKind::Pointer(Box::new(self), mutable)
+    pub fn pointer_type(self, mutable: bool) -> Ty {
+        Ty::Pointer(Box::new(self), mutable)
     }
 
-    pub fn maybe_deref_once(&self) -> TyKind {
+    pub fn maybe_deref_once(&self) -> Ty {
         match self {
-            TyKind::Pointer(inner, _) => inner.as_ref().clone(),
+            Ty::Pointer(inner, _) => inner.as_ref().clone(),
             _ => self.clone(),
         }
     }

@@ -9,7 +9,7 @@ mod check_unary;
 mod const_fold;
 
 use chili_ast::ast::{Expr, ExprKind};
-use chili_ast::ty::TyKind;
+use chili_ast::ty::Ty;
 use chili_ast::value::Value;
 use chili_ast::workspace::ModuleIdx;
 use chili_ast::{
@@ -64,14 +64,14 @@ impl<'c> CheckSess<'c> {
         Self { workspace, infcx }
     }
 
-    pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: TyKind) {
+    pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: Ty) {
         self.workspace.get_binding_info_mut(idx).unwrap().ty = ty;
     }
 
     pub(crate) fn expect_value_is_int(
         &mut self,
         value: Option<Value>,
-        ty: &TyKind,
+        ty: &Ty,
         span: Span,
     ) -> DiagnosticResult<i64> {
         match &value {
@@ -98,15 +98,15 @@ impl<'c> CheckSess<'c> {
 pub(crate) struct CheckFrame {
     pub(crate) depth: usize,
     pub(crate) module_idx: ModuleIdx,
-    pub(crate) expected_return_ty: Option<TyKind>,
-    pub(crate) self_types: Vec<TyKind>,
+    pub(crate) expected_return_ty: Option<Ty>,
+    pub(crate) self_types: Vec<Ty>,
 }
 
 impl CheckFrame {
     pub(crate) fn new(
         previous_depth: usize,
         module_idx: ModuleIdx,
-        expected_return_ty: Option<TyKind>,
+        expected_return_ty: Option<Ty>,
     ) -> Self {
         Self {
             depth: previous_depth + 1,
@@ -119,12 +119,12 @@ impl CheckFrame {
 
 pub(crate) struct CheckedExpr {
     expr: Expr,
-    ty: TyKind,
+    ty: Ty,
     value: Option<Value>,
 }
 
 impl CheckedExpr {
-    pub(crate) fn new(expr: ExprKind, ty: TyKind, value: Option<Value>, span: Span) -> Self {
+    pub(crate) fn new(expr: ExprKind, ty: Ty, value: Option<Value>, span: Span) -> Self {
         Self {
             expr: Expr::typed(expr, ty.clone(), span),
             ty,

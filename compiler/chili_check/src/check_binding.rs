@@ -34,7 +34,7 @@ impl<'c> CheckSess<'c> {
             let mut result = self.check_expr(frame, value, Some(expected_var.into()))?;
 
             self.infcx
-                .unify_or_coerce_ty_expr(&TyKind::from(expected_var), &mut result.expr)?;
+                .unify_or_coerce_ty_expr(&Ty::from(expected_var), &mut result.expr)?;
 
             (Some(result.expr), result.value)
         } else {
@@ -95,7 +95,7 @@ impl<'c> CheckSess<'c> {
     }
 
     pub(crate) fn check_import(&mut self, import: &Import) -> DiagnosticResult<()> {
-        let mut ty = TyKind::Module(import.module_idx);
+        let mut ty = Ty::Module(import.module_idx);
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
@@ -111,12 +111,12 @@ impl<'c> CheckSess<'c> {
                 ty = binding_info.ty.clone();
 
                 match ty {
-                    TyKind::Module(idx) => current_module_idx = idx,
+                    Ty::Module(idx) => current_module_idx = idx,
                     _ => {
                         if index < import.import_path.len() - 1 {
                             return Err(TypeError::type_mismatch(
                                 symbol.span,
-                                TyKind::Module(Default::default()).to_string(),
+                                Ty::Module(Default::default()).to_string(),
                                 ty.to_string(),
                             ));
                         }

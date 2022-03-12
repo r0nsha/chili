@@ -18,7 +18,7 @@ impl<'c> CheckSess<'c> {
         let ty = self.infcx.normalize_ty(&callee.ty);
 
         match ty {
-            TyKind::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, callee, span),
+            Ty::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, callee, span),
             _ => Err(TypeError::expected(
                 call.callee.span,
                 ty.to_string(),

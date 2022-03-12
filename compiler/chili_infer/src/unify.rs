@@ -10,7 +10,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::Diagnostic;
 use ena::unify::UnifyValue;
 
-pub struct UnificationError(pub TyKind, pub TyKind);
+pub struct UnificationError(pub Ty, pub Ty);
 
 impl UnifyValue for InferValue {
     type Error = UnificationError;
@@ -32,20 +32,20 @@ impl UnifyValue for InferValue {
             | (UntypedFloat, UntypedInt)
             | (UntypedFloat, UntypedFloat) => Ok(UntypedFloat),
 
-            (UntypedInt, v @ Bound(TyKind::Int(_)))
-            | (UntypedInt, v @ Bound(TyKind::UInt(_)))
-            | (UntypedInt, v @ Bound(TyKind::Float(_)))
-            | (v @ Bound(TyKind::Int(_)), UntypedInt)
-            | (v @ Bound(TyKind::UInt(_)), UntypedInt)
-            | (v @ Bound(TyKind::Float(_)), UntypedInt) => Ok(v.clone()),
+            (UntypedInt, v @ Bound(Ty::Int(_)))
+            | (UntypedInt, v @ Bound(Ty::UInt(_)))
+            | (UntypedInt, v @ Bound(Ty::Float(_)))
+            | (v @ Bound(Ty::Int(_)), UntypedInt)
+            | (v @ Bound(Ty::UInt(_)), UntypedInt)
+            | (v @ Bound(Ty::Float(_)), UntypedInt) => Ok(v.clone()),
 
-            (v @ Bound(TyKind::Pointer(..)), UntypedNil)
-            | (UntypedNil, v @ Bound(TyKind::Pointer(..)))
-            | (v @ Bound(TyKind::MultiPointer(..)), UntypedNil)
-            | (UntypedNil, v @ Bound(TyKind::MultiPointer(..))) => Ok(v.clone()),
+            (v @ Bound(Ty::Pointer(..)), UntypedNil)
+            | (UntypedNil, v @ Bound(Ty::Pointer(..)))
+            | (v @ Bound(Ty::MultiPointer(..)), UntypedNil)
+            | (UntypedNil, v @ Bound(Ty::MultiPointer(..))) => Ok(v.clone()),
 
-            (UntypedFloat, v @ Bound(TyKind::Float(_)))
-            | (v @ Bound(TyKind::Float(_)), UntypedFloat) => Ok(v.clone()),
+            (UntypedFloat, v @ Bound(Ty::Float(_)))
+            | (v @ Bound(Ty::Float(_)), UntypedFloat) => Ok(v.clone()),
 
             (Bound(t1), Bound(t2)) => {
                 panic!("can't unify two bound variables {} and {}", t1, t2)
@@ -62,7 +62,7 @@ impl InferSess {
         left_expr: &mut Expr,
         right_expr: &mut Expr,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<Ty> {
         match self.unify_ty_ty(&left_expr.ty, &right_expr.ty, span) {
             Ok(ty) => Ok(ty),
             Err(_) => {
@@ -89,9 +89,9 @@ impl InferSess {
 
     pub fn unify_or_coerce_ty_expr(
         &mut self,
-        ty: &TyKind,
+        ty: &Ty,
         expr: &mut Expr,
-    ) -> DiagnosticResult<TyKind> {
+    ) -> DiagnosticResult<Ty> {
         match self.unify_ty_ty(ty, &expr.ty, expr.span) {
             Ok(ty) => Ok(ty),
             Err(_) => {
@@ -113,12 +113,12 @@ impl InferSess {
 
     pub fn unify(
         &mut self,
-        expected: impl Into<TyKind>,
-        actual: impl Into<TyKind>,
+        expected: impl Into<Ty>,
+        actual: impl Into<Ty>,
         span: Span,
-    ) -> DiagnosticResult<TyKind> {
-        let expected: TyKind = expected.into();
-        let actual: TyKind = actual.into();
+    ) -> DiagnosticResult<Ty> {
+        let expected: Ty = expected.into();
+        let actual: Ty = actual.into();
 
         self.unify_ty_ty(&expected, &actual, span)
             .map_err(|_| self.map_unification_error(UnificationError(expected, actual), span))
@@ -126,48 +126,48 @@ impl InferSess {
 
     pub fn unify_ty_ty(
         &mut self,
-        expected: &TyKind,
-        actual: &TyKind,
+        expected: &Ty,
+        actual: &Ty,
         span: Span,
-    ) -> Result<TyKind, UnificationError> {
+    ) -> Result<Ty, UnificationError> {
         match (expected, actual) {
-            (TyKind::Unit, TyKind::Unit)
-            | (TyKind::Bool, TyKind::Bool)
-            | (TyKind::Int(IntTy::I8), TyKind::Int(IntTy::I8))
-            | (TyKind::Int(IntTy::I16), TyKind::Int(IntTy::I16))
-            | (TyKind::Int(IntTy::I32), TyKind::Int(IntTy::I32))
-            | (TyKind::Int(IntTy::I64), TyKind::Int(IntTy::I64))
-            | (TyKind::Int(IntTy::Isize), TyKind::Int(IntTy::Isize))
-            | (TyKind::UInt(UIntTy::U8), TyKind::UInt(UIntTy::U8))
-            | (TyKind::UInt(UIntTy::U16), TyKind::UInt(UIntTy::U16))
-            | (TyKind::UInt(UIntTy::U32), TyKind::UInt(UIntTy::U32))
-            | (TyKind::UInt(UIntTy::U64), TyKind::UInt(UIntTy::U64))
-            | (TyKind::UInt(UIntTy::Usize), TyKind::UInt(UIntTy::Usize))
-            | (TyKind::Float(FloatTy::F16), TyKind::Float(FloatTy::F16))
-            | (TyKind::Float(FloatTy::F32), TyKind::Float(FloatTy::F32))
-            | (TyKind::Float(FloatTy::F64), TyKind::Float(FloatTy::F64))
-            | (TyKind::Float(FloatTy::Fsize), TyKind::Float(FloatTy::Fsize))
-            | (TyKind::Never, TyKind::Never) => Ok(expected.clone()),
+            (Ty::Unit, Ty::Unit)
+            | (Ty::Bool, Ty::Bool)
+            | (Ty::Int(IntTy::I8), Ty::Int(IntTy::I8))
+            | (Ty::Int(IntTy::I16), Ty::Int(IntTy::I16))
+            | (Ty::Int(IntTy::I32), Ty::Int(IntTy::I32))
+            | (Ty::Int(IntTy::I64), Ty::Int(IntTy::I64))
+            | (Ty::Int(IntTy::Isize), Ty::Int(IntTy::Isize))
+            | (Ty::UInt(UIntTy::U8), Ty::UInt(UIntTy::U8))
+            | (Ty::UInt(UIntTy::U16), Ty::UInt(UIntTy::U16))
+            | (Ty::UInt(UIntTy::U32), Ty::UInt(UIntTy::U32))
+            | (Ty::UInt(UIntTy::U64), Ty::UInt(UIntTy::U64))
+            | (Ty::UInt(UIntTy::Usize), Ty::UInt(UIntTy::Usize))
+            | (Ty::Float(FloatTy::F16), Ty::Float(FloatTy::F16))
+            | (Ty::Float(FloatTy::F32), Ty::Float(FloatTy::F32))
+            | (Ty::Float(FloatTy::F64), Ty::Float(FloatTy::F64))
+            | (Ty::Float(FloatTy::Fsize), Ty::Float(FloatTy::Fsize))
+            | (Ty::Never, Ty::Never) => Ok(expected.clone()),
 
-            (TyKind::Pointer(t1, m1), TyKind::Pointer(t2, m2)) => {
+            (Ty::Pointer(t1, m1), Ty::Pointer(t2, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
                     return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(t1, t2, span)?;
-                Ok(TyKind::Pointer(Box::new(unified), *m1))
+                Ok(Ty::Pointer(Box::new(unified), *m1))
             }
 
-            (TyKind::MultiPointer(t1, m1), TyKind::MultiPointer(t2, m2)) => {
+            (Ty::MultiPointer(t1, m1), Ty::MultiPointer(t2, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
                     return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(t1, t2, span)?;
-                Ok(TyKind::MultiPointer(Box::new(unified), *m1))
+                Ok(Ty::MultiPointer(Box::new(unified), *m1))
             }
 
-            (TyKind::Var(v1), TyKind::Var(v2)) => {
+            (Ty::Var(v1), Ty::Var(v2)) => {
                 let v1 = TyVar::from(*v1);
                 let v2 = TyVar::from(*v2);
 
@@ -182,7 +182,7 @@ impl InferSess {
                 }
             }
 
-            (TyKind::Var(var), actual) => match self.value_of(TyVar::from(*var)) {
+            (Ty::Var(var), actual) => match self.value_of(TyVar::from(*var)) {
                 InferValue::Bound(expected) => self.unify_ty_ty(&expected, actual, span),
                 InferValue::UntypedInt
                 | InferValue::UntypedFloat
@@ -194,7 +194,7 @@ impl InferSess {
                 }
             },
 
-            (expected, TyKind::Var(var)) => {
+            (expected, Ty::Var(var)) => {
                 match self.value_of(TyVar::from(*var)) {
                     InferValue::Bound(actual) => self.unify_ty_ty(expected, &actual, span),
                     value @ InferValue::UntypedInt
@@ -212,7 +212,7 @@ impl InferSess {
                 }
             }
 
-            (TyKind::Fn(fn_a), TyKind::Fn(fn_b)) => {
+            (Ty::Fn(fn_a), Ty::Fn(fn_b)) => {
                 if fn_a.variadic != fn_b.variadic || fn_a.params.len() != fn_b.params.len() {
                     return Err(UnificationError(expected.clone(), actual.clone()));
                 }
@@ -226,26 +226,26 @@ impl InferSess {
                 Ok(expected.clone())
             }
 
-            (TyKind::Array(inner_a, len_a), TyKind::Array(inner_b, len_b)) => {
+            (Ty::Array(inner_a, len_a), Ty::Array(inner_b, len_b)) => {
                 if len_a != len_b {
                     return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified_inner = self.unify_ty_ty(inner_a, inner_b, span)?;
 
-                Ok(TyKind::Array(Box::new(unified_inner), *len_a))
+                Ok(Ty::Array(Box::new(unified_inner), *len_a))
             }
 
-            (TyKind::Slice(inner_a, m1), TyKind::Slice(inner_b, m2)) => {
+            (Ty::Slice(inner_a, m1), Ty::Slice(inner_b, m2)) => {
                 if !can_coerce_mut(*m1, *m2) {
                     return Err(UnificationError(expected.clone(), actual.clone()));
                 }
 
                 let unified = self.unify_ty_ty(inner_a, inner_b, span)?;
-                Ok(TyKind::Slice(Box::new(unified), *m1))
+                Ok(Ty::Slice(Box::new(unified), *m1))
             }
 
-            (TyKind::Tuple(tys_a), TyKind::Tuple(tys_b)) => {
+            (Ty::Tuple(tys_a), Ty::Tuple(tys_b)) => {
                 if tys_a.len() != tys_b.len() {
                     return Err(UnificationError(expected.clone(), actual.clone()));
                 }
@@ -257,10 +257,10 @@ impl InferSess {
                     unified_tys.push(unified);
                 }
 
-                Ok(TyKind::Tuple(unified_tys))
+                Ok(Ty::Tuple(unified_tys))
             }
 
-            (TyKind::Struct(t1), TyKind::Struct(t2)) => {
+            (Ty::Struct(t1), Ty::Struct(t2)) => {
                 if t1.qualified_name == t2.qualified_name {
                     Ok(expected.clone())
                 } else {
@@ -268,7 +268,7 @@ impl InferSess {
                 }
             }
 
-            (TyKind::Never, t) | (t, TyKind::Never) => Ok(t.clone()),
+            (Ty::Never, t) | (t, Ty::Never) => Ok(t.clone()),
 
             (expected, actual) => Err(UnificationError(expected.clone(), actual.clone())),
         }

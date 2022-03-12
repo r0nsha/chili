@@ -16,7 +16,7 @@ impl<'c> CheckSess<'c> {
         frame: &mut CheckFrame,
         func: &Fn,
         span: Span,
-        expected_ty: Option<TyKind>,
+        expected_ty: Option<Ty>,
     ) -> DiagnosticResult<Fn> {
         let proto = self.check_proto(frame, &func.proto, expected_ty, span)?;
 
@@ -46,15 +46,14 @@ impl<'c> CheckSess<'c> {
         if !result_ty.is_never() {
             if body.exprs.is_empty() {
                 self.infcx
-                    .unify(ty.ret.as_ref().clone(), TyKind::Unit, last_stmt_span)?;
+                    .unify(ty.ret.as_ref().clone(), Ty::Unit, last_stmt_span)?;
             } else {
                 if body.yields && !ty.ret.is_unit() {
                     let last_expr_mut = body.exprs.last_mut().unwrap();
                     self.infcx
                         .unify_or_coerce_ty_expr(ty.ret.as_ref(), last_expr_mut)?;
                 } else {
-                    self.infcx
-                        .unify(ty.ret.as_ref().clone(), TyKind::Unit, span)?;
+                    self.infcx.unify(ty.ret.as_ref().clone(), Ty::Unit, span)?;
                 }
             }
         }
@@ -70,7 +69,7 @@ impl<'c> CheckSess<'c> {
         &mut self,
         frame: &mut CheckFrame,
         proto: &Proto,
-        expected_ty: Option<TyKind>,
+        expected_ty: Option<Ty>,
         span: Span,
     ) -> DiagnosticResult<Proto> {
         let expected_fn_ty = expected_ty
@@ -189,11 +188,11 @@ impl<'c> CheckSess<'c> {
             }
             None => match expected_fn_ty {
                 Some(expected_fn_ty) => (None, expected_fn_ty.ret.as_ref().clone()),
-                None => (None, TyKind::Unit),
+                None => (None, Ty::Unit),
             },
         };
 
-        let fn_ty = TyKind::Fn(FnTy {
+        let fn_ty = Ty::Fn(FnTy {
             params: param_tys,
             ret: Box::new(ret_ty),
             variadic: proto.variadic,

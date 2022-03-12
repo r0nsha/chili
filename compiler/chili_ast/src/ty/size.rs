@@ -6,30 +6,30 @@ pub trait SizeOf {
     fn size_of(&self, word_size: usize) -> usize;
 }
 
-impl SizeOf for TyKind {
+impl SizeOf for Ty {
     fn size_of(&self, word_size: usize) -> usize {
         match self {
-            TyKind::Unit => 0,
-            TyKind::Bool => 1,
-            TyKind::Int(ty) => ty.size_of(word_size),
-            TyKind::UInt(ty) => ty.size_of(word_size),
-            TyKind::Float(ty) => ty.size_of(word_size),
-            TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Fn(..) => word_size,
-            TyKind::Array(ty, len) => ty.size_of(word_size) * len,
-            TyKind::Slice(..) => StructTy::temp(
+            Ty::Unit => 0,
+            Ty::Bool => 1,
+            Ty::Int(ty) => ty.size_of(word_size),
+            Ty::UInt(ty) => ty.size_of(word_size),
+            Ty::Float(ty) => ty.size_of(word_size),
+            Ty::Pointer(..) | Ty::MultiPointer(..) | Ty::Fn(..) => word_size,
+            Ty::Array(ty, len) => ty.size_of(word_size) * len,
+            Ty::Slice(..) => StructTy::temp(
                 vec![
-                    StructTyField::temp(TyKind::raw_pointer(false)),
-                    StructTyField::temp(TyKind::UInt(UIntTy::Usize)),
+                    StructTyField::temp(Ty::raw_pointer(false)),
+                    StructTyField::temp(Ty::UInt(UIntTy::Usize)),
                 ],
                 StructTyKind::Struct,
             )
             .size_of(word_size),
-            TyKind::Tuple(tys) => StructTy::temp(
+            Ty::Tuple(tys) => StructTy::temp(
                 tys.iter().map(|t| StructTyField::temp(t.clone())).collect(),
                 StructTyKind::Struct,
             )
             .size_of(word_size),
-            TyKind::Struct(s) => s.size_of(word_size),
+            Ty::Struct(s) => s.size_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }
