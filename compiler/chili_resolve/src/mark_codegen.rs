@@ -20,13 +20,10 @@ pub fn mark_bindings_for_codegen(workspace: &mut Workspace, asts: &Vec<Ast>) {
 
 fn find_binding(asts: &Vec<Ast>, idx: BindingInfoIdx) -> &Binding {
     for ast in asts.iter() {
-        for binding in ast.bindings.iter() {
-            if binding.pattern.into_single_ref().binding_info_idx == idx {
-                return binding;
-            }
+        if let Some(binding) = ast.find_binding(idx) {
+            return binding;
         }
     }
-
     unreachable!()
 }
 

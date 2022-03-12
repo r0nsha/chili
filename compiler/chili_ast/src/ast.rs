@@ -33,6 +33,24 @@ impl Ast {
             foreign_libraries: Default::default(),
         }
     }
+
+    pub fn find_import(&self, idx: BindingInfoIdx) -> Option<&Import> {
+        for import in self.imports.iter() {
+            if import.binding_info_idx == idx {
+                return Some(import);
+            }
+        }
+        None
+    }
+
+    pub fn find_binding(&self, idx: BindingInfoIdx) -> Option<&Binding> {
+        for binding in self.bindings.iter() {
+            if binding.pattern.into_single_ref().binding_info_idx == idx {
+                return Some(binding);
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

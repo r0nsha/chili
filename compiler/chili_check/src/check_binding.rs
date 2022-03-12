@@ -1,10 +1,9 @@
 use crate::{CheckFrame, CheckSess, InitState};
 use chili_ast::ty::*;
-use chili_ast::workspace::{BindingInfo, BindingInfoIdx, ModuleIdx};
+use chili_ast::workspace::{BindingInfo, ModuleIdx};
 use chili_ast::{
     ast::{Binding, BindingKind, Import, Visibility},
     pattern::{Pattern, SymbolPattern},
-    value::Value,
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
