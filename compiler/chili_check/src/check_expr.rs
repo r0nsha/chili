@@ -1,9 +1,12 @@
-use crate::{CheckFrame, CheckResult, CheckSess};
-use chili_ast::ast::ExprKind;
-use chili_ast::ty::*;
-use chili_ast::{ast, value::Value};
+use crate::{CheckFrame, CheckSess, CheckedExpr};
+use chili_ast::{ast, ty::*};
+use chili_ast::{
+    ast::{Expr, ExprKind},
+    value::Value,
+};
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
-use chili_infer::{cast::Cast, sess::InferValue};
+use chili_infer::cast::Cast;
+use chili_infer::sess::InferValue;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
@@ -13,39 +16,64 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_expr(
         &mut self,
         frame: &mut CheckFrame,
-        expr: &mut ast::Expr,
+        expr: &Expr,
         expected_ty: Option<TyKind>,
-    ) -> DiagnosticResult<CheckResult> {
-        let ty = match &mut expr.kind {
-            ast::ExprKind::Import(imports) => {
-                for import in imports.iter_mut() {
+    ) -> DiagnosticResult<CheckedExpr> {
+        let checked_expr = match &expr.kind {
+            ExprKind::Import(imports) => {
+                for import in imports.iter() {
                     self.check_import(import)?;
                 }
-                Ok(CheckResult::new(TyKind::Unit, None))
+
+                CheckedExpr::new(
+                    ExprKind::Import(imports.clone()),
+                    TyKind::Unit,
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Foreign(bindings) => {
-                for binding in bindings.iter_mut() {
-                    self.check_binding(frame, binding)?;
+            ExprKind::Foreign(bindings) => {
+                let mut new_bindings = vec![];
+
+                for binding in bindings.iter() {
+                    new_bindings.push(self.check_binding(frame, binding)?);
                 }
-                Ok(CheckResult::new(TyKind::Unit, None))
+
+                CheckedExpr::new(
+                    ExprKind::Foreign(new_bindings),
+                    TyKind::Unit,
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Binding(binding) => self.check_binding(frame, binding),
-            ast::ExprKind::Defer(deferred) => {
-                self.check_expr(frame, deferred.as_mut(), expected_ty)?;
-                Ok(CheckResult::new(TyKind::Unit, None))
+            ExprKind::Binding(binding) => {
+                let binding = self.check_binding(frame, binding)?;
+                CheckedExpr::new(
+                    ExprKind::Binding(Box::new(binding)),
+                    TyKind::Unit,
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Assign { lvalue, rvalue } => {
-                self.check_assign_expr(frame, lvalue, rvalue)
+            ExprKind::Defer(deferred) => CheckedExpr::new(
+                ExprKind::Defer(deferred.clone()),
+                TyKind::Unit,
+                None,
+                expr.span,
+            ),
+            ExprKind::Assign { lvalue, rvalue } => {
+                self.check_assign_expr(frame, lvalue, rvalue, expr.span)?
             }
-            ast::ExprKind::Cast(info) => {
-                let target_ty = self.check_cast(frame, info, expected_ty, expr.span)?;
+            ExprKind::Cast(info) => {
+                let info = self.check_cast(frame, info, expected_ty, expr.span)?;
                 let source_ty = self.infcx.normalize_ty(&info.expr.ty);
 
-                if source_ty.can_cast(&target_ty.ty) {
-                    Ok(target_ty)
+                if source_ty.can_cast(&info.target_ty) {
+                    let target_ty = info.target_ty.clone();
+                    CheckedExpr::new(ExprKind::Cast(info), target_ty, None, expr.span)
                 } else {
                     let source_ty = self.infcx.normalize_ty_and_untyped(&source_ty);
-                    Err(Diagnostic::error()
+                    return Err(Diagnostic::error()
                         .with_message(format!(
                             "cannot cast from `{}` to `{}`",
                             source_ty, info.target_ty
@@ -54,33 +82,65 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             info.expr.span.file_id,
                             info.expr.span.range().clone(),
                         )
-                        .with_message(format!("invalid cast to `{}`", info.target_ty))]))
+                        .with_message(format!("invalid cast to `{}`", info.target_ty))]));
                 }
             }
-            ast::ExprKind::Fn(func) => self.check_fn(frame, func, expr.span, expected_ty),
-            ast::ExprKind::Builtin(builtin) => match builtin {
+            ExprKind::Fn(func) => {
+                let func = self.check_fn(frame, func, expr.span, expected_ty)?;
+                let ty = func.proto.ty.clone();
+                CheckedExpr::new(ExprKind::Fn(func), ty, None, expr.span)
+            }
+            ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(type_expr) | ast::Builtin::AlignOf(type_expr) => {
-                    self.check_type_expr(frame, type_expr)?;
-                    Ok(CheckResult::new(TyKind::UInt(UIntTy::Usize), None))
+                    let result = self.check_type_expr(frame, type_expr)?;
+                    CheckedExpr::new(
+                        ExprKind::Builtin(ast::Builtin::SizeOf(Box::new(result.expr))),
+                        TyKind::UInt(UIntTy::Usize),
+                        None,
+                        expr.span,
+                    )
                 }
                 ast::Builtin::Panic(msg_expr) => {
-                    if let Some(expr) = msg_expr {
-                        self.check_expr(frame, expr, Some(TyKind::str()))?;
-                    }
-                    Ok(CheckResult::new(TyKind::Unit, None))
+                    let msg_expr = if let Some(e) = msg_expr {
+                        let result = self.check_expr(frame, e, Some(TyKind::str()))?;
+                        Some(Box::new(result.expr))
+                    } else {
+                        None
+                    };
+
+                    CheckedExpr::new(
+                        ExprKind::Builtin(ast::Builtin::Panic(msg_expr)),
+                        TyKind::Unit,
+                        None,
+                        expr.span,
+                    )
                 }
             },
-            ast::ExprKind::While { cond, expr: block } => {
-                cond.ty = self.check_expr(frame, cond, Some(TyKind::Bool))?.ty;
-                self.infcx.unify_or_coerce_ty_expr(&TyKind::Bool, cond)?;
-                self.check_expr(frame, block, None)?;
-                Ok(CheckResult::new(TyKind::Unit, None))
+            ExprKind::While {
+                cond,
+                expr: looped_expr,
+            } => {
+                let mut cond = self.check_expr(frame, cond, None)?;
+                let cond_span = cond.expr.span;
+                self.infcx
+                    .unify_or_coerce_ty_expr(&TyKind::Bool, &mut cond.expr)?;
+                let looped_expr = self.check_expr(frame, looped_expr, None)?;
+
+                CheckedExpr::new(
+                    ExprKind::While {
+                        cond: Box::new(cond.expr),
+                        expr: Box::new(looped_expr.expr),
+                    },
+                    TyKind::Unit,
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::For(for_) => {
-                match &mut for_.iterator {
+            ExprKind::For(for_) => {
+                let iterator = match &for_.iterator {
                     ast::ForIter::Range(start, end) => {
-                        self.check_expr(frame, start, None)?;
-                        self.check_expr(frame, end, None)?;
+                        let mut start = self.check_expr(frame, start, None)?;
+                        let mut end = self.check_expr(frame, end, None)?;
 
                         if !self.infcx.is_any_integer(&start.ty)
                             || !self.infcx.is_any_integer(&end.ty)
@@ -94,19 +154,26 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                     start_ty, end_ty
                                 ))
                                 .with_labels(vec![
-                                    Label::primary(start.span.file_id, start.span.range())
-                                        .with_message(format!("type is `{}`", start_ty)),
-                                    Label::primary(end.span.file_id, end.span.range())
-                                        .with_message(format!("type is `{}`", end_ty)),
+                                    Label::primary(
+                                        for_.expr.span.file_id,
+                                        start.expr.span.range().clone(),
+                                    ),
+                                    Label::primary(
+                                        for_.expr.span.file_id,
+                                        end.expr.span.range().clone(),
+                                    ),
                                 ]));
                         }
 
                         if self.infcx.is_untyped_integer(&start.ty) {
-                            self.infcx
-                                .unify_or_coerce_ty_expr(&TyKind::Int(IntTy::Isize), start)?;
+                            self.infcx.unify_or_coerce_ty_expr(
+                                &TyKind::Int(IntTy::Isize),
+                                &mut start.expr,
+                            )?;
                         }
                         if self.infcx.is_untyped_integer(&end.ty) {
-                            self.infcx.unify_or_coerce_ty_expr(&start.ty, end)?;
+                            self.infcx
+                                .unify_or_coerce_ty_expr(&start.ty, &mut end.expr)?;
                         }
 
                         let start_ty = self.infcx.normalize_ty(&start.ty);
@@ -116,18 +183,21 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             for_.iter_index_idx,
                             TyKind::UInt(UIntTy::Usize),
                         );
+
+                        ast::ForIter::Range(Box::new(start.expr), Box::new(end.expr))
                     }
                     ast::ForIter::Value(value) => {
-                        self.check_expr(frame, value, None)?;
+                        let value = self.check_expr(frame, value, None)?;
                         let value_ty = self.infcx.normalize_ty(&value.ty);
 
                         let by_ref = value_ty.is_pointer();
 
                         match &value_ty.maybe_deref_once() {
                             t @ TyKind::Array(inner, ..) | t @ TyKind::Slice(inner, ..) => {
+                                // let is_mutable = if
                                 let iter_ty = if by_ref {
                                     let is_mutable = match t {
-                                        TyKind::Array(..) => value.is_mutable(),
+                                        TyKind::Array(..) => value.expr.is_mutable(),
                                         TyKind::Slice(_, is_mutable) => *is_mutable,
                                         _ => unreachable!("got {}", t),
                                     };
@@ -150,94 +220,120 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                         self.infcx.normalize_ty_and_untyped(&value_ty)
                                     ))
                                     .with_labels(vec![Label::primary(
-                                        value.span.file_id,
-                                        value.span.range().clone(),
+                                        value.expr.span.file_id,
+                                        value.expr.span.range().clone(),
                                     )]));
                             }
                         };
+
+                        ast::ForIter::Value(Box::new(value.expr))
                     }
                 };
 
-                self.check_expr(frame, &mut for_.expr, None)?;
+                let result = self.check_expr(frame, &for_.expr, None)?;
 
-                Ok(CheckResult::new(TyKind::Unit, None))
+                CheckedExpr::new(
+                    ExprKind::For(ast::For {
+                        iter_idx: for_.iter_idx,
+                        iter_name: for_.iter_name,
+                        iter_index_idx: for_.iter_index_idx,
+                        iter_index_name: for_.iter_index_name,
+                        iterator,
+                        expr: Box::new(result.expr),
+                    }),
+                    TyKind::Unit,
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Break { deferred } => {
-                self.check_expr_list(frame, deferred)?;
-                Ok(CheckResult::new(TyKind::Never, None))
+            ExprKind::Break { deferred } => {
+                let deferred = self.check_expr_list(frame, deferred)?;
+                CheckedExpr::new(ExprKind::Break { deferred }, TyKind::Never, None, expr.span)
             }
-            ast::ExprKind::Continue { deferred } => {
-                self.check_expr_list(frame, deferred)?;
-                Ok(CheckResult::new(TyKind::Never, None))
+            ExprKind::Continue { deferred } => {
+                let deferred = self.check_expr_list(frame, deferred)?;
+                CheckedExpr::new(
+                    ExprKind::Continue { deferred },
+                    TyKind::Never,
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Return {
+            ExprKind::Return {
                 expr: returned_expr,
                 deferred,
-            } => {
-                if frame.depth <= 1 {
-                    return Err(SyntaxError::outside_of_function(expr.span, "return"));
+            } => match &frame.expected_return_ty.clone() {
+                Some(return_ty) => {
+                    let returned_expr = if let Some(returned_expr) = returned_expr {
+                        let mut returned_result = self.check_expr(
+                            frame,
+                            returned_expr,
+                            frame.expected_return_ty.clone(),
+                        )?;
+
+                        self.infcx
+                            .unify_or_coerce_ty_expr(&return_ty, &mut returned_result.expr)?;
+
+                        Some(Box::new(returned_result.expr))
+                    } else {
+                        self.infcx
+                            .unify(return_ty.clone(), TyKind::Unit, expr.span)?;
+
+                        None
+                    };
+
+                    let deferred = self.check_expr_list(frame, deferred)?;
+
+                    CheckedExpr::new(
+                        ExprKind::Return {
+                            expr: returned_expr,
+                            deferred,
+                        },
+                        TyKind::Never,
+                        None,
+                        expr.span,
+                    )
                 }
-
-                match &frame.expected_return_ty.clone() {
-                    Some(return_ty) => {
-                        if let Some(returned_expr) = returned_expr {
-                            self.check_expr(
-                                frame,
-                                returned_expr,
-                                frame.expected_return_ty.clone(),
-                            )?;
-
-                            self.infcx
-                                .unify_or_coerce_ty_expr(&return_ty, returned_expr)?;
-                        } else {
-                            self.infcx
-                                .unify(return_ty.clone(), TyKind::Unit, expr.span)?;
-                        }
-
-                        self.check_expr_list(frame, deferred)?;
-
-                        Ok(CheckResult::new(TyKind::Never, None))
-                    }
-                    None => Err(SyntaxError::outside_of_function(expr.span, "return")),
-                }
-            }
-            ast::ExprKind::If {
+                None => return Err(SyntaxError::outside_of_function(expr.span, "return")),
+            },
+            ExprKind::If {
                 cond,
                 then_expr,
                 else_expr,
             } => {
-                let cond_result = self.check_expr(frame, cond, None)?;
-                let cond_ty = self.infcx.normalize_ty(&cond.ty);
+                let cond = self.check_expr(frame, cond, None)?;
+                let ty = self.infcx.normalize_ty(&cond.ty);
 
-                self.infcx.unify(TyKind::Bool, cond_ty, cond.span)?;
+                self.infcx.unify(TyKind::Bool, ty, cond.expr.span)?;
 
-                self.check_expr(frame, then_expr, expected_ty.clone())?;
+                let mut then_result = self.check_expr(frame, then_expr, expected_ty.clone())?;
 
-                let result_ty = if let Some(else_expr) = else_expr {
-                    self.check_expr(frame, else_expr, expected_ty)?;
+                let (else_result, result_ty) = if let Some(else_expr) = else_expr {
+                    let mut else_result = self.check_expr(frame, else_expr, expected_ty)?;
+
+                    let span = else_result.expr.span;
 
                     let result_ty = self.infcx.unify_or_coerce_expr_expr(
-                        then_expr,
-                        else_expr,
-                        else_expr.span,
+                        &mut then_result.expr,
+                        &mut else_result.expr,
+                        span,
                     )?;
 
-                    else_expr.ty = result_ty.clone();
+                    then_result.ty = result_ty.clone();
+                    else_result.ty = result_ty.clone();
 
-                    result_ty
+                    (Some(else_result), result_ty)
                 } else {
-                    TyKind::Unit
+                    (None, TyKind::Unit)
                 };
 
-                then_expr.ty = result_ty.clone();
-
-                if cond_result.value.is_some() {
-                    if cond_result.value.unwrap().into_bool() {
+                if cond.value.is_some() {
+                    if cond.value.unwrap().into_bool() {
                         then_result
                     } else {
                         else_result.unwrap_or(CheckedExpr::new(
                             ExprKind::Noop,
-                            Ty::Unit,
+                            TyKind::Unit,
                             None,
                             expr.span,
                         ))
@@ -254,68 +350,98 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         expr.span,
                     )
                 }
-
-                Ok(result_ty)
             }
-            ast::ExprKind::Block(block) => self.check_block(frame, block, expected_ty),
-            ast::ExprKind::Binary { lhs, op, rhs } => {
-                let result =
-                    self.check_binary_expr(frame, lhs, *op, rhs, expected_ty, expr.span)?;
-
-                if let Some(value) = result.value {
-                    expr.kind = ExprKind::Noop;
-                }
-
-                todo!();
-                result
+            ExprKind::Block(block) => {
+                let (block, result_ty) = self.check_block(frame, block, expected_ty)?;
+                CheckedExpr::new(ExprKind::Block(block), result_ty, None, expr.span)
             }
-            ast::ExprKind::Unary { op, lhs } => {
-                self.check_unary_expr(frame, *op, lhs, expected_ty, expr.span)
+            ExprKind::Binary { lhs, op, rhs } => {
+                self.check_binary_expr(frame, lhs, *op, rhs, expected_ty, expr.span)?
             }
-            ast::ExprKind::Subscript {
+            ExprKind::Unary { op, lhs } => {
+                self.check_unary_expr(frame, *op, lhs, expected_ty, expr.span)?
+            }
+            ExprKind::Subscript {
                 expr: accessed_expr,
                 index,
             } => {
-                self.check_expr(frame, index, None)?;
+                let mut index = self.check_expr(frame, index, None)?;
 
+                let index_span = index.expr.span;
                 self.infcx
-                    .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), index)?;
+                    .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), &mut index.expr)?;
 
-                self.check_expr(frame, accessed_expr, None)?;
+                let accessed_expr_result = self.check_expr(frame, accessed_expr, None)?;
 
-                let ty = self.infcx.normalize_ty(&accessed_expr.ty);
+                let ty = self.infcx.normalize_ty(&accessed_expr_result.ty);
                 let ty_deref = ty.maybe_deref_once();
+
+                if index.value.as_ref().map_or(false, |v| v.is_int()) {
+                    let index_value = index.value.unwrap().into_int();
+                    match ty_deref {
+                        TyKind::Array(_, size) => {
+                            if index_value < 0 || index_value >= size as _ {
+                                return Err(
+                                    Diagnostic::error()
+                                    .with_message(format!("index out of array bounds - expected 0 to {}, but found {}", size-1,index_value))
+                                    .with_labels(vec![
+                                        Label::primary(index.expr.span.file_id, index.expr.span.range().clone()).with_message("index out of bounds")
+                                    ]
+                                ));
+                            }
+                        }
+                        _ => (),
+                    }
+                }
 
                 match ty_deref {
                     TyKind::Array(inner, ..)
                     | TyKind::Slice(inner, ..)
-                    | TyKind::MultiPointer(inner, ..) => Ok(inner.as_ref().clone()),
+                    | TyKind::MultiPointer(inner, ..) => CheckedExpr::new(
+                        ExprKind::Subscript {
+                            expr: Box::new(accessed_expr_result.expr),
+                            index: Box::new(index.expr),
+                        },
+                        inner.as_ref().clone(),
+                        None,
+                        expr.span,
+                    ),
                     _ => {
                         return Err(TypeError::invalid_expr_in_subscript(
-                            accessed_expr.span,
+                            accessed_expr_result.expr.span,
                             ty.to_string(),
                         ))
                     }
                 }
             }
-            ast::ExprKind::Slice {
+            ExprKind::Slice {
                 expr: sliced_expr,
                 low,
                 high,
             } => {
-                self.check_expr(frame, sliced_expr, None)?;
+                let sliced_expr = self.check_expr(frame, sliced_expr, None)?;
                 let sliced_expr_ty = self.infcx.normalize_ty(&sliced_expr.ty);
 
-                if let Some(low) = low {
-                    self.check_expr(frame, low, None)?;
-                    self.infcx
-                        .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), low)?;
-                }
+                let low = if let Some(low) = low {
+                    let mut low = self.check_expr(frame, low, None)?;
 
-                if let Some(high) = high {
-                    self.check_expr(frame, high, None)?;
+                    let span = low.expr.span;
                     self.infcx
-                        .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), high)?;
+                        .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), &mut low.expr)?;
+
+                    Some(Box::new(low.expr))
+                } else {
+                    None
+                };
+
+                let high = if let Some(high) = high {
+                    let mut high = self.check_expr(frame, high, None)?;
+
+                    let span = high.expr.span;
+                    self.infcx
+                        .unify_or_coerce_ty_expr(&TyKind::UInt(UIntTy::Usize), &mut high.expr)?;
+
+                    Some(Box::new(high.expr))
                 } else {
                     if sliced_expr_ty.is_multi_pointer() {
                         return Err(Diagnostic::error()
@@ -327,10 +453,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                 expr.span.range().clone(),
                             )]));
                     }
-                }
+
+                    None
+                };
 
                 let (result_ty, is_mutable) = match sliced_expr_ty {
-                    TyKind::Array(inner, ..) => (inner, sliced_expr.is_mutable()),
+                    TyKind::Array(inner, ..) => (inner, sliced_expr.expr.is_mutable()),
 
                     TyKind::Slice(inner, is_mutable) | TyKind::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
@@ -338,26 +466,35 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                     _ => {
                         return Err(TypeError::invalid_expr_in_slice(
-                            sliced_expr.span,
+                            sliced_expr.expr.span,
                             sliced_expr_ty.to_string(),
                         ))
                     }
                 };
 
-                Ok(TyKind::Slice(result_ty, is_mutable))
+                CheckedExpr::new(
+                    ExprKind::Slice {
+                        expr: Box::new(sliced_expr.expr),
+                        low,
+                        high,
+                    },
+                    TyKind::Slice(result_ty, is_mutable),
+                    None,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Call(call) => self.check_call(frame, call, expr.span),
-            ast::ExprKind::MemberAccess {
+            ExprKind::Call(call) => self.check_call(frame, call, expr.span)?,
+            ExprKind::MemberAccess {
                 expr: accessed_expr,
                 member: field,
             } => {
-                self.check_expr(frame, accessed_expr, None)?;
+                let accessed_expr = self.check_expr(frame, accessed_expr, None)?;
                 let accessed_expr_ty = self.infcx.normalize_ty(&accessed_expr.ty);
 
-                let ty = match &accessed_expr_ty.maybe_deref_once() {
+                let (ty, value) = match &accessed_expr_ty.maybe_deref_once() {
                     ty @ TyKind::Tuple(tys) => match field.as_str().parse::<i32>() {
                         Ok(index) => match tys.get(index as usize) {
-                            Some(field_ty) => field_ty.clone(),
+                            Some(field_ty) => (field_ty.clone(), None),
                             None => {
                                 return Err(TypeError::tuple_field_out_of_bounds(
                                     expr.span,
@@ -376,39 +513,51 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         }
                     },
                     TyKind::Struct(ty) => match ty.fields.iter().find(|f| f.symbol == *field) {
-                        Some(field) => field.ty.clone(),
+                        Some(field) => (field.ty.clone(), None),
                         None => {
                             return Err(TypeError::invalid_struct_field(
                                 expr.span,
                                 *field,
-                                ty.clone().to_string(),
+                                ty.to_string(),
                             ))
                         }
                     },
                     TyKind::Array(..) | TyKind::Slice(..)
                         if field.as_str() == BUILTIN_FIELD_LEN =>
                     {
-                        TyKind::UInt(UIntTy::Usize)
+                        (TyKind::UInt(UIntTy::Usize), None)
                     }
                     TyKind::Slice(inner, is_mutable) if field.as_str() == BUILTIN_FIELD_DATA => {
-                        TyKind::MultiPointer(inner.clone(), *is_mutable)
+                        (TyKind::MultiPointer(inner.clone(), *is_mutable), None)
                     }
                     TyKind::Module(module_idx) => {
                         let binding_info =
                             self.find_binding_info_in_module(*module_idx, *field, expr.span)?;
-                        binding_info.ty.clone()
+
+                        (
+                            binding_info.ty,
+                            self.get_binding_const_value(binding_info.idx),
+                        )
                     }
                     ty => {
                         return Err(TypeError::field_access_on_invalid_type(
-                            accessed_expr.span,
+                            accessed_expr.expr.span,
                             ty.to_string(),
                         ));
                     }
                 };
 
-                Ok(ty)
+                CheckedExpr::new(
+                    ExprKind::MemberAccess {
+                        expr: Box::new(accessed_expr.expr),
+                        member: *field,
+                    },
+                    ty,
+                    value,
+                    expr.span,
+                )
             }
-            ast::ExprKind::Id {
+            ExprKind::Id {
                 symbol,
                 binding_info_idx,
                 ..
@@ -432,55 +581,122 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 }
 
-                Ok(binding_info.ty.clone())
+                CheckedExpr::new(
+                    ExprKind::Id {
+                        symbol: *symbol,
+                        is_mutable: binding_info.is_mutable,
+                        binding_span: binding_info.span,
+                        binding_info_idx: Default::default(),
+                    },
+                    binding_info.ty,
+                    self.get_binding_const_value(*binding_info_idx),
+                    expr.span,
+                )
             }
-            ast::ExprKind::ArrayLiteral(kind) => match kind {
+            ExprKind::ArrayLiteral(kind) => match kind {
                 ast::ArrayLiteralKind::List(elements) => {
                     let element_ty: TyKind = self.infcx.fresh_type_var().into();
 
-                    for el in elements.iter_mut() {
-                        self.check_expr(frame, el, Some(element_ty.clone()))?;
-                        self.infcx.unify_or_coerce_ty_expr(&element_ty, el)?;
+                    let mut new_elements = vec![];
+
+                    for el in elements {
+                        let mut el = self.check_expr(frame, el, Some(element_ty.clone()))?;
+
+                        let el_span = el.expr.span;
+                        self.infcx
+                            .unify_or_coerce_ty_expr(&element_ty, &mut el.expr)?;
+
+                        new_elements.push(el.expr);
                     }
 
-                    Ok(TyKind::Array(Box::new(element_ty), elements.len()))
+                    CheckedExpr::new(
+                        ExprKind::ArrayLiteral(ast::ArrayLiteralKind::List(new_elements)),
+                        TyKind::Array(Box::new(element_ty), elements.len()),
+                        None,
+                        expr.span,
+                    )
                 }
                 ast::ArrayLiteralKind::Fill { expr, len } => {
-                    self.check_expr(frame, len, None)?;
-                    let inner = self.check_expr(frame, expr, None)?;
-                    Ok(TyKind::Array(Box::new(inner), 0))
+                    let len = self.check_expr(frame, len, None)?;
+                    let len_value = self.expect_value_is_int(len.value, &len.ty, len.expr.span)?;
+                    let len_value = len_value as isize;
+
+                    if len_value < 0 {
+                        return Err(TypeError::negative_array_len(len.expr.span, len_value));
+                    }
+
+                    let expr = self.check_expr(frame, expr, None)?;
+                    let span = expr.expr.span;
+
+                    CheckedExpr::new(
+                        ExprKind::ArrayLiteral(ast::ArrayLiteralKind::Fill {
+                            len: Box::new(len.expr),
+                            expr: Box::new(expr.expr),
+                        }),
+                        TyKind::Array(Box::new(expr.ty), len_value as _),
+                        None,
+                        span,
+                    )
                 }
             },
-            ast::ExprKind::TupleLiteral(elements) => {
-                for el in elements.iter_mut() {
-                    self.check_expr(frame, el, None)?;
+            ExprKind::TupleLiteral(elements) => {
+                let mut new_elements = vec![];
+
+                for el in elements {
+                    new_elements.push(self.check_expr(frame, el, None)?);
                 }
 
-                let is_type_expression = elements.iter().all(|el| el.ty.is_type());
-                let ty = TyKind::Tuple(elements.iter().map(|el| el.ty.clone()).collect());
+                let mut is_type_expression = true;
+
+                for element in &new_elements {
+                    let is_type = element.value.as_ref().map_or(false, |v| v.is_type());
+
+                    if !is_type {
+                        is_type_expression = false;
+                        break;
+                    }
+                }
+
+                let ty = TyKind::Tuple(new_elements.iter().map(|el| el.ty.clone()).collect());
+                let new_elements = new_elements.iter().map(|e| e.expr.clone()).collect();
+                let span = expr.span;
 
                 if is_type_expression {
-                    Ok(ty.clone().create_type())
+                    CheckedExpr::new(
+                        ExprKind::TupleLiteral(new_elements),
+                        ty.clone().create_type(),
+                        Some(Value::Type(ty)),
+                        span,
+                    )
                 } else {
-                    Ok(ty)
+                    CheckedExpr::new(ExprKind::TupleLiteral(new_elements), ty, None, span)
                 }
             }
-            ast::ExprKind::StructLiteral { type_expr, fields } => match type_expr {
+            ExprKind::StructLiteral { type_expr, fields } => match type_expr {
                 Some(type_expr) => {
-                    let ty = self.check_type_expr(frame, type_expr)?;
+                    let checked_type_expr = self.check_type_expr(frame, type_expr)?;
+
+                    let ty = checked_type_expr.value.unwrap().into_type();
+
                     match ty {
-                        TyKind::Struct(struct_ty) => {
-                            self.check_named_struct_literal(frame, fields, struct_ty, expr.span)
+                        TyKind::Struct(struct_ty) => self.check_named_struct_literal(
+                            frame,
+                            Some(Box::new(checked_type_expr.expr)),
+                            fields,
+                            struct_ty,
+                            expr.span,
+                        )?,
+                        _ => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "type `{}` does not support struct initialization syntax",
+                                    ty
+                                ))
+                                .with_labels(vec![Label::primary(
+                                    type_expr.span.file_id,
+                                    type_expr.span.range().clone(),
+                                )]))
                         }
-                        _ => Err(Diagnostic::error()
-                            .with_message(format!(
-                                "type `{}` does not support struct initialization syntax",
-                                ty
-                            ))
-                            .with_labels(vec![Label::primary(
-                                type_expr.span.file_id,
-                                type_expr.span.range().clone(),
-                            )])),
                     }
                 }
                 None => match expected_ty {
@@ -488,60 +704,116 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         let ty = self.infcx.normalize_ty(&ty);
 
                         match ty.maybe_deref_once() {
-                            TyKind::Struct(struct_ty) => {
-                                self.check_named_struct_literal(frame, fields, struct_ty, expr.span)
-                            }
+                            TyKind::Struct(struct_ty) => self.check_named_struct_literal(
+                                frame, None, fields, struct_ty, expr.span,
+                            )?,
                             TyKind::Var(_) => {
-                                self.check_anonymous_struct_literal(frame, fields, expr.span)
+                                self.check_anonymous_struct_literal(frame, fields, expr.span)?
                             }
-                            _ => Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "type `{}` does not support struct initialization syntax",
-                                    ty
-                                ))
-                                .with_labels(vec![Label::primary(
-                                    expr.span.file_id,
-                                    expr.span.range().clone(),
-                                )])),
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
+                                        "type `{}` does not support struct initialization syntax",
+                                        ty
+                                    ))
+                                    .with_labels(vec![Label::primary(
+                                        expr.span.file_id,
+                                        expr.span.range().clone(),
+                                    )]))
+                            }
                         }
                     }
-                    None => self.check_anonymous_struct_literal(frame, fields, expr.span),
+                    None => self.check_anonymous_struct_literal(frame, fields, expr.span)?,
                 },
             },
-            ast::ExprKind::Literal(kind) => Ok(match kind {
-                ast::LiteralKind::Int(i) => self.infcx.new_key(InferValue::UntypedInt).into(),
-                ast::LiteralKind::Float(f) => self.infcx.new_key(InferValue::UntypedFloat).into(),
-                ast::LiteralKind::Nil => self.infcx.new_key(InferValue::UntypedNil).into(),
-                ast::LiteralKind::Unit => match expected_ty {
-                    Some(expected_ty) if expected_ty.is_type() => TyKind::Unit.create_type(),
-                    _ => TyKind::Unit,
-                },
-                ast::LiteralKind::Bool(b) => TyKind::Bool,
-                ast::LiteralKind::Str(_) => TyKind::str(),
-                ast::LiteralKind::Char(_) => TyKind::char(),
-            }),
-            ast::ExprKind::PointerType(expr, is_mutable) => {
-                let ty = self.check_type_expr(frame, expr)?;
+            ExprKind::Literal(kind) => {
+                let (ty, value): (TyKind, Option<Value>) = match kind {
+                    ast::LiteralKind::Int(i) => (
+                        self.infcx.new_key(InferValue::UntypedInt).into(),
+                        Some(Value::Int(*i)),
+                    ),
+                    ast::LiteralKind::Float(f) => (
+                        self.infcx.new_key(InferValue::UntypedFloat).into(),
+                        Some(Value::Float(*f)),
+                    ),
+                    ast::LiteralKind::Nil => {
+                        (self.infcx.new_key(InferValue::UntypedNil).into(), None)
+                    }
+                    ast::LiteralKind::Unit => match expected_ty {
+                        Some(expected_ty) if expected_ty.is_type() => {
+                            (TyKind::Unit.create_type(), Some(Value::Type(TyKind::Unit)))
+                        }
+                        _ => (TyKind::Unit, None),
+                    },
+                    ast::LiteralKind::Bool(b) => (TyKind::Bool, Some(Value::Bool(*b))),
+                    ast::LiteralKind::Str(_) => (TyKind::str(), None),
+                    ast::LiteralKind::Char(_) => (TyKind::char(), None),
+                };
+
+                CheckedExpr::new(ExprKind::Literal(kind.clone()), ty, value, expr.span)
+            }
+            ExprKind::PointerType(expr, is_mutable) => {
+                let type_expr = self.check_type_expr(frame, expr)?;
+                let ty = type_expr.value.unwrap().into_type();
+
                 let new_ty = TyKind::Pointer(Box::new(ty.clone()), *is_mutable);
-                Ok(new_ty.clone().create_type())
+
+                CheckedExpr::new(
+                    ExprKind::PointerType(Box::new(type_expr.expr), *is_mutable),
+                    new_ty.clone().create_type(),
+                    Some(Value::Type(new_ty)),
+                    expr.span,
+                )
             }
-            ast::ExprKind::MultiPointerType(expr, is_mutable) => {
-                let ty = self.check_type_expr(frame, expr)?;
+            ExprKind::MultiPointerType(expr, is_mutable) => {
+                let type_expr = self.check_type_expr(frame, expr)?;
+                let ty = type_expr.value.unwrap().into_type();
+
                 let new_ty = TyKind::MultiPointer(Box::new(ty.clone()), *is_mutable);
-                Ok(new_ty.clone().create_type())
+
+                CheckedExpr::new(
+                    ExprKind::MultiPointerType(Box::new(type_expr.expr), *is_mutable),
+                    new_ty.clone().create_type(),
+                    Some(Value::Type(new_ty)),
+                    expr.span,
+                )
             }
-            ast::ExprKind::ArrayType(expr, size) => {
-                let ty = self.check_type_expr(frame, expr)?;
+            ExprKind::ArrayType(expr, size) => {
+                let type_expr = self.check_type_expr(frame, expr)?;
+                let ty = type_expr.value.unwrap().into_type();
+
                 let size = self.check_expr(frame, size, None)?;
-                let new_ty = TyKind::Array(Box::new(ty.clone()), 0);
-                Ok(new_ty.clone().create_type())
+
+                let size_value = self.expect_value_is_int(size.value, &size.ty, size.expr.span)?;
+                let size_value = size_value as isize;
+
+                if size_value < 0 {
+                    return Err(TypeError::negative_array_len(size.expr.span, size_value));
+                }
+
+                let new_ty = TyKind::Array(Box::new(ty.clone()), size_value as usize);
+
+                CheckedExpr::new(
+                    ExprKind::ArrayType(Box::new(type_expr.expr), Box::new(size.expr)),
+                    new_ty.clone().create_type(),
+                    Some(Value::Type(new_ty)),
+                    expr.span,
+                )
             }
-            ast::ExprKind::SliceType(expr, is_mutable) => {
-                let ty = self.check_type_expr(frame, expr)?;
+            ExprKind::SliceType(expr, is_mutable) => {
+                let type_expr = self.check_type_expr(frame, expr)?;
+                let ty = type_expr.value.unwrap().into_type();
+
                 let new_ty = TyKind::Slice(Box::new(ty.clone()), *is_mutable);
-                Ok(new_ty.clone().create_type())
+
+                CheckedExpr::new(
+                    ExprKind::SliceType(Box::new(type_expr.expr), *is_mutable),
+                    new_ty.clone().create_type(),
+                    Some(Value::Type(new_ty)),
+                    expr.span,
+                )
             }
-            ast::ExprKind::StructType(struct_type) => {
+            ExprKind::StructType(struct_type) => {
                 let name = if struct_type.name.is_empty() {
                     self.get_anonymous_struct_name(expr.span)
                 } else {
@@ -570,10 +842,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 let mut field_span_map = UstrMap::<Span>::default();
 
+                let mut new_fields = vec![];
                 let mut struct_ty_fields = vec![];
 
-                for field in struct_type.fields.iter_mut() {
-                    let ty = self.check_type_expr(frame, &mut field.ty)?;
+                for field in &struct_type.fields {
+                    let type_expr = self.check_type_expr(frame, &field.ty)?;
+                    let ty = type_expr.value.unwrap().into_type();
 
                     if let Some(defined_span) = field_span_map.insert(field.name, field.span) {
                         return Err(SyntaxError::duplicate_struct_field(
@@ -582,6 +856,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             field.name.to_string(),
                         ));
                     }
+
+                    new_fields.push(ast::StructTypeField {
+                        name: field.name,
+                        ty: type_expr.expr,
+                        span: field.span,
+                    });
 
                     struct_ty_fields.push(StructTyField {
                         symbol: field.name,
@@ -611,83 +891,136 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 frame.self_types.pop();
 
-                Ok(TyKind::Struct(struct_ty.clone()).create_type())
+                CheckedExpr::new(
+                    ExprKind::StructType(ast::StructType {
+                        name,
+                        binding_info_idx: struct_type.binding_info_idx,
+                        kind: struct_type.kind,
+                        fields: new_fields,
+                    }),
+                    TyKind::Struct(struct_ty.clone()).create_type(),
+                    Some(Value::Type(TyKind::Struct(struct_ty))),
+                    expr.span,
+                )
             }
-            ast::ExprKind::FnType(proto) => {
-                let proto_ty = self.check_proto(frame, proto, expected_ty, expr.span)?;
+            ExprKind::FnType(proto) => {
+                let proto = self.check_proto(frame, proto, expected_ty, expr.span)?;
 
-                Ok(if proto.lib_name.is_some() {
-                    // this is a foreign function
-                    proto_ty
+                if proto.lib_name.is_some() {
+                    let ty = proto.ty.clone();
+                    CheckedExpr::new(ExprKind::FnType(proto), ty, None, expr.span)
                 } else {
-                    // this is just a function type
-                    proto_ty.create_type()
-                })
+                    let ty = proto.ty.clone().create_type();
+                    CheckedExpr::new(
+                        ExprKind::FnType(proto),
+                        ty.clone(),
+                        Some(Value::Type(ty)),
+                        expr.span,
+                    )
+                }
             }
-            ast::ExprKind::SelfType => match frame.self_types.last() {
-                Some(self_type) => Ok(self_type.clone()),
-                None => Err(Diagnostic::error()
-                    .with_message("`Self` is only available within struct definitions")
-                    .with_labels(vec![Label::primary(
-                        expr.span.file_id,
-                        expr.span.range().clone(),
-                    )])),
+            ExprKind::SelfType => match frame.self_types.last() {
+                Some(self_type) => CheckedExpr::new(
+                    ExprKind::SelfType,
+                    self_type.clone(),
+                    Some(Value::Type(self_type.clone())),
+                    expr.span,
+                ),
+                None => {
+                    return Err(Diagnostic::error()
+                        .with_message("`Self` is only available within struct definitions")
+                        .with_labels(vec![Label::primary(
+                            expr.span.file_id,
+                            expr.span.range().clone(),
+                        )]))
+                }
             },
-            ast::ExprKind::NeverType => Ok(TyKind::Never.create_type()),
-            ast::ExprKind::UnitType => Ok(TyKind::Unit.create_type()),
-            ast::ExprKind::PlaceholderType => {
-                Ok(TyKind::from(self.infcx.fresh_type_var()).create_type())
+            ExprKind::NeverType => CheckedExpr::new(
+                ExprKind::NeverType,
+                TyKind::Never.create_type(),
+                Some(Value::Type(TyKind::Never)),
+                expr.span,
+            ),
+            ExprKind::UnitType => CheckedExpr::new(
+                ExprKind::UnitType,
+                TyKind::Unit.create_type(),
+                Some(Value::Type(TyKind::Unit)),
+                expr.span,
+            ),
+            ExprKind::PlaceholderType => {
+                let tyvar = self.infcx.fresh_type_var();
+                CheckedExpr::new(
+                    ExprKind::PlaceholderType,
+                    TyKind::from(tyvar).create_type(),
+                    Some(Value::Type(tyvar.into())),
+                    expr.span,
+                )
             }
-            ast::ExprKind::Noop => Ok(self.infcx.fresh_type_var().into()),
-        }?;
+            ExprKind::Noop => CheckedExpr::new(
+                ExprKind::Noop,
+                self.infcx.fresh_type_var().into(),
+                None,
+                expr.span,
+            ),
+        };
 
-        expr.ty = ty.clone();
-
-        Ok(ty)
+        Ok(checked_expr)
     }
 
     pub(crate) fn check_type_expr(
         &mut self,
         frame: &mut CheckFrame,
-        expr: &mut ast::Expr,
-    ) -> DiagnosticResult<CheckResult> {
-        self.check_expr(frame, expr, Some(TyKind::anytype()))?;
+        expr: &Expr,
+    ) -> DiagnosticResult<CheckedExpr> {
+        let mut result = self.check_expr(frame, expr, Some(TyKind::anytype()))?;
 
-        if !expr.ty.is_type() {
+        let is_type = result.value.as_ref().map_or(false, |v| v.is_type());
+
+        if !is_type {
             return Err(TypeError::expected(
                 expr.span,
-                self.infcx.normalize_ty_and_untyped(&expr.ty).to_string(),
+                result.ty.to_string(),
                 "a type",
             ));
         }
 
-        Ok(self.infcx.normalize_ty_and_expand_types(&expr.ty))
+        let ty = result.value.unwrap().into_type();
+        let ty = self.infcx.normalize_ty_and_expand_types(&ty);
+
+        result.value = Some(Value::Type(ty));
+
+        Ok(result)
     }
 
     pub(crate) fn check_expr_list(
         &mut self,
         frame: &mut CheckFrame,
-        exprs: &mut Vec<ast::Expr>,
-    ) -> DiagnosticResult<()> {
+        exprs: &Vec<Expr>,
+    ) -> DiagnosticResult<Vec<Expr>> {
+        let mut new_exprs = vec![];
+
         for expr in exprs {
-            self.check_expr(frame, expr, None)?;
+            new_exprs.push(self.check_expr(frame, expr, None)?.expr);
         }
-        Ok(())
+
+        Ok(new_exprs)
     }
 
     #[inline]
     fn check_named_struct_literal(
         &mut self,
         frame: &mut CheckFrame,
-        fields: &mut Vec<ast::StructLiteralField>,
+        type_expr: Option<Box<Expr>>,
+        fields: &Vec<ast::StructLiteralField>,
         struct_ty: StructTy,
         span: Span,
-    ) -> DiagnosticResult<CheckResult> {
+    ) -> DiagnosticResult<CheckedExpr> {
         let mut field_set = UstrSet::default();
 
+        let mut new_fields = vec![];
         let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
 
-        for field in fields.iter_mut() {
+        for field in fields {
             if !field_set.insert(field.symbol) {
                 return Err(SyntaxError::struct_field_specified_more_than_once(
                     field.span,
@@ -699,10 +1032,18 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 Some(f) => {
                     uninit_fields.remove(&field.symbol);
 
-                    self.check_expr(frame, &mut field.value, Some(f.ty.clone()))?;
+                    let mut field_value =
+                        self.check_expr(frame, &field.value, Some(f.ty.clone()))?;
 
+                    let field_span = field.value.span;
                     self.infcx
-                        .unify_or_coerce_ty_expr(&f.ty, &mut field.value)?;
+                        .unify_or_coerce_ty_expr(&f.ty, &mut field_value.expr)?;
+
+                    new_fields.push(ast::StructLiteralField {
+                        symbol: field.symbol,
+                        value: field_value.expr,
+                        span: field.span,
+                    })
                 }
                 None => {
                     return Err(TypeError::invalid_struct_field(
@@ -714,7 +1055,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        if struct_ty.is_union() && fields.len() != 1 {
+        if struct_ty.is_union() && new_fields.len() != 1 {
             return Err(Diagnostic::error()
                 .with_message("union literal should have exactly one field")
                 .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
@@ -733,18 +1074,27 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
         }
 
-        Ok(TyKind::Struct(struct_ty))
+        Ok(CheckedExpr::new(
+            ExprKind::StructLiteral {
+                type_expr: type_expr.clone(),
+                fields: new_fields,
+            },
+            TyKind::Struct(struct_ty),
+            None,
+            span,
+        ))
     }
 
     #[inline]
     fn check_anonymous_struct_literal(
         &mut self,
         frame: &mut CheckFrame,
-        fields: &mut Vec<ast::StructLiteralField>,
+        fields: &Vec<ast::StructLiteralField>,
         span: Span,
-    ) -> DiagnosticResult<CheckResult> {
+    ) -> DiagnosticResult<CheckedExpr> {
         let mut field_set = UstrSet::default();
 
+        let mut new_fields = vec![];
         let mut struct_ty_fields = vec![];
 
         for field in fields {
@@ -755,13 +1105,19 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 ));
             }
 
-            let value_ty = self.check_expr(frame, &mut field.value, None)?;
+            let field_value = self.check_expr(frame, &field.value, None)?;
 
             struct_ty_fields.push(StructTyField {
                 symbol: field.symbol,
-                ty: value_ty,
+                ty: field_value.ty.clone(),
                 span: field.span,
             });
+
+            new_fields.push(ast::StructLiteralField {
+                symbol: field.symbol,
+                value: field_value.expr,
+                span: field.span,
+            })
         }
 
         let type_name = self.get_anonymous_struct_name(span);
@@ -773,7 +1129,15 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             fields: struct_ty_fields,
         };
 
-        Ok(TyKind::Struct(struct_ty))
+        Ok(CheckedExpr::new(
+            ExprKind::StructLiteral {
+                type_expr: None,
+                fields: new_fields,
+            },
+            TyKind::Struct(struct_ty),
+            None,
+            span,
+        ))
     }
 
     fn occurs_check(&self, ty: &TyKind, struct_name: Ustr) -> bool {
@@ -795,7 +1159,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         .any(|field| self.occurs_check(&field.ty, struct_name))
                 }
             }
-            // Ty::Type(ty) => self.occurs_check(ty, struct_name),
+            // TyKind::Type(ty) => self.occurs_check(ty, struct_name),
             _ => false,
         }
     }
@@ -844,62 +1208,83 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_block(
         &mut self,
         frame: &mut CheckFrame,
-        block: &mut ast::Block,
+        block: &ast::Block,
         expected_ty: Option<TyKind>,
-    ) -> DiagnosticResult<CheckResult> {
-        self.init_scopes.push_scope();
+    ) -> DiagnosticResult<(ast::Block, TyKind)> {
+        let mut new_block = ast::Block {
+            exprs: vec![],
+            deferred: vec![],
+            yields: block.yields,
+        };
 
         let mut result_ty = TyKind::Unit;
+
+        self.init_scopes.push_scope();
 
         if !block.exprs.is_empty() {
             let last_index = block.exprs.len() - 1;
 
-            for (index, expr) in block.exprs.iter_mut().enumerate() {
+            for (index, expr) in block.exprs.iter().enumerate() {
                 let is_last = index == last_index;
 
-                let ty = self.check_expr(
+                let result = self.check_expr(
                     frame,
                     expr,
                     if is_last { expected_ty.clone() } else { None },
                 )?;
 
+                new_block.exprs.push(result.expr);
+
                 if is_last {
-                    result_ty = ty.into();
+                    result_ty = result.ty.into();
                 }
             }
         }
 
-        self.check_expr_list(frame, &mut block.deferred)?;
+        new_block.deferred = self.check_expr_list(frame, &block.deferred)?;
 
         self.init_scopes.pop_scope();
 
-        Ok(result_ty)
+        Ok((new_block, result_ty))
     }
 
     fn check_cast(
         &mut self,
         frame: &mut CheckFrame,
-        info: &mut ast::Cast,
+        info: &ast::Cast,
         expected_ty: Option<TyKind>,
         expr_span: Span,
-    ) -> DiagnosticResult<CheckResult> {
-        let casted_expr = self.check_expr(frame, &mut info.expr, None)?;
+    ) -> DiagnosticResult<ast::Cast> {
+        let casted_expr = self.check_expr(frame, &info.expr, None)?;
 
-        if let Some(type_expr) = &mut info.type_expr {
-            self.check_type_expr(frame, type_expr)
+        let (type_expr, target_ty) = if let Some(type_expr) = &info.type_expr {
+            let type_expr = self.check_type_expr(frame, type_expr)?;
+            let target_ty = type_expr.value.unwrap().into_type();
+            (Some(Box::new(type_expr.expr)), target_ty)
         } else {
             match expected_ty {
-                Some(expected_ty) => Ok(self.infcx.normalize_ty(&expected_ty)),
-                None => Err(Diagnostic::error()
-                    .with_message("can't infer the type cast's target type")
-                    .with_labels(vec![Label::primary(expr_span.file_id, expr_span.range())])),
+                Some(expected_ty) => {
+                    let expected_ty = self.infcx.normalize_ty(&expected_ty);
+                    (None, expected_ty)
+                }
+                None => {
+                    return Err(Diagnostic::error()
+                        .with_message("can't infer the type cast's target type")
+                        .with_labels(vec![Label::primary(expr_span.file_id, expr_span.range())]))
+                }
             }
-        }
+        };
+
+        Ok(ast::Cast {
+            expr: Box::new(casted_expr.expr),
+            type_expr,
+            target_ty,
+        })
     }
 
     pub(super) fn check_expr_can_be_mutably_referenced(
         &mut self,
-        expr: &ast::Expr,
+        expr: &Expr,
     ) -> DiagnosticResult<()> {
         use MutabilityRefCheckErr::*;
 
@@ -954,7 +1339,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
     fn check_expr_can_be_mutably_referenced_internal(
         &mut self,
-        expr: &ast::Expr,
+        expr: &Expr,
         is_direct_ref: bool,
     ) -> Result<(), MutabilityRefCheckErr> {
         use MutabilityRefCheckErr::*;
@@ -962,7 +1347,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let ty = self.infcx.normalize_ty_and_untyped(&expr.ty);
 
         match &expr.kind {
-            ast::ExprKind::MemberAccess { expr, member } => {
+            ExprKind::MemberAccess { expr, member } => {
                 match self.check_expr_can_be_mutably_referenced_internal(expr, true) {
                     Ok(_) => match ty {
                         TyKind::Tuple(tys) => {
@@ -1005,55 +1390,38 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                                 _ => Ok(()),
                             }
                         }
-                        TyKind::Module(idx) => {
-                            todo!()
-                            // let module =
-                            //     self.new_ir.modules.get(&module_name).
-                            // unwrap();
-                            // match module.find_binding(*member) {
-                            //     Some(binding) => match &binding.ty {
-                            //         Ty::Slice(_, is_mutable)
-                            //         | Ty::MultiPointer(_, is_mutable)
-                            //         | Ty::Pointer(_, is_mutable)
-                            //             if !is_mutable =>
-                            //         {
-                            //             Err(ImmutableReference {
-                            //                 symbol: *member,
-                            //                 ty_str: binding.ty.to_string(),
-                            //             })
-                            //         }
-                            //         _ => {
-                            //             let SymbolPattern {
-                            //                 span,
-                            //                 is_mutable,
-                            //                 ..
-                            //             } = binding.pattern.into_single();
+                        TyKind::Module(module_idx) => {
+                            let binding_info = self
+                                .find_binding_info_in_module(module_idx, *member, expr.span)
+                                .unwrap();
 
-                            //             if is_mutable {
-                            //                 Ok(())
-                            //             } else {
-                            //                 Err(Immutablebinding {
-                            //                     symbol: ustr(&format!(
-                            //                         "{}.{}",
-                            //                         module_name, member
-                            //                     )),
-                            //                     binding_span: span,
-                            //                 })
-                            //             }
-                            //         }
-                            //     },
-                            //     None => {
-                            //         let import =
-                            //             module.find_import(*member).unwrap();
-                            //         Err(Immutablebinding {
-                            //             symbol: ustr(&format!(
-                            //                 "{}.{}",
-                            //                 module_name, member
-                            //             )),
-                            //             binding_span: import.span,
-                            //         })
-                            //     }
-                            // }
+                            match &binding_info.ty {
+                                TyKind::Slice(_, is_mutable)
+                                | TyKind::MultiPointer(_, is_mutable)
+                                | TyKind::Pointer(_, is_mutable)
+                                    if !is_mutable =>
+                                {
+                                    Err(ImmutableReference {
+                                        symbol: *member,
+                                        ty_str: binding_info.ty.to_string(),
+                                    })
+                                }
+                                _ => {
+                                    if binding_info.is_mutable {
+                                        Ok(())
+                                    } else {
+                                        let module_info =
+                                            self.workspace.get_module_info(module_idx).unwrap();
+                                        Err(Immutablebinding {
+                                            symbol: ustr(&format!(
+                                                "{}.{}",
+                                                module_info.name, member
+                                            )),
+                                            binding_span: binding_info.span,
+                                        })
+                                    }
+                                }
+                            }
                         }
                         _ => Ok(()),
                     },
@@ -1082,7 +1450,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }),
                 }
             }
-            ast::ExprKind::Id {
+            ExprKind::Id {
                 symbol,
                 is_mutable,
                 binding_span,

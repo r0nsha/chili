@@ -70,7 +70,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                             }
 
                             let symbol = pat.alias.unwrap_or(pat.symbol);
-
                             self.update_symbol_pattern_ty(
                                 pat,
                                 get_destructed_ty(expected_ty, &field.ty),

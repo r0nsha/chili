@@ -4,7 +4,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
-use crate::{CheckFrame, CheckResult, CheckSess};
+use crate::{CheckFrame, CheckSess};
 use chili_ast::{
     ast::{Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
@@ -14,30 +14,27 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_fn(
         &mut self,
         frame: &mut CheckFrame,
-        func: &mut Fn,
+        func: &Fn,
         span: Span,
         expected_ty: Option<TyKind>,
-    ) -> DiagnosticResult<CheckResult> {
-        let proto_ty = self.check_proto(frame, &mut func.proto, expected_ty, span)?;
+    ) -> DiagnosticResult<Fn> {
+        let proto = self.check_proto(frame, &func.proto, expected_ty, span)?;
 
-        let ty = proto_ty.into_fn();
+        let ty = proto.ty.into_fn();
 
         let mut fn_frame = CheckFrame::new(frame.depth, frame.module_idx, Some(*ty.ret.clone()));
 
         if let Some(idx) = func.proto.binding_info_idx {
-            self.update_binding_info_ty(idx, proto_ty.clone());
+            self.update_binding_info_ty(idx, proto.ty.clone());
         }
 
-        for (index, param) in func.proto.params.iter().enumerate() {
+        for (index, param) in proto.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
             self.check_binding_pattern(&mut fn_frame, &param.pattern, param_ty, None, true)?;
         }
 
-        self.init_scopes.push_scope();
-
-        let result_ty = self.check_block(&mut fn_frame, &mut func.body, Some(proto_ty.clone()))?;
-
-        self.init_scopes.pop_scope();
+        let (mut body, result_ty) =
+            self.check_block(&mut fn_frame, &func.body, Some(proto.ty.clone()))?;
 
         let last_stmt_span = match func.body.exprs.last() {
             Some(stmt) => stmt.span,
@@ -47,12 +44,12 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         let result_ty = self.infcx.normalize_ty(&result_ty);
 
         if !result_ty.is_never() {
-            if func.body.exprs.is_empty() {
+            if body.exprs.is_empty() {
                 self.infcx
                     .unify(ty.ret.as_ref().clone(), TyKind::Unit, last_stmt_span)?;
             } else {
-                if func.body.yields && !ty.ret.is_unit() {
-                    let last_expr_mut = func.body.exprs.last_mut().unwrap();
+                if body.yields && !ty.ret.is_unit() {
+                    let last_expr_mut = body.exprs.last_mut().unwrap();
                     self.infcx
                         .unify_or_coerce_ty_expr(ty.ret.as_ref(), last_expr_mut)?;
                 } else {
@@ -62,8 +59,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        let ty = self.infcx.normalize_ty(&proto_ty);
-        let fn_ty = ty.into_fn().clone();
+        let fn_ty = self.infcx.normalize_ty(&proto.ty).into_fn().clone();
 
         if func.is_startup
             && (!(fn_ty.ret.is_unit() || fn_ty.ret.is_never())
@@ -75,17 +71,21 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
         }
 
-        Ok(ty)
+        Ok(Fn {
+            proto,
+            body,
+            is_startup: func.is_startup,
+        })
     }
 
     pub(crate) fn check_proto(
         &mut self,
         frame: &mut CheckFrame,
-        proto: &mut Proto,
+        proto: &Proto,
         expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<CheckResult> {
-        let mut expected_fn_ty = expected_ty
+    ) -> DiagnosticResult<Proto> {
+        let expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
             .and_then(|t| {
@@ -96,6 +96,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
             });
 
+        let mut params = vec![];
         let mut param_tys = vec![];
         let mut param_name_map = UstrMap::default();
 
@@ -111,7 +112,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         };
 
-        for (index, param) in proto.params.iter_mut().enumerate() {
+        for (index, param) in proto.params.iter().enumerate() {
             match &param.pattern {
                 Pattern::Single(SymbolPattern {
                     symbol,
@@ -143,21 +144,24 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 }
             }
 
-            let ty = if let Some(ty_expr) = &mut param.ty {
-                ty_expr.ty = self.check_type_expr(frame, ty_expr)?;
-                ty_expr.ty.clone()
+            let (type_expr, ty) = if let Some(ty) = &param.ty {
+                let type_expr = self.check_type_expr(frame, ty)?;
+                let ty = type_expr.value.unwrap().into_type();
+                (Box::new(type_expr.expr), ty)
             } else {
-                match &mut expected_fn_ty {
-                    Some(expected_fn_ty) => {
+                match expected_fn_ty {
+                    Some(ref expected_fn_ty) => {
                         // infer this param's type from the expected param's
                         // type
                         let expected_param_ty = expected_fn_ty.params[index].ty.clone();
-                        param.ty = Some(Box::new(Expr::typed(
-                            ExprKind::Noop,
-                            expected_param_ty.clone().create_type(),
-                            param.pattern.span().clone(),
-                        )));
-                        expected_param_ty
+                        (
+                            Box::new(Expr::typed(
+                                ExprKind::Noop,
+                                expected_param_ty.clone().create_type(),
+                                param.pattern.span().clone(),
+                            )),
+                            expected_param_ty,
+                        )
                     }
                     None => {
                         let span = param.pattern.span();
@@ -173,6 +177,11 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     }
                 }
             };
+
+            params.push(FnParam {
+                pattern: param.pattern.clone(),
+                ty: Some(type_expr),
+            });
 
             param_tys.push(FnTyParam {
                 symbol: if param.pattern.is_single() {
@@ -196,7 +205,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         // map fn(it) => it * 2
         // map fn => it * 2
         //
-        if proto.params.is_empty() {
+        if params.is_empty() {
             if let Some(expected_fn_ty) = &expected_fn_ty {
                 if expected_fn_ty.params.len() == 1 {
                     let expected_param_ty = &expected_fn_ty.params[0].ty;
@@ -211,7 +220,7 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                         ignore: false,
                     });
 
-                    proto.params.push(FnParam {
+                    params.push(FnParam {
                         pattern: pattern.clone(),
                         ty: Some(Box::new(Expr::typed(
                             ExprKind::Noop,
@@ -228,14 +237,15 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             }
         }
 
-        let ret_ty = match &mut proto.ret {
+        let (ret_expr, ret_ty) = match &proto.ret {
             Some(ret) => {
-                ret.ty = self.check_type_expr(frame, ret)?;
-                ret.ty.clone()
+                let type_expr = self.check_type_expr(frame, ret)?;
+                let ty = type_expr.value.unwrap().into_type();
+                (Some(Box::new(type_expr.expr)), ty)
             }
             None => match expected_fn_ty {
-                Some(expected_fn_ty) => expected_fn_ty.ret.as_ref().clone(),
-                None => TyKind::Unit,
+                Some(expected_fn_ty) => (None, expected_fn_ty.ret.as_ref().clone()),
+                None => (None, TyKind::Unit),
             },
         };
 
@@ -246,10 +256,14 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             lib_name: proto.lib_name,
         });
 
-        if let Some(idx) = proto.binding_info_idx {
-            self.update_binding_info_ty(idx, fn_ty.clone());
-        }
-
-        Ok(fn_ty)
+        Ok(Proto {
+            binding_info_idx: proto.binding_info_idx,
+            name: proto.name,
+            params,
+            variadic: proto.variadic,
+            ret: ret_expr,
+            lib_name: proto.lib_name,
+            ty: fn_ty.clone(),
+        })
     }
 }

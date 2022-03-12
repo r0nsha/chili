@@ -1,25 +1,25 @@
-use chili_ast::ast::{Call, CallArg, ExprKind};
+use chili_ast::ast::Call;
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
-use crate::{CheckFrame, CheckSess, CheckedExpr};
+use crate::{CheckFrame, CheckResult, CheckSess};
 
 impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_call(
         &mut self,
         frame: &mut CheckFrame,
-        call: &Call,
+        call: &mut Call,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
-        let callee = self.check_expr(frame, &call.callee, None)?;
-        let ty = self.infcx.normalize_ty(&callee.ty);
+    ) -> DiagnosticResult<CheckResult> {
+        let result = self.check_expr(frame, &mut call.callee, None)?;
+        call.callee.ty = self.infcx.normalize_ty(&result.ty);
 
-        match ty {
-            TyKind::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, callee, span),
-            _ => Err(TypeError::expected(
+        match call.callee.ty.clone() {
+            TyKind::Fn(fn_type) => self.check_call_fn(frame, &fn_type, call, span),
+            ty => Err(TypeError::expected(
                 call.callee.span,
                 ty.to_string(),
                 "a function",
@@ -31,10 +31,9 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         &mut self,
         frame: &mut CheckFrame,
         fn_type: &FnTy,
-        call: &Call,
-        callee: CheckedExpr,
+        call: &mut Call,
         span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
+    ) -> DiagnosticResult<CheckResult> {
         if fn_type.variadic {
             if call.args.len() < fn_type.params.len() {
                 return Err(TypeError::fn_call_arity_mismatch(
@@ -51,11 +50,10 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             ));
         }
 
-        let mut new_args = vec![];
         let mut passed_args = UstrMap::default();
 
-        for (index, arg) in call.args.iter().enumerate() {
-            let new_arg = if let Some(symbol) = &arg.symbol {
+        for (index, arg) in call.args.iter_mut().enumerate() {
+            if let Some(symbol) = &mut arg.symbol {
                 // * this is a named argument
 
                 if let Some(passed_span) = passed_args.insert(symbol.value, symbol.span) {
@@ -71,17 +69,18 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
                 let found_param_index =
                     fn_type.params.iter().position(|p| p.symbol == symbol.value);
+
                 if let Some(index) = found_param_index {
                     let param = &fn_type.params[index];
 
-                    let mut arg = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty = self
+                        .check_expr(frame, &mut arg.value, Some(param.ty.clone()))?
+                        .ty;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
                     self.infcx
-                        .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
-
-                    arg
+                        .unify_or_coerce_ty_expr(&param_ty, &mut arg.value)?;
                 } else {
                     return Err(Diagnostic::error()
                         .with_message(format!("unknown argument `{}`", symbol.value))
@@ -95,36 +94,22 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                 if let Some(param) = fn_type.params.get(index) {
                     passed_args.insert(param.symbol, arg.value.span);
 
-                    let mut arg = self.check_expr(frame, &arg.value, Some(param.ty.clone()))?;
+                    arg.value.ty = self
+                        .check_expr(frame, &mut arg.value, Some(param.ty.clone()))?
+                        .ty;
 
                     let param_ty = self.infcx.normalize_ty(&param.ty);
 
                     self.infcx
-                        .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
-
-                    arg
+                        .unify_or_coerce_ty_expr(&param_ty, &mut arg.value)?;
                 } else {
-                    // * this is a variadic argument, meaning that the
-                    //   argument's
+                    // * this is a variadic argument, meaning that the argument's
                     // * index is greater than the function param length
-                    self.check_expr(frame, &arg.value, None)?
+                    self.check_expr(frame, &mut arg.value, None)?;
                 }
             };
-
-            new_args.push(CallArg {
-                symbol: arg.symbol.clone(),
-                value: new_arg.expr,
-            });
         }
 
-        Ok(CheckedExpr::new(
-            ExprKind::Call(Call {
-                callee: Box::new(callee.expr),
-                args: new_args,
-            }),
-            fn_type.ret.as_ref().clone(),
-            None,
-            span,
-        ))
+        Ok(CheckResult::new(fn_type.ret.as_ref().clone(), None))
     }
 }

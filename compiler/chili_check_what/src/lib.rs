@@ -10,7 +10,6 @@ mod const_fold;
 
 use std::collections::HashMap;
 
-use chili_ast::ast::{Expr, ExprKind};
 use chili_ast::ty::TyKind;
 use chili_ast::value::Value;
 use chili_ast::workspace::ModuleIdx;
@@ -21,7 +20,6 @@ use chili_ast::{
 use chili_error::DiagnosticResult;
 use chili_infer::sess::InferSess;
 use chili_infer::substitute::{Substitute, SubstituteTy};
-use chili_span::Span;
 use common::scopes::Scopes;
 
 pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
@@ -130,18 +128,13 @@ impl CheckFrame {
     }
 }
 
-pub(crate) struct CheckedExpr {
-    expr: Expr,
-    ty: TyKind,
-    value: Option<Value>,
+pub(crate) struct CheckResult {
+    pub(crate) ty: TyKind,
+    pub(crate) value: Option<Value>,
 }
 
-impl CheckedExpr {
-    pub(crate) fn new(expr: ExprKind, ty: TyKind, value: Option<Value>, span: Span) -> Self {
-        Self {
-            expr: Expr::typed(expr, ty.clone(), span),
-            ty,
-            value,
-        }
+impl CheckResult {
+    pub(crate) fn new(ty: TyKind, value: Option<Value>) -> Self {
+        Self { ty, value }
     }
 }

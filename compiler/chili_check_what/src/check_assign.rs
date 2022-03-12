@@ -1,5 +1,5 @@
 use crate::{
-    CheckedExpr, InitState, {CheckFrame, CheckSess},
+    CheckResult, InitState, {CheckFrame, CheckSess},
 };
 use chili_ast::ast::{Expr, ExprKind, UnaryOp};
 use chili_ast::ty::*;
@@ -12,14 +12,13 @@ impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_assign_expr(
         &mut self,
         frame: &mut CheckFrame,
-        lvalue: &Expr,
-        rvalue: &Expr,
-        span: Span,
-    ) -> DiagnosticResult<CheckedExpr> {
-        let lvalue = match &lvalue.kind {
+        lvalue: &mut Expr,
+        rvalue: &mut Expr,
+    ) -> DiagnosticResult<CheckResult> {
+        match &lvalue.kind {
             ExprKind::Id {
                 symbol,
-                is_mutable,
+                is_mutable: _,
                 binding_info_idx,
                 ..
             } => {
@@ -49,30 +48,19 @@ impl<'w, 'a> CheckSess<'w, 'a> {
                     *self.init_scopes.get_mut(*binding_info_idx).unwrap() = InitState::Init;
                 }
 
-                self.check_expr(frame, lvalue, None)?
+                lvalue.ty = binding_info.ty.clone()
             }
             _ => {
-                let lvalue = self.check_expr(frame, lvalue, None)?;
-                check_lvalue_is_mut(&lvalue.expr, lvalue.expr.span)?;
-                lvalue
+                lvalue.ty = self.check_expr(frame, lvalue, None)?.ty;
+                check_lvalue_is_mut(&lvalue, lvalue.span)?;
             }
-        };
+        }
 
-        let mut rvalue = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?;
+        rvalue.ty = self.check_expr(frame, rvalue, Some(lvalue.ty.clone()))?.ty;
 
-        let rvalue_span = rvalue.expr.span;
-        self.infcx
-            .unify_or_coerce_ty_expr(&lvalue.ty, &mut rvalue.expr)?;
+        self.infcx.unify_or_coerce_ty_expr(&lvalue.ty, rvalue)?;
 
-        Ok(CheckedExpr::new(
-            ExprKind::Assign {
-                lvalue: Box::new(lvalue.expr),
-                rvalue: Box::new(rvalue.expr),
-            },
-            TyKind::Unit,
-            None,
-            span,
-        ))
+        Ok(CheckResult::new(TyKind::Unit, None))
     }
 }
 

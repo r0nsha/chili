@@ -1,55 +1,39 @@
+use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
-use chili_ast::ty::*;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::{ustr, Ustr, UstrMap};
 
-use crate::{CheckContext, CheckFrame};
+use crate::{CheckFrame, CheckResult, CheckSess};
 use chili_ast::{
     ast::{Expr, ExprKind, Fn, FnParam, Proto},
     pattern::{Pattern, SymbolPattern},
 };
 
-impl<'a> CheckContext<'a> {
+impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn check_fn(
         &mut self,
         frame: &mut CheckFrame,
-        func: &Fn,
+        func: &mut Fn,
         span: Span,
-        expected_ty: Option<Ty>,
-    ) -> DiagnosticResult<Fn> {
-        let proto = self.check_proto(frame, &func.proto, expected_ty, span)?;
+        expected_ty: Option<TyKind>,
+    ) -> DiagnosticResult<CheckResult> {
+        let proto_ty = self.check_proto(frame, &mut func.proto, expected_ty, span)?;
 
-        let ty = proto.ty.into_fn();
+        let ty = proto_ty.into_fn();
 
-        let mut fn_frame = CheckFrame::new(
-            frame.module_info,
-            Some(*ty.ret.clone()),
-            frame.env.clone(),
-        );
+        let mut fn_frame = CheckFrame::new(frame.depth, frame.module_idx, Some(*ty.ret.clone()));
 
-        fn_frame.insert_binding(proto.name, proto.ty.clone(), span, true);
-
-        for (index, param) in proto.params.iter().enumerate() {
-            let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
-            self.check_binding_pattern(
-                &mut fn_frame,
-                &param.pattern,
-                param_ty,
-                None,
-                true,
-            )?;
+        if let Some(idx) = func.proto.binding_info_idx {
+            self.update_binding_info_ty(idx, proto_ty.clone());
         }
 
-        fn_frame.push_named_scope(proto.name);
+        for (index, param) in func.proto.params.iter().enumerate() {
+            let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
+            self.check_binding_pattern(&mut fn_frame, &param.pattern, param_ty, None, true)?;
+        }
 
-        let (mut body, result_ty) = self.check_block(
-            &mut fn_frame,
-            &func.body,
-            Some(proto.ty.clone()),
-        )?;
-
-        fn_frame.pop_scope();
+        let result_ty = self.check_block(&mut fn_frame, &mut func.body, Some(proto_ty.clone()))?;
 
         let last_stmt_span = match func.body.exprs.last() {
             Some(stmt) => stmt.span,
@@ -59,31 +43,23 @@ impl<'a> CheckContext<'a> {
         let result_ty = self.infcx.normalize_ty(&result_ty);
 
         if !result_ty.is_never() {
-            if body.exprs.is_empty() {
-                self.infcx.unify(
-                    ty.ret.as_ref().clone(),
-                    Ty::Unit,
-                    last_stmt_span,
-                )?;
+            if func.body.exprs.is_empty() {
+                self.infcx
+                    .unify(ty.ret.as_ref().clone(), TyKind::Unit, last_stmt_span)?;
             } else {
-                if body.yields && !ty.ret.is_unit() {
-                    let last_expr_mut = body.exprs.last_mut().unwrap();
-                    self.infcx.unify_or_coerce_ty_expr(
-                        ty.ret.as_ref(),
-                        last_expr_mut,
-                        last_stmt_span,
-                    )?;
+                if func.body.yields && !ty.ret.is_unit() {
+                    let last_expr_mut = func.body.exprs.last_mut().unwrap();
+                    self.infcx
+                        .unify_or_coerce_ty_expr(ty.ret.as_ref(), last_expr_mut)?;
                 } else {
-                    self.infcx.unify(
-                        ty.ret.as_ref().clone(),
-                        Ty::Unit,
-                        span,
-                    )?;
+                    self.infcx
+                        .unify(ty.ret.as_ref().clone(), TyKind::Unit, span)?;
                 }
             }
         }
 
-        let fn_ty = self.infcx.normalize_ty(&proto.ty).into_fn().clone();
+        let ty = self.infcx.normalize_ty(&proto_ty);
+        let fn_ty = ty.into_fn().clone();
 
         if func.is_startup
             && (!(fn_ty.ret.is_unit() || fn_ty.ret.is_never())
@@ -95,21 +71,17 @@ impl<'a> CheckContext<'a> {
                 .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
         }
 
-        Ok(Fn {
-            proto,
-            body,
-            is_startup: func.is_startup,
-        })
+        Ok(ty)
     }
 
     pub(crate) fn check_proto(
         &mut self,
         frame: &mut CheckFrame,
-        proto: &Proto,
-        expected_ty: Option<Ty>,
+        proto: &mut Proto,
+        expected_ty: Option<TyKind>,
         span: Span,
-    ) -> DiagnosticResult<Proto> {
-        let expected_fn_ty = expected_ty
+    ) -> DiagnosticResult<CheckResult> {
+        let mut expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
             .and_then(|t| {
@@ -120,14 +92,11 @@ impl<'a> CheckContext<'a> {
                 }
             });
 
-        let mut params = vec![];
         let mut param_tys = vec![];
         let mut param_name_map = UstrMap::default();
 
         let mut check_symbol = |symbol: Ustr, span: Span| {
-            if let Some(already_defined_span) =
-                param_name_map.insert(symbol, span)
-            {
+            if let Some(already_defined_span) = param_name_map.insert(symbol, span) {
                 Err(SyntaxError::duplicate_symbol(
                     already_defined_span,
                     span,
@@ -138,7 +107,7 @@ impl<'a> CheckContext<'a> {
             }
         };
 
-        for (index, param) in proto.params.iter().enumerate() {
+        for (index, param) in proto.params.iter_mut().enumerate() {
             match &param.pattern {
                 Pattern::Single(SymbolPattern {
                     symbol,
@@ -152,8 +121,7 @@ impl<'a> CheckContext<'a> {
                         }
                     }
                 }
-                Pattern::StructDestructor(destructor)
-                | Pattern::TupleDestructor(destructor) => {
+                Pattern::StructDestructor(destructor) | Pattern::TupleDestructor(destructor) => {
                     for SymbolPattern {
                         symbol,
                         alias,
@@ -163,9 +131,7 @@ impl<'a> CheckContext<'a> {
                     } in destructor.symbols.iter()
                     {
                         if !ignore {
-                            if let Err(e) =
-                                check_symbol(alias.unwrap_or(*symbol), *span)
-                            {
+                            if let Err(e) = check_symbol(alias.unwrap_or(*symbol), *span) {
                                 return Err(e);
                             }
                         }
@@ -173,25 +139,21 @@ impl<'a> CheckContext<'a> {
                 }
             }
 
-            let (type_expr, ty) = if let Some(ty) = &param.ty {
-                let type_expr = self.check_type_expr(frame, ty)?;
-                let ty = type_expr.value.unwrap().into_type();
-                (Box::new(type_expr.expr), ty)
+            let ty = if let Some(ty_expr) = &mut param.ty {
+                ty_expr.ty = self.check_type_expr(frame, ty_expr)?;
+                ty_expr.ty.clone()
             } else {
-                match expected_fn_ty {
-                    Some(ref expected_fn_ty) => {
+                match &mut expected_fn_ty {
+                    Some(expected_fn_ty) => {
                         // infer this param's type from the expected param's
                         // type
-                        let expected_param_ty =
-                            expected_fn_ty.params[index].ty.clone();
-                        (
-                            Box::new(Expr::typed(
-                                ExprKind::Noop,
-                                expected_param_ty.clone().create_type(),
-                                param.pattern.span().clone(),
-                            )),
-                            expected_param_ty,
-                        )
+                        let expected_param_ty = expected_fn_ty.params[index].ty.clone();
+                        param.ty = Some(Box::new(Expr::typed(
+                            ExprKind::Noop,
+                            expected_param_ty.clone().create_type(),
+                            param.pattern.span().clone(),
+                        )));
+                        expected_param_ty
                     }
                     None => {
                         let span = param.pattern.span();
@@ -207,11 +169,6 @@ impl<'a> CheckContext<'a> {
                     }
                 }
             };
-
-            params.push(FnParam {
-                pattern: param.pattern.clone(),
-                ty: Some(type_expr),
-            });
 
             param_tys.push(FnTyParam {
                 symbol: if param.pattern.is_single() {
@@ -235,7 +192,7 @@ impl<'a> CheckContext<'a> {
         // map fn(it) => it * 2
         // map fn => it * 2
         //
-        if params.is_empty() {
+        if proto.params.is_empty() {
             if let Some(expected_fn_ty) = &expected_fn_ty {
                 if expected_fn_ty.params.len() == 1 {
                     let expected_param_ty = &expected_fn_ty.params[0].ty;
@@ -250,7 +207,7 @@ impl<'a> CheckContext<'a> {
                         ignore: false,
                     });
 
-                    params.push(FnParam {
+                    proto.params.push(FnParam {
                         pattern: pattern.clone(),
                         ty: Some(Box::new(Expr::typed(
                             ExprKind::Noop,
@@ -267,34 +224,28 @@ impl<'a> CheckContext<'a> {
             }
         }
 
-        let (ret_expr, ret_ty) = match &proto.ret {
+        let ret_ty = match &mut proto.ret {
             Some(ret) => {
-                let type_expr = self.check_type_expr(frame, ret)?;
-                let ty = type_expr.value.unwrap().into_type();
-                (Some(Box::new(type_expr.expr)), ty)
+                ret.ty = self.check_type_expr(frame, ret)?;
+                ret.ty.clone()
             }
             None => match expected_fn_ty {
-                Some(expected_fn_ty) => {
-                    (None, expected_fn_ty.ret.as_ref().clone())
-                }
-                None => (None, Ty::Unit),
+                Some(expected_fn_ty) => expected_fn_ty.ret.as_ref().clone(),
+                None => TyKind::Unit,
             },
         };
 
-        let fn_ty = Ty::Fn(FnTy {
+        let fn_ty = TyKind::Fn(FnTy {
             params: param_tys,
             ret: Box::new(ret_ty),
             variadic: proto.variadic,
             lib_name: proto.lib_name,
         });
 
-        Ok(Proto {
-            name: proto.name,
-            params,
-            variadic: proto.variadic,
-            ret: ret_expr,
-            lib_name: proto.lib_name,
-            ty: fn_ty.clone(),
-        })
+        if let Some(idx) = proto.binding_info_idx {
+            self.update_binding_info_ty(idx, fn_ty.clone());
+        }
+
+        Ok(fn_ty)
     }
 }
