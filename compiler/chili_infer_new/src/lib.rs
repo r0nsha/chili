@@ -1,6 +1,6 @@
 mod infer;
 mod sess;
-mod ty_var;
+mod tvar;
 
 use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;

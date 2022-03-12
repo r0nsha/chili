@@ -1,4 +1,4 @@
-use crate::ty_var::{TyVar, TyVarGen};
+use crate::tvar::{TyVar, TyVarGen};
 
 pub(crate) struct InferSess {
     tvg: TyVarGen,
