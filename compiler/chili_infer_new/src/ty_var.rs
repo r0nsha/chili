@@ -12,8 +12,8 @@ trait Union {
     fn union(&self, other: &Self) -> Self;
 }
 
-/// Implement union for HashMap such that the value in `self` is used over the value in `other` in
-/// the event of a collision.
+// Implement union for HashMap such that the value in `self` is used over the value in `other` in
+// the event of a collision.
 impl<K, V> Union for HashMap<K, V>
 where
     K: Clone + Eq + Hash,
@@ -45,7 +45,7 @@ impl Into<TyKind> for TyVar {
 }
 
 impl TyVar {
-    /// Attempt to bind a type variable to a type, returning an appropriate substitution.
+    // Attempt to bind a type variable to a type, returning an appropriate substitution.
     fn bind(&self, ty: &TyKind) -> DiagnosticResult<Subst> {
         // Check for binding a variable to itself
         if let TyKind::Var(u) = ty {
@@ -143,7 +143,7 @@ pub(crate) trait MostGeneralUnifier {
 }
 
 impl MostGeneralUnifier for TyKind {
-    /// Most general unifier, a substitution S such that S(self) is congruent to S(other).
+    // Most general unifier, a substitution S such that S(self) is congruent to S(other).
     fn most_general_unifier(&self, other: &Self) -> DiagnosticResult<Subst> {
         match (self, other) {
             // // For functions, we find the most general unifier for the inputs, apply the resulting
@@ -208,8 +208,8 @@ impl Subst {
     }
 }
 
-/// A polytype is a type in which there are a number of for-all quantifiers, i.e. some parts of the
-/// type may not be concrete but instead correct for all possible types.
+// A polytype is a type in which there are a number of for-all quantifiers, i.e. some parts of the
+// type may not be concrete but instead correct for all possible types.
 #[derive(Clone, Debug)]
 pub(crate) struct Polytype {
     pub vars: Vec<TyVar>,
@@ -252,7 +252,7 @@ impl Polytype {
     }
 }
 
-/// A type environment is a mapping from term variables to polytypes.
+// A type environment is a mapping from term variables to polytypes.
 #[derive(Clone, Debug)]
 pub(crate) struct TypeEnv(HashMap<BindingInfoIdx, Polytype>);
 
@@ -269,8 +269,8 @@ impl DerefMut for TypeEnv {
 }
 
 impl Types for TypeEnv {
-    /// The free type variables of a type environment is the union of the free type variables of
-    /// each polytype in the environment.
+    // The free type variables of a type environment is the union of the free type variables of
+    // each polytype in the environment.
     fn ftv(&self) -> HashSet<TyVar> {
         self.values()
             .map(|x| x.clone())
@@ -278,19 +278,19 @@ impl Types for TypeEnv {
             .ftv()
     }
 
-    /// To apply a substitution, we just apply it to each polytype in the type environment.
+    // To apply a substitution, we just apply it to each polytype in the type environment.
     fn apply(&self, s: &Subst) -> TypeEnv {
         TypeEnv(self.iter().map(|(k, v)| (k.clone(), v.apply(s))).collect())
     }
 }
 
 impl TypeEnv {
-    /// Construct an empty type environment.
+    // Construct an empty type environment.
     pub fn new() -> TypeEnv {
         TypeEnv(HashMap::new())
     }
 
-    /// Generalize creates a polytype
+    // Generalize creates a polytype
     fn generalize(&self, ty: &TyKind) -> Polytype {
         Polytype {
             vars: ty.ftv().difference(&self.ftv()).cloned().collect(),
@@ -298,7 +298,7 @@ impl TypeEnv {
         }
     }
 
-    /// The meat of the type inference algorithm.
+    // The meat of the type inference algorithm.
     fn ti(&self, exp: &ast::Expr, tvg: &mut TyVarGen) -> DiagnosticResult<(Subst, TyKind)> {
         let (s, t) = match *exp {
             // A variable is typed as an instantiation of the corresponding type in the
@@ -382,7 +382,7 @@ impl TypeEnv {
         Ok((s, t))
     }
 
-    /// Perform type inference on an expression and return the resulting type, if any.
+    // Perform type inference on an expression and return the resulting type, if any.
     pub fn type_inference(&self, exp: &ast::Expr, tvg: &mut TyVarGen) -> DiagnosticResult<()> {
         let (s, t) = self.ti(exp, tvg)?;
         let t2 = t.apply(&s);
