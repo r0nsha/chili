@@ -30,11 +30,17 @@ where
 
 // A type variable represents a type that is not constrained
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct TyVar(u32);
+pub(crate) struct TyVar(pub(crate) u32);
 
 impl fmt::Display for TyVar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "'t{}", self.0)
+        write!(f, "${}", self.0)
+    }
+}
+
+impl Into<TyKind> for TyVar {
+    fn into(self) -> TyKind {
+        TyKind::Var(self.0)
     }
 }
 
@@ -62,11 +68,11 @@ impl TyVar {
 }
 
 // A source of unique type variables
-pub(crate) struct TypeVarGen {
+pub(crate) struct TyVarGen {
     supply: u32,
 }
 
-impl TypeVarGen {
+impl TyVarGen {
     pub(crate) fn new() -> Self {
         Self { supply: 0 }
     }
@@ -239,7 +245,7 @@ impl Types for Polytype {
 impl Polytype {
     // Instantiates a polytype into a type. Replaces all bound type variables with fresh type
     // variables and return the resulting type.
-    fn instantiate(&self, tvg: &mut TypeVarGen) -> TyKind {
+    fn instantiate(&self, tvg: &mut TyVarGen) -> TyKind {
         let newvars = self.vars.iter().map(|_| TyKind::Var(tvg.next().0));
         self.ty
             .apply(&Subst(self.vars.iter().cloned().zip(newvars).collect()))
@@ -293,7 +299,7 @@ impl TypeEnv {
     }
 
     /// The meat of the type inference algorithm.
-    fn ti(&self, exp: &ast::Expr, tvg: &mut TypeVarGen) -> DiagnosticResult<(Subst, TyKind)> {
+    fn ti(&self, exp: &ast::Expr, tvg: &mut TyVarGen) -> DiagnosticResult<(Subst, TyKind)> {
         let (s, t) = match *exp {
             // A variable is typed as an instantiation of the corresponding type in the
             // environment.
@@ -377,7 +383,7 @@ impl TypeEnv {
     }
 
     /// Perform type inference on an expression and return the resulting type, if any.
-    pub fn type_inference(&self, exp: &ast::Expr, tvg: &mut TypeVarGen) -> DiagnosticResult<()> {
+    pub fn type_inference(&self, exp: &ast::Expr, tvg: &mut TyVarGen) -> DiagnosticResult<()> {
         let (s, t) = self.ti(exp, tvg)?;
         let t2 = t.apply(&s);
         Ok(())

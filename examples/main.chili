@@ -20,6 +20,10 @@ let main = fn {
     # printf("1\n".data)
 }
 
+let add = fn(a, b) {
+    a + b
+}
+
 # use c.?
 
 # type Foo = { a: int, b: int }
