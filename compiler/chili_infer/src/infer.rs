@@ -1,7 +1,5 @@
-use chili_ast::workspace::Workspace;
-
-use crate::sess::Ty;
+use chili_ast::{ty::TyVar, workspace::Workspace};
 
 pub(crate) trait Infer<'w> {
-    fn infer(&mut self, workspace: Workspace<'w>) -> Ty;
+    fn infer(&mut self, workspace: Workspace<'w>) -> TyVar;
 }

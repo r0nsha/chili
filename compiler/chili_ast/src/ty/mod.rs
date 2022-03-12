@@ -10,6 +10,33 @@ use ustr::{ustr, Ustr};
 
 use crate::workspace::ModuleIdx;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct TyVar(u32);
+
+impl From<u32> for TyVar {
+    fn from(index: u32) -> TyVar {
+        TyVar(index)
+    }
+}
+
+impl TyVar {
+    #[inline(always)]
+    pub fn new(index: u32) -> Self {
+        Self(index)
+    }
+
+    #[inline(always)]
+    pub fn index(self) -> u32 {
+        self.0
+    }
+}
+
+impl From<TyVar> for TyKind {
+    fn from(var: TyVar) -> Self {
+        TyKind::Var(var)
+    }
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum TyKind {
     Never,
@@ -27,7 +54,7 @@ pub enum TyKind {
     Struct(StructTy),
     Module(ModuleIdx),
     Type(Box<TyKind>),
-    Var(u32),
+    Var(TyVar),
     AnyInt,
     AnyFloat,
     Unknown,
