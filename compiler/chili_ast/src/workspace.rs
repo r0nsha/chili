@@ -68,6 +68,7 @@ pub struct BindingInfo {
     pub level: ScopeLevel,
     pub scope_name: Ustr,
     pub uses: usize,
+    pub codegen: bool,
     pub span: Span,
 }
 
@@ -158,6 +159,7 @@ impl<'w> Workspace<'w> {
             level,
             scope_name,
             uses: 0,
+            codegen: false,
             span,
         });
         id
