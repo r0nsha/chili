@@ -89,8 +89,8 @@ impl<'w> Workspace<'w> {
         ModuleIdx(self.module_infos.len() - 1)
     }
 
-    pub fn get_module_info(&self, id: ModuleIdx) -> Option<&ModuleInfo> {
-        self.module_infos.get(id.0)
+    pub fn get_module_info(&self, idx: ModuleIdx) -> Option<&ModuleInfo> {
+        self.module_infos.get(idx.0)
     }
 
     pub fn find_module_info(&self, module_info: ModuleInfo) -> Option<ModuleIdx> {
@@ -157,12 +157,12 @@ impl<'w> Workspace<'w> {
         idx
     }
 
-    pub fn get_binding_info(&self, id: BindingInfoIdx) -> Option<&BindingInfo> {
-        self.binding_infos.get(id.0)
+    pub fn get_binding_info(&self, idx: BindingInfoIdx) -> Option<&BindingInfo> {
+        self.binding_infos.get(idx.0)
     }
 
-    pub fn get_binding_info_mut(&mut self, id: BindingInfoIdx) -> Option<&mut BindingInfo> {
-        self.binding_infos.get_mut(id.0)
+    pub fn get_binding_info_mut(&mut self, idx: BindingInfoIdx) -> Option<&mut BindingInfo> {
+        self.binding_infos.get_mut(idx.0)
     }
 }
 

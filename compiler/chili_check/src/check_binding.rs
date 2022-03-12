@@ -28,14 +28,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         for symbol in binding.pattern.symbols() {
             let var = self.infcx.fresh_type_var();
             self.update_binding_info_ty(symbol.binding_info_idx, var.into());
-            self.init_scopes.insert(
-                symbol.binding_info_idx,
-                if binding.value.is_some() {
-                    InitState::Init
-                } else {
-                    InitState::NotInit
-                },
-            );
         }
 
         let (value, const_value) = if let Some(value) = &binding.value {

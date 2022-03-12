@@ -31,8 +31,6 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
     {
         let mut sess = CheckSess::new(workspace, &mut infcx);
 
-        sess.init_scopes.push_scope();
-
         for ast in asts.iter_mut() {
             for import in ast.imports.iter_mut() {
                 sess.check_import(import)?;
@@ -42,8 +40,6 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
                 sess.check_top_level_binding(binding, ast.module_idx, binding.pattern.span())?;
             }
         }
-
-        sess.init_scopes.pop_scope();
     }
 
     let table = infcx.get_table_mut();
@@ -64,16 +60,11 @@ pub fn check<'w>(workspace: &mut Workspace<'w>, asts: &mut Vec<Ast>) -> Diagnost
 pub(crate) struct CheckSess<'w, 'a> {
     pub(crate) workspace: &'a mut Workspace<'w>,
     pub(crate) infcx: &'a mut InferSess,
-    pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
 }
 
 impl<'w, 'a> CheckSess<'w, 'a> {
     pub(crate) fn new(workspace: &'a mut Workspace<'w>, infcx: &'a mut InferSess) -> Self {
-        Self {
-            workspace,
-            infcx,
-            init_scopes: Scopes::new(),
-        }
+        Self { workspace, infcx }
     }
 
     pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: TyKind) {

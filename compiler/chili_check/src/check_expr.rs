@@ -539,23 +539,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
             } => {
                 let binding_info = self.workspace.get_binding_info(*binding_info_idx).unwrap();
 
-                if let Some(state) = self.init_scopes.get(*binding_info_idx) {
-                    if state.is_not_init() {
-                        let msg = format!("use of possibly uninitialized value `{}`", symbol);
-                        return Err(Diagnostic::error().with_message(msg.clone()).with_labels(
-                            vec![
-                                Label::primary(expr.span.file_id, expr.span.range().clone())
-                                    .with_message(msg),
-                                Label::secondary(
-                                    binding_info.span.file_id,
-                                    binding_info.span.range().clone(),
-                                )
-                                .with_message("defined here"),
-                            ],
-                        ));
-                    }
-                }
-
                 CheckedExpr::new(
                     ExprKind::Id {
                         symbol: *symbol,
@@ -1185,8 +1168,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
 
         let mut result_ty = TyKind::Unit;
 
-        self.init_scopes.push_scope();
-
         if !block.exprs.is_empty() {
             let last_index = block.exprs.len() - 1;
 
@@ -1208,8 +1189,6 @@ impl<'w, 'a> CheckSess<'w, 'a> {
         }
 
         new_block.deferred = self.check_expr_list(frame, &block.deferred)?;
-
-        self.init_scopes.pop_scope();
 
         Ok((new_block, result_ty))
     }
