@@ -33,36 +33,6 @@ pub enum Ty {
     Unknown,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FnTy {
-    pub params: Vec<FnTyParam>,
-    pub ret: Box<Ty>,
-    pub variadic: bool,
-    pub lib_name: Option<Ustr>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FnTyParam {
-    pub symbol: Ustr,
-    pub ty: Ty,
-}
-
-impl FnTyParam {
-    pub fn named(symbol: impl Into<Ustr>, ty: Ty) -> Self {
-        Self {
-            symbol: symbol.into(),
-            ty,
-        }
-    }
-
-    pub fn unnamed(ty: Ty) -> Self {
-        Self {
-            symbol: ustr(""),
-            ty,
-        }
-    }
-}
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum IntTy {
     I8,
@@ -104,6 +74,36 @@ pub enum FloatTy {
 impl Default for FloatTy {
     fn default() -> Self {
         FloatTy::F32
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct FnTy {
+    pub params: Vec<FnTyParam>,
+    pub ret: Box<Ty>,
+    pub variadic: bool,
+    pub lib_name: Option<Ustr>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct FnTyParam {
+    pub symbol: Ustr,
+    pub ty: Ty,
+}
+
+impl FnTyParam {
+    pub fn named(symbol: impl Into<Ustr>, ty: Ty) -> Self {
+        Self {
+            symbol: symbol.into(),
+            ty,
+        }
+    }
+
+    pub fn unnamed(ty: Ty) -> Self {
+        Self {
+            symbol: ustr(""),
+            ty,
+        }
     }
 }
 
