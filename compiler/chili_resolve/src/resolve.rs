@@ -96,7 +96,7 @@ impl<'w> Resolve<'w> for ast::Binding {
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         self.ty_expr.resolve(resolver, workspace)?;
-        self.value.resolve(resolver, workspace)?;
+        self.expr.resolve(resolver, workspace)?;
 
         // Collect foreign libraries to be linked later
         if let Some(lib) = self.lib_name {

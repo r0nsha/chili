@@ -90,7 +90,7 @@ impl Substitute for Binding {
             None => Span::unknown(),
         };
 
-        self.value.substitute(table)?;
+        self.expr.substitute(table)?;
 
         self.ty = self.ty.substitute_ty(table, span)?;
 

@@ -182,7 +182,7 @@ impl BuildNode for Binding {
     fn build(&self, b: &mut TreeBuilder) {
         b.begin_child(format!("let {} <{}>", self.pattern.to_string(), self.ty));
 
-        if let Some(value) = &self.value {
+        if let Some(value) = &self.expr {
             value.build(b);
         } else {
             b.add_empty_child("[uninit]".to_string());

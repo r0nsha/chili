@@ -21,8 +21,12 @@ let main = fn {
     # printf("1\n".data)
 }
 
-let add_five = fn(a) {
-    a + 5
+let id = fn(a) { 
+    a 
+}
+
+let id2 = fn(a) { 
+    return a 
 }
 
 # let add = fn(a, b) {

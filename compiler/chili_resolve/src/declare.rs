@@ -111,7 +111,7 @@ impl<'w> Declare<'w> for ast::Binding {
             false,
         );
 
-        if let Some(value) = &mut self.value {
+        if let Some(value) = &mut self.expr {
             // if this is the entry point function, keep its index in the workspace
             // the entry point function is a binding with the name "main" and a value of `ExprKind::Fn`
             if workspace.entry_point_function_idx.is_none() && pat.symbol == "main" && value.is_fn()
