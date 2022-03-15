@@ -83,7 +83,7 @@ pub fn do_build(build_options: BuildOptions) {
     // }
 
     for ast in asts.iter() {
-        ast.print();
+        ast.print(&workspace);
     }
 
     // time! { "codegen(llvm)",

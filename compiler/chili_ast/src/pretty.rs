@@ -1,18 +1,22 @@
-use crate::ast::{
-    ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter, Ir,
-    LiteralKind, Proto,
+use crate::{
+    ast::{
+        ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter,
+        LiteralKind, Proto,
+    },
+    pattern::Pattern,
+    workspace::Workspace,
 };
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 use std::fmt::Display;
 
-impl Ir {
-    pub fn print(&self) {
+impl Ast {
+    pub fn print(&self, workspace: &Workspace) {
         let config = {
             let mut config = PrintConfig::from_env();
             config.branch = Style {
-                foreground: Some(Color::Green),
+                foreground: Some(Color::Blue),
                 dimmed: true,
                 ..Style::default()
             };
@@ -25,56 +29,47 @@ impl Ir {
             config
         };
 
-        let mut b = TreeBuilder::new("program".to_string());
+        let mut b = TreeBuilder::new(format!(
+            "'{}' - {}",
+            self.module_info.name, self.module_info.file_path
+        ));
 
-        for (name, module) in &self.modules {
-            b.begin_child(format!("module '{}'", name));
+        self.print_tree(&mut b, workspace);
 
-            for import in module.imports.iter() {
-                b.add_empty_child(format!(
-                    "use {} = {}",
-                    import.module_info.name, import.alias
-                ));
-            }
-
-            module.bindings.build(&mut b);
-
-            b.end_child();
-        }
-
-        let tree = b.build();
-
-        print_tree_with(&tree, &config).expect("error printing ir tree");
+        print_tree_with(&b.build(), &config).expect("error printing ir tree");
 
         println!();
     }
 }
 
-impl Ast {
-    pub fn print(&self) {
-        let config = {
-            let mut config = PrintConfig::from_env();
-            config.branch = Style {
-                foreground: Some(Color::Green),
-                dimmed: true,
-                ..Style::default()
-            };
-            config.leaf = Style {
-                bold: true,
-                ..Style::default()
-            };
-            config.characters = UTF_CHARS_BOLD.into();
-            config.indent = 3;
-            config
-        };
+pub trait PrintTree {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace);
+}
 
-        let mut b = TreeBuilder::new("program".to_string());
+impl<T: PrintTree> PrintTree for Vec<T> {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
+        for element in self {
+            element.print_tree(b, workspace);
+        }
+    }
+}
 
-        b.begin_child(format!(
-            "module '{}' ({})",
-            self.module_info.name, self.module_info.file_path
-        ));
+impl<T: PrintTree> PrintTree for Option<T> {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
+        if let Some(e) = self {
+            e.print_tree(b, workspace);
+        }
+    }
+}
 
+impl<T: PrintTree> PrintTree for Box<T> {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
+        self.as_ref().print_tree(b, workspace);
+    }
+}
+
+impl PrintTree for Ast {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
         for import in self.imports.iter() {
             b.add_empty_child(format!(
                 "use {} as {}",
@@ -82,67 +77,32 @@ impl Ast {
             ));
         }
 
-        self.bindings.build(&mut b);
-
-        b.end_child();
-
-        let tree = b.build();
-
-        print_tree_with(&tree, &config).expect("error printing ir tree");
-
-        println!();
+        self.bindings.print_tree(b, workspace);
     }
 }
-
-trait BuildNode {
-    fn build(&self, b: &mut TreeBuilder);
-}
-
-impl<T: BuildNode> BuildNode for Vec<T> {
-    fn build(&self, b: &mut TreeBuilder) {
-        for element in self {
-            element.build(b);
-        }
-    }
-}
-
-impl<T: BuildNode> BuildNode for Option<T> {
-    fn build(&self, b: &mut TreeBuilder) {
-        if let Some(e) = self {
-            e.build(b);
-        }
-    }
-}
-
-impl<T: BuildNode> BuildNode for Box<T> {
-    fn build(&self, b: &mut TreeBuilder) {
-        self.as_ref().build(b);
-    }
-}
-
-impl BuildNode for Fn {
-    fn build(&self, b: &mut TreeBuilder) {
+impl PrintTree for Fn {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
         b.begin_child("fn".to_string());
-        self.proto.build(b);
-        self.body.build(b);
+        self.proto.print_tree(b, workspace);
+        self.body.print_tree(b, workspace);
         b.end_child();
     }
 }
 
-impl BuildNode for Block {
-    fn build(&self, b: &mut TreeBuilder) {
+impl PrintTree for Block {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
         b.begin_child(format!(
             "block{}",
             if self.yields { " (yields)" } else { "" }
         ));
-        self.exprs.build(b);
-        build_deferred(b, &self.deferred);
+        self.exprs.print_tree(b, workspace);
+        build_deferred(b, &self.deferred, workspace);
         b.end_child();
     }
 }
 
-impl BuildNode for Proto {
-    fn build(&self, b: &mut TreeBuilder) {
+impl PrintTree for Proto {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
         b.begin_child(format!(
             "{}proto",
             if self.lib_name.is_some() {
@@ -158,7 +118,7 @@ impl BuildNode for Proto {
             b.begin_child(param.pattern.to_string());
 
             if let Some(ty) = &param.ty {
-                ty.build(b);
+                ty.print_tree(b, workspace);
             } else {
                 b.add_empty_child("inferred".to_string());
             }
@@ -170,7 +130,7 @@ impl BuildNode for Proto {
 
         if let Some(ret) = &self.ret {
             b.begin_child("return".to_string());
-            ret.build(b);
+            ret.print_tree(b, workspace);
             b.end_child();
         }
 
@@ -178,12 +138,43 @@ impl BuildNode for Proto {
     }
 }
 
-impl BuildNode for Binding {
-    fn build(&self, b: &mut TreeBuilder) {
-        b.begin_child(format!("let {} <{}>", self.pattern.to_string(), self.ty));
+impl PrintTree for Binding {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
+        b.begin_child(match &self.pattern {
+            Pattern::Single(pat) => {
+                let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                format!("let {} <{}>", pat.symbol, ty)
+            }
+            Pattern::StructDestructor(pat) => {
+                let concat_symbols = pat
+                    .symbols
+                    .iter()
+                    .map(|pat| {
+                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                        format!("let {} <{}>", pat.symbol, ty)
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                format!("{{ {} }}", concat_symbols)
+            }
+            Pattern::TupleDestructor(pat) => {
+                let concat_symbols = pat
+                    .symbols
+                    .iter()
+                    .map(|pat| {
+                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                        format!("let {} <{}>", pat.symbol, ty)
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                format!("({})", concat_symbols)
+            }
+        });
 
         if let Some(value) = &self.expr {
-            value.build(b);
+            value.print_tree(b, workspace);
         } else {
             b.add_empty_child("[uninit]".to_string());
         }
@@ -192,17 +183,17 @@ impl BuildNode for Binding {
     }
 }
 
-fn build_deferred(b: &mut TreeBuilder, deferred: &Vec<Expr>) {
+fn build_deferred(b: &mut TreeBuilder, deferred: &Vec<Expr>, workspace: &Workspace) {
     if deferred.is_empty() {
         return;
     }
     b.begin_child("deferred".to_string());
-    deferred.build(b);
+    deferred.print_tree(b, workspace);
     b.end_child();
 }
 
-impl BuildNode for Expr {
-    fn build(&self, b: &mut ptree::TreeBuilder) {
+impl PrintTree for Expr {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
         match &self.kind {
             ExprKind::Import(imports) => {
                 for import in imports.iter() {
@@ -212,52 +203,52 @@ impl BuildNode for Expr {
                     ));
                 }
             }
-            ExprKind::Foreign(bindings) => bindings.build(b),
-            ExprKind::Binding(binding) => binding.build(b),
+            ExprKind::Foreign(bindings) => bindings.print_tree(b, workspace),
+            ExprKind::Binding(binding) => binding.print_tree(b, workspace),
             ExprKind::Defer(expr) => {
                 b.begin_child("defer".to_string());
-                expr.build(b);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Assign { lvalue, rvalue } => {
                 b.begin_child("assign".to_string());
-                lvalue.build(b);
-                rvalue.build(b);
+                lvalue.print_tree(b, workspace);
+                rvalue.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Cast(info) => {
                 b.begin_child("as".to_string());
-                info.build(b);
+                info.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Builtin(builtin) => {
                 match builtin {
                     Builtin::SizeOf(ty) => {
                         b.begin_child("@size_of".to_string());
-                        ty.build(b);
+                        ty.print_tree(b, workspace);
                         b.end_child();
                     }
                     Builtin::AlignOf(ty) => {
                         b.begin_child("@align_of".to_string());
-                        ty.build(b);
+                        ty.print_tree(b, workspace);
                         b.end_child();
                     }
                     Builtin::Panic(expr) => {
                         b.begin_child("@panic".to_string());
-                        expr.build(b);
+                        expr.print_tree(b, workspace);
                         b.end_child();
                     }
                 };
             }
             ExprKind::Fn(closure) => {
                 b.begin_child(closure.proto.to_string());
-                closure.body.build(b);
+                closure.body.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::While { cond, expr } => {
                 b.begin_child("while".to_string());
-                cond.build(b);
-                expr.build(b);
+                cond.print_tree(b, workspace);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::For(for_) => {
@@ -269,36 +260,36 @@ impl BuildNode for Expr {
                 match &for_.iterator {
                     ForIter::Range(start, end) => {
                         b.begin_child("start".to_string());
-                        start.build(b);
+                        start.print_tree(b, workspace);
                         b.end_child();
 
                         b.begin_child("end".to_string());
-                        end.build(b);
+                        end.print_tree(b, workspace);
                         b.end_child();
                     }
                     ForIter::Value(value) => {
                         b.begin_child("iter".to_string());
-                        value.build(b);
+                        value.print_tree(b, workspace);
                         b.end_child();
                     }
                 }
 
-                for_.expr.build(b);
+                for_.expr.print_tree(b, workspace);
 
                 b.end_child();
             }
             ExprKind::Break { deferred } => {
-                build_deferred(b, deferred);
+                build_deferred(b, deferred, workspace);
                 b.add_empty_child("break".to_string());
             }
             ExprKind::Continue { deferred } => {
-                build_deferred(b, deferred);
+                build_deferred(b, deferred, workspace);
                 b.add_empty_child("continue".to_string());
             }
             ExprKind::Return { expr, deferred } => {
                 b.begin_child("return".to_string());
-                build_deferred(b, deferred);
-                expr.build(b);
+                build_deferred(b, deferred, workspace);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::If {
@@ -307,49 +298,49 @@ impl BuildNode for Expr {
                 else_expr,
             } => {
                 b.begin_child(format!("if <{}>", self.ty));
-                cond.build(b);
-                then_expr.build(b);
+                cond.print_tree(b, workspace);
+                then_expr.print_tree(b, workspace);
 
                 if let Some(else_expr) = else_expr {
                     b.begin_child("else".to_string());
-                    else_expr.build(b);
+                    else_expr.print_tree(b, workspace);
                     b.end_child();
                 }
 
                 b.end_child();
             }
             ExprKind::Block(block) => {
-                block.build(b);
+                block.print_tree(b, workspace);
             }
             ExprKind::Binary { lhs, op, rhs } => {
                 b.begin_child(format!("{} <{}>", op, self.ty));
-                lhs.build(b);
-                rhs.build(b);
+                lhs.print_tree(b, workspace);
+                rhs.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Unary { op, lhs } => {
                 b.begin_child(format!("{} <{}>", op, self.ty));
-                lhs.build(b);
+                lhs.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Subscript { expr, index } => {
                 b.begin_child(format!("subscript <{}>", self.ty));
-                expr.build(b);
-                index.build(b);
+                expr.print_tree(b, workspace);
+                index.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Slice { expr, low, high } => {
                 b.begin_child("slice".to_string());
-                expr.build(b);
+                expr.print_tree(b, workspace);
 
                 if let Some(low) = low {
-                    low.build(b);
+                    low.print_tree(b, workspace);
                 } else {
                     b.add_empty_child("0".to_string());
                 }
 
                 if let Some(high) = high {
-                    high.build(b);
+                    high.print_tree(b, workspace);
                 } else {
                     b.add_empty_child("n".to_string());
                 }
@@ -360,7 +351,7 @@ impl BuildNode for Expr {
                 b.begin_child(format!("call <{}>", self.ty));
 
                 b.begin_child(format!("callee <{}>", call.callee.ty));
-                call.callee.build(b);
+                call.callee.print_tree(b, workspace);
                 b.end_child();
 
                 if !call.args.is_empty() {
@@ -368,10 +359,10 @@ impl BuildNode for Expr {
                     for arg in &call.args {
                         if let Some(symbol) = &arg.symbol {
                             b.begin_child(symbol.value.to_string());
-                            arg.value.build(b);
+                            arg.value.print_tree(b, workspace);
                             b.end_child();
                         } else {
-                            arg.value.build(b);
+                            arg.value.print_tree(b, workspace);
                         }
                     }
                     b.end_child();
@@ -381,7 +372,7 @@ impl BuildNode for Expr {
             }
             ExprKind::MemberAccess { expr, member } => {
                 b.begin_child(format!("access `{}` <{}>", member, self.ty));
-                expr.build(b);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::Id { symbol, .. } => {
@@ -393,13 +384,13 @@ impl BuildNode for Expr {
                 match kind {
                     ArrayLiteralKind::List(elements) => {
                         b.begin_child("list".to_string());
-                        elements.build(b);
+                        elements.print_tree(b, workspace);
                         b.end_child();
                     }
                     ArrayLiteralKind::Fill { expr, len } => {
                         b.begin_child("fill".to_string());
-                        len.build(b);
-                        expr.build(b);
+                        len.print_tree(b, workspace);
+                        expr.print_tree(b, workspace);
                         b.end_child();
                     }
                 }
@@ -408,15 +399,15 @@ impl BuildNode for Expr {
             }
             ExprKind::TupleLiteral(elements) => {
                 b.begin_child(format!("tuple literal <{}>", self.ty));
-                elements.build(b);
+                elements.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::StructLiteral { type_expr, fields } => {
                 b.begin_child(format!("struct literal <{}>", self.ty));
-                type_expr.build(b);
+                type_expr.print_tree(b, workspace);
                 for f in fields {
                     b.begin_child(f.symbol.to_string());
-                    f.value.build(b);
+                    f.value.print_tree(b, workspace);
                     b.end_child();
                 }
                 b.end_child();
@@ -430,7 +421,7 @@ impl BuildNode for Expr {
                     if *is_mutable { "mut " } else { "" },
                     self.ty
                 ));
-                expr.build(b);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::MultiPointerType(expr, is_mutable) => {
@@ -439,7 +430,7 @@ impl BuildNode for Expr {
                     if *is_mutable { "mut " } else { "" },
                     self.ty
                 ));
-                expr.build(b);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::SliceType(expr, is_mutable) => {
@@ -448,18 +439,18 @@ impl BuildNode for Expr {
                     if *is_mutable { "mut " } else { "" },
                     self.ty
                 ));
-                expr.build(b);
+                expr.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::ArrayType(expr, size) => {
                 b.begin_child(format!("array type <{}>", self.ty));
 
                 b.begin_child("type".to_string());
-                expr.build(b);
+                expr.print_tree(b, workspace);
                 b.end_child();
 
                 b.begin_child("size".to_string());
-                size.build(b);
+                size.print_tree(b, workspace);
                 b.end_child();
 
                 b.end_child();
@@ -468,14 +459,14 @@ impl BuildNode for Expr {
                 b.begin_child("struct type".to_string());
                 for field in &ty.fields {
                     b.begin_child(format!("field {}", field.name));
-                    field.ty.build(b);
+                    field.ty.print_tree(b, workspace);
                     b.end_child();
                 }
                 b.end_child();
             }
             ExprKind::FnType(proto) => {
                 b.begin_child("fn type".to_string());
-                proto.build(b);
+                proto.print_tree(b, workspace);
                 b.end_child();
             }
             ExprKind::SelfType => {
@@ -534,15 +525,15 @@ impl Display for LiteralKind {
     }
 }
 
-impl BuildNode for Cast {
-    fn build(&self, b: &mut TreeBuilder) {
+impl PrintTree for Cast {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace) {
         b.begin_child("from".to_string());
-        self.expr.build(b);
+        self.expr.print_tree(b, workspace);
         b.end_child();
 
         if let Some(type_expr) = &self.type_expr {
             b.begin_child("to".to_string());
-            type_expr.build(b);
+            type_expr.print_tree(b, workspace);
             b.end_child();
         } else {
             b.add_empty_child(format!("autocast -> {}", self.target_ty));

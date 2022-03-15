@@ -14,7 +14,7 @@ use std::path::Path;
 use ustr::Ustr;
 use ustr::{ustr, UstrMap};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Ast {
     pub module_id: ModuleId,
     pub module_info: ModuleInfo,
@@ -271,6 +271,7 @@ pub struct Block {
     pub exprs: Vec<Expr>,
     pub deferred: Vec<Expr>,
     pub yields: bool,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]

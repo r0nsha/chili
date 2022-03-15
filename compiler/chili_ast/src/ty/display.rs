@@ -97,7 +97,7 @@ impl Display for FnTy {
             self.params
                 .iter()
                 .map(|p| format!(
-                    "{} {}",
+                    "{}: {}",
                     if p.symbol.is_empty() { "_" } else { &p.symbol },
                     p.ty.to_string()
                 ))

@@ -137,13 +137,15 @@ impl<'p> Parser<'p> {
             "; or }"
         );
 
+        let span = start_span.to(self.previous_span());
         Ok(Expr::new(
             ExprKind::Block(Block {
                 exprs,
                 deferred: vec![],
                 yields: true,
+                span,
             }),
-            start_span.to(self.previous_span()),
+            span,
         ))
     }
 

@@ -91,6 +91,7 @@ impl InferSess {
                 Ty::Struct(StructTy {
                     name: struct_ty.name,
                     qualified_name: struct_ty.qualified_name,
+                    binding_info_id: struct_ty.binding_info_id,
                     kind: struct_ty.kind,
                     fields: new_fields,
                 })

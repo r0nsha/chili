@@ -1,19 +1,38 @@
-use crate::sess::InferSess;
+use crate::{
+    display::map_unify_err,
+    sess::InferSess,
+    substitute::{substitute_ty, Substitute},
+    unify::Unify,
+};
 use chili_ast::{
-    ast::{self, FnParam},
+    ast,
     ty::{FnTy, FnTyParam, Ty},
     workspace::Workspace,
 };
 use chili_error::DiagnosticResult;
+use chili_span::Span;
 
 pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticResult<()> {
     let mut sess = InferSess::new();
+    loop {
+        for ast in asts.iter_mut() {
+            ast.infer(&mut sess, workspace)?;
+        }
 
-    for ast in asts.iter_mut() {
-        ast.infer(&mut sess, workspace)?;
+        // sess.print_type_bindings();
+
+        for binding_info in workspace.binding_infos.iter_mut() {
+            binding_info.ty = substitute_ty(&binding_info.ty, &sess);
+        }
+
+        for ast in asts.iter_mut() {
+            ast.substitute(&sess);
+        }
+
+        if sess.is_done() {
+            break;
+        }
     }
-
-    sess.print_type_bindings();
 
     Ok(())
 }
@@ -50,11 +69,14 @@ impl Infer for ast::Binding {
         let binding_info = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
 
         // TODO: type annotation
-        binding_info.ty = sess.new_variable().into();
+        let var: Ty = sess.new_variable().into();
+        binding_info.ty = var.clone();
 
         if let Some(expr) = &mut self.expr {
             expr.infer(sess, workspace)?;
-            // unify binding_info.ty and expr.ty
+
+            var.unify(&expr.ty, sess, workspace, expr.span)
+                .map_err(|e| map_unify_err(e, expr.span))?;
         }
 
         // TODO: bind type to pattern
@@ -69,11 +91,15 @@ impl Infer for ast::Fn {
         let fn_ty = proto_ty.as_fn();
         let ty = self.body.infer(sess, workspace)?;
 
-        if self.body.exprs.is_empty() {
-            // unify fn_ty.ret with Ty::Unit
-        } else {
-            // unify fn_ty.ret with last_expr.ty
-        }
+        fn_ty
+            .ret
+            .unify(
+                &ty,
+                sess,
+                workspace,
+                self.proto.ret.as_ref().map_or(Span::unknown(), |e| e.span),
+            )
+            .map_err(|e| map_unify_err(e, self.body.span))?;
 
         Ok(proto_ty)
     }
@@ -104,12 +130,16 @@ impl Infer for ast::Proto {
             sess.new_variable().into()
         };
 
-        Ok(Ty::Fn(FnTy {
+        let ty = Ty::Fn(FnTy {
             params,
             ret: Box::new(ret),
             variadic: self.variadic,
             lib_name: self.lib_name,
-        }))
+        });
+
+        self.ty = ty.clone();
+
+        Ok(ty)
     }
 }
 
@@ -190,13 +220,12 @@ impl Infer for ast::Expr {
             ast::ExprKind::Call(_) => todo!(),
             ast::ExprKind::MemberAccess { expr, member } => todo!(),
             ast::ExprKind::Id {
-                symbol,
-                is_mutable,
-                binding_span,
-                binding_info_id,
-            } => {
-                todo!("Hello Id");
-            }
+                binding_info_id, ..
+            } => workspace
+                .get_binding_info(*binding_info_id)
+                .unwrap()
+                .ty
+                .clone(),
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),

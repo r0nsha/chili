@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use chili_span::Span;
 use ustr::{ustr, Ustr};
 
-use crate::workspace::ModuleId;
+use crate::workspace::{BindingInfoId, ModuleId};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Ty {
@@ -111,6 +111,7 @@ impl FnTyParam {
 pub struct StructTy {
     pub name: Ustr,
     pub qualified_name: Ustr,
+    pub binding_info_id: Option<BindingInfoId>,
     pub fields: Vec<StructTyField>,
     pub kind: StructTyKind,
 }
@@ -156,6 +157,7 @@ impl StructTy {
         Self {
             name,
             qualified_name,
+            binding_info_id: None,
             fields: vec![],
             kind,
         }
@@ -165,6 +167,7 @@ impl StructTy {
         Self {
             name: ustr(""),
             qualified_name: ustr(""),
+            binding_info_id: None,
             fields,
             kind,
         }
