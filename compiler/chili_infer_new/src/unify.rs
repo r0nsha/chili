@@ -51,13 +51,8 @@ impl Unify for Ty {
                 Ok(())
             }
 
-            (Ty::Var(var), _) | (Ty::AnyInt(var), _) | (Ty::AnyFloat(var), _) => {
-                unify_var_type(TyVar(*var), self, other, sess, workspace, span)
-            }
-
-            (_, Ty::Var(var)) | (_, Ty::AnyInt(var)) | (_, Ty::AnyFloat(var)) => {
-                unify_var_type(TyVar(*var), other, self, sess, workspace, span)
-            }
+            (Ty::Var(var), _) => unify_var_type(TyVar(*var), self, other, sess, workspace, span),
+            (_, Ty::Var(var)) => unify_var_type(TyVar(*var), other, self, sess, workspace, span),
 
             (Ty::Never, _) | (_, Ty::Never) => Ok(()),
 
