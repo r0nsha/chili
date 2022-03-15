@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ast::{ArrayLiteralKind, Expr, ExprKind, LiteralKind, StructLiteralField};
+use chili_ast::ast::{ArrayLiteralKind, Expr, ExprKind, Literal, StructLiteralField};
 use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
@@ -11,13 +11,13 @@ impl<'p> Parser<'p> {
         let span = token.span;
 
         let value = match &token.kind {
-            Nil => LiteralKind::Nil,
-            True => LiteralKind::Bool(true),
-            False => LiteralKind::Bool(false),
-            Int(value) => LiteralKind::Int(*value),
-            Float(value) => LiteralKind::Float(*value),
-            Str(value) => LiteralKind::Str(value.to_string()),
-            Char(value) => LiteralKind::Char(*value),
+            Nil => Literal::Nil,
+            True => Literal::Bool(true),
+            False => Literal::Bool(false),
+            Int(value) => Literal::Int(*value),
+            Float(value) => Literal::Float(*value),
+            Str(value) => Literal::Str(value.to_string()),
+            Char(value) => Literal::Char(*value),
             _ => {
                 return Err(Diagnostic::bug()
                     .with_message(format!("unexpected literal `{}`", token.lexeme))

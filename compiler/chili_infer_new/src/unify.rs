@@ -43,6 +43,8 @@ impl Unify for Ty {
                 unify_var_type(TyVar(*var), self, other, sess, workspace, span)
             }
 
+            (Ty::Never, _) | (_, Ty::Never) => Ok(()),
+
             _ => Err(TyUnifyErr::Mismatch(self.clone(), other.clone())),
         }
     }

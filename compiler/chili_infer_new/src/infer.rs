@@ -219,6 +219,11 @@ impl Infer for ast::Expr {
             ast::ExprKind::Slice { expr, low, high } => todo!(),
             ast::ExprKind::Call(_) => todo!(),
             ast::ExprKind::MemberAccess { expr, member } => todo!(),
+            // TODO: this is wrong, and will not work for more complex scenarios
+            // TODO: i have two options:
+            // TODO: 1) create a `typed ast`, and resolve the binding ad-hoc.
+            // TODO:    this is the same solution from my previous check pass which worked really well!
+            // TODO: 2) do the infer-unify-substitute loop until everything is covered.
             ast::ExprKind::Id {
                 binding_info_id, ..
             } => workspace
@@ -229,9 +234,7 @@ impl Infer for ast::Expr {
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
-            ast::ExprKind::Literal(_) => {
-                todo!("Hello Literal");
-            }
+            ast::ExprKind::Literal(lit) => lit.infer(sess, workspace)?,
             ast::ExprKind::PointerType(_, _) => todo!(),
             ast::ExprKind::MultiPointerType(_, _) => todo!(),
             ast::ExprKind::ArrayType(_, _) => todo!(),
@@ -246,6 +249,21 @@ impl Infer for ast::Expr {
         };
 
         Ok(self.ty.clone())
+    }
+}
+
+impl Infer for ast::Literal {
+    fn infer(&mut self, _: &mut InferSess, _: &mut Workspace) -> DiagnosticResult<Ty> {
+        let ty = match self {
+            ast::Literal::Unit => Ty::Unit,
+            ast::Literal::Nil => Ty::raw_pointer(true),
+            ast::Literal::Bool(_) => Ty::Bool,
+            ast::Literal::Int(_) => Ty::AnyInt,
+            ast::Literal::Float(_) => Ty::AnyFloat,
+            ast::Literal::Str(_) => Ty::str(),
+            ast::Literal::Char(_) => Ty::char(),
+        };
+        Ok(ty)
     }
 }
 

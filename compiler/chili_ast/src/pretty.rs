@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter,
-        LiteralKind, Proto,
+        ArrayLiteralKind, Ast, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter, Literal,
+        Proto,
     },
     pattern::Pattern,
     workspace::Workspace,
@@ -507,19 +507,19 @@ impl Display for Proto {
     }
 }
 
-impl Display for LiteralKind {
+impl Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                LiteralKind::Unit => "()".to_string(),
-                LiteralKind::Nil => "nil".to_string(),
-                LiteralKind::Bool(v) => v.to_string(),
-                LiteralKind::Int(v) => v.to_string(),
-                LiteralKind::Float(v) => v.to_string(),
-                LiteralKind::Str(v) => format!("\"{}\"", v),
-                LiteralKind::Char(v) => format!("'{}'", v),
+                Literal::Unit => "()".to_string(),
+                Literal::Nil => "nil".to_string(),
+                Literal::Bool(v) => v.to_string(),
+                Literal::Int(v) => v.to_string(),
+                Literal::Float(v) => v.to_string(),
+                Literal::Str(v) => format!("\"{}\"", v),
+                Literal::Char(v) => format!("'{}'", v),
             }
         )
     }

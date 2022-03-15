@@ -170,13 +170,13 @@ impl Expr {
             ExprKind::TupleLiteral(_) => MaybeSpanned::not_spanned("(..)".to_string()),
             ExprKind::StructLiteral { .. } => MaybeSpanned::not_spanned("_{..}".to_string()),
             ExprKind::Literal(kind) => MaybeSpanned::not_spanned(match kind {
-                LiteralKind::Unit => "()".to_string(),
-                LiteralKind::Nil => "nil".to_string(),
-                LiteralKind::Bool(v) => v.to_string(),
-                LiteralKind::Int(v) => v.to_string(),
-                LiteralKind::Float(v) => v.to_string(),
-                LiteralKind::Str(v) => v.to_string(),
-                LiteralKind::Char(v) => v.to_string(),
+                Literal::Unit => "()".to_string(),
+                Literal::Nil => "nil".to_string(),
+                Literal::Bool(v) => v.to_string(),
+                Literal::Int(v) => v.to_string(),
+                Literal::Float(v) => v.to_string(),
+                Literal::Str(v) => v.to_string(),
+                Literal::Char(v) => v.to_string(),
             }),
             _ => MaybeSpanned::not_spanned("_".to_string()),
         }
@@ -252,7 +252,7 @@ pub enum ExprKind {
         type_expr: Option<Box<Expr>>,
         fields: Vec<StructLiteralField>,
     },
-    Literal(LiteralKind),
+    Literal(Literal),
     PointerType(Box<Expr>, bool),
     MultiPointerType(Box<Expr>, bool),
     ArrayType(Box<Expr>, Box<Expr>),
@@ -315,7 +315,7 @@ pub enum ArrayLiteralKind {
 }
 
 #[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone)]
-pub enum LiteralKind {
+pub enum Literal {
     Unit,
     Nil,
     Bool(bool),
@@ -325,14 +325,14 @@ pub enum LiteralKind {
     Char(char),
 }
 
-impl LiteralKind {
+impl Literal {
     pub fn ty(&self) -> Ty {
         match self {
-            LiteralKind::Unit => Ty::Unit,
-            LiteralKind::Bool(_) => Ty::Bool,
-            LiteralKind::Str(_) => Ty::str(),
-            LiteralKind::Char(_) => Ty::UInt(UIntTy::U8),
-            LiteralKind::Nil | LiteralKind::Int(_) | LiteralKind::Float(_) => Ty::Unknown,
+            Literal::Unit => Ty::Unit,
+            Literal::Bool(_) => Ty::Bool,
+            Literal::Str(_) => Ty::str(),
+            Literal::Char(_) => Ty::UInt(UIntTy::U8),
+            Literal::Nil | Literal::Int(_) | Literal::Float(_) => Ty::Unknown,
         }
     }
 }

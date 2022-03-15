@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::ast::{
-    self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, LiteralKind, UnaryOp,
+    self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, Literal, UnaryOp,
     Visibility,
 };
 use chili_error::*;
@@ -396,7 +396,7 @@ impl<'p> Parser<'p> {
 
             if eat!(self, CloseParen) {
                 Expr::new(
-                    ExprKind::Literal(LiteralKind::Unit),
+                    ExprKind::Literal(Literal::Unit),
                     start_span.to(self.previous_span()),
                 )
             } else {

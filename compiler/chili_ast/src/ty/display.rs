@@ -57,8 +57,8 @@ impl Display for Ty {
                 Ty::Module { .. } => "[module]".to_string(),
                 Ty::Type(_) => "type".to_string(),
                 Ty::Never => "!".to_string(),
-                Ty::AnyInt => "[int]".to_string(),
-                Ty::AnyFloat => "[float]".to_string(),
+                Ty::AnyInt => "[anyint]".to_string(),
+                Ty::AnyFloat => "[anyfloat]".to_string(),
                 Ty::Var(v) => format!("'{}", v),
                 Ty::Unknown => "[unknown]".to_string(),
             }

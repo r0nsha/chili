@@ -249,6 +249,8 @@ pub(crate) fn substitute_ty(ty: &Ty, sess: &InferSess) -> Ty {
                 .collect(),
             kind: st.kind,
         }),
+        Ty::AnyInt => Ty::Int(IntTy::default()),
+        Ty::AnyFloat => Ty::Float(FloatTy::default()),
         _ => ty.clone(),
     }
 }
