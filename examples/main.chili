@@ -22,8 +22,8 @@ let main = fn {
 }
 
 
-let answer = fn() { 42 }
-let glob = fn() { g }
+let answer = fn { 42 }
+let glob = fn { g }
 let g = 5
 
 # let add = fn(a, b) {
