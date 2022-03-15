@@ -39,8 +39,24 @@ impl Unify for Ty {
             (Ty::UInt(t1), Ty::UInt(t2)) if t1 == t2 => Ok(()),
             (Ty::Float(t1), Ty::Float(t2)) if t1 == t2 => Ok(()),
 
-            (Ty::Var(var), _) | (_, Ty::Var(var)) => {
+            (Ty::AnyInt(var), ty @ Ty::Int(_))
+            | (ty @ Ty::Int(_), Ty::AnyInt(var))
+            | (Ty::AnyInt(var), ty @ Ty::UInt(_))
+            | (ty @ Ty::UInt(_), Ty::AnyInt(var))
+            | (Ty::AnyInt(var), ty @ Ty::Float(_))
+            | (ty @ Ty::Float(_), Ty::AnyInt(var))
+            | (Ty::AnyFloat(var), ty @ Ty::Float(_))
+            | (ty @ Ty::Float(_), Ty::AnyFloat(var)) => {
+                sess.bind(TyVar(*var), ty.clone());
+                Ok(())
+            }
+
+            (Ty::Var(var), _) | (Ty::AnyInt(var), _) | (Ty::AnyFloat(var), _) => {
                 unify_var_type(TyVar(*var), self, other, sess, workspace, span)
+            }
+
+            (_, Ty::Var(var)) | (_, Ty::AnyInt(var)) | (_, Ty::AnyFloat(var)) => {
+                unify_var_type(TyVar(*var), other, self, sess, workspace, span)
             }
 
             (Ty::Never, _) | (_, Ty::Never) => Ok(()),

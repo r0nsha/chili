@@ -3,6 +3,7 @@ mod infer;
 mod sess;
 mod substitute;
 mod unify;
+mod unpack_type;
 
 use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;

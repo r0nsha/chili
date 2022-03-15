@@ -1,4 +1,4 @@
-use crate::{display::map_unify_err, sess::InferSess, unify::Unify};
+use crate::{display::map_unify_err, sess::InferSess, unify::Unify, unpack_type::try_unpack_type};
 use chili_ast::{
     ast,
     ty::{FnTy, FnTyParam, Ty},
@@ -43,6 +43,8 @@ impl Infer for ast::Binding {
             .clone();
 
         // TODO: type annotation
+        // let inner_type = try_unpack_type(&ty, sess)?;
+        // sess.new_bound_variable(inner_type).into()
 
         if let Some(expr) = &mut self.expr {
             expr.infer(sess, workspace)?;
@@ -95,8 +97,9 @@ impl Infer for ast::Proto {
         }
 
         let ret = if let Some(ret) = &mut self.ret {
-            // TODO: return type annotation
-            sess.new_variable().into()
+            let ty = ret.infer(sess, workspace)?;
+            let inner_type = try_unpack_type(&ty, sess)?;
+            sess.new_bound_variable(inner_type).into()
         } else {
             sess.new_variable().into()
         };
@@ -224,13 +227,13 @@ impl Infer for ast::Expr {
 }
 
 impl Infer for ast::Literal {
-    fn infer(&mut self, _: &mut InferSess, _: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, sess: &mut InferSess, _: &mut Workspace) -> DiagnosticResult<Ty> {
         let ty = match self {
             ast::Literal::Unit => Ty::Unit,
             ast::Literal::Nil => Ty::raw_pointer(true),
             ast::Literal::Bool(_) => Ty::Bool,
-            ast::Literal::Int(_) => Ty::AnyInt,
-            ast::Literal::Float(_) => Ty::AnyFloat,
+            ast::Literal::Int(_) => Ty::AnyInt(sess.new_variable().0),
+            ast::Literal::Float(_) => Ty::AnyFloat(sess.new_variable().0),
             ast::Literal::Str(_) => Ty::str(),
             ast::Literal::Char(_) => Ty::char(),
         };

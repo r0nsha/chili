@@ -23,7 +23,7 @@ let main = fn {
 
 let answer = fn() -> i64 { 42 }
 
-let glob = fn() { g }
+let glob = fn() -> u8 { g }
 let g = 5
 
 # let add = fn(a, b) {

@@ -28,8 +28,8 @@ pub enum Ty {
     Module(ModuleId),
     Type(Box<Ty>),
     Var(u32),
-    AnyInt,
-    AnyFloat,
+    AnyInt(u32),
+    AnyFloat(u32),
     Unknown,
 }
 

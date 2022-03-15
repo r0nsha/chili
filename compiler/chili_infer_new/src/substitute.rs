@@ -1,8 +1,5 @@
 use crate::sess::{InferSess, TyBinding, TyVar};
-use chili_ast::{
-    ast::{self, FnParam},
-    ty::*,
-};
+use chili_ast::{ast, ty::*};
 
 pub(crate) trait Substitute {
     fn substitute(&mut self, sess: &InferSess);
@@ -212,16 +209,12 @@ impl Substitute for ast::Expr {
 
 pub(crate) fn substitute_ty(ty: &Ty, sess: &InferSess) -> Ty {
     match ty {
-        Ty::Var(var) => match sess.find_type_binding(TyVar(*var)) {
-            TyBinding::Bound(ty) => substitute_ty(&ty, sess),
-            TyBinding::Unbound => {
-                println!(
-                    "couldn't figure out the type of {}, because it was unbound",
-                    TyVar(*var)
-                );
-                Ty::Unknown
-            }
-        },
+        Ty::Var(var) => find_type_or_default(TyVar(*var), sess, || {
+            panic!(
+                "couldn't figure out the type of {}, because it was unbound",
+                TyVar(*var)
+            )
+        }),
         Ty::Fn(f) => Ty::Fn(FnTy {
             params: f
                 .params
@@ -255,8 +248,17 @@ pub(crate) fn substitute_ty(ty: &Ty, sess: &InferSess) -> Ty {
                 .collect(),
             kind: st.kind,
         }),
-        Ty::AnyInt => Ty::Int(IntTy::default()),
-        Ty::AnyFloat => Ty::Float(FloatTy::default()),
+        Ty::AnyInt(var) => find_type_or_default(TyVar(*var), sess, || Ty::Int(IntTy::default())),
+        Ty::AnyFloat(var) => {
+            find_type_or_default(TyVar(*var), sess, || Ty::Float(FloatTy::default()))
+        }
         _ => ty.clone(),
+    }
+}
+
+fn find_type_or_default<F: FnOnce() -> Ty>(var: TyVar, sess: &InferSess, default: F) -> Ty {
+    match sess.find_type_binding(var) {
+        TyBinding::Bound(ty) => substitute_ty(&ty, sess),
+        TyBinding::Unbound => default(),
     }
 }
