@@ -214,7 +214,13 @@ pub(crate) fn substitute_ty(ty: &Ty, sess: &InferSess) -> Ty {
     match ty {
         Ty::Var(var) => match sess.find_type_binding(TyVar(*var)) {
             TyBinding::Bound(ty) => substitute_ty(&ty, sess),
-            TyBinding::Unbound => ty.clone(),
+            TyBinding::Unbound => {
+                println!(
+                    "couldn't figure out the type of {}, because it was unbound",
+                    TyVar(*var)
+                );
+                Ty::Unknown
+            }
         },
         Ty::Fn(f) => Ty::Fn(FnTy {
             params: f

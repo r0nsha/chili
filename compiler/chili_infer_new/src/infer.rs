@@ -1,9 +1,4 @@
-use crate::{
-    display::map_unify_err,
-    sess::InferSess,
-    substitute::{substitute_ty, Substitute},
-    unify::Unify,
-};
+use crate::{display::map_unify_err, sess::InferSess, unify::Unify};
 use chili_ast::{
     ast,
     ty::{FnTy, FnTyParam, Ty},
@@ -11,31 +6,6 @@ use chili_ast::{
 };
 use chili_error::DiagnosticResult;
 use chili_span::Span;
-
-pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticResult<()> {
-    let mut sess = InferSess::new();
-    loop {
-        for ast in asts.iter_mut() {
-            ast.infer(&mut sess, workspace)?;
-        }
-
-        // sess.print_type_bindings();
-
-        for binding_info in workspace.binding_infos.iter_mut() {
-            binding_info.ty = substitute_ty(&binding_info.ty, &sess);
-        }
-
-        for ast in asts.iter_mut() {
-            ast.substitute(&sess);
-        }
-
-        if sess.is_done() {
-            break;
-        }
-    }
-
-    Ok(())
-}
 
 pub(crate) trait Infer {
     fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty>;
@@ -66,20 +36,21 @@ impl Infer for ast::Binding {
     fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         // TODO: support other patterns
         let pat = self.pattern.as_single_ref();
-        let binding_info = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
+        let binding_info_ty = workspace
+            .get_binding_info(pat.binding_info_id)
+            .unwrap()
+            .ty
+            .clone();
 
         // TODO: type annotation
-        let var: Ty = sess.new_variable().into();
-        binding_info.ty = var.clone();
 
         if let Some(expr) = &mut self.expr {
             expr.infer(sess, workspace)?;
 
-            var.unify(&expr.ty, sess, workspace, expr.span)
+            binding_info_ty
+                .unify(&expr.ty, sess, workspace, expr.span)
                 .map_err(|e| map_unify_err(e, expr.span))?;
         }
-
-        // TODO: bind type to pattern
 
         Ok(Ty::Unit)
     }

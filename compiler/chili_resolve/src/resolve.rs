@@ -424,17 +424,18 @@ impl<'w> Resolve<'w> for ast::Fn {
         resolver.pop_scope();
         resolver.function_scope_level = old_scope_level;
 
-        if !self.proto.name.is_empty() {
-            resolver.add_binding(
-                workspace,
-                self.proto.name,
-                Visibility::Private,
-                false,
-                BindingKind::Let,
-                Span::unknown(),
-                true,
-            );
-        }
+        // TODO: need to somehow allow recursive functions (maybe keep a `binding_info_id` in resolver?)
+        // if !self.proto.name.is_empty() {
+        //     resolver.add_binding(
+        //         workspace,
+        //         self.proto.name,
+        //         Visibility::Private,
+        //         false,
+        //         BindingKind::Let,
+        //         Span::unknown(),
+        //         true,
+        //     );
+        // }
 
         Ok(())
     }

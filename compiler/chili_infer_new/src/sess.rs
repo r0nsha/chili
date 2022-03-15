@@ -41,13 +41,6 @@ impl InferSess {
             println!("'{} :: {}", i, tb)
         }
     }
-
-    pub(crate) fn is_done(&mut self) -> bool {
-        self.type_bindings.iter().all(|t| match t {
-            TyBinding::Bound(_) => true,
-            TyBinding::Unbound => false,
-        })
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
