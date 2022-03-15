@@ -168,8 +168,8 @@ fn add_intrinsic_module(
         ModuleInfo::new(intrinsic_module_info.name, intrinsic_module_info.file_path);
 
     ast.imports.push(Import {
-        binding_info_idx: Default::default(),
-        module_idx: Default::default(),
+        binding_info_id: Default::default(),
+        module_id: Default::default(),
         module_info: intrinsic_module_info,
         alias: intrinsic_module_info.name,
         import_path: vec![],

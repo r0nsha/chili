@@ -1,7 +1,7 @@
 use chili_ast::{
     ast,
     ty::Ty,
-    workspace::{BindingInfo, ModuleIdx, Workspace},
+    workspace::{BindingInfo, ModuleId, Workspace},
 };
 use chili_error::DiagnosticResult;
 use chili_span::Span;
@@ -132,9 +132,9 @@ fn check_expr_can_be_mutably_referenced_internal(
                             _ => Ok(()),
                         }
                     }
-                    Ty::Module(module_idx) => {
+                    Ty::Module(module_id) => {
                         let binding_info =
-                            find_binding_info_in_module(sess.workspace, *module_idx, *member);
+                            find_binding_info_in_module(sess.workspace, *module_id, *member);
 
                         match &binding_info.ty {
                             Ty::Slice(_, is_mutable)
@@ -152,7 +152,7 @@ fn check_expr_can_be_mutably_referenced_internal(
                                     Ok(())
                                 } else {
                                     let module_info =
-                                        sess.workspace.get_module_info(*module_idx).unwrap();
+                                        sess.workspace.get_module_info(*module_id).unwrap();
 
                                     Err(Immutablebinding {
                                         symbol: ustr(&format!("{}.{}", module_info.name, member)),
@@ -193,7 +193,7 @@ fn check_expr_can_be_mutably_referenced_internal(
             symbol,
             is_mutable,
             binding_span,
-            binding_info_idx: _,
+            binding_info_id: _,
         } => {
             match ty {
                 Ty::Slice(_, is_mutable)
@@ -226,12 +226,12 @@ fn check_expr_can_be_mutably_referenced_internal(
 
 fn find_binding_info_in_module(
     workspace: &Workspace,
-    module_idx: ModuleIdx,
+    module_id: ModuleId,
     symbol: Ustr,
 ) -> &BindingInfo {
     workspace
         .binding_infos
         .iter()
-        .find(|b| b.module_idx == module_idx && b.symbol == symbol)
+        .find(|b| b.module_id == module_id && b.symbol == symbol)
         .unwrap()
 }

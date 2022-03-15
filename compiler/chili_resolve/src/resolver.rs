@@ -7,7 +7,7 @@ use crate::{
 use chili_ast::{
     ast::{self, BindingKind, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
-    workspace::{BindingInfoIdx, BindingInfoKind, ModuleIdx, ScopeLevel, Workspace},
+    workspace::{BindingInfoId, BindingInfoKind, ModuleId, ScopeLevel, Workspace},
 };
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};
@@ -18,12 +18,12 @@ pub(crate) struct Resolver {
     pub(crate) exports: ModuleExports,
 
     // The current module's id and information
-    pub(crate) module_idx: ModuleIdx,
+    pub(crate) module_id: ModuleId,
     pub(crate) module_info: ModuleInfo,
 
     // Symbols maps / Scopes
-    pub(crate) builtin_types: UstrMap<BindingInfoIdx>,
-    pub(crate) global_scopes: HashMap<ModuleIdx, Scope>,
+    pub(crate) builtin_types: UstrMap<BindingInfoId>,
+    pub(crate) global_scopes: HashMap<ModuleId, Scope>,
     pub(crate) scopes: Vec<Scope>,
 
     // Scope information
@@ -37,7 +37,7 @@ impl Resolver {
     pub(crate) fn new() -> Self {
         Self {
             exports: Default::default(),
-            module_idx: Default::default(),
+            module_id: Default::default(),
             module_info: Default::default(),
             builtin_types: Default::default(),
             global_scopes: Default::default(),
@@ -54,7 +54,7 @@ impl Resolver {
 
     pub(crate) fn current_scope(&self) -> &Scope {
         if self.scopes.is_empty() {
-            self.global_scopes.get(&self.module_idx).unwrap()
+            self.global_scopes.get(&self.module_id).unwrap()
         } else {
             self.scopes.last().unwrap()
         }
@@ -62,7 +62,7 @@ impl Resolver {
 
     pub(crate) fn current_scope_mut(&mut self) -> &mut Scope {
         if self.scopes.is_empty() {
-            self.global_scopes.get_mut(&self.module_idx).unwrap()
+            self.global_scopes.get_mut(&self.module_id).unwrap()
         } else {
             self.scopes.last_mut().unwrap()
         }
@@ -101,7 +101,7 @@ impl Resolver {
         &self,
         workspace: &mut Workspace,
         symbol: Ustr,
-    ) -> Option<BindingInfoIdx> {
+    ) -> Option<BindingInfoId> {
         for scope in self.scopes.iter().rev() {
             if let Some(symbol) = scope.bindings.get(&symbol) {
                 workspace.binding_infos[symbol.id.0].uses += 1;
@@ -109,7 +109,7 @@ impl Resolver {
             }
         }
 
-        let global_scope = self.global_scopes.get(&self.module_idx).unwrap();
+        let global_scope = self.global_scopes.get(&self.module_id).unwrap();
         if let Some(symbol) = global_scope.bindings.get(&symbol) {
             workspace.binding_infos[symbol.id.0].uses += 1;
             return Some(symbol.id);
@@ -131,9 +131,9 @@ impl Resolver {
         kind: BindingKind,
         span: Span,
         shadowable: bool,
-    ) -> BindingInfoIdx {
+    ) -> BindingInfoId {
         let id = workspace.add_binding_info(
-            self.module_idx,
+            self.module_id,
             symbol,
             visibility,
             is_mutable,
@@ -166,7 +166,7 @@ impl Resolver {
         visibility: Visibility,
         kind: BindingKind,
         shadowable: bool,
-    ) -> BindingInfoIdx {
+    ) -> BindingInfoId {
         self.add_binding(
             workspace,
             pattern.symbol,
@@ -188,7 +188,7 @@ impl Resolver {
     ) {
         match pattern {
             Pattern::Single(pat) => {
-                pat.binding_info_idx = self
+                pat.binding_info_id = self
                     .add_binding_with_symbol_pattern(workspace, pat, visibility, kind, shadowable);
             }
             Pattern::StructDestructor(pat) | Pattern::TupleDestructor(pat) => {

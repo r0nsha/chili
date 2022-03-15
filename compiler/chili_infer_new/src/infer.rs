@@ -1,5 +1,9 @@
 use crate::sess::InferSess;
-use chili_ast::{ast, ty::Ty, workspace::Workspace};
+use chili_ast::{
+    ast::{self, FnParam},
+    ty::{FnTy, FnTyParam, Ty},
+    workspace::Workspace,
+};
 use chili_error::DiagnosticResult;
 
 pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticResult<()> {
@@ -15,11 +19,11 @@ pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticR
 }
 
 pub(crate) trait Infer {
-    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<()>;
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty>;
 }
 
 impl Infer for ast::Ast {
-    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<()> {
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         for import in self.imports.iter_mut() {
             import.infer(sess, workspace)?;
         }
@@ -28,38 +32,105 @@ impl Infer for ast::Ast {
             binding.infer(sess, workspace)?;
         }
 
-        Ok(())
+        Ok(Ty::Unit)
     }
 }
 
 impl Infer for ast::Import {
-    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<()> {
-        // todo!("import")
-        Ok(())
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        // TODO:
+        Ok(Ty::Unit)
     }
 }
 
 impl Infer for ast::Binding {
-    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<()> {
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        // TODO: support other patterns
         let pat = self.pattern.as_single_ref();
-        let binding_info = workspace
-            .get_binding_info_mut(pat.binding_info_idx)
-            .unwrap();
+        let binding_info = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
 
         // TODO: type annotation
         binding_info.ty = sess.new_variable().into();
 
-        if let Some(value) = &self.expr {}
+        if let Some(expr) = &mut self.expr {
+            expr.infer(sess, workspace)?;
+            // unify binding_info.ty and expr.ty
+        }
 
-        // TODO: type annotation
+        // TODO: bind type to pattern
 
-        Ok(())
-        // todo!("binding")
+        Ok(Ty::Unit)
+    }
+}
+
+impl Infer for ast::Fn {
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        let proto_ty = self.proto.infer(sess, workspace)?;
+        let fn_ty = proto_ty.as_fn();
+        let ty = self.body.infer(sess, workspace)?;
+
+        if self.body.exprs.is_empty() {
+            // unify fn_ty.ret with Ty::Unit
+        } else {
+            // unify fn_ty.ret with last_expr.ty
+        }
+
+        Ok(proto_ty)
+    }
+}
+
+impl Infer for ast::Proto {
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        let mut params = vec![];
+
+        for param in self.params.iter_mut() {
+            // TODO: support other patterns
+            let pat = param.pattern.as_single_ref();
+            let binding_info = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
+
+            // TODO: param type annotation
+            binding_info.ty = sess.new_variable().into();
+
+            params.push(FnTyParam {
+                symbol: pat.symbol,
+                ty: binding_info.ty.clone(),
+            })
+        }
+
+        let ret = if let Some(ret) = &mut self.ret {
+            // TODO: return type annotation
+            sess.new_variable().into()
+        } else {
+            sess.new_variable().into()
+        };
+
+        Ok(Ty::Fn(FnTy {
+            params,
+            ret: Box::new(ret),
+            variadic: self.variadic,
+            lib_name: self.lib_name,
+        }))
+    }
+}
+
+impl Infer for ast::Block {
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        let mut result_ty = Ty::Unit;
+
+        for expr in self.exprs.iter_mut() {
+            result_ty = expr.infer(sess, workspace)?;
+        }
+
+        for expr in self.deferred.iter_mut() {
+            expr.infer(sess, workspace)?;
+        }
+
+        Ok(result_ty)
     }
 }
 
 impl Infer for ast::Expr {
-    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<()> {
+    fn infer(&mut self, sess: &mut InferSess, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         self.ty = match &mut self.kind {
             ast::ExprKind::Import(imports) => {
                 for import in imports.iter_mut() {
@@ -81,15 +152,28 @@ impl Infer for ast::Expr {
             ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
             ast::ExprKind::Cast(_) => todo!(),
             ast::ExprKind::Builtin(_) => todo!(),
-            ast::ExprKind::Fn(f) => {
-                todo!("Hello Fn");
-            }
+            ast::ExprKind::Fn(f) => f.infer(sess, workspace)?,
             ast::ExprKind::While { cond, expr } => todo!(),
             ast::ExprKind::For(_) => todo!(),
-            ast::ExprKind::Break { deferred } => todo!(),
-            ast::ExprKind::Continue { deferred } => todo!(),
+            ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
+                for expr in deferred.iter_mut() {
+                    expr.infer(sess, workspace)?;
+                }
+                Ty::Never
+            }
             ast::ExprKind::Return { expr, deferred } => {
-                todo!("Hello Return");
+                if let Some(expr) = expr {
+                    expr.infer(sess, workspace)?;
+                    // TODO: unify expr.ty with sess.return_ty
+                } else {
+                    // TODO: unify expr.ty with Ty::Unit
+                }
+
+                for expr in deferred.iter_mut() {
+                    expr.infer(sess, workspace)?;
+                }
+
+                Ty::Never
             }
             ast::ExprKind::If {
                 cond,
@@ -109,7 +193,7 @@ impl Infer for ast::Expr {
                 symbol,
                 is_mutable,
                 binding_span,
-                binding_info_idx,
+                binding_info_id,
             } => {
                 todo!("Hello Id");
             }
@@ -131,7 +215,8 @@ impl Infer for ast::Expr {
             ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::Noop => todo!(),
         };
-        Ok(())
+
+        Ok(self.ty.clone())
     }
 }
 

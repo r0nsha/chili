@@ -21,13 +21,14 @@ let main = fn {
     # printf("1\n".data)
 }
 
-let id = fn(a) { 
-    a 
-}
+# let id = fn(a) { a }
 
-let id2 = fn(a) { 
-    return a 
-}
+# let id2 = fn(a) { 
+#     return a 
+# }
+
+# let g = 5
+# let glob = fn() { g }
 
 # let add = fn(a, b) {
 #     a + b

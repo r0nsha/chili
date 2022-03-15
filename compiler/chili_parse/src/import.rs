@@ -159,13 +159,13 @@ impl<'p> Parser<'p> {
             } else if eat!(self, QuestionMark) {
                 import_path.push(Spanned::new(ImportPathNode::Glob, self.previous().span));
                 Ok(vec![Import {
-                    module_idx: Default::default(),
+                    module_id: Default::default(),
                     module_info: ModuleInfo::new(module, path),
                     alias: ustr(""),
                     import_path: import_path.clone(),
                     visibility,
                     span,
-                    binding_info_idx: Default::default(),
+                    binding_info_id: Default::default(),
                 }])
             } else {
                 Err(SyntaxError::expected(self.span(), "an identifier, { or ?"))
@@ -178,13 +178,13 @@ impl<'p> Parser<'p> {
             };
 
             Ok(vec![Import {
-                module_idx: Default::default(),
+                module_id: Default::default(),
                 module_info: ModuleInfo::new(module, path),
                 alias,
                 import_path: import_path.clone(),
                 visibility,
                 span,
-                binding_info_idx: Default::default(),
+                binding_info_id: Default::default(),
             }])
         }
     }

@@ -1,6 +1,6 @@
 use crate::{CheckFrame, CheckSess};
 use chili_ast::ty::*;
-use chili_ast::workspace::{BindingInfo, ModuleIdx};
+use chili_ast::workspace::{BindingInfo, ModuleId};
 use chili_ast::{
     ast::{Binding, Import, Visibility},
     pattern::{Pattern, SymbolPattern},
@@ -27,7 +27,7 @@ impl<'c> CheckSess<'c> {
 
         for symbol in binding.pattern.symbols() {
             let var = self.infcx.fresh_type_var();
-            self.update_binding_info_ty(symbol.binding_info_idx, var.into());
+            self.update_binding_info_ty(symbol.binding_info_id, var.into());
         }
 
         let (value, const_value) = if let Some(value) = &binding.value {
@@ -74,20 +74,20 @@ impl<'c> CheckSess<'c> {
     pub(crate) fn check_top_level_binding(
         &mut self,
         binding: &mut Binding,
-        calling_module_idx: ModuleIdx,
+        calling_module_id: ModuleId,
         calling_symbol_span: Span,
     ) -> DiagnosticResult<()> {
-        let idx = binding.pattern.into_single().binding_info_idx;
+        let id = binding.pattern.into_single().binding_info_id;
 
-        let binding_info = self.workspace.get_binding_info(idx).unwrap().clone();
+        let binding_info = self.workspace.get_binding_info(id).unwrap().clone();
 
         if !binding_info.ty.is_unknown() {
             return Ok(());
         }
 
-        self.is_item_accessible(&binding_info, calling_module_idx, calling_symbol_span)?;
+        self.is_item_accessible(&binding_info, calling_module_id, calling_symbol_span)?;
 
-        let mut frame = CheckFrame::new(0, binding_info.module_idx, None);
+        let mut frame = CheckFrame::new(0, binding_info.module_id, None);
 
         *binding = self.check_binding(&mut frame, binding)?;
 
@@ -95,15 +95,15 @@ impl<'c> CheckSess<'c> {
     }
 
     pub(crate) fn check_import(&mut self, import: &Import) -> DiagnosticResult<()> {
-        let mut ty = Ty::Module(import.module_idx);
+        let mut ty = Ty::Module(import.module_id);
 
         if !import.import_path.is_empty() {
             // go over the import_path, and get the relevant symbol
-            let mut current_module_idx = import.module_idx;
+            let mut current_module_id = import.module_id;
 
             for (index, symbol) in import.import_path.iter().enumerate() {
                 let binding_info = self.find_binding_info_in_module(
-                    current_module_idx,
+                    current_module_id,
                     symbol.value.as_symbol(),
                     symbol.span,
                 )?;
@@ -111,7 +111,7 @@ impl<'c> CheckSess<'c> {
                 ty = binding_info.ty.clone();
 
                 match ty {
-                    Ty::Module(idx) => current_module_idx = idx,
+                    Ty::Module(id) => current_module_id = id,
                     _ => {
                         if index < import.import_path.len() - 1 {
                             return Err(TypeError::type_mismatch(
@@ -125,14 +125,14 @@ impl<'c> CheckSess<'c> {
             }
         }
 
-        self.update_binding_info_ty(import.binding_info_idx, ty.clone());
+        self.update_binding_info_ty(import.binding_info_id, ty.clone());
 
         Ok(())
     }
 
     pub fn find_binding_info_in_module(
         &self,
-        module_idx: ModuleIdx,
+        module_id: ModuleId,
         symbol: Ustr,
         symbol_span: Span,
     ) -> DiagnosticResult<&BindingInfo> {
@@ -140,11 +140,11 @@ impl<'c> CheckSess<'c> {
             .workspace
             .binding_infos
             .iter()
-            .find(|b| b.module_idx == module_idx && b.symbol == symbol)
+            .find(|b| b.module_id == module_id && b.symbol == symbol)
         {
             Some(b) => Ok(b),
             None => {
-                let module_info = self.workspace.get_module_info(module_idx).unwrap();
+                let module_info = self.workspace.get_module_info(module_id).unwrap();
                 Err(Diagnostic::error()
                     .with_message(format!(
                         "cannot find value `{}` in module `{}`",
@@ -161,11 +161,11 @@ impl<'c> CheckSess<'c> {
     fn is_item_accessible(
         &self,
         binding_info: &BindingInfo,
-        calling_module_idx: ModuleIdx,
+        calling_module_id: ModuleId,
         calling_symbol_span: Span,
     ) -> DiagnosticResult<()> {
         if binding_info.visibility == Visibility::Private
-            && binding_info.module_idx != calling_module_idx
+            && binding_info.module_id != calling_module_id
         {
             Err(Diagnostic::error()
                 .with_message(format!(

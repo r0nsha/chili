@@ -51,7 +51,7 @@ impl<'p> Parser<'p> {
         let id = expect!(self, Id(_), "identifier")?.clone();
 
         let pattern = Pattern::Single(SymbolPattern {
-            binding_info_idx: Default::default(),
+            binding_info_id: Default::default(),
             symbol: id.symbol(),
             alias: None,
             is_mutable: false,

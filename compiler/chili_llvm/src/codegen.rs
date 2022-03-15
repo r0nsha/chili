@@ -932,7 +932,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                         BUILTIN_FIELD_DATA => self.gen_load_slice_data(value).into(),
                         _ => unreachable!("got field `{}`", field),
                     },
-                    Ty::Module(idx) => {
+                    Ty::Module(id) => {
                         todo!()
                         // let decl = self.find_or_gen_top_level_decl(
                         //     ModuleInfo::new(*name, *file_path),

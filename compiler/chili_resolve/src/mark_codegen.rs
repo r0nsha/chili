@@ -1,6 +1,6 @@
 use chili_ast::{
     ast::{self, Ast, Binding},
-    workspace::{BindingInfoIdx, Workspace},
+    workspace::{BindingInfoId, Workspace},
 };
 
 pub fn mark_bindings_for_codegen(workspace: &mut Workspace, asts: &Vec<Ast>) {
@@ -9,7 +9,7 @@ pub fn mark_bindings_for_codegen(workspace: &mut Workspace, asts: &Vec<Ast>) {
     };
 
     sess.marked_bindings
-        .push(workspace.entry_point_function_idx.unwrap());
+        .push(workspace.entry_point_function_id.unwrap());
 
     while !sess.done() {
         sess.commit(workspace);
@@ -18,9 +18,9 @@ pub fn mark_bindings_for_codegen(workspace: &mut Workspace, asts: &Vec<Ast>) {
     }
 }
 
-fn find_binding(asts: &Vec<Ast>, idx: BindingInfoIdx) -> &Binding {
+fn find_binding(asts: &Vec<Ast>, id: BindingInfoId) -> &Binding {
     for ast in asts.iter() {
-        if let Some(binding) = ast.find_binding(idx) {
+        if let Some(binding) = ast.find_binding(id) {
             return binding;
         }
     }
@@ -28,7 +28,7 @@ fn find_binding(asts: &Vec<Ast>, idx: BindingInfoIdx) -> &Binding {
 }
 
 struct Sess {
-    marked_bindings: Vec<BindingInfoIdx>,
+    marked_bindings: Vec<BindingInfoId>,
 }
 
 impl Sess {
@@ -37,14 +37,14 @@ impl Sess {
     }
 
     fn commit(&self, workspace: &mut Workspace) {
-        self.marked_bindings.iter().for_each(|idx| {
-            workspace.get_binding_info_mut(*idx).unwrap().codegen = true;
+        self.marked_bindings.iter().for_each(|id| {
+            workspace.get_binding_info_mut(*id).unwrap().codegen = true;
         });
     }
 
     fn mark(&mut self, workspace: &mut Workspace, asts: &Vec<Ast>) {
-        for idx in self.marked_bindings.clone() {
-            let binding = find_binding(asts, idx);
+        for id in self.marked_bindings.clone() {
+            let binding = find_binding(asts, id);
             binding.mark_codegen(self, workspace);
         }
     }

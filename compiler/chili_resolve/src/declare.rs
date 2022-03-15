@@ -72,7 +72,7 @@ impl<'w> Declare<'w> for ast::Import {
     ) -> DiagnosticResult<()> {
         check_duplicate_global_symbol(resolver, workspace, self.alias, self.span)?;
 
-        self.binding_info_idx = resolver.add_binding(
+        self.binding_info_id = resolver.add_binding(
             workspace,
             self.alias,
             self.visibility,
@@ -85,7 +85,7 @@ impl<'w> Declare<'w> for ast::Import {
         resolver
             .current_scope_mut()
             .bindings
-            .insert(self.alias, ScopeSymbol::persistent(self.binding_info_idx));
+            .insert(self.alias, ScopeSymbol::persistent(self.binding_info_id));
 
         Ok(())
     }
@@ -103,7 +103,7 @@ impl<'w> Declare<'w> for ast::Binding {
 
         check_duplicate_global_symbol(resolver, workspace, pat.symbol, pat.span)?;
 
-        pat.binding_info_idx = resolver.add_binding_with_symbol_pattern(
+        pat.binding_info_id = resolver.add_binding_with_symbol_pattern(
             workspace,
             pat,
             self.visibility,
@@ -114,12 +114,12 @@ impl<'w> Declare<'w> for ast::Binding {
         if let Some(value) = &mut self.expr {
             // if this is the entry point function, keep its index in the workspace
             // the entry point function is a binding with the name "main" and a value of `ExprKind::Fn`
-            if workspace.entry_point_function_idx.is_none() && pat.symbol == "main" && value.is_fn()
+            if workspace.entry_point_function_id.is_none() && pat.symbol == "main" && value.is_fn()
             {
-                workspace.entry_point_function_idx = Some(pat.binding_info_idx);
+                workspace.entry_point_function_id = Some(pat.binding_info_id);
 
                 workspace
-                    .get_binding_info_mut(workspace.entry_point_function_idx.unwrap())
+                    .get_binding_info_mut(workspace.entry_point_function_id.unwrap())
                     .unwrap()
                     .uses += 1;
 

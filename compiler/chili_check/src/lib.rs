@@ -11,10 +11,10 @@ mod const_fold;
 use chili_ast::ast::{Expr, ExprKind};
 use chili_ast::ty::Ty;
 use chili_ast::value::Value;
-use chili_ast::workspace::ModuleIdx;
+use chili_ast::workspace::ModuleId;
 use chili_ast::{
     ast::Ast,
-    workspace::{BindingInfoIdx, Workspace},
+    workspace::{BindingInfoId, Workspace},
 };
 use chili_error::{DiagnosticResult, TypeError};
 use chili_infer::sess::InferSess;
@@ -34,7 +34,7 @@ pub fn check(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> DiagnosticResult
             }
 
             for binding in ast.bindings.iter_mut() {
-                sess.check_top_level_binding(binding, ast.module_idx, binding.pattern.span())?;
+                sess.check_top_level_binding(binding, ast.module_id, binding.pattern.span())?;
             }
         }
     }
@@ -64,8 +64,8 @@ impl<'c> CheckSess<'c> {
         Self { workspace, infcx }
     }
 
-    pub(crate) fn update_binding_info_ty(&mut self, idx: BindingInfoIdx, ty: Ty) {
-        self.workspace.get_binding_info_mut(idx).unwrap().ty = ty;
+    pub(crate) fn update_binding_info_ty(&mut self, id: BindingInfoId, ty: Ty) {
+        self.workspace.get_binding_info_mut(id).unwrap().ty = ty;
     }
 
     pub(crate) fn expect_value_is_int(
@@ -97,7 +97,7 @@ impl<'c> CheckSess<'c> {
 
 pub(crate) struct CheckFrame {
     pub(crate) depth: usize,
-    pub(crate) module_idx: ModuleIdx,
+    pub(crate) module_id: ModuleId,
     pub(crate) expected_return_ty: Option<Ty>,
     pub(crate) self_types: Vec<Ty>,
 }
@@ -105,12 +105,12 @@ pub(crate) struct CheckFrame {
 impl CheckFrame {
     pub(crate) fn new(
         previous_depth: usize,
-        module_idx: ModuleIdx,
+        module_id: ModuleId,
         expected_return_ty: Option<Ty>,
     ) -> Self {
         Self {
             depth: previous_depth + 1,
-            module_idx,
+            module_id,
             expected_return_ty,
             self_types: vec![],
         }

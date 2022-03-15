@@ -77,7 +77,7 @@ impl Lint for ast::Binding {
         };
 
         for symbol in self.pattern.symbols() {
-            sess.init_scopes.insert(symbol.binding_info_idx, init_state);
+            sess.init_scopes.insert(symbol.binding_info_id, init_state);
         }
 
         self.value.lint(sess)?;
@@ -156,9 +156,9 @@ impl Lint for ast::Expr {
 
                 match &lvalue.kind {
                     ast::ExprKind::Id {
-                        binding_info_idx, ..
+                        binding_info_id, ..
                     } => {
-                        check_assign_lvalue_id_access(sess, lvalue, *binding_info_idx)?;
+                        check_assign_lvalue_id_access(sess, lvalue, *binding_info_id)?;
                     }
                     _ => {
                         check_lvalue_access(lvalue, lvalue.span)?;
@@ -309,9 +309,9 @@ impl Lint for ast::Expr {
             }
 
             ast::ExprKind::Id {
-                binding_info_idx, ..
+                binding_info_id, ..
             } => {
-                check_id_access(sess, *binding_info_idx, self.span)?;
+                check_id_access(sess, *binding_info_id, self.span)?;
             }
 
             ast::ExprKind::Literal(_)

@@ -2,7 +2,7 @@ use crate::path::resolve_relative_path;
 use crate::pattern::Pattern;
 use crate::ty::{StructTyKind, Ty, UIntTy};
 use crate::value::Value;
-use crate::workspace::{BindingInfoIdx, ModuleIdx};
+use crate::workspace::{BindingInfoId, ModuleId};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
 use chili_token::TokenKind;
@@ -16,7 +16,7 @@ use ustr::{ustr, UstrMap};
 
 #[derive(Clone)]
 pub struct Ast {
-    pub module_idx: ModuleIdx,
+    pub module_id: ModuleId,
     pub module_info: ModuleInfo,
     pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
@@ -26,7 +26,7 @@ pub struct Ast {
 impl Ast {
     pub fn new(module_info: ModuleInfo) -> Self {
         Self {
-            module_idx: Default::default(),
+            module_id: Default::default(),
             module_info,
             imports: Default::default(),
             bindings: Default::default(),
@@ -34,18 +34,18 @@ impl Ast {
         }
     }
 
-    pub fn find_import(&self, idx: BindingInfoIdx) -> Option<&Import> {
+    pub fn find_import(&self, id: BindingInfoId) -> Option<&Import> {
         for import in self.imports.iter() {
-            if import.binding_info_idx == idx {
+            if import.binding_info_id == id {
                 return Some(import);
             }
         }
         None
     }
 
-    pub fn find_binding(&self, idx: BindingInfoIdx) -> Option<&Binding> {
+    pub fn find_binding(&self, id: BindingInfoId) -> Option<&Binding> {
         for binding in self.bindings.iter() {
-            if binding.pattern.as_single_ref().binding_info_idx == idx {
+            if binding.pattern.as_single_ref().binding_info_id == id {
                 return Some(binding);
             }
         }
@@ -164,7 +164,7 @@ impl Expr {
                 symbol,
                 is_mutable: _,
                 binding_span,
-                binding_info_idx: _,
+                binding_info_id: _,
             } => MaybeSpanned::spanned(symbol.to_string(), *binding_span),
             ExprKind::ArrayLiteral { .. } => MaybeSpanned::not_spanned("[_]{..}".to_string()),
             ExprKind::TupleLiteral(_) => MaybeSpanned::not_spanned("(..)".to_string()),
@@ -244,7 +244,7 @@ pub enum ExprKind {
         symbol: Ustr,
         is_mutable: bool,
         binding_span: Span,
-        binding_info_idx: BindingInfoIdx,
+        binding_info_id: BindingInfoId,
     },
     ArrayLiteral(ArrayLiteralKind),
     TupleLiteral(Vec<Expr>),
@@ -278,7 +278,7 @@ pub struct StructType {
     pub name: Ustr,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTyKind,
-    pub binding_info_idx: Option<BindingInfoIdx>,
+    pub binding_info_id: Option<BindingInfoId>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -353,9 +353,9 @@ pub struct Cast {
 #[derive(Debug, PartialEq, Clone)]
 pub struct For {
     pub iter_name: Ustr,
-    pub iter_idx: BindingInfoIdx,
+    pub iter_id: BindingInfoId,
     pub iter_index_name: Ustr,
-    pub iter_index_idx: BindingInfoIdx,
+    pub iter_index_id: BindingInfoId,
     pub iterator: ForIter,
     pub expr: Box<Expr>,
 }
@@ -381,7 +381,7 @@ pub struct Proto {
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
     pub ty: Ty,
-    pub binding_info_idx: Option<BindingInfoIdx>,
+    pub binding_info_id: Option<BindingInfoId>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -719,8 +719,8 @@ impl From<TokenKind> for UnaryOp {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Import {
-    pub binding_info_idx: BindingInfoIdx,
-    pub module_idx: ModuleIdx,
+    pub binding_info_id: BindingInfoId,
+    pub module_id: ModuleId,
     pub module_info: ModuleInfo,
     pub alias: Ustr,
     pub import_path: ImportPath,

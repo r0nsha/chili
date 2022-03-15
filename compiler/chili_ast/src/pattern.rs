@@ -1,4 +1,4 @@
-use crate::workspace::BindingInfoIdx;
+use crate::workspace::BindingInfoId;
 use chili_span::Span;
 use std::fmt::Display;
 use ustr::Ustr;
@@ -114,7 +114,7 @@ impl Display for DestructorPattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SymbolPattern {
-    pub binding_info_idx: BindingInfoIdx,
+    pub binding_info_id: BindingInfoId,
     pub symbol: Ustr,
     pub alias: Option<Ustr>,
     pub span: Span,

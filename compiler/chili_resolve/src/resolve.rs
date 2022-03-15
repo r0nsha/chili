@@ -72,9 +72,9 @@ impl<'w> Resolve<'w> for ast::Import {
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         if !resolver.in_global_scope() {
-            self.module_idx = workspace.find_module_info(self.module_info).unwrap();
+            self.module_id = workspace.find_module_info(self.module_info).unwrap();
 
-            self.binding_info_idx = resolver.add_binding(
+            self.binding_info_id = resolver.add_binding(
                 workspace,
                 self.alias,
                 self.visibility,
@@ -180,7 +180,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                     }
                 }
 
-                for_.iter_idx = resolver.add_binding(
+                for_.iter_id = resolver.add_binding(
                     workspace,
                     for_.iter_name,
                     Visibility::Private,
@@ -190,7 +190,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                     true,
                 );
 
-                for_.iter_index_idx = resolver.add_binding(
+                for_.iter_index_id = resolver.add_binding(
                     workspace,
                     for_.iter_index_name,
                     Visibility::Private,
@@ -262,7 +262,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                 symbol,
                 is_mutable: _,
                 binding_span: _,
-                binding_info_idx,
+                binding_info_id,
             } => match resolver.lookup_binding(workspace, *symbol) {
                 Some(id) => {
                     let binding_info = workspace.get_binding_info(id).unwrap();
@@ -279,7 +279,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                             )]));
                     }
 
-                    *binding_info_idx = id
+                    *binding_info_id = id
                 }
                 None => {
                     return Err(Diagnostic::error()
@@ -321,7 +321,7 @@ impl<'w> Resolve<'w> for ast::Expr {
             }
             ast::ExprKind::StructType(typ) => {
                 if !typ.name.is_empty() {
-                    typ.binding_info_idx = Some(resolver.add_binding(
+                    typ.binding_info_id = Some(resolver.add_binding(
                         workspace,
                         typ.name,
                         Visibility::Private,

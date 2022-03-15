@@ -20,7 +20,7 @@ impl<'c> CheckSess<'c> {
             Pattern::Single(pat) => {
                 self.update_symbol_pattern_ty(pat, expected_ty);
                 self.workspace
-                    .get_binding_info_mut(pat.binding_info_idx)
+                    .get_binding_info_mut(pat.binding_info_id)
                     .unwrap()
                     .const_value = const_value;
             }
@@ -132,7 +132,7 @@ impl<'c> CheckSess<'c> {
 
     fn update_symbol_pattern_ty(&mut self, pattern: &SymbolPattern, ty: Ty) {
         if !pattern.ignore {
-            self.update_binding_info_ty(pattern.binding_info_idx, ty);
+            self.update_binding_info_ty(pattern.binding_info_id, ty);
         }
     }
 }

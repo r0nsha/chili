@@ -27,7 +27,7 @@ impl<'p> Parser<'p> {
                     symbol,
                     is_mutable: false,
                     binding_span: Span::unknown(),
-                    binding_info_idx: Default::default(),
+                    binding_info_id: Default::default(),
                 }
             };
 
@@ -128,7 +128,7 @@ impl<'p> Parser<'p> {
                 name,
                 fields,
                 kind: StructTyKind::Struct,
-                binding_info_idx: Default::default(),
+                binding_info_id: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))
@@ -172,7 +172,7 @@ impl<'p> Parser<'p> {
                 name,
                 fields,
                 kind: StructTyKind::Union,
-                binding_info_idx: Default::default(),
+                binding_info_id: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))

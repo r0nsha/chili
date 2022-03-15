@@ -1,9 +1,9 @@
-use chili_ast::workspace::BindingInfoIdx;
+use chili_ast::workspace::BindingInfoId;
 use ustr::UstrMap;
 
 pub(crate) struct Scope {
     pub(crate) name: String,
-    pub(crate) bindings: UstrMap<ScopeSymbol<BindingInfoIdx>>,
+    pub(crate) bindings: UstrMap<ScopeSymbol<BindingInfoId>>,
 }
 
 impl Scope {

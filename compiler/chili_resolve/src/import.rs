@@ -2,18 +2,18 @@ use std::collections::HashMap;
 
 use chili_ast::{
     ast::{Ast, Import, ImportPathNode},
-    workspace::ModuleIdx,
+    workspace::ModuleId,
 };
 use chili_span::Spanned;
 use ustr::Ustr;
 
-pub(crate) type ModuleExports = HashMap<ModuleIdx, Vec<Ustr>>;
+pub(crate) type ModuleExports = HashMap<ModuleId, Vec<Ustr>>;
 
 pub(crate) fn collect_module_exports(asts: &Vec<Ast>) -> ModuleExports {
     let mut exports: ModuleExports = Default::default();
 
     for ast in asts.iter() {
-        let entry = exports.entry(ast.module_idx).or_default();
+        let entry = exports.entry(ast.module_id).or_default();
 
         for import in ast.imports.iter() {
             if import.visibility.is_public() {
@@ -65,7 +65,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
     //      `use foo.C`
     //
 
-    let exports = exports.get(&import.module_idx).unwrap();
+    let exports = exports.get(&import.module_id).unwrap();
     exports
         .iter()
         .map(|symbol| {
@@ -76,13 +76,13 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
                 import.span().clone(),
             ));
             Import {
-                module_idx: import.module_idx,
+                module_id: import.module_id,
                 module_info: import.module_info,
                 alias: *symbol,
                 import_path,
                 visibility: import.visibility,
                 span: import.span().clone(),
-                binding_info_idx: import.binding_info_idx,
+                binding_info_id: import.binding_info_id,
             }
         })
         .collect()

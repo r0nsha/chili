@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use chili_span::Span;
 use ustr::{ustr, Ustr};
 
-use crate::workspace::ModuleIdx;
+use crate::workspace::ModuleId;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Ty {
@@ -25,7 +25,7 @@ pub enum Ty {
     Slice(Box<Ty>, bool),
     Tuple(Vec<Ty>),
     Struct(StructTy),
-    Module(ModuleIdx),
+    Module(ModuleId),
     Type(Box<Ty>),
     Var(u32),
     AnyInt,

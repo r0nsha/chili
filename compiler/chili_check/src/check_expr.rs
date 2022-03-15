@@ -25,12 +25,7 @@ impl<'c> CheckSess<'c> {
                     self.check_import(import)?;
                 }
 
-                CheckedExpr::new(
-                    ExprKind::Import(imports.clone()),
-                    Ty::Unit,
-                    None,
-                    expr.span,
-                )
+                CheckedExpr::new(ExprKind::Import(imports.clone()), Ty::Unit, None, expr.span)
             }
             ExprKind::Foreign(bindings) => {
                 let mut new_bindings = vec![];
@@ -39,12 +34,7 @@ impl<'c> CheckSess<'c> {
                     new_bindings.push(self.check_binding(frame, binding)?);
                 }
 
-                CheckedExpr::new(
-                    ExprKind::Foreign(new_bindings),
-                    Ty::Unit,
-                    None,
-                    expr.span,
-                )
+                CheckedExpr::new(ExprKind::Foreign(new_bindings), Ty::Unit, None, expr.span)
             }
             ExprKind::Binding(binding) => {
                 let binding = self.check_binding(frame, binding)?;
@@ -55,12 +45,9 @@ impl<'c> CheckSess<'c> {
                     expr.span,
                 )
             }
-            ExprKind::Defer(deferred) => CheckedExpr::new(
-                ExprKind::Defer(deferred.clone()),
-                Ty::Unit,
-                None,
-                expr.span,
-            ),
+            ExprKind::Defer(deferred) => {
+                CheckedExpr::new(ExprKind::Defer(deferred.clone()), Ty::Unit, None, expr.span)
+            }
             ExprKind::Assign { lvalue, rvalue } => {
                 self.check_assign_expr(frame, lvalue, rvalue, expr.span)?
             }
@@ -147,10 +134,8 @@ impl<'c> CheckSess<'c> {
                         }
 
                         if self.infcx.is_untyped_integer(&start.ty) {
-                            self.infcx.unify_or_coerce_ty_expr(
-                                &Ty::Int(IntTy::Isize),
-                                &mut start.expr,
-                            )?;
+                            self.infcx
+                                .unify_or_coerce_ty_expr(&Ty::Int(IntTy::Isize), &mut start.expr)?;
                         }
                         if self.infcx.is_untyped_integer(&end.ty) {
                             self.infcx
@@ -159,11 +144,8 @@ impl<'c> CheckSess<'c> {
 
                         let start_ty = self.infcx.normalize_ty(&start.ty);
 
-                        self.update_binding_info_ty(for_.iter_idx, start_ty);
-                        self.update_binding_info_ty(
-                            for_.iter_index_idx,
-                            Ty::UInt(UIntTy::Usize),
-                        );
+                        self.update_binding_info_ty(for_.iter_id, start_ty);
+                        self.update_binding_info_ty(for_.iter_index_id, Ty::UInt(UIntTy::Usize));
 
                         ast::ForIter::Range(Box::new(start.expr), Box::new(end.expr))
                     }
@@ -188,9 +170,9 @@ impl<'c> CheckSess<'c> {
                                     inner.as_ref().clone()
                                 };
 
-                                self.update_binding_info_ty(for_.iter_idx, iter_ty);
+                                self.update_binding_info_ty(for_.iter_id, iter_ty);
                                 self.update_binding_info_ty(
-                                    for_.iter_index_idx,
+                                    for_.iter_index_id,
                                     Ty::UInt(UIntTy::Usize),
                                 );
                             }
@@ -215,9 +197,9 @@ impl<'c> CheckSess<'c> {
 
                 CheckedExpr::new(
                     ExprKind::For(ast::For {
-                        iter_idx: for_.iter_idx,
+                        iter_id: for_.iter_id,
                         iter_name: for_.iter_name,
-                        iter_index_idx: for_.iter_index_idx,
+                        iter_index_id: for_.iter_index_id,
                         iter_index_name: for_.iter_index_name,
                         iterator,
                         expr: Box::new(result.expr),
@@ -233,12 +215,7 @@ impl<'c> CheckSess<'c> {
             }
             ExprKind::Continue { deferred } => {
                 let deferred = self.check_expr_list(frame, deferred)?;
-                CheckedExpr::new(
-                    ExprKind::Continue { deferred },
-                    Ty::Never,
-                    None,
-                    expr.span,
-                )
+                CheckedExpr::new(ExprKind::Continue { deferred }, Ty::Never, None, expr.span)
             }
             ExprKind::Return {
                 expr: returned_expr,
@@ -257,8 +234,7 @@ impl<'c> CheckSess<'c> {
 
                         Some(Box::new(returned_result.expr))
                     } else {
-                        self.infcx
-                            .unify(return_ty.clone(), Ty::Unit, expr.span)?;
+                        self.infcx.unify(return_ty.clone(), Ty::Unit, expr.span)?;
 
                         None
                     };
@@ -375,17 +351,17 @@ impl<'c> CheckSess<'c> {
                 }
 
                 match ty_deref {
-                    Ty::Array(inner, ..)
-                    | Ty::Slice(inner, ..)
-                    | Ty::MultiPointer(inner, ..) => CheckedExpr::new(
-                        ExprKind::Subscript {
-                            expr: Box::new(accessed_expr_result.expr),
-                            index: Box::new(index.expr),
-                        },
-                        inner.as_ref().clone(),
-                        None,
-                        expr.span,
-                    ),
+                    Ty::Array(inner, ..) | Ty::Slice(inner, ..) | Ty::MultiPointer(inner, ..) => {
+                        CheckedExpr::new(
+                            ExprKind::Subscript {
+                                expr: Box::new(accessed_expr_result.expr),
+                                index: Box::new(index.expr),
+                            },
+                            inner.as_ref().clone(),
+                            None,
+                            expr.span,
+                        )
+                    }
                     _ => {
                         return Err(TypeError::invalid_expr_in_subscript(
                             accessed_expr_result.expr.span,
@@ -500,17 +476,15 @@ impl<'c> CheckSess<'c> {
                             ))
                         }
                     },
-                    Ty::Array(..) | Ty::Slice(..)
-                        if field.as_str() == BUILTIN_FIELD_LEN =>
-                    {
+                    Ty::Array(..) | Ty::Slice(..) if field.as_str() == BUILTIN_FIELD_LEN => {
                         (Ty::UInt(UIntTy::Usize), None)
                     }
                     Ty::Slice(inner, is_mutable) if field.as_str() == BUILTIN_FIELD_DATA => {
                         (Ty::MultiPointer(inner.clone(), *is_mutable), None)
                     }
-                    Ty::Module(module_idx) => {
+                    Ty::Module(module_id) => {
                         let binding_info =
-                            self.find_binding_info_in_module(*module_idx, *field, expr.span)?;
+                            self.find_binding_info_in_module(*module_id, *field, expr.span)?;
 
                         (binding_info.ty.clone(), binding_info.const_value.clone())
                     }
@@ -534,17 +508,17 @@ impl<'c> CheckSess<'c> {
             }
             ExprKind::Id {
                 symbol,
-                binding_info_idx,
+                binding_info_id,
                 ..
             } => {
-                let binding_info = self.workspace.get_binding_info(*binding_info_idx).unwrap();
+                let binding_info = self.workspace.get_binding_info(*binding_info_id).unwrap();
 
                 CheckedExpr::new(
                     ExprKind::Id {
                         symbol: *symbol,
                         is_mutable: binding_info.is_mutable,
                         binding_span: binding_info.span,
-                        binding_info_idx: Default::default(),
+                        binding_info_id: Default::default(),
                     },
                     binding_info.ty.clone(),
                     binding_info.const_value.clone(),
@@ -771,8 +745,8 @@ impl<'c> CheckSess<'c> {
                 };
 
                 let binding_info = struct_type
-                    .binding_info_idx
-                    .map(|idx| self.workspace.get_binding_info_mut(idx).unwrap());
+                    .binding_info_id
+                    .map(|id| self.workspace.get_binding_info_mut(id).unwrap());
 
                 let qualified_name = binding_info.as_ref().map_or(name, |b| b.qualified_name());
 
@@ -844,7 +818,7 @@ impl<'c> CheckSess<'c> {
                 CheckedExpr::new(
                     ExprKind::StructType(ast::StructType {
                         name,
-                        binding_info_idx: struct_type.binding_info_idx,
+                        binding_info_id: struct_type.binding_info_id,
                         kind: struct_type.kind,
                         fields: new_fields,
                     }),

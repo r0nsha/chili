@@ -79,7 +79,7 @@ impl<'p> Parser<'p> {
         };
 
         Ok(SymbolPattern {
-            binding_info_idx: Default::default(),
+            binding_info_id: Default::default(),
             symbol,
             alias: None,
             is_mutable,

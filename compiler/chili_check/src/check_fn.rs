@@ -22,10 +22,10 @@ impl<'c> CheckSess<'c> {
 
         let ty = proto.ty.as_fn();
 
-        let mut fn_frame = CheckFrame::new(frame.depth, frame.module_idx, Some(*ty.ret.clone()));
+        let mut fn_frame = CheckFrame::new(frame.depth, frame.module_id, Some(*ty.ret.clone()));
 
-        if let Some(idx) = func.proto.binding_info_idx {
-            self.update_binding_info_ty(idx, proto.ty.clone());
+        if let Some(id) = func.proto.binding_info_id {
+            self.update_binding_info_ty(id, proto.ty.clone());
         }
 
         for (index, param) in proto.params.iter().enumerate() {
@@ -155,7 +155,7 @@ impl<'c> CheckSess<'c> {
                     let symbol = ustr("it");
 
                     let pattern = Pattern::Single(SymbolPattern {
-                        binding_info_idx: Default::default(),
+                        binding_info_id: Default::default(),
                         symbol,
                         alias: None,
                         span: span,
@@ -200,7 +200,7 @@ impl<'c> CheckSess<'c> {
         });
 
         Ok(Proto {
-            binding_info_idx: proto.binding_info_idx,
+            binding_info_id: proto.binding_info_id,
             name: proto.name,
             params,
             variadic: proto.variadic,

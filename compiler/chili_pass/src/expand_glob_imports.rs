@@ -11,11 +11,7 @@ pub(super) fn expand_glob_imports(ir: &mut Ir) -> DiagnosticResult<()> {
         let glob_imports = glob_imports.entry(*module_name).or_insert(vec![]);
         for import in module.imports.iter() {
             if import.is_glob() {
-                glob_imports.extend(expand_glob_import(
-                    ir,
-                    *module_name,
-                    import.clone(),
-                )?);
+                glob_imports.extend(expand_glob_import(ir, *module_name, import.clone())?);
             }
         }
     }
@@ -51,18 +47,15 @@ fn expand_glob_import(
             let mut symbols_to_import = vec![];
 
             for import in module.imports.iter() {
-                if !import.is_glob() && import.visibility != Visibility::Private
-                {
+                if !import.is_glob() && import.visibility != Visibility::Private {
                     symbols_to_import.push((import.alias, import.visibility));
                 }
             }
 
             for binding in module.bindings.iter() {
                 if binding.visibility != Visibility::Private {
-                    symbols_to_import.push((
-                        binding.pattern.into_single().symbol,
-                        binding.visibility,
-                    ));
+                    symbols_to_import
+                        .push((binding.pattern.into_single().symbol, binding.visibility));
                 }
             }
 
@@ -75,13 +68,13 @@ fn expand_glob_import(
                         import.span().clone(),
                     ));
                     Import {
-                        module_idx: Default::default(),
+                        module_id: Default::default(),
                         module_info: import.module_info,
                         alias: *symbol,
                         import_path,
                         visibility: *visibility,
                         span: import.span().clone(),
-                        binding_info_idx: import.binding_info_idx,
+                        binding_info_id: import.binding_info_id,
                     }
                 })
                 .collect())

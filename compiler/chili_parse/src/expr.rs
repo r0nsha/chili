@@ -354,7 +354,7 @@ impl<'p> Parser<'p> {
                     symbol,
                     is_mutable: false,
                     binding_span: Span::unknown(),
-                    binding_info_idx: Default::default(),
+                    binding_info_id: Default::default(),
                 },
                 token.span,
             )
@@ -537,9 +537,9 @@ impl<'p> Parser<'p> {
         Ok(Expr::new(
             ExprKind::For(ast::For {
                 iter_name,
-                iter_idx: Default::default(),
+                iter_id: Default::default(),
                 iter_index_name,
-                iter_index_idx: Default::default(),
+                iter_index_id: Default::default(),
                 iterator,
                 expr: Box::new(expr),
             }),

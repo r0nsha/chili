@@ -47,7 +47,7 @@ impl<'p> Parser<'p> {
             variadic,
             ret: ret_ty,
             ty: Ty::Unknown,
-            binding_info_idx: None,
+            binding_info_id: None,
         })
     }
 
@@ -101,7 +101,7 @@ impl<'p> Parser<'p> {
                                 // (type, ..)
                                 self.revert(1);
                                 let pattern = Pattern::Single(SymbolPattern {
-                                    binding_info_idx: Default::default(),
+                                    binding_info_id: Default::default(),
                                     symbol: ustr(""),
                                     alias: None,
                                     span: Span::unknown(),

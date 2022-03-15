@@ -26,7 +26,7 @@ pub struct Workspace {
     pub std_dir: PathBuf,
 
     // The root module's id. Resolved after ast generation
-    pub root_module_id: ModuleIdx,
+    pub root_module_id: ModuleId,
 
     // Parsed modules/trees info. Resolved during ast generation
     // ModuleId -> ModuleInfo
@@ -37,7 +37,7 @@ pub struct Workspace {
     pub binding_infos: Vec<BindingInfo>,
 
     // The entry point function's id (usually main). Resolved during name resolution
-    pub entry_point_function_idx: Option<BindingInfoIdx>,
+    pub entry_point_function_id: Option<BindingInfoId>,
 
     // Foreign libraries needed to be linked. Resolved during name resolution
     pub foreign_libraries: HashSet<ForeignLibrary>,
@@ -54,7 +54,7 @@ impl Workspace {
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
-            entry_point_function_idx: None,
+            entry_point_function_id: None,
             foreign_libraries: Default::default(),
         }
     }
@@ -63,9 +63,9 @@ impl Workspace {
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingInfo {
     // a reference to the info's own index
-    pub idx: BindingInfoIdx,
+    pub id: BindingInfoId,
     // the module where this binding lives
-    pub module_idx: ModuleIdx,
+    pub module_id: ModuleId,
     // the symbol(name) used for the binding
     pub symbol: Ustr,
     pub visibility: Visibility,
@@ -86,25 +86,25 @@ pub struct BindingInfo {
 }
 
 impl Workspace {
-    pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleIdx {
+    pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {
         self.module_infos.push(module_info);
-        ModuleIdx(self.module_infos.len() - 1)
+        ModuleId(self.module_infos.len() - 1)
     }
 
-    pub fn get_module_info(&self, idx: ModuleIdx) -> Option<&ModuleInfo> {
-        self.module_infos.get(idx.0)
+    pub fn get_module_info(&self, id: ModuleId) -> Option<&ModuleInfo> {
+        self.module_infos.get(id.0)
     }
 
-    pub fn find_module_info(&self, module_info: ModuleInfo) -> Option<ModuleIdx> {
+    pub fn find_module_info(&self, module_info: ModuleInfo) -> Option<ModuleId> {
         self.module_infos
             .iter()
             .position(|m| *m == module_info)
-            .map(|i| ModuleIdx(i))
+            .map(|i| ModuleId(i))
     }
 
     pub fn add_binding_info(
         &mut self,
-        module_idx: ModuleIdx,
+        module_id: ModuleId,
         symbol: Ustr,
         visibility: Visibility,
         is_mutable: bool,
@@ -112,9 +112,9 @@ impl Workspace {
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
-    ) -> BindingInfoIdx {
+    ) -> BindingInfoId {
         self.add_binding_info_ex(
-            module_idx,
+            module_id,
             symbol,
             visibility,
             Ty::Unknown,
@@ -129,7 +129,7 @@ impl Workspace {
 
     pub fn add_binding_info_ex(
         &mut self,
-        module_idx: ModuleIdx,
+        module_id: ModuleId,
         symbol: Ustr,
         visibility: Visibility,
         ty: Ty,
@@ -139,11 +139,11 @@ impl Workspace {
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
-    ) -> BindingInfoIdx {
-        let idx = BindingInfoIdx(self.binding_infos.len());
+    ) -> BindingInfoId {
+        let id = BindingInfoId(self.binding_infos.len());
         self.binding_infos.push(BindingInfo {
-            idx,
-            module_idx,
+            id,
+            module_id,
             symbol,
             visibility,
             ty,
@@ -156,15 +156,15 @@ impl Workspace {
             codegen: false,
             span,
         });
-        idx
+        id
     }
 
-    pub fn get_binding_info(&self, idx: BindingInfoIdx) -> Option<&BindingInfo> {
-        self.binding_infos.get(idx.0)
+    pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {
+        self.binding_infos.get(id.0)
     }
 
-    pub fn get_binding_info_mut(&mut self, idx: BindingInfoIdx) -> Option<&mut BindingInfo> {
-        self.binding_infos.get_mut(idx.0)
+    pub fn get_binding_info_mut(&mut self, id: BindingInfoId) -> Option<&mut BindingInfo> {
+        self.binding_infos.get_mut(id.0)
     }
 }
 
@@ -198,18 +198,18 @@ bitflags! {
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ModuleIdx(pub usize);
+pub struct ModuleId(pub usize);
 
-impl ModuleIdx {
+impl ModuleId {
     pub fn invalid() -> Self {
         Self(usize::MAX)
     }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BindingInfoIdx(pub usize);
+pub struct BindingInfoId(pub usize);
 
-impl BindingInfoIdx {
+impl BindingInfoId {
     pub fn invalid() -> Self {
         Self(usize::MAX)
     }

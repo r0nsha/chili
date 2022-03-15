@@ -1,9 +1,9 @@
-use chili_ast::workspace::{BindingInfoIdx, Workspace};
+use chili_ast::workspace::{BindingInfoId, Workspace};
 use common::scopes::Scopes;
 
 pub(crate) struct LintSess<'l> {
     pub(crate) workspace: &'l Workspace,
-    pub(crate) init_scopes: Scopes<BindingInfoIdx, InitState>,
+    pub(crate) init_scopes: Scopes<BindingInfoId, InitState>,
 }
 
 #[allow(dead_code)]

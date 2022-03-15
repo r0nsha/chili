@@ -1,4 +1,4 @@
-use chili_ast::{ast, workspace::BindingInfoIdx};
+use chili_ast::{ast, workspace::BindingInfoId};
 use chili_error::DiagnosticResult;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -10,12 +10,12 @@ use crate::{
 
 pub(crate) fn check_id_access(
     sess: &LintSess,
-    binding_info_idx: BindingInfoIdx,
+    binding_info_id: BindingInfoId,
     span: Span,
 ) -> DiagnosticResult<()> {
-    if let Some(state) = sess.init_scopes.get(binding_info_idx) {
+    if let Some(state) = sess.init_scopes.get(binding_info_id) {
         if state.is_not_init() {
-            let binding_info = sess.workspace.get_binding_info(binding_info_idx).unwrap();
+            let binding_info = sess.workspace.get_binding_info(binding_info_id).unwrap();
 
             let msg = format!(
                 "use of possibly uninitialized value `{}`",
@@ -38,10 +38,10 @@ pub(crate) fn check_id_access(
 pub(crate) fn check_assign_lvalue_id_access(
     sess: &mut LintSess,
     lvalue: &ast::Expr,
-    binding_info_idx: BindingInfoIdx,
+    binding_info_id: BindingInfoId,
 ) -> DiagnosticResult<()> {
-    let binding_info = sess.workspace.get_binding_info(binding_info_idx).unwrap();
-    let init_state = sess.init_scopes.get(binding_info_idx).unwrap();
+    let binding_info = sess.workspace.get_binding_info(binding_info_id).unwrap();
+    let init_state = sess.init_scopes.get(binding_info_id).unwrap();
 
     if init_state.is_init() && !binding_info.is_mutable {
         let msg = format!(
@@ -61,7 +61,7 @@ pub(crate) fn check_assign_lvalue_id_access(
         check_lvalue_access(lvalue, lvalue.span)?;
     } else {
         // set binding as init in the current scope
-        *sess.init_scopes.get_mut(binding_info_idx).unwrap() = InitState::Init;
+        *sess.init_scopes.get_mut(binding_info_id).unwrap() = InitState::Init;
     }
 
     Ok(())

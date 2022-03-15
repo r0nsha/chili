@@ -107,7 +107,7 @@ fn check_lvalue_mutability_internal(
             symbol,
             is_mutable,
             binding_span,
-            binding_info_idx: _,
+            binding_info_id: _,
         } => check_id(
             *symbol,
             *is_mutable,
@@ -183,9 +183,7 @@ fn check_subscript(expr: &ast::Expr, original_expr_span: Span) -> Result<(), Lva
     use LvalueAccessErr::*;
 
     match &expr.ty {
-        Ty::Slice(_, is_mutable)
-        | Ty::MultiPointer(_, is_mutable)
-        | Ty::Pointer(_, is_mutable) => {
+        Ty::Slice(_, is_mutable) | Ty::MultiPointer(_, is_mutable) | Ty::Pointer(_, is_mutable) => {
             return if *is_mutable {
                 Ok(())
             } else {
