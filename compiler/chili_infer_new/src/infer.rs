@@ -1,4 +1,7 @@
-use crate::{display::map_unify_err, sess::InferSess, unify::Unify, unpack_type::try_unpack_type};
+use crate::{
+    display::map_unify_err, sess::InferSess, substitute::substitute_ty, unify::Unify,
+    unpack_type::try_unpack_type,
+};
 use chili_ast::{
     ast,
     ty::{FnTy, FnTyParam, Ty},
@@ -43,8 +46,13 @@ impl Infer for ast::Binding {
             .clone();
 
         // TODO: type annotation
-        // let inner_type = try_unpack_type(&ty, sess)?;
-        // sess.new_bound_variable(inner_type).into()
+        if let Some(ty_expr) = &mut self.ty_expr {
+            let ty = ty_expr.infer(sess, workspace)?;
+            let inner_type = try_unpack_type(&ty, sess)?;
+            inner_type
+                .unify(&binding_info_ty, sess, workspace, ty_expr.span)
+                .map_err(|e| map_unify_err(e, ty_expr.span))?;
+        }
 
         if let Some(expr) = &mut self.expr {
             expr.infer(sess, workspace)?;
@@ -53,6 +61,12 @@ impl Infer for ast::Binding {
                 .unify(&expr.ty, sess, workspace, expr.span)
                 .map_err(|e| map_unify_err(e, expr.span))?;
         }
+
+        // TODO: should i follow the rule of locality and solve each binding's types locally?
+        // let binding_info_mut = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
+        // if binding_info_mut.scope_level.is_global() {
+        //     binding_info_mut.ty = substitute_ty(&binding_info_mut.ty, &sess);
+        // }
 
         Ok(Ty::Unit)
     }
@@ -64,15 +78,13 @@ impl Infer for ast::Fn {
         let fn_ty = proto_ty.as_fn();
         let ty = self.body.infer(sess, workspace)?;
 
-        fn_ty
-            .ret
-            .unify(
-                &ty,
-                sess,
-                workspace,
-                self.proto.ret.as_ref().map_or(Span::unknown(), |e| e.span),
-            )
-            .map_err(|e| map_unify_err(e, self.body.span))?;
+        ty.unify(
+            &fn_ty.ret,
+            sess,
+            workspace,
+            self.proto.ret.as_ref().map_or(Span::unknown(), |e| e.span),
+        )
+        .map_err(|e| map_unify_err(e, self.body.span))?;
 
         Ok(proto_ty)
     }

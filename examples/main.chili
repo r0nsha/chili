@@ -21,8 +21,8 @@ let main = fn {
     # printf("1\n".data)
 }
 
-let answer = fn() -> i64 { 42 }
 
+let answer = fn() -> i64 { 42 }
 let glob = fn() -> u8 { g }
 let g = 5
 
