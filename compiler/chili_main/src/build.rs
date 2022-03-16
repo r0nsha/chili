@@ -82,17 +82,16 @@ pub fn do_build(build_options: BuildOptions) {
     //     }
     // }
 
-    for ast in asts.iter() {
-        ast.print(&workspace);
-    }
-
     // time! { "codegen(llvm)",
     //     chili_llvm::codegen(&workspace, &asts)
     // }
 
     all_sw.stop();
-
     print_stats(stats, all_sw.elapsed().as_millis());
+
+    for ast in asts.iter() {
+        ast.print(&workspace);
+    }
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {
