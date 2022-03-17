@@ -150,7 +150,7 @@ impl<'w> Resolve<'w> for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => {
                 cast.expr.resolve(resolver, workspace)?;
-                cast.type_expr.resolve(resolver, workspace)?;
+                cast.ty_expr.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {

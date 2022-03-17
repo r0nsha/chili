@@ -1,6 +1,5 @@
 use crate::*;
 use chili_ast::ast::{BinaryOp, Call, CallArg, Cast, Expr, ExprKind, UnaryOp};
-use chili_ast::ty::TyKind;
 use chili_error::*;
 use chili_span::{EndPosition, Spanned, To};
 use chili_token::TokenKind::*;
@@ -135,8 +134,8 @@ impl<'p> Parser<'p> {
         Ok(Expr::new(
             ExprKind::Cast(Cast {
                 expr: Box::new(expr.clone()),
-                type_expr,
-                target_ty: TyKind::Unknown,
+                ty_expr: type_expr,
+                target_ty: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))

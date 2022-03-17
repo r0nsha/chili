@@ -4,7 +4,6 @@ use crate::{
 };
 use chili_ast::{ast, ty::*, workspace::Workspace};
 use chili_error::DiagnosticResult;
-use chili_span::Span;
 
 pub(crate) trait Infer {
     fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty>;
@@ -43,14 +42,14 @@ impl Infer for ast::Binding {
 
             inner_type
                 .unify(&binding_ty, tycx, workspace, ty_expr.span)
-                .map_err(|e| map_unify_err(e, ty_expr.span))?;
+                .map_err(map_unify_err)?;
         }
 
         if let Some(expr) = &mut self.expr {
             expr.infer(tycx, workspace)?;
             binding_ty
                 .unify(&expr.ty, tycx, workspace, expr.span)
-                .map_err(|e| map_unify_err(e, expr.span))?;
+                .map_err(map_unify_err)?;
         }
 
         // TODO: should i follow the rule of locality and solve each binding's types locally?
@@ -67,15 +66,11 @@ impl Infer for ast::Fn {
     fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         let proto_ty = self.proto.infer(tycx, workspace)?;
         let fn_ty = proto_ty.normalize(tycx).into_fn();
-        let ty = self.body.infer(tycx, workspace)?;
+        let body_ty = self.body.infer(tycx, workspace)?;
 
-        ty.unify(
-            fn_ty.ret.as_ref(),
-            tycx,
-            workspace,
-            self.proto.ret.as_ref().map_or(Span::unknown(), |e| e.span),
-        )
-        .map_err(|e| map_unify_err(e, self.body.span))?;
+        body_ty
+            .unify(fn_ty.ret.as_ref(), tycx, workspace, self.body.span)
+            .map_err(map_unify_err)?;
 
         Ok(proto_ty)
     }
@@ -100,8 +95,7 @@ impl Infer for ast::Proto {
         }
 
         let ret = if let Some(ret) = &mut self.ret {
-            let ty = ret.infer(tycx, workspace)?;
-            let ty = ty.normalize(tycx);
+            let ty = ret.infer(tycx, workspace)?.normalize(tycx);
             let inner_type = try_unpack_type(&ty, tycx, ret.span)?;
             tycx.new_bound_variable(inner_type).into()
         } else {
@@ -155,8 +149,16 @@ impl Infer for ast::Expr {
                 tycx.primitive(TyKind::Unit)
             }
             ast::ExprKind::Defer(_) => todo!(),
-            ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
-            ast::ExprKind::Cast(_) => todo!(),
+            ast::ExprKind::Assign { lvalue, rvalue } => {
+                let lty = lvalue.infer(tycx, workspace)?;
+                let rty = rvalue.infer(tycx, workspace)?;
+
+                rty.unify(&lty, tycx, workspace, rvalue.span)
+                    .map_err(map_unify_err)?;
+
+                tycx.primitive(TyKind::Unit)
+            }
+            ast::ExprKind::Cast(cast) => cast.infer(tycx, workspace)?,
             ast::ExprKind::Builtin(_) => todo!(),
             ast::ExprKind::Fn(f) => f.infer(tycx, workspace)?,
             ast::ExprKind::While { cond, expr } => todo!(),
@@ -225,6 +227,23 @@ impl Infer for ast::Expr {
         };
 
         Ok(self.ty.clone())
+    }
+}
+
+impl Infer for ast::Cast {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        self.expr.infer(tycx, workspace)?;
+        if let Some(ty_expr) = &mut self.ty_expr {
+            let ty = ty_expr.infer(tycx, workspace)?.normalize(tycx);
+            let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
+            let ty = tycx.new_bound_variable(inner_type);
+
+            self.target_ty = ty;
+
+            Ok(ty)
+        } else {
+            Ok(tycx.new_variable())
+        }
     }
 }
 

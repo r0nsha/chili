@@ -1,21 +1,20 @@
 use chili_ast::{ty::TyKind, workspace::Workspace};
-use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::{tycx::TyContext, unify::TyUnifyErr};
 
-pub(crate) fn map_unify_err(e: TyUnifyErr, span: Span) -> Diagnostic<usize> {
+pub(crate) fn map_unify_err(e: TyUnifyErr) -> Diagnostic<usize> {
     use TyUnifyErr::*;
 
     match e {
-        Mismatch(expected, found) => Diagnostic::error()
+        Mismatch(expected, found, span) => Diagnostic::error()
             .with_message(format!(
                 "mismatched types - expected {}, but found {}",
                 expected, found
             ))
             .with_labels(vec![Label::primary(span.file_id, span.range().clone())
                 .with_message(format!("expected {}", expected))]),
-        Occurs(expected, found) => Diagnostic::error()
+        Occurs(expected, found, span) => Diagnostic::error()
             .with_message(format!(
                 "found recursive type - {} is equal to {}",
                 expected, found

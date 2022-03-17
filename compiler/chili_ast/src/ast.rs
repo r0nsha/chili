@@ -1,7 +1,6 @@
 use crate::path::resolve_relative_path;
 use crate::pattern::Pattern;
-use crate::ty::{StructTyKind, Ty, TyKind, UIntTy};
-use crate::value::Value;
+use crate::ty::*;
 use crate::workspace::{BindingInfoId, ModuleId};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
@@ -313,18 +312,6 @@ pub enum Literal {
     Char(char),
 }
 
-impl Literal {
-    pub fn ty(&self) -> TyKind {
-        match self {
-            Literal::Unit => TyKind::Unit,
-            Literal::Bool(_) => TyKind::Bool,
-            Literal::Str(_) => TyKind::str(),
-            Literal::Char(_) => TyKind::UInt(UIntTy::U8),
-            Literal::Nil | Literal::Int(_) | Literal::Float(_) => TyKind::Unknown,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Builtin {
     SizeOf(Box<Expr>),
@@ -334,9 +321,9 @@ pub enum Builtin {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Cast {
-    pub type_expr: Option<Box<Expr>>,
+    pub ty_expr: Option<Box<Expr>>,
     pub expr: Box<Expr>,
-    pub target_ty: TyKind,
+    pub target_ty: Ty,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -508,10 +495,7 @@ pub struct Binding {
     pub kind: BindingKind,
     pub pattern: Pattern,
     pub ty_expr: Option<Expr>,
-    pub ty: TyKind,
     pub expr: Option<Expr>,
-    pub const_value: Option<Value>,
-    pub should_codegen: bool,
     pub lib_name: Option<Ustr>,
 }
 
@@ -529,16 +513,9 @@ impl Binding {
             kind,
             pattern,
             ty_expr,
-            ty: TyKind::Unknown,
             expr: value,
-            const_value: None,
-            should_codegen: false,
             lib_name,
         }
-    }
-
-    pub fn into_type(&self) -> TyKind {
-        self.const_value.clone().unwrap().into_type()
     }
 }
 

@@ -490,7 +490,7 @@ impl PrintTree for ast::Cast {
         self.expr.print_tree(b, workspace, tycx);
         b.end_child();
 
-        if let Some(type_expr) = &self.type_expr {
+        if let Some(type_expr) = &self.ty_expr {
             b.begin_child("to".to_string());
             type_expr.print_tree(b, workspace, tycx);
             b.end_child();
