@@ -3,14 +3,13 @@ use crate::{
     tycx::{TyBinding, TyContext},
 };
 use chili_ast::{ty::*, workspace::Workspace};
-use chili_span::Span;
 
 pub(crate) type TyUnifyResult = Result<(), TyUnifyErr>;
 
 #[derive(Debug)]
 pub(crate) enum TyUnifyErr {
-    Mismatch(TyKind, TyKind, Span),
-    Occurs(TyKind, TyKind, Span),
+    Mismatch,
+    Occurs,
 }
 
 pub(crate) trait Unify<T>
@@ -18,63 +17,34 @@ where
     Self: Sized,
     T: Sized,
 {
-    fn unify(
-        &self,
-        other: &T,
-        tycx: &mut TyContext,
-        workspace: &Workspace,
-        span: Span,
-    ) -> TyUnifyResult;
+    fn unify(&self, other: &T, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult;
 }
 
 impl Unify<Ty> for Ty {
-    fn unify(
-        &self,
-        other: &Ty,
-        tycx: &mut TyContext,
-        workspace: &Workspace,
-        span: Span,
-    ) -> TyUnifyResult {
+    fn unify(&self, other: &Ty, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
         let t1 = TyKind::Var(*self);
         let t2 = TyKind::Var(*other);
-        t1.unify(&t2, tycx, workspace, span)
+        t1.unify(&t2, tycx, workspace)
     }
 }
 
 impl Unify<TyKind> for Ty {
-    fn unify(
-        &self,
-        other: &TyKind,
-        tycx: &mut TyContext,
-        workspace: &Workspace,
-        span: Span,
-    ) -> TyUnifyResult {
+    fn unify(&self, other: &TyKind, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
         let ty = TyKind::Var(*self);
-        ty.unify(other, tycx, workspace, span)
+        ty.unify(other, tycx, workspace)
     }
 }
 
 impl Unify<Ty> for TyKind {
-    fn unify(
-        &self,
-        other: &Ty,
-        tycx: &mut TyContext,
-        workspace: &Workspace,
-        span: Span,
-    ) -> TyUnifyResult {
+    fn unify(&self, other: &Ty, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
         let other = TyKind::Var(*other);
-        self.unify(&other, tycx, workspace, span)
+        self.unify(&other, tycx, workspace)
     }
 }
 
 impl Unify<TyKind> for TyKind {
-    fn unify(
-        &self,
-        other: &TyKind,
-        tycx: &mut TyContext,
-        workspace: &Workspace,
-        span: Span,
-    ) -> TyUnifyResult {
+    fn unify(&self, other: &TyKind, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
+        println!("{} <=> {}", self, other);
         match (self, other) {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
@@ -97,12 +67,12 @@ impl Unify<TyKind> for TyKind {
                 Ok(())
             }
 
-            (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx, workspace, span),
-            (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx, workspace, span),
+            (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx, workspace),
+            (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx, workspace),
 
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
-            _ => Err(TyUnifyErr::Mismatch(self.clone(), other.clone(), span)),
+            _ => Err(TyUnifyErr::Mismatch),
         }
     }
 }
@@ -112,16 +82,15 @@ fn unify_var_ty(
     other: &TyKind,
     tycx: &mut TyContext,
     workspace: &Workspace,
-    span: Span,
 ) -> TyUnifyResult {
-    match tycx.find_type_binding(var) {
-        TyBinding::Bound(kind) => kind.unify(other, tycx, workspace, span),
+    match tycx.get_binding(var) {
+        TyBinding::Bound(kind) => kind.clone().unify(other, tycx, workspace),
         TyBinding::Unbound => {
             let other_norm = other.normalize(tycx);
 
             if TyKind::Var(var) != other_norm {
                 if occurs(var, &other_norm, tycx, workspace) {
-                    Err(TyUnifyErr::Occurs(var.into(), other.clone(), span))
+                    Err(TyUnifyErr::Occurs)
                 } else {
                     tycx.bind(var, other_norm);
                     Ok(())
@@ -135,7 +104,7 @@ fn unify_var_ty(
 
 fn occurs(var: Ty, kind: &TyKind, tycx: &TyContext, workspace: &Workspace) -> bool {
     match kind {
-        TyKind::Var(other) => match tycx.find_type_binding(*other) {
+        TyKind::Var(other) => match tycx.get_binding(*other) {
             TyBinding::Bound(ty) => occurs(var, &ty, tycx, workspace),
             TyBinding::Unbound => var == *other,
         },

@@ -7,7 +7,7 @@ pub trait NormalizeTy {
 
 impl NormalizeTy for Ty {
     fn normalize(&self, tycx: &TyContext) -> TyKind {
-        match tycx.find_type_binding(*self) {
+        match tycx.get_binding(*self) {
             TyBinding::Bound(ty) => ty.normalize(tycx),
             TyBinding::Unbound => TyKind::Var(*self),
         }
@@ -17,7 +17,7 @@ impl NormalizeTy for Ty {
 impl NormalizeTy for TyKind {
     fn normalize(&self, tycx: &TyContext) -> TyKind {
         match self {
-            TyKind::Var(var) => match tycx.find_type_binding(*var) {
+            TyKind::Var(var) => match tycx.get_binding(*var) {
                 TyBinding::Bound(ty) => ty.normalize(tycx),
                 TyBinding::Unbound => TyKind::Var(*var),
             },
@@ -54,11 +54,11 @@ impl NormalizeTy for TyKind {
                     .collect(),
                 kind: st.kind,
             }),
-            TyKind::AnyInt(var) => match tycx.find_type_binding(*var) {
+            TyKind::AnyInt(var) => match tycx.get_binding(*var) {
                 TyBinding::Bound(ty) => ty.normalize(tycx),
                 TyBinding::Unbound => TyKind::AnyInt(*var),
             },
-            TyKind::AnyFloat(var) => match tycx.find_type_binding(*var) {
+            TyKind::AnyFloat(var) => match tycx.get_binding(*var) {
                 TyBinding::Bound(ty) => ty.normalize(tycx),
                 TyBinding::Unbound => TyKind::AnyFloat(*var),
             },

@@ -35,17 +35,14 @@ impl TyContext {
 
     #[inline]
     pub fn new_bound_variable(&mut self, kind: TyKind) -> Ty {
-        match kind {
-            TyKind::Var(ty) | TyKind::AnyInt(ty) | TyKind::AnyFloat(ty) => ty,
-            _ => self.insert(TyBinding::Bound(kind)),
-        }
+        self.insert(TyBinding::Bound(kind))
     }
 
     #[inline]
-    pub fn find_type_binding(&self, var: Ty) -> TyBinding {
+    pub fn get_binding(&self, var: Ty) -> &TyBinding {
         match self.type_bindings.get(var.0 as usize) {
-            Some(ty) => ty.clone(),
-            None => TyBinding::Unbound,
+            Some(ty) => ty,
+            None => &TyBinding::Unbound,
         }
     }
 

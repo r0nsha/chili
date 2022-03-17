@@ -1,20 +1,29 @@
-use chili_ast::{ty::TyKind, workspace::Workspace};
+use crate::{normalize::NormalizeTy, tycx::TyContext, unify::TyUnifyErr};
+use chili_ast::ty::TyKind;
+use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-use crate::{tycx::TyContext, unify::TyUnifyErr};
-
-pub(crate) fn map_unify_err(e: TyUnifyErr) -> Diagnostic<usize> {
+pub(crate) fn map_unify_err(
+    e: TyUnifyErr,
+    expected: impl NormalizeTy,
+    found: impl NormalizeTy,
+    span: Span,
+    tycx: &TyContext,
+) -> Diagnostic<usize> {
     use TyUnifyErr::*;
 
+    let expected = expected.normalize(tycx).display(tycx);
+    let found = found.normalize(tycx).display(tycx);
+
     match e {
-        Mismatch(expected, found, span) => Diagnostic::error()
+        Mismatch => Diagnostic::error()
             .with_message(format!(
                 "mismatched types - expected {}, but found {}",
                 expected, found
             ))
             .with_labels(vec![Label::primary(span.file_id, span.range().clone())
                 .with_message(format!("expected {}", expected))]),
-        Occurs(expected, found, span) => Diagnostic::error()
+        Occurs => Diagnostic::error()
             .with_message(format!(
                 "found recursive type - {} is equal to {}",
                 expected, found
@@ -25,11 +34,11 @@ pub(crate) fn map_unify_err(e: TyUnifyErr) -> Diagnostic<usize> {
 }
 
 trait DisplayTy {
-    fn display(&self, tycx: &TyContext, workspace: &Workspace) -> String;
+    fn display(&self, tycx: &TyContext) -> String;
 }
 
 impl DisplayTy for TyKind {
-    fn display(&self, tycx: &TyContext, workspace: &Workspace) -> String {
+    fn display(&self, tycx: &TyContext) -> String {
         // TODO: this is bad, because i can't know what to display for Var and Struct
         self.to_string()
         // match self {

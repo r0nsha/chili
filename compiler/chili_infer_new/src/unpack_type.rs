@@ -21,7 +21,7 @@ pub(crate) fn try_unpack_type(
 
 fn unpack_type(ty: &TyKind, tycx: &TyContext) -> DiagnosticResult<TyKind> {
     match ty {
-        TyKind::Var(var) => match tycx.find_type_binding(*var) {
+        TyKind::Var(var) => match tycx.get_binding(*var) {
             TyBinding::Bound(ty) => unpack_type(&ty, tycx),
             TyBinding::Unbound => {
                 panic!(

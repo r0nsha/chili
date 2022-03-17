@@ -66,15 +66,15 @@ impl Infer for ast::Binding {
             let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
 
             inner_type
-                .unify(&binding_ty, tycx, workspace, ty_expr.span)
-                .map_err(map_unify_err)?;
+                .unify(&binding_ty, tycx, workspace)
+                .map_err(|e| map_unify_err(e, inner_type, binding_ty, ty_expr.span, tycx))?;
         }
 
         if let Some(expr) = &mut self.expr {
             expr.infer(frame, tycx, workspace)?;
             binding_ty
-                .unify(&expr.ty, tycx, workspace, expr.span)
-                .map_err(map_unify_err)?;
+                .unify(&expr.ty, tycx, workspace)
+                .map_err(|e| map_unify_err(e, binding_ty, expr.ty, expr.span, tycx))?;
         }
 
         // TODO: should i follow the rule of locality and solve each binding's types locally?
@@ -102,8 +102,8 @@ impl Infer for ast::Fn {
         let body_ty = self.body.infer(InferFrame { return_ty }, tycx, workspace)?;
 
         body_ty
-            .unify(&return_ty, tycx, workspace, self.body.span)
-            .map_err(map_unify_err)?;
+            .unify(&return_ty, tycx, workspace)
+            .map_err(|e| map_unify_err(e, return_ty, body_ty, self.body.span, tycx))?;
 
         Ok(proto_ty)
     }
@@ -201,8 +201,8 @@ impl Infer for ast::Expr {
                 let lty = lvalue.infer(frame, tycx, workspace)?;
                 let rty = rvalue.infer(frame, tycx, workspace)?;
 
-                rty.unify(&lty, tycx, workspace, rvalue.span)
-                    .map_err(map_unify_err)?;
+                rty.unify(&lty, tycx, workspace)
+                    .map_err(|e| map_unify_err(e, lty, rty, rvalue.span, tycx))?;
 
                 tycx.primitive(TyKind::Unit)
             }
@@ -222,13 +222,16 @@ impl Infer for ast::Expr {
             ast::ExprKind::Fn(f) => f.infer(frame, tycx, workspace)?,
             ast::ExprKind::While { cond, block } => {
                 let cond_ty = cond.infer(frame, tycx, workspace)?;
+
                 cond_ty
-                    .unify(&TyKind::Bool, tycx, workspace, cond.span)
-                    .map_err(map_unify_err)?;
+                    .unify(&TyKind::Bool, tycx, workspace)
+                    .map_err(|e| map_unify_err(e, TyKind::Bool, cond_ty, cond.span, tycx))?;
+
                 block.infer(frame, tycx, workspace)?;
+
                 tycx.primitive(TyKind::Unit)
             }
-            ast::ExprKind::For(_) => todo!(),
+            ast::ExprKind::For(for_) => todo!(),
             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
                 for expr in deferred.iter_mut() {
                     expr.infer(frame, tycx, workspace)?;
@@ -239,12 +242,14 @@ impl Infer for ast::Expr {
                 if let Some(expr) = expr {
                     expr.infer(frame, tycx, workspace)?;
                     expr.ty
-                        .unify(&frame.return_ty, tycx, workspace, expr.span)
-                        .map_err(map_unify_err)?;
+                        .unify(&frame.return_ty, tycx, workspace)
+                        .map_err(|e| map_unify_err(e, frame.return_ty, expr.ty, expr.span, tycx))?;
                 } else {
                     TyKind::Unit
-                        .unify(&frame.return_ty, tycx, workspace, self.span)
-                        .map_err(map_unify_err)?;
+                        .unify(&frame.return_ty, tycx, workspace)
+                        .map_err(|e| {
+                            map_unify_err(e, TyKind::Unit, frame.return_ty, self.span, tycx)
+                        })?;
                 }
 
                 for expr in deferred.iter_mut() {
@@ -258,7 +263,7 @@ impl Infer for ast::Expr {
                 then_expr,
                 else_expr,
             } => todo!(),
-            ast::ExprKind::Block(_) => todo!(),
+            ast::ExprKind::Block(block) => block.infer(frame, tycx, workspace)?,
             ast::ExprKind::Binary { lhs, op, rhs } => {
                 todo!("Hello Binary");
             }
