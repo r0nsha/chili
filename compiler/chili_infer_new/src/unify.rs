@@ -1,6 +1,6 @@
 use crate::{
     normalize::NormalizeTy,
-    tycx::{TyBinding, TyContext},
+    tycx::{TyBinding, TyCtx},
 };
 use chili_ast::{ty::*, workspace::Workspace};
 
@@ -17,11 +17,11 @@ where
     Self: Sized,
     T: Sized,
 {
-    fn unify(&self, other: &T, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult;
+    fn unify(&self, other: &T, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult;
 }
 
 impl Unify<Ty> for Ty {
-    fn unify(&self, other: &Ty, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
+    fn unify(&self, other: &Ty, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
         let t1 = TyKind::Var(*self);
         let t2 = TyKind::Var(*other);
         t1.unify(&t2, tycx, workspace)
@@ -29,21 +29,21 @@ impl Unify<Ty> for Ty {
 }
 
 impl Unify<TyKind> for Ty {
-    fn unify(&self, other: &TyKind, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
+    fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
         let ty = TyKind::Var(*self);
         ty.unify(other, tycx, workspace)
     }
 }
 
 impl Unify<Ty> for TyKind {
-    fn unify(&self, other: &Ty, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
+    fn unify(&self, other: &Ty, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
         let other = TyKind::Var(*other);
         self.unify(&other, tycx, workspace)
     }
 }
 
 impl Unify<TyKind> for TyKind {
-    fn unify(&self, other: &TyKind, tycx: &mut TyContext, workspace: &Workspace) -> TyUnifyResult {
+    fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
         println!("{} <=> {}", self, other);
         match (self, other) {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
@@ -82,12 +82,7 @@ impl Unify<TyKind> for TyKind {
     }
 }
 
-fn unify_var_ty(
-    var: Ty,
-    other: &TyKind,
-    tycx: &mut TyContext,
-    workspace: &Workspace,
-) -> TyUnifyResult {
+fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
     match tycx.get_binding(var) {
         TyBinding::Bound(kind) => kind.clone().unify(other, tycx, workspace),
         TyBinding::Unbound => {
@@ -107,7 +102,7 @@ fn unify_var_ty(
     }
 }
 
-fn occurs(var: Ty, kind: &TyKind, tycx: &TyContext, workspace: &Workspace) -> bool {
+fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx, workspace: &Workspace) -> bool {
     match kind {
         TyKind::Var(other) => match tycx.get_binding(*other) {
             TyBinding::Bound(ty) => occurs(var, &ty, tycx, workspace),

@@ -1,10 +1,10 @@
 use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
-use chili_infer_new::tycx::TyContext;
+use chili_infer_new::tycx::TyCtx;
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 
-pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyContext) {
+pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();
         config.branch = Style {
@@ -34,11 +34,11 @@ pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyContext) {
 }
 
 pub trait PrintTree {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext);
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx);
 }
 
 impl<T: PrintTree> PrintTree for Vec<T> {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         for element in self {
             element.print_tree(b, workspace, tycx);
         }
@@ -46,7 +46,7 @@ impl<T: PrintTree> PrintTree for Vec<T> {
 }
 
 impl<T: PrintTree> PrintTree for Option<T> {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         if let Some(e) = self {
             e.print_tree(b, workspace, tycx);
         }
@@ -54,13 +54,13 @@ impl<T: PrintTree> PrintTree for Option<T> {
 }
 
 impl<T: PrintTree> PrintTree for Box<T> {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         self.as_ref().print_tree(b, workspace, tycx);
     }
 }
 
 impl PrintTree for ast::Ast {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         for import in self.imports.iter() {
             b.add_empty_child(format!(
                 "use {} as {}",
@@ -72,7 +72,7 @@ impl PrintTree for ast::Ast {
     }
 }
 impl PrintTree for ast::Fn {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child("fn".to_string());
         self.proto.print_tree(b, workspace, tycx);
         self.body.print_tree(b, workspace, tycx);
@@ -81,7 +81,7 @@ impl PrintTree for ast::Fn {
 }
 
 impl PrintTree for ast::Block {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child(format!(
             "block{}",
             if self.yields { " (yields)" } else { "" }
@@ -93,7 +93,7 @@ impl PrintTree for ast::Block {
 }
 
 impl PrintTree for ast::Proto {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child(format!(
             "{}proto",
             if self.lib_name.is_some() {
@@ -130,7 +130,7 @@ impl PrintTree for ast::Proto {
 }
 
 impl PrintTree for ast::Binding {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child(match &self.pattern {
             Pattern::Single(pat) => {
                 let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
@@ -178,7 +178,7 @@ fn build_deferred(
     b: &mut TreeBuilder,
     deferred: &Vec<ast::Expr>,
     workspace: &Workspace,
-    tycx: &TyContext,
+    tycx: &TyCtx,
 ) {
     if deferred.is_empty() {
         return;
@@ -189,7 +189,7 @@ fn build_deferred(
 }
 
 impl PrintTree for ast::Expr {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         match &self.kind {
             ast::ExprKind::Import(imports) => {
                 for import in imports.iter() {
@@ -485,7 +485,7 @@ impl PrintTree for ast::Expr {
 }
 
 impl PrintTree for ast::Cast {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyContext) {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child("from".to_string());
         self.expr.print_tree(b, workspace, tycx);
         b.end_child();

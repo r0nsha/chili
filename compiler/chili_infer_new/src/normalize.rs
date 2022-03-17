@@ -1,12 +1,12 @@
-use crate::tycx::{TyBinding, TyContext};
+use crate::tycx::{TyBinding, TyCtx};
 use chili_ast::ty::*;
 
 pub trait NormalizeTy {
-    fn normalize(&self, tycx: &TyContext) -> TyKind;
+    fn normalize(&self, tycx: &TyCtx) -> TyKind;
 }
 
 impl NormalizeTy for Ty {
-    fn normalize(&self, tycx: &TyContext) -> TyKind {
+    fn normalize(&self, tycx: &TyCtx) -> TyKind {
         match tycx.get_binding(*self) {
             TyBinding::Bound(ty) => ty.normalize(tycx),
             TyBinding::Unbound => TyKind::Var(*self),
@@ -15,7 +15,7 @@ impl NormalizeTy for Ty {
 }
 
 impl NormalizeTy for TyKind {
-    fn normalize(&self, tycx: &TyContext) -> TyKind {
+    fn normalize(&self, tycx: &TyCtx) -> TyKind {
         match self {
             TyKind::Var(var) => match tycx.get_binding(*var) {
                 TyBinding::Bound(ty) => ty.normalize(tycx),

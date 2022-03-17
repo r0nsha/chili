@@ -15,10 +15,10 @@ use chili_ast::{
 };
 use chili_error::DiagnosticResult;
 use infer::{Infer, InferFrame};
-use tycx::TyContext;
+use tycx::TyCtx;
 
-pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticResult<TyContext> {
-    let mut tycx = TyContext::new();
+pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticResult<TyCtx> {
+    let mut tycx = TyCtx::new();
 
     // assign type variables to all binding infos
     for binding_info in workspace.binding_infos.iter_mut() {

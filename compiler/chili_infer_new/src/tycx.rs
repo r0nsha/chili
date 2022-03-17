@@ -5,13 +5,13 @@ use std::{collections::HashMap, hash::Hash};
 
 use crate::normalize::NormalizeTy;
 
-pub struct TyContext {
+pub struct TyCtx {
     type_bindings: Slab<TyBinding>,
     primitive_types: HashMap<TyKind, Ty>,
     str_ty: Ty,
 }
 
-impl TyContext {
+impl TyCtx {
     pub fn new() -> Self {
         let mut inst = Self {
             type_bindings: Default::default(),

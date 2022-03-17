@@ -1,5 +1,5 @@
 use crate::{
-    display::map_unify_err, normalize::NormalizeTy, tycx::TyContext, unify::Unify,
+    display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::Unify,
     unpack_type::try_unpack_type,
 };
 use chili_ast::{ast, ty::*, workspace::Workspace};
@@ -15,7 +15,7 @@ pub(crate) trait Infer {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty>;
 }
@@ -24,7 +24,7 @@ impl Infer for ast::Ast {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         for import in self.imports.iter_mut() {
@@ -43,7 +43,7 @@ impl Infer for ast::Import {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         // TODO:
@@ -55,7 +55,7 @@ impl Infer for ast::Binding {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         // TODO: support other patterns
@@ -92,7 +92,7 @@ impl Infer for ast::Fn {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         let proto_ty = self.proto.infer(frame, tycx, workspace)?;
@@ -114,7 +114,7 @@ impl Infer for ast::Proto {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         let mut params = vec![];
@@ -156,7 +156,7 @@ impl Infer for ast::Block {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         let mut result_ty = tycx.primitive(TyKind::Unit);
@@ -177,7 +177,7 @@ impl Infer for ast::Expr {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         self.ty = match &mut self.kind {
@@ -444,11 +444,61 @@ impl Infer for ast::Expr {
                 }))
             }
             ast::ExprKind::Literal(lit) => lit.infer(frame, tycx, workspace)?,
-            ast::ExprKind::PointerType(inner, is_mutable) => todo!(),
-            ast::ExprKind::MultiPointerType(inner, is_mutable) => todo!(),
-            ast::ExprKind::ArrayType(inner, size) => todo!(),
-            ast::ExprKind::SliceType(inner, is_mutable) => todo!(),
-            ast::ExprKind::StructType(st) => todo!(),
+            ast::ExprKind::PointerType(inner, is_mutable) => {
+                let ty = inner.infer(frame, tycx, workspace)?;
+                try_unpack_type(&ty.into(), tycx, inner.span)?;
+                tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::Pointer(
+                    Box::new(ty.into()),
+                    *is_mutable,
+                ))))
+            }
+            ast::ExprKind::MultiPointerType(inner, is_mutable) => {
+                let ty = inner.infer(frame, tycx, workspace)?;
+                try_unpack_type(&ty.into(), tycx, inner.span)?;
+                tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::MultiPointer(
+                    Box::new(ty.into()),
+                    *is_mutable,
+                ))))
+            }
+            ast::ExprKind::ArrayType(inner, size) => {
+                let ty = inner.infer(frame, tycx, workspace)?;
+                try_unpack_type(&ty.into(), tycx, inner.span)?;
+                size.infer(frame, tycx, workspace)?;
+                tycx.new_variable()
+                // TODO:
+                // tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::Pointer(
+                //     Box::new(ty.into()),
+                //     size,
+                // ))))
+            }
+            ast::ExprKind::SliceType(inner, is_mutable) => {
+                let ty = inner.infer(frame, tycx, workspace)?;
+                try_unpack_type(&ty.into(), tycx, inner.span)?;
+                tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::Slice(
+                    Box::new(ty.into()),
+                    *is_mutable,
+                ))))
+            }
+            ast::ExprKind::StructType(st) => {
+                let mut ty_fields = vec![];
+
+                for field in st.fields.iter_mut() {
+                    let ty = field.ty.infer(frame, tycx, workspace)?;
+                    ty_fields.push(StructTyField {
+                        symbol: field.name,
+                        ty: ty.into(),
+                        span: field.span,
+                    });
+                }
+
+                tycx.new_bound_variable(TyKind::Struct(StructTy {
+                    name: st.name,
+                    qualified_name: st.name,
+                    binding_info_id: st.binding_info_id,
+                    fields: ty_fields,
+                    kind: st.kind,
+                }))
+            }
             ast::ExprKind::FnType(proto) => {
                 let ty = proto.infer(frame, tycx, workspace)?;
                 if proto.lib_name.is_some() {
@@ -472,7 +522,7 @@ impl Infer for ast::Cast {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         self.expr.infer(frame, tycx, workspace)?;
@@ -493,7 +543,7 @@ impl Infer for ast::Call {
     fn infer(
         &mut self,
         frame: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         self.callee.infer(frame, tycx, workspace)?;
@@ -508,7 +558,7 @@ impl Infer for ast::Literal {
     fn infer(
         &mut self,
         _: InferFrame,
-        tycx: &mut TyContext,
+        tycx: &mut TyCtx,
         _: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         let ty = match self {

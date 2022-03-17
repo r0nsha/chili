@@ -1,8 +1,8 @@
-use crate::tycx::TyContext;
+use crate::tycx::TyCtx;
 use chili_ast::ty::*;
 use ustr::Ustr;
 
-pub(crate) fn get_ty_for_builtin_type(symbol: Ustr, tycx: &mut TyContext) -> Ty {
+pub(crate) fn get_ty_for_builtin_type(symbol: Ustr, tycx: &mut TyCtx) -> Ty {
     match symbol.as_str() {
         "bool" => tycx.new_bound_variable(TyKind::Bool.create_type()),
         "i8" => tycx.new_bound_variable(TyKind::Int(IntTy::I8).create_type()),

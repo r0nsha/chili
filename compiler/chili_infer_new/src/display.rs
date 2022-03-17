@@ -1,4 +1,4 @@
-use crate::{normalize::NormalizeTy, tycx::TyContext, unify::TyUnifyErr};
+use crate::{normalize::NormalizeTy, tycx::TyCtx, unify::TyUnifyErr};
 use chili_ast::ty::TyKind;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -8,7 +8,7 @@ pub(crate) fn map_unify_err(
     expected: impl NormalizeTy,
     found: impl NormalizeTy,
     span: Span,
-    tycx: &TyContext,
+    tycx: &TyCtx,
 ) -> Diagnostic<usize> {
     use TyUnifyErr::*;
 
@@ -33,12 +33,12 @@ pub(crate) fn map_unify_err(
     }
 }
 
-trait DisplayTy {
-    fn display(&self, tycx: &TyContext) -> String;
+pub trait DisplayTy {
+    fn display(&self, tycx: &TyCtx) -> String;
 }
 
 impl DisplayTy for TyKind {
-    fn display(&self, tycx: &TyContext) -> String {
+    fn display(&self, tycx: &TyCtx) -> String {
         // TODO: this is bad, because i can't know what to display for Var and Struct
         self.to_string()
         // match self {

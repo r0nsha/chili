@@ -1,25 +1,24 @@
-use crate::tycx::{TyBinding, TyContext};
+use crate::{
+    display::DisplayTy,
+    normalize::NormalizeTy,
+    tycx::{TyBinding, TyCtx},
+};
 use chili_ast::ty::*;
-use chili_error::DiagnosticResult;
+use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-pub(crate) fn try_unpack_type(
-    ty: &TyKind,
-    tycx: &TyContext,
-    span: Span,
-) -> DiagnosticResult<TyKind> {
+pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
         TyKind::Type(ty) => unpack_type(ty, tycx),
-        _ => Err(Diagnostic::error()
-            .with_message(format!("expected a type, but found {}", ty))
-            .with_labels(vec![
-                Label::primary(span.file_id, span.range().clone()).with_message("expected a type")
-            ])),
+        _ => Err(TypeError::expected(
+            span,
+            ty.normalize(tycx).display(tycx),
+            "a type",
+        )),
     }
 }
 
-fn unpack_type(ty: &TyKind, tycx: &TyContext) -> DiagnosticResult<TyKind> {
+fn unpack_type(ty: &TyKind, tycx: &TyCtx) -> DiagnosticResult<TyKind> {
     match ty {
         TyKind::Var(var) => match tycx.get_binding(*var) {
             TyBinding::Bound(ty) => unpack_type(&ty, tycx),
