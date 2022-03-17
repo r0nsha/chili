@@ -2,7 +2,7 @@ use chili_ast::{ty::Ty, workspace::Workspace};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-use crate::{tyctx::TyContext, unify::TyUnifyErr};
+use crate::{tycx::TyContext, unify::TyUnifyErr};
 
 pub(crate) fn map_unify_err(e: TyUnifyErr, span: Span) -> Diagnostic<usize> {
     use TyUnifyErr::*;
@@ -26,11 +26,11 @@ pub(crate) fn map_unify_err(e: TyUnifyErr, span: Span) -> Diagnostic<usize> {
 }
 
 trait DisplayTy {
-    fn display(&self, ctx: &TyContext, workspace: &Workspace) -> String;
+    fn display(&self, tycx: &TyContext, workspace: &Workspace) -> String;
 }
 
 impl DisplayTy for Ty {
-    fn display(&self, ctx: &TyContext, workspace: &Workspace) -> String {
+    fn display(&self, tycx: &TyContext, workspace: &Workspace) -> String {
         // TODO: this is bad, because i can't know what to display for Var and Struct
         self.to_string()
         // match self {

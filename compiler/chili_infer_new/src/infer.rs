@@ -1,4 +1,4 @@
-use crate::{display::map_unify_err, tyctx::TyContext, unify::Unify, unpack_type::try_unpack_type};
+use crate::{display::map_unify_err, tycx::TyContext, unify::Unify, unpack_type::try_unpack_type};
 use chili_ast::{
     ast,
     ty::{FnTy, FnTyParam, Ty},
@@ -8,17 +8,17 @@ use chili_error::DiagnosticResult;
 use chili_span::Span;
 
 pub(crate) trait Infer {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty>;
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty>;
 }
 
 impl Infer for ast::Ast {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         for import in self.imports.iter_mut() {
-            import.infer(ctx, workspace)?;
+            import.infer(tycx, workspace)?;
         }
 
         for binding in self.bindings.iter_mut() {
-            binding.infer(ctx, workspace)?;
+            binding.infer(tycx, workspace)?;
         }
 
         Ok(Ty::Unit)
@@ -26,14 +26,14 @@ impl Infer for ast::Ast {
 }
 
 impl Infer for ast::Import {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         // TODO:
         Ok(Ty::Unit)
     }
 }
 
 impl Infer for ast::Binding {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         // TODO: support other patterns
         let pat = self.pattern.as_single_ref();
         let binding_info_ty = workspace
@@ -44,25 +44,25 @@ impl Infer for ast::Binding {
 
         // TODO: type annotation
         if let Some(ty_expr) = &mut self.ty_expr {
-            let ty = ty_expr.infer(ctx, workspace)?;
-            let inner_type = try_unpack_type(&ty, ctx)?;
+            let ty = ty_expr.infer(tycx, workspace)?;
+            let inner_type = try_unpack_type(&ty, tycx)?;
             inner_type
-                .unify(&binding_info_ty, ctx, workspace, ty_expr.span)
+                .unify(&binding_info_ty, tycx, workspace, ty_expr.span)
                 .map_err(|e| map_unify_err(e, ty_expr.span))?;
         }
 
         if let Some(expr) = &mut self.expr {
-            expr.infer(ctx, workspace)?;
+            expr.infer(tycx, workspace)?;
 
             binding_info_ty
-                .unify(&expr.ty, ctx, workspace, expr.span)
+                .unify(&expr.ty, tycx, workspace, expr.span)
                 .map_err(|e| map_unify_err(e, expr.span))?;
         }
 
         // TODO: should i follow the rule of locality and solve each binding's types locally?
         // let binding_info_mut = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
         // if binding_info_mut.scope_level.is_global() {
-        //     binding_info_mut.ty = substitute_ty(&binding_info_mut.ty, &ctx);
+        //     binding_info_mut.ty = substitute_ty(&binding_info_mut.ty, &tycx);
         // }
 
         Ok(Ty::Unit)
@@ -70,14 +70,14 @@ impl Infer for ast::Binding {
 }
 
 impl Infer for ast::Fn {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
-        let proto_ty = self.proto.infer(ctx, workspace)?;
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+        let proto_ty = self.proto.infer(tycx, workspace)?;
         let fn_ty = proto_ty.as_fn();
-        let ty = self.body.infer(ctx, workspace)?;
+        let ty = self.body.infer(tycx, workspace)?;
 
         ty.unify(
             &fn_ty.ret,
-            ctx,
+            tycx,
             workspace,
             self.proto.ret.as_ref().map_or(Span::unknown(), |e| e.span),
         )
@@ -88,7 +88,7 @@ impl Infer for ast::Fn {
 }
 
 impl Infer for ast::Proto {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         let mut params = vec![];
 
         for param in self.params.iter_mut() {
@@ -97,7 +97,7 @@ impl Infer for ast::Proto {
             let binding_info = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
 
             // TODO: param type annotation
-            binding_info.ty = ctx.new_variable().into();
+            binding_info.ty = tycx.new_variable().into();
 
             params.push(FnTyParam {
                 symbol: pat.symbol,
@@ -106,11 +106,11 @@ impl Infer for ast::Proto {
         }
 
         let ret = if let Some(ret) = &mut self.ret {
-            let ty = ret.infer(ctx, workspace)?;
-            let inner_type = try_unpack_type(&ty, ctx)?;
-            ctx.new_bound_variable(inner_type).into()
+            let ty = ret.infer(tycx, workspace)?;
+            let inner_type = try_unpack_type(&ty, tycx)?;
+            tycx.new_bound_variable(inner_type).into()
         } else {
-            ctx.new_variable().into()
+            tycx.new_variable().into()
         };
 
         let ty = Ty::Fn(FnTy {
@@ -127,15 +127,15 @@ impl Infer for ast::Proto {
 }
 
 impl Infer for ast::Block {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         let mut result_ty = Ty::Unit;
 
         for expr in self.exprs.iter_mut() {
-            result_ty = expr.infer(ctx, workspace)?;
+            result_ty = expr.infer(tycx, workspace)?;
         }
 
         for expr in self.deferred.iter_mut() {
-            expr.infer(ctx, workspace)?;
+            expr.infer(tycx, workspace)?;
         }
 
         Ok(result_ty)
@@ -143,47 +143,47 @@ impl Infer for ast::Block {
 }
 
 impl Infer for ast::Expr {
-    fn infer(&mut self, ctx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         self.ty = match &mut self.kind {
             ast::ExprKind::Import(imports) => {
                 for import in imports.iter_mut() {
-                    import.infer(ctx, workspace)?;
+                    import.infer(tycx, workspace)?;
                 }
                 Ty::Unit
             }
             ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter_mut() {
-                    binding.infer(ctx, workspace)?;
+                    binding.infer(tycx, workspace)?;
                 }
                 Ty::Unit
             }
             ast::ExprKind::Binding(binding) => {
-                binding.infer(ctx, workspace)?;
+                binding.infer(tycx, workspace)?;
                 Ty::Unit
             }
             ast::ExprKind::Defer(_) => todo!(),
             ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
             ast::ExprKind::Cast(_) => todo!(),
             ast::ExprKind::Builtin(_) => todo!(),
-            ast::ExprKind::Fn(f) => f.infer(ctx, workspace)?,
+            ast::ExprKind::Fn(f) => f.infer(tycx, workspace)?,
             ast::ExprKind::While { cond, expr } => todo!(),
             ast::ExprKind::For(_) => todo!(),
             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
                 for expr in deferred.iter_mut() {
-                    expr.infer(ctx, workspace)?;
+                    expr.infer(tycx, workspace)?;
                 }
                 Ty::Never
             }
             ast::ExprKind::Return { expr, deferred } => {
                 if let Some(expr) = expr {
-                    expr.infer(ctx, workspace)?;
-                    // TODO: unify expr.ty with ctx.return_ty
+                    expr.infer(tycx, workspace)?;
+                    // TODO: unify expr.ty with tycx.return_ty
                 } else {
                     // TODO: unify expr.ty with Ty::Unit
                 }
 
                 for expr in deferred.iter_mut() {
-                    expr.infer(ctx, workspace)?;
+                    expr.infer(tycx, workspace)?;
                 }
 
                 Ty::Never
@@ -217,7 +217,7 @@ impl Infer for ast::Expr {
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
-            ast::ExprKind::Literal(lit) => lit.infer(ctx, workspace)?,
+            ast::ExprKind::Literal(lit) => lit.infer(tycx, workspace)?,
             ast::ExprKind::PointerType(_, _) => todo!(),
             ast::ExprKind::MultiPointerType(_, _) => todo!(),
             ast::ExprKind::ArrayType(_, _) => todo!(),
@@ -236,13 +236,13 @@ impl Infer for ast::Expr {
 }
 
 impl Infer for ast::Literal {
-    fn infer(&mut self, ctx: &mut TyContext, _: &mut Workspace) -> DiagnosticResult<Ty> {
+    fn infer(&mut self, tycx: &mut TyContext, _: &mut Workspace) -> DiagnosticResult<Ty> {
         let ty = match self {
             ast::Literal::Unit => Ty::Unit,
             ast::Literal::Nil => Ty::raw_pointer(true),
             ast::Literal::Bool(_) => Ty::Bool,
-            ast::Literal::Int(_) => Ty::AnyInt(ctx.new_variable()),
-            ast::Literal::Float(_) => Ty::AnyFloat(ctx.new_variable()),
+            ast::Literal::Int(_) => Ty::AnyInt(tycx.new_variable()),
+            ast::Literal::Float(_) => Ty::AnyFloat(tycx.new_variable()),
             ast::Literal::Str(_) => Ty::str(),
             ast::Literal::Char(_) => Ty::char(),
         };

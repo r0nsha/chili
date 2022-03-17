@@ -1,10 +1,9 @@
-use chili_ast::{ty::*, workspace::Workspace};
-use chili_span::Span;
-
 use crate::{
     normalize::NormalizeTy,
-    tyctx::{TyBinding, TyContext},
+    tycx::{TyBinding, TyContext},
 };
+use chili_ast::{ty::*, workspace::Workspace};
+use chili_span::Span;
 
 pub(crate) type TyUnifyResult = Result<(), TyUnifyErr>;
 
@@ -21,7 +20,7 @@ where
     fn unify(
         &self,
         other: &Self,
-        ctx: &mut TyContext,
+        tycx: &mut TyContext,
         workspace: &Workspace,
         span: Span,
     ) -> TyUnifyResult;
@@ -31,7 +30,7 @@ impl Unify for Ty {
     fn unify(
         &self,
         other: &Self,
-        ctx: &mut TyContext,
+        tycx: &mut TyContext,
         workspace: &Workspace,
         span: Span,
     ) -> TyUnifyResult {
@@ -50,12 +49,12 @@ impl Unify for Ty {
             | (ty @ Ty::Float(_), Ty::AnyInt(var))
             | (Ty::AnyFloat(var), ty @ Ty::Float(_))
             | (ty @ Ty::Float(_), Ty::AnyFloat(var)) => {
-                ctx.bind(*var, ty.clone());
+                tycx.bind(*var, ty.clone());
                 Ok(())
             }
 
-            (Ty::Var(var), _) => unify_var_type(*var, self, other, ctx, workspace, span),
-            (_, Ty::Var(var)) => unify_var_type(*var, other, self, ctx, workspace, span),
+            (Ty::Var(var), _) => unify_var_type(*var, self, other, tycx, workspace, span),
+            (_, Ty::Var(var)) => unify_var_type(*var, other, self, tycx, workspace, span),
 
             (Ty::Never, _) | (_, Ty::Never) => Ok(()),
 
@@ -68,20 +67,20 @@ fn unify_var_type(
     var: TyVar,
     t1: &Ty,
     t2: &Ty,
-    ctx: &mut TyContext,
+    tycx: &mut TyContext,
     workspace: &Workspace,
     span: Span,
 ) -> TyUnifyResult {
-    match ctx.find_type_binding(var) {
-        TyBinding::Bound(t) => t.unify(t2, ctx, workspace, span),
+    match tycx.find_type_binding(var) {
+        TyBinding::Bound(t) => t.unify(t2, tycx, workspace, span),
         TyBinding::Unbound => {
-            let normalized = t2.normalize(ctx, workspace);
+            let normalized = t2.normalize(tycx, workspace);
 
             if *t1 != normalized {
-                if occurs(var, &normalized, ctx, workspace) {
+                if occurs(var, &normalized, tycx, workspace) {
                     Err(TyUnifyErr::Occurs(t1.clone(), t2.clone()))
                 } else {
-                    ctx.bind(var, normalized);
+                    tycx.bind(var, normalized);
                     Ok(())
                 }
             } else {
@@ -91,21 +90,29 @@ fn unify_var_type(
     }
 }
 
-fn occurs(var: TyVar, ty: &Ty, ctx: &TyContext, workspace: &Workspace) -> bool {
+fn occurs(var: TyVar, ty: &Ty, tycx: &TyContext, workspace: &Workspace) -> bool {
     match ty {
-        Ty::Var(other) => match ctx.find_type_binding(*other) {
-            TyBinding::Bound(ty) => occurs(var, &ty, ctx, workspace),
+        Ty::Var(other) => match tycx.find_type_binding(*other) {
+            TyBinding::Bound(ty) => occurs(var, &ty, tycx, workspace),
             TyBinding::Unbound => var == *other,
         },
         Ty::Fn(f) => {
-            f.params.iter().any(|p| occurs(var, &p.ty, ctx, workspace))
-                || occurs(var, &f.ret, ctx, workspace)
+            f.params.iter().any(|p| occurs(var, &p.ty, tycx, workspace))
+                || occurs(var, &f.ret, tycx, workspace)
         }
         Ty::Pointer(ty, _) | Ty::MultiPointer(ty, _) | Ty::Array(ty, _) | Ty::Slice(ty, _) => {
-            occurs(var, ty, ctx, workspace)
+            occurs(var, ty, tycx, workspace)
         }
-        Ty::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, ctx, workspace)),
-        Ty::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, ctx, workspace)),
+        Ty::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx, workspace)),
+        Ty::Struct(st) => st
+            .fields
+            .iter()
+            .any(|f| occurs(var, &f.ty, tycx, workspace)),
         _ => false,
     }
+}
+
+// NOTE (Ron): checks that mutability rules are equal
+fn can_coerce_mut(from: bool, to: bool) -> bool {
+    from == to || (!from && to)
 }

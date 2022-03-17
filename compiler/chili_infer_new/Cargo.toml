@@ -7,6 +7,7 @@ edition = "2021"
 codespan = "0.11.1"
 codespan-reporting = "0.11.1"
 ena = "0.14.0"
+slab = "0.4.5"
 
 common = { path = '../common' }
 chili_span = { path = '../chili_span' }

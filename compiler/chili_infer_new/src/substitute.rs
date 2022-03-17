@@ -1,197 +1,197 @@
-use crate::tyctx::{TyBinding, TyContext};
+use crate::tycx::{TyBinding, TyContext};
 use chili_ast::{ast, ty::*};
 
 pub(crate) trait Substitute {
-    fn substitute(&mut self, ctx: &TyContext);
+    fn substitute(&mut self, tycx: &TyContext);
 }
 
 impl<T: Substitute> Substitute for Vec<T> {
-    fn substitute(&mut self, ctx: &TyContext) {
+    fn substitute(&mut self, tycx: &TyContext) {
         for element in self {
-            element.substitute(ctx);
+            element.substitute(tycx);
         }
     }
 }
 
 impl<T: Substitute> Substitute for Option<T> {
-    fn substitute(&mut self, ctx: &TyContext) {
+    fn substitute(&mut self, tycx: &TyContext) {
         if let Some(e) = self {
-            e.substitute(ctx);
+            e.substitute(tycx);
         }
     }
 }
 
 impl<T: Substitute> Substitute for Box<T> {
-    fn substitute(&mut self, ctx: &TyContext) {
-        self.as_mut().substitute(ctx)
+    fn substitute(&mut self, tycx: &TyContext) {
+        self.as_mut().substitute(tycx)
     }
 }
 
 impl Substitute for ast::Ast {
-    fn substitute(&mut self, ctx: &TyContext) {
+    fn substitute(&mut self, tycx: &TyContext) {
         for binding in self.bindings.iter_mut() {
-            binding.substitute(ctx);
+            binding.substitute(tycx);
         }
     }
 }
 
 impl Substitute for ast::Binding {
-    fn substitute(&mut self, ctx: &TyContext) {
-        self.ty_expr.substitute(ctx);
-        self.expr.substitute(ctx);
+    fn substitute(&mut self, tycx: &TyContext) {
+        self.ty_expr.substitute(tycx);
+        self.expr.substitute(tycx);
     }
 }
 
 impl Substitute for ast::Block {
-    fn substitute(&mut self, ctx: &TyContext) {
-        self.exprs.substitute(ctx);
-        self.deferred.substitute(ctx);
+    fn substitute(&mut self, tycx: &TyContext) {
+        self.exprs.substitute(tycx);
+        self.deferred.substitute(tycx);
     }
 }
 
 impl Substitute for ast::Fn {
-    fn substitute(&mut self, ctx: &TyContext) {
-        self.proto.substitute(ctx);
-        self.body.substitute(ctx);
+    fn substitute(&mut self, tycx: &TyContext) {
+        self.proto.substitute(tycx);
+        self.body.substitute(tycx);
     }
 }
 
 impl Substitute for ast::Proto {
-    fn substitute(&mut self, ctx: &TyContext) {
+    fn substitute(&mut self, tycx: &TyContext) {
         for param in self.params.iter_mut() {
-            param.ty.substitute(ctx);
+            param.ty.substitute(tycx);
         }
-        self.ret.substitute(ctx);
-        self.ty = substitute_ty(&self.ty, ctx);
+        self.ret.substitute(tycx);
+        self.ty = substitute_ty(&self.ty, tycx);
     }
 }
 
 impl Substitute for ast::Cast {
-    fn substitute(&mut self, ctx: &TyContext) {
-        self.expr.substitute(ctx);
-        self.type_expr.substitute(ctx);
-        self.target_ty = substitute_ty(&self.target_ty, ctx);
+    fn substitute(&mut self, tycx: &TyContext) {
+        self.expr.substitute(tycx);
+        self.type_expr.substitute(tycx);
+        self.target_ty = substitute_ty(&self.target_ty, tycx);
     }
 }
 
 impl Substitute for ast::Expr {
-    fn substitute(&mut self, ctx: &TyContext) {
+    fn substitute(&mut self, tycx: &TyContext) {
         match &mut self.kind {
             ast::ExprKind::Import(..) | ast::ExprKind::Defer(_) => (),
             ast::ExprKind::Foreign(bindings) => {
-                bindings.substitute(ctx);
+                bindings.substitute(tycx);
             }
             ast::ExprKind::Binding(binding) => {
-                binding.substitute(ctx);
+                binding.substitute(tycx);
             }
             ast::ExprKind::Assign { lvalue, rvalue } => {
-                lvalue.substitute(ctx);
-                rvalue.substitute(ctx);
+                lvalue.substitute(tycx);
+                rvalue.substitute(tycx);
             }
-            ast::ExprKind::Cast(info) => info.substitute(ctx),
+            ast::ExprKind::Cast(info) => info.substitute(tycx),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => expr.substitute(ctx),
+                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => expr.substitute(tycx),
                 ast::Builtin::Panic(expr) => {
-                    expr.substitute(ctx);
+                    expr.substitute(tycx);
                 }
             },
             ast::ExprKind::Fn(func) => {
-                func.substitute(ctx);
+                func.substitute(tycx);
             }
             ast::ExprKind::While { cond, expr } => {
-                cond.substitute(ctx);
-                expr.substitute(ctx);
+                cond.substitute(tycx);
+                expr.substitute(tycx);
             }
             ast::ExprKind::For(for_) => {
                 match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
-                        start.substitute(ctx);
-                        end.substitute(ctx);
+                        start.substitute(tycx);
+                        end.substitute(tycx);
                     }
                     ast::ForIter::Value(value) => {
-                        value.substitute(ctx);
+                        value.substitute(tycx);
                     }
                 }
 
-                for_.expr.substitute(ctx);
+                for_.expr.substitute(tycx);
             }
             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
-                deferred.substitute(ctx);
+                deferred.substitute(tycx);
             }
             ast::ExprKind::Return { expr, deferred } => {
-                deferred.substitute(ctx);
-                expr.substitute(ctx);
+                deferred.substitute(tycx);
+                expr.substitute(tycx);
             }
             ast::ExprKind::If {
                 cond,
                 then_expr,
                 else_expr,
             } => {
-                cond.substitute(ctx);
-                then_expr.substitute(ctx);
-                else_expr.substitute(ctx);
+                cond.substitute(tycx);
+                then_expr.substitute(tycx);
+                else_expr.substitute(tycx);
             }
             ast::ExprKind::Block(block) => {
-                block.exprs.substitute(ctx);
-                block.deferred.substitute(ctx);
+                block.exprs.substitute(tycx);
+                block.deferred.substitute(tycx);
             }
             ast::ExprKind::Binary { lhs, op: _, rhs } => {
-                lhs.substitute(ctx);
-                rhs.substitute(ctx);
+                lhs.substitute(tycx);
+                rhs.substitute(tycx);
             }
             ast::ExprKind::Unary { op: _, lhs } => {
-                lhs.substitute(ctx);
+                lhs.substitute(tycx);
             }
             ast::ExprKind::Subscript { expr, index } => {
-                expr.substitute(ctx);
-                index.substitute(ctx);
+                expr.substitute(tycx);
+                index.substitute(tycx);
             }
             ast::ExprKind::Slice { expr, low, high } => {
-                expr.substitute(ctx);
-                low.substitute(ctx);
-                high.substitute(ctx);
+                expr.substitute(tycx);
+                low.substitute(tycx);
+                high.substitute(tycx);
             }
             ast::ExprKind::Call(call) => {
-                call.callee.substitute(ctx);
+                call.callee.substitute(tycx);
                 for arg in call.args.iter_mut() {
-                    arg.value.substitute(ctx);
+                    arg.value.substitute(tycx);
                 }
             }
             ast::ExprKind::MemberAccess { expr, .. } => {
-                expr.substitute(ctx);
+                expr.substitute(tycx);
             }
             ast::ExprKind::ArrayLiteral(kind) => match kind {
                 ast::ArrayLiteralKind::List(elements) => {
-                    elements.substitute(ctx);
+                    elements.substitute(tycx);
                 }
                 ast::ArrayLiteralKind::Fill { expr, len } => {
-                    len.substitute(ctx);
-                    expr.substitute(ctx);
+                    len.substitute(tycx);
+                    expr.substitute(tycx);
                 }
             },
             ast::ExprKind::TupleLiteral(elements) => {
-                elements.substitute(ctx);
+                elements.substitute(tycx);
             }
             ast::ExprKind::StructLiteral { type_expr, fields } => {
-                type_expr.substitute(ctx);
+                type_expr.substitute(tycx);
                 for f in fields {
-                    f.value.substitute(ctx);
+                    f.value.substitute(tycx);
                 }
             }
 
             ast::ExprKind::PointerType(expr, ..)
             | ast::ExprKind::MultiPointerType(expr, ..)
             | ast::ExprKind::SliceType(expr, ..)
-            | ast::ExprKind::ArrayType(expr, ..) => expr.substitute(ctx),
+            | ast::ExprKind::ArrayType(expr, ..) => expr.substitute(tycx),
 
             ast::ExprKind::StructType(struct_type, ..) => {
                 for f in struct_type.fields.iter_mut() {
-                    f.ty.substitute(ctx);
+                    f.ty.substitute(tycx);
                 }
             }
 
             ast::ExprKind::FnType(proto) => {
-                proto.substitute(ctx);
+                proto.substitute(tycx);
             }
 
             ast::ExprKind::Id { .. }
@@ -203,13 +203,13 @@ impl Substitute for ast::Expr {
             | ast::ExprKind::Noop => (),
         }
 
-        self.ty = substitute_ty(&self.ty, ctx);
+        self.ty = substitute_ty(&self.ty, tycx);
     }
 }
 
-pub(crate) fn substitute_ty(ty: &Ty, ctx: &TyContext) -> Ty {
+pub(crate) fn substitute_ty(ty: &Ty, tycx: &TyContext) -> Ty {
     match ty {
-        Ty::Var(var) => find_type_or_default(*var, ctx, || {
+        Ty::Var(var) => find_type_or_default(*var, tycx, || {
             panic!(
                 "couldn't figure out the type of {}, because it was unbound",
                 var
@@ -221,18 +221,18 @@ pub(crate) fn substitute_ty(ty: &Ty, ctx: &TyContext) -> Ty {
                 .iter()
                 .map(|p| FnTyParam {
                     symbol: p.symbol,
-                    ty: substitute_ty(&p.ty, ctx),
+                    ty: substitute_ty(&p.ty, tycx),
                 })
                 .collect(),
-            ret: Box::new(substitute_ty(&f.ret, ctx)),
+            ret: Box::new(substitute_ty(&f.ret, tycx)),
             variadic: f.variadic,
             lib_name: f.lib_name,
         }),
-        Ty::Pointer(ty, a) => Ty::Pointer(Box::new(substitute_ty(ty, ctx)), *a),
-        Ty::MultiPointer(ty, a) => Ty::MultiPointer(Box::new(substitute_ty(ty, ctx)), *a),
-        Ty::Array(ty, a) => Ty::Array(Box::new(substitute_ty(ty, ctx)), *a),
-        Ty::Slice(ty, a) => Ty::Slice(Box::new(substitute_ty(ty, ctx)), *a),
-        Ty::Tuple(tys) => Ty::Tuple(tys.iter().map(|ty| substitute_ty(&ty, ctx)).collect()),
+        Ty::Pointer(ty, a) => Ty::Pointer(Box::new(substitute_ty(ty, tycx)), *a),
+        Ty::MultiPointer(ty, a) => Ty::MultiPointer(Box::new(substitute_ty(ty, tycx)), *a),
+        Ty::Array(ty, a) => Ty::Array(Box::new(substitute_ty(ty, tycx)), *a),
+        Ty::Slice(ty, a) => Ty::Slice(Box::new(substitute_ty(ty, tycx)), *a),
+        Ty::Tuple(tys) => Ty::Tuple(tys.iter().map(|ty| substitute_ty(&ty, tycx)).collect()),
         Ty::Struct(st) => Ty::Struct(StructTy {
             name: st.name,
             qualified_name: st.qualified_name,
@@ -242,21 +242,21 @@ pub(crate) fn substitute_ty(ty: &Ty, ctx: &TyContext) -> Ty {
                 .iter()
                 .map(|f| StructTyField {
                     symbol: f.symbol,
-                    ty: substitute_ty(&f.ty, ctx),
+                    ty: substitute_ty(&f.ty, tycx),
                     span: f.span,
                 })
                 .collect(),
             kind: st.kind,
         }),
-        Ty::AnyInt(var) => find_type_or_default(*var, ctx, || Ty::Int(IntTy::default())),
-        Ty::AnyFloat(var) => find_type_or_default(*var, ctx, || Ty::Float(FloatTy::default())),
+        Ty::AnyInt(var) => find_type_or_default(*var, tycx, || Ty::Int(IntTy::default())),
+        Ty::AnyFloat(var) => find_type_or_default(*var, tycx, || Ty::Float(FloatTy::default())),
         _ => ty.clone(),
     }
 }
 
-fn find_type_or_default<F: FnOnce() -> Ty>(var: TyVar, ctx: &TyContext, default: F) -> Ty {
-    match ctx.find_type_binding(var) {
-        TyBinding::Bound(ty) => substitute_ty(&ty, ctx),
+fn find_type_or_default<F: FnOnce() -> Ty>(var: TyVar, tycx: &TyContext, default: F) -> Ty {
+    match tycx.find_type_binding(var) {
+        TyBinding::Bound(ty) => substitute_ty(&ty, tycx),
         TyBinding::Unbound => default(),
     }
 }
