@@ -14,7 +14,7 @@ use chili_ast::{
     workspace::{BindingInfoFlags, Workspace},
 };
 use chili_error::DiagnosticResult;
-use infer::Infer;
+use infer::{Infer, InferFrame};
 use tycx::TyContext;
 
 pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticResult<TyContext> {
@@ -32,7 +32,7 @@ pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticR
     // infer all expressions, with shallow semantics -
     // without requiring specific types for most semantics
     for ast in asts.iter_mut() {
-        ast.infer(&mut tycx, workspace)?;
+        ast.infer(InferFrame::default(), &mut tycx, workspace)?;
     }
 
     // infer and typecheck all expressions, with deep semantics

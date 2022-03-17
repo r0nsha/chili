@@ -34,8 +34,11 @@ impl TyContext {
     }
 
     #[inline]
-    pub fn new_bound_variable(&mut self, ty: TyKind) -> Ty {
-        self.insert(TyBinding::Bound(ty))
+    pub fn new_bound_variable(&mut self, kind: TyKind) -> Ty {
+        match kind {
+            TyKind::Var(ty) | TyKind::AnyInt(ty) | TyKind::AnyFloat(ty) => ty,
+            _ => self.insert(TyBinding::Bound(kind)),
+        }
     }
 
     #[inline]

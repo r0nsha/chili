@@ -1,4 +1,4 @@
-let main = fn {
+let main = fn -> int {
     let mut a = 5
     a = 10
     let b = a as i32
