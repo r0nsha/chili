@@ -505,7 +505,8 @@ impl Infer for ast::Expr {
                 if proto.lib_name.is_some() {
                     ty
                 } else {
-                    tycx.new_bound_variable(TyKind::Type(Box::new(ty.into())))
+                    let ty = TyKind::Var(ty.into());
+                    tycx.new_bound_variable(ty.create_type())
                 }
             }
             ast::ExprKind::SelfType => unimplemented!("Self type"),
