@@ -39,7 +39,7 @@ impl Infer for ast::Binding {
 
         if let Some(ty_expr) = &mut self.ty_expr {
             let ty = ty_expr.infer(tycx, workspace)?.normalize(tycx);
-            let inner_type = try_unpack_type(&ty, tycx)?;
+            let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
 
             inner_type
                 .unify(&binding_ty, tycx, workspace, ty_expr.span)
@@ -102,7 +102,7 @@ impl Infer for ast::Proto {
         let ret = if let Some(ret) = &mut self.ret {
             let ty = ret.infer(tycx, workspace)?;
             let ty = ty.normalize(tycx);
-            let inner_type = try_unpack_type(&ty, tycx)?;
+            let inner_type = try_unpack_type(&ty, tycx, ret.span)?;
             tycx.new_bound_variable(inner_type).into()
         } else {
             tycx.new_variable().into()
@@ -242,7 +242,7 @@ impl Infer for ast::Literal {
                 let var = tycx.new_variable();
                 tycx.new_bound_variable(TyKind::AnyFloat(var))
             }
-            ast::Literal::Str(_) => tycx.str(),
+            ast::Literal::Str(_) => tycx.str_primitive(),
             ast::Literal::Char(_) => tycx.primitive(TyKind::char()),
         };
         Ok(ty)

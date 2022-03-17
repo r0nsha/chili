@@ -134,7 +134,7 @@ impl PrintTree for ast::Binding {
         b.begin_child(match &self.pattern {
             Pattern::Single(pat) => {
                 let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
-                format!("let {} <{}>", pat.symbol, ty)
+                format!("let {} <{}>", pat.symbol, tycx.ty_kind(*ty))
             }
             Pattern::StructDestructor(pat) => {
                 let concat_symbols = pat
@@ -142,7 +142,7 @@ impl PrintTree for ast::Binding {
                     .iter()
                     .map(|pat| {
                         let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
-                        format!("let {} <{}>", pat.symbol, ty)
+                        format!("let {} <{}>", pat.symbol, tycx.ty_kind(*ty))
                     })
                     .collect::<Vec<String>>()
                     .join(", ");
@@ -155,7 +155,7 @@ impl PrintTree for ast::Binding {
                     .iter()
                     .map(|pat| {
                         let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
-                        format!("let {} <{}>", pat.symbol, ty)
+                        format!("let {} <{}>", pat.symbol, tycx.ty_kind(*ty))
                     })
                     .collect::<Vec<String>>()
                     .join(", ");
@@ -293,7 +293,7 @@ impl PrintTree for ast::Expr {
                 then_expr,
                 else_expr,
             } => {
-                b.begin_child(format!("if <{}>", self.ty));
+                b.begin_child(format!("if <{}>", tycx.ty_kind(self.ty)));
                 cond.print_tree(b, workspace, tycx);
                 then_expr.print_tree(b, workspace, tycx);
 
@@ -309,18 +309,18 @@ impl PrintTree for ast::Expr {
                 block.print_tree(b, workspace, tycx);
             }
             ast::ExprKind::Binary { lhs, op, rhs } => {
-                b.begin_child(format!("{} <{}>", op, self.ty));
+                b.begin_child(format!("{} <{}>", op, tycx.ty_kind(self.ty)));
                 lhs.print_tree(b, workspace, tycx);
                 rhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Unary { op, lhs } => {
-                b.begin_child(format!("{} <{}>", op, self.ty));
+                b.begin_child(format!("{} <{}>", op, tycx.ty_kind(self.ty)));
                 lhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Subscript { expr, index } => {
-                b.begin_child(format!("subscript <{}>", self.ty));
+                b.begin_child(format!("subscript <{}>", tycx.ty_kind(self.ty)));
                 expr.print_tree(b, workspace, tycx);
                 index.print_tree(b, workspace, tycx);
                 b.end_child();
@@ -344,9 +344,9 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::Call(call) => {
-                b.begin_child(format!("call <{}>", self.ty));
+                b.begin_child(format!("call <{}>", tycx.ty_kind(self.ty)));
 
-                b.begin_child(format!("callee <{}>", call.callee.ty));
+                b.begin_child(format!("callee <{}>", tycx.ty_kind(call.callee.ty)));
                 call.callee.print_tree(b, workspace, tycx);
                 b.end_child();
 
@@ -367,15 +367,15 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::MemberAccess { expr, member } => {
-                b.begin_child(format!("access `{}` <{}>", member, self.ty));
+                b.begin_child(format!("access `{}` <{}>", member, tycx.ty_kind(self.ty)));
                 expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Id { symbol, .. } => {
-                b.add_empty_child(format!("`{}` <{}>", symbol, self.ty));
+                b.add_empty_child(format!("`{}` <{}>", symbol, tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::ArrayLiteral(kind) => {
-                b.begin_child(format!("array literal <{}>", self.ty));
+                b.begin_child(format!("array literal <{}>", tycx.ty_kind(self.ty)));
 
                 match kind {
                     ast::ArrayLiteralKind::List(elements) => {
@@ -394,12 +394,12 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::TupleLiteral(elements) => {
-                b.begin_child(format!("tuple literal <{}>", self.ty));
+                b.begin_child(format!("tuple literal <{}>", tycx.ty_kind(self.ty)));
                 elements.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::StructLiteral { type_expr, fields } => {
-                b.begin_child(format!("struct literal <{}>", self.ty));
+                b.begin_child(format!("struct literal <{}>", tycx.ty_kind(self.ty)));
                 type_expr.print_tree(b, workspace, tycx);
                 for f in fields {
                     b.begin_child(f.symbol.to_string());
@@ -409,13 +409,13 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::Literal(kind) => {
-                b.add_empty_child(format!("{} <{}>", kind.to_string(), self.ty));
+                b.add_empty_child(format!("{} <{}>", kind.to_string(), tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::PointerType(expr, is_mutable) => {
                 b.begin_child(format!(
                     "{}pointer type <{}>",
                     if *is_mutable { "mut " } else { "" },
-                    self.ty
+                    tycx.ty_kind(self.ty)
                 ));
                 expr.print_tree(b, workspace, tycx);
                 b.end_child();
@@ -424,7 +424,7 @@ impl PrintTree for ast::Expr {
                 b.begin_child(format!(
                     "{}multi-pointer type <{}>",
                     if *is_mutable { "mut " } else { "" },
-                    self.ty
+                    tycx.ty_kind(self.ty)
                 ));
                 expr.print_tree(b, workspace, tycx);
                 b.end_child();
@@ -433,13 +433,13 @@ impl PrintTree for ast::Expr {
                 b.begin_child(format!(
                     "{}slice type <{}>",
                     if *is_mutable { "mut " } else { "" },
-                    self.ty
+                    tycx.ty_kind(self.ty)
                 ));
                 expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::ArrayType(expr, size) => {
-                b.begin_child(format!("array type <{}>", self.ty));
+                b.begin_child(format!("array type <{}>", tycx.ty_kind(self.ty)));
 
                 b.begin_child("type".to_string());
                 expr.print_tree(b, workspace, tycx);

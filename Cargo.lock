@@ -140,6 +140,7 @@ dependencies = [
  "common",
  "ena",
  "slab",
+ "ustr",
 ]
 
 [[package]]

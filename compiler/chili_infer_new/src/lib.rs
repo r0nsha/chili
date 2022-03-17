@@ -1,3 +1,4 @@
+mod builtin;
 mod display;
 mod infer;
 mod normalize;
@@ -6,7 +7,11 @@ pub mod tycx;
 mod unify;
 mod unpack_type;
 
-use chili_ast::{ast, workspace::Workspace};
+use builtin::get_ty_for_builtin_type;
+use chili_ast::{
+    ast,
+    workspace::{BindingInfoFlags, Workspace},
+};
 use chili_error::DiagnosticResult;
 use infer::Infer;
 // use substitute::{substitute_ty, Substitute};
@@ -17,8 +22,11 @@ pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticR
 
     // assign type variables to all binding infos
     for binding_info in workspace.binding_infos.iter_mut() {
-        // TODO: if this is a builtin type, find its appropriate type and assign it
-        binding_info.ty = tycx.new_variable();
+        binding_info.ty = if binding_info.flags.contains(BindingInfoFlags::BUILTIN_TYPE) {
+            get_ty_for_builtin_type(binding_info.symbol, &mut tycx)
+        } else {
+            tycx.new_variable()
+        };
     }
 
     // infer all expressions

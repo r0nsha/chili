@@ -55,11 +55,11 @@ impl Display for TyKind {
                 ),
                 TyKind::Struct(ty) => ty.to_string(),
                 TyKind::Module { .. } => "[module]".to_string(),
-                TyKind::Type(_) => "type".to_string(),
+                TyKind::Type(inner) => format!("type({})", inner),
                 TyKind::Never => "!".to_string(),
                 TyKind::AnyInt(_) => "[anyint]".to_string(),
                 TyKind::AnyFloat(_) => "[anyfloat]".to_string(),
-                TyKind::Var(v) => format!("'{}", v),
+                TyKind::Var(v) => v.to_string(),
                 TyKind::Unknown => "[unknown]".to_string(),
             }
         )

@@ -3,6 +3,8 @@ use core::fmt;
 use slab::Slab;
 use std::{collections::HashMap, hash::Hash};
 
+use crate::normalize::NormalizeTy;
+
 pub struct TyContext {
     type_bindings: Slab<TyBinding>,
     primitive_types: HashMap<TyKind, Ty>,
@@ -51,13 +53,17 @@ impl TyContext {
 
     #[inline]
     pub fn primitive(&self, kind: TyKind) -> Ty {
-        println!("{}", kind);
         self.primitive_types[&kind]
     }
 
     #[inline]
-    pub fn str(&self) -> Ty {
+    pub fn str_primitive(&self) -> Ty {
         self.str_ty
+    }
+
+    #[inline]
+    pub fn ty_kind(&self, ty: Ty) -> TyKind {
+        ty.normalize(self)
     }
 
     pub fn print_type_bindings(&mut self) {
@@ -71,6 +77,8 @@ impl TyContext {
             let ty = self.new_bound_variable(kind.clone());
             self.primitive_types.insert(kind, ty);
         };
+
+        create(TyKind::Unit);
 
         create(TyKind::Bool);
 

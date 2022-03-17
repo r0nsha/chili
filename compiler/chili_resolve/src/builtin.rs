@@ -22,7 +22,11 @@ impl Resolver {
                 Span::unknown(),
             );
 
-            workspace.get_binding_info_mut(id).unwrap().flags &= BindingInfoFlags::BUILTIN_TYPE;
+            workspace
+                .get_binding_info_mut(id)
+                .unwrap()
+                .flags
+                .insert(BindingInfoFlags::BUILTIN_TYPE);
 
             self.builtin_types.insert(symbol, id);
         };
