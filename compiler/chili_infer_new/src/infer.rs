@@ -1,9 +1,8 @@
-use crate::{display::map_unify_err, tycx::TyContext, unify::Unify, unpack_type::try_unpack_type};
-use chili_ast::{
-    ast,
-    ty::{FnTy, FnTyParam, Ty},
-    workspace::Workspace,
+use crate::{
+    display::map_unify_err, normalize::NormalizeTy, tycx::TyContext, unify::Unify,
+    unpack_type::try_unpack_type,
 };
+use chili_ast::{ast, ty::*, workspace::Workspace};
 use chili_error::DiagnosticResult;
 use chili_span::Span;
 
@@ -21,14 +20,14 @@ impl Infer for ast::Ast {
             binding.infer(tycx, workspace)?;
         }
 
-        Ok(Ty::Unit)
+        Ok(tycx.primitive(TyKind::Unit))
     }
 }
 
 impl Infer for ast::Import {
     fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         // TODO:
-        Ok(Ty::Unit)
+        Ok(tycx.primitive(TyKind::Unit))
     }
 }
 
@@ -36,25 +35,20 @@ impl Infer for ast::Binding {
     fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         // TODO: support other patterns
         let pat = self.pattern.as_single_ref();
-        let binding_info_ty = workspace
-            .get_binding_info(pat.binding_info_id)
-            .unwrap()
-            .ty
-            .clone();
+        let binding_ty = workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
 
-        // TODO: type annotation
         if let Some(ty_expr) = &mut self.ty_expr {
-            let ty = ty_expr.infer(tycx, workspace)?;
+            let ty = ty_expr.infer(tycx, workspace)?.normalize(tycx);
             let inner_type = try_unpack_type(&ty, tycx)?;
+
             inner_type
-                .unify(&binding_info_ty, tycx, workspace, ty_expr.span)
+                .unify(&binding_ty, tycx, workspace, ty_expr.span)
                 .map_err(|e| map_unify_err(e, ty_expr.span))?;
         }
 
         if let Some(expr) = &mut self.expr {
             expr.infer(tycx, workspace)?;
-
-            binding_info_ty
+            binding_ty
                 .unify(&expr.ty, tycx, workspace, expr.span)
                 .map_err(|e| map_unify_err(e, expr.span))?;
         }
@@ -65,18 +59,18 @@ impl Infer for ast::Binding {
         //     binding_info_mut.ty = substitute_ty(&binding_info_mut.ty, &tycx);
         // }
 
-        Ok(Ty::Unit)
+        Ok(tycx.primitive(TyKind::Unit))
     }
 }
 
 impl Infer for ast::Fn {
     fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
         let proto_ty = self.proto.infer(tycx, workspace)?;
-        let fn_ty = proto_ty.as_fn();
+        let fn_ty = proto_ty.normalize(tycx).into_fn();
         let ty = self.body.infer(tycx, workspace)?;
 
         ty.unify(
-            &fn_ty.ret,
+            fn_ty.ret.as_ref(),
             tycx,
             workspace,
             self.proto.ret.as_ref().map_or(Span::unknown(), |e| e.span),
@@ -101,26 +95,25 @@ impl Infer for ast::Proto {
 
             params.push(FnTyParam {
                 symbol: pat.symbol,
-                ty: binding_info.ty.clone(),
+                ty: binding_info.ty.into(),
             })
         }
 
         let ret = if let Some(ret) = &mut self.ret {
             let ty = ret.infer(tycx, workspace)?;
+            let ty = ty.normalize(tycx);
             let inner_type = try_unpack_type(&ty, tycx)?;
             tycx.new_bound_variable(inner_type).into()
         } else {
             tycx.new_variable().into()
         };
 
-        let ty = Ty::Fn(FnTy {
+        let ty = tycx.new_bound_variable(TyKind::Fn(FnTy {
             params,
             ret: Box::new(ret),
             variadic: self.variadic,
             lib_name: self.lib_name,
-        });
-
-        self.ty = ty.clone();
+        }));
 
         Ok(ty)
     }
@@ -128,7 +121,7 @@ impl Infer for ast::Proto {
 
 impl Infer for ast::Block {
     fn infer(&mut self, tycx: &mut TyContext, workspace: &mut Workspace) -> DiagnosticResult<Ty> {
-        let mut result_ty = Ty::Unit;
+        let mut result_ty = tycx.primitive(TyKind::Unit);
 
         for expr in self.exprs.iter_mut() {
             result_ty = expr.infer(tycx, workspace)?;
@@ -149,17 +142,17 @@ impl Infer for ast::Expr {
                 for import in imports.iter_mut() {
                     import.infer(tycx, workspace)?;
                 }
-                Ty::Unit
+                tycx.primitive(TyKind::Unit)
             }
             ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter_mut() {
                     binding.infer(tycx, workspace)?;
                 }
-                Ty::Unit
+                tycx.primitive(TyKind::Unit)
             }
             ast::ExprKind::Binding(binding) => {
                 binding.infer(tycx, workspace)?;
-                Ty::Unit
+                tycx.primitive(TyKind::Unit)
             }
             ast::ExprKind::Defer(_) => todo!(),
             ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
@@ -172,7 +165,7 @@ impl Infer for ast::Expr {
                 for expr in deferred.iter_mut() {
                     expr.infer(tycx, workspace)?;
                 }
-                Ty::Never
+                tycx.primitive(TyKind::Never)
             }
             ast::ExprKind::Return { expr, deferred } => {
                 if let Some(expr) = expr {
@@ -186,7 +179,7 @@ impl Infer for ast::Expr {
                     expr.infer(tycx, workspace)?;
                 }
 
-                Ty::Never
+                tycx.primitive(TyKind::Never)
             }
             ast::ExprKind::If {
                 cond,
@@ -238,13 +231,19 @@ impl Infer for ast::Expr {
 impl Infer for ast::Literal {
     fn infer(&mut self, tycx: &mut TyContext, _: &mut Workspace) -> DiagnosticResult<Ty> {
         let ty = match self {
-            ast::Literal::Unit => Ty::Unit,
-            ast::Literal::Nil => Ty::raw_pointer(true),
-            ast::Literal::Bool(_) => Ty::Bool,
-            ast::Literal::Int(_) => Ty::AnyInt(tycx.new_variable()),
-            ast::Literal::Float(_) => Ty::AnyFloat(tycx.new_variable()),
-            ast::Literal::Str(_) => Ty::str(),
-            ast::Literal::Char(_) => Ty::char(),
+            ast::Literal::Unit => tycx.primitive(TyKind::Unit),
+            ast::Literal::Nil => tycx.new_bound_variable(TyKind::raw_pointer(true)),
+            ast::Literal::Bool(_) => tycx.primitive(TyKind::Bool),
+            ast::Literal::Int(_) => {
+                let var = tycx.new_variable();
+                tycx.new_bound_variable(TyKind::AnyInt(var))
+            }
+            ast::Literal::Float(_) => {
+                let var = tycx.new_variable();
+                tycx.new_bound_variable(TyKind::AnyFloat(var))
+            }
+            ast::Literal::Str(_) => tycx.str(),
+            ast::Literal::Char(_) => tycx.primitive(TyKind::char()),
         };
         Ok(ty)
     }

@@ -78,11 +78,19 @@ pub struct BindingInfo {
     pub scope_level: ScopeLevel,
     // the scope name of the binding, i.e: `foo._.symbol._._`
     pub scope_name: Ustr,
+    pub flags: BindingInfoFlags,
     // the amount of times this binding was used
     pub uses: usize,
-    // whether to codegen this binding or not
-    pub codegen: bool,
     pub span: Span,
+}
+
+bitflags! {
+    pub struct BindingInfoFlags : u8 {
+        // whether this binding is a builtin type, such as u8, i32, int, etc...
+        const BUILTIN_TYPE = 1 << 0;
+        // whether to codegen this binding or not
+        const SHOULD_CODEGEN = 1 << 1;
+    }
 }
 
 impl Workspace {
@@ -113,27 +121,30 @@ impl Workspace {
         scope_name: Ustr,
         span: Span,
     ) -> BindingInfoId {
-        self.add_binding_info_ex(
+        let id = BindingInfoId(self.binding_infos.len());
+        self.binding_infos.push(BindingInfo {
+            id,
             module_id,
             symbol,
             visibility,
-            Ty::Unknown,
-            None,
+            ty: Default::default(),
+            const_value: None,
             is_mutable,
             kind,
-            level,
+            scope_level: level,
             scope_name,
+            uses: 0,
+            flags: BindingInfoFlags::empty(),
             span,
-        )
+        });
+        id
     }
 
-    pub fn add_binding_info_ex(
+    pub fn add_builtin_binding_info(
         &mut self,
         module_id: ModuleId,
         symbol: Ustr,
         visibility: Visibility,
-        ty: Ty,
-        const_value: Option<Value>,
         is_mutable: bool,
         kind: BindingInfoKind,
         level: ScopeLevel,
@@ -146,14 +157,14 @@ impl Workspace {
             module_id,
             symbol,
             visibility,
-            ty,
-            const_value,
+            ty: Default::default(),
+            const_value: None,
             is_mutable,
             kind,
             scope_level: level,
             scope_name,
             uses: 0,
-            codegen: false,
+            flags: BindingInfoFlags::BUILTIN_TYPE,
             span,
         });
         id

@@ -4,9 +4,9 @@ use chili_error::DiagnosticResult;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-pub(crate) fn try_unpack_type(ty: &Ty, tycx: &TyContext) -> DiagnosticResult<Ty> {
+pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyContext) -> DiagnosticResult<TyKind> {
     match ty {
-        Ty::Type(ty) => unpack_type(ty, tycx),
+        TyKind::Type(ty) => unpack_type(ty, tycx),
         _ => {
             // TODO: use the real span of the ty here!
             let span = Span::unknown();
@@ -18,9 +18,9 @@ pub(crate) fn try_unpack_type(ty: &Ty, tycx: &TyContext) -> DiagnosticResult<Ty>
     }
 }
 
-fn unpack_type(ty: &Ty, tycx: &TyContext) -> DiagnosticResult<Ty> {
+fn unpack_type(ty: &TyKind, tycx: &TyContext) -> DiagnosticResult<TyKind> {
     match ty {
-        Ty::Var(var) => match tycx.find_type_binding(*var) {
+        TyKind::Var(var) => match tycx.find_type_binding(*var) {
             TyBinding::Bound(ty) => unpack_type(&ty, tycx),
             TyBinding::Unbound => {
                 panic!(
@@ -29,7 +29,7 @@ fn unpack_type(ty: &Ty, tycx: &TyContext) -> DiagnosticResult<Ty> {
                 )
             }
         },
-        Ty::Fn(f) => Ok(Ty::Fn(FnTy {
+        TyKind::Fn(f) => Ok(TyKind::Fn(FnTy {
             params: f
                 .params
                 .iter()
@@ -44,16 +44,18 @@ fn unpack_type(ty: &Ty, tycx: &TyContext) -> DiagnosticResult<Ty> {
             variadic: f.variadic,
             lib_name: f.lib_name,
         })),
-        Ty::Pointer(ty, a) => Ok(Ty::Pointer(Box::new(unpack_type(ty, tycx)?), *a)),
-        Ty::MultiPointer(ty, a) => Ok(Ty::MultiPointer(Box::new(unpack_type(ty, tycx)?), *a)),
-        Ty::Array(ty, a) => Ok(Ty::Array(Box::new(unpack_type(ty, tycx)?), *a)),
-        Ty::Slice(ty, a) => Ok(Ty::Slice(Box::new(unpack_type(ty, tycx)?), *a)),
-        Ty::Tuple(tys) => Ok(Ty::Tuple(
+        TyKind::Pointer(ty, a) => Ok(TyKind::Pointer(Box::new(unpack_type(ty, tycx)?), *a)),
+        TyKind::MultiPointer(ty, a) => {
+            Ok(TyKind::MultiPointer(Box::new(unpack_type(ty, tycx)?), *a))
+        }
+        TyKind::Array(ty, a) => Ok(TyKind::Array(Box::new(unpack_type(ty, tycx)?), *a)),
+        TyKind::Slice(ty, a) => Ok(TyKind::Slice(Box::new(unpack_type(ty, tycx)?), *a)),
+        TyKind::Tuple(tys) => Ok(TyKind::Tuple(
             tys.iter()
                 .map(|ty| unpack_type(&ty, tycx))
-                .collect::<DiagnosticResult<Vec<Ty>>>()?,
+                .collect::<DiagnosticResult<Vec<TyKind>>>()?,
         )),
-        Ty::Struct(st) => Ok(Ty::Struct(StructTy {
+        TyKind::Struct(st) => Ok(TyKind::Struct(StructTy {
             name: st.name,
             qualified_name: st.qualified_name,
             binding_info_id: st.binding_info_id,

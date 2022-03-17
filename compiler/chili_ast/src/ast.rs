@@ -1,6 +1,6 @@
 use crate::path::resolve_relative_path;
 use crate::pattern::Pattern;
-use crate::ty::{StructTyKind, Ty, UIntTy};
+use crate::ty::{StructTyKind, Ty, TyKind, UIntTy};
 use crate::value::Value;
 use crate::workspace::{BindingInfoId, ModuleId};
 use chili_error::DiagnosticResult;
@@ -61,24 +61,12 @@ pub struct Expr {
 }
 
 impl Expr {
-    pub fn typed(data: ExprKind, ty: Ty, span: Span) -> Self {
-        Self {
-            kind: data,
-            ty,
-            span,
-        }
-    }
-
-    pub fn untyped(data: ExprKind, span: Span) -> Self {
-        Self {
-            kind: data,
-            ty: Ty::Unknown,
-            span,
-        }
-    }
-
     pub fn new(data: ExprKind, span: Span) -> Self {
-        Expr::untyped(data, span)
+        Self {
+            kind: data,
+            ty: Default::default(),
+            span,
+        }
     }
 
     pub fn is_fn(&self) -> bool {
@@ -326,13 +314,13 @@ pub enum Literal {
 }
 
 impl Literal {
-    pub fn ty(&self) -> Ty {
+    pub fn ty(&self) -> TyKind {
         match self {
-            Literal::Unit => Ty::Unit,
-            Literal::Bool(_) => Ty::Bool,
-            Literal::Str(_) => Ty::str(),
-            Literal::Char(_) => Ty::UInt(UIntTy::U8),
-            Literal::Nil | Literal::Int(_) | Literal::Float(_) => Ty::Unknown,
+            Literal::Unit => TyKind::Unit,
+            Literal::Bool(_) => TyKind::Bool,
+            Literal::Str(_) => TyKind::str(),
+            Literal::Char(_) => TyKind::UInt(UIntTy::U8),
+            Literal::Nil | Literal::Int(_) | Literal::Float(_) => TyKind::Unknown,
         }
     }
 }
@@ -348,7 +336,7 @@ pub enum Builtin {
 pub struct Cast {
     pub type_expr: Option<Box<Expr>>,
     pub expr: Box<Expr>,
-    pub target_ty: Ty,
+    pub target_ty: TyKind,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -381,7 +369,6 @@ pub struct Proto {
     pub variadic: bool,
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
-    pub ty: Ty,
     pub binding_info_id: Option<BindingInfoId>,
 }
 
@@ -521,7 +508,7 @@ pub struct Binding {
     pub kind: BindingKind,
     pub pattern: Pattern,
     pub ty_expr: Option<Expr>,
-    pub ty: Ty,
+    pub ty: TyKind,
     pub expr: Option<Expr>,
     pub const_value: Option<Value>,
     pub should_codegen: bool,
@@ -542,7 +529,7 @@ impl Binding {
             kind,
             pattern,
             ty_expr,
-            ty: Ty::Unknown,
+            ty: TyKind::Unknown,
             expr: value,
             const_value: None,
             should_codegen: false,
@@ -550,7 +537,7 @@ impl Binding {
         }
     }
 
-    pub fn into_type(&self) -> Ty {
+    pub fn into_type(&self) -> TyKind {
         self.const_value.clone().unwrap().into_type()
     }
 }

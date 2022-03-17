@@ -9,54 +9,95 @@ pub(crate) type TyUnifyResult = Result<(), TyUnifyErr>;
 
 #[derive(Debug)]
 pub(crate) enum TyUnifyErr {
-    Mismatch(Ty, Ty),
-    Occurs(Ty, Ty),
+    Mismatch(TyKind, TyKind),
+    Occurs(TyKind, TyKind),
 }
 
-pub(crate) trait Unify
+pub(crate) trait Unify<T>
 where
     Self: Sized,
+    T: Sized,
 {
     fn unify(
         &self,
-        other: &Self,
+        other: &T,
         tycx: &mut TyContext,
         workspace: &Workspace,
         span: Span,
     ) -> TyUnifyResult;
 }
 
-impl Unify for Ty {
+impl Unify<Ty> for Ty {
     fn unify(
         &self,
-        other: &Self,
+        other: &Ty,
+        tycx: &mut TyContext,
+        workspace: &Workspace,
+        span: Span,
+    ) -> TyUnifyResult {
+        let t1 = TyKind::Var(*self);
+        let t2 = TyKind::Var(*other);
+        t1.unify(&t2, tycx, workspace, span)
+    }
+}
+
+impl Unify<TyKind> for Ty {
+    fn unify(
+        &self,
+        other: &TyKind,
+        tycx: &mut TyContext,
+        workspace: &Workspace,
+        span: Span,
+    ) -> TyUnifyResult {
+        let ty = TyKind::Var(*self);
+        ty.unify(other, tycx, workspace, span)
+    }
+}
+
+impl Unify<Ty> for TyKind {
+    fn unify(
+        &self,
+        other: &Ty,
+        tycx: &mut TyContext,
+        workspace: &Workspace,
+        span: Span,
+    ) -> TyUnifyResult {
+        let other = TyKind::Var(*other);
+        self.unify(&other, tycx, workspace, span)
+    }
+}
+
+impl Unify<TyKind> for TyKind {
+    fn unify(
+        &self,
+        other: &TyKind,
         tycx: &mut TyContext,
         workspace: &Workspace,
         span: Span,
     ) -> TyUnifyResult {
         match (self, other) {
-            (Ty::Unit, Ty::Unit) => Ok(()),
-            (Ty::Bool, Ty::Bool) => Ok(()),
-            (Ty::Int(t1), Ty::Int(t2)) if t1 == t2 => Ok(()),
-            (Ty::UInt(t1), Ty::UInt(t2)) if t1 == t2 => Ok(()),
-            (Ty::Float(t1), Ty::Float(t2)) if t1 == t2 => Ok(()),
+            (TyKind::Unit, TyKind::Unit) => Ok(()),
+            (TyKind::Bool, TyKind::Bool) => Ok(()),
+            (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
+            (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
+            (TyKind::Float(t1), TyKind::Float(t2)) if t1 == t2 => Ok(()),
 
-            (Ty::AnyInt(var), ty @ Ty::Int(_))
-            | (ty @ Ty::Int(_), Ty::AnyInt(var))
-            | (Ty::AnyInt(var), ty @ Ty::UInt(_))
-            | (ty @ Ty::UInt(_), Ty::AnyInt(var))
-            | (Ty::AnyInt(var), ty @ Ty::Float(_))
-            | (ty @ Ty::Float(_), Ty::AnyInt(var))
-            | (Ty::AnyFloat(var), ty @ Ty::Float(_))
-            | (ty @ Ty::Float(_), Ty::AnyFloat(var)) => {
+            (TyKind::AnyInt(var), ty @ TyKind::Int(_))
+            | (ty @ TyKind::Int(_), TyKind::AnyInt(var))
+            | (TyKind::AnyInt(var), ty @ TyKind::UInt(_))
+            | (ty @ TyKind::UInt(_), TyKind::AnyInt(var))
+            | (TyKind::AnyInt(var), ty @ TyKind::Float(_))
+            | (ty @ TyKind::Float(_), TyKind::AnyInt(var))
+            | (TyKind::AnyFloat(var), ty @ TyKind::Float(_))
+            | (ty @ TyKind::Float(_), TyKind::AnyFloat(var)) => {
                 tycx.bind(*var, ty.clone());
                 Ok(())
             }
 
-            (Ty::Var(var), _) => unify_var_type(*var, self, other, tycx, workspace, span),
-            (_, Ty::Var(var)) => unify_var_type(*var, other, self, tycx, workspace, span),
+            (TyKind::Var(var), _) => unify_var_type(*var, self, other, tycx, workspace, span),
+            (_, TyKind::Var(var)) => unify_var_type(*var, other, self, tycx, workspace, span),
 
-            (Ty::Never, _) | (_, Ty::Never) => Ok(()),
+            (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
             _ => Err(TyUnifyErr::Mismatch(self.clone(), other.clone())),
         }
@@ -64,9 +105,9 @@ impl Unify for Ty {
 }
 
 fn unify_var_type(
-    var: TyVar,
-    t1: &Ty,
-    t2: &Ty,
+    var: Ty,
+    t1: &TyKind,
+    t2: &TyKind,
     tycx: &mut TyContext,
     workspace: &Workspace,
     span: Span,
@@ -74,7 +115,7 @@ fn unify_var_type(
     match tycx.find_type_binding(var) {
         TyBinding::Bound(t) => t.unify(t2, tycx, workspace, span),
         TyBinding::Unbound => {
-            let normalized = t2.normalize(tycx, workspace);
+            let normalized = t2.normalize(tycx);
 
             if *t1 != normalized {
                 if occurs(var, &normalized, tycx, workspace) {
@@ -90,21 +131,22 @@ fn unify_var_type(
     }
 }
 
-fn occurs(var: TyVar, ty: &Ty, tycx: &TyContext, workspace: &Workspace) -> bool {
+fn occurs(var: Ty, ty: &TyKind, tycx: &TyContext, workspace: &Workspace) -> bool {
     match ty {
-        Ty::Var(other) => match tycx.find_type_binding(*other) {
+        TyKind::Var(other) => match tycx.find_type_binding(*other) {
             TyBinding::Bound(ty) => occurs(var, &ty, tycx, workspace),
             TyBinding::Unbound => var == *other,
         },
-        Ty::Fn(f) => {
+        TyKind::Fn(f) => {
             f.params.iter().any(|p| occurs(var, &p.ty, tycx, workspace))
                 || occurs(var, &f.ret, tycx, workspace)
         }
-        Ty::Pointer(ty, _) | Ty::MultiPointer(ty, _) | Ty::Array(ty, _) | Ty::Slice(ty, _) => {
-            occurs(var, ty, tycx, workspace)
-        }
-        Ty::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx, workspace)),
-        Ty::Struct(st) => st
+        TyKind::Pointer(ty, _)
+        | TyKind::MultiPointer(ty, _)
+        | TyKind::Array(ty, _)
+        | TyKind::Slice(ty, _) => occurs(var, ty, tycx, workspace),
+        TyKind::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx, workspace)),
+        TyKind::Struct(st) => st
             .fields
             .iter()
             .any(|f| occurs(var, &f.ty, tycx, workspace)),

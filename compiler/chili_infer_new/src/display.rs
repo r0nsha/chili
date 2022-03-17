@@ -1,4 +1,4 @@
-use chili_ast::{ty::Ty, workspace::Workspace};
+use chili_ast::{ty::TyKind, workspace::Workspace};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
@@ -29,7 +29,7 @@ trait DisplayTy {
     fn display(&self, tycx: &TyContext, workspace: &Workspace) -> String;
 }
 
-impl DisplayTy for Ty {
+impl DisplayTy for TyKind {
     fn display(&self, tycx: &TyContext, workspace: &Workspace) -> String {
         // TODO: this is bad, because i can't know what to display for Var and Struct
         self.to_string()

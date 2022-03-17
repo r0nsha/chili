@@ -1,6 +1,6 @@
 use chili_ast::{
     ast::{self, Ast, Binding},
-    workspace::{BindingInfoId, Workspace},
+    workspace::{BindingInfoFlags, BindingInfoId, Workspace},
 };
 
 pub fn mark_bindings_for_codegen(workspace: &mut Workspace, asts: &Vec<Ast>) {
@@ -38,7 +38,7 @@ impl Sess {
 
     fn commit(&self, workspace: &mut Workspace) {
         self.marked_bindings.iter().for_each(|id| {
-            workspace.get_binding_info_mut(*id).unwrap().codegen = true;
+            workspace.get_binding_info_mut(*id).unwrap().flags &= BindingInfoFlags::SHOULD_CODEGEN;
         });
     }
 

@@ -1,36 +1,43 @@
 use chili_ast::ty::*;
 use core::fmt;
 use slab::Slab;
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 pub struct TyContext {
     type_bindings: Slab<TyBinding>,
+    primitive_types: HashMap<TyKind, Ty>,
+    str_ty: Ty,
 }
 
 impl TyContext {
     pub fn new() -> Self {
-        Self {
+        let mut inst = Self {
             type_bindings: Default::default(),
-        }
+            primitive_types: Default::default(),
+            str_ty: Default::default(),
+        };
+        inst.create_primitive_types();
+        inst.str_ty = inst.new_bound_variable(TyKind::str());
+        inst
     }
 
     #[inline]
-    fn insert(&mut self, binding: TyBinding) -> TyVar {
-        TyVar(self.type_bindings.insert(binding))
+    fn insert(&mut self, binding: TyBinding) -> Ty {
+        Ty(self.type_bindings.insert(binding))
     }
 
     #[inline]
-    pub fn new_variable(&mut self) -> TyVar {
+    pub fn new_variable(&mut self) -> Ty {
         self.insert(TyBinding::Unbound)
     }
 
     #[inline]
-    pub fn new_bound_variable(&mut self, ty: Ty) -> TyVar {
+    pub fn new_bound_variable(&mut self, ty: TyKind) -> Ty {
         self.insert(TyBinding::Bound(ty))
     }
 
     #[inline]
-    pub fn find_type_binding(&self, var: TyVar) -> TyBinding {
+    pub fn find_type_binding(&self, var: Ty) -> TyBinding {
         match self.type_bindings.get(var.0 as usize) {
             Some(ty) => ty.clone(),
             None => TyBinding::Unbound,
@@ -38,8 +45,18 @@ impl TyContext {
     }
 
     #[inline]
-    pub fn bind(&mut self, var: TyVar, ty: Ty) {
+    pub fn bind(&mut self, var: Ty, ty: TyKind) {
         self.type_bindings[var.0 as usize] = TyBinding::Bound(ty);
+    }
+
+    #[inline]
+    pub fn primitive(&self, kind: TyKind) -> Ty {
+        self.primitive_types[&kind]
+    }
+
+    #[inline]
+    pub fn str(&self) -> Ty {
+        self.str_ty
     }
 
     pub fn print_type_bindings(&mut self) {
@@ -47,11 +64,37 @@ impl TyContext {
             println!("'{} :: {}", i, tb)
         }
     }
+
+    fn create_primitive_types(&mut self) {
+        let mut create = |kind: TyKind| {
+            let ty = self.new_bound_variable(kind.clone());
+            self.primitive_types.insert(kind, ty);
+        };
+
+        create(TyKind::Bool);
+
+        create(TyKind::Int(IntTy::I8));
+        create(TyKind::Int(IntTy::I16));
+        create(TyKind::Int(IntTy::I32));
+        create(TyKind::Int(IntTy::I64));
+        create(TyKind::Int(IntTy::Isize));
+
+        create(TyKind::UInt(UIntTy::U8));
+        create(TyKind::UInt(UIntTy::U16));
+        create(TyKind::UInt(UIntTy::U32));
+        create(TyKind::UInt(UIntTy::U64));
+        create(TyKind::UInt(UIntTy::Usize));
+
+        create(TyKind::Float(FloatTy::F16));
+        create(TyKind::Float(FloatTy::F32));
+        create(TyKind::Float(FloatTy::F64));
+        create(TyKind::Float(FloatTy::Fsize));
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TyBinding {
-    Bound(Ty),
+    Bound(TyKind),
     Unbound,
 }
 
