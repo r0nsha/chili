@@ -509,10 +509,13 @@ impl Infer for ast::Expr {
                 }
             }
             ast::ExprKind::SelfType => unimplemented!("Self type"),
-            ast::ExprKind::NeverType => todo!(),
+            ast::ExprKind::NeverType => tycx.new_bound_variable(TyKind::Never.create_type()),
             ast::ExprKind::UnitType => tycx.new_bound_variable(TyKind::Unit.create_type()),
-            ast::ExprKind::PlaceholderType => todo!(),
-            ast::ExprKind::Noop => todo!(),
+            ast::ExprKind::PlaceholderType => {
+                let var = tycx.new_variable();
+                tycx.new_bound_variable(TyKind::Var(var).create_type())
+            }
+            ast::ExprKind::Noop => tycx.new_variable(),
         };
 
         Ok(self.ty.clone())
