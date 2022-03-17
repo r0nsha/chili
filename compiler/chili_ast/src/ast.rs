@@ -185,7 +185,7 @@ pub enum ExprKind {
     Fn(Fn),
     While {
         cond: Box<Expr>,
-        expr: Box<Expr>,
+        block: Box<Expr>,
     },
     For(For),
     Break {

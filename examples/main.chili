@@ -2,4 +2,6 @@ let main = fn {
     let mut a = 5
     a = 10
     let b = a as i32
+    @size_of(int)
+    @align_of(f32)
 }

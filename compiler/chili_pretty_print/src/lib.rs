@@ -241,10 +241,10 @@ impl PrintTree for ast::Expr {
                 closure.body.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::While { cond, expr } => {
+            ast::ExprKind::While { cond, block } => {
                 b.begin_child("while".to_string());
                 cond.print_tree(b, workspace, tycx);
-                expr.print_tree(b, workspace, tycx);
+                block.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::For(for_) => {

@@ -134,7 +134,7 @@ impl Substitute for Expr {
             ExprKind::Fn(func) => {
                 func.substitute(table)?;
             }
-            ExprKind::While { cond, expr } => {
+            ExprKind::While { cond, block } => {
                 cond.substitute(table)?;
                 expr.substitute(table)?;
             }

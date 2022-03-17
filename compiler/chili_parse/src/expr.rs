@@ -464,12 +464,12 @@ impl<'p> Parser<'p> {
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         expect!(self, OpenCurly, "{")?;
-        let expr = self.parse_block()?;
+        let block = self.parse_block()?;
 
         Ok(Expr::new(
             ExprKind::While {
                 cond: Box::new(cond),
-                expr: Box::new(expr),
+                block: Box::new(block),
             },
             start_span.to(self.previous_span()),
         ))

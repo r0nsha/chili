@@ -98,7 +98,7 @@
 //             ast::ExprKind::Fn(func) => {
 //                 func.substitute(tycx);
 //             }
-//             ast::ExprKind::While { cond, expr } => {
+//             ast::ExprKind::While { cond, block } => {
 //                 cond.substitute(tycx);
 //                 expr.substitute(tycx);
 //             }

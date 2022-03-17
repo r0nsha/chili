@@ -197,9 +197,9 @@ impl Lint for ast::Expr {
 
                 f.body.lint(sess)?;
             }
-            ast::ExprKind::While { cond, expr } => {
+            ast::ExprKind::While { cond, block } => {
                 cond.lint(sess)?;
-                expr.lint(sess)?;
+                block.lint(sess)?;
             }
             ast::ExprKind::For(for_) => {
                 match &for_.iterator {

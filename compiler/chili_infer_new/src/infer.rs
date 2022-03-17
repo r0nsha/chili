@@ -159,9 +159,27 @@ impl Infer for ast::Expr {
                 tycx.primitive(TyKind::Unit)
             }
             ast::ExprKind::Cast(cast) => cast.infer(tycx, workspace)?,
-            ast::ExprKind::Builtin(_) => todo!(),
+            ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
+                    expr.infer(tycx, workspace)?;
+                    tycx.primitive(TyKind::UInt(UIntTy::default()))
+                }
+                ast::Builtin::Panic(expr) => {
+                    if let Some(expr) = expr {
+                        expr.infer(tycx, workspace)?;
+                    }
+                    tycx.primitive(TyKind::Unit)
+                }
+            },
             ast::ExprKind::Fn(f) => f.infer(tycx, workspace)?,
-            ast::ExprKind::While { cond, expr } => todo!(),
+            ast::ExprKind::While { cond, block } => {
+                let cond_ty = cond.infer(tycx, workspace)?;
+                cond_ty
+                    .unify(&TyKind::Bool, tycx, workspace, cond.span)
+                    .map_err(map_unify_err)?;
+                block.infer(tycx, workspace)?;
+                tycx.primitive(TyKind::Unit)
+            }
             ast::ExprKind::For(_) => todo!(),
             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
                 for expr in deferred.iter_mut() {

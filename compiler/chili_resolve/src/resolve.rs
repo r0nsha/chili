@@ -4,7 +4,6 @@ use chili_ast::{
     workspace::Workspace,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
@@ -163,10 +162,10 @@ impl<'w> Resolve<'w> for ast::Expr {
             ast::ExprKind::Fn(f) => {
                 f.resolve(resolver, workspace)?;
             }
-            ast::ExprKind::While { cond, expr } => {
+            ast::ExprKind::While { cond, block } => {
                 cond.resolve(resolver, workspace)?;
                 resolver.loop_depth += 1;
-                expr.resolve(resolver, workspace)?;
+                block.resolve(resolver, workspace)?;
                 resolver.loop_depth -= 1;
             }
             ast::ExprKind::For(for_) => {

@@ -594,7 +594,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
                 function.as_global_value().as_pointer_value().into()
             }
-            ExprKind::While { cond, expr } => {
+            ExprKind::While { cond, block } => {
                 let loop_head = self.append_basic_block(state, "loop_head");
                 let loop_body = self.append_basic_block(state, "loop_body");
                 let loop_exit = self.append_basic_block(state, "loop_exit");
@@ -614,7 +614,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                     exit: loop_exit,
                 });
 
-                self.gen_expr(state, expr, true);
+                self.gen_expr(state, block, true);
 
                 state.loop_blocks.pop();
 

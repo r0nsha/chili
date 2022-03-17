@@ -1,6 +1,5 @@
 use chili_ast::ast::{
-    ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn,
-    ForIter, Proto,
+    ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter, Proto,
 };
 
 #[derive(Clone)]
@@ -131,15 +130,13 @@ impl SolveDefer for Expr {
             }
             ExprKind::Cast(cast) => cast.solve_defer(sess),
             ExprKind::Builtin(builtin) => match builtin {
-                Builtin::SizeOf(expr) | Builtin::AlignOf(expr) => {
-                    expr.solve_defer(sess)
-                }
+                Builtin::SizeOf(expr) | Builtin::AlignOf(expr) => expr.solve_defer(sess),
                 Builtin::Panic(expr) => expr.solve_defer(sess),
             },
             ExprKind::Fn(func) => func.solve_defer(sess),
-            ExprKind::While { cond, expr } => {
+            ExprKind::While { cond, block } => {
                 cond.solve_defer(sess);
-                expr.solve_defer(sess);
+                block.solve_defer(sess);
             }
             ExprKind::For { iterator, expr, .. } => {
                 sess.push_stack(DeferStackKind::Loop);
