@@ -129,19 +129,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chili_infer"
-version = "0.1.0"
-dependencies = [
- "chili_ast",
- "chili_error",
- "chili_span",
- "codespan",
- "codespan-reporting",
- "common",
- "ena",
-]
-
-[[package]]
 name = "chili_infer_new"
 version = "0.1.0"
 dependencies = [
@@ -161,7 +148,6 @@ dependencies = [
  "chili_ast",
  "chili_astgen",
  "chili_error",
- "chili_infer",
  "chili_infer_new",
  "chili_resolve",
  "chili_span",

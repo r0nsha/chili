@@ -1,7 +1,4 @@
-use crate::{
-    display::map_unify_err, sess::InferSess, substitute::substitute_ty, unify::Unify,
-    unpack_type::try_unpack_type,
-};
+use crate::{display::map_unify_err, sess::InferSess, unify::Unify, unpack_type::try_unpack_type};
 use chili_ast::{
     ast,
     ty::{FnTy, FnTyParam, Ty},
@@ -244,8 +241,8 @@ impl Infer for ast::Literal {
             ast::Literal::Unit => Ty::Unit,
             ast::Literal::Nil => Ty::raw_pointer(true),
             ast::Literal::Bool(_) => Ty::Bool,
-            ast::Literal::Int(_) => Ty::AnyInt(sess.new_variable().0),
-            ast::Literal::Float(_) => Ty::AnyFloat(sess.new_variable().0),
+            ast::Literal::Int(_) => Ty::AnyInt(sess.new_variable()),
+            ast::Literal::Float(_) => Ty::AnyFloat(sess.new_variable()),
             ast::Literal::Str(_) => Ty::str(),
             ast::Literal::Char(_) => Ty::char(),
         };

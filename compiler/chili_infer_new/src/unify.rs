@@ -1,7 +1,7 @@
 use chili_ast::{ty::*, workspace::Workspace};
 use chili_span::Span;
 
-use crate::sess::{InferSess, TyBinding, TyVar};
+use crate::sess::{InferSess, TyBinding};
 
 pub(crate) type TyUnifyResult = Result<(), TyUnifyErr>;
 
@@ -47,12 +47,12 @@ impl Unify for Ty {
             | (ty @ Ty::Float(_), Ty::AnyInt(var))
             | (Ty::AnyFloat(var), ty @ Ty::Float(_))
             | (ty @ Ty::Float(_), Ty::AnyFloat(var)) => {
-                sess.bind(TyVar(*var), ty.clone());
+                sess.bind(*var, ty.clone());
                 Ok(())
             }
 
-            (Ty::Var(var), _) => unify_var_type(TyVar(*var), self, other, sess, workspace, span),
-            (_, Ty::Var(var)) => unify_var_type(TyVar(*var), other, self, sess, workspace, span),
+            (Ty::Var(var), _) => unify_var_type(*var, self, other, sess, workspace, span),
+            (_, Ty::Var(var)) => unify_var_type(*var, other, self, sess, workspace, span),
 
             (Ty::Never, _) | (_, Ty::Never) => Ok(()),
 
@@ -90,7 +90,7 @@ fn unify_var_type(
 
 fn normalize_ty(ty: &Ty, sess: &mut InferSess, workspace: &Workspace) -> Ty {
     match ty {
-        Ty::Var(var) => match sess.find_type_binding(TyVar(*var)) {
+        Ty::Var(var) => match sess.find_type_binding(*var) {
             TyBinding::Bound(ty) => normalize_ty(&ty, sess, workspace),
             TyBinding::Unbound => ty.clone(),
         },
@@ -100,7 +100,7 @@ fn normalize_ty(ty: &Ty, sess: &mut InferSess, workspace: &Workspace) -> Ty {
 
 fn occurs(var: TyVar, ty: &Ty, sess: &InferSess, workspace: &Workspace) -> bool {
     match ty {
-        Ty::Var(other_var) => tyvars_match(var, TyVar(*other_var), sess, workspace),
+        Ty::Var(other_var) => tyvars_match(var, *other_var, sess, workspace),
         Ty::Fn(f) => {
             f.params.iter().any(|p| occurs(var, &p.ty, sess, workspace))
                 || occurs(var, &f.ret, sess, workspace)

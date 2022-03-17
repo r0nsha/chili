@@ -1,4 +1,4 @@
-use crate::sess::{InferSess, TyBinding, TyVar};
+use crate::sess::{InferSess, TyBinding};
 use chili_ast::{ast, ty::*};
 
 pub(crate) trait Substitute {
@@ -209,10 +209,10 @@ impl Substitute for ast::Expr {
 
 pub(crate) fn substitute_ty(ty: &Ty, sess: &InferSess) -> Ty {
     match ty {
-        Ty::Var(var) => find_type_or_default(TyVar(*var), sess, || {
+        Ty::Var(var) => find_type_or_default(*var, sess, || {
             panic!(
                 "couldn't figure out the type of {}, because it was unbound",
-                TyVar(*var)
+                var
             )
         }),
         Ty::Fn(f) => Ty::Fn(FnTy {
@@ -248,10 +248,8 @@ pub(crate) fn substitute_ty(ty: &Ty, sess: &InferSess) -> Ty {
                 .collect(),
             kind: st.kind,
         }),
-        Ty::AnyInt(var) => find_type_or_default(TyVar(*var), sess, || Ty::Int(IntTy::default())),
-        Ty::AnyFloat(var) => {
-            find_type_or_default(TyVar(*var), sess, || Ty::Float(FloatTy::default()))
-        }
+        Ty::AnyInt(var) => find_type_or_default(*var, sess, || Ty::Int(IntTy::default())),
+        Ty::AnyFloat(var) => find_type_or_default(*var, sess, || Ty::Float(FloatTy::default())),
         _ => ty.clone(),
     }
 }

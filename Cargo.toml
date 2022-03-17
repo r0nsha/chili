@@ -8,7 +8,7 @@ members = [
     "compiler/chili_parse",
     "compiler/chili_astgen",
     "compiler/chili_resolve",
-    "compiler/chili_infer",
+    # "compiler/chili_infer",
     "compiler/chili_infer_new",
     # "compiler/chili_check",
     # "compiler/chili_lint",

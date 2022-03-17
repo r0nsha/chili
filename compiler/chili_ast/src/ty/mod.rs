@@ -3,12 +3,30 @@ pub mod display;
 pub mod hash;
 pub mod size;
 
-use std::hash::{Hash, Hasher};
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+};
 
 use chili_span::Span;
 use ustr::{ustr, Ustr};
 
 use crate::workspace::{BindingInfoId, ModuleId};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TyVar(pub usize);
+
+impl fmt::Display for TyVar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "'{}", self.0)
+    }
+}
+
+impl Into<Ty> for TyVar {
+    fn into(self) -> Ty {
+        Ty::Var(self)
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Ty {
@@ -27,9 +45,9 @@ pub enum Ty {
     Struct(StructTy),
     Module(ModuleId),
     Type(Box<Ty>),
-    Var(u32),
-    AnyInt(u32),
-    AnyFloat(u32),
+    Var(TyVar),
+    AnyInt(TyVar),
+    AnyFloat(TyVar),
     Unknown,
 }
 

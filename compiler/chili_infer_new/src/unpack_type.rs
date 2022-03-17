@@ -3,7 +3,7 @@ use chili_error::DiagnosticResult;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-use crate::sess::{InferSess, TyBinding, TyVar};
+use crate::sess::{InferSess, TyBinding};
 
 pub(crate) fn try_unpack_type(ty: &Ty, sess: &InferSess) -> DiagnosticResult<Ty> {
     match ty {
@@ -21,12 +21,12 @@ pub(crate) fn try_unpack_type(ty: &Ty, sess: &InferSess) -> DiagnosticResult<Ty>
 
 fn unpack_type(ty: &Ty, sess: &InferSess) -> DiagnosticResult<Ty> {
     match ty {
-        Ty::Var(var) => match sess.find_type_binding(TyVar(*var)) {
+        Ty::Var(var) => match sess.find_type_binding(*var) {
             TyBinding::Bound(ty) => unpack_type(&ty, sess),
             TyBinding::Unbound => {
                 panic!(
                     "couldn't figure out the type of {}, because it was unbound",
-                    TyVar(*var)
+                    *var
                 )
             }
         },
