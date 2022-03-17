@@ -210,7 +210,7 @@ impl Infer for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.infer(frame, tycx, workspace)?,
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
-                    let ty = expr.infer(frame, tycx, workspace)?;
+                    let ty = expr.infer(frame, tycx, workspace)?.normalize(tycx);
                     try_unpack_type(&ty.into(), tycx, expr.span)?;
                     tycx.primitive(TyKind::UInt(UIntTy::Usize))
                 }
