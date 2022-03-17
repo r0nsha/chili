@@ -150,6 +150,7 @@ dependencies = [
  "chili_astgen",
  "chili_error",
  "chili_infer_new",
+ "chili_pretty_print",
  "chili_resolve",
  "chili_span",
  "clap",
@@ -179,6 +180,20 @@ dependencies = [
  "ptree",
  "strum_macros",
  "ustr",
+]
+
+[[package]]
+name = "chili_pretty_print"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_infer_new",
+ "chili_span",
+ "chili_token",
+ "colored",
+ "common",
+ "ptree",
 ]
 
 [[package]]

@@ -51,6 +51,7 @@ impl TyContext {
 
     #[inline]
     pub fn primitive(&self, kind: TyKind) -> Ty {
+        println!("{}", kind);
         self.primitive_types[&kind]
     }
 

@@ -9,7 +9,7 @@ use chili_token::TokenKind;
 use codespan_reporting::files::SimpleFiles;
 use common::compiler_info::STD;
 use std::collections::HashSet;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::path::Path;
 use ustr::Ustr;
 use ustr::{ustr, UstrMap};
@@ -780,5 +780,42 @@ impl ToString for ImportPathNode {
             ImportPathNode::Symbol(s) => s.to_string(),
             ImportPathNode::Glob => String::from("?"),
         }
+    }
+}
+
+impl fmt::Display for Proto {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            format!(
+                "fn: {} ({}{})",
+                self.name,
+                self.params
+                    .iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                if self.variadic { ", .." } else { "" }
+            )
+        )
+    }
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Literal::Unit => "()".to_string(),
+                Literal::Nil => "nil".to_string(),
+                Literal::Bool(v) => v.to_string(),
+                Literal::Int(v) => v.to_string(),
+                Literal::Float(v) => v.to_string(),
+                Literal::Str(v) => format!("\"{}\"", v),
+                Literal::Char(v) => format!("'{}'", v),
+            }
+        )
     }
 }

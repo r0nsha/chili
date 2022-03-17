@@ -57,12 +57,15 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    time! { "infer",
-        if let Err(diagnostic) = chili_infer_new::infer(&mut workspace, &mut asts) {
-            emit_single_diagnostic(&workspace.files, diagnostic);
-            return;
+    let tycx = time! { "infer",
+        match chili_infer_new::infer(&mut workspace, &mut asts) {
+            Ok(tycx) => tycx,
+            Err(diagnostic) => {
+                emit_single_diagnostic(&workspace.files, diagnostic);
+                return;
+            }
         }
-    }
+    };
 
     // // Check - does type inference, type checking and const folding
 
@@ -90,7 +93,7 @@ pub fn do_build(build_options: BuildOptions) {
     print_stats(stats, all_sw.elapsed().as_millis());
 
     for ast in asts.iter() {
-        ast.print(&workspace);
+        chili_pretty_print::print_ast(ast, &workspace, &tycx);
     }
 }
 

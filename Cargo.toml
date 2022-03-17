@@ -4,6 +4,7 @@ members = [
     "compiler/chili_span",
     "compiler/chili_error",
     "compiler/chili_ast",
+    "compiler/chili_pretty_print",
     "compiler/chili_token",
     "compiler/chili_parse",
     "compiler/chili_astgen",
