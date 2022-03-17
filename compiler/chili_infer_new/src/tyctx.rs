@@ -2,41 +2,41 @@ use chili_ast::ty::*;
 use core::fmt;
 use std::hash::Hash;
 
-pub(crate) struct InferSess {
+pub struct TyContext {
     type_bindings: Vec<TyBinding>,
 }
 
-impl InferSess {
-    pub(crate) fn new() -> Self {
+impl TyContext {
+    pub fn new() -> Self {
         Self {
             type_bindings: Default::default(),
         }
     }
 
-    pub(crate) fn new_variable(&mut self) -> TyVar {
+    pub fn new_variable(&mut self) -> TyVar {
         let var = TyVar(self.type_bindings.len() as _);
         self.type_bindings.push(TyBinding::Unbound);
         var
     }
 
-    pub(crate) fn new_bound_variable(&mut self, ty: Ty) -> TyVar {
+    pub fn new_bound_variable(&mut self, ty: Ty) -> TyVar {
         let var = TyVar(self.type_bindings.len() as _);
         self.type_bindings.push(TyBinding::Bound(ty));
         var
     }
 
-    pub(crate) fn find_type_binding(&self, var: TyVar) -> TyBinding {
+    pub fn find_type_binding(&self, var: TyVar) -> TyBinding {
         match self.type_bindings.get(var.0 as usize) {
             Some(ty) => ty.clone(),
             None => TyBinding::Unbound,
         }
     }
 
-    pub(crate) fn bind(&mut self, var: TyVar, ty: Ty) {
+    pub fn bind(&mut self, var: TyVar, ty: Ty) {
         self.type_bindings[var.0 as usize] = TyBinding::Bound(ty);
     }
 
-    pub(crate) fn print_type_bindings(&mut self) {
+    pub fn print_type_bindings(&mut self) {
         for (i, tb) in self.type_bindings.iter().enumerate() {
             println!("'{} :: {}", i, tb)
         }
@@ -44,7 +44,7 @@ impl InferSess {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum TyBinding {
+pub enum TyBinding {
     Bound(Ty),
     Unbound,
 }
