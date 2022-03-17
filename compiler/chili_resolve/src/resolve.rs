@@ -200,7 +200,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                 );
 
                 resolver.loop_depth += 1;
-                for_.expr.resolve(resolver, workspace)?;
+                for_.block.resolve(resolver, workspace)?;
                 resolver.loop_depth -= 1;
             }
             ast::ExprKind::Break { deferred } => {
@@ -302,8 +302,18 @@ impl<'w> Resolve<'w> for ast::Expr {
             ast::ExprKind::StructLiteral { type_expr, fields } => {
                 type_expr.resolve(resolver, workspace)?;
 
+                let mut field_map = UstrMap::default();
+
                 for field in fields {
                     field.value.resolve(resolver, workspace)?;
+
+                    if let Some(already_defined_span) = field_map.insert(field.symbol, field.span) {
+                        return Err(SyntaxError::duplicate_symbol(
+                            already_defined_span,
+                            field.span,
+                            field.symbol,
+                        ));
+                    }
                 }
             }
             ast::ExprKind::PointerType(inner, _) => {

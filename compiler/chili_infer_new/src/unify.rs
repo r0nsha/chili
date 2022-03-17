@@ -53,13 +53,18 @@ impl Unify<TyKind> for TyKind {
             (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
             (TyKind::Float(t1), TyKind::Float(t2)) if t1 == t2 => Ok(()),
 
+            // int/int
             (TyKind::AnyInt(var), ty @ TyKind::AnyInt(_))
             | (TyKind::AnyInt(var), ty @ TyKind::Int(_))
             | (ty @ TyKind::Int(_), TyKind::AnyInt(var))
             | (TyKind::AnyInt(var), ty @ TyKind::UInt(_))
             | (ty @ TyKind::UInt(_), TyKind::AnyInt(var))
+            // int/float
+            | (TyKind::AnyInt(var), ty @ TyKind::AnyFloat(_))
+            | (ty @ TyKind::AnyFloat(_), TyKind::AnyInt(var))
             | (TyKind::AnyInt(var), ty @ TyKind::Float(_))
             | (ty @ TyKind::Float(_), TyKind::AnyInt(var))
+            // float/float
             | (TyKind::AnyFloat(var), ty @ TyKind::AnyFloat(_))
             | (TyKind::AnyFloat(var), ty @ TyKind::Float(_))
             | (ty @ TyKind::Float(_), TyKind::AnyFloat(var)) => {

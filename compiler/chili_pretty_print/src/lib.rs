@@ -270,7 +270,7 @@ impl PrintTree for ast::Expr {
                     }
                 }
 
-                for_.expr.print_tree(b, workspace, tycx);
+                for_.block.print_tree(b, workspace, tycx);
 
                 b.end_child();
             }

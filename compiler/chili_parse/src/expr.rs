@@ -543,7 +543,7 @@ impl<'p> Parser<'p> {
                 iter_index_name,
                 iter_index_id: Default::default(),
                 iterator,
-                expr: Box::new(expr),
+                block: Box::new(expr),
             }),
             start_span.to(self.previous_span()),
         ))

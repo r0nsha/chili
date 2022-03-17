@@ -333,7 +333,7 @@ pub struct For {
     pub iter_index_name: Ustr,
     pub iter_index_id: BindingInfoId,
     pub iterator: ForIter,
-    pub expr: Box<Expr>,
+    pub block: Box<Expr>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
