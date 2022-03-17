@@ -447,37 +447,35 @@ impl Infer for ast::Expr {
             ast::ExprKind::PointerType(inner, is_mutable) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
                 try_unpack_type(&ty.into(), tycx, inner.span)?;
-                tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::Pointer(
-                    Box::new(ty.into()),
-                    *is_mutable,
-                ))))
+                tycx.new_bound_variable(
+                    TyKind::Pointer(Box::new(ty.into()), *is_mutable).create_type(),
+                )
             }
             ast::ExprKind::MultiPointerType(inner, is_mutable) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
                 try_unpack_type(&ty.into(), tycx, inner.span)?;
-                tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::MultiPointer(
-                    Box::new(ty.into()),
-                    *is_mutable,
-                ))))
+                tycx.new_bound_variable(
+                    TyKind::MultiPointer(Box::new(ty.into()), *is_mutable).create_type(),
+                )
             }
             ast::ExprKind::ArrayType(inner, size) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
                 try_unpack_type(&ty.into(), tycx, inner.span)?;
                 size.infer(frame, tycx, workspace)?;
-                tycx.new_variable()
+                let var = tycx.new_variable();
+                tycx.new_bound_variable(TyKind::Var(var.into()).create_type())
                 // TODO:
-                // tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::Pointer(
+                // tycx.new_bound_variable(TyKind::Pointer(
                 //     Box::new(ty.into()),
                 //     size,
-                // ))))
+                // ).create_type())
             }
             ast::ExprKind::SliceType(inner, is_mutable) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
                 try_unpack_type(&ty.into(), tycx, inner.span)?;
-                tycx.new_bound_variable(TyKind::Type(Box::new(TyKind::Slice(
-                    Box::new(ty.into()),
-                    *is_mutable,
-                ))))
+                tycx.new_bound_variable(
+                    TyKind::Slice(Box::new(ty.into()), *is_mutable).create_type(),
+                )
             }
             ast::ExprKind::StructType(st) => {
                 let mut ty_fields = vec![];
@@ -491,13 +489,16 @@ impl Infer for ast::Expr {
                     });
                 }
 
-                tycx.new_bound_variable(TyKind::Struct(StructTy {
-                    name: st.name,
-                    qualified_name: st.name,
-                    binding_info_id: st.binding_info_id,
-                    fields: ty_fields,
-                    kind: st.kind,
-                }))
+                tycx.new_bound_variable(
+                    TyKind::Struct(StructTy {
+                        name: st.name,
+                        qualified_name: st.name,
+                        binding_info_id: st.binding_info_id,
+                        fields: ty_fields,
+                        kind: st.kind,
+                    })
+                    .create_type(),
+                )
             }
             ast::ExprKind::FnType(proto) => {
                 let ty = proto.infer(frame, tycx, workspace)?;
@@ -507,9 +508,9 @@ impl Infer for ast::Expr {
                     tycx.new_bound_variable(TyKind::Type(Box::new(ty.into())))
                 }
             }
-            ast::ExprKind::SelfType => todo!(),
+            ast::ExprKind::SelfType => unimplemented!("Self type"),
             ast::ExprKind::NeverType => todo!(),
-            ast::ExprKind::UnitType => todo!(),
+            ast::ExprKind::UnitType => tycx.new_bound_variable(TyKind::Unit.create_type()),
             ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::Noop => todo!(),
         };
