@@ -99,34 +99,40 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Structs
 - [x] Tuples
 - [x] Clean up examples folder
-- [ ] Allow circular dependencies
+- [ ] Compiler refactor
+  - [ ] Allow circular dependencies
+  - [ ] Whole-program type inference
 - [ ] Allow both Nominal and Structural typing
-- [ ] Types as Values
-- [ ] Constant function parameters
-- [ ] Friendlier errors
-- [ ] Recoverable lexer, parser and checker
-- [ ] Function signature type-inference
-- [ ] Bytecode interpreter (no ffi)
-- [ ] Build options (Workspaces)
-- [ ] Bytecode interpreter: FFI
-- [ ] (Maybe?) Ownership model / Move semantics
-- [ ] Closures
-- [ ] Parametric polymorphism
-- [ ] Move builtin functions to `std`
-- [ ] Associated functions / Methods
-- [ ] Workspace methods
-- [ ] Traits / Interfaces
+- [ ] Improve error messages
+  - [ ] Recoverable lexer, parser and checker
+  - [ ] Friendlier errors
+- [ ] Compile time execution
+  - [ ] Bytecode interpreter (no FFI)
+  - [ ] Build options (Workspaces)
+  - [ ] (Maybe?) Support FFI for bytecode interpreter
+- [ ] Parametric polymorphism - supporting both types and constant values
+- [ ] Attributes
+- [ ] Move builtin functions to `std` - remove `@` prefixed builtins
 - [ ] Remove many-item (indexable) pointers
-- [ ] Conditional compilation
 - [ ] Tagged unions (enums)
-- [ ] Pattern matching
-- [ ] First-class `Option` & `Result` types
-- [ ] Remove `nil` from the language
-- [ ] Typed variadic arguments
-- [ ] More robust string escaping
-- [ ] String interpolation
-- [ ] Attributes / Tags
+  - [ ] Pattern matching
+  - [ ] First-class `Option` & `Result` types
+  - [ ] Remove `nil` from the language
+- [ ] Memory management; undecided - but here are some options, from most likely to least likely:
+  - [ ] Ownership model / Move semantics / Lifetime semantics / Region infernece
+  - [ ] Automatic Reference Counting
+  - [ ] Garbage Collection
+- [ ] Associated functions / Methods
+- [ ] (Maybe?) Some sort of behavioral polymorphism: Traits / Interfaces
+- [ ] Conditional compilation
+- [ ] Support basic printing and formatting
+  - [ ] Typed variadic arguments
+  - [ ] String interpolation
+  - [ ] `std.fmt` module, including basic formatting and printing functions
 - [ ] Runtime type introspection/reflection
+- [ ] Closures
+- [ ] (Maybe?) Tags
+- [ ] More robust string escaping
 
 ## Syntax (TODO: incomplete)
 
