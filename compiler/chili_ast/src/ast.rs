@@ -266,7 +266,7 @@ pub struct StructType {
     pub name: Ustr,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTyKind,
-    pub binding_info_id: Option<BindingInfoId>,
+    pub binding_info_id: BindingInfoId,
 }
 
 #[derive(Debug, PartialEq, Clone)]

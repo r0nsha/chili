@@ -328,22 +328,20 @@ impl<'w> Resolve<'w> for ast::Expr {
             ast::ExprKind::SliceType(inner, _) => {
                 inner.resolve(resolver, workspace)?;
             }
-            ast::ExprKind::StructType(typ) => {
-                if !typ.name.is_empty() {
-                    typ.binding_info_id = Some(resolver.add_binding(
-                        workspace,
-                        typ.name,
-                        Visibility::Private,
-                        false,
-                        BindingKind::Type,
-                        self.span,
-                        true,
-                    ));
-                }
+            ast::ExprKind::StructType(st) => {
+                st.binding_info_id = resolver.add_binding(
+                    workspace,
+                    st.name,
+                    Visibility::Private,
+                    false,
+                    BindingKind::Type,
+                    self.span,
+                    true,
+                );
 
                 let mut field_map = UstrMap::default();
 
-                for field in typ.fields.iter_mut() {
+                for field in st.fields.iter_mut() {
                     field.ty.resolve(resolver, workspace)?;
 
                     if let Some(already_defined_span) = field_map.insert(field.name, field.span) {

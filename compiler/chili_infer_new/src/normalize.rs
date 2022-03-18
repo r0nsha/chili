@@ -17,10 +17,7 @@ impl NormalizeTy for Ty {
 impl NormalizeTy for TyKind {
     fn normalize(&self, tycx: &TyCtx) -> TyKind {
         match self {
-            TyKind::Var(var) => match tycx.get_binding(*var) {
-                TyBinding::Bound(ty) => ty.normalize(tycx),
-                TyBinding::Unbound => TyKind::Var(*var),
-            },
+            TyKind::Var(var) => var.normalize(tycx),
             TyKind::Fn(f) => TyKind::Fn(FnTy {
                 params: f
                     .params
@@ -62,6 +59,7 @@ impl NormalizeTy for TyKind {
                 TyBinding::Bound(ty) => ty.normalize(tycx),
                 TyBinding::Unbound => TyKind::AnyFloat(*var),
             },
+            TyKind::Type(ty) => TyKind::Type(Box::new(ty.normalize(tycx))),
             _ => self.clone(),
         }
     }

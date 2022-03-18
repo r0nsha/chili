@@ -129,7 +129,7 @@ impl FnTyParam {
 pub struct StructTy {
     pub name: Ustr,
     pub qualified_name: Ustr,
-    pub binding_info_id: Option<BindingInfoId>,
+    pub binding_info_id: BindingInfoId,
     pub fields: Vec<StructTyField>,
     pub kind: StructTyKind,
 }
@@ -171,11 +171,11 @@ pub enum StructTyKind {
 }
 
 impl StructTy {
-    pub fn opaque(name: Ustr, qualified_name: Ustr, kind: StructTyKind) -> Self {
+    pub fn opaque(name: Ustr, binding_info_id: BindingInfoId, kind: StructTyKind) -> Self {
         Self {
             name,
-            qualified_name,
-            binding_info_id: None,
+            qualified_name: name,
+            binding_info_id,
             fields: vec![],
             kind,
         }
@@ -185,7 +185,7 @@ impl StructTy {
         Self {
             name: ustr(""),
             qualified_name: ustr(""),
-            binding_info_id: None,
+            binding_info_id: Default::default(),
             fields,
             kind,
         }

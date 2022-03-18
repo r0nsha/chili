@@ -466,7 +466,7 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::SelfType => {
-                b.add_empty_child("Self".to_string());
+                b.add_empty_child(format!("Self <{}>", tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::NeverType => {
                 b.add_empty_child("! (never)".to_string());
@@ -475,7 +475,7 @@ impl PrintTree for ast::Expr {
                 b.add_empty_child("() (unit)".to_string());
             }
             ast::ExprKind::PlaceholderType => {
-                b.add_empty_child("_ (type hole)".to_string());
+                b.add_empty_child(format!("_ (type hole) <{}>", tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::Noop => {
                 b.add_empty_child("noop".to_string());

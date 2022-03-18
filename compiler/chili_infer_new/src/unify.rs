@@ -44,7 +44,6 @@ impl Unify<Ty> for TyKind {
 
 impl Unify<TyKind> for TyKind {
     fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
-        println!("{} <=> {}", self, other);
         match (self, other) {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
@@ -71,6 +70,63 @@ impl Unify<TyKind> for TyKind {
                 tycx.bind(*var, ty.clone());
                 Ok(())
             }
+
+            (TyKind::Pointer(t1, a1),TyKind::Pointer(t2, a2))
+            | (TyKind::MultiPointer(t1, a1),TyKind::MultiPointer(t2, a2)) 
+            | (TyKind::Slice(t1, a1),TyKind::Slice(t2, a2)) => {
+                if !can_coerce_mut(*a1,*a2) {
+                    Err(TyUnifyErr::Mismatch)
+                } else {
+                    t1.unify(t2.as_ref(), tycx, workspace)?;
+                    Ok(())
+                }
+            }
+
+            (TyKind::Fn(f1),TyKind::Fn(f2)) => {
+                if f1.params.len() != f2.params.len() || f1.variadic != f2.variadic {
+                    Err(TyUnifyErr::Mismatch)
+                } else {
+                    for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
+                        p1.ty.unify(&p2.ty, tycx, workspace)?;
+                    }
+                    f1.ret.unify(f2.ret.as_ref(), tycx, workspace)?;
+                    Ok(())
+                }
+            }
+
+            (TyKind::Array(t1, s1),TyKind::Array(t2, s2)) => {
+                if *s1 != *s2 {
+                    Err(TyUnifyErr::Mismatch)
+                } else {
+                    t1.unify(t2.as_ref(), tycx, workspace)?;
+                    Ok(())
+                }
+            }
+
+            (TyKind::Tuple(t1),TyKind::Tuple(t2)) => {
+                if t1.len() != t2.len() {
+                    Err(TyUnifyErr::Mismatch)
+                } else {
+                    for (t1, t2) in t1.iter().zip(t2.iter()) {
+                        t1.unify(t2, tycx, workspace)?;
+                    }
+                    Ok(())
+                }
+            }
+
+            (TyKind::Struct(t1),TyKind::Struct(t2)) => {
+                if t1.fields.len() != t2.fields.len() 
+                    || t1.kind != t2.kind {
+                    Err(TyUnifyErr::Mismatch)
+                } else {
+                    for (f1, f2) in t1.fields.iter().zip(t2.fields.iter()) {
+                        f1.ty.unify(&f2.ty, tycx, workspace)?;
+                    }
+                    Ok(())
+                }
+            }
+            
+            (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx, workspace),
 
             (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx, workspace),
             (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx, workspace),

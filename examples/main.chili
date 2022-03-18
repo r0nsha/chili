@@ -1,24 +1,6 @@
 let main = fn {
-    let mut a = 5
-    a = 10
+}
 
-    let b = a as i32
-
-    @size_of(int)
-    @align_of(f32)
-
-    while false {
-        let c = 5
-    }
-
-    for i in 0..5 {
-
-    }
-
-    let mut x = if true {
-        5
-    } else {
-        1.0
-    }
-
+type Node = {
+    next: *Self,
 }

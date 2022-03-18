@@ -2,13 +2,19 @@ use crate::{
     display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::Unify,
     unpack_type::try_unpack_type,
 };
-use chili_ast::{ast, ty::*, workspace::Workspace};
-use chili_error::DiagnosticResult;
+use chili_ast::{
+    ast,
+    ty::*,
+    workspace::{BindingInfoId, Workspace},
+};
+use chili_error::{DiagnosticResult, TypeError};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct InferFrame {
     return_ty: Ty,
+    self_ty: Option<Ty>,
 }
 
 pub(crate) trait Infer {
@@ -73,6 +79,7 @@ impl Infer for ast::Binding {
 
         if let Some(expr) = &mut self.expr {
             expr.infer(frame, tycx, workspace)?;
+
             binding_ty
                 .unify(&expr.ty, tycx, workspace)
                 .map_err(|e| map_unify_err(e, binding_ty, expr.ty, expr.span, tycx))?;
@@ -100,7 +107,14 @@ impl Infer for ast::Fn {
 
         let return_ty = tycx.new_bound_variable(fn_ty.ret.as_ref().clone());
 
-        let body_ty = self.body.infer(InferFrame { return_ty }, tycx, workspace)?;
+        let body_ty = self.body.infer(
+            InferFrame {
+                return_ty,
+                self_ty: frame.self_ty,
+            },
+            tycx,
+            workspace,
+        )?;
 
         body_ty
             .unify(&return_ty, tycx, workspace)
@@ -210,8 +224,7 @@ impl Infer for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.infer(frame, tycx, workspace)?,
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
-                    let ty = expr.infer(frame, tycx, workspace)?.normalize(tycx);
-                    try_unpack_type(&ty.into(), tycx, expr.span)?;
+                    let ty = expr.infer(frame, tycx, workspace)?;
                     tycx.primitive(TyKind::UInt(UIntTy::Usize))
                 }
                 ast::Builtin::Panic(expr) => {
@@ -446,21 +459,18 @@ impl Infer for ast::Expr {
             ast::ExprKind::Literal(lit) => lit.infer(frame, tycx, workspace)?,
             ast::ExprKind::PointerType(inner, is_mutable) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
-                try_unpack_type(&ty.into(), tycx, inner.span)?;
                 tycx.new_bound_variable(
                     TyKind::Pointer(Box::new(ty.into()), *is_mutable).create_type(),
                 )
             }
             ast::ExprKind::MultiPointerType(inner, is_mutable) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
-                try_unpack_type(&ty.into(), tycx, inner.span)?;
                 tycx.new_bound_variable(
                     TyKind::MultiPointer(Box::new(ty.into()), *is_mutable).create_type(),
                 )
             }
             ast::ExprKind::ArrayType(inner, size) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
-                try_unpack_type(&ty.into(), tycx, inner.span)?;
                 size.infer(frame, tycx, workspace)?;
                 let var = tycx.new_variable();
                 tycx.new_bound_variable(TyKind::Var(var.into()).create_type())
@@ -472,13 +482,29 @@ impl Infer for ast::Expr {
             }
             ast::ExprKind::SliceType(inner, is_mutable) => {
                 let ty = inner.infer(frame, tycx, workspace)?;
-                try_unpack_type(&ty.into(), tycx, inner.span)?;
                 tycx.new_bound_variable(
                     TyKind::Slice(Box::new(ty.into()), *is_mutable).create_type(),
                 )
             }
             ast::ExprKind::StructType(st) => {
+                let ty = tycx.new_variable();
                 let mut ty_fields = vec![];
+
+                let opaque_ty = tycx.new_bound_variable(TyKind::Struct(StructTy::opaque(
+                    st.name,
+                    st.binding_info_id,
+                    st.kind,
+                )));
+
+                workspace
+                    .get_binding_info_mut(st.binding_info_id)
+                    .unwrap()
+                    .ty = opaque_ty;
+
+                let frame = InferFrame {
+                    return_ty: frame.return_ty,
+                    self_ty: Some(opaque_ty),
+                };
 
                 for field in st.fields.iter_mut() {
                     let ty = field.ty.infer(frame, tycx, workspace)?;
@@ -489,8 +515,8 @@ impl Infer for ast::Expr {
                     });
                 }
 
-                tycx.new_bound_variable(
-                    TyKind::Struct(StructTy {
+                ty.unify(
+                    &TyKind::Struct(StructTy {
                         name: st.name,
                         qualified_name: st.name,
                         binding_info_id: st.binding_info_id,
@@ -498,7 +524,18 @@ impl Infer for ast::Expr {
                         kind: st.kind,
                     })
                     .create_type(),
+                    tycx,
+                    workspace,
                 )
+                .unwrap();
+
+                for field in st.fields.iter() {
+                    if is_circular_type(st.binding_info_id, &field.ty.ty.normalize(tycx)) {
+                        return Err(TypeError::circular_type(self.span, &st.name));
+                    }
+                }
+
+                ty
             }
             ast::ExprKind::FnType(proto) => {
                 let ty = proto.infer(frame, tycx, workspace)?;
@@ -509,7 +546,17 @@ impl Infer for ast::Expr {
                     tycx.new_bound_variable(ty.create_type())
                 }
             }
-            ast::ExprKind::SelfType => unimplemented!("Self type"),
+            ast::ExprKind::SelfType => match frame.self_ty {
+                Some(ty) => ty,
+                None => {
+                    return Err(Diagnostic::error()
+                        .with_message("`Self` is only available within struct definitions")
+                        .with_labels(vec![Label::primary(
+                            self.span.file_id,
+                            self.span.range().clone(),
+                        )]))
+                }
+            },
             ast::ExprKind::NeverType => tycx.new_bound_variable(TyKind::Never.create_type()),
             ast::ExprKind::UnitType => tycx.new_bound_variable(TyKind::Unit.create_type()),
             ast::ExprKind::PlaceholderType => {
@@ -582,5 +629,29 @@ impl Infer for ast::Literal {
             ast::Literal::Char(_) => tycx.primitive(TyKind::char()),
         };
         Ok(ty)
+    }
+}
+
+fn is_circular_type(binding_info_id: BindingInfoId, kind: &TyKind) -> bool {
+    match kind {
+        TyKind::Fn(func) => {
+            func.params
+                .iter()
+                .any(|p| is_circular_type(binding_info_id, &p.ty))
+                || is_circular_type(binding_info_id, &func.ret)
+        }
+        TyKind::Array(ty, _) => is_circular_type(binding_info_id, ty),
+        TyKind::Tuple(tys) => tys.iter().any(|ty| is_circular_type(binding_info_id, ty)),
+        TyKind::Struct(ty) => {
+            if ty.binding_info_id == binding_info_id {
+                true
+            } else {
+                ty.fields
+                    .iter()
+                    .any(|field| is_circular_type(binding_info_id, &field.ty))
+            }
+        }
+        TyKind::Type(ty) => is_circular_type(binding_info_id, ty),
+        _ => false,
     }
 }

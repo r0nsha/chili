@@ -47,11 +47,6 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn bind(&mut self, var: Ty, ty: TyKind) {
-        self.type_bindings[var.0 as usize] = TyBinding::Bound(ty);
-    }
-
-    #[inline]
     pub fn primitive(&self, kind: TyKind) -> Ty {
         self.primitive_types[&kind]
     }
@@ -64,6 +59,11 @@ impl TyCtx {
     #[inline]
     pub fn ty_kind(&self, ty: Ty) -> TyKind {
         ty.normalize(self)
+    }
+
+    #[inline]
+    pub fn bind(&mut self, var: Ty, ty: TyKind) {
+        self.type_bindings[var.0] = TyBinding::Bound(ty);
     }
 
     pub fn print_type_bindings(&mut self) {
