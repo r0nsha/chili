@@ -137,7 +137,7 @@ impl Unify<TyKind> for TyKind {
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
             _ => {
-                println!("{} <=> {}", self, other);
+                // println!("{} <=> {}", self, other);
                 Err(TyUnifyErr::Mismatch)},
         }
     }

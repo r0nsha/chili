@@ -1,5 +1,5 @@
 let main = fn {
-    let a
+    let a: int = 5
     a = 5
 }
 

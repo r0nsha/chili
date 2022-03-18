@@ -515,12 +515,11 @@ impl Infer for ast::Expr {
                     binding_info_id: st.binding_info_id,
                     fields: ty_fields,
                     kind: st.kind,
-                });
-                ty.unify(
-                    &st, // .create_type(),
-                    tycx, workspace,
-                )
-                .map_err(|e| map_unify_err(e, ty, st, self.span, tycx))?;
+                })
+                .create_type();
+
+                ty.unify(&st, tycx, workspace)
+                    .map_err(|e| map_unify_err(e, ty, st, self.span, tycx))?;
 
                 ty
             }

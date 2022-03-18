@@ -9,7 +9,7 @@ use chili_span::Span;
 
 pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
-        TyKind::Type(ty) => unpack_type(ty, tycx, span),
+        TyKind::Type(ty) => try_unpack_type_inner(ty, tycx, span),
         _ => Err(TypeError::expected(
             span,
             ty.normalize(tycx).display(tycx),
@@ -18,7 +18,7 @@ pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> Diagnost
     }
 }
 
-fn unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
+fn try_unpack_type_inner(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
         TyKind::Var(var) => match tycx.get_binding(*var) {
             TyBinding::Bound(ty) => try_unpack_type(&ty, tycx, span),
@@ -83,5 +83,59 @@ fn unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind
             kind: st.kind,
         })),
         _ => Ok(ty.clone()),
+    }
+}
+
+pub(crate) fn unpack_type(ty: &TyKind, tycx: &TyCtx) -> TyKind {
+    match ty {
+        TyKind::Type(ty) => unpack_type_inner(ty, tycx),
+        _ => ty.clone(),
+    }
+}
+
+fn unpack_type_inner(ty: &TyKind, tycx: &TyCtx) -> TyKind {
+    match ty {
+        TyKind::Var(var) => match tycx.get_binding(*var) {
+            TyBinding::Bound(ty) => unpack_type(&ty, tycx),
+            TyBinding::Unbound => TyKind::Var(*var),
+        },
+        TyKind::Fn(f) => TyKind::Fn(FnTy {
+            params: f
+                .params
+                .iter()
+                .map(|p| FnTyParam {
+                    symbol: p.symbol,
+                    ty: unpack_type(&p.ty, tycx),
+                })
+                .collect::<Vec<FnTyParam>>(),
+            ret: Box::new(unpack_type(&f.ret, tycx)),
+            variadic: f.variadic,
+            lib_name: f.lib_name,
+        }),
+        TyKind::Pointer(ty, a) => TyKind::Pointer(Box::new(unpack_type(ty, tycx)), *a),
+        TyKind::MultiPointer(ty, a) => TyKind::MultiPointer(Box::new(unpack_type(ty, tycx)), *a),
+        TyKind::Array(ty, a) => TyKind::Array(Box::new(unpack_type(ty, tycx)), *a),
+        TyKind::Slice(ty, a) => TyKind::Slice(Box::new(unpack_type(ty, tycx)), *a),
+        TyKind::Tuple(tys) => TyKind::Tuple(
+            tys.iter()
+                .map(|ty| unpack_type(&ty, tycx))
+                .collect::<Vec<TyKind>>(),
+        ),
+        TyKind::Struct(st) => TyKind::Struct(StructTy {
+            name: st.name,
+            qualified_name: st.qualified_name,
+            binding_info_id: st.binding_info_id,
+            fields: st
+                .fields
+                .iter()
+                .map(|f| StructTyField {
+                    symbol: f.symbol,
+                    ty: unpack_type(&f.ty, tycx),
+                    span: f.span,
+                })
+                .collect::<Vec<StructTyField>>(),
+            kind: st.kind,
+        }),
+        _ => ty.clone(),
     }
 }
