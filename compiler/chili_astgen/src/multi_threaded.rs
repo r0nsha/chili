@@ -1,17 +1,14 @@
 use chili_ast::{
-    ast::{Ast, Import, ModuleInfo, Visibility},
+    ast::{Ast, ModuleInfo},
     path::resolve_relative_path,
     workspace::Workspace,
 };
 use chili_error::DiagnosticResult;
 use chili_parse::Parser;
-use chili_span::Span;
 use chili_token::{lexer::Lexer, TokenKind};
-use common::compiler_info::{self, IntrinsticModuleInfo};
 use crossbeam_utils::thread;
 use dashmap::DashSet;
 use std::{
-    collections::HashSet,
     path::PathBuf,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -21,7 +18,7 @@ use std::{
 use unindent::unindent;
 use ustr::ustr;
 
-use crate::{AstGenerationResult, AstGenerationStats};
+use crate::{util::insert_std_import, AstGenerationResult, AstGenerationStats};
 
 pub struct AstGenerator<'a> {
     pub workspace: Mutex<&'a mut Workspace>,
@@ -152,29 +149,4 @@ impl<'a> AstGenerator<'a> {
 
         Ok(())
     }
-}
-
-fn insert_std_import(ast: &mut Ast, imports: &mut HashSet<ModuleInfo>) {
-    add_intrinsic_module(ast, imports, compiler_info::std_module_info())
-}
-
-fn add_intrinsic_module(
-    ast: &mut Ast,
-    imports: &mut HashSet<ModuleInfo>,
-    intrinsic_module_info: IntrinsticModuleInfo,
-) {
-    let intrinsic_module_info =
-        ModuleInfo::new(intrinsic_module_info.name, intrinsic_module_info.file_path);
-
-    ast.imports.push(Import {
-        binding_info_id: Default::default(),
-        module_id: Default::default(),
-        module_info: intrinsic_module_info,
-        alias: intrinsic_module_info.name,
-        import_path: vec![],
-        visibility: Visibility::Private,
-        span: Span::unknown(),
-    });
-
-    imports.insert(intrinsic_module_info);
 }

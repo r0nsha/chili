@@ -4,7 +4,7 @@ use chili_ast::{
     ty::*,
     workspace::{BindingInfoId, Workspace},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{DiagnosticResult, TypeError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
@@ -509,25 +509,18 @@ impl Infer for ast::Expr {
                     });
                 }
 
+                let st = TyKind::Struct(StructTy {
+                    name: st.name,
+                    qualified_name: st.name,
+                    binding_info_id: st.binding_info_id,
+                    fields: ty_fields,
+                    kind: st.kind,
+                });
                 ty.unify(
-                    &TyKind::Struct(StructTy {
-                        name: st.name,
-                        qualified_name: st.name,
-                        binding_info_id: st.binding_info_id,
-                        fields: ty_fields,
-                        kind: st.kind,
-                    }),
-                    // .create_type(),
-                    tycx,
-                    workspace,
+                    &st, // .create_type(),
+                    tycx, workspace,
                 )
-                .unwrap();
-
-                // for field in st.fields.iter() {
-                //     if is_circular_type(st.binding_info_id, &field.ty.ty.normalize(tycx)) {
-                //         return Err(TypeError::circular_type(self.span, &st.name));
-                //     }
-                // }
+                .map_err(|e| map_unify_err(e, ty, st, self.span, tycx))?;
 
                 ty
             }
@@ -625,29 +618,5 @@ impl Infer for ast::Literal {
             ast::Literal::Char(_) => tycx.primitive(TyKind::char()),
         };
         Ok(ty)
-    }
-}
-
-fn is_circular_type(binding_info_id: BindingInfoId, kind: &TyKind) -> bool {
-    match kind {
-        TyKind::Fn(func) => {
-            func.params
-                .iter()
-                .any(|p| is_circular_type(binding_info_id, &p.ty))
-                || is_circular_type(binding_info_id, &func.ret)
-        }
-        TyKind::Array(ty, _) => is_circular_type(binding_info_id, ty),
-        TyKind::Tuple(tys) => tys.iter().any(|ty| is_circular_type(binding_info_id, ty)),
-        TyKind::Struct(ty) => {
-            if ty.binding_info_id == binding_info_id {
-                true
-            } else {
-                ty.fields
-                    .iter()
-                    .any(|field| is_circular_type(binding_info_id, &field.ty))
-            }
-        }
-        TyKind::Type(ty) => is_circular_type(binding_info_id, ty),
-        _ => false,
     }
 }
