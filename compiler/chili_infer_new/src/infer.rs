@@ -211,7 +211,10 @@ impl Infer for ast::Expr {
                 binding.infer(frame, tycx, workspace)?;
                 tycx.primitive(TyKind::Unit)
             }
-            ast::ExprKind::Defer(_) => todo!(),
+            ast::ExprKind::Defer(deferred) => {
+                deferred.infer(frame, tycx, workspace)?;
+                tycx.primitive(TyKind::Unit)
+            }
             ast::ExprKind::Assign { lvalue, rvalue } => {
                 let lty = lvalue.infer(frame, tycx, workspace)?;
                 let rty = rvalue.infer(frame, tycx, workspace)?;
