@@ -33,7 +33,7 @@ pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticR
     // without requiring specific types for most semantics
     for ast in asts.iter_mut() {
         if let Err(err) = ast.infer(InferFrame::default(), &mut tycx, workspace) {
-            tycx.print_type_bindings();
+            // tycx.print_type_bindings();
             return Err(err);
         }
     }

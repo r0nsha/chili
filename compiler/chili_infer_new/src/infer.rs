@@ -1,7 +1,4 @@
-use crate::{
-    display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::Unify,
-    unpack_type::try_unpack_type,
-};
+use crate::{display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::Unify};
 use chili_ast::{
     ast,
     ty::*,
@@ -69,12 +66,9 @@ impl Infer for ast::Binding {
         let binding_ty = workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
 
         if let Some(ty_expr) = &mut self.ty_expr {
-            let ty = ty_expr.infer(frame, tycx, workspace)?.normalize(tycx);
-            let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
-
-            inner_type
-                .unify(&binding_ty, tycx, workspace)
-                .map_err(|e| map_unify_err(e, inner_type, binding_ty, ty_expr.span, tycx))?;
+            let ty = ty_expr.infer(frame, tycx, workspace)?;
+            ty.unify(&binding_ty, tycx, workspace)
+                .map_err(|e| map_unify_err(e, ty, binding_ty, ty_expr.span, tycx))?;
         }
 
         if let Some(expr) = &mut self.expr {
@@ -139,9 +133,7 @@ impl Infer for ast::Proto {
 
             // TODO: param type annotation
             let ty = if let Some(ty_expr) = &mut param.ty {
-                let ty = ty_expr.infer(frame, tycx, workspace)?.normalize(tycx);
-                let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
-                tycx.new_bound_variable(inner_type).into()
+                ty_expr.infer(frame, tycx, workspace)?
             } else {
                 tycx.new_variable().into()
             };
@@ -158,16 +150,14 @@ impl Infer for ast::Proto {
         }
 
         let ret = if let Some(ret) = &mut self.ret {
-            let ty = ret.infer(frame, tycx, workspace)?.normalize(tycx);
-            let inner_type = try_unpack_type(&ty, tycx, ret.span)?;
-            tycx.new_bound_variable(inner_type).into()
+            ret.infer(frame, tycx, workspace)?
         } else {
             tycx.new_variable().into()
         };
 
         let ty = tycx.new_bound_variable(TyKind::Fn(FnTy {
             params,
-            ret: Box::new(ret),
+            ret: Box::new(ret.into()),
             variadic: self.variadic,
             lib_name: self.lib_name,
         }));
@@ -500,19 +490,14 @@ impl Infer for ast::Expr {
                 let ty = tycx.new_variable();
                 let mut ty_fields = vec![];
 
-                let opaque_ty = tycx.new_bound_variable(
-                    TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
-                        .create_type(),
-                );
-
                 workspace
                     .get_binding_info_mut(st.binding_info_id)
                     .unwrap()
-                    .ty = opaque_ty;
+                    .ty = ty;
 
                 let frame = InferFrame {
                     return_ty: frame.return_ty,
-                    self_ty: Some(opaque_ty),
+                    self_ty: Some(ty),
                 };
 
                 for field in st.fields.iter_mut() {
@@ -531,8 +516,8 @@ impl Infer for ast::Expr {
                         binding_info_id: st.binding_info_id,
                         fields: ty_fields,
                         kind: st.kind,
-                    })
-                    .create_type(),
+                    }),
+                    // .create_type(),
                     tycx,
                     workspace,
                 )
@@ -589,9 +574,7 @@ impl Infer for ast::Cast {
         self.expr.infer(frame, tycx, workspace)?;
 
         self.target_ty = if let Some(ty_expr) = &mut self.ty_expr {
-            let ty = ty_expr.infer(frame, tycx, workspace)?.normalize(tycx);
-            let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
-            tycx.new_bound_variable(inner_type)
+            ty_expr.infer(frame, tycx, workspace)?
         } else {
             tycx.new_variable()
         };
@@ -625,8 +608,9 @@ impl Infer for ast::Literal {
         let ty = match self {
             ast::Literal::Unit => tycx.primitive(TyKind::Unit),
             ast::Literal::Nil => {
-                let var = tycx.new_variable();
-                tycx.new_bound_variable(TyKind::Pointer(Box::new(var.into()), true))
+                // let var = tycx.new_variable();
+                // tycx.new_bound_variable(TyKind::Pointer(Box::new(var.into()), true))
+                tycx.new_variable()
             }
             ast::Literal::Bool(_) => tycx.primitive(TyKind::Bool),
             ast::Literal::Int(_) => {

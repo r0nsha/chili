@@ -115,8 +115,9 @@ impl Unify<TyKind> for TyKind {
             }
 
             (TyKind::Struct(t1),TyKind::Struct(t2)) => {
-                if t1.fields.len() != t2.fields.len() 
-                    || t1.kind != t2.kind {
+                if t1.binding_info_id == t2.binding_info_id {
+                    Ok(())
+                } else if t1.fields.len() != t2.fields.len() || t1.kind != t2.kind {
                     Err(TyUnifyErr::Mismatch)
                 } else {
                     for (f1, f2) in t1.fields.iter().zip(t2.fields.iter()) {
@@ -127,13 +128,17 @@ impl Unify<TyKind> for TyKind {
             }
             
             (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx, workspace),
+            (TyKind::Type(t1), t2) => t1.unify(t2, tycx, workspace),
+            (t1, TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx, workspace),
 
             (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx, workspace),
             (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx, workspace),
 
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
-            _ => Err(TyUnifyErr::Mismatch),
+            _ => {
+                println!("{} <=> {}", self, other);
+                Err(TyUnifyErr::Mismatch)},
         }
     }
 }

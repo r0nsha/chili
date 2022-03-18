@@ -68,24 +68,25 @@ impl Display for TyKind {
 
 impl Display for StructTy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.name.is_empty() {
-            write!(
-                f,
-                "{} {{ {} }}",
-                match self.kind {
-                    StructTyKind::Struct => "struct",
-                    StructTyKind::PackedStruct => "struct(packed)",
-                    StructTyKind::Union => "union",
-                },
-                self.fields
-                    .iter()
-                    .map(|f| format!("{}: {}", f.symbol, f.ty))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            )
-        } else {
-            write!(f, "{}", self.name)
-        }
+        write!(
+            f,
+            "{}{}{{ {} }}",
+            match self.kind {
+                StructTyKind::Struct => "struct",
+                StructTyKind::PackedStruct => "struct(packed)",
+                StructTyKind::Union => "union",
+            },
+            if self.name.is_empty() {
+                " ".to_string()
+            } else {
+                format!(" {} ", self.name)
+            },
+            self.fields
+                .iter()
+                .map(|f| format!("{}: {}", f.symbol, f.ty))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 

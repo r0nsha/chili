@@ -48,7 +48,10 @@ impl TyCtx {
 
     #[inline]
     pub fn primitive(&self, kind: TyKind) -> Ty {
-        self.primitive_types[&kind]
+        match self.primitive_types.get(&kind) {
+            Some(ty) => *ty,
+            None => panic!("got {}", kind),
+        }
     }
 
     #[inline]
@@ -79,7 +82,7 @@ impl TyCtx {
         };
 
         create(TyKind::Unit);
-
+        create(TyKind::Never);
         create(TyKind::Bool);
 
         create(TyKind::Int(IntTy::I8));
