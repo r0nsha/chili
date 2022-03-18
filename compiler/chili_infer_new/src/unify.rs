@@ -4,46 +4,46 @@ use crate::{
 };
 use chili_ast::{ty::*, workspace::Workspace};
 
-pub(crate) type TyUnifyResult = Result<(), TyUnifyErr>;
+pub(crate) type UnifyTyResult = Result<(), UnifyTyErr>;
 
 #[derive(Debug)]
-pub(crate) enum TyUnifyErr {
+pub(crate) enum UnifyTyErr {
     Mismatch,
     Occurs,
 }
 
-pub(crate) trait Unify<T>
+pub(crate) trait UnifyTy<T>
 where
     Self: Sized,
     T: Sized,
 {
-    fn unify(&self, other: &T, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult;
+    fn unify(&self, other: &T, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult;
 }
 
-impl Unify<Ty> for Ty {
-    fn unify(&self, other: &Ty, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
+impl UnifyTy<Ty> for Ty {
+    fn unify(&self, other: &Ty, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult {
         let t1 = TyKind::Var(*self);
         let t2 = TyKind::Var(*other);
         t1.unify(&t2, tycx, workspace)
     }
 }
 
-impl Unify<TyKind> for Ty {
-    fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
+impl UnifyTy<TyKind> for Ty {
+    fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult {
         let ty = TyKind::Var(*self);
         ty.unify(other, tycx, workspace)
     }
 }
 
-impl Unify<Ty> for TyKind {
-    fn unify(&self, other: &Ty, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
+impl UnifyTy<Ty> for TyKind {
+    fn unify(&self, other: &Ty, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult {
         let other = TyKind::Var(*other);
         self.unify(&other, tycx, workspace)
     }
 }
 
-impl Unify<TyKind> for TyKind {
-    fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
+impl UnifyTy<TyKind> for TyKind {
+    fn unify(&self, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult {
         match (self, other) {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
@@ -75,7 +75,7 @@ impl Unify<TyKind> for TyKind {
             | (TyKind::MultiPointer(t1, a1),TyKind::MultiPointer(t2, a2)) 
             | (TyKind::Slice(t1, a1),TyKind::Slice(t2, a2)) => {
                 if !can_coerce_mut(*a1,*a2) {
-                    Err(TyUnifyErr::Mismatch)
+                    Err(UnifyTyErr::Mismatch)
                 } else {
                     t1.unify(t2.as_ref(), tycx, workspace)?;
                     Ok(())
@@ -84,7 +84,7 @@ impl Unify<TyKind> for TyKind {
 
             (TyKind::Fn(f1),TyKind::Fn(f2)) => {
                 if f1.params.len() != f2.params.len() || f1.variadic != f2.variadic {
-                    Err(TyUnifyErr::Mismatch)
+                    Err(UnifyTyErr::Mismatch)
                 } else {
                     for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
                         p1.ty.unify(&p2.ty, tycx, workspace)?;
@@ -96,7 +96,7 @@ impl Unify<TyKind> for TyKind {
 
             (TyKind::Array(t1, s1),TyKind::Array(t2, s2)) => {
                 if *s1 != *s2 {
-                    Err(TyUnifyErr::Mismatch)
+                    Err(UnifyTyErr::Mismatch)
                 } else {
                     t1.unify(t2.as_ref(), tycx, workspace)?;
                     Ok(())
@@ -105,7 +105,7 @@ impl Unify<TyKind> for TyKind {
 
             (TyKind::Tuple(t1),TyKind::Tuple(t2)) => {
                 if t1.len() != t2.len() {
-                    Err(TyUnifyErr::Mismatch)
+                    Err(UnifyTyErr::Mismatch)
                 } else {
                     for (t1, t2) in t1.iter().zip(t2.iter()) {
                         t1.unify(t2, tycx, workspace)?;
@@ -118,7 +118,7 @@ impl Unify<TyKind> for TyKind {
                 if t1.binding_info_id == t2.binding_info_id {
                     Ok(())
                 } else if t1.fields.len() != t2.fields.len() || t1.kind != t2.kind {
-                    Err(TyUnifyErr::Mismatch)
+                    Err(UnifyTyErr::Mismatch)
                 } else {
                     for (f1, f2) in t1.fields.iter().zip(t2.fields.iter()) {
                         f1.ty.unify(&f2.ty, tycx, workspace)?;
@@ -138,12 +138,12 @@ impl Unify<TyKind> for TyKind {
 
             _ => {
                 // println!("{} <=> {}", self, other);
-                Err(TyUnifyErr::Mismatch)},
+                Err(UnifyTyErr::Mismatch)},
         }
     }
 }
 
-fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> TyUnifyResult {
+fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult {
     match tycx.get_binding(var) {
         TyBinding::Bound(kind) => kind.clone().unify(other, tycx, workspace),
         TyBinding::Unbound => {
@@ -151,7 +151,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace
 
             if TyKind::Var(var) != other_norm {
                 if occurs(var, &other_norm, tycx, workspace) {
-                    Err(TyUnifyErr::Occurs)
+                    Err(UnifyTyErr::Occurs)
                 } else {
                     tycx.bind(var, other_norm);
                     Ok(())

@@ -1,16 +1,16 @@
-use crate::{normalize::NormalizeTy, tycx::TyCtx, unify::TyUnifyErr};
+use crate::{normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTyErr};
 use chili_ast::ty::TyKind;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 pub(crate) fn map_unify_err(
-    e: TyUnifyErr,
+    e: UnifyTyErr,
     expected: impl NormalizeTy,
     found: impl NormalizeTy,
     span: Span,
     tycx: &TyCtx,
 ) -> Diagnostic<usize> {
-    use TyUnifyErr::*;
+    use UnifyTyErr::*;
 
     let expected = expected.normalize(tycx).display(tycx);
     let found = found.normalize(tycx).display(tycx);

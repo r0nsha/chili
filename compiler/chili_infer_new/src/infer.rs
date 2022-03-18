@@ -1,4 +1,4 @@
-use crate::{display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::Unify};
+use crate::{display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTy};
 use chili_ast::{
     ast,
     ty::*,
