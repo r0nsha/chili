@@ -124,10 +124,7 @@ impl<'a> AstGenerator<'a> {
         let mut parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
-        // add_intrinsic_std_import(
-        //     &mut parse_result.ast,
-        //     &mut parse_result.imports,
-        // );
+        insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
 
         thread::scope(|scope| {
             let mut handles = vec![];
@@ -155,7 +152,7 @@ impl<'a> AstGenerator<'a> {
     }
 }
 
-fn add_intrinsic_std_import(ast: &mut Ast, imports: &mut HashSet<ModuleInfo>) {
+fn insert_std_import(ast: &mut Ast, imports: &mut HashSet<ModuleInfo>) {
     add_intrinsic_module(ast, imports, compiler_info::std_module_info())
 }
 

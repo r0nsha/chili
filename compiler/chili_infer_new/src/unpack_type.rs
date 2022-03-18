@@ -9,7 +9,7 @@ use chili_span::Span;
 
 pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
-        TyKind::Type(ty) => unpack_type(ty, tycx),
+        TyKind::Type(ty) => unpack_type(ty, tycx, span),
         _ => Err(TypeError::expected(
             span,
             ty.normalize(tycx).display(tycx),
@@ -18,10 +18,10 @@ pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> Diagnost
     }
 }
 
-fn unpack_type(ty: &TyKind, tycx: &TyCtx) -> DiagnosticResult<TyKind> {
+fn unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
         TyKind::Var(var) => match tycx.get_binding(*var) {
-            TyBinding::Bound(ty) => unpack_type(&ty, tycx),
+            TyBinding::Bound(ty) => try_unpack_type(&ty, tycx, span),
             TyBinding::Unbound => {
                 panic!(
                     "couldn't figure out the type of {}, because it was unbound",
@@ -36,23 +36,33 @@ fn unpack_type(ty: &TyKind, tycx: &TyCtx) -> DiagnosticResult<TyKind> {
                 .map(|p| {
                     Ok(FnTyParam {
                         symbol: p.symbol,
-                        ty: unpack_type(&p.ty, tycx)?,
+                        ty: try_unpack_type(&p.ty, tycx, span)?,
                     })
                 })
                 .collect::<DiagnosticResult<Vec<FnTyParam>>>()?,
-            ret: Box::new(unpack_type(&f.ret, tycx)?),
+            ret: Box::new(try_unpack_type(&f.ret, tycx, span)?),
             variadic: f.variadic,
             lib_name: f.lib_name,
         })),
-        TyKind::Pointer(ty, a) => Ok(TyKind::Pointer(Box::new(unpack_type(ty, tycx)?), *a)),
-        TyKind::MultiPointer(ty, a) => {
-            Ok(TyKind::MultiPointer(Box::new(unpack_type(ty, tycx)?), *a))
-        }
-        TyKind::Array(ty, a) => Ok(TyKind::Array(Box::new(unpack_type(ty, tycx)?), *a)),
-        TyKind::Slice(ty, a) => Ok(TyKind::Slice(Box::new(unpack_type(ty, tycx)?), *a)),
+        TyKind::Pointer(ty, a) => Ok(TyKind::Pointer(
+            Box::new(try_unpack_type(ty, tycx, span)?),
+            *a,
+        )),
+        TyKind::MultiPointer(ty, a) => Ok(TyKind::MultiPointer(
+            Box::new(try_unpack_type(ty, tycx, span)?),
+            *a,
+        )),
+        TyKind::Array(ty, a) => Ok(TyKind::Array(
+            Box::new(try_unpack_type(ty, tycx, span)?),
+            *a,
+        )),
+        TyKind::Slice(ty, a) => Ok(TyKind::Slice(
+            Box::new(try_unpack_type(ty, tycx, span)?),
+            *a,
+        )),
         TyKind::Tuple(tys) => Ok(TyKind::Tuple(
             tys.iter()
-                .map(|ty| unpack_type(&ty, tycx))
+                .map(|ty| try_unpack_type(&ty, tycx, span))
                 .collect::<DiagnosticResult<Vec<TyKind>>>()?,
         )),
         TyKind::Struct(st) => Ok(TyKind::Struct(StructTy {
@@ -65,7 +75,7 @@ fn unpack_type(ty: &TyKind, tycx: &TyCtx) -> DiagnosticResult<TyKind> {
                 .map(|f| {
                     Ok(StructTyField {
                         symbol: f.symbol,
-                        ty: unpack_type(&f.ty, tycx)?,
+                        ty: try_unpack_type(&f.ty, tycx, span)?,
                         span: f.span,
                     })
                 })

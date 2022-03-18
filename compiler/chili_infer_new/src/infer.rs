@@ -7,7 +7,7 @@ use chili_ast::{
     ty::*,
     workspace::{BindingInfoId, Workspace},
 };
-use chili_error::{DiagnosticResult, TypeError};
+use chili_error::DiagnosticResult;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
@@ -136,14 +136,24 @@ impl Infer for ast::Proto {
         for param in self.params.iter_mut() {
             // TODO: support other patterns
             let pat = param.pattern.as_single_ref();
-            let binding_info = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
 
             // TODO: param type annotation
-            binding_info.ty = tycx.new_variable().into();
+            let ty = if let Some(ty_expr) = &mut param.ty {
+                let ty = ty_expr.infer(frame, tycx, workspace)?.normalize(tycx);
+                let inner_type = try_unpack_type(&ty, tycx, ty_expr.span)?;
+                tycx.new_bound_variable(inner_type).into()
+            } else {
+                tycx.new_variable().into()
+            };
+
+            workspace
+                .get_binding_info_mut(pat.binding_info_id)
+                .unwrap()
+                .ty = ty;
 
             params.push(FnTyParam {
                 symbol: pat.symbol,
-                ty: binding_info.ty.into(),
+                ty: ty.into(),
             })
         }
 
@@ -224,7 +234,7 @@ impl Infer for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.infer(frame, tycx, workspace)?,
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
-                    let ty = expr.infer(frame, tycx, workspace)?;
+                    expr.infer(frame, tycx, workspace)?;
                     tycx.primitive(TyKind::UInt(UIntTy::Usize))
                 }
                 ast::Builtin::Panic(expr) => {
@@ -475,7 +485,7 @@ impl Infer for ast::Expr {
                 let var = tycx.new_variable();
                 tycx.new_bound_variable(TyKind::Var(var.into()).create_type())
                 // TODO:
-                // tycx.new_bound_variable(TyKind::Pointer(
+                // tycx.new_bound_variable(TyKind::Array(
                 //     Box::new(ty.into()),
                 //     size,
                 // ).create_type())
@@ -490,11 +500,10 @@ impl Infer for ast::Expr {
                 let ty = tycx.new_variable();
                 let mut ty_fields = vec![];
 
-                let opaque_ty = tycx.new_bound_variable(TyKind::Struct(StructTy::opaque(
-                    st.name,
-                    st.binding_info_id,
-                    st.kind,
-                )));
+                let opaque_ty = tycx.new_bound_variable(
+                    TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
+                        .create_type(),
+                );
 
                 workspace
                     .get_binding_info_mut(st.binding_info_id)
@@ -529,11 +538,11 @@ impl Infer for ast::Expr {
                 )
                 .unwrap();
 
-                for field in st.fields.iter() {
-                    if is_circular_type(st.binding_info_id, &field.ty.ty.normalize(tycx)) {
-                        return Err(TypeError::circular_type(self.span, &st.name));
-                    }
-                }
+                // for field in st.fields.iter() {
+                //     if is_circular_type(st.binding_info_id, &field.ty.ty.normalize(tycx)) {
+                //         return Err(TypeError::circular_type(self.span, &st.name));
+                //     }
+                // }
 
                 ty
             }
@@ -615,7 +624,10 @@ impl Infer for ast::Literal {
     ) -> DiagnosticResult<Ty> {
         let ty = match self {
             ast::Literal::Unit => tycx.primitive(TyKind::Unit),
-            ast::Literal::Nil => tycx.new_bound_variable(TyKind::raw_pointer(true)),
+            ast::Literal::Nil => {
+                let var = tycx.new_variable();
+                tycx.new_bound_variable(TyKind::Pointer(Box::new(var.into()), true))
+            }
             ast::Literal::Bool(_) => tycx.primitive(TyKind::Bool),
             ast::Literal::Int(_) => {
                 let var = tycx.new_variable();
