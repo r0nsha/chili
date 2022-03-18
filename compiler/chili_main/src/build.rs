@@ -1,5 +1,5 @@
 use chili_ast::workspace::Workspace;
-use chili_astgen::{AstGenerationStats, AstGenerator};
+use chili_astgen::{AstGenerationMode, AstGenerationStats};
 use chili_error::emit_single_diagnostic;
 use codespan_reporting::diagnostic::Diagnostic;
 use colored::Colorize;
@@ -36,12 +36,11 @@ pub fn do_build(build_options: BuildOptions) {
     // Parse all source files into ast's
 
     let (mut asts, stats) = time! { "parse", {
-            let mut generator = AstGenerator::new(&mut workspace);
-
-            match generator.start(build_options.source_file.clone()) {
+            // TODO: pass `AstGenerationMode` from a `-mt` flag
+            match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
                 Ok(result) => result,
                 Err(diagnostic) => {
-                    emit_single_diagnostic(&generator.workspace.lock().unwrap().files, diagnostic);
+                    emit_single_diagnostic(&workspace.files, diagnostic);
                     return;
                 }
             }
