@@ -1,14 +1,12 @@
 use crate::{util::insert_std_import, AstGenerationResult, AstGenerationStats};
 use chili_ast::{
-    ast::{Ast, Import, ModuleInfo, Visibility},
+    ast::{Ast, ModuleInfo},
     path::resolve_relative_path,
     workspace::Workspace,
 };
 use chili_error::DiagnosticResult;
 use chili_parse::Parser;
-use chili_span::Span;
 use chili_token::{lexer::Lexer, TokenKind};
-use common::compiler_info::{self, IntrinsticModuleInfo};
 use std::{collections::HashSet, path::PathBuf};
 use unindent::unindent;
 use ustr::ustr;
@@ -104,7 +102,7 @@ impl<'a> AstGenerator<'a> {
         let mut parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
-        insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
+        // insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
 
         for u in parse_result.imports.iter() {
             self.add_source_file(asts, *u, false)?;

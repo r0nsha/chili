@@ -2,7 +2,7 @@ use std::ops::Range;
 
 pub type FileId = usize;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Span {
     pub file_id: FileId,
     pub start: Position,
@@ -19,7 +19,11 @@ impl Span {
     }
 
     pub fn unknown() -> Self {
-        Default::default()
+        Self::new(usize::MAX, Default::default(), Default::default())
+    }
+
+    pub fn is_unknown(&self) -> bool {
+        self.file_id == usize::MAX
     }
 
     pub fn range(&self) -> Range<usize> {
@@ -104,7 +108,7 @@ impl<T> MaybeSpanned<T> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Position {
     pub index: usize,
     pub line: u32,
@@ -139,7 +143,7 @@ impl Default for Position {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EndPosition {
     pub index: usize,
 }
