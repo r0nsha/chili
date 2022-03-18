@@ -19,7 +19,7 @@ pub(crate) fn get_ty_for_builtin_type(symbol: Ustr, tycx: &mut TyCtx) -> Ty {
         "f32" => tycx.new_bound_variable(TyKind::Float(FloatTy::F32).create_type()),
         "f64" => tycx.new_bound_variable(TyKind::Float(FloatTy::F64).create_type()),
         "float" => tycx.new_bound_variable(TyKind::Float(FloatTy::Fsize).create_type()),
-        "str" => tycx.str_primitive(),
+        "str" => tycx.new_bound_variable(TyKind::str().create_type()),
         s => panic!("got `{}`", s),
     }
 }

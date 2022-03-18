@@ -1,4 +1,6 @@
 let main = fn {
+    let a
+    a = 5
 }
 
 type Node = {
