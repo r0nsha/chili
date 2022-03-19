@@ -70,7 +70,9 @@ impl<'w> Resolve<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
-        // TODO: resolve the target binding (last path in the import)
+        // TODO: create a `exports: HashMap<ModuleId, HashMap<Ustr, BindingInfoId>>` map for each module in the workspace
+        // TODO: refactor glob import resolve phase to use the `exports` map
+        // TODO: resolve the target binding, following the exports (last path in the import)
         if !resolver.in_global_scope() {
             self.module_id = workspace.find_module_info(self.module_info).unwrap();
 
