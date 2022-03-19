@@ -6,7 +6,7 @@ let main = fn() {
     }
 }
 
-let fizzbuzz = fn(i: str) {
+let fizzbuzz = fn(i) {
     if i % 3 == 0 && i % 5 == 0 {
         printf("FizzBuzz\n".data)
     } else if i % 3 == 0 {
