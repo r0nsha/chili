@@ -57,7 +57,7 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     let tycx = time! { "infer",
-        match chili_infer_new::infer(&mut workspace, &mut asts) {
+        match chili_infer::infer(&mut workspace, &mut asts) {
             Ok(tycx) => tycx,
             Err(diagnostic) => {
                 emit_single_diagnostic(&workspace.files, diagnostic);

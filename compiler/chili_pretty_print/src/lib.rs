@@ -1,5 +1,5 @@
 use chili_ast::{ast, pattern::Pattern, ty::TyKind, workspace::Workspace};
-use chili_infer_new::tycx::TyCtx;
+use chili_infer::tycx::TyCtx;
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };

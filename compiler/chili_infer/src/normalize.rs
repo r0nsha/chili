@@ -1,121 +1,121 @@
-use crate::sess::{InferSess, InferValue, TyVar};
-use chili_ast::ty::*;
+use crate::tycx::{TyBinding, TyCtx};
+use chili_ast::{ty::*, workspace::BindingInfoId};
 
-impl InferSess {
-    pub fn normalize_ty(&mut self, ty: &Ty) -> Ty {
-        self.normalize_ty_internal(ty, false, false)
+pub trait NormalizeTy {
+    fn normalize(&self, tycx: &TyCtx) -> TyKind;
+}
+
+impl NormalizeTy for Ty {
+    fn normalize(&self, tycx: &TyCtx) -> TyKind {
+        Normalize {
+            parent_binding_info_id: Default::default(),
+        }
+        .normalize_ty(tycx, *self)
+    }
+}
+
+impl NormalizeTy for TyKind {
+    fn normalize(&self, tycx: &TyCtx) -> TyKind {
+        Normalize {
+            parent_binding_info_id: Default::default(),
+        }
+        .normalize_kind(tycx, self)
+    }
+}
+
+struct Normalize {
+    parent_binding_info_id: BindingInfoId,
+}
+
+impl Normalize {
+    fn normalize_ty(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
+        match tycx.get_binding(ty) {
+            TyBinding::Bound(kind) => self.normalize_kind(tycx, kind),
+            TyBinding::Unbound => TyKind::Var(ty),
+        }
     }
 
-    pub fn normalize_ty_and_untyped(&mut self, ty: &Ty) -> Ty {
-        self.normalize_ty_internal(ty, false, true)
+    fn normalize_anyint(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
+        match tycx.get_binding(ty) {
+            TyBinding::Bound(kind) => self.normalize_kind(tycx, kind),
+            TyBinding::Unbound => TyKind::AnyInt(ty),
+        }
     }
 
-    pub fn normalize_ty_and_expand_types(&mut self, ty: &Ty) -> Ty {
-        self.normalize_ty_internal(ty, true, false)
+    fn normalize_anyfloat(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
+        match tycx.get_binding(ty) {
+            TyBinding::Bound(kind) => self.normalize_kind(tycx, kind),
+            TyBinding::Unbound => TyKind::AnyFloat(ty),
+        }
     }
 
-    fn normalize_ty_internal(
-        &mut self,
-        ty: &Ty,
-        expand_types: bool,
-        normalize_untyped: bool,
-    ) -> Ty {
-        match ty {
-            Ty::Type(inner) => {
-                if expand_types {
-                    self.normalize_ty_internal(inner, expand_types, normalize_untyped)
+    fn normalize_kind(&mut self, tycx: &TyCtx, kind: &TyKind) -> TyKind {
+        match kind {
+            TyKind::Var(ty) => self.normalize_ty(tycx, *ty),
+            TyKind::Fn(f) => TyKind::Fn(FnTy {
+                params: f
+                    .params
+                    .iter()
+                    .map(|p| FnTyParam {
+                        symbol: p.symbol,
+                        ty: self.normalize_kind(tycx, &p.ty),
+                    })
+                    .collect(),
+                ret: Box::new(f.ret.normalize(tycx)),
+                variadic: f.variadic,
+                lib_name: f.lib_name,
+            }),
+            TyKind::Pointer(inner, a) => {
+                TyKind::Pointer(Box::new(self.normalize_kind(tycx, inner)), *a)
+            }
+            TyKind::MultiPointer(inner, a) => {
+                TyKind::MultiPointer(Box::new(self.normalize_kind(tycx, inner)), *a)
+            }
+            TyKind::Array(inner, a) => {
+                TyKind::Array(Box::new(self.normalize_kind(tycx, inner)), *a)
+            }
+            TyKind::Slice(inner, a) => {
+                TyKind::Slice(Box::new(self.normalize_kind(tycx, inner)), *a)
+            }
+            TyKind::Tuple(tys) => TyKind::Tuple(
+                tys.iter()
+                    .map(|kind| self.normalize_kind(tycx, kind))
+                    .collect(),
+            ),
+            TyKind::Struct(st) => {
+                if st.binding_info_id != Default::default()
+                    && st.binding_info_id == self.parent_binding_info_id
+                {
+                    kind.clone()
                 } else {
-                    ty.clone()
-                }
-            }
+                    let old_id = self.parent_binding_info_id;
+                    self.parent_binding_info_id = st.binding_info_id;
 
-            Ty::Pointer(ty, is_mutable) => Ty::Pointer(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
-                *is_mutable,
-            ),
-            Ty::MultiPointer(ty, is_mutable) => Ty::MultiPointer(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
-                *is_mutable,
-            ),
-            Ty::Array(ty, size) => Ty::Array(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
-                *size,
-            ),
-            Ty::Slice(ty, is_mutable) => Ty::Slice(
-                Box::new(self.normalize_ty_internal(ty, expand_types, normalize_untyped)),
-                *is_mutable,
-            ),
-
-            Ty::Fn(ty) => {
-                let mut params = vec![];
-
-                for param in &ty.params {
-                    params.push(FnTyParam {
-                        symbol: param.symbol,
-                        ty: self.normalize_ty_internal(&param.ty, expand_types, normalize_untyped),
+                    let st = TyKind::Struct(StructTy {
+                        name: st.name,
+                        qualified_name: st.qualified_name,
+                        binding_info_id: st.binding_info_id,
+                        fields: st
+                            .fields
+                            .iter()
+                            .map(|f| StructTyField {
+                                symbol: f.symbol,
+                                ty: self.normalize_kind(tycx, &f.ty),
+                                span: f.span,
+                            })
+                            .collect(),
+                        kind: st.kind,
                     });
-                }
 
-                let ret =
-                    Box::new(self.normalize_ty_internal(&ty.ret, expand_types, normalize_untyped));
+                    self.parent_binding_info_id = old_id;
 
-                Ty::Fn(FnTy {
-                    params,
-                    ret,
-                    variadic: ty.variadic,
-                    lib_name: ty.lib_name,
-                })
-            }
-
-            Ty::Tuple(tys) => {
-                let mut new_tys = vec![];
-
-                for ty in tys {
-                    new_tys.push(self.normalize_ty_internal(ty, expand_types, normalize_untyped));
-                }
-
-                Ty::Tuple(new_tys)
-            }
-
-            Ty::Struct(struct_ty) => {
-                let mut new_fields = vec![];
-
-                for field in &struct_ty.fields {
-                    new_fields.push(StructTyField {
-                        symbol: field.symbol,
-                        ty: self.normalize_ty_internal(&field.ty, expand_types, normalize_untyped),
-                        span: field.span,
-                    });
-                }
-
-                Ty::Struct(StructTy {
-                    name: struct_ty.name,
-                    qualified_name: struct_ty.qualified_name,
-                    binding_info_id: struct_ty.binding_info_id,
-                    kind: struct_ty.kind,
-                    fields: new_fields,
-                })
-            }
-
-            Ty::Var(var) => {
-                let value = self.value_of(TyVar::from(*var));
-
-                match value {
-                    InferValue::Bound(ty) => {
-                        self.normalize_ty_internal(&ty, expand_types, normalize_untyped)
-                    }
-                    InferValue::UntypedInt | InferValue::UntypedFloat => {
-                        if normalize_untyped {
-                            Ty::from(value)
-                        } else {
-                            ty.clone()
-                        }
-                    }
-                    _ => ty.clone(),
+                    st
                 }
             }
-
-            ty => ty.clone(),
+            TyKind::AnyInt(ty) => self.normalize_anyint(tycx, *ty),
+            TyKind::AnyFloat(ty) => self.normalize_anyfloat(tycx, *ty),
+            TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
+            _ => kind.clone(),
         }
     }
 }

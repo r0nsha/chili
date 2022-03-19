@@ -1,360 +1,262 @@
-use chili_ast::ast::{
-    ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter, Ir, Proto,
-};
-use chili_ast::ty::*;
-use chili_error::{DiagnosticResult, TypeError};
-use chili_span::Span;
-use ena::unify::InPlaceUnificationTable;
+// use crate::tycx::{TyBinding, TyContext};
+// use chili_ast::{ast, ty::*};
 
-use super::sess::{InferValue, TyVar};
+// pub(crate) trait Substitute {
+//     fn substitute(&mut self, tycx: &TyContext);
+// }
 
-pub trait Substitute {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()>;
-}
+// impl<T: Substitute> Substitute for Vec<T> {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         for element in self {
+//             element.substitute(tycx);
+//         }
+//     }
+// }
 
-impl<T: Substitute> Substitute for Vec<T> {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        for element in self {
-            element.substitute(table)?;
-        }
-        Ok(())
-    }
-}
+// impl<T: Substitute> Substitute for Option<T> {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         if let Some(e) = self {
+//             e.substitute(tycx);
+//         }
+//     }
+// }
 
-impl<T: Substitute> Substitute for Option<T> {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        if let Some(e) = self {
-            e.substitute(table)?;
-        }
-        Ok(())
-    }
-}
+// impl<T: Substitute> Substitute for Box<T> {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         self.as_mut().substitute(tycx)
+//     }
+// }
 
-impl<T: Substitute> Substitute for Box<T> {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        self.as_mut().substitute(table)
-    }
-}
+// impl Substitute for ast::Ast {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         for binding in self.bindings.iter_mut() {
+//             binding.substitute(tycx);
+//         }
+//     }
+// }
 
-impl Substitute for Ir {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        for (_, module) in self.modules.iter_mut() {
-            module.bindings.substitute(table)?;
+// impl Substitute for ast::Binding {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         self.ty_expr.substitute(tycx);
+//         self.expr.substitute(tycx);
+//     }
+// }
 
-            for binding in module.bindings.iter_mut() {
-                binding.substitute(table)?;
-            }
-        }
+// impl Substitute for ast::Block {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         self.exprs.substitute(tycx);
+//         self.deferred.substitute(tycx);
+//     }
+// }
 
-        Ok(())
-    }
-}
+// impl Substitute for ast::Fn {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         self.proto.substitute(tycx);
+//         self.body.substitute(tycx);
+//     }
+// }
 
-impl Substitute for Block {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        self.exprs.substitute(table)?;
-        self.deferred.substitute(table)?;
-        Ok(())
-    }
-}
+// impl Substitute for ast::Proto {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         for param in self.params.iter_mut() {
+//             param.ty.substitute(tycx);
+//         }
+//         self.ret.substitute(tycx);
+//         self.ty = substitute_ty(&self.ty, tycx);
+//     }
+// }
 
-impl Substitute for Fn {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        self.proto.substitute(table)?;
-        self.body.substitute(table)?;
-        Ok(())
-    }
-}
+// impl Substitute for ast::Cast {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         self.expr.substitute(tycx);
+//         self.type_expr.substitute(tycx);
+//         self.target_ty = substitute_ty(&self.target_ty, tycx);
+//     }
+// }
 
-impl Substitute for Proto {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        for param in self.params.iter_mut() {
-            param.ty.substitute(table)?;
-        }
+// impl Substitute for ast::Expr {
+//     fn substitute(&mut self, tycx: &TyContext) {
+//         match &mut self.kind {
+//             ast::ExprKind::Import(..) | ast::ExprKind::Defer(_) => (),
+//             ast::ExprKind::Foreign(bindings) => {
+//                 bindings.substitute(tycx);
+//             }
+//             ast::ExprKind::Binding(binding) => {
+//                 binding.substitute(tycx);
+//             }
+//             ast::ExprKind::Assign { lvalue, rvalue } => {
+//                 lvalue.substitute(tycx);
+//                 rvalue.substitute(tycx);
+//             }
+//             ast::ExprKind::Cast(info) => info.substitute(tycx),
+//             ast::ExprKind::Builtin(builtin) => match builtin {
+//                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => expr.substitute(tycx),
+//                 ast::Builtin::Panic(expr) => {
+//                     expr.substitute(tycx);
+//                 }
+//             },
+//             ast::ExprKind::Fn(func) => {
+//                 func.substitute(tycx);
+//             }
+//             ast::ExprKind::While { cond, block } => {
+//                 cond.substitute(tycx);
+//                 expr.substitute(tycx);
+//             }
+//             ast::ExprKind::For(for_) => {
+//                 match &mut for_.iterator {
+//                     ast::ForIter::Range(start, end) => {
+//                         start.substitute(tycx);
+//                         end.substitute(tycx);
+//                     }
+//                     ast::ForIter::Value(value) => {
+//                         value.substitute(tycx);
+//                     }
+//                 }
 
-        self.ret.substitute(table)?;
+//                 for_.expr.substitute(tycx);
+//             }
+//             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
+//                 deferred.substitute(tycx);
+//             }
+//             ast::ExprKind::Return { expr, deferred } => {
+//                 deferred.substitute(tycx);
+//                 expr.substitute(tycx);
+//             }
+//             ast::ExprKind::If {
+//                 cond,
+//                 then_expr,
+//                 else_expr,
+//             } => {
+//                 cond.substitute(tycx);
+//                 then_expr.substitute(tycx);
+//                 else_expr.substitute(tycx);
+//             }
+//             ast::ExprKind::Block(block) => {
+//                 block.exprs.substitute(tycx);
+//                 block.deferred.substitute(tycx);
+//             }
+//             ast::ExprKind::Binary { lhs, op: _, rhs } => {
+//                 lhs.substitute(tycx);
+//                 rhs.substitute(tycx);
+//             }
+//             ast::ExprKind::Unary { op: _, lhs } => {
+//                 lhs.substitute(tycx);
+//             }
+//             ast::ExprKind::Subscript { expr, index } => {
+//                 expr.substitute(tycx);
+//                 index.substitute(tycx);
+//             }
+//             ast::ExprKind::Slice { expr, low, high } => {
+//                 expr.substitute(tycx);
+//                 low.substitute(tycx);
+//                 high.substitute(tycx);
+//             }
+//             ast::ExprKind::Call(call) => {
+//                 call.callee.substitute(tycx);
+//                 for arg in call.args.iter_mut() {
+//                     arg.value.substitute(tycx);
+//                 }
+//             }
+//             ast::ExprKind::MemberAccess { expr, .. } => {
+//                 expr.substitute(tycx);
+//             }
+//             ast::ExprKind::ArrayLiteral(kind) => match kind {
+//                 ast::ArrayLiteralKind::List(elements) => {
+//                     elements.substitute(tycx);
+//                 }
+//                 ast::ArrayLiteralKind::Fill { expr, len } => {
+//                     len.substitute(tycx);
+//                     expr.substitute(tycx);
+//                 }
+//             },
+//             ast::ExprKind::TupleLiteral(elements) => {
+//                 elements.substitute(tycx);
+//             }
+//             ast::ExprKind::StructLiteral { type_expr, fields } => {
+//                 type_expr.substitute(tycx);
+//                 for f in fields {
+//                     f.value.substitute(tycx);
+//                 }
+//             }
 
-        self.ty = self.ty.substitute_ty(table, Span::unknown())?;
+//             ast::ExprKind::PointerType(expr, ..)
+//             | ast::ExprKind::MultiPointerType(expr, ..)
+//             | ast::ExprKind::SliceType(expr, ..)
+//             | ast::ExprKind::ArrayType(expr, ..) => expr.substitute(tycx),
 
-        Ok(())
-    }
-}
+//             ast::ExprKind::StructType(struct_type, ..) => {
+//                 for f in struct_type.fields.iter_mut() {
+//                     f.ty.substitute(tycx);
+//                 }
+//             }
 
-impl Substitute for Binding {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        let span = match &mut self.ty_expr {
-            Some(e) => {
-                e.substitute(table)?;
-                e.span
-            }
-            None => Span::unknown(),
-        };
+//             ast::ExprKind::FnType(proto) => {
+//                 proto.substitute(tycx);
+//             }
 
-        self.expr.substitute(table)?;
+//             ast::ExprKind::Id { .. }
+//             | ast::ExprKind::Literal(_)
+//             | ast::ExprKind::SelfType
+//             | ast::ExprKind::NeverType
+//             | ast::ExprKind::UnitType
+//             | ast::ExprKind::PlaceholderType
+//             | ast::ExprKind::Noop => (),
+//         }
 
-        self.ty = self.ty.substitute_ty(table, span)?;
+//         self.ty = substitute_ty(&self.ty, tycx);
+//     }
+// }
 
-        Ok(())
-    }
-}
+// pub(crate) fn substitute_ty(ty: &Ty, tycx: &TyContext) -> Ty {
+//     match ty {
+//         Ty::Var(var) => find_type_or_default(*var, tycx, || {
+//             panic!(
+//                 "couldn't figure out the type of {}, because it was unbound",
+//                 var
+//             )
+//         }),
+//         Ty::Fn(f) => Ty::Fn(FnTy {
+//             params: f
+//                 .params
+//                 .iter()
+//                 .map(|p| FnTyParam {
+//                     symbol: p.symbol,
+//                     ty: substitute_ty(&p.ty, tycx),
+//                 })
+//                 .collect(),
+//             ret: Box::new(substitute_ty(&f.ret, tycx)),
+//             variadic: f.variadic,
+//             lib_name: f.lib_name,
+//         }),
+//         Ty::Pointer(ty, a) => Ty::Pointer(Box::new(substitute_ty(ty, tycx)), *a),
+//         Ty::MultiPointer(ty, a) => Ty::MultiPointer(Box::new(substitute_ty(ty, tycx)), *a),
+//         Ty::Array(ty, a) => Ty::Array(Box::new(substitute_ty(ty, tycx)), *a),
+//         Ty::Slice(ty, a) => Ty::Slice(Box::new(substitute_ty(ty, tycx)), *a),
+//         Ty::Tuple(tys) => Ty::Tuple(tys.iter().map(|ty| substitute_ty(&ty, tycx)).collect()),
+//         Ty::Struct(st) => Ty::Struct(StructTy {
+//             name: st.name,
+//             qualified_name: st.qualified_name,
+//             binding_info_id: st.binding_info_id,
+//             fields: st
+//                 .fields
+//                 .iter()
+//                 .map(|f| StructTyField {
+//                     symbol: f.symbol,
+//                     ty: substitute_ty(&f.ty, tycx),
+//                     span: f.span,
+//                 })
+//                 .collect(),
+//             kind: st.kind,
+//         }),
+//         Ty::AnyInt(var) => find_type_or_default(*var, tycx, || Ty::Int(IntTy::default())),
+//         Ty::AnyFloat(var) => find_type_or_default(*var, tycx, || Ty::Float(FloatTy::default())),
+//         _ => ty.clone(),
+//     }
+// }
 
-impl Substitute for Cast {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        self.expr.substitute(table)?;
-
-        self.type_expr.substitute(table)?;
-
-        self.target_ty = self.target_ty.substitute_ty(table, self.expr.span)?;
-
-        Ok(())
-    }
-}
-
-impl Substitute for Expr {
-    fn substitute(&mut self, table: &mut InPlaceUnificationTable<TyVar>) -> DiagnosticResult<()> {
-        match &mut self.kind {
-            ExprKind::Import(..) | ExprKind::Defer(_) => (),
-            ExprKind::Foreign(bindings) => {
-                bindings.substitute(table)?;
-            }
-            ExprKind::Binding(binding) => {
-                binding.substitute(table)?;
-            }
-            ExprKind::Assign { lvalue, rvalue } => {
-                lvalue.substitute(table)?;
-                rvalue.substitute(table)?;
-            }
-            ExprKind::Cast(info) => info.substitute(table)?,
-            ExprKind::Builtin(builtin) => match builtin {
-                Builtin::SizeOf(expr) | Builtin::AlignOf(expr) => expr.substitute(table)?,
-                Builtin::Panic(expr) => {
-                    expr.substitute(table)?;
-                }
-            },
-            ExprKind::Fn(func) => {
-                func.substitute(table)?;
-            }
-            ExprKind::While { cond, block } => {
-                cond.substitute(table)?;
-                expr.substitute(table)?;
-            }
-            ExprKind::For(for_) => {
-                match &mut for_.iterator {
-                    ForIter::Range(start, end) => {
-                        start.substitute(table)?;
-                        end.substitute(table)?;
-                    }
-                    ForIter::Value(value) => {
-                        value.substitute(table)?;
-                    }
-                }
-
-                for_.expr.substitute(table)?;
-            }
-            ExprKind::Break { deferred } | ExprKind::Continue { deferred } => {
-                deferred.substitute(table)?;
-            }
-            ExprKind::Return { expr, deferred } => {
-                deferred.substitute(table)?;
-                expr.substitute(table)?;
-            }
-            ExprKind::If {
-                cond,
-                then_expr,
-                else_expr,
-            } => {
-                cond.substitute(table)?;
-                then_expr.substitute(table)?;
-                else_expr.substitute(table)?;
-            }
-            ExprKind::Block(block) => {
-                block.exprs.substitute(table)?;
-                block.deferred.substitute(table)?;
-            }
-            ExprKind::Binary { lhs, op: _, rhs } => {
-                lhs.substitute(table)?;
-                rhs.substitute(table)?;
-            }
-            ExprKind::Unary { op: _, lhs } => {
-                lhs.substitute(table)?;
-            }
-            ExprKind::Subscript { expr, index } => {
-                expr.substitute(table)?;
-                index.substitute(table)?;
-            }
-            ExprKind::Slice { expr, low, high } => {
-                expr.substitute(table)?;
-                low.substitute(table)?;
-                high.substitute(table)?;
-            }
-            ExprKind::Call(call) => {
-                call.callee.substitute(table)?;
-                for arg in call.args.iter_mut() {
-                    arg.value.substitute(table)?;
-                }
-            }
-            ExprKind::MemberAccess { expr, .. } => {
-                expr.substitute(table)?;
-            }
-            ExprKind::ArrayLiteral(kind) => match kind {
-                ArrayLiteralKind::List(elements) => {
-                    elements.substitute(table)?;
-                }
-                ArrayLiteralKind::Fill { expr, len } => {
-                    len.substitute(table)?;
-                    expr.substitute(table)?;
-                }
-            },
-            ExprKind::TupleLiteral(elements) => {
-                elements.substitute(table)?;
-            }
-            ExprKind::StructLiteral { type_expr, fields } => {
-                type_expr.substitute(table)?;
-                for f in fields {
-                    f.value.substitute(table)?;
-                }
-            }
-
-            ExprKind::PointerType(expr, ..)
-            | ExprKind::MultiPointerType(expr, ..)
-            | ExprKind::SliceType(expr, ..)
-            | ExprKind::ArrayType(expr, ..) => expr.substitute(table)?,
-
-            ExprKind::StructType(struct_type, ..) => {
-                for f in struct_type.fields.iter_mut() {
-                    f.ty.substitute(table)?;
-                }
-            }
-
-            ExprKind::FnType(proto) => {
-                proto.substitute(table)?;
-            }
-
-            // not used
-            ExprKind::Id { .. }
-            | ExprKind::Literal(_)
-            | ExprKind::SelfType
-            | ExprKind::NeverType
-            | ExprKind::UnitType
-            | ExprKind::PlaceholderType => (),
-
-            ExprKind::Noop => return Ok(()), /* Noop is skipped */
-        }
-
-        self.ty = self.ty.substitute_ty(table, self.span)?;
-
-        Ok(())
-    }
-}
-
-pub trait SubstituteTy {
-    fn substitute_ty(
-        &self,
-        table: &mut InPlaceUnificationTable<TyVar>,
-        span: Span,
-    ) -> DiagnosticResult<Ty>;
-}
-
-impl SubstituteTy for Ty {
-    fn substitute_ty(
-        &self,
-        table: &mut InPlaceUnificationTable<TyVar>,
-        span: Span,
-    ) -> DiagnosticResult<Ty> {
-        match self {
-            Ty::Var(id) => {
-                let tyval = table.probe_value(TyVar::from(*id));
-                let new_ty = match tyval {
-                    InferValue::Bound(ty) => ty.substitute_ty(table, span)?,
-                    InferValue::UntypedInt => Ty::Int(IntTy::default()),
-                    InferValue::UntypedFloat => Ty::Float(FloatTy::default()),
-                    InferValue::UntypedNil => Ty::raw_pointer(true),
-                    InferValue::Unbound => {
-                        return Err(TypeError::type_annotations_needed(span));
-                    }
-                };
-
-                match &new_ty {
-                    Ty::Var(v2) => {
-                        if *id == *v2 {
-                            return Err(TypeError::cant_solve_inference(span));
-                        }
-                    }
-                    _ => (),
-                };
-
-                Ok(new_ty)
-            }
-            Ty::Fn(func) => {
-                let mut new_params = vec![];
-
-                for param in &func.params {
-                    new_params.push(FnTyParam {
-                        symbol: param.symbol,
-                        ty: param.ty.substitute_ty(table, span)?,
-                    });
-                }
-
-                let new_ret = func.ret.substitute_ty(table, span)?;
-
-                Ok(Ty::Fn(FnTy {
-                    params: new_params,
-                    ret: Box::new(new_ret),
-                    variadic: func.variadic,
-                    lib_name: func.lib_name,
-                }))
-            }
-            Ty::Pointer(inner, is_mutable) => {
-                let inner = inner.substitute_ty(table, span)?;
-                Ok(Ty::Pointer(Box::new(inner), *is_mutable))
-            }
-            Ty::MultiPointer(inner, is_mutable) => {
-                let inner = inner.substitute_ty(table, span)?;
-                Ok(Ty::MultiPointer(Box::new(inner), *is_mutable))
-            }
-            Ty::Slice(inner, is_mutable) => {
-                let inner = inner.substitute_ty(table, span)?;
-                Ok(Ty::Slice(Box::new(inner), *is_mutable))
-            }
-            Ty::Array(inner, size) => {
-                let inner = inner.substitute_ty(table, span)?;
-                Ok(Ty::Array(Box::new(inner), *size))
-            }
-            Ty::Tuple(tys) => {
-                let mut new_tys = vec![];
-
-                for ty in tys {
-                    new_tys.push(ty.substitute_ty(table, span)?);
-                }
-
-                Ok(Ty::Tuple(new_tys))
-            }
-            Ty::Struct(struct_ty) => {
-                let mut fields = vec![];
-
-                for field in &struct_ty.fields {
-                    let ty = field.ty.substitute_ty(table, field.span)?;
-
-                    fields.push(StructTyField {
-                        symbol: field.symbol,
-                        ty,
-                        span: field.span,
-                    });
-                }
-
-                Ok(Ty::Struct(StructTy {
-                    name: struct_ty.name,
-                    qualified_name: struct_ty.qualified_name,
-                    binding_info_id: struct_ty.binding_info_id,
-                    kind: struct_ty.kind,
-                    fields,
-                }))
-            }
-            Ty::Type(inner) => {
-                let inner = inner.substitute_ty(table, span)?;
-                Ok(Ty::Type(Box::new(inner)))
-            }
-            _ => Ok(self.clone()),
-        }
-    }
-}
+// fn find_type_or_default<F: FnOnce() -> Ty>(var: TyId, tycx: &TyContext, default: F) -> Ty {
+//     match tycx.find_type_binding(var) {
+//         TyBinding::Bound(ty) => substitute_ty(&ty, tycx),
+//         TyBinding::Unbound => default(),
+//     }
+// }

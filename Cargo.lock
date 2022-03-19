@@ -129,7 +129,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "chili_infer_new"
+name = "chili_infer"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
@@ -150,7 +150,7 @@ dependencies = [
  "chili_ast",
  "chili_astgen",
  "chili_error",
- "chili_infer_new",
+ "chili_infer",
  "chili_pretty_print",
  "chili_resolve",
  "chili_span",
@@ -189,7 +189,7 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
- "chili_infer_new",
+ "chili_infer",
  "chili_span",
  "chili_token",
  "colored",
