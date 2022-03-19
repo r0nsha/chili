@@ -1,11 +1,11 @@
 mod builtin;
 mod cast;
-mod display;
+pub mod display;
 mod infer;
-mod normalize;
+pub mod normalize;
 mod substitute;
 pub mod tycx;
-mod unify;
+pub mod unify;
 mod unpack_type;
 
 use builtin::get_ty_for_builtin_type;

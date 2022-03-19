@@ -70,6 +70,7 @@ impl<'w> Resolve<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
+        // TODO: resolve the target binding (last path in the import)
         if !resolver.in_global_scope() {
             self.module_id = workspace.find_module_info(self.module_info).unwrap();
 

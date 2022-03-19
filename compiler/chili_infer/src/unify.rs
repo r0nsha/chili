@@ -4,15 +4,15 @@ use crate::{
 };
 use chili_ast::{ty::*, workspace::Workspace};
 
-pub(crate) type UnifyTyResult = Result<(), UnifyTyErr>;
+pub type UnifyTyResult = Result<(), UnifyTyErr>;
 
 #[derive(Debug)]
-pub(crate) enum UnifyTyErr {
+pub enum UnifyTyErr {
     Mismatch,
     Occurs,
 }
 
-pub(crate) trait UnifyTy<T>
+pub trait UnifyTy<T>
 where
     Self: Sized,
     T: Sized,
@@ -187,6 +187,6 @@ fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx, workspace: &Workspace) -> bool {
 }
 
 // NOTE (Ron): checks that mutability rules are equal
-pub(crate) fn can_coerce_mut(from: bool, to: bool) -> bool {
+pub fn can_coerce_mut(from: bool, to: bool) -> bool {
     from == to || (!from && to)
 }
