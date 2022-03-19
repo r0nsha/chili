@@ -1,17 +1,15 @@
-foreign("system:libucrt") {
-    let printf = fn(input: [*]u8, ..) -> int;
-}
+use c.printf
 
 let main = fn() {
     for i in 0..100 {
         if i % 3 == 0 && i % 5 == 0 {
-            printf("FizzBuzz\n".data);
+            printf("FizzBuzz\n".data)
         } else if i % 3 == 0 {
-            printf("Fizz\n".data);
+            printf("Fizz\n".data)
         } else if i % 5 == 0 {
-            printf("Buzz\n".data);
+            printf("Buzz\n".data)
         } else {
-            printf("%d\n".data, i);
+            printf("%d\n".data, i)
         }
     }
 }

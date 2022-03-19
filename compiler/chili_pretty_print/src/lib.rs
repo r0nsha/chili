@@ -1,4 +1,4 @@
-use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
+use chili_ast::{ast, pattern::Pattern, ty::TyKind, workspace::Workspace};
 use chili_infer_new::tycx::TyCtx;
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
@@ -76,10 +76,11 @@ impl PrintTree for ast::Fn {
 
 impl PrintTree for ast::Block {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        b.begin_child(format!(
-            "block{}",
-            if self.yields { " (yields)" } else { "" }
-        ));
+        let ty = match self.exprs.last() {
+            Some(e) => tycx.ty_kind(e.ty),
+            None => TyKind::Unit,
+        };
+        b.begin_child(format!("block <{}>", ty));
         self.exprs.print_tree(b, workspace, tycx);
         build_deferred(b, &self.deferred, workspace, tycx);
         b.end_child();
