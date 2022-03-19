@@ -33,15 +33,10 @@ pub fn infer(workspace: &mut Workspace, asts: &mut Vec<ast::Ast>) -> DiagnosticR
     // without requiring specific types for most semantics
     for ast in asts.iter_mut() {
         if let Err(err) = ast.infer(InferFrame::default(), &mut tycx, workspace) {
-            // tycx.print_type_bindings();
+            tycx.print_type_bindings();
             return Err(err);
         }
     }
-
-    // infer and typecheck all expressions, with deep semantics
-    // this step requires specific types for semantics that have those requirements
-    // for example: tuple/struct unpacking, function calls, etc.
-    // TODO: typeck step
 
     Ok(tycx)
 }

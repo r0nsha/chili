@@ -138,7 +138,6 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "common",
- "ena",
  "slab",
  "ustr",
 ]
@@ -226,6 +225,21 @@ dependencies = [
  "codespan-reporting",
  "strum_macros",
  "unicode-xid",
+ "ustr",
+]
+
+[[package]]
+name = "chili_typeck"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_infer",
+ "chili_span",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "slab",
  "ustr",
 ]
 
@@ -403,15 +417,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ena"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7402b94a93c24e742487327a7cd839dc9d36fec9de9fb25b09f2dae459f36c3"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "fixedbitset"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -536,15 +541,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88943dd7ef4a2e5a4bfa2753aaab3013e34ce2533d1996fb18ef591e315e2b3b"
 dependencies = [
  "scopeguard",
-]
-
-[[package]]
-name = "log"
-version = "0.4.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
-dependencies = [
- "cfg-if",
 ]
 
 [[package]]

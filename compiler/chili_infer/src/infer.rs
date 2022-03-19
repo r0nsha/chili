@@ -49,7 +49,6 @@ impl Infer for ast::Import {
         tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
-        // TODO:
         Ok(tycx.common_types.unit)
     }
 }

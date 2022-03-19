@@ -1,7 +1,9 @@
 [package]
-name = "chili_infer"
+name = "chili_typeck"
 version = "0.1.0"
 edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 codespan = "0.11.1"
@@ -13,3 +15,4 @@ common = { path = '../common' }
 chili_span = { path = '../chili_span' }
 chili_error = { path = '../chili_error' }
 chili_ast = { path = '../chili_ast' }
+chili_infer = { path = '../chili_infer' }
