@@ -56,7 +56,9 @@ pub fn do_build(build_options: BuildOptions) {
         }
     }
 
-    let tycx = time! { "infer",
+    // Partially infer types of asts
+
+    let mut tycx = time! { "infer",
         match chili_infer::infer(&mut workspace, &mut asts) {
             Ok(tycx) => tycx,
             Err(diagnostic) => {
@@ -65,6 +67,15 @@ pub fn do_build(build_options: BuildOptions) {
             }
         }
     };
+
+    // Fully infer and typecheck types of asts
+
+    time! { "typeck",
+        if let Err(diagnostic) = chili_typeck::typeck(&mut workspace, &mut tycx, &mut asts) {
+            emit_single_diagnostic(&workspace.files, diagnostic);
+            return;
+        }
+    }
 
     // // Check - does type inference, type checking and const folding
 
