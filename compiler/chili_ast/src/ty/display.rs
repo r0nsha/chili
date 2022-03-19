@@ -54,8 +54,8 @@ impl Display for TyKind {
                         .join(", ")
                 ),
                 TyKind::Struct(ty) => ty.to_string(),
-                TyKind::Module { .. } => "[module]".to_string(),
-                TyKind::Type(inner) => format!("type({})", inner),
+                TyKind::Type(inner) => inner.to_string(),
+                TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "!".to_string(),
                 TyKind::AnyInt(_) => "[anyint]".to_string(),
                 TyKind::AnyFloat(_) => "[anyfloat]".to_string(),

@@ -2,14 +2,18 @@ use c.printf
 
 let main = fn() {
     for i in 0..100 {
-        if i % 3 == 0 && i % 5 == 0 {
-            printf("FizzBuzz\n".data)
-        } else if i % 3 == 0 {
-            printf("Fizz\n".data)
-        } else if i % 5 == 0 {
-            printf("Buzz\n".data)
-        } else {
-            printf("%d\n".data, i)
-        }
+        fizzbuzz(i)
+    }
+}
+
+let fizzbuzz = fn(i: str) {
+    if i % 3 == 0 && i % 5 == 0 {
+        printf("FizzBuzz\n".data)
+    } else if i % 3 == 0 {
+        printf("Fizz\n".data)
+    } else if i % 5 == 0 {
+        printf("Buzz\n".data)
+    } else {
+        printf("%d\n".data, i)
     }
 }
