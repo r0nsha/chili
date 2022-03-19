@@ -1,8 +1,5 @@
-let main = fn {
-    let a: str = 5
-    a = 5
-}
+use c.printf
 
-type Node = {
-    next: *Self,
+let main = fn {
+    printf("Hello World\n".data)
 }
