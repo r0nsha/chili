@@ -57,7 +57,7 @@ pub enum IntTy {
     I16,
     I32,
     I64,
-    Isize,
+    Int,
 }
 
 impl Default for IntTy {
@@ -72,7 +72,7 @@ pub enum UIntTy {
     U16,
     U32,
     U64,
-    Usize,
+    UInt,
 }
 
 impl Default for UIntTy {
@@ -86,7 +86,7 @@ pub enum FloatTy {
     F16,
     F32,
     F64,
-    Fsize,
+    Float,
 }
 
 impl Default for FloatTy {

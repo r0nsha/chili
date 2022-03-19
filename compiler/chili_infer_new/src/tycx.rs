@@ -1,26 +1,23 @@
 use chili_ast::ty::*;
 use core::fmt;
 use slab::Slab;
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use crate::normalize::NormalizeTy;
 
 pub struct TyCtx {
     type_bindings: Slab<TyBinding>,
-    primitive_types: HashMap<TyKind, Ty>,
-    str_ty: Ty,
+    pub common_types: CommonTypes,
 }
 
 impl TyCtx {
     pub fn new() -> Self {
-        let mut inst = Self {
-            type_bindings: Default::default(),
-            primitive_types: Default::default(),
-            str_ty: Default::default(),
-        };
-        inst.create_primitive_types();
-        inst.str_ty = inst.new_bound_variable(TyKind::str());
-        inst
+        let mut type_bindings = Default::default();
+        let common_types = CommonTypes::new(&mut type_bindings);
+        Self {
+            type_bindings,
+            common_types,
+        }
     }
 
     #[inline]
@@ -47,19 +44,6 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn primitive(&self, kind: TyKind) -> Ty {
-        match self.primitive_types.get(&kind) {
-            Some(ty) => *ty,
-            None => panic!("got {}", kind),
-        }
-    }
-
-    #[inline]
-    pub fn str_primitive(&self) -> Ty {
-        self.str_ty
-    }
-
-    #[inline]
     pub fn ty_kind(&self, ty: Ty) -> TyKind {
         ty.normalize(self)
     }
@@ -73,34 +57,6 @@ impl TyCtx {
         for (i, tb) in self.type_bindings.iter() {
             println!("'{} :: {}", i, tb)
         }
-    }
-
-    fn create_primitive_types(&mut self) {
-        let mut create = |kind: TyKind| {
-            let ty = self.new_bound_variable(kind.clone());
-            self.primitive_types.insert(kind, ty);
-        };
-
-        create(TyKind::Unit);
-        create(TyKind::Never);
-        create(TyKind::Bool);
-
-        create(TyKind::Int(IntTy::I8));
-        create(TyKind::Int(IntTy::I16));
-        create(TyKind::Int(IntTy::I32));
-        create(TyKind::Int(IntTy::I64));
-        create(TyKind::Int(IntTy::Isize));
-
-        create(TyKind::UInt(UIntTy::U8));
-        create(TyKind::UInt(UIntTy::U16));
-        create(TyKind::UInt(UIntTy::U32));
-        create(TyKind::UInt(UIntTy::U64));
-        create(TyKind::UInt(UIntTy::Usize));
-
-        create(TyKind::Float(FloatTy::F16));
-        create(TyKind::Float(FloatTy::F32));
-        create(TyKind::Float(FloatTy::F64));
-        create(TyKind::Float(FloatTy::Fsize));
     }
 }
 
@@ -120,5 +76,55 @@ impl fmt::Display for TyBinding {
                 TyBinding::Unbound => "unbound".to_string(),
             }
         )
+    }
+}
+
+pub struct CommonTypes {
+    pub unit: Ty,
+    pub bool: Ty,
+    pub i8: Ty,
+    pub i16: Ty,
+    pub i32: Ty,
+    pub i64: Ty,
+    pub int: Ty,
+    pub u8: Ty,
+    pub u16: Ty,
+    pub u32: Ty,
+    pub u64: Ty,
+    pub uint: Ty,
+    pub f16: Ty,
+    pub f32: Ty,
+    pub f64: Ty,
+    pub float: Ty,
+    pub str: Ty,
+    pub never: Ty,
+}
+
+impl CommonTypes {
+    pub fn new(bindings: &mut Slab<TyBinding>) -> Self {
+        use TyKind::*;
+
+        let mut mk = |kind| Ty(bindings.insert(TyBinding::Bound(kind)));
+
+        Self {
+            unit: mk(Unit),
+            bool: mk(Bool),
+            i8: mk(Int(IntTy::I8)),
+            i16: mk(Int(IntTy::I16)),
+            i32: mk(Int(IntTy::I32)),
+            i64: mk(Int(IntTy::I64)),
+            int: mk(Int(IntTy::Int)),
+            u8: mk(UInt(UIntTy::U8)),
+            u16: mk(UInt(UIntTy::U16)),
+            u32: mk(UInt(UIntTy::U32)),
+            u64: mk(UInt(UIntTy::U64)),
+            uint: mk(UInt(UIntTy::UInt)),
+            f16: mk(Float(FloatTy::F16)),
+            f32: mk(Float(FloatTy::F32)),
+            f64: mk(Float(FloatTy::F64)),
+            float: mk(Float(FloatTy::Float)),
+            str: mk(TyKind::str()),
+            never: mk(Never),
+        }
     }
 }

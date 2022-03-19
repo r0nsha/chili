@@ -14,7 +14,7 @@ impl Display for TyKind {
                     IntTy::I16 => "i16",
                     IntTy::I32 => "i32",
                     IntTy::I64 => "i64",
-                    IntTy::Isize => "int",
+                    IntTy::Int => "int",
                 }
                 .to_string(),
                 TyKind::UInt(inner) => match inner {
@@ -22,14 +22,14 @@ impl Display for TyKind {
                     UIntTy::U16 => "u16",
                     UIntTy::U32 => "u32",
                     UIntTy::U64 => "u64",
-                    UIntTy::Usize => "uint",
+                    UIntTy::UInt => "uint",
                 }
                 .to_string(),
                 TyKind::Float(inner) => match inner {
                     FloatTy::F16 => "f16",
                     FloatTy::F32 => "f32",
                     FloatTy::F64 => "f64",
-                    FloatTy::Fsize => "float",
+                    FloatTy::Float => "float",
                 }
                 .to_string(),
                 TyKind::Pointer(ty, is_mutable) => format!(

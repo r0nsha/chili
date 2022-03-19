@@ -38,7 +38,7 @@ impl Infer for ast::Ast {
             binding.infer(frame, tycx, workspace)?;
         }
 
-        Ok(tycx.primitive(TyKind::Unit))
+        Ok(tycx.common_types.unit)
     }
 }
 
@@ -50,7 +50,7 @@ impl Infer for ast::Import {
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         // TODO:
-        Ok(tycx.primitive(TyKind::Unit))
+        Ok(tycx.common_types.unit)
     }
 }
 
@@ -85,7 +85,7 @@ impl Infer for ast::Binding {
         //     binding_info_mut.ty = substitute_ty(&binding_info_mut.ty, &tycx);
         // }
 
-        Ok(tycx.primitive(TyKind::Unit))
+        Ok(tycx.common_types.unit)
     }
 }
 
@@ -173,7 +173,7 @@ impl Infer for ast::Block {
         tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
-        let mut result_ty = tycx.primitive(TyKind::Unit);
+        let mut result_ty = tycx.common_types.unit;
 
         for expr in self.exprs.iter_mut() {
             result_ty = expr.infer(frame, tycx, workspace)?;
@@ -199,21 +199,21 @@ impl Infer for ast::Expr {
                 for import in imports.iter_mut() {
                     import.infer(frame, tycx, workspace)?;
                 }
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter_mut() {
                     binding.infer(frame, tycx, workspace)?;
                 }
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::Binding(binding) => {
                 binding.infer(frame, tycx, workspace)?;
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::Defer(deferred) => {
                 deferred.infer(frame, tycx, workspace)?;
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::Assign { lvalue, rvalue } => {
                 let lty = lvalue.infer(frame, tycx, workspace)?;
@@ -222,19 +222,19 @@ impl Infer for ast::Expr {
                 rty.unify(&lty, tycx, workspace)
                     .map_err(|e| map_unify_err(e, lty, rty, rvalue.span, tycx))?;
 
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::Cast(cast) => cast.infer(frame, tycx, workspace)?,
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
                     expr.infer(frame, tycx, workspace)?;
-                    tycx.primitive(TyKind::UInt(UIntTy::Usize))
+                    tycx.common_types.uint
                 }
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.infer(frame, tycx, workspace)?;
                     }
-                    tycx.primitive(TyKind::Unit)
+                    tycx.common_types.unit
                 }
             },
             ast::ExprKind::Fn(f) => f.infer(frame, tycx, workspace)?,
@@ -247,7 +247,7 @@ impl Infer for ast::Expr {
 
                 block.infer(frame, tycx, workspace)?;
 
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::For(for_) => {
                 match &mut for_.iterator {
@@ -267,17 +267,17 @@ impl Infer for ast::Expr {
                 workspace
                     .get_binding_info_mut(for_.iter_index_id)
                     .unwrap()
-                    .ty = tycx.primitive(TyKind::UInt(UIntTy::Usize));
+                    .ty = tycx.common_types.uint;
 
                 for_.block.infer(frame, tycx, workspace)?;
 
-                tycx.primitive(TyKind::Unit)
+                tycx.common_types.unit
             }
             ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
                 for expr in deferred.iter_mut() {
                     expr.infer(frame, tycx, workspace)?;
                 }
-                tycx.primitive(TyKind::Never)
+                tycx.common_types.never
             }
             ast::ExprKind::Return { expr, deferred } => {
                 if let Some(expr) = expr {
@@ -297,7 +297,7 @@ impl Infer for ast::Expr {
                     expr.infer(frame, tycx, workspace)?;
                 }
 
-                tycx.primitive(TyKind::Never)
+                tycx.common_types.never
             }
             ast::ExprKind::If {
                 cond,
@@ -321,7 +321,7 @@ impl Infer for ast::Expr {
 
                     then_ty
                 } else {
-                    tycx.primitive(TyKind::Unit)
+                    tycx.common_types.unit
                 }
             }
             ast::ExprKind::Block(block) => block.infer(frame, tycx, workspace)?,
@@ -351,7 +351,7 @@ impl Infer for ast::Expr {
                     | ast::BinaryOp::Gt
                     | ast::BinaryOp::GtEq
                     | ast::BinaryOp::And
-                    | ast::BinaryOp::Or => tycx.primitive(TyKind::Bool),
+                    | ast::BinaryOp::Or => tycx.common_types.bool,
                 }
             }
             ast::ExprKind::Unary { op, lhs } => {
@@ -362,7 +362,7 @@ impl Infer for ast::Expr {
                         tycx.new_bound_variable(TyKind::Pointer(Box::new(lty.into()), *is_mutable))
                     }
                     ast::UnaryOp::Deref => tycx.new_variable(),
-                    ast::UnaryOp::Not => tycx.primitive(TyKind::Bool),
+                    ast::UnaryOp::Not => tycx.common_types.bool,
                     ast::UnaryOp::Neg | ast::UnaryOp::Plus | ast::UnaryOp::BitwiseNot => lty,
                 }
             }
@@ -601,13 +601,13 @@ impl Infer for ast::Literal {
         _: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
         let ty = match self {
-            ast::Literal::Unit => tycx.primitive(TyKind::Unit),
+            ast::Literal::Unit => tycx.common_types.unit,
             ast::Literal::Nil => {
                 // let var = tycx.new_variable();
                 // tycx.new_bound_variable(TyKind::Pointer(Box::new(var.into()), true))
                 tycx.new_variable()
             }
-            ast::Literal::Bool(_) => tycx.primitive(TyKind::Bool),
+            ast::Literal::Bool(_) => tycx.common_types.bool,
             ast::Literal::Int(_) => {
                 let var = tycx.new_variable();
                 tycx.new_bound_variable(TyKind::AnyInt(var))
@@ -616,8 +616,8 @@ impl Infer for ast::Literal {
                 let var = tycx.new_variable();
                 tycx.new_bound_variable(TyKind::AnyFloat(var))
             }
-            ast::Literal::Str(_) => tycx.str_primitive(),
-            ast::Literal::Char(_) => tycx.primitive(TyKind::char()),
+            ast::Literal::Str(_) => tycx.common_types.str,
+            ast::Literal::Char(_) => tycx.common_types.u8,
         };
         Ok(ty)
     }
