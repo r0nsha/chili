@@ -7,8 +7,14 @@ use bitflags::bitflags;
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
-use std::{cmp::Ordering, collections::HashSet, path::PathBuf};
-use ustr::{ustr, Ustr};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
+use ustr::{ustr, Ustr, UstrMap};
+
+pub type ModuleExports = HashMap<ModuleId, UstrMap<BindingInfoId>>;
 
 pub struct Workspace {
     pub build_options: BuildOptions,
@@ -36,6 +42,9 @@ pub struct Workspace {
     // BindingInfoId -> BindingInfo
     pub binding_infos: Vec<BindingInfo>,
 
+    // Exported symbol map of each module. Resolved during name resolution
+    pub exports: ModuleExports,
+
     // The entry point function's id (usually main). Resolved during name resolution
     pub entry_point_function_id: Option<BindingInfoId>,
 
@@ -54,6 +63,7 @@ impl Workspace {
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
+            exports: Default::default(),
             entry_point_function_id: None,
             foreign_libraries: Default::default(),
         }

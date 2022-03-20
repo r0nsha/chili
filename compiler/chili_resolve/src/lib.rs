@@ -20,7 +20,7 @@ pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> Diagnostic
     let mut resolver = Resolver::new();
 
     resolver.add_builtin_types(workspace);
-    resolver.exports = collect_module_exports(&asts);
+    collect_module_exports(&asts, &mut workspace.exports);
 
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
@@ -41,7 +41,7 @@ pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> Diagnostic
     for ast in asts.iter_mut() {
         resolver.module_id = ast.module_id;
         resolver.module_info = ast.module_info;
-        expand_and_replace_glob_imports(&mut ast.imports, &resolver.exports);
+        expand_and_replace_glob_imports(&mut ast.imports, &workspace.exports);
         ast.declare(&mut resolver, workspace)?;
     }
 

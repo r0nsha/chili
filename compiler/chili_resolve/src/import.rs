@@ -1,35 +1,27 @@
-use std::collections::HashMap;
-
 use chili_ast::{
     ast::{Ast, Import, ImportPathNode},
-    workspace::ModuleId,
+    workspace::ModuleExports,
 };
 use chili_span::Spanned;
-use ustr::Ustr;
 
-pub(crate) type ModuleExports = HashMap<ModuleId, Vec<Ustr>>;
-
-pub(crate) fn collect_module_exports(asts: &Vec<Ast>) -> ModuleExports {
-    let mut exports: ModuleExports = Default::default();
-
+pub(crate) fn collect_module_exports(asts: &Vec<Ast>, exports: &mut ModuleExports) {
     for ast in asts.iter() {
         let entry = exports.entry(ast.module_id).or_default();
 
         for import in ast.imports.iter() {
             if import.visibility.is_public() {
-                entry.push(import.alias);
+                entry.insert(import.alias, import.binding_info_id);
             }
         }
 
         for binding in ast.bindings.iter() {
             if binding.visibility.is_public() {
                 // TODO: support destructor patterns
-                entry.push(binding.pattern.into_single().symbol);
+                let pat = binding.pattern.into_single();
+                entry.insert(pat.symbol, pat.binding_info_id);
             }
         }
     }
-
-    exports
 }
 
 pub(crate) fn expand_and_replace_glob_imports(imports: &mut Vec<Import>, exports: &ModuleExports) {
@@ -68,7 +60,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
     let exports = exports.get(&import.module_id).unwrap();
     exports
         .iter()
-        .map(|symbol| {
+        .map(|(symbol, _)| {
             let mut import_path = import.import_path.clone();
             import_path.pop();
             import_path.push(Spanned::new(
