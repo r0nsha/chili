@@ -356,7 +356,6 @@ pub struct Proto {
     pub variadic: bool,
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
-    pub binding_info_id: Option<BindingInfoId>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

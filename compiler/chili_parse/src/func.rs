@@ -45,7 +45,6 @@ impl<'p> Parser<'p> {
             params,
             variadic,
             ret: ret_ty,
-            binding_info_id: None,
         })
     }
 

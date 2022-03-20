@@ -1,10 +1,6 @@
 use crate::{display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTy};
-use chili_ast::{
-    ast,
-    ty::*,
-    workspace::{BindingInfoId, Workspace},
-};
-use chili_error::{DiagnosticResult, TypeError};
+use chili_ast::{ast, ty::*, workspace::Workspace};
+use chili_error::DiagnosticResult;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
@@ -49,6 +45,7 @@ impl Infer for ast::Import {
         tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
+        // TODO: gradually do this
         Ok(tycx.common_types.unit)
     }
 }
