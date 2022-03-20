@@ -14,7 +14,6 @@ codespan = "0.11.1"
 codespan-reporting = "0.11.1"
 num-format = "0.4.0"
 ustr = "0.8.1"
-linked_hash_set = "0.1.4"
 path-absolutize = "3.0.11"
 
 common = { path = "../common" }

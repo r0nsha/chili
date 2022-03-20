@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 execute = "0.2.9"
-colored = "2.0.0"
 codespan = "0.11.1"
 codespan-reporting = "0.11.1"
 ustr = "0.8.1"
