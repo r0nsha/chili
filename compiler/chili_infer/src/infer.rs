@@ -581,11 +581,32 @@ impl Infer for ast::Call {
         tycx: &mut TyCtx,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<Ty> {
-        self.callee.infer(frame, tycx, workspace)?;
         for arg in self.args.iter_mut() {
-            arg.value.infer(frame, tycx, workspace)?;
+            arg.expr.infer(frame, tycx, workspace)?;
         }
-        Ok(tycx.new_variable())
+
+        let callee_ty = self.callee.infer(frame, tycx, workspace)?;
+        let return_ty = tycx.new_variable();
+
+        let fn_kind = TyKind::Fn(FnTy {
+            params: self
+                .args
+                .iter()
+                .map(|arg| FnTyParam {
+                    symbol: arg.symbol.as_ref().map_or(ustr(""), |s| s.value),
+                    ty: arg.expr.ty.into(),
+                })
+                .collect(),
+            ret: Box::new(return_ty.into()),
+            variadic: false, // TODO: this needs to be Unknown or something
+            lib_name: None,
+        });
+
+        callee_ty
+            .unify(&fn_kind, tycx, workspace)
+            .map_err(|e| map_unify_err(e, fn_kind, callee_ty, self.callee.span, tycx))?;
+
+        Ok(return_ty)
     }
 }
 

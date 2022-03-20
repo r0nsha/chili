@@ -468,7 +468,7 @@ impl<'w> Resolve<'w> for ast::Call {
         self.callee.resolve(resolver, workspace)?;
 
         for arg in self.args.iter_mut() {
-            arg.value.resolve(resolver, workspace)?;
+            arg.expr.resolve(resolver, workspace)?;
         }
 
         Ok(())

@@ -52,7 +52,7 @@ impl<'p> Parser<'p> {
                 let fn_expr = self.parse_fn()?;
                 let fn_arg = CallArg {
                     symbol: None,
-                    value: fn_expr,
+                    expr: fn_expr,
                 };
 
                 let span = start_span.to(self.previous_span());
@@ -239,9 +239,9 @@ impl<'p> Parser<'p> {
                         .with_labels(vec![Label::primary(span.file_id, span.range())]));
                 }
 
-                let value = self.parse_expr()?;
+                let expr = self.parse_expr()?;
 
-                CallArg { symbol, value }
+                CallArg { symbol, expr }
             },
             ", or )"
         );

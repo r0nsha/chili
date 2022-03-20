@@ -292,7 +292,7 @@ pub struct Call {
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallArg {
     pub symbol: Option<Spanned<Ustr>>,
-    pub value: Expr,
+    pub expr: Expr,
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -354,10 +354,10 @@ impl PrintTree for ast::Expr {
                     for arg in &call.args {
                         if let Some(symbol) = &arg.symbol {
                             b.begin_child(symbol.value.to_string());
-                            arg.value.print_tree(b, workspace, tycx);
+                            arg.expr.print_tree(b, workspace, tycx);
                             b.end_child();
                         } else {
-                            arg.value.print_tree(b, workspace, tycx);
+                            arg.expr.print_tree(b, workspace, tycx);
                         }
                     }
                     b.end_child();
