@@ -161,6 +161,7 @@ impl<'p> Parser<'p> {
                 Ok(vec![Import {
                     module_id: Default::default(),
                     module_info: ModuleInfo::new(module, path),
+                    target_binding: None,
                     alias: ustr(""),
                     import_path: import_path.clone(),
                     visibility,
@@ -180,6 +181,7 @@ impl<'p> Parser<'p> {
             Ok(vec![Import {
                 module_id: Default::default(),
                 module_info: ModuleInfo::new(module, path),
+                target_binding: None,
                 alias,
                 import_path: import_path.clone(),
                 visibility,

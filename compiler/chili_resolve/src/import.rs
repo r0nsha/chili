@@ -49,8 +49,8 @@ pub(crate) fn expand_and_replace_glob_imports(imports: &mut Vec<Import>, exports
 }
 
 fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
-    // for a given use: `use foo.*`;
-    // with symbols: A, B, C;
+    // for a given module `foo` with symbols: A, B, C.
+    // with a given glob import of: `use foo.*`.
     // this function will expand this use to:
     //      `use foo.A`
     //      `use foo.B`
@@ -71,6 +71,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
                 module_id: import.module_id,
                 module_info: import.module_info,
                 alias: *symbol,
+                target_binding: import.target_binding,
                 import_path,
                 visibility: import.visibility,
                 span: import.span().clone(),

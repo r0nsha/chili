@@ -1,7 +1,7 @@
 use crate::Resolver;
 use chili_ast::{
     ast::{self, BindingKind, ForeignLibrary, Visibility},
-    workspace::Workspace,
+    workspace::{BindingInfoId, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -70,7 +70,6 @@ impl<'w> Resolve<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
-        // TODO: resolve the target binding, following the exports (last path in the import)
         if !resolver.in_global_scope() {
             self.module_id = workspace.find_module_info(self.module_info).unwrap();
 
@@ -84,6 +83,17 @@ impl<'w> Resolve<'w> for ast::Import {
                 true,
             );
         }
+
+        // let mut module_id = self.module_id;
+        // let mut target_binding: Option<BindingInfoId> = None;
+
+        // for node in self.import_path.iter() {
+        //     let module_exports = workspace.exports.get(&module_id).unwrap();
+        // }
+
+        // if let Some(target_binding) = target_binding {
+        //     self.target_binding = Some(target_binding);
+        // }
 
         Ok(())
     }

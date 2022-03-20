@@ -20,6 +20,7 @@ pub(crate) fn add_intrinsic_module(
         binding_info_id: Default::default(),
         module_id: Default::default(),
         module_info: intrinsic_module_info,
+        target_binding: None,
         alias: intrinsic_module_info.name,
         import_path: vec![],
         visibility: ast::Visibility::Private,

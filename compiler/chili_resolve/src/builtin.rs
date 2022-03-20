@@ -11,7 +11,7 @@ impl Resolver {
     pub(crate) fn add_builtin_types(&mut self, workspace: &mut Workspace) {
         let mut add_builtin_type = |name: &str| {
             let symbol = ustr(name);
-            let id = workspace.add_binding_info(
+            let id = workspace.add_builtin_binding_info(
                 Default::default(),
                 symbol,
                 ast::Visibility::Private,
