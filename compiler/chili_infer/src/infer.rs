@@ -598,7 +598,7 @@ impl Infer for ast::Call {
                 })
                 .collect(),
             ret: Box::new(return_ty.into()),
-            variadic: false, // TODO: this needs to be Unknown or something
+            variadic: false,
             lib_name: None,
         });
 
