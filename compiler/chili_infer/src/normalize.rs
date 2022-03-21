@@ -1,4 +1,4 @@
-use crate::tycx::{TyBinding, TyCtx};
+use crate::tycx::{InferenceValue, TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
 
 pub trait NormalizeTy {
@@ -29,23 +29,23 @@ struct Normalize {
 
 impl Normalize {
     fn normalize_ty(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
-        match tycx.get_binding(ty) {
-            TyBinding::Bound(kind) => self.normalize_kind(tycx, kind),
-            TyBinding::Unbound => TyKind::Var(ty),
+        match tycx.value_of(ty) {
+            InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
+            InferenceValue::Unbound => TyKind::Var(ty),
         }
     }
 
     fn normalize_anyint(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
-        match tycx.get_binding(ty) {
-            TyBinding::Bound(kind) => self.normalize_kind(tycx, kind),
-            TyBinding::Unbound => TyKind::AnyInt(ty),
+        match tycx.value_of(ty) {
+            InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
+            InferenceValue::Unbound => TyKind::AnyInt(ty),
         }
     }
 
     fn normalize_anyfloat(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
-        match tycx.get_binding(ty) {
-            TyBinding::Bound(kind) => self.normalize_kind(tycx, kind),
-            TyBinding::Unbound => TyKind::AnyFloat(ty),
+        match tycx.value_of(ty) {
+            InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
+            InferenceValue::Unbound => TyKind::AnyFloat(ty),
         }
     }
 

@@ -6,7 +6,7 @@ use std::hash::Hash;
 use crate::normalize::NormalizeTy;
 
 pub struct TyCtx {
-    type_bindings: Slab<TyBinding>,
+    type_bindings: Slab<InferenceValue>,
     pub common_types: CommonTypes,
 }
 
@@ -21,25 +21,25 @@ impl TyCtx {
     }
 
     #[inline]
-    fn insert(&mut self, binding: TyBinding) -> Ty {
+    fn insert(&mut self, binding: InferenceValue) -> Ty {
         Ty(self.type_bindings.insert(binding))
     }
 
     #[inline]
     pub fn new_variable(&mut self) -> Ty {
-        self.insert(TyBinding::Unbound)
+        self.insert(InferenceValue::Unbound)
     }
 
     #[inline]
     pub fn new_bound_variable(&mut self, kind: TyKind) -> Ty {
-        self.insert(TyBinding::Bound(kind))
+        self.insert(InferenceValue::Bound(kind))
     }
 
     #[inline]
-    pub fn get_binding(&self, var: Ty) -> &TyBinding {
+    pub fn value_of(&self, var: Ty) -> &InferenceValue {
         match self.type_bindings.get(var.0) {
             Some(ty) => ty,
-            None => &TyBinding::Unbound,
+            None => &InferenceValue::Unbound,
         }
     }
 
@@ -50,7 +50,7 @@ impl TyCtx {
 
     #[inline]
     pub fn bind(&mut self, var: Ty, ty: TyKind) {
-        self.type_bindings[var.0] = TyBinding::Bound(ty);
+        self.type_bindings[var.0] = InferenceValue::Bound(ty);
     }
 
     pub fn print_type_bindings(&mut self) {
@@ -61,19 +61,19 @@ impl TyCtx {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum TyBinding {
+pub enum InferenceValue {
     Bound(TyKind),
     Unbound,
 }
 
-impl fmt::Display for TyBinding {
+impl fmt::Display for InferenceValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                TyBinding::Bound(t) => t.to_string(),
-                TyBinding::Unbound => "unbound".to_string(),
+                InferenceValue::Bound(t) => t.to_string(),
+                InferenceValue::Unbound => "unbound".to_string(),
             }
         )
     }
@@ -101,10 +101,10 @@ pub struct CommonTypes {
 }
 
 impl CommonTypes {
-    pub fn new(bindings: &mut Slab<TyBinding>) -> Self {
+    pub fn new(bindings: &mut Slab<InferenceValue>) -> Self {
         use TyKind::*;
 
-        let mut mk = |kind| Ty(bindings.insert(TyBinding::Bound(kind)));
+        let mut mk = |kind| Ty(bindings.insert(InferenceValue::Bound(kind)));
 
         Self {
             unit: mk(Unit),

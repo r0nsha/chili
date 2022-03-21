@@ -1,7 +1,7 @@
 use crate::{
     display::DisplayTy,
     normalize::NormalizeTy,
-    tycx::{TyBinding, TyCtx},
+    tycx::{InferenceValue, TyCtx},
 };
 use chili_ast::ty::*;
 use chili_error::{DiagnosticResult, TypeError};
@@ -20,9 +20,9 @@ pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> Diagnost
 
 fn try_unpack_type_inner(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
-        TyKind::Var(var) => match tycx.get_binding(*var) {
-            TyBinding::Bound(ty) => try_unpack_type(&ty, tycx, span),
-            TyBinding::Unbound => {
+        TyKind::Var(var) => match tycx.value_of(*var) {
+            InferenceValue::Bound(ty) => try_unpack_type(&ty, tycx, span),
+            InferenceValue::Unbound => {
                 panic!(
                     "couldn't figure out the type of {}, because it was unbound",
                     *var
@@ -95,9 +95,9 @@ pub(crate) fn unpack_type(ty: &TyKind, tycx: &TyCtx) -> TyKind {
 
 fn unpack_type_inner(ty: &TyKind, tycx: &TyCtx) -> TyKind {
     match ty {
-        TyKind::Var(var) => match tycx.get_binding(*var) {
-            TyBinding::Bound(ty) => unpack_type(&ty, tycx),
-            TyBinding::Unbound => TyKind::Var(*var),
+        TyKind::Var(var) => match tycx.value_of(*var) {
+            InferenceValue::Bound(ty) => unpack_type(&ty, tycx),
+            InferenceValue::Unbound => TyKind::Var(*var),
         },
         TyKind::Fn(f) => TyKind::Fn(FnTy {
             params: f

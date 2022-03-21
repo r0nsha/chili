@@ -1,6 +1,6 @@
 use crate::{
     normalize::NormalizeTy,
-    tycx::{TyBinding, TyCtx},
+    tycx::{InferenceValue, TyCtx},
 };
 use chili_ast::{ty::*, workspace::Workspace};
 
@@ -144,9 +144,9 @@ impl UnifyTy<TyKind> for TyKind {
 }
 
 fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace) -> UnifyTyResult {
-    match tycx.get_binding(var) {
-        TyBinding::Bound(kind) => kind.clone().unify(other, tycx, workspace),
-        TyBinding::Unbound => {
+    match tycx.value_of(var) {
+        InferenceValue::Bound(kind) => kind.clone().unify(other, tycx, workspace),
+        InferenceValue::Unbound => {
             let other_norm = other.normalize(tycx);
 
             if TyKind::Var(var) != other_norm {
@@ -165,9 +165,9 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx, workspace: &Workspace
 
 fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx, workspace: &Workspace) -> bool {
     match kind {
-        TyKind::Var(other) => match tycx.get_binding(*other) {
-            TyBinding::Bound(ty) => occurs(var, &ty, tycx, workspace),
-            TyBinding::Unbound => var == *other,
+        TyKind::Var(other) => match tycx.value_of(*other) {
+            InferenceValue::Bound(ty) => occurs(var, &ty, tycx, workspace),
+            InferenceValue::Unbound => var == *other,
         },
         TyKind::Fn(f) => {
             f.params.iter().any(|p| occurs(var, &p.ty, tycx, workspace))
