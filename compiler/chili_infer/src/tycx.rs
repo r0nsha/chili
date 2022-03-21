@@ -37,7 +37,7 @@ impl TyCtx {
 
     #[inline]
     pub fn get_binding(&self, var: Ty) -> &TyBinding {
-        match self.type_bindings.get(var.0 as usize) {
+        match self.type_bindings.get(var.0) {
             Some(ty) => ty,
             None => &TyBinding::Unbound,
         }
