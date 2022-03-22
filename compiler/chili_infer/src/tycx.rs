@@ -6,7 +6,7 @@ use std::hash::Hash;
 use crate::normalize::NormalizeTy;
 
 pub struct TyCtx {
-    type_bindings: Slab<InferenceValue>,
+    bindings: Slab<InferenceValue>,
     pub common_types: CommonTypes,
 }
 
@@ -15,14 +15,14 @@ impl TyCtx {
         let mut type_bindings = Default::default();
         let common_types = CommonTypes::new(&mut type_bindings);
         Self {
-            type_bindings,
+            bindings: type_bindings,
             common_types,
         }
     }
 
     #[inline]
     fn insert(&mut self, binding: InferenceValue) -> Ty {
-        Ty(self.type_bindings.insert(binding))
+        Ty(self.bindings.insert(binding))
     }
 
     #[inline]
@@ -37,7 +37,7 @@ impl TyCtx {
 
     #[inline]
     pub fn value_of(&self, var: Ty) -> &InferenceValue {
-        match self.type_bindings.get(var.0) {
+        match self.bindings.get(var.0) {
             Some(ty) => ty,
             None => &InferenceValue::Unbound,
         }
@@ -50,13 +50,23 @@ impl TyCtx {
 
     #[inline]
     pub fn bind(&mut self, var: Ty, ty: TyKind) {
-        self.type_bindings[var.0] = InferenceValue::Bound(ty);
+        self.bindings[var.0] = InferenceValue::Bound(ty);
     }
 
     pub fn print_type_bindings(&mut self) {
-        for (i, tb) in self.type_bindings.iter() {
+        for (i, tb) in self.bindings.iter() {
             println!("'{} :: {}", i, tb)
         }
+    }
+
+    pub fn unbound_variables_count(&self) -> usize {
+        self.bindings
+            .iter()
+            .filter(|(_, v)| match v {
+                InferenceValue::Unbound => true,
+                _ => false,
+            })
+            .count()
     }
 }
 

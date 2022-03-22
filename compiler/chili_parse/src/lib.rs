@@ -94,7 +94,6 @@ pub struct Parser<'p> {
     current_dir: String,
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
-    foreign_libraries: HashSet<ForeignLibrary>,
     restrictions: Restrictions,
 }
 
@@ -121,7 +120,6 @@ impl<'p> Parser<'p> {
             current_dir,
             decl_name_frames: Default::default(),
             used_modules: Default::default(),
-            foreign_libraries: Default::default(),
             restrictions: Restrictions::empty(),
         }
     }

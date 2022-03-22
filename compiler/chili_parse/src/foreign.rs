@@ -109,12 +109,6 @@ impl<'p> Parser<'p> {
 
         expect!(self, CloseParen, ")")?;
 
-        self.foreign_libraries.insert(ForeignLibrary::from_str(
-            &lib,
-            self.module_info.file_path,
-            lib_token.span,
-        )?);
-
         Ok(lib)
     }
 }
