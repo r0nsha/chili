@@ -58,16 +58,6 @@ impl TyCtx {
             println!("'{} :: {}", i, tb)
         }
     }
-
-    pub fn unbound_variables_count(&self) -> usize {
-        self.bindings
-            .iter()
-            .filter(|(_, v)| match v {
-                InferenceValue::Unbound => true,
-                _ => false,
-            })
-            .count()
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

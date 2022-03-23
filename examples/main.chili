@@ -1,6 +1,10 @@
-use c.printf
+# use c.printf
 
 let main = fn {
     let answer = 42
-    printf("The answer is %d\n".data, answer)
+    # print_answer(answer)
 }
+
+# let print_answer = fn(answer) {
+#     printf("The answer is %d\n".data, answer)
+# }

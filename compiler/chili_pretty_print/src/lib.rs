@@ -4,6 +4,32 @@ use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 
+pub fn print_resolved_ast(ast: &ast::ResolvedAst, workspace: &Workspace, tycx: &TyCtx) {
+    let config = {
+        let mut config = PrintConfig::from_env();
+        config.branch = Style {
+            foreground: Some(Color::Blue),
+            dimmed: true,
+            ..Style::default()
+        };
+        config.leaf = Style {
+            bold: true,
+            ..Style::default()
+        };
+        config.characters = UTF_CHARS_BOLD.into();
+        config.indent = 3;
+        config
+    };
+
+    let mut b = TreeBuilder::new("Program".to_string());
+
+    ast.print_tree(&mut b, workspace, tycx);
+
+    print_tree_with(&b.build(), &config).expect("error printing ir tree");
+
+    println!();
+}
+
 pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();
@@ -59,12 +85,25 @@ impl<T: PrintTree> PrintTree for Box<T> {
     }
 }
 
+impl PrintTree for ast::ResolvedAst {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
+        // bound_ast.module_info.name, bound_ast.module_info.file_path
+        for import in self.imports.iter() {
+            import.print_tree(b, workspace, tycx);
+        }
+        for binding in self.bindings.iter() {
+            binding.print_tree(b, workspace, tycx);
+        }
+    }
+}
+
 impl PrintTree for ast::Ast {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         self.imports.print_tree(b, workspace, tycx);
         self.bindings.print_tree(b, workspace, tycx);
     }
 }
+
 impl PrintTree for ast::Fn {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child("fn".to_string());

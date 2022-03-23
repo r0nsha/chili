@@ -1,7 +1,6 @@
 use crate::{
     ast::{ForeignLibrary, ModuleInfo, Visibility},
     ty::Ty,
-    value::Value,
 };
 use bitflags::bitflags;
 use chili_span::{FileId, Span};
@@ -80,7 +79,6 @@ pub struct BindingInfo {
     pub symbol: Ustr,
     pub visibility: Visibility,
     pub ty: Ty,
-    pub const_value: Option<Value>,
     // what kind of access the binding has
     pub is_mutable: bool,
     pub kind: BindingInfoKind,
@@ -138,7 +136,6 @@ impl Workspace {
             symbol,
             visibility,
             ty: Default::default(),
-            const_value: None,
             is_mutable,
             kind,
             scope_level: level,
@@ -168,7 +165,6 @@ impl Workspace {
             symbol,
             visibility,
             ty: Default::default(),
-            const_value: None,
             is_mutable,
             kind,
             scope_level: level,

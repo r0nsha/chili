@@ -13,8 +13,14 @@ use ustr::{ustr, Ustr};
 
 use crate::workspace::{BindingInfoId, ModuleId};
 
-#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Ty(pub usize);
+
+impl Default for Ty {
+    fn default() -> Self {
+        Self(usize::MAX)
+    }
+}
 
 impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

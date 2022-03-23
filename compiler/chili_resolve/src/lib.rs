@@ -6,7 +6,10 @@ mod resolve;
 mod resolver;
 mod scope;
 
-use chili_ast::{ast::Ast, workspace::Workspace};
+use chili_ast::{
+    ast::{Ast, ResolvedAst},
+    workspace::Workspace,
+};
 use chili_error::DiagnosticResult;
 use codespan_reporting::diagnostic::Diagnostic;
 use declare::Declare;
@@ -16,7 +19,8 @@ use resolve::Resolve;
 use resolver::Resolver;
 use scope::Scope;
 
-pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> DiagnosticResult<()> {
+pub fn resolve<'w>(workspace: &mut Workspace, mut asts: Vec<Ast>) -> DiagnosticResult<ResolvedAst> {
+    let mut resolved_ast = ResolvedAst::new();
     let mut resolver = Resolver::new();
 
     resolver.add_builtin_types(workspace);
@@ -37,7 +41,7 @@ pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> Diagnostic
         }
     }
 
-    // Declare all global symbols
+    // Declare all global definitions
     for ast in asts.iter_mut() {
         resolver.module_id = ast.module_id;
         resolver.module_info = ast.module_info;
@@ -45,17 +49,27 @@ pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> Diagnostic
         ast.declare(&mut resolver, workspace)?;
     }
 
-    // Resolve all bindings, scopes, uses, etc...
+    // Resolve all definitions, scopes, uses, etc...
     for ast in asts.iter_mut() {
         resolver.module_id = ast.module_id;
         resolver.module_info = ast.module_info;
         ast.resolve(&mut resolver, workspace)?;
     }
 
+    for ast in asts {
+        for import in ast.imports {
+            resolved_ast.add_import(import);
+        }
+        for binding in ast.bindings {
+            resolved_ast.add_binding(binding);
+        }
+    }
+
     // Check that an entry point function exists
     if workspace.entry_point_function_id.is_some() {
+        // TODO:
         // Follow the main path, marking all bindings that need codegen
-        mark_bindings_for_codegen(workspace, asts);
+        // mark_bindings_for_codegen(workspace, asts);
     } else {
         return Err(Diagnostic::error()
             .with_message("entry point function `main` is not defined")
@@ -64,5 +78,5 @@ pub fn resolve<'w>(workspace: &mut Workspace, asts: &mut Vec<Ast>) -> Diagnostic
             ]));
     }
 
-    Ok(())
+    Ok(resolved_ast)
 }

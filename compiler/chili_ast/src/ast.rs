@@ -5,13 +5,10 @@ use crate::workspace::{BindingInfoId, ModuleId};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
 use chili_token::TokenKind;
-use codespan_reporting::files::SimpleFiles;
-use common::compiler_info::STD;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display};
 use std::path::Path;
 use ustr::Ustr;
-use ustr::{ustr, UstrMap};
 
 #[derive(Debug, Clone)]
 pub struct Ast {
@@ -50,6 +47,73 @@ impl Ast {
         }
         None
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedAst {
+    pub imports: Vec<Import>,
+    pub bindings: Vec<Binding>,
+    id_to_def_map: HashMap<BindingInfoId, DefIndex>,
+}
+
+impl ResolvedAst {
+    pub fn new() -> Self {
+        Self {
+            imports: Default::default(),
+            bindings: Default::default(),
+            id_to_def_map: Default::default(),
+        }
+    }
+
+    pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
+        match self.id_to_def_map[&id] {
+            DefIndex::Binding(idx) => self.bindings.get(idx),
+            _ => None,
+        }
+    }
+
+    pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
+        match self.id_to_def_map[&id] {
+            DefIndex::Binding(idx) => self.bindings.get_mut(idx),
+            _ => None,
+        }
+    }
+
+    pub fn get_import(&self, id: BindingInfoId) -> Option<&Import> {
+        match self.id_to_def_map[&id] {
+            DefIndex::Import(idx) => self.imports.get(idx),
+            _ => None,
+        }
+    }
+
+    pub fn get_import_mut(&mut self, id: BindingInfoId) -> Option<&mut Import> {
+        match self.id_to_def_map[&id] {
+            DefIndex::Import(idx) => self.imports.get_mut(idx),
+            _ => None,
+        }
+    }
+
+    pub fn add_binding(&mut self, binding: Binding) {
+        let idx = self.bindings.len();
+        for symbol in binding.pattern.symbols() {
+            self.id_to_def_map
+                .insert(symbol.binding_info_id, DefIndex::Binding(idx));
+        }
+        self.bindings.push(binding);
+    }
+
+    pub fn add_import(&mut self, import: Import) {
+        let idx = self.imports.len();
+        self.id_to_def_map
+            .insert(import.binding_info_id, DefIndex::Import(idx));
+        self.imports.push(import);
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum DefIndex {
+    Binding(usize),
+    Import(usize),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -367,81 +431,6 @@ pub struct FnParam {
 impl ToString for FnParam {
     fn to_string(&self) -> String {
         self.pattern.to_string()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Ir {
-    pub modules: UstrMap<Module>,
-    pub startup_fn: Option<Fn>,
-    pub foreign_libraries: HashSet<ForeignLibrary>,
-    pub files: SimpleFiles<String, String>,
-}
-
-impl Ir {
-    pub fn new(files: SimpleFiles<String, String>) -> Self {
-        Self {
-            modules: UstrMap::default(),
-            startup_fn: None,
-            foreign_libraries: HashSet::new(),
-            files,
-        }
-    }
-
-    #[inline]
-    pub fn std_module(&self, m: &str) -> &Module {
-        self.module(ustr(&format!("{}.{}", STD, m)))
-    }
-
-    #[inline]
-    pub fn root_module(&self) -> &Module {
-        self.module(common::builtin::root_module())
-    }
-
-    #[inline]
-    pub fn module(&self, symbol: impl Into<Ustr>) -> &Module {
-        let symbol = symbol.into();
-        self.modules
-            .get(&symbol)
-            .expect(&format!("couldn't find `{}`", symbol))
-    }
-
-    #[inline]
-    pub fn module_info(&self, symbol: impl Into<Ustr>) -> ModuleInfo {
-        let symbol = symbol.into();
-        self.modules
-            .get(&symbol)
-            .expect(&format!("couldn't find `{}`", symbol))
-            .info
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Module {
-    pub info: ModuleInfo,
-    pub imports: Vec<Import>,
-    pub bindings: Vec<Binding>,
-}
-
-impl Module {
-    pub fn new(info: ModuleInfo) -> Self {
-        Self {
-            info,
-            imports: vec![],
-            bindings: vec![],
-        }
-    }
-
-    pub fn find_binding(&self, symbol: impl Into<Ustr>) -> Option<&Binding> {
-        let symbol = symbol.into();
-        self.bindings
-            .iter()
-            .find(|binding| binding.pattern.into_single().symbol == symbol)
-    }
-
-    pub fn find_import(&self, symbol: impl Into<Ustr>) -> Option<&Import> {
-        let symbol = symbol.into();
-        self.imports.iter().find(|import| import.alias == symbol)
     }
 }
 
