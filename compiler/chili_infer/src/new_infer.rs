@@ -1,16 +1,24 @@
+use std::collections::HashMap;
+
 use crate::{
-    builtin::get_ty_for_builtin_type, display::map_unify_err, infer_top_level::InferTopLevel,
-    normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTy,
+    builtin::get_ty_for_builtin_type,
+    display::{map_unify_err, DisplayTy},
+    infer_top_level::InferTopLevel,
+    normalize::NormalizeTy,
+    tycx::TyCtx,
+    unify::UnifyTy,
 };
 use chili_ast::{
     ast::{self, Expr, ExprKind},
+    pattern::{Pattern, SymbolPattern},
     ty::*,
     value::Value,
-    workspace::{BindingInfoFlags, Workspace},
+    workspace::{BindingInfoFlags, BindingInfoId, Workspace},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::ustr;
 
 pub struct InferSess<'s> {
@@ -18,6 +26,7 @@ pub struct InferSess<'s> {
     pub(crate) old_ast: &'s ast::ResolvedAst,
     pub(crate) new_ast: ast::ResolvedAst,
     pub(crate) tycx: TyCtx,
+    pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
     pub(crate) frames: Vec<InferFrame>,
 }
 
@@ -61,18 +70,22 @@ impl<'s> InferSess<'s> {
             old_ast,
             new_ast: ast::ResolvedAst::new(),
             tycx: TyCtx::new(),
+            const_bindings: HashMap::new(),
             frames: vec![],
         }
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
+        // init builtin types
         for binding_info in self
             .workspace
             .binding_infos
             .iter_mut()
             .filter(|b| b.flags.contains(BindingInfoFlags::BUILTIN_TYPE))
         {
-            binding_info.ty = get_ty_for_builtin_type(binding_info.symbol, &mut self.tycx);
+            let ty = get_ty_for_builtin_type(binding_info.symbol, &mut self.tycx);
+            binding_info.ty = ty;
+            self.const_bindings.insert(binding_info.id, Value::Type(ty));
         }
 
         for binding in self.old_ast.bindings.iter() {
@@ -107,6 +120,28 @@ impl<'s> InferSess<'s> {
     pub(crate) fn frame(&self) -> Option<InferFrame> {
         self.frames.last().map(|&f| f)
     }
+
+    pub(crate) fn expect_const_type(
+        &self,
+        value: Option<Value>,
+        ty: Ty,
+        span: Span,
+    ) -> DiagnosticResult<Ty> {
+        match value {
+            Some(v) => {
+                if let Value::Type(t) = v {
+                    return Ok(t);
+                }
+            }
+            None => (),
+        }
+
+        Err(TypeError::expected(
+            span,
+            ty.normalize(&self.tycx).display(&self.tycx),
+            "a type",
+        ))
+    }
 }
 
 pub(crate) trait Infer
@@ -140,16 +175,35 @@ impl Infer for ast::Binding {
                 .map_err(|e| map_unify_err(e, res.ty, binding_ty, ty_expr.span, &sess.tycx))?;
         }
 
-        if let Some(expr) = &mut self.expr {
+        let const_value = if let Some(expr) = &mut self.expr {
             let res = expr.infer(sess)?;
             res.ty
                 .unify(&binding_ty, sess)
                 .map_err(|e| map_unify_err(e, binding_ty, res.ty, expr.span, &sess.tycx))?;
+            res.const_value
+        } else {
+            None
+        };
+
+        // don't allow const values with mutable bindings or patterns that are not `Single`
+        let const_value = match &self.pattern {
+            Pattern::Single(SymbolPattern { is_mutable, .. }) => {
+                if *is_mutable {
+                    None
+                } else {
+                    const_value
+                }
+            }
+            Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => None,
+        };
+
+        if let Some(const_value) = const_value {
+            sess.const_bindings.insert(pat.binding_info_id, const_value);
         }
 
         Ok(Res {
             ty: sess.tycx.common_types.unit,
-            const_value: None, // TODO: put const value of binding (if exists)
+            const_value: None,
         })
     }
 }
@@ -252,7 +306,84 @@ impl Infer for ast::Expr {
             ast::ExprKind::Subscript { expr, index } => todo!(),
             ast::ExprKind::Slice { expr, low, high } => todo!(),
             ast::ExprKind::Call(call) => call.infer(sess),
-            ast::ExprKind::MemberAccess { expr, member } => todo!(),
+            ast::ExprKind::MemberAccess { expr, member } => {
+                let res = expr.infer(sess)?;
+                let kind = res.ty.normalize(&sess.tycx);
+
+                match &kind.maybe_deref_once() {
+                    ty @ TyKind::Tuple(tys) => match member.as_str().parse::<i32>() {
+                        Ok(index) => match tys.get(index as usize) {
+                            Some(field_ty) => Ok(Res::new(sess.tycx.bound(field_ty.clone()))),
+                            None => Err(TypeError::tuple_field_out_of_bounds(
+                                expr.span,
+                                &member,
+                                ty.to_string(),
+                                tys.len() - 1,
+                            )),
+                        },
+                        Err(_) => Err(TypeError::non_numeric_tuple_field(
+                            expr.span,
+                            &member,
+                            ty.to_string(),
+                        )),
+                    },
+                    TyKind::Struct(ty) => match ty.fields.iter().find(|f| f.symbol == *member) {
+                        Some(field) => Ok(Res::new(sess.tycx.bound(field.ty.clone()))),
+                        None => Err(TypeError::invalid_struct_field(
+                            expr.span,
+                            *member,
+                            ty.to_string(),
+                        )),
+                    },
+                    TyKind::Array(_, size) if member.as_str() == BUILTIN_FIELD_LEN => Ok(
+                        Res::new_const(sess.tycx.common_types.uint, Value::Int(*size as _)),
+                    ),
+                    TyKind::Slice(..) if member.as_str() == BUILTIN_FIELD_LEN => {
+                        Ok(Res::new(sess.tycx.common_types.uint))
+                    }
+                    TyKind::Slice(inner, is_mutable) if member.as_str() == BUILTIN_FIELD_DATA => {
+                        Ok(Res::new(
+                            sess.tycx
+                                .bound(TyKind::MultiPointer(inner.clone(), *is_mutable)),
+                        ))
+                    }
+                    TyKind::Module(module_id) => {
+                        let binding_info_id = {
+                            let info = sess
+                                .workspace
+                                .find_binding_info_by_name(*module_id, *member);
+
+                            match info {
+                                Some(info) => info.id,
+                                None => {
+                                    let module_info =
+                                        sess.workspace.get_module_info(*module_id).unwrap();
+
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!(
+                                            "cannot find value `{}` in module `{}`",
+                                            member, module_info.name
+                                        ))
+                                        .with_labels(vec![Label::primary(
+                                            self.span.file_id,
+                                            self.span.range(),
+                                        )
+                                        .with_message(format!(
+                                            "not found in `{}`",
+                                            module_info.name
+                                        ))]));
+                                }
+                            }
+                        };
+
+                        sess.infer_binding_by_id(binding_info_id)
+                    }
+                    ty => Err(TypeError::field_access_on_invalid_type(
+                        expr.span,
+                        ty.to_string(),
+                    )),
+                }
+            }
             ast::ExprKind::Id {
                 binding_info_id, ..
             } => sess.infer_binding_by_id(*binding_info_id),
@@ -260,17 +391,73 @@ impl Infer for ast::Expr {
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
             ast::ExprKind::Literal(lit) => lit.infer(sess),
-            ast::ExprKind::PointerType(_, _) => todo!(),
-            ast::ExprKind::MultiPointerType(_, _) => todo!(),
+            ast::ExprKind::PointerType(inner, is_mutable) => {
+                let res = inner.infer(sess)?;
+                let inner_kind = sess.expect_const_type(res.const_value, res.ty, inner.span)?;
+                let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
+                Ok(Res::new_const(
+                    sess.tycx.bound(kind.clone().create_type()),
+                    Value::Type(sess.tycx.bound(kind.clone())),
+                ))
+            }
+            ast::ExprKind::MultiPointerType(inner, is_mutable) => {
+                let res = inner.infer(sess)?;
+                let inner_kind = sess.expect_const_type(res.const_value, res.ty, inner.span)?;
+                let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
+                Ok(Res::new_const(
+                    sess.tycx.bound(kind.clone().create_type()),
+                    Value::Type(sess.tycx.bound(kind.clone())),
+                ))
+            }
             ast::ExprKind::ArrayType(_, _) => todo!(),
-            ast::ExprKind::SliceType(_, _) => todo!(),
+            ast::ExprKind::SliceType(inner, is_mutable) => {
+                let res = inner.infer(sess)?;
+                let inner_kind = sess.expect_const_type(res.const_value, res.ty, inner.span)?;
+                let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
+                Ok(Res::new_const(
+                    sess.tycx.bound(kind.clone().create_type()),
+                    Value::Type(sess.tycx.bound(kind.clone())),
+                ))
+            }
             ast::ExprKind::StructType(_) => todo!(),
-            ast::ExprKind::FnType(_) => todo!(),
-            ast::ExprKind::SelfType => todo!(),
-            ast::ExprKind::NeverType => todo!(),
-            ast::ExprKind::UnitType => todo!(),
-            ast::ExprKind::PlaceholderType => todo!(),
-            ast::ExprKind::Noop => todo!(),
+            ast::ExprKind::FnType(proto) => proto.infer(sess),
+            ast::ExprKind::SelfType => {
+                let self_ty = sess.frame().map(|f| f.self_ty).flatten();
+                match self_ty {
+                    Some(ty) => Ok(Res::new_const(
+                        sess.tycx.bound(TyKind::Var(ty).create_type()),
+                        Value::Type(ty),
+                    )),
+                    None => Err(Diagnostic::error()
+                        .with_message("`Self` is only available within struct definitions")
+                        .with_labels(vec![Label::primary(
+                            self.span.file_id,
+                            self.span.range().clone(),
+                        )])),
+                }
+            }
+            ast::ExprKind::NeverType => {
+                let ty = sess.tycx.common_types.never;
+                Ok(Res::new_const(
+                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    Value::Type(ty),
+                ))
+            }
+            ast::ExprKind::UnitType => {
+                let ty = sess.tycx.common_types.unit;
+                Ok(Res::new_const(
+                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    Value::Type(ty),
+                ))
+            }
+            ast::ExprKind::PlaceholderType => {
+                let ty = sess.tycx.var();
+                Ok(Res::new_const(
+                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    Value::Type(ty),
+                ))
+            }
+            ast::ExprKind::Noop => Ok(Res::new(sess.tycx.var())),
         }?;
 
         self.ty = res.ty;

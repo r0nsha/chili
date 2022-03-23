@@ -183,6 +183,16 @@ impl Workspace {
     pub fn get_binding_info_mut(&mut self, id: BindingInfoId) -> Option<&mut BindingInfo> {
         self.binding_infos.get_mut(id.0)
     }
+
+    pub fn find_binding_info_by_name(
+        &mut self,
+        module_id: ModuleId,
+        name: Ustr,
+    ) -> Option<&BindingInfo> {
+        self.binding_infos
+            .iter()
+            .find(|b| b.module_id == module_id && b.symbol == name)
+    }
 }
 
 impl BindingInfo {

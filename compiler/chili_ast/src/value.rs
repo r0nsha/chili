@@ -1,9 +1,9 @@
-use crate::{ast::Literal, ty::TyKind};
+use crate::{ast::Literal, ty::Ty};
 use strum_macros::Display;
 
-#[derive(Debug, Display, PartialEq, Clone)]
+#[derive(Debug, Display, PartialEq, Clone, Copy)]
 pub enum Value {
-    Type(TyKind),
+    Type(Ty),
     Bool(bool),
     Int(i64),
     Float(f64),
@@ -17,7 +17,7 @@ impl Value {
         }
     }
 
-    pub fn into_type(self) -> TyKind {
+    pub fn into_type(self) -> Ty {
         match self {
             Value::Type(ty) => ty,
             _ => panic!(),

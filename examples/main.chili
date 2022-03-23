@@ -1,3 +1,4 @@
+use c
 # use c.printf
 
 let main = fn {
@@ -7,5 +8,7 @@ let main = fn {
 }
 
 let print_answer = fn(answer) {
+    c.printf("The answer is 42\n".data)
+    # printf("The answer is 42\n".data)
     # printf("The answer is %d\n".data, answer)
 }

@@ -45,7 +45,9 @@ impl<'s> InferSess<'s> {
 
         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
-        // TODO: return const value
-        Ok(Res::new(binding_info.ty))
+        Ok(Res::new_maybe_const(
+            binding_info.ty,
+            self.const_bindings.get(&id).map(|v| *v),
+        ))
     }
 }
