@@ -37,6 +37,9 @@ impl<'s> InferSess<'s> {
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
+        for binding in self.old_ast.bindings.iter() {
+            binding.infer(self)?;
+        }
         Ok(())
     }
 
@@ -57,11 +60,11 @@ pub(crate) trait Infer
 where
     Self: Sized,
 {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult<Self>;
+    fn infer(&self, sess: &mut InferSess) -> InferResult<Self>;
 }
 
 impl Infer for ast::Binding {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult<Self> {
+    fn infer(&self, sess: &mut InferSess) -> InferResult<Self> {
         // TODO: support other patterns
         // let pat = self.pattern.as_single_ref();
         // let binding_ty = workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
@@ -88,6 +91,7 @@ impl Infer for ast::Binding {
 
         // Ok(sess.tycx.common_types.unit)
 
-        Ok((self.clone(), None))
+        // Ok((self.clone(), None))
+        todo!()
     }
 }
