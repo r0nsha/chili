@@ -16,6 +16,12 @@ use crate::workspace::{BindingInfoId, ModuleId};
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Ty(pub usize);
 
+impl Ty {
+    pub fn unknown() -> Self {
+        Default::default()
+    }
+}
+
 impl Default for Ty {
     fn default() -> Self {
         Self(usize::MAX)

@@ -87,7 +87,6 @@ impl<T: PrintTree> PrintTree for Box<T> {
 
 impl PrintTree for ast::ResolvedAst {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        // bound_ast.module_info.name, bound_ast.module_info.file_path
         for import in self.imports.iter() {
             import.print_tree(b, workspace, tycx);
         }
@@ -101,6 +100,79 @@ impl PrintTree for ast::Ast {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         self.imports.print_tree(b, workspace, tycx);
         self.bindings.print_tree(b, workspace, tycx);
+    }
+}
+
+impl PrintTree for ast::Import {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
+        b.add_empty_child(format!(
+            "use \"{}\" = {} <{}>",
+            self.module_info.file_path,
+            self.alias,
+            tycx.ty_kind(workspace.get_binding_info(self.binding_info_id).unwrap().ty)
+        ));
+    }
+}
+
+impl PrintTree for ast::Binding {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
+        let module_info = workspace.get_module_info(self.module_id).unwrap();
+
+        b.begin_child(match &self.pattern {
+            Pattern::Single(pat) => {
+                let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                format!(
+                    "{}: let {} <{}>",
+                    module_info.name,
+                    pat.symbol,
+                    tycx.ty_kind(*ty)
+                )
+            }
+            Pattern::StructDestructor(pat) => {
+                let concat_symbols = pat
+                    .symbols
+                    .iter()
+                    .map(|pat| {
+                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                        format!(
+                            "{}: let {} <{}>",
+                            module_info.name,
+                            pat.symbol,
+                            tycx.ty_kind(*ty)
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                format!("{{ {} }}", concat_symbols)
+            }
+            Pattern::TupleDestructor(pat) => {
+                let concat_symbols = pat
+                    .symbols
+                    .iter()
+                    .map(|pat| {
+                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                        format!(
+                            "{}: let {} <{}>",
+                            module_info.name,
+                            pat.symbol,
+                            tycx.ty_kind(*ty)
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                format!("({})", concat_symbols)
+            }
+        });
+
+        if let Some(value) = &self.expr {
+            value.print_tree(b, workspace, tycx);
+        } else {
+            b.add_empty_child("[uninit]".to_string());
+        }
+
+        b.end_child();
     }
 }
 
@@ -157,62 +229,6 @@ impl PrintTree for ast::Proto {
             b.begin_child("return".to_string());
             ret.print_tree(b, workspace, tycx);
             b.end_child();
-        }
-
-        b.end_child();
-    }
-}
-
-impl PrintTree for ast::Import {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        b.add_empty_child(format!(
-            "use \"{}\" = {} <{}>",
-            self.module_info.file_path,
-            self.alias,
-            tycx.ty_kind(workspace.get_binding_info(self.binding_info_id).unwrap().ty)
-        ));
-    }
-}
-
-impl PrintTree for ast::Binding {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        b.begin_child(match &self.pattern {
-            Pattern::Single(pat) => {
-                let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
-                format!("let {} <{}>", pat.symbol, tycx.ty_kind(*ty))
-            }
-            Pattern::StructDestructor(pat) => {
-                let concat_symbols = pat
-                    .symbols
-                    .iter()
-                    .map(|pat| {
-                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
-                        format!("let {} <{}>", pat.symbol, tycx.ty_kind(*ty))
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                format!("{{ {} }}", concat_symbols)
-            }
-            Pattern::TupleDestructor(pat) => {
-                let concat_symbols = pat
-                    .symbols
-                    .iter()
-                    .map(|pat| {
-                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
-                        format!("let {} <{}>", pat.symbol, tycx.ty_kind(*ty))
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                format!("({})", concat_symbols)
-            }
-        });
-
-        if let Some(value) = &self.expr {
-            value.print_tree(b, workspace, tycx);
-        } else {
-            b.add_empty_child("[uninit]".to_string());
         }
 
         b.end_child();

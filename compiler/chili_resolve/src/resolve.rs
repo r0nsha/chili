@@ -105,6 +105,8 @@ impl<'w> Resolve<'w> for ast::Binding {
         resolver: &mut Resolver,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
+        self.module_id = resolver.module_id;
+
         self.ty_expr.resolve(resolver, workspace)?;
         self.expr.resolve(resolver, workspace)?;
 

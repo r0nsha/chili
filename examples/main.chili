@@ -3,8 +3,9 @@
 let main = fn {
     let answer = 42
     print_answer(answer)
+    print_answer(answer)
 }
 
-# let print_answer = fn(answer) {
-#     printf("The answer is %d\n".data, answer)
-# }
+let print_answer = fn(answer) {
+    # printf("The answer is %d\n".data, answer)
+}

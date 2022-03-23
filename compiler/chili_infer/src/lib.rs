@@ -13,7 +13,7 @@ mod unpack_type;
 
 use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;
-use new_infer::{Infer, InferSess};
+use new_infer::InferSess;
 use tycx::TyCtx;
 
 pub fn infer(

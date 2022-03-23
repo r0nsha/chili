@@ -53,10 +53,14 @@ impl TyCtx {
         self.bindings[var.0] = InferenceValue::Bound(ty);
     }
 
-    pub fn print_type_bindings(&mut self) {
+    pub fn print_type_bindings(&self) {
         for (i, tb) in self.bindings.iter() {
             println!("'{} :: {}", i, tb)
         }
+    }
+
+    pub fn print_ty(&self, ty: Ty) {
+        println!("{} :: {}", ty, self.bindings[ty.0]);
     }
 }
 

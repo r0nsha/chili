@@ -480,6 +480,7 @@ impl ForeignLibrary {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
+    pub module_id: ModuleId,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub pattern: Pattern,
@@ -498,6 +499,7 @@ impl Binding {
         lib_name: Option<Ustr>,
     ) -> Self {
         Self {
+            module_id: Default::default(),
             visibility,
             kind,
             pattern,

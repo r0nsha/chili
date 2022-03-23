@@ -131,8 +131,13 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Type(t1), t2) => t1.unify(t2, sess),
             (t1, TyKind::Type(t2)) => t1.unify(t2.as_ref(), sess),
 
-            (TyKind::Var(var), _) => unify_var_ty(*var, other, sess),
-            (_, TyKind::Var(var)) => unify_var_ty(*var, self, sess),
+            (TyKind::Var(var), _)
+            | (TyKind::AnyInt(var), _)
+            | (TyKind::AnyFloat(var), _) => unify_var_ty(*var, other, sess),
+            
+            (_, TyKind::Var(var)) 
+            | (_, TyKind::AnyInt(var))
+            | (_, TyKind::AnyFloat(var)) => unify_var_ty(*var, self, sess),
 
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
@@ -165,7 +170,9 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess:&mut InferSess) -> UnifyTyResult {
 
 fn occurs(var: Ty, kind: &TyKind, sess:& InferSess) -> bool {
     match kind {
-        TyKind::Var(other) => match sess.tycx.value_of(*other) {
+        TyKind::Var(other) 
+        | TyKind::AnyInt(other)
+        | TyKind::AnyFloat(other) => match sess.tycx.value_of(*other) {
             InferenceValue::Bound(ty) => occurs(var, &ty, sess),
             InferenceValue::Unbound => var == *other,
         },

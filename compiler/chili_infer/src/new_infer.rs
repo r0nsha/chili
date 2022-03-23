@@ -67,9 +67,20 @@ impl<'s> InferSess<'s> {
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
         for binding in self.old_ast.bindings.iter() {
-            let mut binding = binding.clone();
-            binding.infer_top_level(self)?;
+            let first_symbol = binding.pattern.symbols().first().cloned().unwrap();
+
+            let binding_info = self
+                .workspace
+                .get_binding_info(first_symbol.binding_info_id)
+                .unwrap();
+
+            if binding_info.ty != Ty::unknown() {
+                continue;
+            }
+
+            binding.clone().infer_top_level(self)?;
         }
+
         Ok(())
     }
 
@@ -94,6 +105,12 @@ where
     Self: Sized,
 {
     fn infer(&mut self, sess: &mut InferSess) -> InferResult;
+}
+
+impl Infer for ast::Import {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        todo!()
+    }
 }
 
 impl Infer for ast::Binding {
@@ -225,14 +242,11 @@ impl Infer for ast::Expr {
             ast::ExprKind::Unary { op, lhs } => todo!(),
             ast::ExprKind::Subscript { expr, index } => todo!(),
             ast::ExprKind::Slice { expr, low, high } => todo!(),
-            ast::ExprKind::Call(_) => todo!(),
+            ast::ExprKind::Call(call) => call.infer(sess),
             ast::ExprKind::MemberAccess { expr, member } => todo!(),
             ast::ExprKind::Id {
-                symbol,
-                is_mutable,
-                binding_span,
-                binding_info_id,
-            } => todo!(),
+                binding_info_id, ..
+            } => sess.infer_binding_by_id(*binding_info_id),
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
@@ -253,6 +267,38 @@ impl Infer for ast::Expr {
         self.ty = res.ty;
 
         Ok(res)
+    }
+}
+
+impl Infer for ast::Call {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        for arg in self.args.iter_mut() {
+            arg.expr.infer(sess)?;
+        }
+
+        let callee_res = self.callee.infer(sess)?;
+        let return_ty = sess.tycx.var();
+
+        let fn_kind = TyKind::Fn(FnTy {
+            params: self
+                .args
+                .iter()
+                .map(|arg| FnTyParam {
+                    symbol: arg.symbol.as_ref().map_or(ustr(""), |s| s.value),
+                    ty: arg.expr.ty.into(),
+                })
+                .collect(),
+            ret: Box::new(return_ty.into()),
+            variadic: false,
+            lib_name: None,
+        });
+
+        callee_res
+            .ty
+            .unify(&fn_kind, sess)
+            .map_err(|e| map_unify_err(e, fn_kind, callee_res.ty, self.callee.span, &sess.tycx))?;
+
+        Ok(Res::new(return_ty))
     }
 }
 
