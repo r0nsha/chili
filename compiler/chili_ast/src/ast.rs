@@ -690,7 +690,7 @@ pub struct Import {
     pub binding_info_id: BindingInfoId,
     pub module_id: ModuleId,
     pub module_info: ModuleInfo,
-    pub target_binding: Option<BindingInfoId>,
+    pub target_binding_info: Option<BindingInfoId>,
     pub alias: Ustr,
     pub import_path: ImportPath,
     pub visibility: Visibility,

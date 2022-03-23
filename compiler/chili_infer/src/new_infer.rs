@@ -153,7 +153,40 @@ where
 
 impl Infer for ast::Import {
     fn infer(&mut self, sess: &mut InferSess) -> InferResult {
-        todo!()
+        let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
+        let mut const_value = None;
+
+        let mut module_id = self.module_id;
+        let mut target_binding_info = None;
+
+        for (index, node) in self.import_path.iter().enumerate() {
+            let id =
+                sess.find_binding_info_id_in_module(module_id, node.value.as_symbol(), node.span)?;
+
+            target_binding_info = Some(id);
+
+            let res = sess.infer_binding_by_id(id)?;
+            ty = res.ty;
+            const_value = res.const_value;
+
+            match ty.normalize(&sess.tycx) {
+                TyKind::Module(id) => module_id = id,
+                _ => {
+                    if index < self.import_path.len() - 1 {
+                        return Err(TypeError::expected(node.span, ty.to_string(), "a module"));
+                    }
+                }
+            }
+        }
+
+        sess.workspace
+            .get_binding_info_mut(self.binding_info_id)
+            .unwrap()
+            .ty = ty;
+
+        self.target_binding_info = target_binding_info;
+
+        Ok(Res::new_maybe_const(ty, const_value))
     }
 }
 
@@ -348,37 +381,11 @@ impl Infer for ast::Expr {
                         ))
                     }
                     TyKind::Module(module_id) => {
-                        let binding_info_id = {
-                            let info = sess
-                                .workspace
-                                .find_binding_info_by_name(*module_id, *member);
-
-                            match info {
-                                Some(info) => info.id,
-                                None => {
-                                    let module_info =
-                                        sess.workspace.get_module_info(*module_id).unwrap();
-
-                                    return Err(Diagnostic::error()
-                                        .with_message(format!(
-                                            "cannot find value `{}` in module `{}`",
-                                            member, module_info.name
-                                        ))
-                                        .with_labels(vec![Label::primary(
-                                            self.span.file_id,
-                                            self.span.range(),
-                                        )
-                                        .with_message(format!(
-                                            "not found in `{}`",
-                                            module_info.name
-                                        ))]));
-                                }
-                            }
-                        };
-
+                        let binding_info_id =
+                            sess.find_binding_info_id_in_module(*module_id, *member, self.span)?;
                         sess.infer_binding_by_id(binding_info_id)
                     }
-                    ty => Err(TypeError::field_access_on_invalid_type(
+                    ty => Err(TypeError::member_access_on_invalid_type(
                         expr.span,
                         ty.to_string(),
                     )),

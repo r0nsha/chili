@@ -185,7 +185,7 @@ impl Workspace {
     }
 
     pub fn find_binding_info_by_name(
-        &mut self,
+        &self,
         module_id: ModuleId,
         name: Ustr,
     ) -> Option<&BindingInfo> {

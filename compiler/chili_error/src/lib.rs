@@ -250,9 +250,9 @@ impl TypeError {
             .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
     }
 
-    pub fn field_access_on_invalid_type(span: Span, ty: String) -> Diagnostic<usize> {
+    pub fn member_access_on_invalid_type(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
-            .with_message(format!("type `{}` has no fields", ty))
+            .with_message(format!("type `{}` has no members", ty))
             .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
     }
 

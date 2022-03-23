@@ -39,7 +39,7 @@ impl<'p> Parser<'p> {
             expr = if eat!(self, Eq) {
                 self.parse_assign(expr)?
             } else if eat!(self, Dot) {
-                self.parse_field_access(expr)?
+                self.parse_member_access(expr)?
             } else if eat!(self, OpenParen) {
                 self.parse_call(expr)?
             } else if eat!(self, OpenBracket) {
@@ -141,7 +141,7 @@ impl<'p> Parser<'p> {
         ))
     }
 
-    fn parse_field_access(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
+    fn parse_member_access(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
         let start_span = expr.span;
 
         let token = self.bump();

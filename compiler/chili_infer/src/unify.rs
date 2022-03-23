@@ -64,7 +64,7 @@ impl UnifyTy<TyKind> for TyKind {
             }
 
             (TyKind::Fn(f1), TyKind::Fn(f2)) => {
-                if f1.params.len() != f2.params.len() || f1.variadic != f2.variadic {
+                if f1.params.len() != f2.params.len() && !f1.variadic && !f2.variadic {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {

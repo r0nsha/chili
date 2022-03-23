@@ -71,7 +71,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
                 module_id: import.module_id,
                 module_info: import.module_info,
                 alias: *symbol,
-                target_binding: import.target_binding,
+                target_binding_info: import.target_binding_info,
                 import_path,
                 visibility: import.visibility,
                 span: import.span().clone(),

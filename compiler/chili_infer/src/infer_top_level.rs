@@ -1,4 +1,12 @@
-use chili_ast::{ast, ty::Ty, workspace::BindingInfoId};
+use chili_ast::{
+    ast,
+    ty::Ty,
+    workspace::{BindingInfoId, ModuleId},
+};
+use chili_error::DiagnosticResult;
+use chili_span::Span;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use ustr::Ustr;
 
 use crate::new_infer::{Infer, InferResult, InferSess, Res};
 
@@ -49,5 +57,29 @@ impl<'s> InferSess<'s> {
             binding_info.ty,
             self.const_bindings.get(&id).map(|v| *v),
         ))
+    }
+
+    pub(crate) fn find_binding_info_id_in_module(
+        &self,
+        module_id: ModuleId,
+        symbol: Ustr,
+        span: Span,
+    ) -> DiagnosticResult<BindingInfoId> {
+        let info = self.workspace.find_binding_info_by_name(module_id, symbol);
+
+        match info {
+            Some(info) => Ok(info.id),
+            None => {
+                let module_info = self.workspace.get_module_info(module_id).unwrap();
+
+                return Err(Diagnostic::error()
+                    .with_message(format!(
+                        "cannot find value `{}` in module `{}`",
+                        symbol, module_info.name
+                    ))
+                    .with_labels(vec![Label::primary(span.file_id, span.range())
+                        .with_message(format!("not found in `{}`", module_info.name))]));
+            }
+        }
     }
 }

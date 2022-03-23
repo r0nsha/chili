@@ -84,17 +84,6 @@ impl<'w> Resolve<'w> for ast::Import {
             );
         }
 
-        // let mut module_id = self.module_id;
-        // let mut target_binding: Option<BindingInfoId> = None;
-
-        // for node in self.import_path.iter() {
-        //     let module_exports = workspace.exports.get(&module_id).unwrap();
-        // }
-
-        // if let Some(target_binding) = target_binding {
-        //     self.target_binding = Some(target_binding);
-        // }
-
         Ok(())
     }
 }
