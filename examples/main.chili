@@ -1,14 +1,12 @@
 use c
-# use c.printf
+use c.printf
 
 let main = fn {
     let answer = 42
     print_answer(answer)
-    print_answer(answer)
 }
 
 let print_answer = fn(answer) {
-    c.printf("The answer is 42\n".data)
-    # printf("The answer is 42\n".data)
-    # printf("The answer is %d\n".data, answer)
+    c.printf("What is the answer?\n".data)
+    printf("The answer is %d\n".data, answer)
 }
