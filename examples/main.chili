@@ -2,11 +2,11 @@ use c
 use c.printf
 
 let main = fn {
-    let answer = 42
+    let answer: i32 = 42
     print_answer(answer)
 }
 
-let print_answer = fn(answer) {
+let print_answer = fn(answer: i64) {
     c.printf("What is the answer?\n".data)
     printf("The answer is %d\n".data, answer)
 }
