@@ -66,31 +66,43 @@ impl ResolvedAst {
     }
 
     pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
-        match self.id_to_def_map[&id] {
-            DefIndex::Binding(idx) => self.bindings.get(idx),
-            _ => None,
-        }
+        self.id_to_def_map
+            .get(&id)
+            .map(|idx| match idx {
+                DefIndex::Binding(idx) => self.bindings.get(*idx),
+                _ => None,
+            })
+            .flatten()
     }
 
     pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
-        match self.id_to_def_map[&id] {
-            DefIndex::Binding(idx) => self.bindings.get_mut(idx),
-            _ => None,
-        }
+        self.id_to_def_map
+            .get_mut(&id)
+            .map(|idx| match idx {
+                DefIndex::Binding(idx) => self.bindings.get_mut(*idx),
+                _ => None,
+            })
+            .flatten()
     }
 
     pub fn get_import(&self, id: BindingInfoId) -> Option<&Import> {
-        match self.id_to_def_map[&id] {
-            DefIndex::Import(idx) => self.imports.get(idx),
-            _ => None,
-        }
+        self.id_to_def_map
+            .get(&id)
+            .map(|idx| match idx {
+                DefIndex::Import(idx) => self.imports.get(*idx),
+                _ => None,
+            })
+            .flatten()
     }
 
     pub fn get_import_mut(&mut self, id: BindingInfoId) -> Option<&mut Import> {
-        match self.id_to_def_map[&id] {
-            DefIndex::Import(idx) => self.imports.get_mut(idx),
-            _ => None,
-        }
+        self.id_to_def_map
+            .get_mut(&id)
+            .map(|idx| match idx {
+                DefIndex::Import(idx) => self.imports.get_mut(*idx),
+                _ => None,
+            })
+            .flatten()
     }
 
     pub fn add_binding(&mut self, binding: Binding) {

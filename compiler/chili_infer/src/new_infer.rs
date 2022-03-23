@@ -1,12 +1,12 @@
 use crate::{
-    display::map_unify_err, infer_top_level::InferTopLevel, normalize::NormalizeTy, tycx::TyCtx,
-    unify::UnifyTy,
+    builtin::get_ty_for_builtin_type, display::map_unify_err, infer_top_level::InferTopLevel,
+    normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTy,
 };
 use chili_ast::{
     ast::{self, Expr, ExprKind},
     ty::*,
     value::Value,
-    workspace::Workspace,
+    workspace::{BindingInfoFlags, Workspace},
 };
 use chili_error::DiagnosticResult;
 use chili_span::Span;
@@ -66,6 +66,15 @@ impl<'s> InferSess<'s> {
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
+        for binding_info in self
+            .workspace
+            .binding_infos
+            .iter_mut()
+            .filter(|b| b.flags.contains(BindingInfoFlags::BUILTIN_TYPE))
+        {
+            binding_info.ty = get_ty_for_builtin_type(binding_info.symbol, &mut self.tycx);
+        }
+
         for binding in self.old_ast.bindings.iter() {
             let first_symbol = binding.pattern.symbols().first().cloned().unwrap();
 
