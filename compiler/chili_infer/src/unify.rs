@@ -131,15 +131,11 @@ impl UnifyTy<TyKind> for TyKind {
             (t1, TyKind::Type(t2)) => t1.unify(t2.as_ref(), sess),
 
             (TyKind::Var(var), _) => unify_var_ty(*var, other, sess),
-
             (_, TyKind::Var(var)) => unify_var_ty(*var, self, sess),
 
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
-            _ => {
-                // println!("{} <=> {}", self, other);
-                Err(UnifyTyErr::Mismatch)
-            }
+            _ => Err(UnifyTyErr::Mismatch),
         }
     }
 }
