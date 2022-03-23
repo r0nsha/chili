@@ -26,12 +26,12 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn new_variable(&mut self) -> Ty {
+    pub fn var(&mut self) -> Ty {
         self.insert(InferenceValue::Unbound)
     }
 
     #[inline]
-    pub fn new_bound_variable(&mut self, kind: TyKind) -> Ty {
+    pub fn bound_var(&mut self, kind: TyKind) -> Ty {
         self.insert(InferenceValue::Bound(kind))
     }
 

@@ -45,6 +45,7 @@ impl<'p> Parser<'p> {
             params,
             variadic,
             ret: ret_ty,
+            ty: Default::default(),
         })
     }
 

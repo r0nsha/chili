@@ -420,6 +420,7 @@ pub struct Proto {
     pub variadic: bool,
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
+    pub ty: Ty,
 }
 
 #[derive(Debug, PartialEq, Clone)]

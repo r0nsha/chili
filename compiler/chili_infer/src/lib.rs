@@ -3,6 +3,7 @@ mod builtin;
 mod cast;
 pub mod display;
 mod infer;
+mod infer_top_level;
 mod new_infer;
 pub mod normalize;
 mod substitute;
@@ -12,14 +13,14 @@ mod unpack_type;
 
 use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;
-use new_infer::InferSess;
+use new_infer::{Infer, InferSess};
 use tycx::TyCtx;
 
 pub fn infer(
     workspace: &mut Workspace,
     ast: ast::ResolvedAst,
 ) -> DiagnosticResult<(ast::ResolvedAst, TyCtx)> {
-    let mut sess = InferSess::new(workspace, ast);
+    let mut sess = InferSess::new(workspace, &ast);
     sess.start()?;
     Ok((sess.new_ast, sess.tycx))
     // let mut tycx = TyCtx::new();

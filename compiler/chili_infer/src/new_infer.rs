@@ -1,23 +1,52 @@
-use crate::{display::map_unify_err, normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTy};
+use crate::{
+    display::map_unify_err, infer_top_level::InferTopLevel, normalize::NormalizeTy, tycx::TyCtx,
+    unify::UnifyTy,
+};
 use chili_ast::{
-    ast::{self, Expr},
+    ast::{self, Expr, ExprKind},
     ty::*,
     value::Value,
     workspace::Workspace,
 };
 use chili_error::DiagnosticResult;
+use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
-pub(crate) struct InferSess<'s> {
+pub struct InferSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
-    pub(crate) old_ast: ast::ResolvedAst,
+    pub(crate) old_ast: &'s ast::ResolvedAst,
     pub(crate) new_ast: ast::ResolvedAst,
     pub(crate) tycx: TyCtx,
     pub(crate) frames: Vec<InferFrame>,
 }
 
-pub(crate) type InferResult<T> = DiagnosticResult<(T, Option<Value>)>;
+pub(crate) type InferResult = DiagnosticResult<Res>;
+
+pub(crate) struct Res {
+    ty: Ty,
+    const_value: Option<Value>,
+}
+
+impl Res {
+    pub(crate) fn new(ty: Ty) -> Self {
+        Self {
+            ty,
+            const_value: None,
+        }
+    }
+
+    pub(crate) fn new_maybe_const(ty: Ty, const_value: Option<Value>) -> Self {
+        Self { ty, const_value }
+    }
+
+    pub(crate) fn new_const(ty: Ty, const_value: Value) -> Self {
+        Self {
+            ty,
+            const_value: Some(const_value),
+        }
+    }
+}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct InferFrame {
@@ -26,7 +55,7 @@ pub(crate) struct InferFrame {
 }
 
 impl<'s> InferSess<'s> {
-    pub(crate) fn new(workspace: &'s mut Workspace, old_ast: ast::ResolvedAst) -> Self {
+    pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s ast::ResolvedAst) -> Self {
         Self {
             workspace,
             old_ast,
@@ -38,21 +67,25 @@ impl<'s> InferSess<'s> {
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
         for binding in self.old_ast.bindings.iter() {
-            binding.infer(self)?;
+            let mut binding = binding.clone();
+            binding.infer_top_level(self)?;
         }
         Ok(())
     }
 
-    pub(crate) fn with_frame<T, F: Fn(&mut Self, &mut Workspace) -> InferResult<T>>(
+    pub(crate) fn with_frame<T, F: FnMut(&mut Self) -> T>(
         &mut self,
-        workspace: &mut Workspace,
         frame: InferFrame,
-        f: F,
-    ) -> InferResult<T> {
+        mut f: F,
+    ) -> T {
         self.frames.push(frame);
-        let result = f(self, workspace);
+        let result = f(self);
         self.frames.pop();
         result
+    }
+
+    pub(crate) fn frame(&self) -> Option<InferFrame> {
+        self.frames.last().map(|&f| f)
     }
 }
 
@@ -60,38 +93,205 @@ pub(crate) trait Infer
 where
     Self: Sized,
 {
-    fn infer(&self, sess: &mut InferSess) -> InferResult<Self>;
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult;
 }
 
 impl Infer for ast::Binding {
-    fn infer(&self, sess: &mut InferSess) -> InferResult<Self> {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
         // TODO: support other patterns
-        // let pat = self.pattern.as_single_ref();
-        // let binding_ty = workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+        let pat = self.pattern.as_single_ref();
+        let binding_ty = sess.tycx.var();
 
-        // if let Some(ty_expr) = &mut self.ty_expr {
-        //     let ty = ty_expr.infer(frame, tycx, workspace)?;
-        //     ty.unify(&binding_ty, tycx, workspace)
-        //         .map_err(|e| map_unify_err(e, ty, binding_ty, ty_expr.span, tycx))?;
-        // }
+        sess.workspace
+            .get_binding_info_mut(pat.binding_info_id)
+            .unwrap()
+            .ty = binding_ty;
 
-        // if let Some(expr) = &mut self.expr {
-        //     expr.infer(frame, tycx, workspace)?;
+        if let Some(ty_expr) = &mut self.ty_expr {
+            let res = ty_expr.infer(sess)?;
+            res.ty
+                .unify(&binding_ty, sess)
+                .map_err(|e| map_unify_err(e, res.ty, binding_ty, ty_expr.span, &sess.tycx))?;
+        }
 
-        //     binding_ty
-        //         .unify(&expr.ty, tycx, workspace)
-        //         .map_err(|e| map_unify_err(e, binding_ty, expr.ty, expr.span, tycx))?;
-        // }
+        if let Some(expr) = &mut self.expr {
+            let res = expr.infer(sess)?;
+            res.ty
+                .unify(&binding_ty, sess)
+                .map_err(|e| map_unify_err(e, binding_ty, res.ty, expr.span, &sess.tycx))?;
+        }
 
-        // TODO: should i follow the rule of locality and solve each binding's types locally?
-        // let binding_info_mut = workspace.get_binding_info_mut(pat.binding_info_id).unwrap();
-        // if binding_info_mut.scope_level.is_global() {
-        //     binding_info_mut.ty = substitute_ty(&binding_info_mut.ty, &tycx);
-        // }
+        Ok(Res {
+            ty: sess.tycx.common_types.unit,
+            const_value: None, // TODO: put const value of binding (if exists)
+        })
+    }
+}
 
-        // Ok(sess.tycx.common_types.unit)
+impl Infer for ast::Fn {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        let res = self.proto.infer(sess)?;
 
-        // Ok((self.clone(), None))
-        todo!()
+        let fn_ty = sess.tycx.ty_kind(res.ty);
+        let fn_ty = fn_ty.as_fn();
+
+        let return_ty = sess.tycx.bound_var(fn_ty.ret.as_ref().clone());
+
+        let body_res = sess.with_frame(
+            InferFrame {
+                return_ty,
+                self_ty: sess.frame().map(|f| f.self_ty).flatten(),
+            },
+            |sess| self.body.infer(sess),
+        )?;
+
+        body_res
+            .ty
+            .unify(&return_ty, sess)
+            .map_err(|e| map_unify_err(e, return_ty, body_res.ty, self.body.span, &sess.tycx))?;
+
+        Ok(Res::new(res.ty))
+    }
+}
+
+impl Infer for ast::Proto {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        let mut ty_params = vec![];
+
+        for param in self.params.iter_mut() {
+            // TODO: support other patterns
+            let pat = param.pattern.as_single_ref();
+
+            let ty = if let Some(ty_expr) = &mut param.ty {
+                ty_expr.infer(sess)?.ty
+            } else {
+                sess.tycx.var()
+            };
+
+            sess.workspace
+                .get_binding_info_mut(pat.binding_info_id)
+                .unwrap()
+                .ty = ty;
+
+            ty_params.push(FnTyParam {
+                symbol: pat.symbol,
+                ty: ty.into(),
+            });
+        }
+
+        let ret = if let Some(ret) = &mut self.ret {
+            ret.infer(sess)?.ty
+        } else {
+            sess.tycx.var()
+        };
+
+        self.ty = sess.tycx.bound_var(TyKind::Fn(FnTy {
+            params: ty_params,
+            ret: Box::new(ret.into()),
+            variadic: self.variadic,
+            lib_name: self.lib_name,
+        }));
+
+        Ok(Res {
+            ty: self.ty,
+            const_value: None,
+        })
+    }
+}
+
+impl Infer for ast::Expr {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        let res = match &mut self.kind {
+            ast::ExprKind::Import(_) => todo!(),
+            ast::ExprKind::Foreign(_) => todo!(),
+            ast::ExprKind::Binding(binding) => binding.infer(sess),
+            ast::ExprKind::Defer(_) => todo!(),
+            ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
+            ast::ExprKind::Cast(_) => todo!(),
+            ast::ExprKind::Builtin(_) => todo!(),
+            ast::ExprKind::Fn(f) => f.infer(sess),
+            ast::ExprKind::While { cond, block } => todo!(),
+            ast::ExprKind::For(_) => todo!(),
+            ast::ExprKind::Break { deferred } => todo!(),
+            ast::ExprKind::Continue { deferred } => todo!(),
+            ast::ExprKind::Return { expr, deferred } => todo!(),
+            ast::ExprKind::If {
+                cond,
+                then_expr,
+                else_expr,
+            } => todo!(),
+            ast::ExprKind::Block(_) => todo!(),
+            ast::ExprKind::Binary { lhs, op, rhs } => todo!(),
+            ast::ExprKind::Unary { op, lhs } => todo!(),
+            ast::ExprKind::Subscript { expr, index } => todo!(),
+            ast::ExprKind::Slice { expr, low, high } => todo!(),
+            ast::ExprKind::Call(_) => todo!(),
+            ast::ExprKind::MemberAccess { expr, member } => todo!(),
+            ast::ExprKind::Id {
+                symbol,
+                is_mutable,
+                binding_span,
+                binding_info_id,
+            } => todo!(),
+            ast::ExprKind::ArrayLiteral(_) => todo!(),
+            ast::ExprKind::TupleLiteral(_) => todo!(),
+            ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
+            ast::ExprKind::Literal(lit) => lit.infer(sess),
+            ast::ExprKind::PointerType(_, _) => todo!(),
+            ast::ExprKind::MultiPointerType(_, _) => todo!(),
+            ast::ExprKind::ArrayType(_, _) => todo!(),
+            ast::ExprKind::SliceType(_, _) => todo!(),
+            ast::ExprKind::StructType(_) => todo!(),
+            ast::ExprKind::FnType(_) => todo!(),
+            ast::ExprKind::SelfType => todo!(),
+            ast::ExprKind::NeverType => todo!(),
+            ast::ExprKind::UnitType => todo!(),
+            ast::ExprKind::PlaceholderType => todo!(),
+            ast::ExprKind::Noop => todo!(),
+        }?;
+
+        self.ty = res.ty;
+
+        Ok(res)
+    }
+}
+
+impl Infer for ast::Block {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        let mut ty = sess.tycx.common_types.unit;
+        let mut const_value = None;
+
+        for expr in self.exprs.iter_mut() {
+            let res = expr.infer(sess)?;
+            ty = res.ty;
+            const_value = res.const_value;
+        }
+
+        for expr in self.deferred.iter_mut() {
+            expr.infer(sess)?;
+        }
+
+        Ok(Res::new_maybe_const(ty, const_value))
+    }
+}
+
+impl Infer for ast::Literal {
+    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+        let res = match self {
+            ast::Literal::Unit => Res::new(sess.tycx.common_types.unit),
+            ast::Literal::Nil => Res::new(sess.tycx.var()),
+            ast::Literal::Bool(b) => Res::new_const(sess.tycx.common_types.bool, Value::Bool(*b)),
+            ast::Literal::Int(i) => {
+                let var = sess.tycx.var();
+                Res::new_const(sess.tycx.bound_var(TyKind::AnyInt(var)), Value::Int(*i))
+            }
+            ast::Literal::Float(f) => {
+                let var = sess.tycx.var();
+                Res::new_const(sess.tycx.bound_var(TyKind::AnyFloat(var)), Value::Float(*f))
+            }
+            ast::Literal::Str(_) => Res::new(sess.tycx.common_types.str),
+            ast::Literal::Char(_) => Res::new(sess.tycx.common_types.u8),
+        };
+        Ok(res)
     }
 }
