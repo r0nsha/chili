@@ -31,7 +31,17 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn bound_var(&mut self, kind: TyKind) -> Ty {
+    pub fn anyint(&mut self) -> Ty {
+        self.insert(InferenceValue::AnyInt)
+    }
+
+    #[inline]
+    pub fn anyfloat(&mut self) -> Ty {
+        self.insert(InferenceValue::AnyFloat)
+    }
+
+    #[inline]
+    pub fn bound(&mut self, kind: TyKind) -> Ty {
         self.insert(InferenceValue::Bound(kind))
     }
 
@@ -67,6 +77,8 @@ impl TyCtx {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum InferenceValue {
     Bound(TyKind),
+    AnyInt,
+    AnyFloat,
     Unbound,
 }
 
@@ -77,6 +89,8 @@ impl fmt::Display for InferenceValue {
             "{}",
             match self {
                 InferenceValue::Bound(t) => t.to_string(),
+                InferenceValue::AnyInt => "[anyint]".to_string(),
+                InferenceValue::AnyFloat => "[anyfloat]".to_string(),
                 InferenceValue::Unbound => "unbound".to_string(),
             }
         )

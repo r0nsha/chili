@@ -152,7 +152,7 @@ impl Infer for ast::Fn {
         let fn_ty = sess.tycx.ty_kind(res.ty);
         let fn_ty = fn_ty.as_fn();
 
-        let return_ty = sess.tycx.bound_var(fn_ty.ret.as_ref().clone());
+        let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
 
         let body_res = sess.with_frame(
             InferFrame {
@@ -202,7 +202,7 @@ impl Infer for ast::Proto {
             sess.tycx.var()
         };
 
-        self.ty = sess.tycx.bound_var(TyKind::Fn(FnTy {
+        self.ty = sess.tycx.bound(TyKind::Fn(FnTy {
             params: ty_params,
             ret: Box::new(ret.into()),
             variadic: self.variadic,
@@ -327,14 +327,8 @@ impl Infer for ast::Literal {
             ast::Literal::Unit => Res::new(sess.tycx.common_types.unit),
             ast::Literal::Nil => Res::new(sess.tycx.var()),
             ast::Literal::Bool(b) => Res::new_const(sess.tycx.common_types.bool, Value::Bool(*b)),
-            ast::Literal::Int(i) => {
-                let var = sess.tycx.var();
-                Res::new_const(sess.tycx.bound_var(TyKind::AnyInt(var)), Value::Int(*i))
-            }
-            ast::Literal::Float(f) => {
-                let var = sess.tycx.var();
-                Res::new_const(sess.tycx.bound_var(TyKind::AnyFloat(var)), Value::Float(*f))
-            }
+            ast::Literal::Int(i) => Res::new_const(sess.tycx.anyint(), Value::Int(*i)),
+            ast::Literal::Float(f) => Res::new_const(sess.tycx.anyfloat(), Value::Float(*f)),
             ast::Literal::Str(_) => Res::new(sess.tycx.common_types.str),
             ast::Literal::Char(_) => Res::new(sess.tycx.common_types.u8),
         };

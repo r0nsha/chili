@@ -22,7 +22,7 @@ fn try_unpack_type_inner(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticRes
     match ty {
         TyKind::Var(var) => match tycx.value_of(*var) {
             InferenceValue::Bound(ty) => try_unpack_type(&ty, tycx, span),
-            InferenceValue::Unbound => {
+            _ => {
                 panic!(
                     "couldn't figure out the type of {}, because it was unbound",
                     *var
@@ -97,6 +97,8 @@ fn unpack_type_inner(ty: &TyKind, tycx: &TyCtx) -> TyKind {
     match ty {
         TyKind::Var(var) => match tycx.value_of(*var) {
             InferenceValue::Bound(ty) => unpack_type(&ty, tycx),
+            InferenceValue::AnyInt => TyKind::AnyInt,
+            InferenceValue::AnyFloat => TyKind::AnyFloat,
             InferenceValue::Unbound => TyKind::Var(*var),
         },
         TyKind::Fn(f) => TyKind::Fn(FnTy {

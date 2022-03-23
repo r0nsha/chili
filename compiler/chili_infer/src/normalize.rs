@@ -31,21 +31,9 @@ impl Normalize {
     fn normalize_ty(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
         match tycx.value_of(ty) {
             InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
+            InferenceValue::AnyInt => TyKind::AnyInt,
+            InferenceValue::AnyFloat => TyKind::AnyFloat,
             InferenceValue::Unbound => TyKind::Var(ty),
-        }
-    }
-
-    fn normalize_anyint(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
-        match tycx.value_of(ty) {
-            InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
-            InferenceValue::Unbound => TyKind::AnyInt(ty),
-        }
-    }
-
-    fn normalize_anyfloat(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
-        match tycx.value_of(ty) {
-            InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
-            InferenceValue::Unbound => TyKind::AnyFloat(ty),
         }
     }
 
@@ -112,8 +100,6 @@ impl Normalize {
                     st
                 }
             }
-            TyKind::AnyInt(ty) => self.normalize_anyint(tycx, *ty),
-            TyKind::AnyFloat(ty) => self.normalize_anyfloat(tycx, *ty),
             TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
             _ => kind.clone(),
         }

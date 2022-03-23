@@ -58,8 +58,8 @@ pub enum TyKind {
     Module(ModuleId),
     Type(Box<TyKind>),
     Var(Ty),
-    AnyInt(Ty),
-    AnyFloat(Ty),
+    AnyInt,
+    AnyFloat,
     Unknown,
 }
 

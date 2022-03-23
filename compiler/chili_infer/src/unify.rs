@@ -45,30 +45,12 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
 
+            (TyKind::AnyInt, TyKind::AnyInt) => Ok(()),
+            (TyKind::AnyFloat, TyKind::AnyFloat) => Ok(()),
+
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
             (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
             (TyKind::Float(t1), TyKind::Float(t2)) if t1 == t2 => Ok(()),
-
-            (TyKind::AnyInt(var), TyKind::AnyInt(other)) if var == other => Ok(()),
-            (TyKind::AnyFloat(var), TyKind::AnyFloat(other)) if var == other => Ok(()),
-
-            (
-                TyKind::AnyInt(var),
-                TyKind::AnyInt(_)
-                | TyKind::Int(_)
-                | TyKind::UInt(_)
-                | TyKind::AnyFloat(_)
-                | TyKind::Float(_),
-            )
-            | (TyKind::AnyFloat(var), TyKind::AnyFloat(_) | TyKind::Float(_)) => {
-                unify_var_ty(*var, other, sess)
-            }
-
-            (
-                TyKind::Int(_) | TyKind::UInt(_) | TyKind::AnyFloat(_) | TyKind::Float(_),
-                TyKind::AnyInt(var),
-            )
-            | (TyKind::Float(_), TyKind::AnyFloat(var)) => unify_var_ty(*var, self, sess),
 
             (TyKind::Pointer(t1, a1), TyKind::Pointer(t2, a2))
             | (TyKind::MultiPointer(t1, a1), TyKind::MultiPointer(t2, a2))
@@ -143,14 +125,46 @@ impl UnifyTy<TyKind> for TyKind {
 fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut InferSess) -> UnifyTyResult {
     match sess.tycx.value_of(var) {
         InferenceValue::Bound(kind) => kind.clone().unify(other, sess),
+        InferenceValue::AnyInt => {
+            let other = other.normalize(&sess.tycx);
+            match other {
+                TyKind::AnyInt
+                | TyKind::Int(_)
+                | TyKind::UInt(_)
+                | TyKind::AnyFloat
+                | TyKind::Float(_) => {
+                    sess.tycx.bind(var, other);
+                    Ok(())
+                }
+                TyKind::Var(other) => {
+                    sess.tycx.bind(other, var.into());
+                    Ok(())
+                }
+                _ => Err(UnifyTyErr::Mismatch),
+            }
+        }
+        InferenceValue::AnyFloat => {
+            let other = other.normalize(&sess.tycx);
+            match other {
+                TyKind::AnyFloat | TyKind::Float(_) => {
+                    sess.tycx.bind(var, other);
+                    Ok(())
+                }
+                TyKind::Var(other) => {
+                    sess.tycx.bind(other, var.into());
+                    Ok(())
+                }
+                _ => Err(UnifyTyErr::Mismatch),
+            }
+        }
         InferenceValue::Unbound => {
-            let other_norm = other.normalize(&sess.tycx);
+            let other = other.normalize(&sess.tycx);
 
-            if TyKind::Var(var) != other_norm {
-                if occurs(var, &other_norm, sess) {
+            if TyKind::Var(var) != other {
+                if occurs(var, &other, sess) {
                     Err(UnifyTyErr::Occurs)
                 } else {
-                    sess.tycx.bind(var, other_norm);
+                    sess.tycx.bind(var, other);
                     Ok(())
                 }
             } else {
@@ -162,12 +176,12 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut InferSess) -> UnifyTyResult 
 
 fn occurs(var: Ty, kind: &TyKind, sess: &InferSess) -> bool {
     match kind {
-        TyKind::Var(other) | TyKind::AnyInt(other) | TyKind::AnyFloat(other) => {
-            match sess.tycx.value_of(*other) {
-                InferenceValue::Bound(ty) => occurs(var, &ty, sess),
-                InferenceValue::Unbound => var == *other,
+        TyKind::Var(other) => match sess.tycx.value_of(*other) {
+            InferenceValue::Bound(ty) => occurs(var, &ty, sess),
+            InferenceValue::AnyInt | InferenceValue::AnyFloat | InferenceValue::Unbound => {
+                var == *other
             }
-        }
+        },
         TyKind::Fn(f) => {
             f.params.iter().any(|p| occurs(var, &p.ty, sess)) || occurs(var, &f.ret, sess)
         }
