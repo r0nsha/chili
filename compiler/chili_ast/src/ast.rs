@@ -363,6 +363,7 @@ pub struct StructLiteralField {
 pub struct FnCall {
     pub callee: Box<Expr>,
     pub args: Vec<CallArg>,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]

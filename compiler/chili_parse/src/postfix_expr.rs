@@ -70,6 +70,7 @@ impl<'p> Parser<'p> {
                             ExprKind::FnCall(FnCall {
                                 callee: Box::new(expr),
                                 args: vec![fn_arg],
+                                span,
                             }),
                             span,
                         )
@@ -246,12 +247,15 @@ impl<'p> Parser<'p> {
             ", or )"
         );
 
+        let span = start_span.to(self.previous_span());
+
         Ok(Expr::new(
             ExprKind::FnCall(FnCall {
                 callee: Box::new(callee),
                 args,
+                span,
             }),
-            start_span.to(self.previous_span()),
+            span,
         ))
     }
 

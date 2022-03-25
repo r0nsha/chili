@@ -117,13 +117,18 @@ impl PrintTree for ast::Import {
 impl PrintTree for ast::Binding {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         let module_info = workspace.get_module_info(self.module_id).unwrap();
+        let module_prefix = if module_info.name.is_empty() {
+            "".to_string()
+        } else {
+            format!("{}: ", module_info.name)
+        };
 
         b.begin_child(match &self.pattern {
             Pattern::Single(pat) => {
                 let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
                 format!(
-                    "{}: let {} <{}>",
-                    module_info.name,
+                    "{}let {} <{}>",
+                    module_prefix,
                     pat.symbol,
                     tycx.ty_kind(*ty)
                 )
@@ -135,8 +140,8 @@ impl PrintTree for ast::Binding {
                     .map(|pat| {
                         let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
                         format!(
-                            "{}: let {} <{}>",
-                            module_info.name,
+                            "{}let {} <{}>",
+                            module_prefix,
                             pat.symbol,
                             tycx.ty_kind(*ty)
                         )
@@ -153,8 +158,8 @@ impl PrintTree for ast::Binding {
                     .map(|pat| {
                         let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
                         format!(
-                            "{}: let {} <{}>",
-                            module_info.name,
+                            "{}let {} <{}>",
+                            module_prefix,
                             pat.symbol,
                             tycx.ty_kind(*ty)
                         )

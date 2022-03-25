@@ -1,11 +1,12 @@
-use chili_ast::ast::{Call, CallArg, ExprKind};
-use chili_ast::ty::*;
+use crate::{CheckFrame, CheckSess, CheckedExpr};
+use chili_ast::{
+    ast::{Call, CallArg, ExprKind},
+    ty::*,
+};
 use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
-
-use crate::{CheckFrame, CheckSess, CheckedExpr};
 
 impl<'c> CheckSess<'c> {
     pub(crate) fn check_call(

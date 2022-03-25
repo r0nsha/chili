@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     builtin::get_ty_for_builtin_type,
     display::{map_unify_err, DisplayTy},
@@ -19,7 +17,8 @@ use chili_error::{DiagnosticResult, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use ustr::ustr;
+use std::collections::HashMap;
+use ustr::{ustr, UstrMap};
 
 pub struct InferSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
@@ -478,24 +477,103 @@ impl Infer for ast::FnCall {
         let callee_res = self.callee.infer(sess)?;
         let return_ty = sess.tycx.var();
 
-        let fn_kind = TyKind::Fn(FnTy {
-            params: self
-                .args
-                .iter()
-                .map(|arg| FnTyParam {
-                    symbol: arg.symbol.as_ref().map_or(ustr(""), |s| s.value),
-                    ty: arg.expr.ty.into(),
-                })
-                .collect(),
-            ret: Box::new(return_ty.into()),
-            variadic: false,
-            lib_name: None,
-        });
+        match callee_res.ty.normalize(&sess.tycx) {
+            TyKind::Fn(fn_ty) => {
+                if fn_ty.variadic {
+                    if self.args.len() < fn_ty.params.len() {
+                        return Err(TypeError::fn_call_arity_mismatch(
+                            self.span,
+                            fn_ty.params.len(),
+                            self.args.len(),
+                        ));
+                    }
+                } else if self.args.len() != fn_ty.params.len() {
+                    return Err(TypeError::fn_call_arity_mismatch(
+                        self.span,
+                        fn_ty.params.len(),
+                        self.args.len(),
+                    ));
+                }
 
-        callee_res
-            .ty
-            .unify(&fn_kind, sess)
-            .map_err(|e| map_unify_err(e, fn_kind, callee_res.ty, self.callee.span, &sess.tycx))?;
+                let mut passed_args = UstrMap::default();
+
+                for (index, arg) in self.args.iter().enumerate() {
+                    if let Some(symbol) = &arg.symbol {
+                        // this is a named argument
+
+                        if let Some(passed_span) = passed_args.insert(symbol.value, symbol.span) {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "duplicate argument passed `{}`",
+                                    symbol.value
+                                ))
+                                .with_labels(vec![
+                                    Label::primary(symbol.span.file_id, symbol.span.range())
+                                        .with_message("duplicate passed here"),
+                                    Label::secondary(passed_span.file_id, passed_span.range())
+                                        .with_message("has already been passed here"),
+                                ]));
+                        }
+
+                        let found_param_index =
+                            fn_ty.params.iter().position(|p| p.symbol == symbol.value);
+
+                        if let Some(index) = found_param_index {
+                            let arg_ty = self.args[index].expr.ty;
+                            let param_ty = fn_ty.params[index].ty.normalize(&sess.tycx);
+                            arg_ty.unify(&param_ty, sess).map_err(|e| {
+                                map_unify_err(e, param_ty, arg_ty, arg.expr.span, &sess.tycx)
+                            })?;
+                            // TODO: coerce
+                            // TODO: self.infcx
+                            // TODO:     .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
+                        } else {
+                            return Err(Diagnostic::error()
+                                .with_message(format!("unknown argument `{}`", symbol.value))
+                                .with_labels(vec![Label::primary(
+                                    symbol.span.file_id,
+                                    symbol.span.range(),
+                                )]));
+                        }
+                    } else {
+                        // this is a positional argument
+                        if let Some(param) = fn_ty.params.get(index) {
+                            passed_args.insert(param.symbol, arg.expr.span);
+                            let arg_ty = self.args[index].expr.ty;
+                            let param_ty = fn_ty.params[index].ty.normalize(&sess.tycx);
+                            arg_ty.unify(&param_ty, sess).map_err(|e| {
+                                map_unify_err(e, param_ty, arg_ty, arg.expr.span, &sess.tycx)
+                            })?;
+                            // TODO: coerce
+                            // TODO: self.infcx
+                            // TODO:     .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
+                        } else {
+                            // this is a variadic argument, meaning that the argument's
+                            // index is greater than the function's param length
+                        }
+                    };
+                }
+            }
+            ty => {
+                let inferred_fn_ty = TyKind::Fn(FnTy {
+                    params: self
+                        .args
+                        .iter()
+                        .map(|arg| FnTyParam {
+                            symbol: arg.symbol.as_ref().map_or(ustr(""), |s| s.value),
+                            ty: arg.expr.ty.into(),
+                        })
+                        .collect(),
+                    ret: Box::new(return_ty.into()),
+                    variadic: false,
+                    lib_name: None,
+                });
+
+                ty.unify(&inferred_fn_ty, sess).map_err(|e| {
+                    map_unify_err(e, inferred_fn_ty, ty, self.callee.span, &sess.tycx)
+                })?;
+            }
+        }
 
         Ok(Res::new(return_ty))
     }

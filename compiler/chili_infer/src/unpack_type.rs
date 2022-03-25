@@ -1,6 +1,5 @@
 use crate::{
     display::DisplayTy,
-    normalize::NormalizeTy,
     tycx::{InferenceValue, TyCtx},
 };
 use chili_ast::ty::*;
