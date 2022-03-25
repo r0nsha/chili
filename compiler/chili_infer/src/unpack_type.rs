@@ -10,11 +10,7 @@ use chili_span::Span;
 pub(crate) fn try_unpack_type(ty: &TyKind, tycx: &TyCtx, span: Span) -> DiagnosticResult<TyKind> {
     match ty {
         TyKind::Type(ty) => try_unpack_type_inner(ty, tycx, span),
-        _ => Err(TypeError::expected(
-            span,
-            ty.normalize(tycx).display(tycx),
-            "a type",
-        )),
+        _ => Err(TypeError::expected(span, ty.display(tycx), "a type")),
     }
 }
 

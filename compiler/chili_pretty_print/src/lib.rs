@@ -397,7 +397,7 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Call(call) => {
+            ast::ExprKind::FnCall(call) => {
                 b.begin_child(format!("call <{}>", tycx.ty_kind(self.ty)));
 
                 b.begin_child(format!("callee <{}>", tycx.ty_kind(call.callee.ty)));

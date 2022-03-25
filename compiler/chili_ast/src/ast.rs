@@ -215,7 +215,7 @@ impl Expr {
                 let expr = expr.display_name_and_binding_span();
                 expr.map(|v| format!("{}[..]", v))
             }
-            ExprKind::Call(call) => {
+            ExprKind::FnCall(call) => {
                 let callee = call.callee.display_name_and_binding_span();
                 callee.map(|v| format!("{}()", v))
             }
@@ -298,7 +298,7 @@ pub enum ExprKind {
         low: Option<Box<Expr>>,
         high: Option<Box<Expr>>,
     },
-    Call(Call),
+    FnCall(FnCall),
     MemberAccess {
         expr: Box<Expr>,
         member: Ustr,
@@ -360,7 +360,7 @@ pub struct StructLiteralField {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Call {
+pub struct FnCall {
     pub callee: Box<Expr>,
     pub args: Vec<CallArg>,
 }

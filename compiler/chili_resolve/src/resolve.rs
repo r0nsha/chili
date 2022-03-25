@@ -253,7 +253,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                 low.resolve(resolver, workspace)?;
                 high.resolve(resolver, workspace)?;
             }
-            ast::ExprKind::Call(call) => {
+            ast::ExprKind::FnCall(call) => {
                 call.resolve(resolver, workspace)?;
             }
             ast::ExprKind::MemberAccess { expr, member: _ } => {
@@ -450,7 +450,7 @@ impl<'w> Resolve<'w> for ast::Fn {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Call {
+impl<'w> Resolve<'w> for ast::FnCall {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,

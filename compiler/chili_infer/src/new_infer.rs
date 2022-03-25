@@ -136,11 +136,7 @@ impl<'s> InferSess<'s> {
             None => (),
         }
 
-        Err(TypeError::expected(
-            span,
-            ty.normalize(&self.tycx).display(&self.tycx),
-            "a type",
-        ))
+        Err(TypeError::expected(span, ty.display(&self.tycx), "a type"))
     }
 }
 
@@ -338,7 +334,7 @@ impl Infer for ast::Expr {
             ast::ExprKind::Unary { op, lhs } => todo!(),
             ast::ExprKind::Subscript { expr, index } => todo!(),
             ast::ExprKind::Slice { expr, low, high } => todo!(),
-            ast::ExprKind::Call(call) => call.infer(sess),
+            ast::ExprKind::FnCall(call) => call.infer(sess),
             ast::ExprKind::MemberAccess { expr, member } => {
                 let res = expr.infer(sess)?;
                 let kind = res.ty.normalize(&sess.tycx);
@@ -473,7 +469,7 @@ impl Infer for ast::Expr {
     }
 }
 
-impl Infer for ast::Call {
+impl Infer for ast::FnCall {
     fn infer(&mut self, sess: &mut InferSess) -> InferResult {
         for arg in self.args.iter_mut() {
             arg.expr.infer(sess)?;

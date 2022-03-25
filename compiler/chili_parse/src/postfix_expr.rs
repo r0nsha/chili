@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ast::{BinaryOp, Call, CallArg, Cast, Expr, ExprKind, UnaryOp};
+use chili_ast::ast::{BinaryOp, CallArg, Cast, Expr, ExprKind, FnCall, UnaryOp};
 use chili_error::*;
 use chili_span::{EndPosition, Spanned, To};
 use chili_token::TokenKind::*;
@@ -58,16 +58,16 @@ impl<'p> Parser<'p> {
                 let span = start_span.to(self.previous_span());
 
                 match &expr.kind {
-                    ExprKind::Call(call) => {
+                    ExprKind::FnCall(call) => {
                         // map(x) fn ...
                         let mut call = call.clone();
                         call.args.push(fn_arg);
-                        Expr::new(ExprKind::Call(call), span)
+                        Expr::new(ExprKind::FnCall(call), span)
                     }
                     _ => {
                         // map fn ...
                         Expr::new(
-                            ExprKind::Call(Call {
+                            ExprKind::FnCall(FnCall {
                                 callee: Box::new(expr),
                                 args: vec![fn_arg],
                             }),
@@ -247,7 +247,7 @@ impl<'p> Parser<'p> {
         );
 
         Ok(Expr::new(
-            ExprKind::Call(Call {
+            ExprKind::FnCall(FnCall {
                 callee: Box::new(callee),
                 args,
             }),
