@@ -38,11 +38,8 @@ pub(super) fn check_expr_can_be_mutably_referenced(
                 "cannot reference `{}`, because it is behind an immutable `{}`",
                 symbol, ty_str
             ))
-            .with_labels(vec![Label::primary(
-                expr.span.file_id,
-                expr.span.range().clone(),
-            )
-            .with_message("cannot reference")]),
+            .with_labels(vec![Label::primary(expr.span.file_id, expr.span.range())
+                .with_message("cannot reference")]),
         ImmutableMemberAccess {
             root_symbol,
             binding_span,
@@ -53,7 +50,7 @@ pub(super) fn check_expr_can_be_mutably_referenced(
                 full_path, root_symbol
             ))
             .with_labels(vec![
-                Label::primary(expr.span.file_id, expr.span.range().clone())
+                Label::primary(expr.span.file_id, expr.span.range())
                     .with_message("cannot reference"),
                 Label::secondary(binding_span.file_id, binding_span.range()).with_message(format!(
                     "consider changing this to be mutable: `mut {}`",
@@ -69,7 +66,7 @@ pub(super) fn check_expr_can_be_mutably_referenced(
                 symbol
             ))
             .with_labels(vec![
-                Label::primary(expr.span.file_id, expr.span.range().clone())
+                Label::primary(expr.span.file_id, expr.span.range())
                     .with_message("cannot reference immutable variable"),
                 Label::secondary(binding_span.file_id, binding_span.range()).with_message(format!(
                     "consider changing this to be mutable: `mut {}`",

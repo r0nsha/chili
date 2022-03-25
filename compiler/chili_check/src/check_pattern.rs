@@ -49,7 +49,7 @@ impl<'c> CheckSess<'c> {
                         .with_message(format!("can't destruct `{}`", expected_ty))
                         .with_labels(vec![Label::primary(
                             pattern.span.file_id,
-                            pattern.span.range().clone(),
+                            pattern.span.range(),
                         )]));
                 }
 

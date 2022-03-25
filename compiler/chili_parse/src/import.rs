@@ -215,7 +215,7 @@ impl<'p> Parser<'p> {
 fn module_not_found_err(path_buf: &PathBuf, module: &str, span: Span) -> Diagnostic<usize> {
     Diagnostic::error()
         .with_message(format!("couldn't find module `{}`", module))
-        .with_labels(vec![Label::primary(span.file_id, span.range().clone())])
+        .with_labels(vec![Label::primary(span.file_id, span.range())])
         .with_notes(vec![format!(
             "tried to resolve this path: {}",
             path_buf.display()
@@ -233,6 +233,6 @@ fn check_path_is_under_root_or_std(
     } else {
         Err(Diagnostic::error()
             .with_message("cannot use modules outside of the root module scope")
-            .with_labels(vec![Label::primary(span.file_id, span.range().clone())]))
+            .with_labels(vec![Label::primary(span.file_id, span.range())]))
     }
 }

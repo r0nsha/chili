@@ -62,7 +62,7 @@ impl<'c> CheckSess<'c> {
                     return Err(Diagnostic::error()
                         .with_message(format!("duplicate argument `{}`", symbol.value))
                         .with_labels(vec![
-                            Label::primary(symbol.span.file_id, symbol.span.range().clone())
+                            Label::primary(symbol.span.file_id, symbol.span.range())
                                 .with_message("duplicate passed here"),
                             Label::secondary(passed_span.file_id, passed_span.range())
                                 .with_message("has already been passed here"),
@@ -87,7 +87,7 @@ impl<'c> CheckSess<'c> {
                         .with_message(format!("unknown argument `{}`", symbol.value))
                         .with_labels(vec![Label::primary(
                             symbol.span.file_id,
-                            symbol.span.range().clone(),
+                            symbol.span.range(),
                         )]));
                 }
             } else {

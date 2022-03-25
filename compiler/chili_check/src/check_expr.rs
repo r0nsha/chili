@@ -124,11 +124,11 @@ impl<'c> CheckSess<'c> {
                                 .with_labels(vec![
                                     Label::primary(
                                         for_.expr.span.file_id,
-                                        start.expr.span.range().clone(),
+                                        start.expr.span.range(),
                                     ),
                                     Label::primary(
                                         for_.expr.span.file_id,
-                                        end.expr.span.range().clone(),
+                                        end.expr.span.range(),
                                     ),
                                 ]));
                         }
@@ -184,7 +184,7 @@ impl<'c> CheckSess<'c> {
                                     ))
                                     .with_labels(vec![Label::primary(
                                         value.expr.span.file_id,
-                                        value.expr.span.range().clone(),
+                                        value.expr.span.range(),
                                     )]));
                             }
                         };
@@ -341,7 +341,7 @@ impl<'c> CheckSess<'c> {
                                     Diagnostic::error()
                                     .with_message(format!("index out of array bounds - expected 0 to {}, but found {}", size-1,index_value))
                                     .with_labels(vec![
-                                        Label::primary(index.expr.span.file_id, index.expr.span.range().clone()).with_message("index out of bounds")
+                                        Label::primary(index.expr.span.file_id, index.expr.span.range()).with_message("index out of bounds")
                                     ]
                                 ));
                             }
@@ -404,7 +404,7 @@ impl<'c> CheckSess<'c> {
                             )
                             .with_labels(vec![Label::primary(
                                 expr.span.file_id,
-                                expr.span.range().clone(),
+                                expr.span.range(),
                             )]));
                     }
 
@@ -618,7 +618,7 @@ impl<'c> CheckSess<'c> {
                                 ))
                                 .with_labels(vec![Label::primary(
                                     type_expr.span.file_id,
-                                    type_expr.span.range().clone(),
+                                    type_expr.span.range(),
                                 )]))
                         }
                     }
@@ -642,7 +642,7 @@ impl<'c> CheckSess<'c> {
                                     ))
                                     .with_labels(vec![Label::primary(
                                         expr.span.file_id,
-                                        expr.span.range().clone(),
+                                        expr.span.range(),
                                     )]))
                             }
                         }
@@ -855,7 +855,7 @@ impl<'c> CheckSess<'c> {
                         .with_message("`Self` is only available within struct definitions")
                         .with_labels(vec![Label::primary(
                             expr.span.file_id,
-                            expr.span.range().clone(),
+                            expr.span.range(),
                         )]))
                 }
             },
@@ -981,7 +981,7 @@ impl<'c> CheckSess<'c> {
         if struct_ty.is_union() && new_fields.len() != 1 {
             return Err(Diagnostic::error()
                 .with_message("union literal should have exactly one field")
-                .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
+                .with_labels(vec![Label::primary(span.file_id, span.range())]));
         }
 
         if !struct_ty.is_union() && !uninit_fields.is_empty() {
@@ -994,7 +994,7 @@ impl<'c> CheckSess<'c> {
                         .collect::<Vec<&str>>()
                         .join(", ")
                 ))
-                .with_labels(vec![Label::primary(span.file_id, span.range().clone())]));
+                .with_labels(vec![Label::primary(span.file_id, span.range())]));
         }
 
         Ok(CheckedExpr::new(
@@ -1219,7 +1219,7 @@ impl<'c> CheckSess<'c> {
                 ))
                 .with_labels(vec![Label::primary(
                     cast.expr.span.file_id,
-                    cast.expr.span.range().clone(),
+                    cast.expr.span.range(),
                 )
                 .with_message(format!("invalid cast to `{}`", cast.target_ty))]))
         }

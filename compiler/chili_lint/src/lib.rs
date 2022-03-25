@@ -115,7 +115,7 @@ impl Lint for ast::Binding {
                             .with_message("variable of type `type` must be immutable")
                             .with_labels(vec![Label::primary(
                                 pat.span.file_id,
-                                pat.span.range().clone(),
+                                pat.span.range(),
                             )])
                             .with_notes(vec![String::from(
                                 "try removing the `mut` from the declaration",
@@ -191,7 +191,7 @@ impl Lint for ast::Expr {
                         )
                         .with_labels(vec![Label::primary(
                             self.span.file_id,
-                            self.span.range().clone(),
+                            self.span.range(),
                         )]));
                 }
 

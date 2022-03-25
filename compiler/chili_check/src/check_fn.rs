@@ -115,7 +115,7 @@ impl<'c> CheckSess<'c> {
                             ))
                             .with_labels(vec![Label::primary(
                                 span.file_id,
-                                span.range().clone(),
+                                span.range(),
                             )]));
                     }
                 }

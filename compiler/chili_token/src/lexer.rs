@@ -257,7 +257,7 @@ impl<'lx> Lexer<'lx> {
                             .with_message(format!("invalid token `{}`", ch))
                             .with_labels(vec![Label::primary(
                                 span.file_id,
-                                span.range().clone(),
+                                span.range(),
                             )]));
                     }
                 }
@@ -283,7 +283,7 @@ impl<'lx> Lexer<'lx> {
                 )
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range().clone(),
+                    span.range(),
                 )]));
         }
 
@@ -308,7 +308,7 @@ impl<'lx> Lexer<'lx> {
                         )
                         .with_labels(vec![Label::primary(
                             span.file_id,
-                            span.range().clone(),
+                            span.range(),
                         )]));
                 }
 
@@ -342,7 +342,7 @@ impl<'lx> Lexer<'lx> {
                 )
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range().clone(),
+                    span.range(),
                 )]));
         }
 
@@ -380,7 +380,7 @@ impl<'lx> Lexer<'lx> {
                 ))
                 .with_labels(vec![Label::primary(
                     span.file_id,
-                    span.range().clone(),
+                    span.range(),
                 )]));
         }
 

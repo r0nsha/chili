@@ -276,7 +276,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                             .with_message("can't capture dynamic environment in a fn")
                             .with_labels(vec![Label::primary(
                                 self.span.file_id,
-                                self.span.range().clone(),
+                                self.span.range(),
                             )]));
                     }
 

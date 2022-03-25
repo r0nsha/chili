@@ -1,7 +1,7 @@
 use chili_ast::ast::{Expr, ExprKind, LiteralKind};
+use chili_ast::ty::{IntTy, Ty, UIntTy};
 use chili_error::DiagnosticResult;
 use chili_span::Span;
-use chili_ast::ty::{IntTy, Ty, UIntTy};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::fmt::Display;
 
@@ -76,8 +76,9 @@ fn overflow_err<V: Copy + Display, M: Copy + Display>(
     Diagnostic::error()
         .with_message(format!(
             "integer literal of type `{}` must be between {} and {}, but found {}",
-            ty, min, max,value
+            ty, min, max, value
         ))
-        .with_labels(vec![Label::primary(span.file_id, span.range().clone())
-            .with_message("integer literal overflow")])
+        .with_labels(vec![
+            Label::primary(span.file_id, span.range()).with_message("integer literal overflow")
+        ])
 }

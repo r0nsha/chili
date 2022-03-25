@@ -86,7 +86,7 @@ fn expand_glob_import(
             ))
             .with_labels(vec![Label::primary(
                 import.span.file_id,
-                import.span.range().clone(),
+                import.span.range(),
             )
             .with_message(format!("not found in `{}`", module_name))])),
     }

@@ -51,8 +51,8 @@ pub(crate) fn check_assign_lvalue_id_access(
         return Err(Diagnostic::error()
             .with_message(msg.clone())
             .with_labels(vec![
-                Label::primary(lvalue.span.file_id, lvalue.span.range().clone()).with_message(msg),
-                Label::secondary(binding_info.span.file_id, binding_info.span.range().clone())
+                Label::primary(lvalue.span.file_id, lvalue.span.range()).with_message(msg),
+                Label::secondary(binding_info.span.file_id, binding_info.span.range())
                     .with_message("defined here"),
             ]));
     }
