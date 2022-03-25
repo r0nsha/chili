@@ -113,10 +113,7 @@ impl Lint for ast::Binding {
                     if pat.is_mutable {
                         return Err(Diagnostic::error()
                             .with_message("variable of type `type` must be immutable")
-                            .with_labels(vec![Label::primary(
-                                pat.span.file_id,
-                                pat.span.range(),
-                            )])
+                            .with_labels(vec![Label::primary(pat.span.file_id, pat.span.range())])
                             .with_notes(vec![String::from(
                                 "try removing the `mut` from the declaration",
                             )]));
@@ -177,7 +174,7 @@ impl Lint for ast::Expr {
                 }
             },
             ast::ExprKind::Fn(f) => {
-                let ty = f.proto.ty.as_fn();
+                let ty = f.sig.ty.as_fn();
 
                 // if this is the main function, check its type matches a fn() -> [() | !]
                 if f.is_entry_point
@@ -189,10 +186,7 @@ impl Lint for ast::Expr {
                         .with_message(
                             "entry point function `main` has wrong type, expected `fn() -> ()`",
                         )
-                        .with_labels(vec![Label::primary(
-                            self.span.file_id,
-                            self.span.range(),
-                        )]));
+                        .with_labels(vec![Label::primary(self.span.file_id, self.span.range())]));
                 }
 
                 f.body.lint(sess)?;
@@ -301,11 +295,11 @@ impl Lint for ast::Expr {
                     f.ty.lint(sess)?;
                 }
             }
-            ast::ExprKind::FnType(proto) => {
-                for p in &proto.params {
+            ast::ExprKind::FnType(sig) => {
+                for p in &sig.params {
                     p.ty.lint(sess)?;
                 }
-                proto.ret.lint(sess)?;
+                sig.ret.lint(sess)?;
             }
 
             ast::ExprKind::Id {

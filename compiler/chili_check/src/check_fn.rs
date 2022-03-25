@@ -6,7 +6,7 @@ use ustr::ustr;
 
 use crate::{CheckFrame, CheckSess};
 use chili_ast::{
-    ast::{Expr, ExprKind, Fn, FnParam, Proto},
+    ast::{Expr, ExprKind, Fn, FnParam, FnSig},
     pattern::{Pattern, SymbolPattern},
 };
 
@@ -18,23 +18,23 @@ impl<'c> CheckSess<'c> {
         span: Span,
         expected_ty: Option<Ty>,
     ) -> DiagnosticResult<Fn> {
-        let proto = self.check_proto(frame, &func.proto, expected_ty, span)?;
+        let sig = self.check_fn_sig(frame, &func.sig, expected_ty, span)?;
 
-        let ty = proto.ty.as_fn();
+        let ty = sig.ty.as_fn();
 
         let mut fn_frame = CheckFrame::new(frame.depth, frame.module_id, Some(*ty.ret.clone()));
 
-        if let Some(id) = func.proto.binding_info_id {
-            self.update_binding_info_ty(id, proto.ty.clone());
+        if let Some(id) = func.sig.binding_info_id {
+            self.update_binding_info_ty(id, sig.ty.clone());
         }
 
-        for (index, param) in proto.params.iter().enumerate() {
+        for (index, param) in sig.params.iter().enumerate() {
             let param_ty = self.infcx.normalize_ty(&ty.params[index].ty);
             self.check_binding_pattern(&param.pattern, param_ty, None)?;
         }
 
         let (mut body, result_ty) =
-            self.check_block(&mut fn_frame, &func.body, Some(proto.ty.clone()))?;
+            self.check_block(&mut fn_frame, &func.body, Some(sig.ty.clone()))?;
 
         let last_stmt_span = match func.body.exprs.last() {
             Some(stmt) => stmt.span,
@@ -59,19 +59,19 @@ impl<'c> CheckSess<'c> {
         }
 
         Ok(Fn {
-            proto,
+            sig,
             body,
             is_entry_point: func.is_entry_point,
         })
     }
 
-    pub(crate) fn check_proto(
+    pub(crate) fn check_fn_sig(
         &mut self,
         frame: &mut CheckFrame,
-        proto: &Proto,
+        sig: &FnSig,
         expected_ty: Option<Ty>,
         span: Span,
-    ) -> DiagnosticResult<Proto> {
+    ) -> DiagnosticResult<FnSig> {
         let expected_fn_ty = expected_ty
             .as_ref()
             .map(|t| self.infcx.normalize_ty(t))
@@ -86,7 +86,7 @@ impl<'c> CheckSess<'c> {
         let mut params = vec![];
         let mut param_tys = vec![];
 
-        for (index, param) in proto.params.iter().enumerate() {
+        for (index, param) in sig.params.iter().enumerate() {
             let (type_expr, ty) = if let Some(ty) = &param.ty {
                 let type_expr = self.check_type_expr(frame, ty)?;
                 let ty = type_expr.value.unwrap().into_type();
@@ -113,10 +113,7 @@ impl<'c> CheckSess<'c> {
                                 "can't infer the parameter type for `{}`",
                                 param.pattern
                             ))
-                            .with_labels(vec![Label::primary(
-                                span.file_id,
-                                span.range(),
-                            )]));
+                            .with_labels(vec![Label::primary(span.file_id, span.range())]));
                     }
                 }
             };
@@ -180,7 +177,7 @@ impl<'c> CheckSess<'c> {
             }
         }
 
-        let (ret_expr, ret_ty) = match &proto.ret {
+        let (ret_expr, ret_ty) = match &sig.ret {
             Some(ret) => {
                 let type_expr = self.check_type_expr(frame, ret)?;
                 let ty = type_expr.value.unwrap().into_type();
@@ -195,17 +192,17 @@ impl<'c> CheckSess<'c> {
         let fn_ty = Ty::Fn(FnTy {
             params: param_tys,
             ret: Box::new(ret_ty),
-            variadic: proto.variadic,
-            lib_name: proto.lib_name,
+            variadic: sig.variadic,
+            lib_name: sig.lib_name,
         });
 
-        Ok(Proto {
-            binding_info_id: proto.binding_info_id,
-            name: proto.name,
+        Ok(FnSig {
+            binding_info_id: sig.binding_info_id,
+            name: sig.name,
             params,
-            variadic: proto.variadic,
+            variadic: sig.variadic,
             ret: ret_expr,
-            lib_name: proto.lib_name,
+            lib_name: sig.lib_name,
             ty: fn_ty.clone(),
         })
     }

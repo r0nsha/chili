@@ -4,7 +4,7 @@ use crate::{
     util::LlvmName,
     CallingConv,
 };
-use chili_ast::ast::{BindingKind, Call, ExprKind, Fn, ModuleInfo, Proto};
+use chili_ast::ast::{BindingKind, Call, ExprKind, Fn, FnSig, ModuleInfo};
 use chili_ast::ty::*;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -178,7 +178,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     ) -> FunctionValue<'ctx> {
         if let Some(f) = self
             .module
-            .get_function(&func.proto.llvm_name(module_info.name))
+            .get_function(&func.sig.llvm_name(module_info.name))
         {
             return f;
         }
@@ -189,13 +189,13 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             self.builder.get_insert_block()
         };
 
-        let fn_name = func.proto.name;
-        let function = self.declare_proto(module_info, &func.proto);
+        let fn_name = func.sig.name;
+        let function = self.declare_fn_sig(module_info, &func.sig);
 
         let decl_block = self.context.append_basic_block(function, "decls");
         let entry_block = self.context.append_basic_block(function, "entry");
 
-        let fn_ty = func.proto.ty.into_fn();
+        let fn_ty = func.sig.ty.into_fn();
         let abi_fn = self.fn_type_map.get(fn_ty).unwrap().clone();
 
         let return_ptr = if abi_fn.ret.kind.is_indirect() {
@@ -209,7 +209,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         let mut state = CodegenState::new(
             module_info,
             function,
-            func.proto.ty.into_fn().clone(),
+            func.sig.ty.into_fn().clone(),
             return_ptr,
             decl_block,
             entry_block,
@@ -229,7 +229,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             params.remove(0);
         }
 
-        for (index, (&value, param)) in params.iter().zip(func.proto.params.iter()).enumerate() {
+        for (index, (&value, param)) in params.iter().zip(func.sig.params.iter()).enumerate() {
             let value = if abi_fn.params[index].kind.is_indirect() {
                 self.build_load(value)
             } else {
@@ -269,7 +269,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         self.start_block(&mut state, decl_block);
         self.builder.build_unconditional_branch(entry_block);
 
-        let function_value = self.verify_and_optimize_function(function, &func.proto.name);
+        let function_value = self.verify_and_optimize_function(function, &func.sig.name);
 
         if func.is_startup {
             self.gen_startup(function_value);
@@ -297,16 +297,16 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         }
     }
 
-    pub(super) fn declare_proto(
+    pub(super) fn declare_fn_sig(
         &mut self,
         module_info: ModuleInfo,
-        proto: &Proto,
+        sig: &FnSig,
     ) -> FunctionValue<'ctx> {
-        let proto_ty = proto.ty.into_fn();
-        let fn_type = self.fn_type(proto_ty);
-        let abi_fn = self.fn_type_map.get(proto_ty).unwrap();
+        let fn_sig_ty = sig.ty.into_fn();
+        let fn_type = self.fn_type(fn_sig_ty);
+        let abi_fn = self.fn_type_map.get(fn_sig_ty).unwrap();
 
-        let llvm_name = proto.llvm_name(module_info.name);
+        let llvm_name = sig.llvm_name(module_info.name);
 
         let function = self.get_or_add_function(llvm_name, fn_type, Some(Linkage::External));
 

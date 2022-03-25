@@ -51,12 +51,12 @@
 
 // impl Substitute for ast::Fn {
 //     fn substitute(&mut self, tycx: &TyContext) {
-//         self.proto.substitute(tycx);
+//         self.sig.substitute(tycx);
 //         self.body.substitute(tycx);
 //     }
 // }
 
-// impl Substitute for ast::Proto {
+// impl Substitute for ast::FnSig {
 //     fn substitute(&mut self, tycx: &TyContext) {
 //         for param in self.params.iter_mut() {
 //             param.ty.substitute(tycx);
@@ -190,8 +190,8 @@
 //                 }
 //             }
 
-//             ast::ExprKind::FnType(proto) => {
-//                 proto.substitute(tycx);
+//             ast::ExprKind::FnType(sig) => {
+//                 sig.substitute(tycx);
 //             }
 
 //             ast::ExprKind::Id { .. }

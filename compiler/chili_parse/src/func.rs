@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{Block, Expr, ExprKind, Fn, FnParam, Proto},
+    ast::{Block, Expr, ExprKind, Fn, FnParam, FnSig},
     pattern::{Pattern, SymbolPattern},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -12,13 +12,13 @@ impl<'p> Parser<'p> {
         let name = self.get_decl_name();
         let start_span = self.previous().span;
 
-        let proto = self.parse_fn_proto(name, ParseProtoKind::Value)?;
+        let sig = self.parse_fn_fn_sig(name, ParseFnSigKind::Value)?;
 
         let body = self.parse_fn_body()?;
 
         Ok(Expr::new(
             ExprKind::Fn(Fn {
-                proto,
+                sig,
                 body,
                 is_entry_point: false,
             }),
@@ -26,11 +26,11 @@ impl<'p> Parser<'p> {
         ))
     }
 
-    pub(crate) fn parse_fn_proto(
+    pub(crate) fn parse_fn_fn_sig(
         &mut self,
         name: Ustr,
-        kind: ParseProtoKind,
-    ) -> DiagnosticResult<Proto> {
+        kind: ParseFnSigKind,
+    ) -> DiagnosticResult<FnSig> {
         let (params, variadic) = self.parse_fn_params(kind)?;
 
         let ret_ty = if eat!(self, RightArrow) {
@@ -39,7 +39,7 @@ impl<'p> Parser<'p> {
             None
         };
 
-        Ok(Proto {
+        Ok(FnSig {
             lib_name: None,
             name,
             params,
@@ -52,7 +52,7 @@ impl<'p> Parser<'p> {
     // TODO: this function is a hot mess, i need to refactor this
     pub(crate) fn parse_fn_params(
         &mut self,
-        kind: ParseProtoKind,
+        kind: ParseFnSigKind,
     ) -> DiagnosticResult<(Vec<FnParam>, bool)> {
         if !eat!(self, OpenParen) {
             return Ok((vec![], false));
@@ -72,7 +72,7 @@ impl<'p> Parser<'p> {
                 }
 
                 match kind {
-                    ParseProtoKind::Value => {
+                    ParseFnSigKind::Value => {
                         let pattern = self.parse_pattern()?;
 
                         let ty = if eat!(self, Colon) {
@@ -84,7 +84,7 @@ impl<'p> Parser<'p> {
 
                         FnParam { pattern, ty }
                     }
-                    ParseProtoKind::Type => {
+                    ParseFnSigKind::Type => {
                         // the parameter's name is optional, so we are checking
                         // for ambiguity here
                         if eat!(self, Id(_)) || eat!(self, Placeholder) {
@@ -137,7 +137,7 @@ impl<'p> Parser<'p> {
     }
 }
 
-pub(crate) enum ParseProtoKind {
+pub(crate) enum ParseFnSigKind {
     Value,
     Type,
 }

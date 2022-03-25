@@ -184,7 +184,7 @@ impl PrintTree for ast::Binding {
 impl PrintTree for ast::Fn {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child("fn".to_string());
-        self.proto.print_tree(b, workspace, tycx);
+        self.sig.print_tree(b, workspace, tycx);
         self.body.print_tree(b, workspace, tycx);
         b.end_child();
     }
@@ -203,10 +203,10 @@ impl PrintTree for ast::Block {
     }
 }
 
-impl PrintTree for ast::Proto {
+impl PrintTree for ast::FnSig {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child(format!(
-            "{}proto",
+            "{}sig",
             if self.lib_name.is_some() {
                 "foreign "
             } else {
@@ -296,7 +296,7 @@ impl PrintTree for ast::Expr {
                 };
             }
             ast::ExprKind::Fn(closure) => {
-                b.begin_child(closure.proto.to_string());
+                b.begin_child(closure.sig.to_string());
                 closure.body.print_tree(b, workspace, tycx);
                 b.end_child();
             }
@@ -519,9 +519,9 @@ impl PrintTree for ast::Expr {
                 }
                 b.end_child();
             }
-            ast::ExprKind::FnType(proto) => {
+            ast::ExprKind::FnType(sig) => {
                 b.begin_child("fn type".to_string());
-                proto.print_tree(b, workspace, tycx);
+                sig.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::SelfType => {

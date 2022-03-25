@@ -227,17 +227,17 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
                     let decl = CodegenDecl::Function(function);
                     self.get_or_insert_new_module(module_info.name)
-                        .insert(func.proto.name, decl);
+                        .insert(func.sig.name, decl);
 
                     return decl;
                 }
-                ExprKind::FnType(proto) => {
+                ExprKind::FnType(sig) => {
                     // * generate top level function type
-                    let function = self.declare_proto(module_info, proto);
+                    let function = self.declare_fn_sig(module_info, sig);
 
                     let decl = CodegenDecl::Function(function);
                     self.get_or_insert_new_module(module_info.name)
-                        .insert(proto.name, decl);
+                        .insert(sig.name, decl);
 
                     return decl;
                 }
@@ -1133,10 +1133,10 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             | ExprKind::NeverType
             | ExprKind::PlaceholderType => self.gen_unit(),
 
-            ExprKind::FnType(proto) => {
-                if proto.lib_name.is_some() {
+            ExprKind::FnType(sig) => {
+                if sig.lib_name.is_some() {
                     // this is a foreign function
-                    let function = self.declare_proto(state.module_info, proto);
+                    let function = self.declare_fn_sig(state.module_info, sig);
                     function.as_global_value().as_pointer_value().into()
                 } else {
                     // this is a type

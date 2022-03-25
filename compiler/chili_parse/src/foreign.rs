@@ -1,4 +1,4 @@
-use crate::{func::ParseProtoKind, *};
+use crate::{func::ParseFnSigKind, *};
 use chili_ast::{
     ast::{Binding, BindingKind, Expr, ExprKind, ForeignLibrary, Visibility},
     pattern::{Pattern, SymbolPattern},
@@ -62,9 +62,9 @@ impl<'p> Parser<'p> {
         let binding = if eat!(self, Eq) {
             expect!(self, Fn, "fn")?;
 
-            let proto_start_span = self.previous().span;
-            let mut proto = self.parse_fn_proto(id.symbol(), ParseProtoKind::Value)?;
-            proto.lib_name = Some(lib_name);
+            let fn_sig_start_span = self.previous().span;
+            let mut sig = self.parse_fn_fn_sig(id.symbol(), ParseFnSigKind::Value)?;
+            sig.lib_name = Some(lib_name);
 
             Binding::new(
                 visibility,
@@ -72,8 +72,8 @@ impl<'p> Parser<'p> {
                 pattern,
                 None,
                 Some(Expr::new(
-                    ExprKind::FnType(proto),
-                    proto_start_span.to(self.previous_span()),
+                    ExprKind::FnType(sig),
+                    fn_sig_start_span.to(self.previous_span()),
                 )),
                 Some(lib_name),
             )

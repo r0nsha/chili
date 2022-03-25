@@ -1,27 +1,28 @@
 use crate::tycx::TyCtx;
 use chili_ast::ty::*;
+use chili_resolve::builtin;
 use ustr::Ustr;
 
-pub(crate) fn get_ty_for_builtin_type(symbol: Ustr, tycx: &mut TyCtx) -> Ty {
+pub(crate) fn get_type_for_builtin_type(symbol: Ustr, tycx: &mut TyCtx) -> Ty {
     match symbol.as_str() {
-        "unit" => tycx.common_types.unit,
-        "bool" => tycx.common_types.bool,
-        "i8" => tycx.common_types.i8,
-        "i16" => tycx.common_types.i16,
-        "i32" => tycx.common_types.i32,
-        "i64" => tycx.common_types.i64,
-        "int" => tycx.common_types.int,
-        "u8" => tycx.common_types.u8,
-        "u16" => tycx.common_types.u16,
-        "u32" => tycx.common_types.u32,
-        "u64" => tycx.common_types.u64,
-        "uint" => tycx.common_types.uint,
-        "f16" => tycx.common_types.f16,
-        "f32" => tycx.common_types.f32,
-        "f64" => tycx.common_types.f64,
-        "float" => tycx.common_types.float,
-        "str" => tycx.common_types.str,
-        "never" => tycx.common_types.never,
+        builtin::SYM_UNIT => tycx.common_types.unit,
+        builtin::SYM_BOOL => tycx.common_types.bool,
+        builtin::SYM_I8 => tycx.common_types.i8,
+        builtin::SYM_I16 => tycx.common_types.i16,
+        builtin::SYM_I32 => tycx.common_types.i32,
+        builtin::SYM_I64 => tycx.common_types.i64,
+        builtin::SYM_INT => tycx.common_types.int,
+        builtin::SYM_U8 => tycx.common_types.u8,
+        builtin::SYM_U16 => tycx.common_types.u16,
+        builtin::SYM_U32 => tycx.common_types.u32,
+        builtin::SYM_U64 => tycx.common_types.u64,
+        builtin::SYM_UINT => tycx.common_types.uint,
+        builtin::SYM_F16 => tycx.common_types.f16,
+        builtin::SYM_F32 => tycx.common_types.f32,
+        builtin::SYM_F64 => tycx.common_types.f64,
+        builtin::SYM_FLOAT => tycx.common_types.float,
+        builtin::SYM_STR => tycx.common_types.str,
+        builtin::SYM_NEVER => tycx.common_types.never,
         s => panic!("got `{}`", s),
     }
 }

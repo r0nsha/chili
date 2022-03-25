@@ -1,5 +1,5 @@
 use chili_ast::ast::{
-    ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, ForIter, Proto,
+    ArrayLiteralKind, Binding, Block, Builtin, Cast, Expr, ExprKind, Fn, FnSig, ForIter,
 };
 
 #[derive(Clone)]
@@ -88,7 +88,7 @@ impl<T: SolveDefer> SolveDefer for Box<T> {
 
 impl SolveDefer for Fn {
     fn solve_defer(&mut self, sess: &mut DeferSess) {
-        self.proto.solve_defer(sess);
+        self.sig.solve_defer(sess);
         self.body.solve_defer(sess);
     }
 }
@@ -240,7 +240,7 @@ impl SolveDefer for Expr {
                     field.ty.solve_defer(sess);
                 }
             }
-            ExprKind::FnType(proto) => proto.solve_defer(sess),
+            ExprKind::FnType(sig) => sig.solve_defer(sess),
 
             ExprKind::SelfType
             | ExprKind::NeverType
@@ -251,7 +251,7 @@ impl SolveDefer for Expr {
     }
 }
 
-impl SolveDefer for Proto {
+impl SolveDefer for FnSig {
     fn solve_defer(&mut self, sess: &mut DeferSess) {
         for p in self.params.iter_mut() {
             p.ty.solve_defer(sess);

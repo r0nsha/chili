@@ -16,12 +16,6 @@ use crate::workspace::{BindingInfoId, ModuleId};
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Ty(pub usize);
 
-impl Ty {
-    pub fn unknown() -> Self {
-        Default::default()
-    }
-}
-
 impl Default for Ty {
     fn default() -> Self {
         Self(usize::MAX)
@@ -37,6 +31,16 @@ impl fmt::Display for Ty {
 impl Into<TyKind> for Ty {
     fn into(self) -> TyKind {
         TyKind::Var(self)
+    }
+}
+
+impl Ty {
+    pub fn unknown() -> Self {
+        Default::default()
+    }
+
+    pub fn kind(&self) -> TyKind {
+        (*self).into()
     }
 }
 

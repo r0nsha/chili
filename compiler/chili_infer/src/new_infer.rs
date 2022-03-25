@@ -1,5 +1,5 @@
 use crate::{
-    builtin::get_ty_for_builtin_type,
+    builtin,
     display::{map_unify_err, DisplayTy},
     infer_top_level::InferTopLevel,
     normalize::NormalizeTy,
@@ -7,7 +7,7 @@ use crate::{
     unify::UnifyTy,
 };
 use chili_ast::{
-    ast::{self, Expr, ExprKind},
+    ast::{self},
     pattern::{Pattern, SymbolPattern},
     ty::*,
     value::Value,
@@ -82,11 +82,12 @@ impl<'s> InferSess<'s> {
             .iter_mut()
             .filter(|b| b.flags.contains(BindingInfoFlags::BUILTIN_TYPE))
         {
-            let ty = get_ty_for_builtin_type(binding_info.symbol, &mut self.tycx);
-            binding_info.ty = ty;
+            let ty = builtin::get_type_for_builtin_type(binding_info.symbol, &mut self.tycx);
+            binding_info.ty = self.tycx.bound(ty.kind().create_type());
             self.const_bindings.insert(binding_info.id, Value::Type(ty));
         }
 
+        // start analysis
         for binding in self.old_ast.bindings.iter() {
             let first_symbol = binding.pattern.symbols().first().cloned().unwrap();
 
@@ -122,11 +123,11 @@ impl<'s> InferSess<'s> {
 
     pub(crate) fn expect_const_type(
         &self,
-        value: Option<Value>,
+        const_value: Option<Value>,
         ty: Ty,
         span: Span,
     ) -> DiagnosticResult<Ty> {
-        match value {
+        match const_value {
             Some(v) => {
                 if let Value::Type(t) = v {
                     return Ok(t);
@@ -198,9 +199,9 @@ impl Infer for ast::Binding {
 
         if let Some(ty_expr) = &mut self.ty_expr {
             let res = ty_expr.infer(sess)?;
-            res.ty
-                .unify(&binding_ty, sess)
-                .map_err(|e| map_unify_err(e, res.ty, binding_ty, ty_expr.span, &sess.tycx))?;
+            let typ = sess.expect_const_type(res.const_value, res.ty, ty_expr.span)?;
+            typ.unify(&binding_ty, sess)
+                .map_err(|e| map_unify_err(e, typ, binding_ty, ty_expr.span, &sess.tycx))?;
         }
 
         let const_value = if let Some(expr) = &mut self.expr {
@@ -238,7 +239,7 @@ impl Infer for ast::Binding {
 
 impl Infer for ast::Fn {
     fn infer(&mut self, sess: &mut InferSess) -> InferResult {
-        let res = self.proto.infer(sess)?;
+        let res = self.sig.infer(sess)?;
 
         let fn_ty = sess.tycx.ty_kind(res.ty);
         let fn_ty = fn_ty.as_fn();
@@ -262,7 +263,7 @@ impl Infer for ast::Fn {
     }
 }
 
-impl Infer for ast::Proto {
+impl Infer for ast::FnSig {
     fn infer(&mut self, sess: &mut InferSess) -> InferResult {
         let mut ty_params = vec![];
 
@@ -271,7 +272,9 @@ impl Infer for ast::Proto {
             let pat = param.pattern.as_single_ref();
 
             let ty = if let Some(ty_expr) = &mut param.ty {
-                ty_expr.infer(sess)?.ty
+                let res = ty_expr.infer(sess)?;
+                let typ = sess.expect_const_type(res.const_value, res.ty, ty_expr.span)?;
+                typ
             } else {
                 sess.tycx.var()
             };
@@ -422,7 +425,7 @@ impl Infer for ast::Expr {
                 ))
             }
             ast::ExprKind::StructType(_) => todo!(),
-            ast::ExprKind::FnType(proto) => proto.infer(sess),
+            ast::ExprKind::FnType(sig) => sig.infer(sess),
             ast::ExprKind::SelfType => {
                 let self_ty = sess.frame().map(|f| f.self_ty).flatten();
                 match self_ty {

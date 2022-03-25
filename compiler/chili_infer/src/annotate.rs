@@ -53,12 +53,12 @@
 
 // impl Annotate for ast::Fn {
 //     fn annotate(&mut self, tycx: &mut TyCtx) {
-//         self.proto.annotate(tycx);
+//         self.sig.annotate(tycx);
 //         self.body.annotate(tycx);
 //     }
 // }
 
-// impl Annotate for ast::Proto {
+// impl Annotate for ast::FnSig {
 //     fn annotate(&mut self, tycx: &mut TyCtx) {
 //         self.params.iter_mut().for_each(|p| p.ty.annotate(tycx));
 
@@ -167,8 +167,8 @@
 //             ast::ExprKind::StructType(st) => {
 //                 st.fields.iter_mut().for_each(|f| f.ty.annotate(tycx));
 //             }
-//             ast::ExprKind::FnType(proto) => {
-//                 proto.annotate(tycx);
+//             ast::ExprKind::FnType(sig) => {
+//                 sig.annotate(tycx);
 //             }
 //             ast::ExprKind::Import(_)
 //             | ast::ExprKind::Literal(_)

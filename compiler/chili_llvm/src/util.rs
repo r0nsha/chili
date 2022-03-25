@@ -2,7 +2,7 @@ use crate::{
     abi::{align_of, size_of},
     codegen::{Codegen, CodegenDeclsMap, CodegenState},
 };
-use chili_ast::ast::Proto;
+use chili_ast::ast::FnSig;
 use chili_ast::ty::*;
 use common::mem::calculate_align;
 use inkwell::{
@@ -618,7 +618,7 @@ pub(crate) trait LlvmName {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String;
 }
 
-impl LlvmName for Proto {
+impl LlvmName for FnSig {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
         if self.lib_name.is_some() {
             self.name.to_string()

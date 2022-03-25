@@ -13,3 +13,4 @@ common = { path = '../common' }
 chili_span = { path = '../chili_span' }
 chili_error = { path = '../chili_error' }
 chili_ast = { path = '../chili_ast' }
+chili_resolve = { path = '../chili_resolve' }

@@ -93,8 +93,8 @@
 //         tycx: &mut TyCtx,
 //         workspace: &mut Workspace,
 //     ) -> DiagnosticResult<Ty> {
-//         let proto_ty = self.proto.infer(frame, tycx, workspace)?;
-//         let fn_ty = proto_ty.normalize(tycx).into_fn();
+//         let fn_sig_ty = self.sig.infer(frame, tycx, workspace)?;
+//         let fn_ty = fn_sig_ty.normalize(tycx).into_fn();
 
 //         let return_ty = tycx.new_bound_variable(fn_ty.ret.as_ref().clone());
 
@@ -111,11 +111,11 @@
 //             .unify(&return_ty, tycx, workspace)
 //             .map_err(|e| map_unify_err(e, return_ty, body_ty, self.body.span, tycx))?;
 
-//         Ok(proto_ty)
+//         Ok(fn_sig_ty)
 //     }
 // }
 
-// impl Infer for ast::Proto {
+// impl Infer for ast::FnSig {
 //     fn infer(
 //         &mut self,
 //         frame: InferFrame,
@@ -523,9 +523,9 @@
 
 //                 ty
 //             }
-//             ast::ExprKind::FnType(proto) => {
-//                 let ty = proto.infer(frame, tycx, workspace)?;
-//                 if proto.lib_name.is_some() {
+//             ast::ExprKind::FnType(sig) => {
+//                 let ty = sig.infer(frame, tycx, workspace)?;
+//                 if sig.lib_name.is_some() {
 //                     ty
 //                 } else {
 //                     let ty = TyKind::Var(ty.into());

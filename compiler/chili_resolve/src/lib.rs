@@ -1,4 +1,4 @@
-mod builtin;
+pub mod builtin;
 mod declare;
 mod import;
 mod mark_codegen;

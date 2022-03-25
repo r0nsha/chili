@@ -54,7 +54,7 @@ impl<'c> CheckSess<'c> {
             ExprKind::Cast(info) => self.check_cast(frame, info, expected_ty, expr.span)?,
             ExprKind::Fn(func) => {
                 let func = self.check_fn(frame, func, expr.span, expected_ty)?;
-                let ty = func.proto.ty.clone();
+                let ty = func.sig.ty.clone();
                 CheckedExpr::new(ExprKind::Fn(func), ty, None, expr.span)
             }
             ExprKind::Builtin(builtin) => match builtin {
@@ -122,14 +122,8 @@ impl<'c> CheckSess<'c> {
                                     start_ty, end_ty
                                 ))
                                 .with_labels(vec![
-                                    Label::primary(
-                                        for_.expr.span.file_id,
-                                        start.expr.span.range(),
-                                    ),
-                                    Label::primary(
-                                        for_.expr.span.file_id,
-                                        end.expr.span.range(),
-                                    ),
+                                    Label::primary(for_.expr.span.file_id, start.expr.span.range()),
+                                    Label::primary(for_.expr.span.file_id, end.expr.span.range()),
                                 ]));
                         }
 
@@ -827,16 +821,16 @@ impl<'c> CheckSess<'c> {
                     expr.span,
                 )
             }
-            ExprKind::FnType(proto) => {
-                let proto = self.check_proto(frame, proto, expected_ty, expr.span)?;
+            ExprKind::FnType(sig) => {
+                let sig = self.check_fn_sig(frame, sig, expected_ty, expr.span)?;
 
-                if proto.lib_name.is_some() {
-                    let ty = proto.ty.clone();
-                    CheckedExpr::new(ExprKind::FnType(proto), ty, None, expr.span)
+                if sig.lib_name.is_some() {
+                    let ty = sig.ty.clone();
+                    CheckedExpr::new(ExprKind::FnType(sig), ty, None, expr.span)
                 } else {
-                    let ty = proto.ty.clone().create_type();
+                    let ty = sig.ty.clone().create_type();
                     CheckedExpr::new(
-                        ExprKind::FnType(proto),
+                        ExprKind::FnType(sig),
                         ty.clone(),
                         Some(Value::Type(ty)),
                         expr.span,
@@ -853,10 +847,7 @@ impl<'c> CheckSess<'c> {
                 None => {
                     return Err(Diagnostic::error()
                         .with_message("`Self` is only available within struct definitions")
-                        .with_labels(vec![Label::primary(
-                            expr.span.file_id,
-                            expr.span.range(),
-                        )]))
+                        .with_labels(vec![Label::primary(expr.span.file_id, expr.span.range())]))
                 }
             },
             ExprKind::NeverType => CheckedExpr::new(

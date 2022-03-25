@@ -321,7 +321,7 @@ pub enum ExprKind {
     ArrayType(Box<Expr>, Box<Expr>),
     SliceType(Box<Expr>, bool),
     StructType(StructType),
-    FnType(Proto),
+    FnType(FnSig),
     SelfType,
     NeverType,
     UnitType,
@@ -421,13 +421,13 @@ pub enum ForIter {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Fn {
-    pub proto: Proto,
+    pub sig: FnSig,
     pub body: Block,
     pub is_entry_point: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Proto {
+pub struct FnSig {
     pub name: Ustr,
     pub params: Vec<FnParam>,
     pub variadic: bool,
@@ -765,7 +765,7 @@ impl ToString for ImportPathNode {
     }
 }
 
-impl fmt::Display for Proto {
+impl fmt::Display for FnSig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

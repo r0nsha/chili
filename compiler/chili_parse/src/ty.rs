@@ -1,4 +1,4 @@
-use crate::{func::ParseProtoKind, *};
+use crate::{func::ParseFnSigKind, *};
 use chili_ast::ast::{Expr, ExprKind, StructType, StructTypeField};
 use chili_ast::ty::StructTyKind;
 use chili_error::SyntaxError;
@@ -181,10 +181,10 @@ impl<'p> Parser<'p> {
     fn parse_fn_ty(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
         let name = self.get_decl_name();
-        let proto = self.parse_fn_proto(name, ParseProtoKind::Type)?;
+        let sig = self.parse_fn_fn_sig(name, ParseFnSigKind::Type)?;
 
         Ok(Expr::new(
-            ExprKind::FnType(proto),
+            ExprKind::FnType(sig),
             start_span.to(self.previous_span()),
         ))
     }

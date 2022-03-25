@@ -133,6 +133,7 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
+ "chili_resolve",
  "chili_span",
  "codespan",
  "codespan-reporting",

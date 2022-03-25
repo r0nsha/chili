@@ -13,7 +13,7 @@
 //     map_ast,
 //     op::{BinaryOp, BinaryOp, BinaryOp, UnaryOp},
 //     stmt::{Stmt, StmtKind},
-//     Ast, Defer, Proto,
+//     Ast, Defer, FnSig,
 // };
 // use ustr::{Ustr, UstrMap};
 
@@ -70,30 +70,30 @@
 // fn interp_item(interp: &mut Interp, item: &Item) -> Ustr {
 //     match &item.data {
 //         ItemKind::RunDirective(_) => panic!("interp_item: unexpected run
-// directive"),         ItemKind::ForeignFunc(foreign_proto) => {
-//             let foreign_func = unsafe { foreign_proto_to_ffi(foreign_proto)
+// directive"),         ItemKind::ForeignFunc(foreign_fn_sig) => {
+//             let foreign_func = unsafe { foreign_fn_sig_to_ffi(foreign_fn_sig)
 // };
 
 //             interp
 //                 .globals
-//                 .insert(foreign_proto.name,
+//                 .insert(foreign_fn_sig.name,
 // Value::ForeignFunc(foreign_func));
 
-//             foreign_proto.name
+//             foreign_fn_sig.name
 //         }
 //         ItemKind::Func(func) => {
-//             let mut code = interp_func_start(interp, &func.proto);
+//             let mut code = interp_func_start(interp, &func.sig);
 //             for stmt in &func.body {
 //                 interp_stmt(interp, &mut code, stmt);
 //             }
-//             interp_func_end(interp, &func.proto, code);
-//             func.proto.name
+//             interp_func_end(interp, &func.sig, code);
+//             func.sig.name
 //         }
 //         ItemKind::FuncExpr(func) => {
-//             let mut code = interp_func_start(interp, &func.proto);
+//             let mut code = interp_func_start(interp, &func.sig);
 //             interp_expr(interp, &mut code, &func.body);
-//             interp_func_end(interp, &func.proto, code);
-//             func.proto.name
+//             interp_func_end(interp, &func.sig, code);
+//             func.sig.name
 //         }
 //         ItemKind::Let {
 //             name,
@@ -115,19 +115,19 @@
 //     }
 // }
 
-// fn interp_func_start(interp: &mut Interp, proto: &Proto) -> Bytecode {
-//     interp.globals.insert(proto.name, Value::());
+// fn interp_func_start(interp: &mut Interp, sig: &FnSig) -> Bytecode {
+//     interp.globals.insert(sig.name, Value::());
 
 //     interp.env.push_scope();
 
-//     for (i, param) in proto.params.iter().enumerate() {
+//     for (i, param) in sig.params.iter().enumerate() {
 //         interp.env.insert(param.data.name, -((i + 1) as isize))
 //     }
 
 //     vec![]
 // }
 
-// fn interp_func_end(interp: &mut Interp, proto: &Proto, mut code: Bytecode) {
+// fn interp_func_end(interp: &mut Interp, sig: &FnSig, mut code: Bytecode) {
 //     if !code.ends_with(&[Instruction::Return]) {
 //         // TODO: dafuq???
 //         interp.push_const(&mut code, Value::());
@@ -137,10 +137,10 @@
 //     interp.env.pop_scope();
 
 //     interp.globals.insert(
-//         proto.name,
+//         sig.name,
 //         Value::Func(Fn {
-//             name: proto.name,
-//             arg_count: proto.params.len(),
+//             name: sig.name,
+//             arg_count: sig.params.len(),
 //             code,
 //         }),
 //     );
@@ -413,16 +413,16 @@
 //     target_offset
 // }
 
-// unsafe fn foreign_proto_to_ffi(proto: &Proto) -> ffi::ForeignFn {
-//     if let Some(lib) = proto.lib {
+// unsafe fn foreign_fn_sig_to_ffi(sig: &FnSig) -> ffi::ForeignFn {
+//     if let Some(lib) = sig.lib {
 //         ffi::ForeignFn {
 //             lib,
-//             name: proto.name,
-//             param_tys: proto.params.iter().map(|p|
-// p.data.ty.clone()).collect(),             ret_ty: proto.ret_ty.clone(),
-//             variadic: proto.variadic,
+//             name: sig.name,
+//             param_tys: sig.params.iter().map(|p|
+// p.data.ty.clone()).collect(),             ret_ty: sig.ret_ty.clone(),
+//             variadic: sig.variadic,
 //         }
 //     } else {
-//         panic!("foreign_proto_to_ffi: proto without a lib")
+//         panic!("foreign_fn_sig_to_ffi: sig without a lib")
 //     }
 // }

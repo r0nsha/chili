@@ -355,12 +355,12 @@ impl<'w> Resolve<'w> for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::FnType(proto) => {
-                for param in proto.params.iter_mut() {
+            ast::ExprKind::FnType(sig) => {
+                for param in sig.params.iter_mut() {
                     param.ty.resolve(resolver, workspace)?;
                 }
 
-                proto.ret.resolve(resolver, workspace)?;
+                sig.ret.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Literal(_)
             | ast::ExprKind::SelfType
@@ -401,7 +401,7 @@ impl<'w> Resolve<'w> for ast::Fn {
 
         let mut param_map = UstrMap::default();
 
-        for param in self.proto.params.iter_mut() {
+        for param in self.sig.params.iter_mut() {
             param.ty.resolve(resolver, workspace)?;
 
             resolver.add_binding_with_pattern(
@@ -423,9 +423,9 @@ impl<'w> Resolve<'w> for ast::Fn {
             }
         }
 
-        self.proto.ret.resolve(resolver, workspace)?;
+        self.sig.ret.resolve(resolver, workspace)?;
 
-        resolver.push_named_scope(self.proto.name);
+        resolver.push_named_scope(self.sig.name);
         resolver.function_scope_level = resolver.scope_level;
 
         self.body.resolve(resolver, workspace)?;
@@ -434,10 +434,10 @@ impl<'w> Resolve<'w> for ast::Fn {
         resolver.function_scope_level = old_scope_level;
 
         // TODO: need to somehow allow recursive functions (maybe keep a `binding_info_id` in resolver?)
-        // if !self.proto.name.is_empty() {
+        // if !self.sig.name.is_empty() {
         //     resolver.add_binding(
         //         workspace,
-        //         self.proto.name,
+        //         self.sig.name,
         //         Visibility::Private,
         //         false,
         //         BindingKind::Let,
