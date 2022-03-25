@@ -1,5 +1,6 @@
 use crate::{
     builtin,
+    cast::CanCast,
     display::{map_unify_err, DisplayTy},
     infer_top_level::InferTopLevel,
     normalize::NormalizeTy,
@@ -121,7 +122,7 @@ impl<'s> InferSess<'s> {
         self.frames.last().map(|&f| f)
     }
 
-    pub(crate) fn expect_const_type(
+    pub(crate) fn extract_const_type(
         &self,
         const_value: Option<Value>,
         ty: Ty,
@@ -144,11 +145,11 @@ pub(crate) trait Infer
 where
     Self: Sized,
 {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult;
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult;
 }
 
 impl Infer for ast::Import {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
         let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
         let mut const_value = None;
 
@@ -187,7 +188,7 @@ impl Infer for ast::Import {
 }
 
 impl Infer for ast::Binding {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
         // TODO: support other patterns
         let pat = self.pattern.as_single_ref();
         let binding_ty = sess.tycx.var();
@@ -198,14 +199,14 @@ impl Infer for ast::Binding {
             .ty = binding_ty;
 
         if let Some(ty_expr) = &mut self.ty_expr {
-            let res = ty_expr.infer(sess)?;
-            let typ = sess.expect_const_type(res.const_value, res.ty, ty_expr.span)?;
+            let res = ty_expr.infer(sess, None)?;
+            let typ = sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?;
             typ.unify(&binding_ty, sess)
                 .map_err(|e| map_unify_err(e, typ, binding_ty, ty_expr.span, &sess.tycx))?;
         }
 
         let const_value = if let Some(expr) = &mut self.expr {
-            let res = expr.infer(sess)?;
+            let res = expr.infer(sess, Some(binding_ty))?;
             res.ty
                 .unify(&binding_ty, sess)
                 .map_err(|e| map_unify_err(e, binding_ty, res.ty, expr.span, &sess.tycx))?;
@@ -238,8 +239,8 @@ impl Infer for ast::Binding {
 }
 
 impl Infer for ast::Fn {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
-        let res = self.sig.infer(sess)?;
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
+        let res = self.sig.infer(sess, expected)?;
 
         let fn_ty = sess.tycx.ty_kind(res.ty);
         let fn_ty = fn_ty.as_fn();
@@ -251,7 +252,7 @@ impl Infer for ast::Fn {
                 return_ty,
                 self_ty: sess.frame().map(|f| f.self_ty).flatten(),
             },
-            |sess| self.body.infer(sess),
+            |sess| self.body.infer(sess, None),
         )?;
 
         body_res
@@ -264,17 +265,16 @@ impl Infer for ast::Fn {
 }
 
 impl Infer for ast::FnSig {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
         let mut ty_params = vec![];
 
         for param in self.params.iter_mut() {
             // TODO: support other patterns
             let pat = param.pattern.as_single_ref();
 
-            let ty = if let Some(ty_expr) = &mut param.ty {
-                let res = ty_expr.infer(sess)?;
-                let typ = sess.expect_const_type(res.const_value, res.ty, ty_expr.span)?;
-                typ
+            let ty = if let Some(expr) = &mut param.ty {
+                let res = expr.infer(sess, None)?;
+                sess.extract_const_type(res.const_value, res.ty, expr.span)?
             } else {
                 sess.tycx.var()
             };
@@ -290,8 +290,9 @@ impl Infer for ast::FnSig {
             });
         }
 
-        let ret = if let Some(ret) = &mut self.ret {
-            ret.infer(sess)?.ty
+        let ret = if let Some(expr) = &mut self.ret {
+            let res = expr.infer(sess, None)?;
+            sess.extract_const_type(res.const_value, res.ty, expr.span)?
         } else {
             sess.tycx.var()
         };
@@ -311,16 +312,28 @@ impl Infer for ast::FnSig {
 }
 
 impl Infer for ast::Expr {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
         let res = match &mut self.kind {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
-            ast::ExprKind::Binding(binding) => binding.infer(sess),
+            ast::ExprKind::Binding(binding) => binding.infer(sess, None),
             ast::ExprKind::Defer(_) => todo!(),
             ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
-            ast::ExprKind::Cast(_) => todo!(),
-            ast::ExprKind::Builtin(_) => todo!(),
-            ast::ExprKind::Fn(f) => f.infer(sess),
+            ast::ExprKind::Cast(cast) => cast.infer(sess, expected),
+            ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
+                    let res = expr.infer(sess, None)?;
+                    sess.extract_const_type(res.const_value, res.ty, expr.span)?;
+                    Ok(Res::new(sess.tycx.common_types.uint))
+                }
+                ast::Builtin::Panic(expr) => {
+                    if let Some(expr) = expr {
+                        expr.infer(sess, None)?;
+                    }
+                    Ok(Res::new(sess.tycx.common_types.unit))
+                }
+            },
+            ast::ExprKind::Fn(f) => f.infer(sess, expected),
             ast::ExprKind::While { cond, block } => todo!(),
             ast::ExprKind::For(_) => todo!(),
             ast::ExprKind::Break { deferred } => todo!(),
@@ -336,9 +349,9 @@ impl Infer for ast::Expr {
             ast::ExprKind::Unary { op, lhs } => todo!(),
             ast::ExprKind::Subscript { expr, index } => todo!(),
             ast::ExprKind::Slice { expr, low, high } => todo!(),
-            ast::ExprKind::FnCall(call) => call.infer(sess),
+            ast::ExprKind::FnCall(call) => call.infer(sess, expected),
             ast::ExprKind::MemberAccess { expr, member } => {
-                let res = expr.infer(sess)?;
+                let res = expr.infer(sess, None)?;
                 let kind = res.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
@@ -395,10 +408,10 @@ impl Infer for ast::Expr {
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
-            ast::ExprKind::Literal(lit) => lit.infer(sess),
+            ast::ExprKind::Literal(lit) => lit.infer(sess, expected),
             ast::ExprKind::PointerType(inner, is_mutable) => {
-                let res = inner.infer(sess)?;
-                let inner_kind = sess.expect_const_type(res.const_value, res.ty, inner.span)?;
+                let res = inner.infer(sess, None)?;
+                let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type()),
@@ -406,8 +419,8 @@ impl Infer for ast::Expr {
                 ))
             }
             ast::ExprKind::MultiPointerType(inner, is_mutable) => {
-                let res = inner.infer(sess)?;
-                let inner_kind = sess.expect_const_type(res.const_value, res.ty, inner.span)?;
+                let res = inner.infer(sess, None)?;
+                let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type()),
@@ -416,8 +429,8 @@ impl Infer for ast::Expr {
             }
             ast::ExprKind::ArrayType(_, _) => todo!(),
             ast::ExprKind::SliceType(inner, is_mutable) => {
-                let res = inner.infer(sess)?;
-                let inner_kind = sess.expect_const_type(res.const_value, res.ty, inner.span)?;
+                let res = inner.infer(sess, None)?;
+                let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type()),
@@ -425,7 +438,7 @@ impl Infer for ast::Expr {
                 ))
             }
             ast::ExprKind::StructType(_) => todo!(),
-            ast::ExprKind::FnType(sig) => sig.infer(sess),
+            ast::ExprKind::FnType(sig) => sig.infer(sess, expected),
             ast::ExprKind::SelfType => {
                 let self_ty = sess.frame().map(|f| f.self_ty).flatten();
                 match self_ty {
@@ -472,12 +485,8 @@ impl Infer for ast::Expr {
 }
 
 impl Infer for ast::FnCall {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
-        for arg in self.args.iter_mut() {
-            arg.expr.infer(sess)?;
-        }
-
-        let callee_res = self.callee.infer(sess)?;
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
+        let callee_res = self.callee.infer(sess, None)?;
         let return_ty = sess.tycx.var();
 
         match callee_res.ty.normalize(&sess.tycx) {
@@ -500,7 +509,7 @@ impl Infer for ast::FnCall {
 
                 let mut passed_args = UstrMap::default();
 
-                for (index, arg) in self.args.iter().enumerate() {
+                for (index, arg) in self.args.iter_mut().enumerate() {
                     if let Some(symbol) = &arg.symbol {
                         // this is a named argument
 
@@ -522,10 +531,11 @@ impl Infer for ast::FnCall {
                             fn_ty.params.iter().position(|p| p.symbol == symbol.value);
 
                         if let Some(index) = found_param_index {
-                            let arg_ty = self.args[index].expr.ty;
-                            let param_ty = fn_ty.params[index].ty.normalize(&sess.tycx);
-                            arg_ty.unify(&param_ty, sess).map_err(|e| {
-                                map_unify_err(e, param_ty, arg_ty, arg.expr.span, &sess.tycx)
+                            let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
+                            let res = arg.expr.infer(sess, Some(param_ty))?;
+
+                            res.ty.unify(&param_ty, sess).map_err(|e| {
+                                map_unify_err(e, param_ty, res.ty, arg.expr.span, &sess.tycx)
                             })?;
                             // TODO: coerce
                             // TODO: self.infcx
@@ -542,22 +552,30 @@ impl Infer for ast::FnCall {
                         // this is a positional argument
                         if let Some(param) = fn_ty.params.get(index) {
                             passed_args.insert(param.symbol, arg.expr.span);
-                            let arg_ty = self.args[index].expr.ty;
-                            let param_ty = fn_ty.params[index].ty.normalize(&sess.tycx);
-                            arg_ty.unify(&param_ty, sess).map_err(|e| {
-                                map_unify_err(e, param_ty, arg_ty, arg.expr.span, &sess.tycx)
+
+                            let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
+                            let res = arg.expr.infer(sess, Some(param_ty))?;
+
+                            res.ty.unify(&param_ty, sess).map_err(|e| {
+                                map_unify_err(e, param_ty, res.ty, arg.expr.span, &sess.tycx)
                             })?;
+
                             // TODO: coerce
                             // TODO: self.infcx
                             // TODO:     .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
                         } else {
                             // this is a variadic argument, meaning that the argument's
                             // index is greater than the function's param length
+                            arg.expr.infer(sess, None)?;
                         }
                     };
                 }
             }
             ty => {
+                for arg in self.args.iter_mut() {
+                    arg.expr.infer(sess, None)?;
+                }
+
                 let inferred_fn_ty = TyKind::Fn(FnTy {
                     params: self
                         .args
@@ -582,27 +600,66 @@ impl Infer for ast::FnCall {
     }
 }
 
-impl Infer for ast::Block {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
-        let mut ty = sess.tycx.common_types.unit;
-        let mut const_value = None;
+impl Infer for ast::Cast {
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
+        let res = self.expr.infer(sess, None)?;
 
-        for expr in self.exprs.iter_mut() {
-            let res = expr.infer(sess)?;
-            ty = res.ty;
-            const_value = res.const_value;
+        self.target_ty = if let Some(ty_expr) = &mut self.ty_expr {
+            let res = ty_expr.infer(sess, None)?;
+            sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
+        } else {
+            sess.tycx.var()
+            // match expected_ty {
+            //     Some(t) => t,
+            //     None => {
+            //         return Err(Diagnostic::error()
+            //             .with_message("can't infer the type cast's target type")
+            //             .with_labels(vec![Label::primary(expr_span.file_id, expr_span.range())]))
+            //     }
+            // }
+        };
+
+        let source_ty = res.ty.normalize(&sess.tycx);
+        let target_ty = self.target_ty.normalize(&sess.tycx);
+
+        if source_ty.can_cast(&target_ty) {
+            Ok(Res::new(self.target_ty))
+        } else {
+            Err(Diagnostic::error()
+                .with_message(format!(
+                    "cannot cast from `{}` to `{}`",
+                    source_ty, target_ty
+                ))
+                .with_labels(vec![Label::primary(
+                    self.expr.span.file_id,
+                    self.expr.span.range(),
+                )
+                .with_message(format!("invalid cast to `{}`", target_ty))]))
+        }
+    }
+}
+
+impl Infer for ast::Block {
+    fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
+        let mut res = Res::new(sess.tycx.common_types.unit);
+
+        let last_index = self.exprs.len() - 1;
+
+        for (index, expr) in self.exprs.iter_mut().enumerate() {
+            let expected = if index == last_index { expected } else { None };
+            res = expr.infer(sess, expected)?;
         }
 
         for expr in self.deferred.iter_mut() {
-            expr.infer(sess)?;
+            expr.infer(sess, None)?;
         }
 
-        Ok(Res::new_maybe_const(ty, const_value))
+        Ok(res)
     }
 }
 
 impl Infer for ast::Literal {
-    fn infer(&mut self, sess: &mut InferSess) -> InferResult {
+    fn infer(&mut self, sess: &mut InferSess, _expected: Option<Ty>) -> InferResult {
         let res = match self {
             ast::Literal::Unit => Res::new(sess.tycx.common_types.unit),
             ast::Literal::Nil => Res::new(sess.tycx.var()),

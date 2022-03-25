@@ -19,7 +19,7 @@ where
 
 impl InferTopLevel for ast::Binding {
     fn infer_top_level(&mut self, sess: &mut InferSess) -> InferResult {
-        let res = self.infer(sess)?;
+        let res = self.infer(sess, None)?;
         sess.new_ast.add_binding(self.clone());
         Ok(res)
     }
@@ -27,7 +27,7 @@ impl InferTopLevel for ast::Binding {
 
 impl InferTopLevel for ast::Import {
     fn infer_top_level(&mut self, sess: &mut InferSess) -> InferResult {
-        let res = self.infer(sess)?;
+        let res = self.infer(sess, None)?;
         sess.new_ast.add_import(self.clone());
         Ok(res)
     }
