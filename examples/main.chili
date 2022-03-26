@@ -6,7 +6,7 @@ let main = fn {
     print_answer(answer)
 }
 
-let print_answer = fn(answer: i64) {
+let print_answer = fn(answer) {
     c.printf("What is the answer?\n".data)
     printf("The answer is %d\n".data, answer)
 }

@@ -487,7 +487,6 @@ impl Infer for ast::Expr {
 impl Infer for ast::FnCall {
     fn infer(&mut self, sess: &mut InferSess, expected: Option<Ty>) -> InferResult {
         let callee_res = self.callee.infer(sess, None)?;
-        let return_ty = sess.tycx.var();
 
         match callee_res.ty.normalize(&sess.tycx) {
             TyKind::Fn(fn_ty) => {
@@ -570,11 +569,15 @@ impl Infer for ast::FnCall {
                         }
                     };
                 }
+
+                Ok(Res::new(sess.tycx.bound(fn_ty.ret.as_ref().clone())))
             }
             ty => {
                 for arg in self.args.iter_mut() {
                     arg.expr.infer(sess, None)?;
                 }
+
+                let return_ty = sess.tycx.var();
 
                 let inferred_fn_ty = TyKind::Fn(FnTy {
                     params: self
@@ -593,10 +596,10 @@ impl Infer for ast::FnCall {
                 ty.unify(&inferred_fn_ty, sess).map_err(|e| {
                     map_unify_err(e, inferred_fn_ty, ty, self.callee.span, &sess.tycx)
                 })?;
+
+                Ok(Res::new(return_ty))
             }
         }
-
-        Ok(Res::new(return_ty))
     }
 }
 
