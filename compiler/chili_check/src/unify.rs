@@ -1,4 +1,4 @@
-use crate::{infer::InferSess, normalize::NormalizeTy, tycx::InferenceValue};
+use crate::{normalize::NormalizeTy, tycx::InferenceValue, CheckSess};
 use chili_ast::ty::*;
 
 pub type UnifyTyResult = Result<(), UnifyTyErr>;
@@ -14,11 +14,11 @@ where
     Self: Sized,
     T: Sized,
 {
-    fn unify(&self, other: &T, sess: &mut InferSess) -> UnifyTyResult;
+    fn unify(&self, other: &T, sess: &mut CheckSess) -> UnifyTyResult;
 }
 
 impl UnifyTy<Ty> for Ty {
-    fn unify(&self, other: &Ty, sess: &mut InferSess) -> UnifyTyResult {
+    fn unify(&self, other: &Ty, sess: &mut CheckSess) -> UnifyTyResult {
         let t1 = TyKind::Var(*self);
         let t2 = TyKind::Var(*other);
         t1.unify(&t2, sess)
@@ -26,21 +26,21 @@ impl UnifyTy<Ty> for Ty {
 }
 
 impl UnifyTy<TyKind> for Ty {
-    fn unify(&self, other: &TyKind, sess: &mut InferSess) -> UnifyTyResult {
+    fn unify(&self, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult {
         let ty = TyKind::Var(*self);
         ty.unify(other, sess)
     }
 }
 
 impl UnifyTy<Ty> for TyKind {
-    fn unify(&self, other: &Ty, sess: &mut InferSess) -> UnifyTyResult {
+    fn unify(&self, other: &Ty, sess: &mut CheckSess) -> UnifyTyResult {
         let other = TyKind::Var(*other);
         self.unify(&other, sess)
     }
 }
 
 impl UnifyTy<TyKind> for TyKind {
-    fn unify(&self, other: &TyKind, sess: &mut InferSess) -> UnifyTyResult {
+    fn unify(&self, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult {
         match (self, other) {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
@@ -123,7 +123,7 @@ impl UnifyTy<TyKind> for TyKind {
     }
 }
 
-fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut InferSess) -> UnifyTyResult {
+fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult {
     match sess.tycx.value_of(var) {
         InferenceValue::Bound(kind) => kind.clone().unify(other, sess),
         InferenceValue::AnyInt => {
@@ -175,7 +175,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut InferSess) -> UnifyTyResult 
     }
 }
 
-fn occurs(var: Ty, kind: &TyKind, sess: &InferSess) -> bool {
+fn occurs(var: Ty, kind: &TyKind, sess: &CheckSess) -> bool {
     match kind {
         TyKind::Var(other) => match sess.tycx.value_of(*other) {
             InferenceValue::Bound(ty) => occurs(var, &ty, sess),

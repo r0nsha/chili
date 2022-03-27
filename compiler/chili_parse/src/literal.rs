@@ -107,7 +107,7 @@ impl<'p> Parser<'p> {
                     self.parse_expr()?
                 } else {
                     Expr::new(
-                        ExprKind::Id {
+                        ExprKind::Ident {
                             symbol: id_token.symbol(),
                             is_mutable: false,
                             binding_span: Span::unknown(),

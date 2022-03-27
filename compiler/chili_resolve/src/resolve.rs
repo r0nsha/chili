@@ -259,7 +259,7 @@ impl<'w> Resolve<'w> for ast::Expr {
             ast::ExprKind::MemberAccess { expr, member: _ } => {
                 expr.resolve(resolver, workspace)?;
             }
-            ast::ExprKind::Id {
+            ast::ExprKind::Ident {
                 symbol,
                 is_mutable: _,
                 binding_span: _,

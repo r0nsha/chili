@@ -158,7 +158,7 @@ impl Expr {
         match &self.kind {
             ExprKind::MemberAccess { expr, .. } => expr.is_mutable(),
 
-            ExprKind::Id { is_mutable, .. } => *is_mutable,
+            ExprKind::Ident { is_mutable, .. } => *is_mutable,
 
             ExprKind::MultiPointerType(_, _)
             | ExprKind::ArrayType(_, _)
@@ -205,7 +205,7 @@ impl Expr {
                 let expr = expr.display_name_and_binding_span();
                 expr.map(|v| format!("{}.{}", v, member))
             }
-            ExprKind::Id {
+            ExprKind::Ident {
                 symbol,
                 is_mutable: _,
                 binding_span,
@@ -285,7 +285,7 @@ pub enum ExprKind {
         expr: Box<Expr>,
         member: Ustr,
     },
-    Id {
+    Ident {
         symbol: Ustr,
         is_mutable: bool,
         binding_span: Span,

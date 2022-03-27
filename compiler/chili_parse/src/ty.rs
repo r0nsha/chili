@@ -23,7 +23,7 @@ impl<'p> Parser<'p> {
             let kind = if symbol == SELF_SYMBOL {
                 ExprKind::SelfType
             } else {
-                ExprKind::Id {
+                ExprKind::Ident {
                     symbol,
                     is_mutable: false,
                     binding_span: Span::unknown(),

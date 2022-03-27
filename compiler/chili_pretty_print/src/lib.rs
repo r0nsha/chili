@@ -430,7 +430,7 @@ impl PrintTree for ast::Expr {
                 expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Id { symbol, .. } => {
+            ast::ExprKind::Ident { symbol, .. } => {
                 b.add_empty_child(format!("`{}` <{}>", symbol, tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::ArrayLiteral(kind) => {

@@ -352,7 +352,7 @@ impl<'p> Parser<'p> {
             let token = self.previous();
             let symbol = token.symbol();
             Expr::new(
-                ExprKind::Id {
+                ExprKind::Ident {
                     symbol,
                     is_mutable: false,
                     binding_span: Span::unknown(),
