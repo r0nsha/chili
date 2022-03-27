@@ -188,6 +188,8 @@ where
 
 impl Check for ast::Import {
     fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
+        self.module_id = sess.workspace.find_module_info(self.module_info).unwrap();
+
         let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
         let mut const_value = None;
 

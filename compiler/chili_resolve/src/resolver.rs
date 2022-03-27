@@ -37,10 +37,6 @@ impl Resolver {
         }
     }
 
-    pub(crate) fn in_global_scope(&self) -> bool {
-        self.scope_level.is_global()
-    }
-
     pub(crate) fn current_scope(&self) -> &Scope {
         if self.scopes.is_empty() {
             self.global_scopes.get(&self.module_id).unwrap()

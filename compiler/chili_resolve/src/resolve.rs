@@ -70,7 +70,7 @@ impl<'w> Resolve<'w> for ast::Import {
         resolver: &mut Resolver,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
-        if !resolver.in_global_scope() {
+        if !resolver.scope_level.is_global() {
             self.module_id = workspace.find_module_info(self.module_info).unwrap();
 
             self.binding_info_id = resolver.add_binding(
@@ -108,7 +108,7 @@ impl<'w> Resolve<'w> for ast::Binding {
             )?);
         }
 
-        if !resolver.in_global_scope() {
+        if !resolver.scope_level.is_global() {
             resolver.add_binding_with_pattern(
                 workspace,
                 &mut self.pattern,
