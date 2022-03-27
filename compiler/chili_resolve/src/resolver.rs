@@ -121,6 +121,7 @@ impl Resolver {
             self.module_id,
             symbol,
             visibility,
+            Default::default(),
             is_mutable,
             kind,
             self.scope_level,

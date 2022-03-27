@@ -17,7 +17,7 @@ use crate::{
     unify::UnifyTy,
 };
 use chili_ast::{
-    ast,
+    ast::{self, ForeignLibrary},
     pattern::{Pattern, SymbolPattern},
     ty::*,
     value::Value,
@@ -195,6 +195,7 @@ impl Check for ast::Import {
             sess.workspace,
             self.alias,
             self.visibility,
+            sess.tycx.common_types.unknown,
             false,
             ast::BindingKind::Import,
             self.span,
@@ -239,21 +240,30 @@ impl Check for ast::Import {
 
 impl Check for ast::Binding {
     fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
-        // TODO: support other patterns
-        let pat = self.pattern.as_single_ref();
-        let binding_ty = sess.tycx.var();
-
-        sess.workspace
-            .get_binding_info_mut(pat.binding_info_id)
-            .unwrap()
-            .ty = binding_ty;
-
-        if let Some(ty_expr) = &mut self.ty_expr {
-            let res = ty_expr.check(sess, None)?;
-            let typ = sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?;
-            typ.unify(&binding_ty, sess)
-                .map_err(|e| map_unify_err(e, typ, binding_ty, ty_expr.span, &sess.tycx))?;
+        // Collect foreign libraries to be linked later
+        if let Some(lib) = self.lib_name {
+            sess.workspace
+                .foreign_libraries
+                .insert(ForeignLibrary::from_str(
+                    &lib,
+                    sess.env.module_info.file_path,
+                    self.pattern.span(),
+                )?);
         }
+
+        sess.env.bind_pattern(
+            sess.workspace,
+            &mut self.pattern,
+            self.visibility,
+            self.kind,
+        )?;
+
+        let binding_ty = if let Some(ty_expr) = &mut self.ty_expr {
+            let res = ty_expr.check(sess, None)?;
+            sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
+        } else {
+            sess.tycx.var()
+        };
 
         let const_value = if let Some(expr) = &mut self.expr {
             let res = expr.check(sess, Some(binding_ty))?;
@@ -265,21 +275,24 @@ impl Check for ast::Binding {
             None
         };
 
-        // don't allow const values with mutable bindings or patterns that are not `Single`
-        let const_value = match &self.pattern {
-            Pattern::Single(SymbolPattern { is_mutable, .. }) => {
-                if *is_mutable {
-                    None
-                } else {
-                    const_value
-                }
-            }
-            Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => None,
-        };
+        // TODO: unify type with the pattern
 
+        // don't allow const values with mutable bindings or patterns
+        // that are not `Single` and are not mutable
         if let Some(const_value) = const_value {
-            sess.const_bindings.insert(pat.binding_info_id, const_value);
-        }
+            match &self.pattern {
+                Pattern::Single(SymbolPattern {
+                    is_mutable,
+                    binding_info_id,
+                    ..
+                }) => {
+                    if !is_mutable {
+                        sess.const_bindings.insert(*binding_info_id, const_value);
+                    }
+                }
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
+            }
+        };
 
         Ok(Res {
             ty: sess.tycx.common_types.unit,

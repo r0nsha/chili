@@ -98,6 +98,7 @@ impl fmt::Display for InferenceValue {
 }
 
 pub struct CommonTypes {
+    pub unknown: Ty,
     pub unit: Ty,
     pub bool: Ty,
     pub i8: Ty,
@@ -125,6 +126,7 @@ impl CommonTypes {
         let mut mk = |kind| Ty(bindings.insert(InferenceValue::Bound(kind)));
 
         Self {
+            unknown: mk(Unknown),
             unit: mk(Unit),
             bool: mk(Bool),
             i8: mk(Int(IntTy::I8)),

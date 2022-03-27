@@ -51,10 +51,6 @@ impl Environment {
         self.module_info = info;
     }
 
-    pub(crate) fn module_info(&self) -> (ModuleId, ModuleInfo) {
-        (self.module_id, self.module_info)
-    }
-
     pub(crate) fn scope(&self) -> &Scope {
         if self.scopes.is_empty() {
             self.global_scopes.get(&self.module_id).unwrap()
@@ -136,6 +132,7 @@ impl Environment {
         workspace: &mut Workspace,
         symbol: Ustr,
         visibility: ast::Visibility,
+        ty: Ty,
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
@@ -163,6 +160,7 @@ impl Environment {
             self.module_id,
             symbol,
             visibility,
+            ty,
             is_mutable,
             kind,
             scope_level,
@@ -215,6 +213,7 @@ impl Environment {
             workspace,
             pattern.symbol,
             visibility,
+            Ty::default(),
             pattern.is_mutable,
             kind,
             pattern.span,
@@ -230,6 +229,7 @@ impl Environment {
                 Default::default(),
                 symbol,
                 ast::Visibility::Public,
+                tycx.bound(ty.kind().create_type()),
                 false,
                 ast::BindingKind::Type,
                 ScopeLevel::Global,
@@ -238,12 +238,9 @@ impl Environment {
             );
 
             let info = workspace.get_binding_info_mut(id).unwrap();
-
-            info.ty = tycx.bound(ty.kind().create_type());
             info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
 
             self.const_bindings.insert(id, Value::Type(ty));
-
             self.builtin_types.insert(symbol, id);
         };
 

@@ -15,6 +15,7 @@ impl Resolver {
                 Default::default(),
                 symbol,
                 ast::Visibility::Public,
+                Default::default(),
                 false,
                 ast::BindingKind::Type,
                 ScopeLevel::Global,
