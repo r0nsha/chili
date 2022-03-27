@@ -208,10 +208,6 @@ impl<'w> Resolve<'w> for ast::Expr {
                 deferred.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Return { expr, deferred } => {
-                if resolver.function_scope_level.is_global() {
-                    return Err(SyntaxError::outside_of_function(self.span, "return"));
-                }
-
                 expr.resolve(resolver, workspace)?;
                 deferred.resolve(resolver, workspace)?;
             }

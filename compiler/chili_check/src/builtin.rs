@@ -1,11 +1,21 @@
 use crate::{tycx::TyCtx, CheckSess};
-use chili_ast::{ty::*, workspace::Workspace};
+use chili_ast::{ty::*, value::Value, workspace::BindingInfoFlags};
 use chili_resolve::builtin;
 use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn add_builtin_types(&mut self) {
-        todo!()
+        for binding_info in self
+            .workspace
+            .binding_infos
+            .iter_mut()
+            .filter(|b| b.flags.contains(BindingInfoFlags::BUILTIN_TYPE))
+        {
+            let ty = get_type_for_builtin_type(binding_info.symbol, &mut self.tycx);
+            binding_info.ty = self.tycx.bound(ty.kind().create_type());
+            self.const_bindings.insert(binding_info.id, Value::Type(ty));
+        }
+
         // let mut add_builtin_type = |name: &str| {
         //     let symbol = ustr(name);
         //     let id = workspace.add_builtin_binding_info(

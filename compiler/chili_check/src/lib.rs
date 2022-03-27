@@ -15,15 +15,14 @@ use crate::{
     tycx::TyCtx,
     unify::UnifyTy,
 };
-use chili_ast::{ast, workspace::Workspace};
 use chili_ast::{
+    ast::{self, ModuleInfo},
     pattern::{Pattern, SymbolPattern},
     ty::*,
     value::Value,
-    workspace::{BindingInfoFlags, BindingInfoId},
+    workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
-use chili_error::TypeError;
-use chili_error::{DiagnosticResult, SyntaxError};
+use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
@@ -43,19 +42,42 @@ pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
     pub(crate) tycx: TyCtx,
 
+    // The ast being processed
     pub(crate) old_ast: &'s ast::ResolvedAst,
+
+    // The new ast being generated
     pub(crate) new_ast: ast::ResolvedAst,
 
+    // A map from binding ids to their const value, if the have one
     pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
 
+    // Stack of function frames, each ast::Fn creates its own frame
     pub(crate) function_frames: Vec<FunctionFrame>,
+
+    // // The current module's id and information
+    // pub(crate) module_id: ModuleId,
+    // pub(crate) module_info: ModuleInfo,
+
+    // // Symbols maps & Environment scopes
+    // pub(crate) builtin_types: UstrMap<BindingInfoId>,
+    // pub(crate) global_scopes: HashMap<ModuleId, Scope>,
+    // pub(crate) scopes: Vec<Scope>,
+
+    // Stack of `Self` types
     pub(crate) self_types: Vec<Ty>,
+
+    // The current scope level
+    pub(crate) scope_level: ScopeLevel,
+
+    // The current loop (while/for) depth
+    // 0 meaning we are not in a loop, > 1 means we are in a loop
     pub(crate) loop_depth: usize,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct FunctionFrame {
     return_ty: Ty,
+    scope_level: ScopeLevel,
 }
 
 impl<'s> CheckSess<'s> {
@@ -66,8 +88,9 @@ impl<'s> CheckSess<'s> {
             old_ast,
             new_ast: ast::ResolvedAst::new(),
             const_bindings: HashMap::new(),
-            self_types: vec![],
             function_frames: vec![],
+            self_types: vec![],
+            scope_level: ScopeLevel::Global,
             loop_depth: 0,
         }
     }
@@ -75,16 +98,6 @@ impl<'s> CheckSess<'s> {
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
         // init builtin types
         self.add_builtin_types();
-        for binding_info in self
-            .workspace
-            .binding_infos
-            .iter_mut()
-            .filter(|b| b.flags.contains(BindingInfoFlags::BUILTIN_TYPE))
-        {
-            let ty = builtin::get_type_for_builtin_type(binding_info.symbol, &mut self.tycx);
-            binding_info.ty = self.tycx.bound(ty.kind().create_type());
-            self.const_bindings.insert(binding_info.id, Value::Type(ty));
-        }
 
         // start analysis
         for binding in self.old_ast.bindings.iter() {
@@ -272,9 +285,13 @@ impl Check for ast::Fn {
 
         let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
 
-        let body_res = sess.with_function_frame(FunctionFrame { return_ty }, |sess| {
-            self.body.check(sess, None)
-        })?;
+        let body_res = sess.with_function_frame(
+            FunctionFrame {
+                return_ty,
+                scope_level: sess.scope_level,
+            },
+            |sess| self.body.check(sess, None),
+        )?;
 
         body_res
             .ty
