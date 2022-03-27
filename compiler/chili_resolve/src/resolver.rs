@@ -183,7 +183,7 @@ impl Resolver {
                 pat.binding_info_id = self
                     .add_binding_with_symbol_pattern(workspace, pat, visibility, kind, shadowable);
             }
-            Pattern::StructDestructor(pat) | Pattern::TupleDestructor(pat) => {
+            Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => {
                 for pat in pat.symbols.iter_mut() {
                     self.add_binding_with_symbol_pattern(
                         workspace, pat, visibility, kind, shadowable,

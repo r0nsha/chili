@@ -224,7 +224,7 @@ impl Infer for ast::Binding {
                     const_value
                 }
             }
-            Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => None,
+            Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => None,
         };
 
         if let Some(const_value) = const_value {

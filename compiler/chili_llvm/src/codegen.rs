@@ -305,7 +305,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             Pattern::Single(SymbolPattern { symbol, .. }) => {
                 self.gen_local_and_store_expr(state, *symbol, &expr, ty);
             }
-            Pattern::StructDestructor(pattern) => {
+            Pattern::StructUnpack(pattern) => {
                 let ptr =
                     self.gen_local_and_store_expr(state, ustr("struct_destr_alloca"), &expr, ty);
 
@@ -342,7 +342,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                     );
                 }
             }
-            Pattern::TupleDestructor(pattern) => {
+            Pattern::TupleUnpack(pattern) => {
                 let ptr =
                     self.gen_local_and_store_expr(state, ustr("tuple_destr_alloca"), &expr, ty);
 
@@ -379,7 +379,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
             Pattern::Single(symbol) => {
                 self.gen_local_with_alloca(state, symbol.symbol, value);
             }
-            Pattern::StructDestructor(pattern) => {
+            Pattern::StructUnpack(pattern) => {
                 let struct_ty = ty.maybe_deref_once().into_struct().clone();
 
                 for i in 0..pattern.symbols.len() {
@@ -411,7 +411,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                     self.gen_local_with_alloca(state, alias.unwrap_or(symbol), value);
                 }
             }
-            Pattern::TupleDestructor(pattern) => {
+            Pattern::TupleUnpack(pattern) => {
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern { symbol, ignore, .. } = pattern.symbols[i];
 

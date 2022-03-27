@@ -6,12 +6,12 @@ use ustr::Ustr;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
     Single(SymbolPattern),
-    StructDestructor(DestructorPattern),
-    TupleDestructor(DestructorPattern),
+    StructUnpack(UnpackPattern),
+    TupleUnpack(UnpackPattern),
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct DestructorPattern {
+pub struct UnpackPattern {
     pub symbols: Vec<SymbolPattern>,
     pub span: Span,
 }
@@ -48,14 +48,14 @@ impl Pattern {
     pub fn span(&self) -> Span {
         match self {
             Pattern::Single(p) => p.span,
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => p.span,
+            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.span,
         }
     }
 
     pub fn symbols(&self) -> Vec<&SymbolPattern> {
         match self {
             Pattern::Single(p) => vec![p],
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
+            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => {
                 p.symbols.iter().collect::<Vec<_>>()
             }
         }
@@ -64,7 +64,7 @@ impl Pattern {
     pub fn symbols_mut(&mut self) -> Vec<&mut SymbolPattern> {
         match self {
             Pattern::Single(p) => vec![p],
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => {
+            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => {
                 p.symbols.iter_mut().collect::<Vec<_>>()
             }
         }
@@ -78,7 +78,7 @@ impl IntoIterator for Pattern {
     fn into_iter(self) -> Self::IntoIter {
         let vec = match self {
             Pattern::Single(p) => vec![p],
-            Pattern::StructDestructor(p) | Pattern::TupleDestructor(p) => p.symbols,
+            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.symbols,
         };
         vec.into_iter()
     }
@@ -91,14 +91,14 @@ impl Display for Pattern {
             "{}",
             match self {
                 Pattern::Single(s) => s.to_string(),
-                Pattern::StructDestructor(s) => format!("{{{}}}", s.to_string()),
-                Pattern::TupleDestructor(s) => format!("({})", s.to_string()),
+                Pattern::StructUnpack(s) => format!("{{{}}}", s.to_string()),
+                Pattern::TupleUnpack(s) => format!("({})", s.to_string()),
             }
         )
     }
 }
 
-impl Display for DestructorPattern {
+impl Display for UnpackPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

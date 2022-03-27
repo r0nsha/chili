@@ -117,11 +117,8 @@ impl SyntaxError {
             .with_labels(vec![
                 Label::primary(duplicate_span.file_id, duplicate_span.range())
                     .with_message("duplicate definition here"),
-                Label::secondary(
-                    already_defined_span.file_id,
-                    already_defined_span.range(),
-                )
-                .with_message(format!("previous definition of `{}` here", name)),
+                Label::secondary(already_defined_span.file_id, already_defined_span.range())
+                    .with_message(format!("previous definition of `{}` here", name)),
             ])
     }
 
@@ -138,11 +135,8 @@ impl SyntaxError {
             .with_labels(vec![
                 Label::primary(symbol_span.file_id, symbol_span.range())
                     .with_message("field defined more than once"),
-                Label::secondary(
-                    defined_symbol_span.file_id,
-                    defined_symbol_span.range(),
-                )
-                .with_message(format!("previous definition of `{}` here", field_name)),
+                Label::secondary(defined_symbol_span.file_id, defined_symbol_span.range())
+                    .with_message(format!("previous definition of `{}` here", field_name)),
             ])
     }
 
@@ -209,19 +203,19 @@ impl TypeError {
                 .with_message(format!("invalid tuple member `{}`", field))])
     }
 
-    pub fn struct_destructor_on_invalid_type(span: Span, ty: String) -> Diagnostic<usize> {
+    pub fn struct_unpack_on_invalid_type(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
-            .with_message(format!("cannot use struct destructor on type `{}`", ty))
+            .with_message(format!("cannot use struct unpack on type `{}`", ty))
             .with_labels(vec![Label::primary(span.file_id, span.range())])
     }
 
-    pub fn tuple_destructor_on_invalid_type(span: Span, ty: String) -> Diagnostic<usize> {
+    pub fn tuple_unpack_on_invalid_type(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
-            .with_message(format!("cannot use tuple destructor on type `{}`", ty))
+            .with_message(format!("cannot use tuple unpack on type `{}`", ty))
             .with_labels(vec![Label::primary(span.file_id, span.range())])
     }
 
-    pub fn too_many_destructor_variables(
+    pub fn too_many_unpack_variables(
         span: Span,
         ty: String,
         expected_len: usize,
@@ -229,16 +223,16 @@ impl TypeError {
     ) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!(
-                "too many variables in destructor for type `{}`, expected {} got {}",
+                "too many variables in unpack for type `{}`, expected {} got {}",
                 ty, expected_len, actual_len
             ))
             .with_labels(vec![Label::primary(span.file_id, span.range())])
     }
 
-    pub fn duplicate_destructor_field(span: Span, field: Ustr) -> Diagnostic<usize> {
+    pub fn duplicate_unpack_field(span: Span, field: Ustr) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!(
-                "field `{}` is defined more than once in destructor",
+                "field `{}` is defined more than once in unpack",
                 field
             ))
             .with_labels(vec![Label::primary(span.file_id, span.range())])
@@ -356,8 +350,9 @@ impl TypeError {
     pub fn deref_non_pointer_ty(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot dereference type `{}`", ty))
-            .with_labels(vec![Label::primary(span.file_id, span.range())
-                .with_message("not a pointer type")])
+            .with_labels(vec![
+                Label::primary(span.file_id, span.range()).with_message("not a pointer type")
+            ])
     }
 
     pub fn expected(span: Span, ty: String, expectation: &str) -> Diagnostic<usize> {
@@ -389,13 +384,15 @@ impl TypeError {
     pub fn invalid_ty_in_neg(span: Span, ty: String) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("cannot negate `{}`", ty))
-            .with_labels(vec![Label::primary(span.file_id, span.range())
-                .with_message("not a valid number")])
+            .with_labels(vec![
+                Label::primary(span.file_id, span.range()).with_message("not a valid number")
+            ])
     }
     pub fn type_annotations_needed(span: Span) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message("type annotations needed")
-            .with_labels(vec![Label::primary(span.file_id, span.range())
-                .with_message("cannot infer type")])
+            .with_labels(vec![
+                Label::primary(span.file_id, span.range()).with_message("cannot infer type")
+            ])
     }
 }

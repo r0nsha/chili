@@ -5,7 +5,7 @@ use ustr::UstrSet;
 
 use crate::CheckSess;
 use chili_ast::{
-    pattern::{DestructorPattern, Pattern, SymbolPattern},
+    pattern::{Pattern, SymbolPattern, UnpackPattern},
     value::Value,
 };
 
@@ -24,23 +24,23 @@ impl<'c> CheckSess<'c> {
                     .unwrap()
                     .const_value = const_value;
             }
-            Pattern::StructDestructor(pattern) => {
+            Pattern::StructUnpack(pattern) => {
                 let ty = self.infcx.normalize_ty(&expected_ty);
-                self.check_struct_destructor(&ty, pattern)?;
+                self.check_struct_unpack(&ty, pattern)?;
             }
-            Pattern::TupleDestructor(pattern) => {
+            Pattern::TupleUnpack(pattern) => {
                 let ty = self.infcx.normalize_ty(&expected_ty);
-                self.check_tuple_destructor(&ty, pattern)?;
+                self.check_tuple_unpack(&ty, pattern)?;
             }
         }
 
         Ok(())
     }
 
-    fn check_struct_destructor(
+    fn check_struct_unpack(
         &mut self,
         expected_ty: &Ty,
-        pattern: &DestructorPattern,
+        pattern: &UnpackPattern,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
             Ty::Struct(ref struct_ty) => {
@@ -63,7 +63,7 @@ impl<'c> CheckSess<'c> {
                     match struct_ty.fields.iter().find(|f| f.symbol == pat.symbol) {
                         Some(field) => {
                             if !field_set.insert(pat.symbol) {
-                                return Err(TypeError::duplicate_destructor_field(
+                                return Err(TypeError::duplicate_unpack_field(
                                     pat.span,
                                     field.symbol,
                                 ));
@@ -87,7 +87,7 @@ impl<'c> CheckSess<'c> {
                 Ok(())
             }
             ty => {
-                return Err(TypeError::struct_destructor_on_invalid_type(
+                return Err(TypeError::struct_unpack_on_invalid_type(
                     pattern.span,
                     ty.to_string(),
                 ))
@@ -95,15 +95,15 @@ impl<'c> CheckSess<'c> {
         }
     }
 
-    fn check_tuple_destructor(
+    fn check_tuple_unpack(
         &mut self,
         expected_ty: &Ty,
-        pattern: &DestructorPattern,
+        pattern: &UnpackPattern,
     ) -> DiagnosticResult<()> {
         match expected_ty.maybe_deref_once() {
             Ty::Tuple(tys) => {
                 if pattern.symbols.len() > tys.len() {
-                    return Err(TypeError::too_many_destructor_variables(
+                    return Err(TypeError::too_many_unpack_variables(
                         pattern.span,
                         expected_ty.to_string(),
                         tys.len(),
@@ -123,7 +123,7 @@ impl<'c> CheckSess<'c> {
 
                 Ok(())
             }
-            ty => Err(TypeError::tuple_destructor_on_invalid_type(
+            ty => Err(TypeError::tuple_unpack_on_invalid_type(
                 pattern.span,
                 ty.to_string(),
             )),

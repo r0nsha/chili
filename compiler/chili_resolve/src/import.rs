@@ -16,7 +16,7 @@ pub(crate) fn collect_module_exports(asts: &Vec<Ast>, exports: &mut ModuleExport
 
         for binding in ast.bindings.iter() {
             if binding.visibility.is_public() {
-                // TODO: support destructor patterns
+                // TODO: support unpack patterns
                 let pat = binding.pattern.into_single();
                 entry.insert(pat.symbol, pat.binding_info_id);
             }

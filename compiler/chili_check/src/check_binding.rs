@@ -50,7 +50,7 @@ impl<'c> CheckSess<'c> {
                     const_value
                 }
             }
-            Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => None,
+            Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => None,
         };
 
         let ty = self.infcx.normalize_ty(&expected_var.into());

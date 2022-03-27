@@ -133,7 +133,7 @@ impl PrintTree for ast::Binding {
                     tycx.ty_kind(*ty)
                 )
             }
-            Pattern::StructDestructor(pat) => {
+            Pattern::StructUnpack(pat) => {
                 let concat_symbols = pat
                     .symbols
                     .iter()
@@ -151,7 +151,7 @@ impl PrintTree for ast::Binding {
 
                 format!("{{ {} }}", concat_symbols)
             }
-            Pattern::TupleDestructor(pat) => {
+            Pattern::TupleUnpack(pat) => {
                 let concat_symbols = pat
                     .symbols
                     .iter()

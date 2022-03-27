@@ -14,7 +14,6 @@ use chili_error::DiagnosticResult;
 use codespan_reporting::diagnostic::Diagnostic;
 use declare::Declare;
 use import::{collect_module_exports, expand_and_replace_glob_imports};
-use mark_codegen::mark_bindings_for_codegen;
 use resolve::Resolve;
 use resolver::Resolver;
 use scope::Scope;

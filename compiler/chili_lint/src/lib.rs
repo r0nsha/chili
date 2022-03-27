@@ -119,7 +119,7 @@ impl Lint for ast::Binding {
                             )]));
                     }
                 }
-                Pattern::StructDestructor(_) | Pattern::TupleDestructor(_) => (),
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
             }
         }
 

@@ -29,24 +29,6 @@ impl Ast {
             foreign_libraries: Default::default(),
         }
     }
-
-    pub fn find_import(&self, id: BindingInfoId) -> Option<&Import> {
-        for import in self.imports.iter() {
-            if import.binding_info_id == id {
-                return Some(import);
-            }
-        }
-        None
-    }
-
-    pub fn find_binding(&self, id: BindingInfoId) -> Option<&Binding> {
-        for binding in self.bindings.iter() {
-            if binding.pattern.as_single_ref().binding_info_id == id {
-                return Some(binding);
-            }
-        }
-        None
-    }
 }
 
 #[derive(Debug, Clone)]

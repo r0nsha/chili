@@ -97,7 +97,7 @@ impl<'w> Declare<'w> for ast::Binding {
         resolver: &mut Resolver,
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
-        // TODO: support global destructor patterns
+        // TODO: support global unpack patterns
 
         let pat = self.pattern.as_single_mut();
 

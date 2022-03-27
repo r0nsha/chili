@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::pattern::{DestructorPattern, Pattern, SymbolPattern};
+use chili_ast::pattern::{Pattern, SymbolPattern, UnpackPattern};
 use chili_error::SyntaxError;
 use chili_span::To;
 
@@ -9,9 +9,9 @@ impl<'p> Parser<'p> {
             Ok(symbol) => Ok(Pattern::Single(symbol)),
             Err(_) => {
                 if eat!(self, OpenCurly) {
-                    self.parse_struct_destructor()
+                    self.parse_struct_unpack()
                 } else if eat!(self, OpenParen) {
-                    self.parse_tuple_destructor()
+                    self.parse_tuple_unpack()
                 } else {
                     Err(SyntaxError::expected(self.span(), "pattern"))
                 }
@@ -19,7 +19,7 @@ impl<'p> Parser<'p> {
         }
     }
 
-    fn parse_struct_destructor(&mut self) -> DiagnosticResult<Pattern> {
+    fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous().span;
 
         let symbols = parse_delimited_list!(
@@ -40,15 +40,15 @@ impl<'p> Parser<'p> {
             ", or }"
         );
 
-        let destructor = DestructorPattern {
+        let unpack = UnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
         };
 
-        Ok(Pattern::StructDestructor(destructor))
+        Ok(Pattern::StructUnpack(unpack))
     }
 
-    fn parse_tuple_destructor(&mut self) -> DiagnosticResult<Pattern> {
+    fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous().span;
 
         let symbols = parse_delimited_list!(
@@ -59,12 +59,12 @@ impl<'p> Parser<'p> {
             ", or )"
         );
 
-        let destructor = DestructorPattern {
+        let unpack = UnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
         };
 
-        Ok(Pattern::TupleDestructor(destructor))
+        Ok(Pattern::TupleUnpack(unpack))
     }
 
     pub(super) fn parse_symbol_pattern(&mut self) -> DiagnosticResult<SymbolPattern> {
