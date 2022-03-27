@@ -2,7 +2,7 @@ use crate::{normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTyErr};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-pub fn map_unify_err(
+pub(crate) fn map_unify_err(
     e: UnifyTyErr,
     expected: impl NormalizeTy,
     found: impl NormalizeTy,

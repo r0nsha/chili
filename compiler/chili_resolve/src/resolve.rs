@@ -166,9 +166,7 @@ impl<'w> Resolve<'w> for ast::Expr {
             }
             ast::ExprKind::While { cond, block } => {
                 cond.resolve(resolver, workspace)?;
-                resolver.loop_depth += 1;
                 block.resolve(resolver, workspace)?;
-                resolver.loop_depth -= 1;
             }
             ast::ExprKind::For(for_) => {
                 match &mut for_.iterator {
@@ -201,20 +199,12 @@ impl<'w> Resolve<'w> for ast::Expr {
                     true,
                 );
 
-                resolver.loop_depth += 1;
                 for_.block.resolve(resolver, workspace)?;
-                resolver.loop_depth -= 1;
             }
             ast::ExprKind::Break { deferred } => {
-                if resolver.loop_depth == 0 {
-                    return Err(SyntaxError::outside_of_loop(self.span, "break"));
-                }
                 deferred.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Continue { deferred } => {
-                if resolver.loop_depth == 0 {
-                    return Err(SyntaxError::outside_of_loop(self.span, "continue"));
-                }
                 deferred.resolve(resolver, workspace)?;
             }
             ast::ExprKind::Return { expr, deferred } => {
@@ -273,7 +263,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                         && binding_info.scope_level < resolver.function_scope_level
                     {
                         return Err(Diagnostic::error()
-                            .with_message("can't capture dynamic environment in a fn")
+                            .with_message("can't capture dynamic environment yet - not implemented")
                             .with_labels(vec![Label::primary(
                                 self.span.file_id,
                                 self.span.range(),
@@ -284,7 +274,7 @@ impl<'w> Resolve<'w> for ast::Expr {
                 }
                 None => {
                     return Err(Diagnostic::error()
-                        .with_message(format!("cannot find value `{}` in this scope", symbol))
+                        .with_message(format!("cannot find symbol `{}` in this scope", symbol))
                         .with_labels(vec![Label::primary(self.span.file_id, self.span.range())
                             .with_message("not found in this scope")]))
                 }

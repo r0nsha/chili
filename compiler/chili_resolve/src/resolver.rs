@@ -22,8 +22,6 @@ pub(crate) struct Resolver {
     // Scope information
     pub(crate) scope_level: ScopeLevel,
     pub(crate) function_scope_level: ScopeLevel,
-
-    pub(crate) loop_depth: usize,
 }
 
 impl Resolver {
@@ -36,7 +34,6 @@ impl Resolver {
             scopes: vec![],
             scope_level: ScopeLevel::Global,
             function_scope_level: ScopeLevel::Global,
-            loop_depth: 0,
         }
     }
 

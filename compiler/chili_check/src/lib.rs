@@ -23,8 +23,8 @@ use chili_ast::{
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId},
 };
-use chili_error::DiagnosticResult;
 use chili_error::TypeError;
+use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
@@ -40,13 +40,14 @@ pub fn check(
     Ok((sess.new_ast, sess.tycx))
 }
 
-pub struct CheckSess<'s> {
+pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
     pub(crate) old_ast: &'s ast::ResolvedAst,
     pub(crate) new_ast: ast::ResolvedAst,
     pub(crate) tycx: TyCtx,
     pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
     pub(crate) frames: Vec<CheckFrame>,
+    pub(crate) loop_depth: usize,
 }
 
 pub(crate) type CheckResult = DiagnosticResult<Res>;
@@ -91,6 +92,7 @@ impl<'s> CheckSess<'s> {
             tycx: TyCtx::new(),
             const_bindings: HashMap::new(),
             frames: vec![],
+            loop_depth: 0,
         }
     }
 
@@ -353,10 +355,54 @@ impl Check for ast::Expr {
                 }
             },
             ast::ExprKind::Fn(f) => f.check(sess, expected_ty),
-            ast::ExprKind::While { cond, block } => todo!(),
-            ast::ExprKind::For(_) => todo!(),
-            ast::ExprKind::Break { deferred } => todo!(),
-            ast::ExprKind::Continue { deferred } => todo!(),
+            ast::ExprKind::While { cond, block } => {
+                let cond_ty = sess.tycx.common_types.bool;
+                let cond_res = cond.check(sess, Some(cond_ty))?;
+
+                cond_res
+                    .ty
+                    .unify(&cond_ty, sess)
+                    .map_err(|e| map_unify_err(e, cond_ty, cond_res.ty, cond.span, &sess.tycx))?;
+
+                sess.loop_depth += 1;
+                block.check(sess, None)?;
+                sess.loop_depth -= 1;
+
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
+            ast::ExprKind::For(for_) => {
+                match &mut for_.iterator {
+                    ast::ForIter::Range(start, end) => todo!(),
+                    ast::ForIter::Value(value) => todo!(),
+                }
+
+                sess.loop_depth += 1;
+                for_.block.check(sess, None)?;
+                sess.loop_depth -= 1;
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
+            ast::ExprKind::Break { deferred } => {
+                if sess.loop_depth == 0 {
+                    return Err(SyntaxError::outside_of_loop(self.span, "break"));
+                }
+
+                for expr in deferred.iter_mut() {
+                    expr.check(sess, None)?;
+                }
+
+                Ok(Res::new(sess.tycx.common_types.never))
+            }
+            ast::ExprKind::Continue { deferred } => {
+                if sess.loop_depth == 0 {
+                    return Err(SyntaxError::outside_of_loop(self.span, "continue"));
+                }
+
+                for expr in deferred.iter_mut() {
+                    expr.check(sess, None)?;
+                }
+
+                Ok(Res::new(sess.tycx.common_types.never))
+            }
             ast::ExprKind::Return { expr, deferred } => todo!(),
             ast::ExprKind::If {
                 cond,

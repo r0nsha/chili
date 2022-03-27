@@ -1,15 +1,15 @@
 use crate::{normalize::NormalizeTy, tycx::InferenceValue, CheckSess};
 use chili_ast::ty::*;
 
-pub type UnifyTyResult = Result<(), UnifyTyErr>;
+pub(crate) type UnifyTyResult = Result<(), UnifyTyErr>;
 
 #[derive(Debug)]
-pub enum UnifyTyErr {
+pub(crate) enum UnifyTyErr {
     Mismatch,
     Occurs,
 }
 
-pub trait UnifyTy<T>
+pub(crate) trait UnifyTy<T>
 where
     Self: Sized,
     T: Sized,
