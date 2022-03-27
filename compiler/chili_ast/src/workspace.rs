@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BindingKind, ForeignLibrary, ModuleInfo, Visibility},
+    ast::{BindingKind, ForeignLibrary, Visibility},
     ty::Ty,
 };
 use bitflags::bitflags;
@@ -207,6 +207,18 @@ pub struct ModuleId(pub usize);
 impl ModuleId {
     pub fn invalid() -> Self {
         Self(usize::MAX)
+    }
+}
+
+#[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
+pub struct ModuleInfo {
+    pub name: Ustr,
+    pub file_path: Ustr,
+}
+
+impl ModuleInfo {
+    pub fn new(name: Ustr, file_path: Ustr) -> Self {
+        Self { name, file_path }
     }
 }
 

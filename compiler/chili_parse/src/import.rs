@@ -1,5 +1,8 @@
 use crate::*;
-use chili_ast::ast::{Import, ImportPath, ImportPathNode, ModuleInfo, Visibility};
+use chili_ast::{
+    ast::{Import, ImportPath, ImportPathNode, Visibility},
+    workspace::ModuleInfo,
+};
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, Spanned};
 use codespan_reporting::diagnostic::{Diagnostic, Label};

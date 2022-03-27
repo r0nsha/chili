@@ -1,8 +1,8 @@
 use crate::{util::insert_std_import, AstGenerationResult, AstGenerationStats};
 use chili_ast::{
-    ast::{Ast, ModuleInfo},
+    ast::Ast,
     path::resolve_relative_path,
-    workspace::Workspace,
+    workspace::{ModuleInfo, Workspace},
 };
 use chili_error::DiagnosticResult;
 use chili_parse::Parser;

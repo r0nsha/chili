@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::scope::{Scope, ScopeSymbol};
 use chili_ast::{
-    ast::{BindingKind, ModuleInfo, Visibility},
+    ast::{BindingKind, Visibility},
     pattern::{Pattern, SymbolPattern},
-    workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
+    workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
 };
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};

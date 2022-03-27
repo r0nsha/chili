@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use chili_ast::ast::{self, ModuleInfo};
+use chili_ast::{ast, workspace::ModuleInfo};
 use chili_span::Span;
 use common::compiler_info::{self, IntrinsticModuleInfo};
 

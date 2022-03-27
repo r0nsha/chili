@@ -1,13 +1,17 @@
-use crate::path::resolve_relative_path;
-use crate::pattern::Pattern;
-use crate::ty::*;
-use crate::workspace::{BindingInfoId, ModuleId};
+use crate::{
+    path::resolve_relative_path,
+    pattern::Pattern,
+    ty::*,
+    workspace::{BindingInfoId, ModuleId, ModuleInfo},
+};
 use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
 use chili_token::TokenKind;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Display};
-use std::path::Path;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::{self, Display},
+    path::Path,
+};
 use ustr::Ustr;
 
 #[derive(Debug, Clone)]
@@ -427,18 +431,6 @@ pub struct FnParam {
 impl ToString for FnParam {
     fn to_string(&self) -> String {
         self.pattern.to_string()
-    }
-}
-
-#[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct ModuleInfo {
-    pub name: Ustr,
-    pub file_path: Ustr,
-}
-
-impl ModuleInfo {
-    pub fn new(name: Ustr, file_path: Ustr) -> Self {
-        Self { name, file_path }
     }
 }
 

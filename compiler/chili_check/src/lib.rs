@@ -16,11 +16,11 @@ use crate::{
     unify::UnifyTy,
 };
 use chili_ast::{
-    ast::{self, ModuleInfo},
+    ast,
     pattern::{Pattern, SymbolPattern},
     ty::*,
     value::Value,
-    workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
+    workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
