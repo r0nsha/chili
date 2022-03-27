@@ -1,37 +1,47 @@
 use std::collections::HashMap;
 
 use chili_ast::{
-    ast::{BindingKind, Visibility},
-    pattern::{Pattern, SymbolPattern},
-    workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
+    ast,
+    ty::Ty,
+    value::Value,
+    workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
 };
+use chili_resolve::builtin;
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};
 
+use crate::ty_ctx::TyCtx;
+
 pub(crate) struct Environment {
     // The current module's id and information
-    module_id: ModuleId,
-    module_info: ModuleInfo,
+    pub(crate) module_id: ModuleId,
+    pub(crate) module_info: ModuleInfo,
 
     // Symbols maps / Scopes
-    builtin_types: UstrMap<BindingInfoId>,
-    global_scopes: HashMap<ModuleId, Scope>,
-    scopes: Vec<Scope>,
+    pub(crate) builtin_types: UstrMap<BindingInfoId>,
+    pub(crate) global_scopes: HashMap<ModuleId, Scope>,
+    pub(crate) scopes: Vec<Scope>,
+    pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
 
     // Scope information
-    scope_level: ScopeLevel,
+    pub(crate) scope_level: ScopeLevel,
 }
 
 impl Environment {
-    pub(crate) fn new() -> Self {
-        Self {
-            module_id: Default::default(),
-            module_info: Default::default(),
-            builtin_types: Default::default(),
-            global_scopes: Default::default(),
+    pub(crate) fn new(workspace: &mut Workspace, tycx: &mut TyCtx) -> Self {
+        let mut inst = Self {
+            module_id: ModuleId::default(),
+            module_info: ModuleInfo::default(),
+            builtin_types: UstrMap::default(),
+            global_scopes: HashMap::default(),
             scopes: vec![],
+            const_bindings: HashMap::default(),
             scope_level: ScopeLevel::Global,
-        }
+        };
+
+        inst.add_builtin_types(workspace, tycx);
+
+        inst
     }
 
     pub(crate) fn set_module(&mut self, id: ModuleId, info: ModuleInfo) {
@@ -191,6 +201,56 @@ impl Environment {
     //         }
     //     }
     // }
+
+    fn add_builtin_types(&mut self, workspace: &mut Workspace, tycx: &mut TyCtx) {
+        let mut mk = |workspace: &mut Workspace, tycx: &mut TyCtx, symbol: &str, ty: Ty| {
+            let symbol = ustr(symbol);
+
+            let id = workspace.add_binding_info(
+                Default::default(),
+                symbol,
+                ast::Visibility::Public,
+                false,
+                ast::BindingKind::Type,
+                ScopeLevel::Global,
+                ustr(""),
+                Span::unknown(),
+            );
+
+            let info = workspace.get_binding_info_mut(id).unwrap();
+
+            info.ty = tycx.bound(ty.kind().create_type());
+            info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
+
+            self.const_bindings.insert(id, Value::Type(ty));
+
+            self.builtin_types.insert(symbol, id);
+        };
+
+        mk(workspace, tycx, builtin::SYM_UNIT, tycx.common_types.unit);
+        mk(workspace, tycx, builtin::SYM_BOOL, tycx.common_types.bool);
+
+        mk(workspace, tycx, builtin::SYM_I8, tycx.common_types.i8);
+        mk(workspace, tycx, builtin::SYM_I16, tycx.common_types.i16);
+        mk(workspace, tycx, builtin::SYM_I32, tycx.common_types.i32);
+        mk(workspace, tycx, builtin::SYM_I64, tycx.common_types.i64);
+        mk(workspace, tycx, builtin::SYM_INT, tycx.common_types.int);
+
+        mk(workspace, tycx, builtin::SYM_U8, tycx.common_types.u8);
+        mk(workspace, tycx, builtin::SYM_U16, tycx.common_types.u16);
+        mk(workspace, tycx, builtin::SYM_U32, tycx.common_types.u32);
+        mk(workspace, tycx, builtin::SYM_U64, tycx.common_types.u64);
+        mk(workspace, tycx, builtin::SYM_UINT, tycx.common_types.uint);
+
+        mk(workspace, tycx, builtin::SYM_F16, tycx.common_types.f16);
+        mk(workspace, tycx, builtin::SYM_F32, tycx.common_types.f32);
+        mk(workspace, tycx, builtin::SYM_F64, tycx.common_types.f64);
+        mk(workspace, tycx, builtin::SYM_FLOAT, tycx.common_types.float);
+
+        mk(workspace, tycx, builtin::SYM_STR, tycx.common_types.str);
+
+        mk(workspace, tycx, builtin::SYM_NEVER, tycx.common_types.never);
+    }
 }
 
 pub(crate) struct Scope {

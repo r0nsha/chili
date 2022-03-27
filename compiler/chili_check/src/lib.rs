@@ -75,13 +75,16 @@ pub(crate) struct FunctionFrame {
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s ast::ResolvedAst) -> Self {
+        let mut tycx = TyCtx::new();
+        let env = Environment::new(workspace, &mut tycx);
+
         Self {
             workspace,
-            tycx: TyCtx::new(),
+            tycx,
             old_ast,
             new_ast: ast::ResolvedAst::new(),
             const_bindings: HashMap::new(),
-            env: Environment::new(),
+            env,
             function_frames: vec![],
             self_types: vec![],
             loop_depth: 0,
@@ -89,9 +92,6 @@ impl<'s> CheckSess<'s> {
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
-        // init builtin types
-        self.add_builtin_types();
-
         // start analysis
         for binding in self.old_ast.bindings.iter() {
             let first_symbol = binding.pattern.symbols().first().cloned().unwrap();
