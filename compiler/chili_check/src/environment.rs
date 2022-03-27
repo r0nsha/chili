@@ -8,10 +8,10 @@ use chili_ast::{
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};
 
-pub(crate) struct Resolver {
+pub(crate) struct Environment {
     // The current module's id and information
-    pub(crate) module_id: ModuleId,
-    pub(crate) module_info: ModuleInfo,
+    module_id: ModuleId,
+    module_info: ModuleInfo,
 
     // Symbols maps / Scopes
     builtin_types: UstrMap<BindingInfoId>,
@@ -22,7 +22,7 @@ pub(crate) struct Resolver {
     scope_level: ScopeLevel,
 }
 
-impl Resolver {
+impl Environment {
     pub(crate) fn new() -> Self {
         Self {
             module_id: Default::default(),
@@ -32,6 +32,15 @@ impl Resolver {
             scopes: vec![],
             scope_level: ScopeLevel::Global,
         }
+    }
+
+    pub(crate) fn set_module(&mut self, id: ModuleId, info: ModuleInfo) {
+        self.module_id = id;
+        self.module_info = info;
+    }
+
+    pub(crate) fn module_info(&self) -> (ModuleId, ModuleInfo) {
+        (self.module_id, self.module_info)
     }
 
     pub(crate) fn scope(&self) -> &Scope {

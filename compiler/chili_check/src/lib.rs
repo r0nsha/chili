@@ -1,8 +1,8 @@
 mod builtin;
 mod cast;
 pub mod display;
+mod environment;
 pub mod normalize;
-mod resolver;
 mod substitute;
 mod top_level;
 pub mod ty_ctx;
@@ -27,6 +27,7 @@ use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
+use environment::Environment;
 use std::collections::HashMap;
 use ustr::{ustr, UstrMap};
 
@@ -52,23 +53,14 @@ pub(crate) struct CheckSess<'s> {
     // A map from binding ids to their const value, if the have one
     pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
 
+    // Contains information about scope, builtin symbols, modules, etc.
+    pub(crate) env: Environment,
+
     // Stack of function frames, each ast::Fn creates its own frame
     pub(crate) function_frames: Vec<FunctionFrame>,
 
-    // // The current module's id and information
-    // pub(crate) module_id: ModuleId,
-    // pub(crate) module_info: ModuleInfo,
-
-    // // Symbols maps & Environment scopes
-    // pub(crate) builtin_types: UstrMap<BindingInfoId>,
-    // pub(crate) global_scopes: HashMap<ModuleId, Scope>,
-    // pub(crate) scopes: Vec<Scope>,
-
     // Stack of `Self` types
     pub(crate) self_types: Vec<Ty>,
-
-    // The current scope level
-    pub(crate) scope_level: ScopeLevel,
 
     // The current loop (while/for) depth
     // 0 meaning we are not in a loop, > 1 means we are in a loop
@@ -89,9 +81,9 @@ impl<'s> CheckSess<'s> {
             old_ast,
             new_ast: ast::ResolvedAst::new(),
             const_bindings: HashMap::new(),
+            env: Environment::new(),
             function_frames: vec![],
             self_types: vec![],
-            scope_level: ScopeLevel::Global,
             loop_depth: 0,
         }
     }
@@ -291,7 +283,7 @@ impl Check for ast::Fn {
         let body_res = sess.with_function_frame(
             FunctionFrame {
                 return_ty,
-                scope_level: sess.scope_level,
+                scope_level: sess.env.scope_level(),
             },
             |sess| self.body.check(sess, None),
         )?;
