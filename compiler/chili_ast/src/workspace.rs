@@ -196,11 +196,17 @@ impl ModuleInfo {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct BindingInfoId(pub usize);
 
 impl BindingInfoId {
-    pub fn invalid() -> Self {
+    pub fn unknown() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for BindingInfoId {
+    fn default() -> Self {
         Self(usize::MAX)
     }
 }

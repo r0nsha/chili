@@ -17,9 +17,10 @@ pub(crate) fn add_intrinsic_module(
         ModuleInfo::new(intrinsic_module_info.name, intrinsic_module_info.file_path);
 
     ast.imports.push(ast::Import {
-        binding_info_id: Default::default(),
         module_id: Default::default(),
-        module_info: intrinsic_module_info,
+        binding_info_id: Default::default(),
+        target_module_id: Default::default(),
+        target_module_info: intrinsic_module_info,
         target_binding_info: None,
         alias: intrinsic_module_info.name,
         import_path: vec![],

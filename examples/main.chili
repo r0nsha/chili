@@ -1,5 +1,5 @@
-use c
-use c.printf
+# use c
+# use c.printf
 
 let main = fn {
     let answer: i32 = 42
@@ -7,6 +7,6 @@ let main = fn {
 }
 
 let print_answer = fn(answer) {
-    c.printf("What is the answer?\n".data)
-    printf("The answer is %d\n".data, answer)
+    # c.printf("What is the answer?\n".data)
+    # printf("The answer is %d\n".data, answer)
 }

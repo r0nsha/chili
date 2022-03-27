@@ -18,23 +18,22 @@ use crate::{
 };
 use chili_ast::{
     ast::{self, ForeignLibrary},
-    pattern::{Pattern, SymbolPattern},
+    pattern::Pattern,
     ty::*,
     value::Value,
-    workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
+    workspace::{ModuleId, ScopeLevel, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use environment::Environment;
-use std::collections::HashMap;
+use environment::{Environment, Scope};
 use ustr::{ustr, UstrMap};
 
 pub fn check(
     workspace: &mut Workspace,
-    ast: ast::ResolvedAst,
-) -> DiagnosticResult<(ast::ResolvedAst, TyCtx)> {
+    ast: Vec<ast::Ast>,
+) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
     let mut sess = CheckSess::new(workspace, &ast);
     sess.start()?;
     Ok((sess.new_ast, sess.tycx))
@@ -44,14 +43,11 @@ pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
     pub(crate) tycx: TyCtx,
 
-    // The ast being processed
-    pub(crate) old_ast: &'s ast::ResolvedAst,
+    // The ast's being processed
+    pub(crate) old_asts: &'s Vec<ast::Ast>,
 
-    // The new ast being generated
-    pub(crate) new_ast: ast::ResolvedAst,
-
-    // A map from binding ids to their const value, if the have one
-    pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
+    // The new typed ast being generated
+    pub(crate) new_ast: ast::TypedAst,
 
     // Contains information about scope, builtin symbols, modules, etc.
     pub(crate) env: Environment,
@@ -74,16 +70,15 @@ pub(crate) struct FunctionFrame {
 }
 
 impl<'s> CheckSess<'s> {
-    pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s ast::ResolvedAst) -> Self {
+    pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s Vec<ast::Ast>) -> Self {
         let mut tycx = TyCtx::new();
         let env = Environment::new(workspace, &mut tycx);
 
         Self {
             workspace,
             tycx,
-            old_ast,
-            new_ast: ast::ResolvedAst::new(),
-            const_bindings: HashMap::new(),
+            old_asts: old_ast,
+            new_ast: ast::TypedAst::new(),
             env,
             function_frames: vec![],
             self_types: vec![],
@@ -92,29 +87,39 @@ impl<'s> CheckSess<'s> {
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
-        for binding in self.old_ast.bindings.iter() {
-            match &binding.pattern {
-                Pattern::Single(pat) => {
-                    // let binding_info = self
-                    //     .workspace
-                    //     .get_binding_info(pat.binding_info_id)
-                    //     .unwrap();
-
-                    // if binding_info.ty != Ty::unknown() {
-                    //     continue;
-                    // }
-                    if let None = self.workspace.get_binding_info(pat.binding_info_id) {
-                        binding.clone().check_top_level(self)?;
+        for ast in self.old_asts.iter() {
+            for binding in ast.bindings.iter() {
+                match &binding.pattern {
+                    Pattern::Single(pat) => {
+                        if let None = self.workspace.get_binding_info(pat.binding_info_id) {
+                            binding.clone().check_top_level(self)?;
+                        }
                     }
+                    Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
+                        let span = binding.pattern.span();
+                        return Err(Diagnostic::error()
+                            .with_message("this pattern is not supported yet for global bindings")
+                            .with_labels(vec![Label::primary(span.file_id, span.range())
+                                .with_message("not supported yet")]));
+                    }
+                };
+            }
+
+            for import in ast.imports.iter() {
+                if let None = self.workspace.get_binding_info(import.binding_info_id) {
+                    import.clone().check_top_level(self)?;
                 }
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
-                    let span = binding.pattern.span();
-                    return Err(Diagnostic::error()
-                        .with_message("this pattern is not supported yet for global bindings")
-                        .with_labels(vec![Label::primary(span.file_id, span.range())
-                            .with_message("not supported yet")]));
-                }
-            };
+            }
+        }
+
+        // Check that an entry point function exists
+        // Note (Ron): This won't be relevant for targets like WASM or libraries
+        if self.workspace.entry_point_function_id.is_none() {
+            return Err(Diagnostic::error()
+                .with_message("entry point function `main` is not defined")
+                .with_notes(vec![
+                    "define function `let main = fn() {}` in your entry file".to_string(),
+                ]));
         }
 
         Ok(())
@@ -133,6 +138,16 @@ impl<'s> CheckSess<'s> {
 
     pub(crate) fn function_frame(&self) -> Option<FunctionFrame> {
         self.function_frames.last().map(|&f| f)
+    }
+
+    pub(crate) fn set_module(&mut self, id: ModuleId) {
+        let module_info = *self.workspace.get_module_info(id).unwrap();
+        self.env.set_module(id, module_info);
+        if !self.env.global_scopes.contains_key(&id) {
+            self.env
+                .global_scopes
+                .insert(id, Scope::new(module_info.name));
+        }
     }
 
     pub(crate) fn extract_const_type(
@@ -190,33 +205,27 @@ where
 
 impl Check for ast::Import {
     fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
-        self.module_id = sess.workspace.find_module_info(self.module_info).unwrap();
+        self.target_module_id = sess
+            .workspace
+            .find_module_info(self.target_module_info)
+            .unwrap();
 
-        self.binding_info_id = sess.env.add_binding(
-            sess.workspace,
-            self.alias,
-            self.visibility,
-            sess.tycx.common_types.unknown,
-            false,
-            ast::BindingKind::Import,
-            self.span,
-        )?;
-
-        let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
+        let mut ty = sess.tycx.bound(TyKind::Module(self.target_module_id));
         let mut const_value = None;
 
-        let mut module_id = self.module_id;
+        let mut module_id = self.target_module_id;
         let mut target_binding_info = None;
 
         for (index, node) in self.import_path.iter().enumerate() {
-            let id =
-                sess.find_binding_info_id_in_module(module_id, node.value.as_symbol(), node.span)?;
+            // let id =
+            //     sess.find_binding_info_id_in_module(module_id, node.value.as_symbol(), node.span)?;
 
-            target_binding_info = Some(id);
+            // target_binding_info = Some(id);
 
-            let res = sess.check_binding_by_id(id)?;
-            ty = res.ty;
-            const_value = res.const_value;
+            todo!();
+            // let res = sess.check_binding_by_symbol(id)?;
+            // ty = res.ty;
+            // const_value = res.const_value;
 
             match ty.normalize(&sess.tycx) {
                 TyKind::Module(id) => module_id = id,
@@ -228,12 +237,17 @@ impl Check for ast::Import {
             }
         }
 
-        sess.workspace
-            .get_binding_info_mut(self.binding_info_id)
-            .unwrap()
-            .ty = ty;
-
         self.target_binding_info = target_binding_info;
+
+        self.binding_info_id = sess.env.add_binding(
+            sess.workspace,
+            self.alias,
+            self.visibility,
+            ty,
+            false,
+            ast::BindingKind::Import,
+            self.span,
+        )?;
 
         Ok(Res::new_maybe_const(ty, const_value))
     }
@@ -241,6 +255,8 @@ impl Check for ast::Import {
 
 impl Check for ast::Binding {
     fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
+        self.module_id = sess.env.module_id;
+
         // Collect foreign libraries to be linked later
         if let Some(lib) = self.lib_name {
             sess.workspace
@@ -300,7 +316,9 @@ impl Check for ast::Binding {
                 // that are not `Single` and are not mutable
                 if let Some(const_value) = const_value {
                     if !pat.is_mutable {
-                        sess.const_bindings.insert(pat.binding_info_id, const_value);
+                        sess.env
+                            .const_bindings
+                            .insert(pat.binding_info_id, const_value);
                     }
                 }
             }
@@ -345,9 +363,6 @@ impl Check for ast::FnSig {
         let mut ty_params = vec![];
 
         for param in self.params.iter_mut() {
-            // TODO: support other patterns
-            let pat = param.pattern.as_single_ref();
-
             let ty = if let Some(expr) = &mut param.ty {
                 let res = expr.check(sess, None)?;
                 sess.extract_const_type(res.const_value, res.ty, expr.span)?
@@ -355,13 +370,20 @@ impl Check for ast::FnSig {
                 sess.tycx.var()
             };
 
-            sess.workspace
-                .get_binding_info_mut(pat.binding_info_id)
-                .unwrap()
-                .ty = ty;
+            sess.env.bind_pattern(
+                sess.workspace,
+                &mut param.pattern,
+                ast::Visibility::Private,
+                ty,
+                ast::BindingKind::Let,
+            )?;
 
             ty_params.push(FnTyParam {
-                symbol: pat.symbol,
+                symbol: if param.pattern.is_single() {
+                    param.pattern.as_single_ref().symbol
+                } else {
+                    ustr("")
+                },
                 ty: ty.into(),
             });
         }
@@ -544,9 +566,10 @@ impl Check for ast::Expr {
                         ))
                     }
                     TyKind::Module(module_id) => {
-                        let binding_info_id =
-                            sess.find_binding_info_id_in_module(*module_id, *member, self.span)?;
-                        sess.check_binding_by_id(binding_info_id)
+                        todo!();
+                        // let binding_info_id =
+                        //     sess.find_binding_info_id_in_module(*module_id, *member, self.span)?;
+                        // sess.check_binding_by_symbol(binding_info_id)
                     }
                     ty => Err(TypeError::member_access_on_invalid_type(
                         expr.span,
@@ -558,42 +581,27 @@ impl Check for ast::Expr {
                 symbol,
                 binding_info_id,
                 ..
-            } => match sess.env.lookup_binding(sess.workspace, *symbol) {
-                Some(id) => {
-                    *binding_info_id = id;
+            } => {
+                let (res, id) = sess.check_symbol(*symbol, self.span)?;
 
-                    if let Some(binding_info) = sess.workspace.get_binding_info(id) {
-                        let min_scope_level = sess
-                            .function_frame()
-                            .map_or(ScopeLevel::Global, |f| f.scope_level);
+                *binding_info_id = id;
 
-                        if !binding_info.kind.is_type()
-                            && !binding_info.scope_level.is_global()
-                            && binding_info.scope_level < min_scope_level
-                        {
-                            return Err(Diagnostic::error()
-                                .with_message(
-                                    "can't capture dynamic environment yet - not implemented",
-                                )
-                                .with_labels(vec![Label::primary(
-                                    self.span.file_id,
-                                    self.span.range(),
-                                )]));
-                        }
+                let binding_info = sess.workspace.get_binding_info(id).unwrap();
+                let min_scope_level = sess
+                    .function_frame()
+                    .map_or(ScopeLevel::Global, |f| f.scope_level);
 
-                        Ok(Res::new_maybe_const(
-                            binding_info.ty,
-                            sess.env.const_bindings.get(&id).map(|v| *v),
-                        ))
-                    } else {
-                        sess.check_binding_by_id(*binding_info_id)
-                    }
+                if !binding_info.kind.is_type()
+                    && !binding_info.scope_level.is_global()
+                    && binding_info.scope_level < min_scope_level
+                {
+                    return Err(Diagnostic::error()
+                        .with_message("can't capture dynamic environment yet - not implemented")
+                        .with_labels(vec![Label::primary(self.span.file_id, self.span.range())]));
                 }
-                None => Err(Diagnostic::error()
-                    .with_message(format!("cannot find symbol `{}` in this scope", symbol))
-                    .with_labels(vec![Label::primary(self.span.file_id, self.span.range())
-                        .with_message("not found in this scope")])),
-            },
+
+                Ok(res)
+            }
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => {

@@ -35,7 +35,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Parse all source files into ast's
 
-    let (asts, stats) = time! { "parse", {
+    let (mut asts, stats) = time! { "parse", {
             // TODO: pass `AstGenerationMode` from a `-mt` flag
             match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
                 Ok(result) => result,
@@ -47,22 +47,15 @@ pub fn do_build(build_options: BuildOptions) {
         }
     };
 
-    // Resolve ast definition/binding information
-
-    let ast = time! { "resolve",
-        match chili_resolve::resolve(&mut workspace, asts) {
-            Ok(result) => result,
-            Err(diagnostic) => {
-                emit_single_diagnostic(&workspace.files, diagnostic);
-                return;
-            }
-        }
+    // General pre-check transforms, such as glob import expansion
+    time! { "resolve",
+        chili_resolve::resolve(&mut workspace, &mut asts)
     };
 
     // Partially infer types of asts
 
     let (ast, tycx) = time! { "typeck",
-        match chili_check::check(&mut workspace,  ast) {
+        match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
                 emit_single_diagnostic(&workspace.files, diagnostic);
@@ -105,7 +98,7 @@ pub fn do_build(build_options: BuildOptions) {
     all_sw.stop();
     print_stats(stats, all_sw.elapsed().as_millis());
 
-    chili_pretty_print::print_resolved_ast(&ast, &workspace, &tycx);
+    chili_pretty_print::print_typed_ast(&ast, &workspace, &tycx);
 
     // for ast in asts.iter() {
     //     chili_pretty_print::print_ast(ast, &workspace, &tycx);

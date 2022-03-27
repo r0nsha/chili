@@ -17,7 +17,7 @@ impl<'p> Parser<'p> {
     pub(crate) fn parse_import(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
         let imports = self.parse_import_internal(visibility)?;
         imports.iter().for_each(|import| {
-            self.used_modules.insert(import.module_info);
+            self.used_modules.insert(import.target_module_info);
         });
         Ok(imports)
     }
@@ -163,8 +163,9 @@ impl<'p> Parser<'p> {
                 import_path.push(Spanned::new(ImportPathNode::Glob, self.previous().span));
                 Ok(vec![Import {
                     module_id: Default::default(),
-                    module_info: ModuleInfo::new(module, path),
                     target_binding_info: None,
+                    target_module_id: Default::default(),
+                    target_module_info: ModuleInfo::new(module, path),
                     alias: ustr(""),
                     import_path: import_path.clone(),
                     visibility,
@@ -183,8 +184,9 @@ impl<'p> Parser<'p> {
 
             Ok(vec![Import {
                 module_id: Default::default(),
-                module_info: ModuleInfo::new(module, path),
                 target_binding_info: None,
+                target_module_id: Default::default(),
+                target_module_info: ModuleInfo::new(module, path),
                 alias,
                 import_path: import_path.clone(),
                 visibility,

@@ -36,23 +36,23 @@ impl Ast {
 }
 
 #[derive(Debug, Clone)]
-pub struct ResolvedAst {
+pub struct TypedAst {
     pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
-    id_to_def_map: HashMap<BindingInfoId, DefIndex>,
+    def_map: HashMap<BindingInfoId, DefIndex>,
 }
 
-impl ResolvedAst {
+impl TypedAst {
     pub fn new() -> Self {
         Self {
             imports: Default::default(),
             bindings: Default::default(),
-            id_to_def_map: Default::default(),
+            def_map: Default::default(),
         }
     }
 
     pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
-        self.id_to_def_map
+        self.def_map
             .get(&id)
             .map(|idx| match idx {
                 DefIndex::Binding(idx) => self.bindings.get(*idx),
@@ -62,7 +62,7 @@ impl ResolvedAst {
     }
 
     pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
-        self.id_to_def_map
+        self.def_map
             .get_mut(&id)
             .map(|idx| match idx {
                 DefIndex::Binding(idx) => self.bindings.get_mut(*idx),
@@ -72,7 +72,7 @@ impl ResolvedAst {
     }
 
     pub fn get_import(&self, id: BindingInfoId) -> Option<&Import> {
-        self.id_to_def_map
+        self.def_map
             .get(&id)
             .map(|idx| match idx {
                 DefIndex::Import(idx) => self.imports.get(*idx),
@@ -82,7 +82,7 @@ impl ResolvedAst {
     }
 
     pub fn get_import_mut(&mut self, id: BindingInfoId) -> Option<&mut Import> {
-        self.id_to_def_map
+        self.def_map
             .get_mut(&id)
             .map(|idx| match idx {
                 DefIndex::Import(idx) => self.imports.get_mut(*idx),
@@ -94,7 +94,7 @@ impl ResolvedAst {
     pub fn add_binding(&mut self, binding: Binding) {
         let idx = self.bindings.len();
         for symbol in binding.pattern.symbols() {
-            self.id_to_def_map
+            self.def_map
                 .insert(symbol.binding_info_id, DefIndex::Binding(idx));
         }
         self.bindings.push(binding);
@@ -102,7 +102,7 @@ impl ResolvedAst {
 
     pub fn add_import(&mut self, import: Import) {
         let idx = self.imports.len();
-        self.id_to_def_map
+        self.def_map
             .insert(import.binding_info_id, DefIndex::Import(idx));
         self.imports.push(import);
     }
@@ -671,9 +671,19 @@ impl From<TokenKind> for UnaryOp {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Import {
-    pub binding_info_id: BindingInfoId,
+    // The import binding module id, during `resolve` phase
     pub module_id: ModuleId,
-    pub module_info: ModuleInfo,
+
+    // The binding info id assigned during `check` phase, binds to `alias`
+    pub binding_info_id: BindingInfoId,
+
+    // The resolved module id, during `check` phase
+    pub target_module_id: ModuleId,
+
+    // The module info resolved when generating the ast
+    pub target_module_info: ModuleInfo,
+
+    // If this import contains a path, this is the resolved binding info id, during `check` phase
     pub target_binding_info: Option<BindingInfoId>,
     pub alias: Ustr,
     pub import_path: ImportPath,
@@ -700,11 +710,11 @@ impl Import {
 
     pub fn import_path_str(&self) -> String {
         if self.import_path.is_empty() {
-            self.module_info.name.to_string()
+            self.target_module_info.name.to_string()
         } else {
             format!(
                 "{}.{}",
-                self.module_info.name,
+                self.target_module_info.name,
                 self.import_path
                     .iter()
                     .map(|p| p.value.to_string())

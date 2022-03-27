@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use crate::{builtin, ty_ctx::TyCtx};
 use chili_ast::{
     ast,
     pattern::{Pattern, SymbolPattern},
@@ -8,11 +7,9 @@ use chili_ast::{
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_resolve::builtin;
 use chili_span::Span;
+use std::collections::HashMap;
 use ustr::{ustr, Ustr, UstrMap};
-
-use crate::ty_ctx::TyCtx;
 
 pub(crate) struct Environment {
     // The current module's id and information

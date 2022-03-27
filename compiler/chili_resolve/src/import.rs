@@ -16,7 +16,6 @@ pub(crate) fn collect_module_exports(asts: &Vec<Ast>, exports: &mut ModuleExport
 
         for binding in ast.bindings.iter() {
             if binding.visibility.is_public() {
-                // TODO: support unpack patterns
                 let pat = binding.pattern.into_single();
                 entry.insert(pat.symbol, pat.binding_info_id);
             }
@@ -24,19 +23,16 @@ pub(crate) fn collect_module_exports(asts: &Vec<Ast>, exports: &mut ModuleExport
     }
 }
 
-pub(crate) fn expand_and_replace_glob_imports(imports: &mut Vec<Import>, exports: &ModuleExports) {
+pub(crate) fn resolve_imports(imports: &mut Vec<Import>, exports: &ModuleExports) {
     let mut to_remove: Vec<usize> = vec![];
     let mut to_add: Vec<Import> = vec![];
 
     for (index, import) in imports.iter().enumerate() {
-        if !import.is_glob() {
-            continue;
+        if import.is_glob() {
+            let expanded_imports = expand_glob_import(import.clone(), exports);
+            to_remove.push(index);
+            to_add.extend(expanded_imports);
         }
-
-        let expanded_imports = expand_glob_import(import.clone(), exports);
-
-        to_remove.push(index);
-        to_add.extend(expanded_imports);
     }
 
     let mut removed = 0;
@@ -57,7 +53,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
     //      `use foo.C`
     //
 
-    let exports = exports.get(&import.module_id).unwrap();
+    let exports = exports.get(&import.target_module_id).unwrap();
     exports
         .iter()
         .map(|(symbol, _)| {
@@ -69,9 +65,10 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
             ));
             Import {
                 module_id: import.module_id,
-                module_info: import.module_info,
-                alias: *symbol,
                 target_binding_info: import.target_binding_info,
+                target_module_id: import.target_module_id,
+                target_module_info: import.target_module_info,
+                alias: *symbol,
                 import_path,
                 visibility: import.visibility,
                 span: import.span().clone(),

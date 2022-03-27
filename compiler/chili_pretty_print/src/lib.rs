@@ -4,7 +4,7 @@ use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 
-pub fn print_resolved_ast(ast: &ast::ResolvedAst, workspace: &Workspace, tycx: &TyCtx) {
+pub fn print_typed_ast(ast: &ast::TypedAst, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();
         config.branch = Style {
@@ -85,7 +85,7 @@ impl<T: PrintTree> PrintTree for Box<T> {
     }
 }
 
-impl PrintTree for ast::ResolvedAst {
+impl PrintTree for ast::TypedAst {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         for import in self.imports.iter() {
             import.print_tree(b, workspace, tycx);
@@ -107,7 +107,7 @@ impl PrintTree for ast::Import {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.add_empty_child(format!(
             "use \"{}\" = {} <{}>",
-            self.module_info.file_path,
+            self.target_module_info.file_path,
             self.alias,
             tycx.ty_kind(workspace.get_binding_info(self.binding_info_id).unwrap().ty)
         ));

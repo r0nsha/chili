@@ -71,7 +71,7 @@ impl Resolve for ast::Import {
         workspace: &mut Workspace,
     ) -> DiagnosticResult<()> {
         if !resolver.scope_level.is_global() {
-            self.module_id = workspace.find_module_info(self.module_info).unwrap();
+            self.target_module_id = workspace.find_module_info(self.target_module_info).unwrap();
 
             self.binding_info_id = resolver.add_binding(
                 workspace,
