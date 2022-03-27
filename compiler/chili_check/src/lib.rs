@@ -95,16 +95,17 @@ impl<'s> CheckSess<'s> {
         for binding in self.old_ast.bindings.iter() {
             match &binding.pattern {
                 Pattern::Single(pat) => {
-                    let binding_info = self
-                        .workspace
-                        .get_binding_info(pat.binding_info_id)
-                        .unwrap();
+                    // let binding_info = self
+                    //     .workspace
+                    //     .get_binding_info(pat.binding_info_id)
+                    //     .unwrap();
 
-                    if binding_info.ty != Ty::unknown() {
-                        continue;
+                    // if binding_info.ty != Ty::unknown() {
+                    //     continue;
+                    // }
+                    if let None = self.workspace.get_binding_info(pat.binding_info_id) {
+                        binding.clone().check_top_level(self)?;
                     }
-
-                    binding.clone().check_top_level(self)?;
                 }
                 Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
                     let span = binding.pattern.span();
@@ -251,13 +252,6 @@ impl Check for ast::Binding {
                 )?);
         }
 
-        sess.env.bind_pattern(
-            sess.workspace,
-            &mut self.pattern,
-            self.visibility,
-            self.kind,
-        )?;
-
         let binding_ty = if let Some(ty_expr) = &mut self.ty_expr {
             let res = ty_expr.check(sess, None)?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
@@ -267,32 +261,51 @@ impl Check for ast::Binding {
 
         let const_value = if let Some(expr) = &mut self.expr {
             let res = expr.check(sess, Some(binding_ty))?;
+
             res.ty
                 .unify(&binding_ty, sess)
                 .map_err(|e| map_unify_err(e, binding_ty, res.ty, expr.span, &sess.tycx))?;
+
+            // If this expressions matches the entry point function's requirements
+            // Tag it as the entry function
+            match &self.pattern {
+                Pattern::Single(pat) => {
+                    if sess.workspace.entry_point_function_id.is_none()
+                        && pat.symbol == "main"
+                        && expr.is_fn()
+                    {
+                        sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
+                        expr.as_fn_mut().is_entry_point = true;
+                    }
+                }
+                _ => (),
+            }
+
             res.const_value
         } else {
             None
         };
 
-        // TODO: unify type with the pattern
+        sess.env.bind_pattern(
+            sess.workspace,
+            &mut self.pattern,
+            self.visibility,
+            binding_ty,
+            self.kind,
+        )?;
 
-        // don't allow const values with mutable bindings or patterns
-        // that are not `Single` and are not mutable
-        if let Some(const_value) = const_value {
-            match &self.pattern {
-                Pattern::Single(SymbolPattern {
-                    is_mutable,
-                    binding_info_id,
-                    ..
-                }) => {
-                    if !is_mutable {
-                        sess.const_bindings.insert(*binding_info_id, const_value);
+        match &self.pattern {
+            Pattern::Single(pat) => {
+                // don't allow const values with mutable bindings or patterns
+                // that are not `Single` and are not mutable
+                if let Some(const_value) = const_value {
+                    if !pat.is_mutable {
+                        sess.const_bindings.insert(pat.binding_info_id, const_value);
                     }
                 }
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
             }
-        };
+            _ => (),
+        }
 
         Ok(Res {
             ty: sess.tycx.common_types.unit,
@@ -542,11 +555,64 @@ impl Check for ast::Expr {
                 }
             }
             ast::ExprKind::Ident {
-                binding_info_id, ..
-            } => sess.check_binding_by_id(*binding_info_id),
+                symbol,
+                binding_info_id,
+                ..
+            } => match sess.env.lookup_binding(sess.workspace, *symbol) {
+                Some(id) => {
+                    *binding_info_id = id;
+
+                    if let Some(binding_info) = sess.workspace.get_binding_info(id) {
+                        let min_scope_level = sess
+                            .function_frame()
+                            .map_or(ScopeLevel::Global, |f| f.scope_level);
+
+                        if !binding_info.kind.is_type()
+                            && !binding_info.scope_level.is_global()
+                            && binding_info.scope_level < min_scope_level
+                        {
+                            return Err(Diagnostic::error()
+                                .with_message(
+                                    "can't capture dynamic environment yet - not implemented",
+                                )
+                                .with_labels(vec![Label::primary(
+                                    self.span.file_id,
+                                    self.span.range(),
+                                )]));
+                        }
+
+                        Ok(Res::new_maybe_const(
+                            binding_info.ty,
+                            sess.env.const_bindings.get(&id).map(|v| *v),
+                        ))
+                    } else {
+                        sess.check_binding_by_id(*binding_info_id)
+                    }
+                }
+                None => Err(Diagnostic::error()
+                    .with_message(format!("cannot find symbol `{}` in this scope", symbol))
+                    .with_labels(vec![Label::primary(self.span.file_id, self.span.range())
+                        .with_message("not found in this scope")])),
+            },
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
-            ast::ExprKind::StructLiteral { type_expr, fields } => todo!(),
+            ast::ExprKind::StructLiteral { type_expr, fields } => {
+                let mut field_map = UstrMap::default();
+
+                for field in fields.iter_mut() {
+                    // TODO: check field
+
+                    if let Some(already_defined_span) = field_map.insert(field.symbol, field.span) {
+                        return Err(SyntaxError::duplicate_symbol(
+                            already_defined_span,
+                            field.span,
+                            field.symbol,
+                        ));
+                    }
+                }
+
+                todo!()
+            }
             ast::ExprKind::Literal(lit) => lit.check(sess, expected_ty),
             ast::ExprKind::PointerType(inner, is_mutable) => {
                 let res = inner.check(sess, None)?;
@@ -576,7 +642,23 @@ impl Check for ast::Expr {
                     Value::Type(sess.tycx.bound(kind.clone())),
                 ))
             }
-            ast::ExprKind::StructType(_) => todo!(),
+            ast::ExprKind::StructType(st) => {
+                let mut field_map = UstrMap::default();
+
+                for field in st.fields.iter_mut() {
+                    // TODO: check field
+
+                    if let Some(already_defined_span) = field_map.insert(field.name, field.span) {
+                        return Err(SyntaxError::duplicate_symbol(
+                            already_defined_span,
+                            field.span,
+                            field.name,
+                        ));
+                    }
+                }
+
+                todo!()
+            }
             ast::ExprKind::FnType(sig) => sig.check(sess, expected_ty),
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
@@ -784,6 +866,8 @@ impl Check for ast::Block {
     fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
         let mut res = Res::new(sess.tycx.common_types.unit);
 
+        sess.env.push_scope();
+
         if !self.exprs.is_empty() {
             let last_index = self.exprs.len() - 1;
 
@@ -798,9 +882,12 @@ impl Check for ast::Block {
                 )?;
             }
         }
+
         for expr in self.deferred.iter_mut() {
             expr.check(sess, None)?;
         }
+
+        sess.env.pop_scope();
 
         Ok(res)
     }

@@ -49,11 +49,11 @@ pub fn resolve(workspace: &mut Workspace, mut asts: Vec<Ast>) -> DiagnosticResul
     }
 
     // Resolve all definitions, scopes, uses, etc...
-    for ast in asts.iter_mut() {
-        resolver.module_id = ast.module_id;
-        resolver.module_info = ast.module_info;
-        ast.resolve(&mut resolver, workspace)?;
-    }
+    // for ast in asts.iter_mut() {
+    //     resolver.module_id = ast.module_id;
+    //     resolver.module_info = ast.module_info;
+    //     ast.resolve(&mut resolver, workspace)?;
+    // }
 
     for ast in asts {
         for import in ast.imports {

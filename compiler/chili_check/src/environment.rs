@@ -185,17 +185,26 @@ impl Environment {
         workspace: &mut Workspace,
         pattern: &mut Pattern,
         visibility: ast::Visibility,
+        ty: Ty,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<()> {
         match pattern {
             Pattern::Single(pat) => {
-                pat.binding_info_id = self.bind_symbol_pattern(workspace, pat, visibility, kind)?;
+                self.bind_symbol_pattern(workspace, pat, visibility, ty, kind)?;
             }
-            Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => {
-                for pat in pat.symbols.iter_mut() {
-                    pat.binding_info_id =
-                        self.bind_symbol_pattern(workspace, pat, visibility, kind)?;
-                }
+            // TODO: Need InferenceValue::PartialStruct(Vec<(Ustr, Ty)>)
+            Pattern::StructUnpack(_) => {
+                todo!()
+                // for pat in pat.symbols.iter_mut() {
+                //     self.bind_symbol_pattern(workspace, pat, visibility, ty, kind)?;
+                // }
+            }
+            // TODO: Need InferenceValue::PartialTuple(Vec<Ty>)
+            Pattern::TupleUnpack(_) => {
+                todo!()
+                // for pat in pat.symbols.iter_mut() {
+                //     self.bind_symbol_pattern(workspace, pat, visibility, ty, kind)?;
+                // }
             }
         }
 
@@ -207,17 +216,21 @@ impl Environment {
         workspace: &mut Workspace,
         pattern: &mut SymbolPattern,
         visibility: ast::Visibility,
+        ty: Ty,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<BindingInfoId> {
+        let symbol = pattern.alias.unwrap_or(pattern.symbol);
+
         pattern.binding_info_id = self.add_binding(
             workspace,
-            pattern.symbol,
+            symbol,
             visibility,
-            Ty::default(),
+            ty,
             pattern.is_mutable,
             kind,
             pattern.span,
         )?;
+
         Ok(pattern.binding_info_id)
     }
 
