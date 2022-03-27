@@ -62,7 +62,7 @@ pub fn do_build(build_options: BuildOptions) {
     // Partially infer types of asts
 
     let (ast, tycx) = time! { "typeck",
-        match chili_infer::check(&mut workspace,  ast) {
+        match chili_check::check(&mut workspace,  ast) {
             Ok(result) => result,
             Err(diagnostic) => {
                 emit_single_diagnostic(&workspace.files, diagnostic);

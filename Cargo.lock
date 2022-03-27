@@ -118,17 +118,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "chili_error"
-version = "0.1.0"
-dependencies = [
- "chili_span",
- "codespan",
- "codespan-reporting",
- "ustr",
-]
-
-[[package]]
-name = "chili_infer"
+name = "chili_check"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
@@ -143,13 +133,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "chili_error"
+version = "0.1.0"
+dependencies = [
+ "chili_span",
+ "codespan",
+ "codespan-reporting",
+ "ustr",
+]
+
+[[package]]
 name = "chili_main"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_astgen",
+ "chili_check",
  "chili_error",
- "chili_infer",
  "chili_pretty_print",
  "chili_resolve",
  "chili_span",
@@ -186,8 +186,8 @@ name = "chili_pretty_print"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
+ "chili_check",
  "chili_error",
- "chili_infer",
  "chili_span",
  "chili_token",
  "common",

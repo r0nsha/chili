@@ -13,4 +13,4 @@ chili_span = { path = "../chili_span" }
 chili_token = { path = "../chili_token" }
 chili_error = { path = "../chili_error" }
 chili_ast = { path = "../chili_ast" }
-chili_infer = { path = "../chili_infer" }
+chili_check = { path = "../chili_check" }

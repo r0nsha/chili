@@ -6,10 +6,11 @@ edition = "2021"
 [dependencies]
 codespan = "0.11.1"
 codespan-reporting = "0.11.1"
+slab = "0.4.5"
 ustr = "0.8.1"
 
-chili_span = { path = "../chili_span" }
-common = { path = "../common" }
-chili_error = { path = "../chili_error" }
-chili_ast = { path = "../chili_ast" }
-chili_infer = { path = "../chili_infer" }
+common = { path = '../common' }
+chili_span = { path = '../chili_span' }
+chili_error = { path = '../chili_error' }
+chili_ast = { path = '../chili_ast' }
+chili_resolve = { path = '../chili_resolve' }
