@@ -1,4 +1,4 @@
-use crate::{normalize::NormalizeTy, tycx::TyCtx, unify::UnifyTyErr};
+use crate::{normalize::NormalizeTy, ty_ctx::TyCtx, unify::UnifyTyErr};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 

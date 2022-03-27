@@ -2,9 +2,10 @@ mod builtin;
 mod cast;
 pub mod display;
 pub mod normalize;
+mod resolver;
 mod substitute;
 mod top_level;
-pub mod tycx;
+pub mod ty_ctx;
 pub mod unify;
 
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
     display::{map_unify_err, DisplayTy},
     normalize::NormalizeTy,
     top_level::CheckTopLevel,
-    tycx::TyCtx,
+    ty_ctx::TyCtx,
     unify::UnifyTy,
 };
 use chili_ast::{

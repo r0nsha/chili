@@ -1,4 +1,4 @@
-use crate::{tycx::TyCtx, CheckSess};
+use crate::{ty_ctx::TyCtx, CheckSess};
 use chili_ast::{ty::*, value::Value, workspace::BindingInfoFlags};
 use chili_resolve::builtin;
 use ustr::Ustr;
