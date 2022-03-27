@@ -711,17 +711,20 @@ impl Check for ast::Block {
     fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
         let mut res = Res::new(sess.tycx.common_types.unit);
 
-        let last_index = self.exprs.len() - 1;
+        if !self.exprs.is_empty() {
+            let last_index = self.exprs.len() - 1;
 
-        for (index, expr) in self.exprs.iter_mut().enumerate() {
-            let expected_ty = if index == last_index {
-                expected_ty
-            } else {
-                None
-            };
-            res = expr.check(sess, expected_ty)?;
+            for (index, expr) in self.exprs.iter_mut().enumerate() {
+                res = expr.check(
+                    sess,
+                    if index == last_index {
+                        expected_ty
+                    } else {
+                        None
+                    },
+                )?;
+            }
         }
-
         for expr in self.deferred.iter_mut() {
             expr.check(sess, None)?;
         }

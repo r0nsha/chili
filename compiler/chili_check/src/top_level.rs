@@ -74,7 +74,7 @@ impl<'s> CheckSess<'s> {
 
                 return Err(Diagnostic::error()
                     .with_message(format!(
-                        "cannot find value `{}` in module `{}`",
+                        "cannot find symbol `{}` in module `{}`",
                         symbol, module_info.name
                     ))
                     .with_labels(vec![Label::primary(span.file_id, span.range())
