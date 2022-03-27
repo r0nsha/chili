@@ -1,5 +1,5 @@
 use crate::{
-    ast::{ForeignLibrary, ModuleInfo, Visibility},
+    ast::{BindingKind, ForeignLibrary, ModuleInfo, Visibility},
     ty::Ty,
 };
 use bitflags::bitflags;
@@ -81,7 +81,7 @@ pub struct BindingInfo {
     pub ty: Ty,
     // what kind of access the binding has
     pub is_mutable: bool,
-    pub kind: BindingInfoKind,
+    pub kind: BindingKind,
     // the scope depth of the binding
     pub scope_level: ScopeLevel,
     // the scope name of the binding, i.e: `foo._.symbol._._`
@@ -124,7 +124,7 @@ impl Workspace {
         symbol: Ustr,
         visibility: Visibility,
         is_mutable: bool,
-        kind: BindingInfoKind,
+        kind: BindingKind,
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
@@ -153,7 +153,7 @@ impl Workspace {
         symbol: Ustr,
         visibility: Visibility,
         is_mutable: bool,
-        kind: BindingInfoKind,
+        kind: BindingKind,
         level: ScopeLevel,
         scope_name: Ustr,
         span: Span,
@@ -198,22 +198,6 @@ impl Workspace {
 impl BindingInfo {
     pub fn qualified_name(&self) -> Ustr {
         ustr(&format!("{}.{}", self.scope_name, self.symbol))
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum BindingInfoKind {
-    Let,
-    Type,
-    Import,
-}
-
-impl BindingInfoKind {
-    pub fn is_type(&self) -> bool {
-        match self {
-            BindingInfoKind::Type => true,
-            _ => false,
-        }
     }
 }
 

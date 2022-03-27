@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::scope::{Scope, ScopeSymbol};
 use chili_ast::{
-    ast::{self, BindingKind, ModuleInfo, Visibility},
+    ast::{BindingKind, ModuleInfo, Visibility},
     pattern::{Pattern, SymbolPattern},
-    workspace::{BindingInfoId, BindingInfoKind, ModuleId, ScopeLevel, Workspace},
+    workspace::{BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};
@@ -126,11 +126,7 @@ impl Resolver {
             symbol,
             visibility,
             is_mutable,
-            match kind {
-                ast::BindingKind::Let => BindingInfoKind::Let,
-                ast::BindingKind::Type => BindingInfoKind::Type,
-                ast::BindingKind::Import => BindingInfoKind::Import,
-            },
+            kind,
             self.scope_level,
             ustr(&self.current_scope_name()),
             span,

@@ -65,11 +65,8 @@ pub fn resolve<'w>(workspace: &mut Workspace, mut asts: Vec<Ast>) -> DiagnosticR
     }
 
     // Check that an entry point function exists
-    if workspace.entry_point_function_id.is_some() {
-        // TODO:
-        // Follow the main path, marking all bindings that need codegen
-        // mark_bindings_for_codegen(workspace, asts);
-    } else {
+    // Note (Ron): This won't be relevant for targets like WASM or libraries
+    if workspace.entry_point_function_id.is_none() {
         return Err(Diagnostic::error()
             .with_message("entry point function `main` is not defined")
             .with_notes(vec![

@@ -1,6 +1,6 @@
 use chili_ast::{
     ast,
-    workspace::{BindingInfoFlags, BindingInfoKind, ScopeLevel, Workspace},
+    workspace::{BindingInfoFlags, ScopeLevel, Workspace},
 };
 use chili_span::Span;
 use ustr::ustr;
@@ -14,9 +14,9 @@ impl Resolver {
             let id = workspace.add_builtin_binding_info(
                 Default::default(),
                 symbol,
-                ast::Visibility::Private,
+                ast::Visibility::Public,
                 false,
-                BindingInfoKind::Type,
+                ast::BindingKind::Type,
                 ScopeLevel::Global,
                 ustr(""),
                 Span::unknown(),

@@ -1,7 +1,7 @@
 use crate::Resolver;
 use chili_ast::{
     ast::{self, BindingKind, ForeignLibrary, Visibility},
-    workspace::{BindingInfoId, Workspace},
+    workspace::Workspace,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};

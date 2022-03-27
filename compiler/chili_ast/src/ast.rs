@@ -512,6 +512,15 @@ pub enum BindingKind {
     Import,
 }
 
+impl BindingKind {
+    pub fn is_type(&self) -> bool {
+        match self {
+            BindingKind::Type => true,
+            _ => false,
+        }
+    }
+}
+
 impl Display for BindingKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
