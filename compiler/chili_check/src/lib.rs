@@ -138,7 +138,7 @@ impl<'s> CheckSess<'s> {
         result
     }
 
-    pub(crate) fn frame(&self) -> Option<CheckFrame> {
+    pub(crate) fn function_frame(&self) -> Option<CheckFrame> {
         self.frames.last().map(|&f| f)
     }
 
@@ -270,7 +270,7 @@ impl Check for ast::Fn {
         let body_res = sess.with_frame(
             CheckFrame {
                 return_ty,
-                self_ty: sess.frame().map(|f| f.self_ty).flatten(),
+                self_ty: sess.function_frame().map(|f| f.self_ty).flatten(),
             },
             |sess| self.body.check(sess, None),
         )?;
@@ -402,7 +402,39 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::Return { expr, deferred } => todo!(),
+            ast::ExprKind::Return { expr, deferred } => {
+                let function_frame = sess
+                    .function_frame()
+                    .ok_or(SyntaxError::outside_of_function(self.span, "return"))?;
+
+                if let Some(expr) = expr {
+                    let expected = function_frame.return_ty;
+                    let res = expr.check(sess, Some(expected))?;
+                    res.ty
+                        .unify(&expected, sess)
+                        .map_err(|e| map_unify_err(e, expected, res.ty, expr.span, &sess.tycx))?;
+                } else {
+                    let expected = sess.tycx.common_types.unit;
+                    function_frame
+                        .return_ty
+                        .unify(&expected, sess)
+                        .map_err(|e| {
+                            map_unify_err(
+                                e,
+                                expected,
+                                function_frame.return_ty,
+                                self.span,
+                                &sess.tycx,
+                            )
+                        })?;
+                }
+
+                for expr in deferred.iter_mut() {
+                    expr.check(sess, None)?;
+                }
+
+                Ok(Res::new(sess.tycx.common_types.never))
+            }
             ast::ExprKind::If {
                 cond,
                 then_expr,
@@ -504,7 +536,7 @@ impl Check for ast::Expr {
             ast::ExprKind::StructType(_) => todo!(),
             ast::ExprKind::FnType(sig) => sig.check(sess, expected_ty),
             ast::ExprKind::SelfType => {
-                let self_ty = sess.frame().map(|f| f.self_ty).flatten();
+                let self_ty = sess.function_frame().map(|f| f.self_ty).flatten();
                 match self_ty {
                     Some(ty) => Ok(Res::new_const(
                         sess.tycx.bound(TyKind::Var(ty).create_type()),
