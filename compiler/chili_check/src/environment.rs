@@ -2,10 +2,12 @@ use std::collections::HashMap;
 
 use chili_ast::{
     ast,
+    pattern::{Pattern, SymbolPattern},
     ty::Ty,
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ModuleInfo, ScopeLevel, Workspace},
 };
+use chili_error::{DiagnosticResult, SyntaxError};
 use chili_resolve::builtin;
 use chili_span::Span;
 use ustr::{ustr, Ustr, UstrMap};
@@ -104,7 +106,7 @@ impl Environment {
         self.scope_level = self.scope_level.previous();
     }
 
-    pub(crate) fn lookup_binding<'w>(
+    pub(crate) fn lookup_binding(
         &self,
         workspace: &mut Workspace,
         symbol: Ustr,
@@ -137,8 +139,25 @@ impl Environment {
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
-    ) -> BindingInfoId {
+    ) -> DiagnosticResult<BindingInfoId> {
         let scope_level = self.scope_level;
+
+        // in global scope, check there's already a binding with the same symbol
+        if scope_level.is_global() {
+            match self.scope().bindings.get(&symbol) {
+                Some(symbol) => {
+                    if !symbol.is_shadowable() {
+                        let binding_info = workspace.get_binding_info(symbol.id).unwrap();
+                        return Err(SyntaxError::duplicate_symbol(
+                            binding_info.span,
+                            span,
+                            binding_info.symbol,
+                        ));
+                    }
+                }
+                None => (),
+            }
+        }
 
         let id = workspace.add_binding_info(
             self.module_id,
@@ -160,50 +179,48 @@ impl Environment {
             },
         );
 
-        id
+        Ok(id)
     }
 
-    // pub(crate) fn add_binding_with_symbol_pattern<'w>(
-    //     &mut self,
-    //     workspace: &mut Workspace,
-    //     pattern: &SymbolPattern,
-    //     visibility: Visibility,
-    //     kind: BindingKind,
-    //     shadowable: bool,
-    // ) -> BindingInfoId {
-    //     self.add_binding(
-    //         workspace,
-    //         pattern.symbol,
-    //         visibility,
-    //         pattern.is_mutable,
-    //         kind,
-    //         pattern.span,
-    //         shadowable,
-    //     )
-    // }
+    pub(crate) fn bind_pattern(
+        &mut self,
+        workspace: &mut Workspace,
+        pattern: &mut Pattern,
+        visibility: ast::Visibility,
+        kind: ast::BindingKind,
+    ) -> DiagnosticResult<()> {
+        match pattern {
+            Pattern::Single(pat) => {
+                pat.binding_info_id = self.bind_symbol_pattern(workspace, pat, visibility, kind)?;
+            }
+            Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => {
+                for pat in pat.symbols.iter_mut() {
+                    pat.binding_info_id =
+                        self.bind_symbol_pattern(workspace, pat, visibility, kind)?;
+                }
+            }
+        }
 
-    // pub(crate) fn add_binding_with_pattern<'w>(
-    //     &mut self,
-    //     workspace: &mut Workspace,
-    //     pattern: &mut Pattern,
-    //     visibility: Visibility,
-    //     kind: BindingKind,
-    //     shadowable: bool,
-    // ) {
-    //     match pattern {
-    //         Pattern::Single(pat) => {
-    //             pat.binding_info_id = self
-    //                 .add_binding_with_symbol_pattern(workspace, pat, visibility, kind, shadowable);
-    //         }
-    //         Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => {
-    //             for pat in pat.symbols.iter_mut() {
-    //                 self.add_binding_with_symbol_pattern(
-    //                     workspace, pat, visibility, kind, shadowable,
-    //                 );
-    //             }
-    //         }
-    //     }
-    // }
+        Ok(())
+    }
+
+    pub(crate) fn bind_symbol_pattern(
+        &mut self,
+        workspace: &mut Workspace,
+        pattern: &mut SymbolPattern,
+        visibility: ast::Visibility,
+        kind: ast::BindingKind,
+    ) -> DiagnosticResult<BindingInfoId> {
+        pattern.binding_info_id = self.add_binding(
+            workspace,
+            pattern.symbol,
+            visibility,
+            pattern.is_mutable,
+            kind,
+            pattern.span,
+        )?;
+        Ok(pattern.binding_info_id)
+    }
 
     fn add_builtin_types(&mut self, workspace: &mut Workspace, tycx: &mut TyCtx) {
         let mut mk = |workspace: &mut Workspace, tycx: &mut TyCtx, symbol: &str, ty: Ty| {

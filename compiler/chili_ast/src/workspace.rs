@@ -130,6 +130,7 @@ impl Workspace {
         span: Span,
     ) -> BindingInfoId {
         let id = BindingInfoId(self.binding_infos.len());
+
         self.binding_infos.push(BindingInfo {
             id,
             module_id,
@@ -144,6 +145,7 @@ impl Workspace {
             flags: BindingInfoFlags::empty(),
             span,
         });
+
         id
     }
 

@@ -198,7 +198,7 @@ impl Check for ast::Import {
             false,
             ast::BindingKind::Import,
             self.span,
-        );
+        )?;
 
         let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
         let mut const_value = None;

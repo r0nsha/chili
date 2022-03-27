@@ -54,11 +54,11 @@
 //     }
 // }
 
-// trait MarkCodegen<'w> {
+// trait MarkCodegen {
 //     fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace);
 // }
 
-// impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Vec<T> {
+// impl<T: MarkCodegen> MarkCodegen for Vec<T> {
 //     fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {
 //         for element in self {
 //             element.mark_codegen(sess, workspace);
@@ -66,7 +66,7 @@
 //     }
 // }
 
-// impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Option<T> {
+// impl<T: MarkCodegen> MarkCodegen for Option<T> {
 //     fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {
 //         if let Some(e) = self {
 //             e.mark_codegen(sess, workspace);
@@ -74,12 +74,12 @@
 //     }
 // }
 
-// impl<'w, T: MarkCodegen<'w>> MarkCodegen<'w> for Box<T> {
+// impl<T: MarkCodegen> MarkCodegen for Box<T> {
 //     fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {
 //         self.as_ref().mark_codegen(sess, workspace);
 //     }
 // }
 
-// impl<'w> MarkCodegen<'w> for ast::Binding {
+// impl MarkCodegen for ast::Binding {
 //     fn mark_codegen(&self, sess: &mut Sess, workspace: &mut Workspace) {}
 // }

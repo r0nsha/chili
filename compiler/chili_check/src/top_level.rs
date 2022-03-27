@@ -46,7 +46,7 @@ impl<'s> CheckSess<'s> {
                     Some(import) => {
                         import.clone().check_top_level(self)?;
                     }
-                    None => unreachable!(),
+                    None => unreachable!("{:?}", id),
                 },
             }
         }

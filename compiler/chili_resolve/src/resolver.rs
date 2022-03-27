@@ -82,7 +82,7 @@ impl Resolver {
         }
     }
 
-    pub(crate) fn lookup_binding<'w>(
+    pub(crate) fn lookup_binding(
         &self,
         workspace: &mut Workspace,
         symbol: Ustr,
@@ -107,7 +107,7 @@ impl Resolver {
         None
     }
 
-    pub(crate) fn add_binding<'w>(
+    pub(crate) fn add_binding(
         &mut self,
         workspace: &mut Workspace,
         symbol: Ustr,
@@ -140,7 +140,7 @@ impl Resolver {
         id
     }
 
-    pub(crate) fn add_binding_with_symbol_pattern<'w>(
+    pub(crate) fn add_binding_with_symbol_pattern(
         &mut self,
         workspace: &mut Workspace,
         pattern: &SymbolPattern,
@@ -159,7 +159,7 @@ impl Resolver {
         )
     }
 
-    pub(crate) fn add_binding_with_pattern<'w>(
+    pub(crate) fn add_binding_with_pattern(
         &mut self,
         workspace: &mut Workspace,
         pattern: &mut Pattern,

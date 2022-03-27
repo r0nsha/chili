@@ -8,7 +8,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::UstrMap;
 
 // Trait for resolving binding/import uses
-pub(crate) trait Resolve<'w> {
+pub(crate) trait Resolve {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -16,7 +16,7 @@ pub(crate) trait Resolve<'w> {
     ) -> DiagnosticResult<()>;
 }
 
-impl<'w, T: Resolve<'w>> Resolve<'w> for Vec<T> {
+impl<T: Resolve> Resolve for Vec<T> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -29,7 +29,7 @@ impl<'w, T: Resolve<'w>> Resolve<'w> for Vec<T> {
     }
 }
 
-impl<'w, T: Resolve<'w>> Resolve<'w> for Option<T> {
+impl<T: Resolve> Resolve for Option<T> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -42,7 +42,7 @@ impl<'w, T: Resolve<'w>> Resolve<'w> for Option<T> {
     }
 }
 
-impl<'w, T: Resolve<'w>> Resolve<'w> for Box<T> {
+impl<T: Resolve> Resolve for Box<T> {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -52,7 +52,7 @@ impl<'w, T: Resolve<'w>> Resolve<'w> for Box<T> {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Ast {
+impl Resolve for ast::Ast {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -64,7 +64,7 @@ impl<'w> Resolve<'w> for ast::Ast {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Import {
+impl Resolve for ast::Import {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -88,7 +88,7 @@ impl<'w> Resolve<'w> for ast::Import {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Binding {
+impl Resolve for ast::Binding {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -122,7 +122,7 @@ impl<'w> Resolve<'w> for ast::Binding {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Expr {
+impl Resolve for ast::Expr {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -360,7 +360,7 @@ impl<'w> Resolve<'w> for ast::Expr {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Block {
+impl Resolve for ast::Block {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -377,7 +377,7 @@ impl<'w> Resolve<'w> for ast::Block {
     }
 }
 
-impl<'w> Resolve<'w> for ast::Fn {
+impl Resolve for ast::Fn {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,
@@ -436,7 +436,7 @@ impl<'w> Resolve<'w> for ast::Fn {
     }
 }
 
-impl<'w> Resolve<'w> for ast::FnCall {
+impl Resolve for ast::FnCall {
     fn resolve(
         &mut self,
         resolver: &mut Resolver,

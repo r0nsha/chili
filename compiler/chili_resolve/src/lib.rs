@@ -18,7 +18,7 @@ use resolve::Resolve;
 use resolver::Resolver;
 use scope::Scope;
 
-pub fn resolve<'w>(workspace: &mut Workspace, mut asts: Vec<Ast>) -> DiagnosticResult<ResolvedAst> {
+pub fn resolve(workspace: &mut Workspace, mut asts: Vec<Ast>) -> DiagnosticResult<ResolvedAst> {
     let mut resolved_ast = ResolvedAst::new();
     let mut resolver = Resolver::new();
 

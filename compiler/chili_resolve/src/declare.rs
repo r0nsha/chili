@@ -8,7 +8,7 @@ use chili_span::Span;
 use ustr::Ustr;
 
 // Trait for declaring top level bindings/imports/etc...
-pub(crate) trait Declare<'w> {
+pub(crate) trait Declare {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -16,7 +16,7 @@ pub(crate) trait Declare<'w> {
     ) -> DiagnosticResult<()>;
 }
 
-impl<'w, T: Declare<'w>> Declare<'w> for Vec<T> {
+impl<T: Declare> Declare for Vec<T> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -29,7 +29,7 @@ impl<'w, T: Declare<'w>> Declare<'w> for Vec<T> {
     }
 }
 
-impl<'w, T: Declare<'w>> Declare<'w> for Option<T> {
+impl<T: Declare> Declare for Option<T> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -42,7 +42,7 @@ impl<'w, T: Declare<'w>> Declare<'w> for Option<T> {
     }
 }
 
-impl<'w, T: Declare<'w>> Declare<'w> for Box<T> {
+impl<T: Declare> Declare for Box<T> {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -52,7 +52,7 @@ impl<'w, T: Declare<'w>> Declare<'w> for Box<T> {
     }
 }
 
-impl<'w> Declare<'w> for ast::Ast {
+impl Declare for ast::Ast {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -64,7 +64,7 @@ impl<'w> Declare<'w> for ast::Ast {
     }
 }
 
-impl<'w> Declare<'w> for ast::Import {
+impl Declare for ast::Import {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -91,7 +91,7 @@ impl<'w> Declare<'w> for ast::Import {
     }
 }
 
-impl<'w> Declare<'w> for ast::Binding {
+impl Declare for ast::Binding {
     fn declare(
         &mut self,
         resolver: &mut Resolver,
@@ -131,7 +131,7 @@ impl<'w> Declare<'w> for ast::Binding {
     }
 }
 
-fn check_duplicate_global_symbol<'w>(
+fn check_duplicate_global_symbol(
     resolver: &Resolver,
     workspace: &Workspace,
     symbol: Ustr,
