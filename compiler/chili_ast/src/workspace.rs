@@ -147,35 +147,6 @@ impl Workspace {
         id
     }
 
-    pub fn add_builtin_binding_info(
-        &mut self,
-        module_id: ModuleId,
-        symbol: Ustr,
-        visibility: Visibility,
-        is_mutable: bool,
-        kind: BindingKind,
-        level: ScopeLevel,
-        scope_name: Ustr,
-        span: Span,
-    ) -> BindingInfoId {
-        let id = BindingInfoId(self.binding_infos.len());
-        self.binding_infos.push(BindingInfo {
-            id,
-            module_id,
-            symbol,
-            visibility,
-            ty: Default::default(),
-            is_mutable,
-            kind,
-            scope_level: level,
-            scope_name,
-            uses: 0,
-            flags: BindingInfoFlags::BUILTIN_TYPE,
-            span,
-        });
-        id
-    }
-
     pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {
         self.binding_infos.get(id.0)
     }

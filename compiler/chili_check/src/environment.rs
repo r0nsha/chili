@@ -73,7 +73,7 @@ impl Environment {
         self.scope_level
     }
 
-    pub(crate) fn scope_name(&self) -> String {
+    pub(crate) fn scope_name(&self) -> Ustr {
         let scopes_str = self
             .scopes
             .iter()
@@ -81,11 +81,13 @@ impl Environment {
             .collect::<Vec<&str>>()
             .join(".");
 
-        if self.module_info.name.is_empty() {
+        let str = if self.module_info.name.is_empty() {
             scopes_str
         } else {
             format!("{}.{}", self.module_info.name, scopes_str)
-        }
+        };
+
+        ustr(&str)
     }
 
     pub(crate) fn push_scope(&mut self) {
@@ -127,38 +129,39 @@ impl Environment {
         None
     }
 
-    // pub(crate) fn add_binding<'w>(
-    //     &mut self,
-    //     workspace: &mut Workspace,
-    //     symbol: Ustr,
-    //     visibility: Visibility,
-    //     is_mutable: bool,
-    //     kind: BindingKind,
-    //     span: Span,
-    //     shadowable: bool,
-    // ) -> BindingInfoId {
-    //     let id = workspace.add_binding_info(
-    //         self.module_id,
-    //         symbol,
-    //         visibility,
-    //         is_mutable,
-    //         kind,
-    //         self.scope_level,
-    //         ustr(&self.current_scope_name()),
-    //         span,
-    //     );
+    pub(crate) fn add_binding(
+        &mut self,
+        workspace: &mut Workspace,
+        symbol: Ustr,
+        visibility: ast::Visibility,
+        is_mutable: bool,
+        kind: ast::BindingKind,
+        span: Span,
+    ) -> BindingInfoId {
+        let scope_level = self.scope_level;
 
-    //     self.current_scope_mut().bindings.insert(
-    //         symbol,
-    //         if shadowable {
-    //             ScopeSymbol::shadowable(id)
-    //         } else {
-    //             ScopeSymbol::persistent(id)
-    //         },
-    //     );
+        let id = workspace.add_binding_info(
+            self.module_id,
+            symbol,
+            visibility,
+            is_mutable,
+            kind,
+            scope_level,
+            self.scope_name(),
+            span,
+        );
 
-    //     id
-    // }
+        self.scope_mut().bindings.insert(
+            symbol,
+            if scope_level.is_global() {
+                ScopeSymbol::persistent(id)
+            } else {
+                ScopeSymbol::shadowable(id)
+            },
+        );
+
+        id
+    }
 
     // pub(crate) fn add_binding_with_symbol_pattern<'w>(
     //     &mut self,

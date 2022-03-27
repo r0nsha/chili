@@ -1,8 +1,3 @@
-use crate::{ty_ctx::TyCtx, CheckSess};
-use chili_ast::{ty::*, value::Value, workspace::BindingInfoFlags};
-use chili_resolve::builtin;
-use ustr::Ustr;
-
 pub const SYM_UNIT: &str = "unit";
 pub const SYM_BOOL: &str = "bool";
 pub const SYM_I8: &str = "i8";

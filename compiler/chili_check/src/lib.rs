@@ -92,20 +92,28 @@ impl<'s> CheckSess<'s> {
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
-        // start analysis
         for binding in self.old_ast.bindings.iter() {
-            let first_symbol = binding.pattern.symbols().first().cloned().unwrap();
+            match &binding.pattern {
+                Pattern::Single(pat) => {
+                    let binding_info = self
+                        .workspace
+                        .get_binding_info(pat.binding_info_id)
+                        .unwrap();
 
-            let binding_info = self
-                .workspace
-                .get_binding_info(first_symbol.binding_info_id)
-                .unwrap();
+                    if binding_info.ty != Ty::unknown() {
+                        continue;
+                    }
 
-            if binding_info.ty != Ty::unknown() {
-                continue;
-            }
-
-            binding.clone().check_top_level(self)?;
+                    binding.clone().check_top_level(self)?;
+                }
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
+                    let span = binding.pattern.span();
+                    return Err(Diagnostic::error()
+                        .with_message("this pattern is not supported yet for global bindings")
+                        .with_labels(vec![Label::primary(span.file_id, span.range())
+                            .with_message("not supported yet")]));
+                }
+            };
         }
 
         Ok(())
@@ -182,6 +190,15 @@ where
 impl Check for ast::Import {
     fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
         self.module_id = sess.workspace.find_module_info(self.module_info).unwrap();
+
+        self.binding_info_id = sess.env.add_binding(
+            sess.workspace,
+            self.alias,
+            self.visibility,
+            false,
+            ast::BindingKind::Import,
+            self.span,
+        );
 
         let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
         let mut const_value = None;
