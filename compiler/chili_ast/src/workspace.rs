@@ -201,13 +201,6 @@ impl BindingInfo {
     }
 }
 
-bitflags! {
-    struct Restrictions : u8 {
-        const STMT_EXPR = 1 << 0;
-        const NO_STRUCT_LITERAL = 1 << 1;
-    }
-}
-
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct ModuleId(pub usize);
 
