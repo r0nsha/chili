@@ -41,62 +41,40 @@ pub fn check(
 
 pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
+    pub(crate) tycx: TyCtx,
+
     pub(crate) old_ast: &'s ast::ResolvedAst,
     pub(crate) new_ast: ast::ResolvedAst,
-    pub(crate) tycx: TyCtx,
+
     pub(crate) const_bindings: HashMap<BindingInfoId, Value>,
-    pub(crate) frames: Vec<CheckFrame>,
+
+    pub(crate) function_frames: Vec<FunctionFrame>,
+    pub(crate) self_types: Vec<Ty>,
     pub(crate) loop_depth: usize,
 }
 
-pub(crate) type CheckResult = DiagnosticResult<Res>;
-
-pub(crate) struct Res {
-    ty: Ty,
-    const_value: Option<Value>,
-}
-
-impl Res {
-    pub(crate) fn new(ty: Ty) -> Self {
-        Self {
-            ty,
-            const_value: None,
-        }
-    }
-
-    pub(crate) fn new_maybe_const(ty: Ty, const_value: Option<Value>) -> Self {
-        Self { ty, const_value }
-    }
-
-    pub(crate) fn new_const(ty: Ty, const_value: Value) -> Self {
-        Self {
-            ty,
-            const_value: Some(const_value),
-        }
-    }
-}
-
 #[derive(Debug, Default, Clone, Copy)]
-pub(crate) struct CheckFrame {
+pub(crate) struct FunctionFrame {
     return_ty: Ty,
-    self_ty: Option<Ty>,
 }
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s ast::ResolvedAst) -> Self {
         Self {
             workspace,
+            tycx: TyCtx::new(),
             old_ast,
             new_ast: ast::ResolvedAst::new(),
-            tycx: TyCtx::new(),
             const_bindings: HashMap::new(),
-            frames: vec![],
+            self_types: vec![],
+            function_frames: vec![],
             loop_depth: 0,
         }
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
         // init builtin types
+        self.add_builtin_types();
         for binding_info in self
             .workspace
             .binding_infos
@@ -127,19 +105,19 @@ impl<'s> CheckSess<'s> {
         Ok(())
     }
 
-    pub(crate) fn with_frame<T, F: FnMut(&mut Self) -> T>(
+    pub(crate) fn with_function_frame<T, F: FnMut(&mut Self) -> T>(
         &mut self,
-        frame: CheckFrame,
+        frame: FunctionFrame,
         mut f: F,
     ) -> T {
-        self.frames.push(frame);
+        self.function_frames.push(frame);
         let result = f(self);
-        self.frames.pop();
+        self.function_frames.pop();
         result
     }
 
-    pub(crate) fn function_frame(&self) -> Option<CheckFrame> {
-        self.frames.last().map(|&f| f)
+    pub(crate) fn function_frame(&self) -> Option<FunctionFrame> {
+        self.function_frames.last().map(|&f| f)
     }
 
     pub(crate) fn extract_const_type(
@@ -158,6 +136,33 @@ impl<'s> CheckSess<'s> {
         }
 
         Err(TypeError::expected(span, ty.display(&self.tycx), "a type"))
+    }
+}
+
+pub(crate) type CheckResult = DiagnosticResult<Res>;
+
+pub(crate) struct Res {
+    ty: Ty,
+    const_value: Option<Value>,
+}
+
+impl Res {
+    pub(crate) fn new(ty: Ty) -> Self {
+        Self {
+            ty,
+            const_value: None,
+        }
+    }
+
+    pub(crate) fn new_maybe_const(ty: Ty, const_value: Option<Value>) -> Self {
+        Self { ty, const_value }
+    }
+
+    pub(crate) fn new_const(ty: Ty, const_value: Value) -> Self {
+        Self {
+            ty,
+            const_value: Some(const_value),
+        }
     }
 }
 
@@ -267,13 +272,9 @@ impl Check for ast::Fn {
 
         let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
 
-        let body_res = sess.with_frame(
-            CheckFrame {
-                return_ty,
-                self_ty: sess.function_frame().map(|f| f.self_ty).flatten(),
-            },
-            |sess| self.body.check(sess, None),
-        )?;
+        let body_res = sess.with_function_frame(FunctionFrame { return_ty }, |sess| {
+            self.body.check(sess, None)
+        })?;
 
         body_res
             .ty
@@ -535,21 +536,18 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::StructType(_) => todo!(),
             ast::ExprKind::FnType(sig) => sig.check(sess, expected_ty),
-            ast::ExprKind::SelfType => {
-                let self_ty = sess.function_frame().map(|f| f.self_ty).flatten();
-                match self_ty {
-                    Some(ty) => Ok(Res::new_const(
-                        sess.tycx.bound(TyKind::Var(ty).create_type()),
-                        Value::Type(ty),
-                    )),
-                    None => Err(Diagnostic::error()
-                        .with_message("`Self` is only available within struct definitions")
-                        .with_labels(vec![Label::primary(
-                            self.span.file_id,
-                            self.span.range().clone(),
-                        )])),
-                }
-            }
+            ast::ExprKind::SelfType => match sess.self_types.last() {
+                Some(&ty) => Ok(Res::new_const(
+                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    Value::Type(ty),
+                )),
+                None => Err(Diagnostic::error()
+                    .with_message("`Self` is only available within struct definitions")
+                    .with_labels(vec![Label::primary(
+                        self.span.file_id,
+                        self.span.range().clone(),
+                    )])),
+            },
             ast::ExprKind::NeverType => {
                 let ty = sess.tycx.common_types.never;
                 Ok(Res::new_const(

@@ -4,7 +4,7 @@ use chili_resolve::builtin;
 use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
-    pub(crate) fn add_builtin_types(&mut self, workspace: &mut Workspace) {
+    pub(crate) fn add_builtin_types(&mut self) {
         todo!()
         // let mut add_builtin_type = |name: &str| {
         //     let symbol = ustr(name);
