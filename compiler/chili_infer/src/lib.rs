@@ -1,10 +1,8 @@
-mod annotate;
 mod builtin;
 mod cast;
 pub mod display;
 mod infer;
 mod infer_top_level;
-mod new_infer;
 pub mod normalize;
 mod substitute;
 pub mod tycx;
@@ -13,7 +11,7 @@ mod unpack_type;
 
 use chili_ast::{ast, workspace::Workspace};
 use chili_error::DiagnosticResult;
-use new_infer::InferSess;
+use infer::InferSess;
 use tycx::TyCtx;
 
 pub fn infer(

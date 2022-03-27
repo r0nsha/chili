@@ -1,4 +1,4 @@
-use crate::{new_infer::InferSess, normalize::NormalizeTy, tycx::InferenceValue};
+use crate::{infer::InferSess, normalize::NormalizeTy, tycx::InferenceValue};
 use chili_ast::ty::*;
 
 pub type UnifyTyResult = Result<(), UnifyTyErr>;

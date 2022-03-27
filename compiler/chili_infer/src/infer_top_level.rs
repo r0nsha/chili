@@ -8,7 +8,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
-use crate::new_infer::{Infer, InferResult, InferSess, Res};
+use crate::infer::{Infer, InferResult, InferSess, Res};
 
 pub(crate) trait InferTopLevel
 where
