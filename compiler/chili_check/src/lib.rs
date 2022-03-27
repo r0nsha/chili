@@ -169,7 +169,7 @@ where
 }
 
 impl Check for ast::Import {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
+    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
         let mut ty = sess.tycx.bound(TyKind::Module(self.module_id));
         let mut const_value = None;
 
@@ -208,7 +208,7 @@ impl Check for ast::Import {
 }
 
 impl Check for ast::Binding {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
+    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
         // TODO: support other patterns
         let pat = self.pattern.as_single_ref();
         let binding_ty = sess.tycx.var();
@@ -581,7 +581,7 @@ impl Check for ast::Expr {
 }
 
 impl Check for ast::FnCall {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
+    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
         let callee_res = self.callee.check(sess, None)?;
 
         match callee_res.ty.normalize(&sess.tycx) {
@@ -707,15 +707,17 @@ impl Check for ast::Cast {
             let res = ty_expr.check(sess, None)?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
         } else {
-            sess.tycx.var()
-            // match expected_ty {
-            //     Some(t) => t,
-            //     None => {
-            //         return Err(Diagnostic::error()
-            //             .with_message("can't infer the type cast's target type")
-            //             .with_labels(vec![Label::primary(expr_span.file_id, expr_span.range())]))
-            //     }
-            // }
+            match expected_ty {
+                Some(t) => t,
+                None => {
+                    return Err(Diagnostic::error()
+                        .with_message("can't infer the type cast's target type")
+                        .with_labels(vec![Label::primary(
+                            self.expr.span.file_id,
+                            self.expr.span.range(),
+                        )]))
+                }
+            }
         };
 
         let source_ty = res.ty.normalize(&sess.tycx);
