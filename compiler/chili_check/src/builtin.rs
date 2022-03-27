@@ -1,7 +1,58 @@
-use crate::tycx::TyCtx;
-use chili_ast::ty::*;
+use crate::{tycx::TyCtx, CheckSess};
+use chili_ast::{ty::*, workspace::Workspace};
 use chili_resolve::builtin;
 use ustr::Ustr;
+
+impl<'s> CheckSess<'s> {
+    pub(crate) fn add_builtin_types(&mut self, workspace: &mut Workspace) {
+        todo!()
+        // let mut add_builtin_type = |name: &str| {
+        //     let symbol = ustr(name);
+        //     let id = workspace.add_builtin_binding_info(
+        //         Default::default(),
+        //         symbol,
+        //         ast::Visibility::Public,
+        //         false,
+        //         ast::BindingKind::Type,
+        //         ScopeLevel::Global,
+        //         ustr(""),
+        //         Span::unknown(),
+        //     );
+
+        //     workspace
+        //         .get_binding_info_mut(id)
+        //         .unwrap()
+        //         .flags
+        //         .insert(BindingInfoFlags::BUILTIN_TYPE);
+
+        //     self.builtin_types.insert(symbol, id);
+        // };
+
+        // add_builtin_type(SYM_UNIT);
+        // add_builtin_type(SYM_BOOL);
+
+        // add_builtin_type(SYM_I8);
+        // add_builtin_type(SYM_I16);
+        // add_builtin_type(SYM_I32);
+        // add_builtin_type(SYM_I64);
+        // add_builtin_type(SYM_INT);
+
+        // add_builtin_type(SYM_U8);
+        // add_builtin_type(SYM_U16);
+        // add_builtin_type(SYM_U32);
+        // add_builtin_type(SYM_U64);
+        // add_builtin_type(SYM_UINT);
+
+        // add_builtin_type(SYM_F16);
+        // add_builtin_type(SYM_F32);
+        // add_builtin_type(SYM_F64);
+        // add_builtin_type(SYM_FLOAT);
+
+        // add_builtin_type(SYM_STR);
+
+        // add_builtin_type(SYM_NEVER);
+    }
+}
 
 pub(crate) fn get_type_for_builtin_type(symbol: Ustr, tycx: &mut TyCtx) -> Ty {
     match symbol.as_str() {

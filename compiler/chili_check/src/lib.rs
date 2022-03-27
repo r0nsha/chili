@@ -6,7 +6,6 @@ mod substitute;
 mod top_level;
 pub mod tycx;
 pub mod unify;
-mod unpack_type;
 
 use crate::{
     cast::CanCast,
