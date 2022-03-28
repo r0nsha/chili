@@ -98,11 +98,7 @@ pub fn do_build(build_options: BuildOptions) {
     all_sw.stop();
     print_stats(stats, all_sw.elapsed().as_millis());
 
-    chili_pretty_print::print_typed_ast(&ast, &workspace, &tycx);
-
-    // for ast in asts.iter() {
-    //     chili_pretty_print::print_ast(ast, &workspace, &tycx);
-    // }
+    // chili_pretty_print::print_typed_ast(&ast, &workspace, &tycx);
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {

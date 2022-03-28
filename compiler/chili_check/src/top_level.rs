@@ -1,7 +1,7 @@
 use crate::{Check, CheckResult, CheckSess, Res};
 use chili_ast::{
     ast,
-    workspace::{BindingInfoId, ModuleId},
+    workspace::{BindingInfo, BindingInfoId, ModuleId},
 };
 use chili_error::DiagnosticResult;
 use chili_span::Span;
@@ -35,17 +35,29 @@ impl CheckTopLevel for ast::Import {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CallerInfo {
+    pub(crate) module_id: ModuleId,
+    pub(crate) span: Span,
+}
+
 impl<'s> CheckSess<'s> {
     pub(crate) fn check_top_level_symbol(
         &mut self,
+        caller_info: CallerInfo,
         module_id: ModuleId,
         symbol: Ustr,
-        span: Span,
     ) -> DiagnosticResult<(Res, BindingInfoId)> {
         // check if the binding has already been checked
         if let Some(id) = self.get_global_symbol(module_id, symbol) {
             // this binding has already been checked, so just return its data
-            return Ok((self.get_binding_res(id).unwrap(), id));
+            let binding_info = self.workspace.get_binding_info(id).unwrap();
+            self.validate_can_access_item(binding_info, caller_info)?;
+
+            return Ok((
+                Res::new_maybe_const(binding_info.ty, self.const_bindings.get(&id).cloned()),
+                id,
+            ));
         }
 
         // this binding hasn't been checked yet - check it and then return its data
@@ -62,16 +74,43 @@ impl<'s> CheckSess<'s> {
         {
             // this symbol points to a binding
             let mut binding = binding.clone();
+
             let res = binding.check_top_level(self, ast.module_id)?;
-            Ok((res, binding.pattern.as_single_ref().binding_info_id))
+            let id = binding.pattern.as_single_ref().binding_info_id;
+
+            self.validate_can_access_item(
+                self.workspace.get_binding_info(id).unwrap(),
+                caller_info,
+            )?;
+
+            Ok((res, id))
         } else if let Some(import) = ast.imports.iter().find(|import| import.alias == symbol) {
             // this symbol points to an import
             let mut import = import.clone();
+
             let res = import.check_top_level(self, ast.module_id)?;
-            Ok((res, import.binding_info_id))
+            let id = import.binding_info_id;
+
+            self.validate_can_access_item(
+                self.workspace.get_binding_info(id).unwrap(),
+                caller_info,
+            )?;
+
+            Ok((res, id))
         } else if let Some(&builtin_id) = self.builtin_types.get(&symbol) {
             // this is a builtin symbol, such as i32, bool, etc.
-            Ok((self.get_binding_res(builtin_id).unwrap(), builtin_id))
+            let res = self
+                .workspace
+                .get_binding_info(builtin_id)
+                .map(|binding_info| {
+                    Res::new_maybe_const(
+                        binding_info.ty,
+                        self.const_bindings.get(&builtin_id).cloned(),
+                    )
+                })
+                .unwrap();
+
+            Ok((res, builtin_id))
         } else {
             // the symbol doesn't exist, return an error
             let module_info = self.workspace.get_module_info(module_id).unwrap();
@@ -93,9 +132,35 @@ impl<'s> CheckSess<'s> {
 
             Err(Diagnostic::error()
                 .with_message(message)
+                .with_labels(vec![Label::primary(
+                    caller_info.span.file_id,
+                    caller_info.span.range(),
+                )
+                .with_message(label_message)]))
+        }
+    }
+
+    fn validate_can_access_item(
+        &self,
+        binding_info: &BindingInfo,
+        caller_info: CallerInfo,
+    ) -> DiagnosticResult<()> {
+        if binding_info.visibility == ast::Visibility::Private
+            && binding_info.module_id != caller_info.module_id
+        {
+            Err(Diagnostic::error()
+                .with_message(format!(
+                    "associated symbol `{}` is private",
+                    binding_info.symbol
+                ))
                 .with_labels(vec![
-                    Label::primary(span.file_id, span.range()).with_message(label_message)
+                    Label::primary(caller_info.span.file_id, caller_info.span.range())
+                        .with_message("accessed here"),
+                    Label::secondary(binding_info.span.file_id, binding_info.span.range())
+                        .with_message("defined here"),
                 ]))
+        } else {
+            Ok(())
         }
     }
 }

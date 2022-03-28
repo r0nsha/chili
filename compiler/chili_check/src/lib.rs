@@ -31,6 +31,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use env::{Env, Scope};
+use top_level::CallerInfo;
 use ustr::{ustr, UstrMap};
 
 pub fn check(
@@ -687,11 +688,15 @@ impl Check for ast::Expr {
                         ))
                     }
                     TyKind::Module(module_id) => {
-                        todo!();
-                        // let binding_info_id =
-                        //     sess.find_binding_info_id_in_module(*module_id, *member, self.span)?;
-                        // sess.check_binding_by_symbol(binding_info_id)
-                        // TODO: check visibility
+                        let (res, _) = sess.check_top_level_symbol(
+                            CallerInfo {
+                                module_id: env.module_id(),
+                                span: self.span,
+                            },
+                            *module_id,
+                            *member,
+                        )?;
+                        Ok(res)
                     }
                     ty => Err(TypeError::member_access_on_invalid_type(
                         expr.span,
@@ -727,12 +732,27 @@ impl Check for ast::Expr {
                             )]));
                     }
 
-                    Ok(sess.get_binding_res(id).unwrap())
+                    Ok(sess
+                        .workspace
+                        .get_binding_info(id)
+                        .map(|binding_info| {
+                            Res::new_maybe_const(
+                                binding_info.ty,
+                                sess.const_bindings.get(&id).cloned(),
+                            )
+                        })
+                        .unwrap())
                 }
                 None => {
                     // this is either a top level binding, a builtin binding, or it doesn't exist
-                    let (res, id) =
-                        sess.check_top_level_symbol(env.module_id(), *symbol, self.span)?;
+                    let (res, id) = sess.check_top_level_symbol(
+                        CallerInfo {
+                            module_id: env.module_id(),
+                            span: self.span,
+                        },
+                        env.module_id(),
+                        *symbol,
+                    )?;
 
                     *binding_info_id = id;
                     sess.workspace.increment_binding_use(id);

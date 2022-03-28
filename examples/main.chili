@@ -7,6 +7,6 @@ let main = fn {
 }
 
 let print_answer = fn(answer) {
-    # c.printf("What is the answer?\n".data)
+    c.printf("What is the answer?\n".data)
     # printf("The answer is %d\n".data, answer)
 }
