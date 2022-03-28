@@ -1,9 +1,7 @@
 pub mod build_options;
 pub mod builtin;
 pub mod compiler_info;
-pub mod env;
 pub mod mem;
-pub mod scopes;
 pub mod target;
 
 use std::time::Duration;

@@ -1,12 +1,15 @@
+mod bind;
 mod builtin;
 mod cast;
 pub mod display;
-mod environment;
+mod env;
 pub mod normalize;
 mod substitute;
 mod top_level;
 pub mod ty_ctx;
 pub mod unify;
+
+use std::collections::HashMap;
 
 use crate::{
     cast::CanCast,
@@ -21,13 +24,13 @@ use chili_ast::{
     pattern::Pattern,
     ty::*,
     value::Value,
-    workspace::{ModuleId, ScopeLevel, Workspace},
+    workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use environment::{Environment, Scope};
+use env::{Env, Scope};
 use ustr::{ustr, UstrMap};
 
 pub fn check(
@@ -39,6 +42,8 @@ pub fn check(
     Ok((sess.new_ast, sess.tycx))
 }
 
+pub(crate) type ConstBindingsMap = HashMap<BindingInfoId, Value>;
+
 pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
     pub(crate) tycx: TyCtx,
@@ -49,8 +54,12 @@ pub(crate) struct CheckSess<'s> {
     // The new typed ast being generated
     pub(crate) new_ast: ast::TypedAst,
 
-    // Contains information about scope, builtin symbols, modules, etc.
-    pub(crate) env: Environment,
+    // Map of bindings to their const value, if there's any
+    pub(crate) const_bindings: ConstBindingsMap,
+
+    // Information that's relevant for the global context
+    pub(crate) global_scopes: HashMap<ModuleId, Scope>,
+    pub(crate) builtin_types: UstrMap<BindingInfoId>,
 
     // Stack of function frames, each ast::Fn creates its own frame
     pub(crate) function_frames: Vec<FunctionFrame>,
@@ -71,15 +80,14 @@ pub(crate) struct FunctionFrame {
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s Vec<ast::Ast>) -> Self {
-        let mut tycx = TyCtx::new();
-        let env = Environment::new(workspace, &mut tycx);
-
         Self {
             workspace,
-            tycx,
+            tycx: TyCtx::new(),
             old_asts: old_ast,
             new_ast: ast::TypedAst::new(),
-            env,
+            const_bindings: HashMap::default(),
+            global_scopes: HashMap::default(),
+            builtin_types: UstrMap::default(),
             function_frames: vec![],
             self_types: vec![],
             loop_depth: 0,
@@ -87,12 +95,15 @@ impl<'s> CheckSess<'s> {
     }
 
     pub(crate) fn start(&mut self) -> DiagnosticResult<()> {
+        self.add_builtin_types();
+
         for ast in self.old_asts.iter() {
+            let module_id = ast.module_id;
             for binding in ast.bindings.iter() {
                 match &binding.pattern {
                     Pattern::Single(pat) => {
-                        if let None = self.workspace.get_binding_info(pat.binding_info_id) {
-                            binding.clone().check_top_level(self)?;
+                        if let None = self.get_global_symbol(module_id, pat.symbol) {
+                            binding.clone().check_top_level(self, module_id)?;
                         }
                     }
                     Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
@@ -106,8 +117,8 @@ impl<'s> CheckSess<'s> {
             }
 
             for import in ast.imports.iter() {
-                if let None = self.workspace.get_binding_info(import.binding_info_id) {
-                    import.clone().check_top_level(self)?;
+                if let None = self.get_global_symbol(module_id, import.alias) {
+                    import.clone().check_top_level(self, module_id)?;
                 }
             }
         }
@@ -136,18 +147,17 @@ impl<'s> CheckSess<'s> {
         result
     }
 
-    pub(crate) fn function_frame(&self) -> Option<FunctionFrame> {
-        self.function_frames.last().map(|&f| f)
+    pub(crate) fn with_env<T, F: FnMut(&mut Self, Env) -> T>(
+        &mut self,
+        module_id: ModuleId,
+        mut f: F,
+    ) -> T {
+        let module_info = *self.workspace.get_module_info(module_id).unwrap();
+        f(self, Env::new(module_id, module_info))
     }
 
-    pub(crate) fn set_module(&mut self, id: ModuleId) {
-        let module_info = *self.workspace.get_module_info(id).unwrap();
-        self.env.set_module(id, module_info);
-        if !self.env.global_scopes.contains_key(&id) {
-            self.env
-                .global_scopes
-                .insert(id, Scope::new(module_info.name));
-        }
+    pub(crate) fn function_frame(&self) -> Option<FunctionFrame> {
+        self.function_frames.last().map(|&f| f)
     }
 
     pub(crate) fn extract_const_type(
@@ -166,6 +176,54 @@ impl<'s> CheckSess<'s> {
         }
 
         Err(TypeError::expected(span, ty.display(&self.tycx), "a type"))
+    }
+
+    fn add_builtin_types(&mut self) {
+        let mut mk = |sess: &mut CheckSess, symbol: &str, ty: Ty| {
+            let symbol = ustr(symbol);
+
+            let id = sess.workspace.add_binding_info(
+                Default::default(),
+                symbol,
+                ast::Visibility::Public,
+                sess.tycx.bound(ty.kind().create_type()),
+                false,
+                ast::BindingKind::Type,
+                ScopeLevel::Global,
+                ustr(""),
+                Span::unknown(),
+            );
+
+            let info = sess.workspace.get_binding_info_mut(id).unwrap();
+            info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
+
+            sess.const_bindings.insert(id, Value::Type(ty));
+            sess.builtin_types.insert(symbol, id);
+        };
+
+        mk(self, builtin::SYM_UNIT, self.tycx.common_types.unit);
+        mk(self, builtin::SYM_BOOL, self.tycx.common_types.bool);
+
+        mk(self, builtin::SYM_I8, self.tycx.common_types.i8);
+        mk(self, builtin::SYM_I16, self.tycx.common_types.i16);
+        mk(self, builtin::SYM_I32, self.tycx.common_types.i32);
+        mk(self, builtin::SYM_I64, self.tycx.common_types.i64);
+        mk(self, builtin::SYM_INT, self.tycx.common_types.int);
+
+        mk(self, builtin::SYM_U8, self.tycx.common_types.u8);
+        mk(self, builtin::SYM_U16, self.tycx.common_types.u16);
+        mk(self, builtin::SYM_U32, self.tycx.common_types.u32);
+        mk(self, builtin::SYM_U64, self.tycx.common_types.u64);
+        mk(self, builtin::SYM_UINT, self.tycx.common_types.uint);
+
+        mk(self, builtin::SYM_F16, self.tycx.common_types.f16);
+        mk(self, builtin::SYM_F32, self.tycx.common_types.f32);
+        mk(self, builtin::SYM_F64, self.tycx.common_types.f64);
+        mk(self, builtin::SYM_FLOAT, self.tycx.common_types.float);
+
+        mk(self, builtin::SYM_STR, self.tycx.common_types.str);
+
+        mk(self, builtin::SYM_NEVER, self.tycx.common_types.never);
     }
 }
 
@@ -200,11 +258,21 @@ pub(crate) trait Check
 where
     Self: Sized,
 {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult;
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult;
 }
 
 impl Check for ast::Import {
-    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        _expected_ty: Option<Ty>,
+    ) -> CheckResult {
         self.target_module_id = sess
             .workspace
             .find_module_info(self.target_module_info)
@@ -227,6 +295,8 @@ impl Check for ast::Import {
             // ty = res.ty;
             // const_value = res.const_value;
 
+            // TODO: check visibility
+
             match ty.normalize(&sess.tycx) {
                 TyKind::Module(id) => module_id = id,
                 _ => {
@@ -239,8 +309,8 @@ impl Check for ast::Import {
 
         self.target_binding_info = target_binding_info;
 
-        self.binding_info_id = sess.env.add_binding(
-            sess.workspace,
+        self.binding_info_id = sess.bind_symbol(
+            env,
             self.alias,
             self.visibility,
             ty,
@@ -254,8 +324,13 @@ impl Check for ast::Import {
 }
 
 impl Check for ast::Binding {
-    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
-        self.module_id = sess.env.module_id;
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        _expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        self.module_id = env.module_id();
 
         // Collect foreign libraries to be linked later
         if let Some(lib) = self.lib_name {
@@ -263,20 +338,20 @@ impl Check for ast::Binding {
                 .foreign_libraries
                 .insert(ForeignLibrary::from_str(
                     &lib,
-                    sess.env.module_info.file_path,
+                    env.module_info().file_path,
                     self.pattern.span(),
                 )?);
         }
 
         let binding_ty = if let Some(ty_expr) = &mut self.ty_expr {
-            let res = ty_expr.check(sess, None)?;
+            let res = ty_expr.check(sess, env, None)?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
         } else {
             sess.tycx.var()
         };
 
         let const_value = if let Some(expr) = &mut self.expr {
-            let res = expr.check(sess, Some(binding_ty))?;
+            let res = expr.check(sess, env, Some(binding_ty))?;
 
             res.ty
                 .unify(&binding_ty, sess)
@@ -302,8 +377,8 @@ impl Check for ast::Binding {
             None
         };
 
-        sess.env.bind_pattern(
-            sess.workspace,
+        sess.bind_pattern(
+            env,
             &mut self.pattern,
             self.visibility,
             binding_ty,
@@ -316,37 +391,50 @@ impl Check for ast::Binding {
                 // that are not `Single` and are not mutable
                 if let Some(const_value) = const_value {
                     if !pat.is_mutable {
-                        sess.env
-                            .const_bindings
-                            .insert(pat.binding_info_id, const_value);
+                        sess.const_bindings.insert(pat.binding_info_id, const_value);
                     }
                 }
             }
             _ => (),
         }
 
-        Ok(Res {
-            ty: sess.tycx.common_types.unit,
-            const_value: None,
-        })
+        Ok(Res::new_maybe_const(binding_ty, const_value))
     }
 }
 
 impl Check for ast::Fn {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
-        let res = self.sig.check(sess, expected_ty)?;
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        let res = self.sig.check(sess, env, expected_ty)?;
 
         let fn_ty = sess.tycx.ty_kind(res.ty);
         let fn_ty = fn_ty.as_fn();
 
         let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
 
+        env.push_named_scope(self.sig.name);
+
+        for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
+            let ty = sess.tycx.bound(param_ty.ty.clone());
+            sess.bind_pattern(
+                env,
+                &mut param.pattern,
+                ast::Visibility::Private,
+                ty,
+                ast::BindingKind::Let,
+            )?;
+        }
+
         let body_res = sess.with_function_frame(
             FunctionFrame {
                 return_ty,
-                scope_level: sess.env.scope_level(),
+                scope_level: env.scope_level(),
             },
-            |sess| self.body.check(sess, None),
+            |sess| self.body.check(sess, env, None),
         )?;
 
         body_res
@@ -354,29 +442,29 @@ impl Check for ast::Fn {
             .unify(&return_ty, sess)
             .map_err(|e| map_unify_err(e, return_ty, body_res.ty, self.body.span, &sess.tycx))?;
 
+        env.pop_scope();
+
         Ok(Res::new(res.ty))
     }
 }
 
 impl Check for ast::FnSig {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
         let mut ty_params = vec![];
+        let mut param_map = UstrMap::default();
 
         for param in self.params.iter_mut() {
             let ty = if let Some(expr) = &mut param.ty {
-                let res = expr.check(sess, None)?;
+                let res = expr.check(sess, env, None)?;
                 sess.extract_const_type(res.const_value, res.ty, expr.span)?
             } else {
                 sess.tycx.var()
             };
-
-            sess.env.bind_pattern(
-                sess.workspace,
-                &mut param.pattern,
-                ast::Visibility::Private,
-                ty,
-                ast::BindingKind::Let,
-            )?;
 
             ty_params.push(FnTyParam {
                 symbol: if param.pattern.is_single() {
@@ -386,10 +474,20 @@ impl Check for ast::FnSig {
                 },
                 ty: ty.into(),
             });
+
+            for pat in param.pattern.symbols() {
+                if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
+                    return Err(SyntaxError::duplicate_symbol(
+                        already_defined_span,
+                        pat.span,
+                        pat.symbol,
+                    ));
+                }
+            }
         }
 
         let ret = if let Some(expr) = &mut self.ret {
-            let res = expr.check(sess, None)?;
+            let res = expr.check(sess, env, None)?;
             sess.extract_const_type(res.const_value, res.ty, expr.span)?
         } else {
             sess.tycx.var()
@@ -410,31 +508,52 @@ impl Check for ast::FnSig {
 }
 
 impl Check for ast::Expr {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
         let res = match &mut self.kind {
-            ast::ExprKind::Import(_) => todo!(),
-            ast::ExprKind::Foreign(_) => todo!(),
-            ast::ExprKind::Binding(binding) => binding.check(sess, None),
-            ast::ExprKind::Defer(_) => todo!(),
+            ast::ExprKind::Import(imports) => {
+                for import in imports.iter_mut() {
+                    import.check(sess, env, None)?;
+                }
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
+            ast::ExprKind::Foreign(bindings) => {
+                for binding in bindings.iter_mut() {
+                    binding.check(sess, env, None)?;
+                }
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
+            ast::ExprKind::Binding(binding) => {
+                binding.check(sess, env, None)?;
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
+            ast::ExprKind::Defer(expr) => {
+                expr.check(sess, env, None)?;
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
             ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
-            ast::ExprKind::Cast(cast) => cast.check(sess, expected_ty),
+            ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
-                    let res = expr.check(sess, None)?;
+                    let res = expr.check(sess, env, None)?;
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
-                        expr.check(sess, None)?;
+                        expr.check(sess, env, None)?;
                     }
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
-            ast::ExprKind::Fn(f) => f.check(sess, expected_ty),
+            ast::ExprKind::Fn(f) => f.check(sess, env, expected_ty),
             ast::ExprKind::While { cond, block } => {
                 let cond_ty = sess.tycx.common_types.bool;
-                let cond_res = cond.check(sess, Some(cond_ty))?;
+                let cond_res = cond.check(sess, env, Some(cond_ty))?;
 
                 cond_res
                     .ty
@@ -442,7 +561,7 @@ impl Check for ast::Expr {
                     .map_err(|e| map_unify_err(e, cond_ty, cond_res.ty, cond.span, &sess.tycx))?;
 
                 sess.loop_depth += 1;
-                block.check(sess, None)?;
+                block.check(sess, env, None)?;
                 sess.loop_depth -= 1;
 
                 Ok(Res::new(sess.tycx.common_types.unit))
@@ -454,7 +573,7 @@ impl Check for ast::Expr {
                 }
 
                 sess.loop_depth += 1;
-                for_.block.check(sess, None)?;
+                for_.block.check(sess, env, None)?;
                 sess.loop_depth -= 1;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
@@ -464,7 +583,7 @@ impl Check for ast::Expr {
                 }
 
                 for expr in deferred.iter_mut() {
-                    expr.check(sess, None)?;
+                    expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
@@ -475,7 +594,7 @@ impl Check for ast::Expr {
                 }
 
                 for expr in deferred.iter_mut() {
-                    expr.check(sess, None)?;
+                    expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
@@ -487,7 +606,7 @@ impl Check for ast::Expr {
 
                 if let Some(expr) = expr {
                     let expected = function_frame.return_ty;
-                    let res = expr.check(sess, Some(expected))?;
+                    let res = expr.check(sess, env, Some(expected))?;
                     res.ty
                         .unify(&expected, sess)
                         .map_err(|e| map_unify_err(e, expected, res.ty, expr.span, &sess.tycx))?;
@@ -508,7 +627,7 @@ impl Check for ast::Expr {
                 }
 
                 for expr in deferred.iter_mut() {
-                    expr.check(sess, None)?;
+                    expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
@@ -523,9 +642,9 @@ impl Check for ast::Expr {
             ast::ExprKind::Unary { op, lhs } => todo!(),
             ast::ExprKind::Subscript { expr, index } => todo!(),
             ast::ExprKind::Slice { expr, low, high } => todo!(),
-            ast::ExprKind::FnCall(call) => call.check(sess, expected_ty),
+            ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
             ast::ExprKind::MemberAccess { expr, member } => {
-                let res = expr.check(sess, None)?;
+                let res = expr.check(sess, env, None)?;
                 let kind = res.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
@@ -570,6 +689,7 @@ impl Check for ast::Expr {
                         // let binding_info_id =
                         //     sess.find_binding_info_id_in_module(*module_id, *member, self.span)?;
                         // sess.check_binding_by_symbol(binding_info_id)
+                        // TODO: check visibility
                     }
                     ty => Err(TypeError::member_access_on_invalid_type(
                         expr.span,
@@ -581,27 +701,44 @@ impl Check for ast::Expr {
                 symbol,
                 binding_info_id,
                 ..
-            } => {
-                let (res, id) = sess.check_symbol(*symbol, self.span)?;
+            } => match env.find_symbol(*symbol) {
+                Some(id) => {
+                    // this is a local binding
+                    *binding_info_id = id;
+                    sess.workspace.increment_binding_use(id);
 
-                *binding_info_id = id;
+                    let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
-                let binding_info = sess.workspace.get_binding_info(id).unwrap();
-                let min_scope_level = sess
-                    .function_frame()
-                    .map_or(ScopeLevel::Global, |f| f.scope_level);
+                    let min_scope_level = sess
+                        .function_frame()
+                        .map_or(ScopeLevel::Global, |f| f.scope_level);
 
-                if !binding_info.kind.is_type()
-                    && !binding_info.scope_level.is_global()
-                    && binding_info.scope_level < min_scope_level
-                {
-                    return Err(Diagnostic::error()
-                        .with_message("can't capture dynamic environment yet - not implemented")
-                        .with_labels(vec![Label::primary(self.span.file_id, self.span.range())]));
+                    if !binding_info.kind.is_type()
+                        && !binding_info.scope_level.is_global()
+                        && binding_info.scope_level < min_scope_level
+                    {
+                        return Err(Diagnostic::error()
+                            .with_message("can't capture dynamic environment yet - not implemented")
+                            .with_labels(vec![Label::primary(
+                                self.span.file_id,
+                                self.span.range(),
+                            )]));
+                    }
+
+                    Ok(sess.get_binding_res(id).unwrap())
                 }
+                None => {
+                    // this is either a top level binding, a builtin binding, or it doesn't exist
+                    let (res, id) =
+                        sess.check_top_level_symbol(env.module_id(), *symbol, self.span)?;
 
-                Ok(res)
-            }
+                    *binding_info_id = id;
+                    sess.workspace.increment_binding_use(id);
+
+                    // TODO: check visibility
+                    Ok(res)
+                }
+            },
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral { type_expr, fields } => {
@@ -621,9 +758,9 @@ impl Check for ast::Expr {
 
                 todo!()
             }
-            ast::ExprKind::Literal(lit) => lit.check(sess, expected_ty),
+            ast::ExprKind::Literal(lit) => lit.check(sess, env, expected_ty),
             ast::ExprKind::PointerType(inner, is_mutable) => {
-                let res = inner.check(sess, None)?;
+                let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
@@ -632,7 +769,7 @@ impl Check for ast::Expr {
                 ))
             }
             ast::ExprKind::MultiPointerType(inner, is_mutable) => {
-                let res = inner.check(sess, None)?;
+                let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
@@ -642,7 +779,7 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::ArrayType(_, _) => todo!(),
             ast::ExprKind::SliceType(inner, is_mutable) => {
-                let res = inner.check(sess, None)?;
+                let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
@@ -667,7 +804,7 @@ impl Check for ast::Expr {
 
                 todo!()
             }
-            ast::ExprKind::FnType(sig) => sig.check(sess, expected_ty),
+            ast::ExprKind::FnType(sig) => sig.check(sess, env, expected_ty),
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
                     sess.tycx.bound(TyKind::Var(ty).create_type()),
@@ -711,8 +848,13 @@ impl Check for ast::Expr {
 }
 
 impl Check for ast::FnCall {
-    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
-        let callee_res = self.callee.check(sess, None)?;
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        _expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        let callee_res = self.callee.check(sess, env, None)?;
 
         match callee_res.ty.normalize(&sess.tycx) {
             TyKind::Fn(fn_ty) => {
@@ -757,7 +899,7 @@ impl Check for ast::FnCall {
 
                         if let Some(index) = found_param_index {
                             let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
-                            let res = arg.expr.check(sess, Some(param_ty))?;
+                            let res = arg.expr.check(sess, env, Some(param_ty))?;
 
                             res.ty.unify(&param_ty, sess).map_err(|e| {
                                 map_unify_err(e, param_ty, res.ty, arg.expr.span, &sess.tycx)
@@ -779,7 +921,7 @@ impl Check for ast::FnCall {
                             passed_args.insert(param.symbol, arg.expr.span);
 
                             let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
-                            let res = arg.expr.check(sess, Some(param_ty))?;
+                            let res = arg.expr.check(sess, env, Some(param_ty))?;
 
                             res.ty.unify(&param_ty, sess).map_err(|e| {
                                 map_unify_err(e, param_ty, res.ty, arg.expr.span, &sess.tycx)
@@ -791,7 +933,7 @@ impl Check for ast::FnCall {
                         } else {
                             // this is a variadic argument, meaning that the argument's
                             // index is greater than the function's param length
-                            arg.expr.check(sess, None)?;
+                            arg.expr.check(sess, env, None)?;
                         }
                     };
                 }
@@ -800,7 +942,7 @@ impl Check for ast::FnCall {
             }
             ty => {
                 for arg in self.args.iter_mut() {
-                    arg.expr.check(sess, None)?;
+                    arg.expr.check(sess, env, None)?;
                 }
 
                 let return_ty = sess.tycx.var();
@@ -830,11 +972,16 @@ impl Check for ast::FnCall {
 }
 
 impl Check for ast::Cast {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
-        let res = self.expr.check(sess, None)?;
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        let res = self.expr.check(sess, env, None)?;
 
         self.target_ty = if let Some(ty_expr) = &mut self.ty_expr {
-            let res = ty_expr.check(sess, None)?;
+            let res = ty_expr.check(sess, env, None)?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
         } else {
             match expected_ty {
@@ -871,10 +1018,15 @@ impl Check for ast::Cast {
 }
 
 impl Check for ast::Block {
-    fn check(&mut self, sess: &mut CheckSess, expected_ty: Option<Ty>) -> CheckResult {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
         let mut res = Res::new(sess.tycx.common_types.unit);
 
-        sess.env.push_scope();
+        env.push_scope();
 
         if !self.exprs.is_empty() {
             let last_index = self.exprs.len() - 1;
@@ -882,6 +1034,7 @@ impl Check for ast::Block {
             for (index, expr) in self.exprs.iter_mut().enumerate() {
                 res = expr.check(
                     sess,
+                    env,
                     if index == last_index {
                         expected_ty
                     } else {
@@ -892,17 +1045,22 @@ impl Check for ast::Block {
         }
 
         for expr in self.deferred.iter_mut() {
-            expr.check(sess, None)?;
+            expr.check(sess, env, None)?;
         }
 
-        sess.env.pop_scope();
+        env.pop_scope();
 
         Ok(res)
     }
 }
 
 impl Check for ast::Literal {
-    fn check(&mut self, sess: &mut CheckSess, _expected_ty: Option<Ty>) -> CheckResult {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        _expected_ty: Option<Ty>,
+    ) -> CheckResult {
         let res = match self {
             ast::Literal::Unit => Res::new(sess.tycx.common_types.unit),
             ast::Literal::Nil => Res::new(sess.tycx.var()),

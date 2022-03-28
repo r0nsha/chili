@@ -100,7 +100,7 @@ impl Normalize {
                     st
                 }
             }
-            TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
+            TyKind::Type(inner) => TyKind::Type(Box::new(self.normalize_kind(tycx, inner))),
             _ => kind.clone(),
         }
     }

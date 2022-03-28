@@ -42,7 +42,10 @@ impl TyCtx {
 
     #[inline]
     pub fn bound(&mut self, kind: TyKind) -> Ty {
-        self.insert(InferenceValue::Bound(kind))
+        match kind {
+            TyKind::Var(ty) => ty,
+            _ => self.insert(InferenceValue::Bound(kind)),
+        }
     }
 
     #[inline]

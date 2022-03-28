@@ -1,4 +1,3 @@
-pub mod builtin;
 mod declare;
 mod import;
 mod mark_codegen;
@@ -14,7 +13,6 @@ use scope::Scope;
 pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
     let mut resolver = Resolver::new();
 
-    resolver.add_builtin_types(workspace);
     collect_module_exports(&asts, &mut workspace.exports);
 
     // Add all module_infos to the workspace

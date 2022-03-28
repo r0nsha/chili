@@ -157,6 +157,11 @@ impl Workspace {
     pub fn get_binding_info_mut(&mut self, id: BindingInfoId) -> Option<&mut BindingInfo> {
         self.binding_infos.get_mut(id.0)
     }
+    pub fn increment_binding_use(&mut self, id: BindingInfoId) {
+        if let Some(binding_info) = self.get_binding_info_mut(id) {
+            binding_info.uses += 1;
+        }
+    }
 
     pub fn find_binding_info_by_name(
         &self,
