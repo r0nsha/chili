@@ -10,6 +10,31 @@ use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
 
+macro_rules! parse_binary {
+    ($parser:expr, pattern = $(|) ? $($pattern : pat_param) | +, next_fn = $next:expr) => {{
+        let mut expr = $next($parser)?;
+        let start_span = expr.span;
+
+        while eat!($parser, $( $pattern )|+) {
+            let op: BinaryOp = $parser.previous().kind.into();
+            let rhs = $next($parser)?;
+            let span = start_span.to($parser.previous_span());
+
+            expr = Expr::new(
+                ExprKind::Binary(ast::Binary {
+                    lhs: Box::new(expr),
+                    op,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
+            );
+        }
+
+        Ok(expr)
+    }};
+}
+
 impl<'p> Parser<'p> {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
         self.with_res(Restrictions::empty(), |p| p.parse_expr_internal(ustr("")))
@@ -150,210 +175,47 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_logic_or(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_logic_and()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, BarBar) {
-            let rhs = self.parse_logic_and()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = BarBar, next_fn = Parser::parse_logic_and)
     }
 
     pub(crate) fn parse_logic_and(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_comparison()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, AmpAmp) {
-            let rhs = self.parse_comparison()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = AmpAmp, next_fn = Parser::parse_comparison)
     }
 
     pub(crate) fn parse_comparison(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_bitwise_or()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, BangEq | EqEq | Gt | GtEq | Lt | LtEq) {
-            let rhs = self.parse_bitwise_or()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(
+            self,
+            pattern = BangEq | EqEq | Gt | GtEq | Lt | LtEq,
+            next_fn = Parser::parse_bitwise_or
+        )
     }
 
     pub(crate) fn parse_bitwise_or(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_bitwise_xor()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, Bar) {
-            let rhs = self.parse_bitwise_xor()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = Bar, next_fn = Parser::parse_bitwise_xor)
     }
 
     pub(crate) fn parse_bitwise_xor(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_bitwise_and()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, Caret) {
-            let rhs = self.parse_bitwise_and()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = Caret, next_fn = Parser::parse_bitwise_and)
     }
 
     pub(crate) fn parse_bitwise_and(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_bitshift()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, Amp) {
-            let rhs = self.parse_bitshift()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = Amp, next_fn = Parser::parse_bitshift)
     }
 
     pub(crate) fn parse_bitshift(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_term()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, LtLt | GtGt) {
-            let rhs = self.parse_term()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = LtLt | GtGt, next_fn = Parser::parse_term)
     }
 
     pub(crate) fn parse_term(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_factor()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, Minus | Plus) {
-            let rhs = self.parse_factor()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(self, pattern = Minus | Plus, next_fn = Parser::parse_factor)
     }
 
     pub(crate) fn parse_factor(&mut self) -> DiagnosticResult<Expr> {
-        let mut expr = self.parse_unary()?;
-
-        let start_span = expr.span;
-
-        while eat!(self, Star | FwSlash | Percent) {
-            let rhs = self.parse_unary()?;
-            let span = start_span.to(self.previous_span());
-
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op: BinaryOp::Or,
-                    rhs: Box::new(rhs),
-                    span,
-                }),
-                span,
-            );
-        }
-
-        Ok(expr)
+        parse_binary!(
+            self,
+            pattern = Star | FwSlash | Percent,
+            next_fn = Parser::parse_unary
+        )
     }
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {

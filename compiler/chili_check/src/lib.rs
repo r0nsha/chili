@@ -1175,7 +1175,86 @@ impl Check for ast::Binary {
         env: &mut Env,
         expected_ty: Option<Ty>,
     ) -> CheckResult {
-        todo!()
+        let mut lhs_res = self.lhs.check(sess, env, expected_ty)?;
+        let mut rhs_res = self.rhs.check(sess, env, expected_ty)?;
+
+        // let rhs_span = rhs.expr.span;
+        lhs_res
+            .ty
+            .unify(&rhs_res.ty, sess)
+            .map_err(|e| map_unify_err(e, lhs_res.ty, rhs_res.ty, self.rhs.span, &sess.tycx))?;
+
+        let ty_kind = lhs_res.ty.normalize(&sess.tycx);
+
+        match &self.op {
+            ast::BinaryOp::Add
+            | ast::BinaryOp::Sub
+            | ast::BinaryOp::Mul
+            | ast::BinaryOp::Div
+            | ast::BinaryOp::Rem
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::LtEq
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::GtEq => {
+                if !ty_kind.is_number() {
+                    return Err(TypeError::expected(
+                        self.span,
+                        ty_kind.display(&sess.tycx),
+                        "a number",
+                    ));
+                }
+            }
+
+            ast::BinaryOp::Shl
+            | ast::BinaryOp::Shr
+            | ast::BinaryOp::BitwiseOr
+            | ast::BinaryOp::BitwiseXor
+            | ast::BinaryOp::BitwiseAnd => {
+                if !ty_kind.is_any_integer() {
+                    return Err(TypeError::expected(
+                        self.span,
+                        ty_kind.display(&sess.tycx),
+                        "any integer",
+                    ));
+                }
+            }
+
+            ast::BinaryOp::Eq | ast::BinaryOp::NEq => (),
+
+            ast::BinaryOp::And | ast::BinaryOp::Or => {
+                if !ty_kind.is_bool() {
+                    return Err(TypeError::type_mismatch(
+                        self.span,
+                        sess.tycx.common_types.bool.display(&sess.tycx),
+                        ty_kind.display(&sess.tycx),
+                    ));
+                }
+            }
+        };
+
+        let result_ty = match &self.op {
+            ast::BinaryOp::Add
+            | ast::BinaryOp::Sub
+            | ast::BinaryOp::Mul
+            | ast::BinaryOp::Div
+            | ast::BinaryOp::Rem
+            | ast::BinaryOp::Shl
+            | ast::BinaryOp::Shr
+            | ast::BinaryOp::BitwiseOr
+            | ast::BinaryOp::BitwiseXor
+            | ast::BinaryOp::BitwiseAnd => self.lhs.ty,
+
+            ast::BinaryOp::Eq
+            | ast::BinaryOp::NEq
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::LtEq
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::GtEq
+            | ast::BinaryOp::And
+            | ast::BinaryOp::Or => sess.tycx.common_types.bool,
+        };
+
+        Ok(Res::new(result_ty))
     }
 }
 
