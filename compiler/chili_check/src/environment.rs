@@ -216,11 +216,9 @@ impl Environment {
         ty: Ty,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<BindingInfoId> {
-        let symbol = pattern.alias.unwrap_or(pattern.symbol);
-
         pattern.binding_info_id = self.add_binding(
             workspace,
-            symbol,
+            pattern.alias.unwrap_or(pattern.symbol),
             visibility,
             ty,
             pattern.is_mutable,

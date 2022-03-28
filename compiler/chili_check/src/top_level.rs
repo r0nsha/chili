@@ -4,7 +4,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
-use crate::{Check, CheckResult, CheckSess, Res};
+use crate::{display::DisplayTy, Check, CheckResult, CheckSess, Res};
 
 pub(crate) trait CheckTopLevel
 where
@@ -62,47 +62,26 @@ impl<'s> CheckSess<'s> {
 
         match self.env.lookup_binding(self.workspace, symbol) {
             Some(id) => {
+                // this binding has already been check, so just return its data
                 Ok((self.get_binding_res(id).unwrap(), id))
-                // if let Some(binding_info) = sess.workspace.get_binding_info(id) {
-                //     let min_scope_level = sess
-                //         .function_frame()
-                //         .map_or(ScopeLevel::Global, |f| f.scope_level);
-
-                //     if !binding_info.kind.is_type()
-                //         && !binding_info.scope_level.is_global()
-                //         && binding_info.scope_level < min_scope_level
-                //     {
-                //         return Err(Diagnostic::error()
-                //             .with_message("can't capture dynamic environment yet - not implemented")
-                //             .with_labels(vec![Label::primary(
-                //                 self.span.file_id,
-                //                 self.span.range(),
-                //             )]));
-                //     }
-
-                //     Ok(Res::new_maybe_const(
-                //         binding_info.ty,
-                //         sess.env.const_bindings.get(&id).map(|v| *v),
-                //     ))
-                // } else {
-                //     sess.check_binding_by_symbol(*binding_info_id)
-                // }
             }
             None => {
+                // this binding hasn't been checked yet - check it and then return its data
                 for ast in self.old_asts.iter() {
                     for binding in ast.bindings.iter() {
-                        let pat = binding.pattern.as_single_ref();
-                        if pat.symbol == symbol {
-                            let id = pat.binding_info_id;
-                            binding.clone().check_top_level(self)?;
+                        if binding.pattern.as_single_ref().symbol == symbol {
+                            let mut binding = binding.clone();
+                            binding.check_top_level(self)?;
+                            let id = binding.pattern.as_single_ref().binding_info_id;
                             return Ok((self.get_binding_res(id).unwrap(), id));
                         }
                     }
 
                     for import in ast.imports.iter() {
                         if import.alias == symbol {
+                            let mut import = import.clone();
+                            import.check_top_level(self)?;
                             let id = import.binding_info_id;
-                            import.clone().check_top_level(self)?;
                             return Ok((self.get_binding_res(id).unwrap(), id));
                         }
                     }
