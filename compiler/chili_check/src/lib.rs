@@ -279,24 +279,28 @@ impl Check for ast::Import {
             .find_module_info(self.target_module_info)
             .unwrap();
 
+        let mut previous_module_id = env.module_id();
+        let mut module_id = self.target_module_id;
+
         let mut ty = sess.tycx.bound(TyKind::Module(self.target_module_id));
         let mut const_value = None;
-
-        let mut module_id = self.target_module_id;
         let mut target_binding_info = None;
 
         for (index, node) in self.import_path.iter().enumerate() {
-            // let id =
-            //     sess.find_binding_info_id_in_module(module_id, node.value.as_symbol(), node.span)?;
+            let (res, id) = sess.check_top_level_symbol(
+                CallerInfo {
+                    module_id: previous_module_id,
+                    span: node.span,
+                },
+                module_id,
+                node.value.as_symbol(),
+            )?;
 
-            // target_binding_info = Some(id);
+            previous_module_id = module_id;
 
-            todo!();
-            // let res = sess.check_binding_by_symbol(id)?;
-            // ty = res.ty;
-            // const_value = res.const_value;
-
-            // TODO: check visibility
+            target_binding_info = Some(id);
+            ty = res.ty;
+            const_value = res.const_value;
 
             match ty.normalize(&sess.tycx) {
                 TyKind::Module(id) => module_id = id,
