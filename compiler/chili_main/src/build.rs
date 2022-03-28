@@ -52,9 +52,9 @@ pub fn do_build(build_options: BuildOptions) {
         chili_resolve::resolve(&mut workspace, &mut asts)
     };
 
-    // Partially infer types of asts
+    // Infer, typecheck, const fold, etc..
 
-    let (ast, tycx) = time! { "typeck",
+    let (ast, tycx) = time! { "check",
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
