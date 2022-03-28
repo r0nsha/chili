@@ -1,26 +1,14 @@
-mod declare;
 mod import;
-mod mark_codegen;
-mod resolve;
-mod resolver;
-mod scope;
 
 use chili_ast::{ast::Ast, workspace::Workspace};
 use import::{collect_module_exports, resolve_imports};
-use resolver::Resolver;
-use scope::Scope;
 
 pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
-    let mut resolver = Resolver::new();
-
     collect_module_exports(&asts, &mut workspace.exports);
 
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);
-        resolver
-            .global_scopes
-            .insert(ast.module_id, Scope::new(ast.module_info.name));
     }
 
     // Assign module ids to all imports
