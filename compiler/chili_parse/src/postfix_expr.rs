@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ast::{BinaryOp, CallArg, Cast, Expr, ExprKind, FnCall, UnaryOp};
+use chili_ast::ast::{self, BinaryOp, CallArg, Cast, Expr, ExprKind, FnCall, UnaryOp};
 use chili_error::*;
 use chili_span::{EndPosition, Spanned, To};
 use chili_token::TokenKind::*;
@@ -110,11 +110,12 @@ impl<'p> Parser<'p> {
             ExprKind::Assign {
                 lvalue: Box::new(lvalue.clone()),
                 rvalue: Box::new(Expr::new(
-                    ExprKind::Binary {
+                    ExprKind::Binary(ast::Binary {
                         lhs: Box::new(lvalue),
                         op,
                         rhs: Box::new(rvalue),
-                    },
+                        span: rvalue_span,
+                    }),
                     rvalue_span,
                 )),
             },
@@ -189,13 +190,17 @@ impl<'p> Parser<'p> {
                 second_access
             }
 
-            Star => Expr::new(
-                ExprKind::Unary {
-                    op: UnaryOp::Deref,
-                    lhs: Box::new(expr.clone()),
-                },
-                start_span.to(token.span),
-            ),
+            Star => {
+                let span = start_span.to(token.span);
+                Expr::new(
+                    ExprKind::Unary(ast::Unary {
+                        op: UnaryOp::Deref,
+                        lhs: Box::new(expr.clone()),
+                        span,
+                    }),
+                    span,
+                )
+            }
 
             OpenParen => self.parse_call(expr)?,
 

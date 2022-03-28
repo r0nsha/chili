@@ -574,14 +574,80 @@ impl Check for ast::Expr {
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
             ast::ExprKind::For(for_) => {
-                match &mut for_.iterator {
-                    ast::ForIter::Range(start, end) => todo!(),
-                    ast::ForIter::Value(value) => todo!(),
-                }
+                let iter_ty = match &mut for_.iterator {
+                    ast::ForIter::Range(start, end) => {
+                        let start_res = start.check(sess, env, None)?;
+                        let end_res = end.check(sess, env, None)?;
+
+                        start_res.ty.unify(&end_res.ty, sess).map_err(|e| {
+                            map_unify_err(e, start_res.ty, end_res.ty, end.span, &sess.tycx)
+                        })?;
+
+                        let start_ty = start_res.ty.normalize(&sess.tycx);
+                        let end_ty = end_res.ty.normalize(&sess.tycx);
+
+                        if !start_ty.is_any_integer() {
+                            return Err(TypeError::expected(
+                                start.span,
+                                start_ty.to_string(),
+                                "any integer",
+                            ));
+                        }
+
+                        if !end_ty.is_any_integer() {
+                            return Err(TypeError::expected(
+                                end.span,
+                                end_ty.to_string(),
+                                "any integer",
+                            ));
+                        }
+
+                        start_res.ty
+                    }
+                    ast::ForIter::Value(value) => {
+                        let res = value.check(sess, env, None)?;
+                        let ty = res.ty.normalize(&sess.tycx);
+
+                        match ty.maybe_deref_once() {
+                            TyKind::Array(inner, ..) | TyKind::Slice(inner, ..) => {
+                                sess.tycx.bound(*inner)
+                            }
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("can't iterate over `{}`", ty))
+                                    .with_labels(vec![Label::primary(
+                                        value.span.file_id,
+                                        value.span.range(),
+                                    )]));
+                            }
+                        }
+                    }
+                };
+
+                sess.bind_symbol(
+                    env,
+                    for_.iter_name,
+                    ast::Visibility::Private,
+                    iter_ty,
+                    false,
+                    ast::BindingKind::Let,
+                    self.span, // TODO: use iter's actual span
+                )?;
+
+                sess.bind_symbol(
+                    env,
+                    for_.iter_index_name,
+                    ast::Visibility::Private,
+                    sess.tycx.common_types.uint,
+                    false,
+                    ast::BindingKind::Let,
+                    self.span, // TODO: use iter_index's actual span
+                )?;
 
                 sess.loop_depth += 1;
                 for_.block.check(sess, env, None)?;
                 sess.loop_depth -= 1;
+
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
             ast::ExprKind::Break { deferred } => {
@@ -643,10 +709,32 @@ impl Check for ast::Expr {
                 cond,
                 then_expr,
                 else_expr,
-            } => todo!(),
-            ast::ExprKind::Block(_) => todo!(),
-            ast::ExprKind::Binary { lhs, op, rhs } => todo!(),
-            ast::ExprKind::Unary { op, lhs } => todo!(),
+            } => {
+                let cond_ty = sess.tycx.common_types.bool;
+                let cond_res = cond.check(sess, env, Some(cond_ty))?;
+
+                cond_res
+                    .ty
+                    .unify(&cond_ty, sess)
+                    .map_err(|e| map_unify_err(e, cond_ty, cond_res.ty, cond.span, &sess.tycx))?;
+
+                let then_res = then_expr.check(sess, env, expected_ty)?;
+
+                if let Some(else_expr) = else_expr {
+                    let else_res = else_expr.check(sess, env, Some(then_res.ty))?;
+
+                    else_res.ty.unify(&then_res.ty, sess).map_err(|e| {
+                        map_unify_err(e, then_res.ty, else_res.ty, else_expr.span, &sess.tycx)
+                    })?;
+
+                    Ok(Res::new(then_res.ty))
+                } else {
+                    Ok(Res::new(sess.tycx.common_types.unit))
+                }
+            }
+            ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
+            ast::ExprKind::Binary(binary) => binary.check(sess, env, expected_ty),
+            ast::ExprKind::Unary(unary) => unary.check(sess, env, expected_ty),
             ast::ExprKind::Subscript { expr, index } => todo!(),
             ast::ExprKind::Slice { expr, low, high } => todo!(),
             ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
@@ -1077,6 +1165,28 @@ impl Check for ast::Block {
         env.pop_scope();
 
         Ok(res)
+    }
+}
+
+impl Check for ast::Binary {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        todo!()
+    }
+}
+
+impl Check for ast::Unary {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        todo!()
     }
 }
 

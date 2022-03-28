@@ -367,15 +367,15 @@ impl PrintTree for ast::Expr {
             ast::ExprKind::Block(block) => {
                 block.print_tree(b, workspace, tycx);
             }
-            ast::ExprKind::Binary { lhs, op, rhs } => {
-                b.begin_child(format!("{} <{}>", op, tycx.ty_kind(self.ty)));
-                lhs.print_tree(b, workspace, tycx);
-                rhs.print_tree(b, workspace, tycx);
+            ast::ExprKind::Binary(binary) => {
+                b.begin_child(format!("{} <{}>", binary.op, tycx.ty_kind(self.ty)));
+                binary.lhs.print_tree(b, workspace, tycx);
+                binary.rhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Unary { op, lhs } => {
-                b.begin_child(format!("{} <{}>", op, tycx.ty_kind(self.ty)));
-                lhs.print_tree(b, workspace, tycx);
+            ast::ExprKind::Unary(unary) => {
+                b.begin_child(format!("{} <{}>", unary.op, tycx.ty_kind(self.ty)));
+                unary.lhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Subscript { expr, index } => {

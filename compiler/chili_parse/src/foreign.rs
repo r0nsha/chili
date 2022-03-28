@@ -1,6 +1,6 @@
 use crate::{func::ParseFnSigKind, *};
 use chili_ast::{
-    ast::{Binding, BindingKind, Expr, ExprKind, ForeignLibrary, Visibility},
+    ast::{Binding, BindingKind, Expr, ExprKind, Visibility},
     pattern::{Pattern, SymbolPattern},
 };
 use chili_error::{DiagnosticResult, SyntaxError};

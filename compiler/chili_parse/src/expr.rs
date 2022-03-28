@@ -155,13 +155,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, BarBar) {
+            let rhs = self.parse_logic_and()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
                     op: BinaryOp::Or,
-                    rhs: Box::new(self.parse_logic_and()?),
-                },
-                start_span.to(self.previous_span()),
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -174,13 +178,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, AmpAmp) {
+            let rhs = self.parse_comparison()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: BinaryOp::And,
-                    rhs: Box::new(self.parse_comparison()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -193,13 +201,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, BangEq | EqEq | Gt | GtEq | Lt | LtEq) {
+            let rhs = self.parse_bitwise_or()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().kind.into(),
-                    rhs: Box::new(self.parse_bitwise_or()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -212,13 +224,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, Bar) {
+            let rhs = self.parse_bitwise_xor()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: BinaryOp::BitwiseOr,
-                    rhs: Box::new(self.parse_bitwise_xor()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -231,13 +247,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, Caret) {
+            let rhs = self.parse_bitwise_and()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: BinaryOp::BitwiseXor,
-                    rhs: Box::new(self.parse_bitwise_and()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -250,13 +270,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, Amp) {
+            let rhs = self.parse_bitshift()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: BinaryOp::BitwiseAnd,
-                    rhs: Box::new(self.parse_bitshift()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -269,13 +293,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, LtLt | GtGt) {
+            let rhs = self.parse_term()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().kind.into(),
-                    rhs: Box::new(self.parse_term()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -288,13 +316,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, Minus | Plus) {
+            let rhs = self.parse_factor()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().kind.into(),
-                    rhs: Box::new(self.parse_factor()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -307,13 +339,17 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         while eat!(self, Star | FwSlash | Percent) {
+            let rhs = self.parse_unary()?;
+            let span = start_span.to(self.previous_span());
+
             expr = Expr::new(
-                ExprKind::Binary {
+                ExprKind::Binary(ast::Binary {
                     lhs: Box::new(expr),
-                    op: self.previous().kind.into(),
-                    rhs: Box::new(self.parse_unary()?),
-                },
-                start_span.to(self.previous_span()),
+                    op: BinaryOp::Or,
+                    rhs: Box::new(rhs),
+                    span,
+                }),
+                span,
             );
         }
 
@@ -322,11 +358,15 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
         if eat!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
-            let span = self.previous().span;
-            let token = &self.previous().kind;
+            let start_span = self.previous().span;
+            let token = self.previous().kind;
+
+            let lhs = self.parse_unary()?;
+
+            let span = start_span.to(self.previous_span());
 
             let expr = Expr::new(
-                ExprKind::Unary {
+                ExprKind::Unary(ast::Unary {
                     op: match token {
                         Amp => UnaryOp::Ref(eat!(self, Mut)),
                         Star => UnaryOp::Deref,
@@ -336,9 +376,10 @@ impl<'p> Parser<'p> {
                         Tilde => UnaryOp::BitwiseNot,
                         t => panic!("{} is not a unary op", t),
                     },
-                    lhs: Box::new(self.parse_unary()?),
-                },
-                span.to(self.previous_span()),
+                    lhs: Box::new(lhs),
+                    span,
+                }),
+                span,
             );
 
             Ok(expr)

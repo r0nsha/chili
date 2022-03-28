@@ -264,11 +264,25 @@ impl TyKind {
     }
 
     pub fn is_number(&self) -> bool {
-        self.is_any_int() || self.is_float()
+        self.is_any_integer() || self.is_float()
     }
 
-    pub fn is_any_int(&self) -> bool {
-        self.is_int() || self.is_uint()
+    pub fn is_any_integer(&self) -> bool {
+        self.is_int() || self.is_uint() || self.is_anyint()
+    }
+
+    pub fn is_anyfloat(&self) -> bool {
+        match self {
+            TyKind::AnyFloat => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_anyint(&self) -> bool {
+        match self {
+            TyKind::AnyInt => true,
+            _ => false,
+        }
     }
 
     pub fn is_int(&self) -> bool {

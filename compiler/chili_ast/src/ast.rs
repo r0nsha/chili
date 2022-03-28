@@ -117,15 +117,15 @@ impl Expr {
             ExprKind::Continue { .. } => MaybeSpanned::not_spanned("continue".to_string()),
             ExprKind::Block { .. } => MaybeSpanned::not_spanned("{..}".to_string()),
             ExprKind::If { .. } => MaybeSpanned::not_spanned("if..".to_string()),
-            ExprKind::Binary { op, lhs, rhs } => MaybeSpanned::not_spanned(format!(
+            ExprKind::Binary(binary) => MaybeSpanned::not_spanned(format!(
                 "{} {} {}",
-                lhs.display_name_and_binding_span().value,
-                op.to_string(),
-                rhs.display_name_and_binding_span().value
+                binary.lhs.display_name_and_binding_span().value,
+                binary.op.to_string(),
+                binary.rhs.display_name_and_binding_span().value
             )),
-            ExprKind::Unary { op, lhs } => {
-                let lhs = lhs.display_name_and_binding_span();
-                lhs.map(|v| format!("{}{}", op.to_string(), v))
+            ExprKind::Unary(unary) => {
+                let lhs = unary.lhs.display_name_and_binding_span();
+                lhs.map(|v| format!("{}{}", unary.op.to_string(), v))
             }
             ExprKind::Subscript { expr, .. } => {
                 let expr = expr.display_name_and_binding_span();
@@ -200,15 +200,8 @@ pub enum ExprKind {
         else_expr: Option<Box<Expr>>,
     },
     Block(Block),
-    Binary {
-        lhs: Box<Expr>,
-        op: BinaryOp,
-        rhs: Box<Expr>,
-    },
-    Unary {
-        op: UnaryOp,
-        lhs: Box<Expr>,
-    },
+    Binary(Binary),
+    Unary(Unary),
     Subscript {
         expr: Box<Expr>,
         index: Box<Expr>,
@@ -254,6 +247,21 @@ pub struct Block {
     pub exprs: Vec<Expr>,
     pub deferred: Vec<Expr>,
     pub yields: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Binary {
+    pub lhs: Box<Expr>,
+    pub rhs: Box<Expr>,
+    pub op: BinaryOp,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Unary {
+    pub op: UnaryOp,
+    pub lhs: Box<Expr>,
     pub span: Span,
 }
 
