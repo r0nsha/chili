@@ -28,7 +28,7 @@ impl<'p> Parser<'p> {
             todo!("implement `from_root` use: `use ~.foo.bar`");
         }
 
-        let id_token = expect!(self, Id(_), "identifier")?.clone();
+        let id_token = expect!(self, Id(_), "identifier")?;
         let name = id_token.symbol().as_str();
 
         match name {
@@ -134,7 +134,7 @@ impl<'p> Parser<'p> {
                 let mut imports = vec![];
 
                 while !eat!(self, CloseCurly) {
-                    let id_token = expect!(self, Id(_), "identifier")?.clone();
+                    let id_token = expect!(self, Id(_), "identifier")?;
                     let alias = id_token.symbol();
 
                     let mut local_import_path = import_path.clone();

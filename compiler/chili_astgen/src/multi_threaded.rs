@@ -123,7 +123,7 @@ impl<'a> AstGenerator<'a> {
         let mut parse_result = parser.parse()?;
 
         // implicitly add `std` to every file we parse
-        insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
+        // insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
 
         thread::scope(|scope| {
             let mut handles = vec![];

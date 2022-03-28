@@ -332,7 +332,7 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
-        let id_token = expect!(self, Id(_), "identifier")?.clone();
+        let id_token = expect!(self, Id(_), "identifier")?;
         let symbol = id_token.symbol();
 
         expect!(self, OpenParen, "(")?;

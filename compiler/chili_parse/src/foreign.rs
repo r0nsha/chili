@@ -48,7 +48,7 @@ impl<'p> Parser<'p> {
         lib_name: Ustr,
         visibility: Visibility,
     ) -> DiagnosticResult<Binding> {
-        let id = expect!(self, Id(_), "identifier")?.clone();
+        let id = expect!(self, Id(_), "identifier")?;
 
         let pattern = Pattern::Single(SymbolPattern {
             binding_info_id: Default::default(),
@@ -100,12 +100,10 @@ impl<'p> Parser<'p> {
         let lib = lib_token.symbol();
 
         let lib = if lib.ends_with(".lib") {
-            lib.clone().to_string()
+            lib
         } else {
-            format!("{}.lib", lib)
+            ustr(&format!("{}.lib", lib))
         };
-
-        let lib = ustr(&lib);
 
         expect!(self, CloseParen, ")")?;
 

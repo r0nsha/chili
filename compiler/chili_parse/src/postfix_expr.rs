@@ -57,12 +57,11 @@ impl<'p> Parser<'p> {
 
                 let span = start_span.to(self.previous_span());
 
-                match &expr.kind {
+                match &mut expr.kind {
                     ExprKind::FnCall(call) => {
                         // map(x) fn ...
-                        let mut call = call.clone();
                         call.args.push(fn_arg);
-                        Expr::new(ExprKind::FnCall(call), span)
+                        expr
                     }
                     _ => {
                         // map fn ...
@@ -92,7 +91,7 @@ impl<'p> Parser<'p> {
 
         Ok(Expr::new(
             ExprKind::Assign {
-                lvalue: Box::new(expr.clone()),
+                lvalue: Box::new(expr),
                 rvalue: Box::new(rvalue),
             },
             start_span.to(end_span),
@@ -126,7 +125,7 @@ impl<'p> Parser<'p> {
     fn parse_as(&mut self, expr: Expr) -> DiagnosticResult<Expr> {
         let start_span = expr.span;
 
-        let type_expr = if eat!(self, Placeholder) {
+        let ty_expr = if eat!(self, Placeholder) {
             None
         } else {
             let expr = self.parse_ty()?;
@@ -135,8 +134,8 @@ impl<'p> Parser<'p> {
 
         Ok(Expr::new(
             ExprKind::Cast(Cast {
-                expr: Box::new(expr.clone()),
-                ty_expr: type_expr,
+                expr: Box::new(expr),
+                ty_expr,
                 target_ty: Default::default(),
             }),
             start_span.to(self.previous_span()),
@@ -151,7 +150,7 @@ impl<'p> Parser<'p> {
         let expr = match token.kind {
             Id(id) => Expr::new(
                 ExprKind::MemberAccess {
-                    expr: Box::new(expr.clone()),
+                    expr: Box::new(expr),
                     member: id,
                 },
                 start_span.to(token.span),
@@ -159,7 +158,7 @@ impl<'p> Parser<'p> {
 
             Int(i) => Expr::new(
                 ExprKind::MemberAccess {
-                    expr: Box::new(expr.clone()),
+                    expr: Box::new(expr),
                     member: ustr(&i.to_string()),
                 },
                 start_span.to(token.span),
@@ -171,7 +170,7 @@ impl<'p> Parser<'p> {
 
                 let first_access = Expr::new(
                     ExprKind::MemberAccess {
-                        expr: Box::new(expr.clone()),
+                        expr: Box::new(expr),
                         member: ustr(components[0]),
                     },
                     start_span.to(token.span.with_end(EndPosition {
@@ -195,7 +194,7 @@ impl<'p> Parser<'p> {
                 Expr::new(
                     ExprKind::Unary(ast::Unary {
                         op: UnaryOp::Deref,
-                        lhs: Box::new(expr.clone()),
+                        lhs: Box::new(expr),
                         span,
                     }),
                     span,
@@ -225,9 +224,13 @@ impl<'p> Parser<'p> {
             Comma,
             {
                 let symbol = if eat!(self, Id(_)) {
-                    let id_token = self.previous().clone();
+                    let id_token = self.previous();
+
+                    let symbol = id_token.symbol();
+                    let span = id_token.span;
+
                     if eat!(self, Colon) {
-                        Some(Spanned::new(id_token.symbol(), id_token.span))
+                        Some(Spanned::new(symbol, span))
                     } else {
                         self.revert(1);
                         None

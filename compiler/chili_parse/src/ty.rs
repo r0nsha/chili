@@ -140,7 +140,7 @@ impl<'p> Parser<'p> {
             CloseCurly,
             Comma,
             {
-                let id = expect!(self, Id(_), "identifier")?.clone();
+                let id = expect!(self, Id(_), "identifier")?;
                 let name = id.symbol();
 
                 expect!(self, Colon, ":")?;
@@ -149,7 +149,7 @@ impl<'p> Parser<'p> {
 
                 StructTypeField {
                     name,
-                    ty: ty.clone(),
+                    ty,
                     span: id.span,
                 }
             },
