@@ -8,7 +8,7 @@ use chili_error::DiagnosticResult;
 use chili_span::{MaybeSpanned, Span, Spanned};
 use chili_token::TokenKind;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt::{self, Display},
     path::Path,
 };
@@ -20,7 +20,6 @@ pub struct Ast {
     pub module_info: ModuleInfo,
     pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
-    pub foreign_libraries: HashSet<ForeignLibrary>,
 }
 
 impl Ast {
@@ -30,16 +29,14 @@ impl Ast {
             module_info,
             imports: Default::default(),
             bindings: Default::default(),
-            foreign_libraries: Default::default(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct TypedAst {
-    pub imports: Vec<Import>,
-    pub bindings: Vec<Binding>,
-    def_map: HashMap<BindingInfoId, DefIndex>,
+    pub imports: HashMap<BindingInfoId, Import>,
+    pub bindings: HashMap<BindingInfoId, Binding>,
 }
 
 impl TypedAst {
@@ -47,71 +44,8 @@ impl TypedAst {
         Self {
             imports: Default::default(),
             bindings: Default::default(),
-            def_map: Default::default(),
         }
     }
-
-    pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
-        self.def_map
-            .get(&id)
-            .map(|idx| match idx {
-                DefIndex::Binding(idx) => self.bindings.get(*idx),
-                _ => None,
-            })
-            .flatten()
-    }
-
-    pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
-        self.def_map
-            .get_mut(&id)
-            .map(|idx| match idx {
-                DefIndex::Binding(idx) => self.bindings.get_mut(*idx),
-                _ => None,
-            })
-            .flatten()
-    }
-
-    pub fn get_import(&self, id: BindingInfoId) -> Option<&Import> {
-        self.def_map
-            .get(&id)
-            .map(|idx| match idx {
-                DefIndex::Import(idx) => self.imports.get(*idx),
-                _ => None,
-            })
-            .flatten()
-    }
-
-    pub fn get_import_mut(&mut self, id: BindingInfoId) -> Option<&mut Import> {
-        self.def_map
-            .get_mut(&id)
-            .map(|idx| match idx {
-                DefIndex::Import(idx) => self.imports.get_mut(*idx),
-                _ => None,
-            })
-            .flatten()
-    }
-
-    pub fn add_binding(&mut self, binding: Binding) {
-        let idx = self.bindings.len();
-        for symbol in binding.pattern.symbols() {
-            self.def_map
-                .insert(symbol.binding_info_id, DefIndex::Binding(idx));
-        }
-        self.bindings.push(binding);
-    }
-
-    pub fn add_import(&mut self, import: Import) {
-        let idx = self.imports.len();
-        self.def_map
-            .insert(import.binding_info_id, DefIndex::Import(idx));
-        self.imports.push(import);
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum DefIndex {
-    Binding(usize),
-    Import(usize),
 }
 
 #[derive(Debug, PartialEq, Clone)]

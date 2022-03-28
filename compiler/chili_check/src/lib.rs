@@ -489,6 +489,8 @@ impl Check for ast::FnSig {
         let ret = if let Some(expr) = &mut self.ret {
             let res = expr.check(sess, env, None)?;
             sess.extract_const_type(res.const_value, res.ty, expr.span)?
+        } else if self.lib_name.is_some() {
+            sess.tycx.common_types.unit
         } else {
             sess.tycx.var()
         };
