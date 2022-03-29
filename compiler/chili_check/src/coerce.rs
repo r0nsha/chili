@@ -1,42 +1,19 @@
+use chili_ast::{
+    ast,
+    ty::{size::SizeOf, TyKind},
+};
+
+use crate::{
+    normalize::NormalizeTy,
+    ty_ctx::TyCtx,
+    unify::{can_coerce_mut, UnifyTyResult},
+};
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {
     CoerceToLeft,
     CoerceToRight,
     NoCoercion,
-}
-
-pub(crate) trait OrCoerceExprIntoTy {
-    fn or_coerce_expr_into_ty(
-        self,
-        expr: &mut ast::Expr,
-        ty: impl NormalizeTy,
-        tycx: &mut TyCtx,
-        word_size: usize,
-    ) -> UnifyTyResult;
-}
-
-impl OrCoerceExprIntoTy for UnifyTyResult {
-    fn or_coerce_expr_into_ty(
-        self,
-        expr: &mut ast::Expr,
-        ty: impl NormalizeTy,
-        tycx: &mut TyCtx,
-        word_size: usize,
-    ) -> UnifyTyResult {
-        match self {
-            Ok(r) => Ok(r),
-            Err(e) => {
-                let (left, right) = (expr.ty.normalize(tycx), ty.normalize(tycx));
-                match left.coerce(&right, word_size) {
-                    CoercionResult::CoerceToRight => {
-                        coerce_expr(tycx, expr, right);
-                        Ok(())
-                    }
-                    CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => Err(e),
-                }
-            }
-        }
-    }
 }
 
 trait Coerce {
@@ -159,6 +136,78 @@ fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: TyKind) {
     )
 }
 
+pub(crate) trait OrCoerceExprs {
+    fn or_coerce_exprs(
+        self,
+        left: &mut ast::Expr,
+        right: &mut ast::Expr,
+        tycx: &mut TyCtx,
+        word_size: usize,
+    ) -> UnifyTyResult;
+}
+
+impl OrCoerceExprs for UnifyTyResult {
+    fn or_coerce_exprs(
+        self,
+        left: &mut ast::Expr,
+        right: &mut ast::Expr,
+        tycx: &mut TyCtx,
+        word_size: usize,
+    ) -> UnifyTyResult {
+        match self {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                let (left_ty, right_ty) = (left.ty.normalize(tycx), right.ty.normalize(tycx));
+                match left_ty.coerce(&right_ty, word_size) {
+                    CoercionResult::CoerceToLeft => {
+                        coerce_expr(tycx, right, left_ty);
+                        Ok(())
+                    }
+                    CoercionResult::CoerceToRight => {
+                        coerce_expr(tycx, left, right_ty);
+                        Ok(())
+                    }
+                    CoercionResult::NoCoercion => Err(e),
+                }
+            }
+        }
+    }
+}
+
+pub(crate) trait OrCoerceExprIntoTy {
+    fn or_coerce_expr_into_ty(
+        self,
+        expr: &mut ast::Expr,
+        ty: impl NormalizeTy,
+        tycx: &mut TyCtx,
+        word_size: usize,
+    ) -> UnifyTyResult;
+}
+
+impl OrCoerceExprIntoTy for UnifyTyResult {
+    fn or_coerce_expr_into_ty(
+        self,
+        expr: &mut ast::Expr,
+        ty: impl NormalizeTy,
+        tycx: &mut TyCtx,
+        word_size: usize,
+    ) -> UnifyTyResult {
+        match self {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                let (left, right) = (expr.ty.normalize(tycx), ty.normalize(tycx));
+                match left.coerce(&right, word_size) {
+                    CoercionResult::CoerceToRight => {
+                        coerce_expr(tycx, expr, right);
+                        Ok(())
+                    }
+                    CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => Err(e),
+                }
+            }
+        }
+    }
+}
+
 // pub fn unify_or_coerce_expr_expr(
 //     &mut self,
 //     left_expr: &mut Expr,
@@ -189,42 +238,3 @@ fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: TyKind) {
 //         }
 //     }
 // }
-
-// pub fn unify_or_coerce_ty_expr(
-//     &mut self,
-//     ty: &Ty,
-//     expr: &mut Expr,
-//     span: Span,
-// ) -> DiagnosticResult<Ty> {
-//     match self.unify_ty_ty(ty, &expr.ty, span) {
-//         Ok(ty) => Ok(ty),
-//         Err(_) => {
-//             let ty = self.normalize_ty(ty);
-//             let expr_ty = self.normalize_ty(&expr.ty);
-
-//             match expr_ty.try_coerce(&ty, self.word_size) {
-//                 CoercionResult::CoerceToRight => {
-//                     *expr = expr.coerce(ty.clone());
-//                     Ok(ty)
-//                 }
-//                 CoercionResult::CoerceToLeft
-//                 | CoercionResult::NoCoercion => Err(self
-//                     .map_unification_error(
-//                         UnificationError(ty, expr_ty),
-//                         span,
-//                     )),
-//             }
-//         }
-//     }
-// }
-
-use chili_ast::{
-    ast,
-    ty::{size::SizeOf, TyKind},
-};
-
-use crate::{
-    normalize::NormalizeTy,
-    ty_ctx::TyCtx,
-    unify::{can_coerce_mut, UnifyTyResult},
-};

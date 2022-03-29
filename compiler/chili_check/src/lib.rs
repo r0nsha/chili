@@ -24,7 +24,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use coerce::OrCoerceExprIntoTy;
+use coerce::{OrCoerceExprIntoTy, OrCoerceExprs};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     target::TargetMetrics,
@@ -602,12 +602,16 @@ impl Check for ast::Expr {
                         let start_res = start.check(sess, env, None)?;
                         let end_res = end.check(sess, env, None)?;
 
-                        start_res.ty.unify(&end_res.ty, sess).or_report_err(
-                            &sess.tycx,
-                            start_res.ty,
-                            end_res.ty,
-                            end.span,
-                        )?;
+                        start_res
+                            .ty
+                            .unify(&end_res.ty, sess)
+                            .or_coerce_exprs(
+                                start,
+                                end,
+                                &mut sess.tycx,
+                                sess.target_metrics.word_size,
+                            )
+                            .or_report_err(&sess.tycx, start_res.ty, end_res.ty, end.span)?;
 
                         let start_ty = start_res.ty.normalize(&sess.tycx);
                         let end_ty = end_res.ty.normalize(&sess.tycx);
@@ -753,12 +757,16 @@ impl Check for ast::Expr {
                 if let Some(else_expr) = else_expr {
                     let else_res = else_expr.check(sess, env, Some(then_res.ty))?;
 
-                    else_res.ty.unify(&then_res.ty, sess).or_report_err(
-                        &sess.tycx,
-                        then_res.ty,
-                        else_res.ty,
-                        else_expr.span,
-                    )?;
+                    else_res
+                        .ty
+                        .unify(&then_res.ty, sess)
+                        .or_coerce_exprs(
+                            then_expr,
+                            else_expr,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(&sess.tycx, then_res.ty, else_res.ty, else_expr.span)?;
 
                     Ok(Res::new(then_res.ty))
                 } else {
@@ -1219,12 +1227,16 @@ impl Check for ast::Binary {
         let lhs_res = self.lhs.check(sess, env, expected_ty)?;
         let rhs_res = self.rhs.check(sess, env, expected_ty)?;
 
-        lhs_res.ty.unify(&rhs_res.ty, sess).or_report_err(
-            &sess.tycx,
-            lhs_res.ty,
-            rhs_res.ty,
-            self.rhs.span,
-        )?;
+        lhs_res
+            .ty
+            .unify(&rhs_res.ty, sess)
+            .or_coerce_exprs(
+                &mut self.lhs,
+                &mut self.rhs,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            )
+            .or_report_err(&sess.tycx, lhs_res.ty, rhs_res.ty, self.rhs.span)?;
 
         let ty_kind = lhs_res.ty.normalize(&sess.tycx);
 
