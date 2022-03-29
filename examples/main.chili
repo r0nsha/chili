@@ -2,6 +2,8 @@ use c
 use c.printf
 
 let main = fn {
+    let x: i32 = 42
+    let y: int = x
     let answer: i32 = 42
     print_answer(answer)
 }

@@ -9,8 +9,6 @@ mod top_level;
 pub mod ty_ctx;
 pub mod unify;
 
-use std::collections::HashMap;
-
 use crate::{
     cast::CanCast,
     display::{map_unify_err, DisplayTy},
@@ -31,6 +29,7 @@ use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use env::{Env, Scope};
+use std::collections::HashMap;
 use top_level::CallerInfo;
 use ustr::{ustr, UstrMap};
 
