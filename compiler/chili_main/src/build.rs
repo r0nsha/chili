@@ -54,7 +54,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Infer, typecheck, const fold, etc..
 
-    let (ast, tycx) = time! { "check",
+    let (typed_ast, tycx) = time! { "check",
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
@@ -98,7 +98,7 @@ pub fn do_build(build_options: BuildOptions) {
     all_sw.stop();
     print_stats(stats, all_sw.elapsed().as_millis());
 
-    // chili_pretty_print::print_typed_ast(&ast, &workspace, &tycx);
+    chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {

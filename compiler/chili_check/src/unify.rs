@@ -1,14 +1,6 @@
 use crate::{normalize::NormalizeTy, ty_ctx::InferenceValue, CheckSess};
 use chili_ast::ty::*;
 
-pub(crate) type UnifyTyResult = Result<(), UnifyTyErr>;
-
-#[derive(Debug)]
-pub(crate) enum UnifyTyErr {
-    Mismatch,
-    Occurs,
-}
-
 pub(crate) trait UnifyTy<T>
 where
     Self: Sized,
@@ -194,6 +186,14 @@ fn occurs(var: Ty, kind: &TyKind, sess: &CheckSess) -> bool {
         TyKind::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, sess)),
         _ => false,
     }
+}
+
+pub(crate) type UnifyTyResult = Result<(), UnifyTyErr>;
+
+#[derive(Debug)]
+pub(crate) enum UnifyTyErr {
+    Mismatch,
+    Occurs,
 }
 
 // NOTE (Ron): checks that mutability rules are equal

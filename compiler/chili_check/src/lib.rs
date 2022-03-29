@@ -1,6 +1,7 @@
 mod bind;
 mod builtin;
 mod cast;
+mod coerce;
 pub mod display;
 mod env;
 pub mod normalize;
@@ -10,12 +11,8 @@ pub mod ty_ctx;
 pub mod unify;
 
 use crate::{
-    cast::CanCast,
-    display::{map_unify_err, DisplayTy},
-    normalize::NormalizeTy,
-    top_level::CheckTopLevel,
-    ty_ctx::TyCtx,
-    unify::UnifyTy,
+    cast::CanCast, display::DisplayTy, normalize::NormalizeTy, top_level::CheckTopLevel,
+    ty_ctx::TyCtx, unify::UnifyTy,
 };
 use chili_ast::{
     ast::{self, ForeignLibrary},
@@ -27,7 +24,12 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError, TypeError};
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
+use coerce::OrCoerceExprIntoTy;
+use common::{
+    builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+    target::TargetMetrics,
+};
+use display::OrReportErr;
 use env::{Env, Scope};
 use std::collections::HashMap;
 use top_level::CallerInfo;
@@ -46,6 +48,8 @@ pub(crate) type ConstBindingsMap = HashMap<BindingInfoId, Value>;
 
 pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
+    pub(crate) target_metrics: TargetMetrics,
+
     pub(crate) tycx: TyCtx,
 
     // The ast's being processed
@@ -80,8 +84,10 @@ pub(crate) struct FunctionFrame {
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s Vec<ast::Ast>) -> Self {
+        let target_metrics = workspace.build_options.target_platform.metrics();
         Self {
             workspace,
+            target_metrics,
             tycx: TyCtx::new(),
             old_asts: old_ast,
             new_ast: ast::TypedAst::new(),
@@ -179,7 +185,7 @@ impl<'s> CheckSess<'s> {
     }
 
     fn add_builtin_types(&mut self) {
-        let mut mk = |sess: &mut CheckSess, symbol: &str, ty: Ty| {
+        let mk = |sess: &mut CheckSess, symbol: &str, ty: Ty| {
             let symbol = ustr(symbol);
 
             let id = sess.workspace.add_binding_info(
@@ -359,7 +365,13 @@ impl Check for ast::Binding {
 
             res.ty
                 .unify(&binding_ty, sess)
-                .map_err(|e| map_unify_err(e, binding_ty, res.ty, expr.span, &sess.tycx))?;
+                .or_coerce_expr_into_ty(
+                    expr,
+                    binding_ty,
+                    &mut sess.tycx,
+                    sess.target_metrics.word_size,
+                )
+                .or_report_err(&sess.tycx, binding_ty, res.ty, expr.span)?;
 
             // If this expressions matches the entry point function's requirements
             // Tag it as the entry function
@@ -441,10 +453,16 @@ impl Check for ast::Fn {
             |sess| self.body.check(sess, env, None),
         )?;
 
-        body_res
-            .ty
-            .unify(&return_ty, sess)
-            .map_err(|e| map_unify_err(e, return_ty, body_res.ty, self.body.span, &sess.tycx))?;
+        let mut unify_res = body_res.ty.unify(&return_ty, sess);
+        if let Some(last_expr) = self.body.exprs.last_mut() {
+            unify_res = unify_res.or_coerce_expr_into_ty(
+                last_expr,
+                return_ty,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            );
+        }
+        unify_res.or_report_err(&sess.tycx, return_ty, body_res.ty, self.body.span)?;
 
         env.pop_scope();
 
@@ -564,7 +582,13 @@ impl Check for ast::Expr {
                 cond_res
                     .ty
                     .unify(&cond_ty, sess)
-                    .map_err(|e| map_unify_err(e, cond_ty, cond_res.ty, cond.span, &sess.tycx))?;
+                    .or_coerce_expr_into_ty(
+                        cond,
+                        cond_ty,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, cond.span)?;
 
                 sess.loop_depth += 1;
                 block.check(sess, env, None)?;
@@ -578,9 +602,12 @@ impl Check for ast::Expr {
                         let start_res = start.check(sess, env, None)?;
                         let end_res = end.check(sess, env, None)?;
 
-                        start_res.ty.unify(&end_res.ty, sess).map_err(|e| {
-                            map_unify_err(e, start_res.ty, end_res.ty, end.span, &sess.tycx)
-                        })?;
+                        start_res.ty.unify(&end_res.ty, sess).or_report_err(
+                            &sess.tycx,
+                            start_res.ty,
+                            end_res.ty,
+                            end.span,
+                        )?;
 
                         let start_ty = start_res.ty.normalize(&sess.tycx);
                         let end_ty = end_res.ty.normalize(&sess.tycx);
@@ -681,21 +708,19 @@ impl Check for ast::Expr {
                     let res = expr.check(sess, env, Some(expected))?;
                     res.ty
                         .unify(&expected, sess)
-                        .map_err(|e| map_unify_err(e, expected, res.ty, expr.span, &sess.tycx))?;
+                        .or_coerce_expr_into_ty(
+                            expr,
+                            expected,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(&sess.tycx, expected, res.ty, expr.span)?;
                 } else {
                     let expected = sess.tycx.common_types.unit;
                     function_frame
                         .return_ty
                         .unify(&expected, sess)
-                        .map_err(|e| {
-                            map_unify_err(
-                                e,
-                                expected,
-                                function_frame.return_ty,
-                                self.span,
-                                &sess.tycx,
-                            )
-                        })?;
+                        .or_report_err(&sess.tycx, expected, function_frame.return_ty, self.span)?;
                 }
 
                 for expr in deferred.iter_mut() {
@@ -715,16 +740,25 @@ impl Check for ast::Expr {
                 cond_res
                     .ty
                     .unify(&cond_ty, sess)
-                    .map_err(|e| map_unify_err(e, cond_ty, cond_res.ty, cond.span, &sess.tycx))?;
+                    .or_coerce_expr_into_ty(
+                        cond,
+                        cond_ty,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, cond.span)?;
 
                 let then_res = then_expr.check(sess, env, expected_ty)?;
 
                 if let Some(else_expr) = else_expr {
                     let else_res = else_expr.check(sess, env, Some(then_res.ty))?;
 
-                    else_res.ty.unify(&then_res.ty, sess).map_err(|e| {
-                        map_unify_err(e, then_res.ty, else_res.ty, else_expr.span, &sess.tycx)
-                    })?;
+                    else_res.ty.unify(&then_res.ty, sess).or_report_err(
+                        &sess.tycx,
+                        then_res.ty,
+                        else_res.ty,
+                        else_expr.span,
+                    )?;
 
                     Ok(Res::new(then_res.ty))
                 } else {
@@ -1014,12 +1048,15 @@ impl Check for ast::FnCall {
                             let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
                             let res = arg.expr.check(sess, env, Some(param_ty))?;
 
-                            res.ty.unify(&param_ty, sess).map_err(|e| {
-                                map_unify_err(e, param_ty, res.ty, arg.expr.span, &sess.tycx)
-                            })?;
-                            // TODO: coerce
-                            // TODO: self.infcx
-                            // TODO:     .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
+                            res.ty
+                                .unify(&param_ty, sess)
+                                .or_coerce_expr_into_ty(
+                                    &mut arg.expr,
+                                    param_ty,
+                                    &mut sess.tycx,
+                                    sess.target_metrics.word_size,
+                                )
+                                .or_report_err(&sess.tycx, param_ty, res.ty, arg.expr.span)?;
                         } else {
                             return Err(Diagnostic::error()
                                 .with_message(format!("unknown argument `{}`", symbol.value))
@@ -1036,13 +1073,15 @@ impl Check for ast::FnCall {
                             let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
                             let res = arg.expr.check(sess, env, Some(param_ty))?;
 
-                            res.ty.unify(&param_ty, sess).map_err(|e| {
-                                map_unify_err(e, param_ty, res.ty, arg.expr.span, &sess.tycx)
-                            })?;
-
-                            // TODO: coerce
-                            // TODO: self.infcx
-                            // TODO:     .unify_or_coerce_ty_expr(&param_ty, &mut arg.expr)?;
+                            res.ty
+                                .unify(&param_ty, sess)
+                                .or_coerce_expr_into_ty(
+                                    &mut arg.expr,
+                                    param_ty,
+                                    &mut sess.tycx,
+                                    sess.target_metrics.word_size,
+                                )
+                                .or_report_err(&sess.tycx, param_ty, res.ty, arg.expr.span)?;
                         } else {
                             // this is a variadic argument, meaning that the argument's
                             // index is greater than the function's param length
@@ -1074,9 +1113,12 @@ impl Check for ast::FnCall {
                     lib_name: None,
                 });
 
-                ty.unify(&inferred_fn_ty, sess).map_err(|e| {
-                    map_unify_err(e, inferred_fn_ty, ty, self.callee.span, &sess.tycx)
-                })?;
+                ty.unify(&inferred_fn_ty, sess).or_report_err(
+                    &sess.tycx,
+                    inferred_fn_ty,
+                    ty,
+                    self.callee.span,
+                )?;
 
                 Ok(Res::new(return_ty))
             }
@@ -1174,14 +1216,15 @@ impl Check for ast::Binary {
         env: &mut Env,
         expected_ty: Option<Ty>,
     ) -> CheckResult {
-        let mut lhs_res = self.lhs.check(sess, env, expected_ty)?;
-        let mut rhs_res = self.rhs.check(sess, env, expected_ty)?;
+        let lhs_res = self.lhs.check(sess, env, expected_ty)?;
+        let rhs_res = self.rhs.check(sess, env, expected_ty)?;
 
-        // let rhs_span = rhs.expr.span;
-        lhs_res
-            .ty
-            .unify(&rhs_res.ty, sess)
-            .map_err(|e| map_unify_err(e, lhs_res.ty, rhs_res.ty, self.rhs.span, &sess.tycx))?;
+        lhs_res.ty.unify(&rhs_res.ty, sess).or_report_err(
+            &sess.tycx,
+            lhs_res.ty,
+            rhs_res.ty,
+            self.rhs.span,
+        )?;
 
         let ty_kind = lhs_res.ty.normalize(&sess.tycx);
 

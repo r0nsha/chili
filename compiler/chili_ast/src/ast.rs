@@ -56,12 +56,16 @@ pub struct Expr {
 }
 
 impl Expr {
-    pub fn new(data: ExprKind, span: Span) -> Self {
+    pub fn new(kind: ExprKind, span: Span) -> Self {
         Self {
-            kind: data,
+            kind,
             ty: Default::default(),
             span,
         }
+    }
+
+    pub fn typed(kind: ExprKind, ty: Ty, span: Span) -> Self {
+        Self { kind, ty, span }
     }
 
     pub fn is_fn(&self) -> bool {

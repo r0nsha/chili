@@ -1,5 +1,5 @@
 use chili_ast::{ast, pattern::Pattern, ty::TyKind, workspace::Workspace};
-use chili_check::ty_ctx::TyCtx;
+use chili_check::{display::DisplayTy, ty_ctx::TyCtx};
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
@@ -271,9 +271,9 @@ impl PrintTree for ast::Expr {
                 rvalue.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Cast(info) => {
-                b.begin_child("as".to_string());
-                info.print_tree(b, workspace, tycx);
+            ast::ExprKind::Cast(cast) => {
+                b.begin_child("cast".to_string());
+                cast.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Builtin(builtin) => {
@@ -554,7 +554,7 @@ impl PrintTree for ast::Cast {
             type_expr.print_tree(b, workspace, tycx);
             b.end_child();
         } else {
-            b.add_empty_child(format!("autocast -> {}", self.target_ty));
+            b.add_empty_child(format!("autocast -> {}", self.target_ty.display(tycx)));
         }
     }
 }
