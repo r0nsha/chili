@@ -561,7 +561,22 @@ impl Check for ast::Expr {
                 expr.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Assign { lvalue, rvalue } => todo!(),
+            ast::ExprKind::Assign { lvalue, rvalue } => {
+                let lres = lvalue.check(sess, env, None)?;
+                let rres = rvalue.check(sess, env, Some(lres.ty))?;
+
+                rres.ty
+                    .unify(&lres.ty, sess)
+                    .or_coerce_expr_into_ty(
+                        rvalue,
+                        lres.ty,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(&sess.tycx, lres.ty, rres.ty, rvalue.span)?;
+
+                Ok(Res::new(sess.tycx.common_types.unit))
+            }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
@@ -796,7 +811,55 @@ impl Check for ast::Expr {
             ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
             ast::ExprKind::Binary(binary) => binary.check(sess, env, expected_ty),
             ast::ExprKind::Unary(unary) => unary.check(sess, env, expected_ty),
-            ast::ExprKind::Subscript { expr, index } => todo!(),
+            ast::ExprKind::Subscript { expr, index } => {
+                let index_res = index.check(sess, env, None)?;
+                let uint = sess.tycx.common_types.uint;
+
+                index_res
+                    .ty
+                    .unify(&uint, sess)
+                    .or_coerce_expr_into_ty(
+                        index,
+                        uint,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(&sess.tycx, uint, index_res.ty, index.span)?;
+
+                let res = expr.check(sess, env, None)?;
+                let kind = res.ty.normalize(&sess.tycx);
+                let kind_deref = kind.maybe_deref_once();
+
+                if let Some(value) = index_res.const_value {
+                    let value = value.into_int();
+                    if let TyKind::Array(_, size) = kind_deref {
+                        if value < 0 || value >= size as _ {
+                            let msg = format!(
+                                "index out of array bounds - expected 0 to {}, but found {}",
+                                size - 1,
+                                value
+                            );
+                            return Err(Diagnostic::error().with_message(msg).with_labels(vec![
+                                Label::primary(index.span.file_id, index.span.range())
+                                    .with_message("index out of bounds"),
+                            ]));
+                        }
+                    }
+                }
+
+                match kind_deref {
+                    TyKind::Array(inner, ..)
+                    | TyKind::Slice(inner, ..)
+                    | TyKind::MultiPointer(inner, ..) => {
+                        let ty = sess.tycx.bound(*inner);
+                        Ok(Res::new(ty))
+                    }
+                    _ => Err(TypeError::invalid_expr_in_subscript(
+                        expr.span,
+                        kind.display(&sess.tycx),
+                    )),
+                }
+            }
             ast::ExprKind::Slice { expr, low, high } => todo!(),
             ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
             ast::ExprKind::MemberAccess { expr, member } => {
