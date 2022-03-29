@@ -18,7 +18,7 @@ use crate::{
 use chili_ast::{
     ast::{self, ForeignLibrary},
     pattern::Pattern,
-    ty::*,
+    ty::{FnTy, FnTyParam, Ty, TyKind},
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
@@ -615,6 +615,7 @@ impl Check for ast::Expr {
                             )
                             .or_report_err(&sess.tycx, start_res.ty, end_res.ty, end.span)?;
 
+                        // TODO: instead of checking type directly, unify with `AnyInt`
                         let start_ty = start_res.ty.normalize(&sess.tycx);
                         let end_ty = end_res.ty.normalize(&sess.tycx);
 
@@ -1313,7 +1314,6 @@ impl Check for ast::Binary {
         match (lhs_res.const_value, rhs_res.const_value) {
             (Some(lhs), Some(rhs)) => {
                 let const_value = const_fold_binary(lhs, rhs, self.op, self.span)?;
-                dbg!(const_value);
                 Ok(Res::new_const(result_ty, const_value))
             }
             _ => Ok(Res::new(result_ty)),
@@ -1328,7 +1328,87 @@ impl Check for ast::Unary {
         env: &mut Env,
         expected_ty: Option<Ty>,
     ) -> CheckResult {
-        todo!()
+        let res = self.lhs.check(sess, env, None)?;
+        let kind = res.ty.normalize(&sess.tycx);
+
+        match self.op {
+            ast::UnaryOp::Ref(is_mutable) => {
+                // TODO: instead of checking type directly, apply `Ref` constraint
+                let ty = sess.tycx.bound(TyKind::Pointer(Box::new(kind), is_mutable));
+                Ok(Res::new(ty))
+            }
+            ast::UnaryOp::Deref => match kind {
+                // TODO: instead of checking type directly, apply `Deref` constraint
+                TyKind::Pointer(inner, _) => {
+                    let ty = sess.tycx.bound(*inner);
+                    Ok(Res::new(ty))
+                }
+                ty => Err(TypeError::deref_non_pointer_ty(
+                    self.span,
+                    ty.display(&sess.tycx),
+                )),
+            },
+            ast::UnaryOp::Not => {
+                // TODO: instead of checking type directly, unify with `Bool`
+                if !kind.is_bool() {
+                    return Err(TypeError::type_mismatch(
+                        self.lhs.span,
+                        sess.tycx.common_types.bool.display(&sess.tycx),
+                        kind.display(&sess.tycx),
+                    ));
+                }
+
+                if let Some(value) = res.const_value {
+                    let value = value.into_bool();
+                    Ok(Res::new_const(res.ty, Value::Bool(!value)))
+                } else {
+                    Ok(Res::new(res.ty))
+                }
+            }
+            ast::UnaryOp::Neg => {
+                if !kind.is_any_integer() && !kind.is_float() {
+                    return Err(TypeError::invalid_ty_in_unary(
+                        self.lhs.span,
+                        "neg",
+                        kind.display(&sess.tycx),
+                    ));
+                }
+
+                if let Some(value) = res.const_value {
+                    let value = match value {
+                        Value::Int(i) => Value::Int(-i),
+                        Value::Float(f) => Value::Float(-f),
+                        _ => unreachable!("got {}", value),
+                    };
+
+                    Ok(Res::new_const(res.ty, value))
+                } else {
+                    Ok(Res::new(res.ty))
+                }
+            }
+            ast::UnaryOp::Plus => {
+                if kind.is_number() {
+                    Ok(Res::new(res.ty))
+                } else {
+                    Err(TypeError::invalid_ty_in_unary(
+                        self.lhs.span,
+                        "plus",
+                        kind.display(&sess.tycx),
+                    ))
+                }
+            }
+            ast::UnaryOp::BitwiseNot => {
+                if kind.is_any_integer() {
+                    Ok(Res::new(res.ty))
+                } else {
+                    Err(TypeError::invalid_ty_in_unary(
+                        self.lhs.span,
+                        "bitwise_not",
+                        kind.display(&sess.tycx),
+                    ))
+                }
+            }
+        }
     }
 }
 
