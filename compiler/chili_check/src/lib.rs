@@ -771,7 +771,24 @@ impl Check for ast::Expr {
                         )
                         .or_report_err(&sess.tycx, then_res.ty, else_res.ty, else_expr.span)?;
 
-                    Ok(Res::new(then_res.ty))
+                    // if the condition, the then expr and the otherwise expr
+                    // are all constant, we can resolve them at compile time
+                    if cond_res.const_value.is_some()
+                        && then_res.const_value.is_some()
+                        && else_res.const_value.is_some()
+                    {
+                        let cond = cond_res.const_value.unwrap().into_bool();
+
+                        let const_value = if cond {
+                            then_res.const_value.unwrap()
+                        } else {
+                            else_res.const_value.unwrap()
+                        };
+
+                        Ok(Res::new_const(then_res.ty, const_value))
+                    } else {
+                        Ok(Res::new(then_res.ty))
+                    }
                 } else {
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
