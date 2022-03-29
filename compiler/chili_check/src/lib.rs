@@ -1343,7 +1343,7 @@ impl Check for ast::Unary {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        _expected_ty: Option<Ty>,
     ) -> CheckResult {
         let res = self.lhs.check(sess, env, None)?;
         let kind = res.ty.normalize(&sess.tycx);
@@ -1433,7 +1433,7 @@ impl Check for ast::Literal {
     fn check(
         &mut self,
         sess: &mut CheckSess,
-        env: &mut Env,
+        _env: &mut Env,
         _expected_ty: Option<Ty>,
     ) -> CheckResult {
         let res = match self {
