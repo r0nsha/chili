@@ -2,6 +2,7 @@ mod bind;
 mod builtin;
 mod cast;
 mod coerce;
+mod const_fold;
 pub mod display;
 mod env;
 pub mod normalize;
@@ -29,6 +30,7 @@ use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     target::TargetMetrics,
 };
+use const_fold::binary::const_fold_binary;
 use display::OrReportErr;
 use env::{Env, Scope};
 use std::collections::HashMap;
@@ -1308,7 +1310,14 @@ impl Check for ast::Binary {
             | ast::BinaryOp::Or => sess.tycx.common_types.bool,
         };
 
-        Ok(Res::new(result_ty))
+        match (lhs_res.const_value, rhs_res.const_value) {
+            (Some(lhs), Some(rhs)) => {
+                let const_value = const_fold_binary(lhs, rhs, self.op, self.span)?;
+                dbg!(const_value);
+                Ok(Res::new_const(result_ty, const_value))
+            }
+            _ => Ok(Res::new(result_ty)),
+        }
     }
 }
 
