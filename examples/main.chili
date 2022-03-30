@@ -1,5 +1,5 @@
-# use c
-# use c.printf
+use c
+use c.printf
 
 let main = fn {
     let x: i32 = 42
@@ -32,6 +32,6 @@ let fib = fn(n) {
 }
 
 let print_answer = fn(answer) {
-    # c.printf("What is the answer?\n".data)
-    # printf("The answer is %d\n".data, answer)
+    c.printf("What is the answer?\n".data)
+    printf("The answer is %d\n".data, answer)
 }

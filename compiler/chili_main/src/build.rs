@@ -98,7 +98,7 @@ pub fn do_build(build_options: BuildOptions) {
     all_sw.stop();
     print_stats(stats, all_sw.elapsed().as_millis());
 
-    chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
+    // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {
