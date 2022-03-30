@@ -47,14 +47,14 @@ impl Display for TyKind {
                 TyKind::Slice(inner, is_mutable) =>
                     format!("[]{}{}", if *is_mutable { "mut " } else { "" }, inner),
                 TyKind::Tuple(tys) => format!(
-                    "{{ {} }}",
+                    "({})",
                     tys.iter()
                         .map(|t| t.to_string())
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
                 TyKind::Struct(ty) => ty.to_string(),
-                TyKind::Type(inner) => format!("type({})", inner),
+                TyKind::Type(inner) => inner.to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "!".to_string(),
                 TyKind::AnyInt => "[anyint]".to_string(),

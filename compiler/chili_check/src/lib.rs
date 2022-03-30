@@ -18,7 +18,7 @@ use crate::{
 use chili_ast::{
     ast::{self, ForeignLibrary},
     pattern::Pattern,
-    ty::{FnTy, FnTyParam, Ty, TyKind},
+    ty::{FnTy, FnTyParam, StructTy, StructTyField, Ty, TyKind},
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
@@ -35,7 +35,7 @@ use display::OrReportErr;
 use env::{Env, Scope};
 use std::collections::HashMap;
 use top_level::CallerInfo;
-use ustr::{ustr, UstrMap};
+use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
 pub fn check(
     workspace: &mut Workspace,
@@ -453,6 +453,7 @@ impl Check for ast::Fn {
         env: &mut Env,
         expected_ty: Option<Ty>,
     ) -> CheckResult {
+        println!("1");
         let res = self.sig.check(sess, env, expected_ty)?;
 
         let fn_ty = sess.tycx.ty_kind(res.ty);
@@ -1120,21 +1121,60 @@ impl Check for ast::Expr {
                 }
             }
             ast::ExprKind::StructLiteral { type_expr, fields } => {
-                let mut field_map = UstrMap::default();
+                match type_expr {
+                    Some(type_expr) => {
+                        let type_expr_res = type_expr.check(sess, env, None)?;
+                        let ty = sess.extract_const_type(
+                            type_expr_res.const_value,
+                            type_expr_res.ty,
+                            type_expr.span,
+                        )?;
 
-                for field in fields.iter_mut() {
-                    // TODO: check field
+                        let kind = ty.normalize(&sess.tycx);
 
-                    if let Some(already_defined_span) = field_map.insert(field.symbol, field.span) {
-                        return Err(SyntaxError::duplicate_symbol(
-                            already_defined_span,
-                            field.span,
-                            field.symbol,
-                        ));
+                        match kind {
+                            TyKind::Struct(struct_ty) => {
+                                check_named_struct_literal(sess, env, struct_ty, fields, self.span)
+                            }
+                            _ => Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "type `{}` does not support struct initialization syntax",
+                                    ty
+                                ))
+                                .with_labels(vec![Label::primary(
+                                    type_expr.span.file_id,
+                                    type_expr.span.range(),
+                                )])),
+                        }
                     }
-                }
+                    None => match expected_ty {
+                        Some(ty) => {
+                            todo!()
+                            // let ty = self.infcx.normalize_ty(&ty);
 
-                todo!()
+                            // match ty.maybe_deref_once() {
+                            //     Ty::Struct(struct_ty) => self.check_named_struct_literal(
+                            //         frame, None, fields, struct_ty, expr.span,
+                            //     )?,
+                            //     Ty::Var(_) => {
+                            //         self.check_anonymous_struct_literal(frame, fields, expr.span)?
+                            //     }
+                            //     _ => {
+                            //         return Err(Diagnostic::error()
+                            //             .with_message(format!(
+                            //             "type `{}` does not support struct initialization syntax",
+                            //             ty
+                            //         ))
+                            //             .with_labels(vec![Label::primary(
+                            //                 expr.span.file_id,
+                            //                 expr.span.range(),
+                            //             )]))
+                            //     }
+                            // }
+                        }
+                        None => todo!(), // None => self.check_anonymous_struct_literal(frame, fields, expr.span)?,
+                    },
+                }
             }
             ast::ExprKind::Literal(lit) => lit.check(sess, env, expected_ty),
             ast::ExprKind::PointerType(inner, is_mutable) => {
@@ -1152,35 +1192,120 @@ impl Check for ast::Expr {
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type()),
-                    Value::Type(sess.tycx.bound(kind.clone())),
+                    Value::Type(sess.tycx.bound(kind)),
                 ))
             }
-            ast::ExprKind::ArrayType(_, _) => todo!(),
+            ast::ExprKind::ArrayType(inner, size) => {
+                let inner_res = inner.check(sess, env, None)?;
+                let inner_ty =
+                    sess.extract_const_type(inner_res.const_value, inner_res.ty, inner.span)?;
+
+                let size_res = size.check(sess, env, None)?;
+
+                let size_value =
+                    sess.extract_const_int(size_res.const_value, size_res.ty, size.span)?;
+
+                if size_value < 0 {
+                    return Err(TypeError::negative_array_len(size.span, size_value));
+                }
+
+                let kind = TyKind::Array(Box::new(inner_ty.into()), size_value as usize);
+
+                Ok(Res::new_const(
+                    sess.tycx.bound(kind.clone().create_type()),
+                    Value::Type(sess.tycx.bound(kind)),
+                ))
+            }
             ast::ExprKind::SliceType(inner, is_mutable) => {
                 let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type()),
-                    Value::Type(sess.tycx.bound(kind.clone())),
+                    Value::Type(sess.tycx.bound(kind)),
                 ))
             }
             ast::ExprKind::StructType(st) => {
-                let mut field_map = UstrMap::default();
+                // let mut field_map = UstrMap::default();
+
+                // for field in st.fields.iter_mut() {
+                //     // TODO: check field
+
+                //     if let Some(already_defined_span) = field_map.insert(field.name, field.span) {
+                //         return Err(SyntaxError::duplicate_symbol(
+                //             already_defined_span,
+                //             field.span,
+                //             field.name,
+                //         ));
+                //     }
+                // }
+
+                st.name = if st.name.is_empty() {
+                    get_anonymous_struct_name(self.span)
+                } else {
+                    st.name
+                };
+
+                let inferred_ty = sess.tycx.var();
+
+                st.binding_info_id = sess.bind_symbol(
+                    env,
+                    st.name,
+                    ast::Visibility::Private,
+                    inferred_ty,
+                    false,
+                    ast::BindingKind::Type,
+                    self.span,
+                )?;
+
+                let opaque_struct =
+                    TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
+                        .create_type();
+
+                inferred_ty.unify(&opaque_struct, sess).unwrap();
+
+                sess.const_bindings
+                    .insert(st.binding_info_id, Value::Type(inferred_ty));
+
+                sess.self_types.push(inferred_ty);
+
+                let mut field_map = UstrMap::<Span>::default();
+                let mut struct_ty_fields = vec![];
 
                 for field in st.fields.iter_mut() {
-                    // TODO: check field
+                    let res = field.ty.check(sess, env, None)?;
+                    let ty = sess.extract_const_type(res.const_value, res.ty, field.span)?;
 
-                    if let Some(already_defined_span) = field_map.insert(field.name, field.span) {
-                        return Err(SyntaxError::duplicate_symbol(
-                            already_defined_span,
+                    if let Some(defined_span) = field_map.insert(field.name, field.span) {
+                        return Err(SyntaxError::duplicate_struct_field(
+                            defined_span,
                             field.span,
-                            field.name,
+                            field.name.to_string(),
                         ));
                     }
+
+                    struct_ty_fields.push(StructTyField {
+                        symbol: field.name,
+                        ty: ty.into(),
+                        span: field.span,
+                    });
                 }
 
-                todo!()
+                let struct_ty = StructTy {
+                    name: st.name,
+                    qualified_name: st.name,
+                    binding_info_id: st.binding_info_id,
+                    kind: st.kind,
+                    fields: struct_ty_fields,
+                };
+                let struct_ty = TyKind::Struct(struct_ty);
+
+                sess.self_types.pop();
+
+                Ok(Res::new_const(
+                    sess.tycx.bound(struct_ty.clone().create_type()),
+                    Value::Type(sess.tycx.bound(struct_ty)),
+                ))
             }
             ast::ExprKind::FnType(sig) => sig.check(sess, env, expected_ty),
             ast::ExprKind::SelfType => match sess.self_types.last() {
@@ -1189,7 +1314,7 @@ impl Check for ast::Expr {
                     Value::Type(ty),
                 )),
                 None => Err(Diagnostic::error()
-                    .with_message("`Self` is only available within struct definitions")
+                    .with_message("`Self` is only available within struct types")
                     .with_labels(vec![Label::primary(
                         self.span.file_id,
                         self.span.range().clone(),
@@ -1650,4 +1775,77 @@ impl Check for ast::Literal {
         };
         Ok(res)
     }
+}
+
+#[inline]
+fn check_named_struct_literal(
+    sess: &mut CheckSess,
+    env: &mut Env,
+    struct_ty: StructTy,
+    fields: &mut Vec<ast::StructLiteralField>,
+    span: Span,
+) -> CheckResult {
+    let mut field_set = UstrSet::default();
+    let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
+
+    for field in fields.iter_mut() {
+        if !field_set.insert(field.symbol) {
+            return Err(SyntaxError::struct_field_specified_more_than_once(
+                field.span,
+                field.symbol.to_string(),
+            ));
+        }
+
+        match struct_ty.fields.iter().find(|f| f.symbol == field.symbol) {
+            Some(ty_field) => {
+                uninit_fields.remove(&field.symbol);
+
+                let expected_ty = sess.tycx.bound(ty_field.ty.clone());
+                let field_res = field.value.check(sess, env, Some(expected_ty))?;
+
+                field_res
+                    .ty
+                    .unify(&expected_ty, sess)
+                    .or_coerce_expr_into_ty(
+                        &mut field.value,
+                        expected_ty,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(&sess.tycx, expected_ty, field_res.ty, field.span)?;
+            }
+            None => {
+                return Err(TypeError::invalid_struct_field(
+                    field.span,
+                    field.symbol,
+                    TyKind::Struct(struct_ty).to_string(),
+                ));
+            }
+        }
+    }
+
+    if struct_ty.is_union() && fields.len() != 1 {
+        return Err(Diagnostic::error()
+            .with_message("union literal should have exactly one field")
+            .with_labels(vec![Label::primary(span.file_id, span.range())]));
+    }
+
+    if !struct_ty.is_union() && !uninit_fields.is_empty() {
+        return Err(Diagnostic::error()
+            .with_message(format!(
+                "missing struct fields: {}",
+                uninit_fields
+                    .iter()
+                    .map(|f| f.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ))
+            .with_labels(vec![Label::primary(span.file_id, span.range())]));
+    }
+
+    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty))))
+}
+
+fn get_anonymous_struct_name(span: Span) -> Ustr {
+    ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
 }

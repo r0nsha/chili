@@ -1,5 +1,5 @@
-use c
-use c.printf
+# use c
+# use c.printf
 
 let main = fn {
     let x: i32 = 42
@@ -8,10 +8,26 @@ let main = fn {
     let v = -z + x
     let answer: i32 = 42
     answer = 5
-    print_answer(answer)
+    let a = (1, 2)
+    let array: [3]int = [1,2,3]
+
+    type Node = {
+        value: int,
+        next: *Self
+    }
+
+    # print_answer(answer)
+}
+
+let fib = fn(n) {
+	if n < 2 {
+		n
+	} else {
+		fib(n - 1) + fib(n - 2)
+	}
 }
 
 let print_answer = fn(answer) {
-    c.printf("What is the answer?\n".data)
-    printf("The answer is %d\n".data, answer)
+    # c.printf("What is the answer?\n".data)
+    # printf("The answer is %d\n".data, answer)
 }
