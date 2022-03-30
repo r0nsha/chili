@@ -250,6 +250,19 @@ impl Lint for ast::Expr {
                 expr.lint(sess)?;
                 low.lint(sess)?;
                 high.lint(sess)?;
+
+                if let None = high {
+                    if expr.ty.normalize(&sess.tycx).is_multi_pointer() {
+                        return Err(Diagnostic::error()
+                        .with_message(
+                            "multi pointer has unknown length, so you must specify the ending index",
+                        )
+                        .with_labels(vec![Label::primary(
+                            expr.span.file_id,
+                            expr.span.range(),
+                        )]));
+                    }
+                }
             }
             ast::ExprKind::Call(c) => {
                 c.callee.lint(sess)?;

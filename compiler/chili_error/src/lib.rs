@@ -167,7 +167,7 @@ impl SyntaxError {
 pub struct TypeError;
 
 impl TypeError {
-    pub fn negative_array_len(span: Span, len: isize) -> Diagnostic<usize> {
+    pub fn negative_array_len(span: Span, len: i64) -> Diagnostic<usize> {
         Diagnostic::error()
             .with_message(format!("array length cannot be negative, found {}", len))
             .with_labels(vec![Label::primary(span.file_id, span.range())])

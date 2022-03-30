@@ -186,6 +186,32 @@ impl<'s> CheckSess<'s> {
         Err(TypeError::expected(span, ty.display(&self.tycx), "a type"))
     }
 
+    pub(crate) fn extract_const_int(
+        &mut self,
+        value: Option<Value>,
+        ty: Ty,
+        span: Span,
+    ) -> DiagnosticResult<i64> {
+        match &value {
+            Some(value) => {
+                if !value.is_int() {
+                    Err(TypeError::expected(
+                        span,
+                        ty.display(&self.tycx),
+                        "compile-time known integer",
+                    ))
+                } else {
+                    Ok(value.clone().into_int())
+                }
+            }
+            None => Err(TypeError::expected(
+                span,
+                ty.display(&self.tycx),
+                "compile-time known integer",
+            )),
+        }
+    }
+
     fn add_builtin_types(&mut self) {
         let mk = |sess: &mut CheckSess, symbol: &str, ty: Ty| {
             let symbol = ustr(symbol);
@@ -860,7 +886,57 @@ impl Check for ast::Expr {
                     )),
                 }
             }
-            ast::ExprKind::Slice { expr, low, high } => todo!(),
+            ast::ExprKind::Slice { expr, low, high } => {
+                let expr_res = expr.check(sess, env, None)?;
+                let expr_ty = expr_res.ty.normalize(&sess.tycx);
+                let uint = sess.tycx.common_types.uint;
+
+                if let Some(low) = low {
+                    let res = low.check(sess, env, None)?;
+
+                    res.ty
+                        .unify(&uint, sess)
+                        .or_coerce_expr_into_ty(
+                            low,
+                            uint,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(&sess.tycx, uint, res.ty, low.span)?;
+                }
+
+                if let Some(high) = high {
+                    let res = high.check(sess, env, None)?;
+
+                    res.ty
+                        .unify(&uint, sess)
+                        .or_coerce_expr_into_ty(
+                            high,
+                            uint,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(&sess.tycx, uint, res.ty, high.span)?;
+                }
+
+                let (result_ty, is_mutable) = match expr_ty {
+                    // TODO: this is immutable even if the array is mutable
+                    TyKind::Array(inner, ..) => (inner, false),
+                    TyKind::Slice(inner, is_mutable) | TyKind::MultiPointer(inner, is_mutable) => {
+                        (inner, is_mutable)
+                    }
+                    _ => {
+                        return Err(TypeError::invalid_expr_in_slice(
+                            expr.span,
+                            expr_ty.to_string(),
+                        ))
+                    }
+                };
+
+                let ty = sess.tycx.bound(TyKind::Slice(result_ty, is_mutable));
+
+                Ok(Res::new(ty))
+            }
             ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
             ast::ExprKind::MemberAccess { expr, member } => {
                 let res = expr.check(sess, env, None)?;
@@ -977,8 +1053,72 @@ impl Check for ast::Expr {
                     Ok(res)
                 }
             },
-            ast::ExprKind::ArrayLiteral(_) => todo!(),
-            ast::ExprKind::TupleLiteral(_) => todo!(),
+            ast::ExprKind::ArrayLiteral(kind) => match kind {
+                ast::ArrayLiteralKind::List(elements) => {
+                    let element_ty = sess.tycx.var();
+
+                    for el in elements.iter_mut() {
+                        let res = el.check(sess, env, Some(element_ty))?;
+                        res.ty
+                            .unify(&element_ty, sess)
+                            .or_coerce_expr_into_ty(
+                                el,
+                                element_ty,
+                                &mut sess.tycx,
+                                sess.target_metrics.word_size,
+                            )
+                            .or_report_err(&sess.tycx, element_ty, res.ty, el.span)?;
+                    }
+
+                    let ty = sess
+                        .tycx
+                        .bound(TyKind::Array(Box::new(element_ty.into()), elements.len()));
+
+                    Ok(Res::new(ty))
+                }
+                ast::ArrayLiteralKind::Fill { len, expr } => {
+                    let len_res = len.check(sess, env, None)?;
+                    let len_value =
+                        sess.extract_const_int(len_res.const_value, len_res.ty, len.span)?;
+
+                    if len_value < 0 {
+                        return Err(TypeError::negative_array_len(len.span, len_value));
+                    }
+
+                    let expr = expr.check(sess, env, None)?;
+
+                    let ty = sess
+                        .tycx
+                        .bound(TyKind::Array(Box::new(expr.ty.into()), len_value as _));
+
+                    Ok(Res::new(ty))
+                }
+            },
+            ast::ExprKind::TupleLiteral(elements) => {
+                let mut elements_res = vec![];
+
+                for el in elements.iter_mut() {
+                    let res = el.check(sess, env, None)?;
+                    elements_res.push(res);
+                }
+
+                let is_tuple_type = elements_res
+                    .iter()
+                    .all(|res| res.const_value.as_ref().map_or(false, |v| v.is_type()));
+
+                let element_tys: Vec<TyKind> = elements.iter().map(|e| TyKind::Var(e.ty)).collect();
+                let kind = TyKind::Tuple(element_tys);
+                let ty = sess.tycx.bound(kind.clone());
+
+                if is_tuple_type {
+                    Ok(Res::new_const(
+                        sess.tycx.bound(kind.create_type()),
+                        Value::Type(ty),
+                    ))
+                } else {
+                    Ok(Res::new(ty))
+                }
+            }
             ast::ExprKind::StructLiteral { type_expr, fields } => {
                 let mut field_map = UstrMap::default();
 
