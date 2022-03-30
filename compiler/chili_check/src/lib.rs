@@ -18,7 +18,7 @@ use crate::{
 use chili_ast::{
     ast::{self, ForeignLibrary},
     pattern::Pattern,
-    ty::{FnTy, FnTyParam, StructTy, StructTyField, Ty, TyKind},
+    ty::{FnTy, FnTyParam, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
@@ -1122,62 +1122,41 @@ impl Check for ast::Expr {
                     Ok(Res::new(ty))
                 }
             }
-            ast::ExprKind::StructLiteral { type_expr, fields } => {
-                match type_expr {
-                    Some(type_expr) => {
-                        let type_expr_res = type_expr.check(sess, env, None)?;
-                        let ty = sess.extract_const_type(
-                            type_expr_res.const_value,
-                            type_expr_res.ty,
-                            type_expr.span,
-                        )?;
+            ast::ExprKind::StructLiteral { type_expr, fields } => match type_expr {
+                Some(type_expr) => {
+                    let res = type_expr.check(sess, env, None)?;
+                    let ty = sess.extract_const_type(res.const_value, res.ty, type_expr.span)?;
 
+                    let kind = ty.normalize(&sess.tycx);
+
+                    match kind {
+                        TyKind::Struct(struct_ty) => {
+                            check_named_struct_literal(sess, env, struct_ty, fields, self.span)
+                        }
+                        _ => Err(Diagnostic::error()
+                            .with_message(format!(
+                                "type `{}` does not support struct initialization syntax",
+                                ty
+                            ))
+                            .with_labels(vec![Label::primary(
+                                type_expr.span.file_id,
+                                type_expr.span.range(),
+                            )])),
+                    }
+                }
+                None => match expected_ty {
+                    Some(ty) => {
                         let kind = ty.normalize(&sess.tycx);
-
                         match kind {
                             TyKind::Struct(struct_ty) => {
                                 check_named_struct_literal(sess, env, struct_ty, fields, self.span)
                             }
-                            _ => Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "type `{}` does not support struct initialization syntax",
-                                    ty
-                                ))
-                                .with_labels(vec![Label::primary(
-                                    type_expr.span.file_id,
-                                    type_expr.span.range(),
-                                )])),
+                            _ => check_anonymous_struct_literal(sess, env, fields, self.span),
                         }
                     }
-                    None => match expected_ty {
-                        Some(ty) => {
-                            todo!()
-                            // let ty = self.infcx.normalize_ty(&ty);
-
-                            // match ty.maybe_deref_once() {
-                            //     Ty::Struct(struct_ty) => self.check_named_struct_literal(
-                            //         frame, None, fields, struct_ty, expr.span,
-                            //     )?,
-                            //     Ty::Var(_) => {
-                            //         self.check_anonymous_struct_literal(frame, fields, expr.span)?
-                            //     }
-                            //     _ => {
-                            //         return Err(Diagnostic::error()
-                            //             .with_message(format!(
-                            //             "type `{}` does not support struct initialization syntax",
-                            //             ty
-                            //         ))
-                            //             .with_labels(vec![Label::primary(
-                            //                 expr.span.file_id,
-                            //                 expr.span.range(),
-                            //             )]))
-                            //     }
-                            // }
-                        }
-                        None => todo!(), // None => self.check_anonymous_struct_literal(frame, fields, expr.span)?,
-                    },
-                }
-            }
+                    None => check_anonymous_struct_literal(sess, env, fields, self.span),
+                },
+            },
             ast::ExprKind::Literal(lit) => lit.check(sess, env, expected_ty),
             ast::ExprKind::PointerType(inner, is_mutable) => {
                 let res = inner.check(sess, env, None)?;
@@ -1786,7 +1765,7 @@ fn check_named_struct_literal(
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, expected_ty, field_res.ty, field.span)?;
+                    .or_report_err(&sess.tycx, expected_ty, field_res.ty, field.value.span)?;
             }
             None => {
                 return Err(TypeError::invalid_struct_field(
@@ -1815,6 +1794,44 @@ fn check_named_struct_literal(
                     .join(", ")
             ))
             .with_labels(vec![Label::primary(span.file_id, span.range())]));
+    }
+
+    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty))))
+}
+
+#[inline]
+fn check_anonymous_struct_literal(
+    sess: &mut CheckSess,
+    env: &mut Env,
+    fields: &mut Vec<ast::StructLiteralField>,
+    span: Span,
+) -> CheckResult {
+    let mut field_set = UstrSet::default();
+
+    let name = get_anonymous_struct_name(span);
+    let mut struct_ty = StructTy {
+        name,
+        qualified_name: name,
+        binding_info_id: BindingInfoId::unknown(),
+        kind: StructTyKind::Struct,
+        fields: vec![],
+    };
+
+    for field in fields {
+        if !field_set.insert(field.symbol) {
+            return Err(SyntaxError::struct_field_specified_more_than_once(
+                field.span,
+                field.symbol.to_string(),
+            ));
+        }
+
+        let res = field.value.check(sess, env, None)?;
+
+        struct_ty.fields.push(StructTyField {
+            symbol: field.symbol,
+            ty: res.ty.into(),
+            span: field.span,
+        });
     }
 
     Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty))))

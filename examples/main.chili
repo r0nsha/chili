@@ -16,6 +16,10 @@ let main = fn {
         next: *Self,
     }
 
+    type Foo = {a:int}
+    let foo = Foo { a: 5 }
+    let foo: Foo = .{ a: 5 }
+
     print_answer(answer)
 }
 
