@@ -90,7 +90,7 @@ impl<'p> Parser<'p> {
                     ))
                 } else {
                     let binding =
-                        self.parse_binding(BindingKind::Let, Visibility::Private, false)?;
+                        self.parse_binding(BindingKind::Value, Visibility::Private, false)?;
 
                     Ok(Expr::new(
                         ExprKind::Binding(Box::new(binding)),

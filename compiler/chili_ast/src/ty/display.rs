@@ -57,8 +57,8 @@ impl Display for TyKind {
                 TyKind::Type(inner) => inner.to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "!".to_string(),
-                TyKind::AnyInt => "[anyint]".to_string(),
-                TyKind::AnyFloat => "[anyfloat]".to_string(),
+                TyKind::AnyInt(_) => "[anyint]".to_string(),
+                TyKind::AnyFloat(_) => "[anyfloat]".to_string(),
                 TyKind::Var(v) => v.to_string(),
                 TyKind::Unknown => "[unknown]".to_string(),
             }

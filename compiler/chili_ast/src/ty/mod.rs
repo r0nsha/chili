@@ -62,8 +62,8 @@ pub enum TyKind {
     Module(ModuleId),
     Type(Box<TyKind>),
     Var(Ty),
-    AnyInt,
-    AnyFloat,
+    AnyInt(Ty),
+    AnyFloat(Ty),
     Unknown,
 }
 
@@ -273,14 +273,14 @@ impl TyKind {
 
     pub fn is_anyfloat(&self) -> bool {
         match self {
-            TyKind::AnyFloat => true,
+            TyKind::AnyFloat(_) => true,
             _ => false,
         }
     }
 
     pub fn is_anyint(&self) -> bool {
         match self {
-            TyKind::AnyInt => true,
+            TyKind::AnyInt(_) => true,
             _ => false,
         }
     }

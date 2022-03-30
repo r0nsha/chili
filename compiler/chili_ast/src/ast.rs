@@ -445,7 +445,7 @@ impl Binding {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingKind {
-    Let,
+    Value,
     Type,
     Import,
 }
@@ -465,7 +465,7 @@ impl Display for BindingKind {
             f,
             "{}",
             match self {
-                BindingKind::Let => "value",
+                BindingKind::Value => "value",
                 BindingKind::Type => "type",
                 BindingKind::Import => "import",
             }

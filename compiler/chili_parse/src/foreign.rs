@@ -68,7 +68,7 @@ impl<'p> Parser<'p> {
 
             Binding::new(
                 visibility,
-                BindingKind::Let,
+                BindingKind::Value,
                 pattern,
                 None,
                 Some(Expr::new(
@@ -82,7 +82,7 @@ impl<'p> Parser<'p> {
 
             Binding::new(
                 visibility,
-                BindingKind::Let,
+                BindingKind::Value,
                 pattern,
                 Some(ty_expr),
                 None,

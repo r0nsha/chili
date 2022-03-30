@@ -339,7 +339,11 @@ impl Check for ast::Import {
                 TyKind::Module(id) => module_id = id,
                 _ => {
                     if index < self.import_path.len() - 1 {
-                        return Err(TypeError::expected(node.span, ty.to_string(), "a module"));
+                        return Err(TypeError::expected(
+                            node.span,
+                            ty.display(&sess.tycx),
+                            "a module",
+                        ));
                     }
                 }
             }
@@ -453,15 +457,24 @@ impl Check for ast::Fn {
         env: &mut Env,
         expected_ty: Option<Ty>,
     ) -> CheckResult {
-        println!("1");
-        let res = self.sig.check(sess, env, expected_ty)?;
+        let sig_res = self.sig.check(sess, env, expected_ty)?;
 
-        let fn_ty = sess.tycx.ty_kind(res.ty);
+        let fn_ty = sess.tycx.ty_kind(sig_res.ty);
         let fn_ty = fn_ty.as_fn();
 
         let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
 
         env.push_named_scope(self.sig.name);
+
+        sess.bind_symbol(
+            env,
+            self.sig.name,
+            ast::Visibility::Private,
+            sig_res.ty,
+            false,
+            ast::BindingKind::Value,
+            self.body.span,
+        )?;
 
         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
             let ty = sess.tycx.bound(param_ty.ty.clone());
@@ -470,7 +483,7 @@ impl Check for ast::Fn {
                 &mut param.pattern,
                 ast::Visibility::Private,
                 ty,
-                ast::BindingKind::Let,
+                ast::BindingKind::Value,
             )?;
         }
 
@@ -495,7 +508,7 @@ impl Check for ast::Fn {
 
         env.pop_scope();
 
-        Ok(Res::new(res.ty))
+        Ok(Res::new(sig_res.ty))
     }
 }
 
@@ -646,6 +659,15 @@ impl Check for ast::Expr {
                         let start_res = start.check(sess, env, None)?;
                         let end_res = end.check(sess, env, None)?;
 
+                        let anyint = sess.tycx.anyint();
+
+                        start_res.ty.unify(&anyint, sess).or_report_err(
+                            &sess.tycx,
+                            anyint,
+                            start_res.ty,
+                            start.span,
+                        )?;
+
                         start_res
                             .ty
                             .unify(&end_res.ty, sess)
@@ -656,26 +678,6 @@ impl Check for ast::Expr {
                                 sess.target_metrics.word_size,
                             )
                             .or_report_err(&sess.tycx, start_res.ty, end_res.ty, end.span)?;
-
-                        // TODO: instead of checking type directly, unify with `AnyInt`
-                        let start_ty = start_res.ty.normalize(&sess.tycx);
-                        let end_ty = end_res.ty.normalize(&sess.tycx);
-
-                        if !start_ty.is_any_integer() {
-                            return Err(TypeError::expected(
-                                start.span,
-                                start_ty.to_string(),
-                                "any integer",
-                            ));
-                        }
-
-                        if !end_ty.is_any_integer() {
-                            return Err(TypeError::expected(
-                                end.span,
-                                end_ty.to_string(),
-                                "any integer",
-                            ));
-                        }
 
                         start_res.ty
                     }
@@ -705,7 +707,7 @@ impl Check for ast::Expr {
                     ast::Visibility::Private,
                     iter_ty,
                     false,
-                    ast::BindingKind::Let,
+                    ast::BindingKind::Value,
                     self.span, // TODO: use iter's actual span
                 )?;
 
@@ -715,7 +717,7 @@ impl Check for ast::Expr {
                     ast::Visibility::Private,
                     sess.tycx.common_types.uint,
                     false,
-                    ast::BindingKind::Let,
+                    ast::BindingKind::Value,
                     self.span, // TODO: use iter_index's actual span
                 )?;
 
@@ -929,7 +931,7 @@ impl Check for ast::Expr {
                     _ => {
                         return Err(TypeError::invalid_expr_in_slice(
                             expr.span,
-                            expr_ty.to_string(),
+                            expr_ty.display(&sess.tycx),
                         ))
                     }
                 };
@@ -950,22 +952,23 @@ impl Check for ast::Expr {
                             None => Err(TypeError::tuple_field_out_of_bounds(
                                 expr.span,
                                 &member,
-                                ty.to_string(),
+                                ty.display(&sess.tycx),
                                 tys.len() - 1,
                             )),
                         },
                         Err(_) => Err(TypeError::non_numeric_tuple_field(
                             expr.span,
                             &member,
-                            ty.to_string(),
+                            ty.display(&sess.tycx),
                         )),
                     },
-                    TyKind::Struct(ty) => match ty.fields.iter().find(|f| f.symbol == *member) {
+                    ty @ TyKind::Struct(st) => match st.fields.iter().find(|f| f.symbol == *member)
+                    {
                         Some(field) => Ok(Res::new(sess.tycx.bound(field.ty.clone()))),
                         None => Err(TypeError::invalid_struct_field(
                             expr.span,
                             *member,
-                            ty.to_string(),
+                            ty.display(&sess.tycx),
                         )),
                     },
                     TyKind::Array(_, size) if member.as_str() == BUILTIN_FIELD_LEN => Ok(
@@ -993,7 +996,7 @@ impl Check for ast::Expr {
                     }
                     ty => Err(TypeError::member_access_on_invalid_type(
                         expr.span,
-                        ty.to_string(),
+                        ty.display(&sess.tycx),
                     )),
                 }
             }
@@ -1050,7 +1053,6 @@ impl Check for ast::Expr {
                     *binding_info_id = id;
                     sess.workspace.increment_binding_use(id);
 
-                    // TODO: check visibility
                     Ok(res)
                 }
             },
@@ -1226,20 +1228,6 @@ impl Check for ast::Expr {
                 ))
             }
             ast::ExprKind::StructType(st) => {
-                // let mut field_map = UstrMap::default();
-
-                // for field in st.fields.iter_mut() {
-                //     // TODO: check field
-
-                //     if let Some(already_defined_span) = field_map.insert(field.name, field.span) {
-                //         return Err(SyntaxError::duplicate_symbol(
-                //             already_defined_span,
-                //             field.span,
-                //             field.name,
-                //         ));
-                //     }
-                // }
-
                 st.name = if st.name.is_empty() {
                     get_anonymous_struct_name(self.span)
                 } else {
@@ -1575,20 +1563,7 @@ impl Check for ast::Binary {
         let lhs_res = self.lhs.check(sess, env, expected_ty)?;
         let rhs_res = self.rhs.check(sess, env, expected_ty)?;
 
-        lhs_res
-            .ty
-            .unify(&rhs_res.ty, sess)
-            .or_coerce_exprs(
-                &mut self.lhs,
-                &mut self.rhs,
-                &mut sess.tycx,
-                sess.target_metrics.word_size,
-            )
-            .or_report_err(&sess.tycx, lhs_res.ty, rhs_res.ty, self.rhs.span)?;
-
-        let ty_kind = lhs_res.ty.normalize(&sess.tycx);
-
-        match &self.op {
+        let expected_ty = match &self.op {
             ast::BinaryOp::Add
             | ast::BinaryOp::Sub
             | ast::BinaryOp::Mul
@@ -1597,42 +1572,33 @@ impl Check for ast::Binary {
             | ast::BinaryOp::Lt
             | ast::BinaryOp::LtEq
             | ast::BinaryOp::Gt
-            | ast::BinaryOp::GtEq => {
-                if !ty_kind.is_number() {
-                    return Err(TypeError::expected(
-                        self.span,
-                        ty_kind.display(&sess.tycx),
-                        "a number",
-                    ));
-                }
-            }
-
-            ast::BinaryOp::Shl
+            | ast::BinaryOp::GtEq
+            | ast::BinaryOp::Shl
             | ast::BinaryOp::Shr
             | ast::BinaryOp::BitwiseOr
             | ast::BinaryOp::BitwiseXor
-            | ast::BinaryOp::BitwiseAnd => {
-                if !ty_kind.is_any_integer() {
-                    return Err(TypeError::expected(
-                        self.span,
-                        ty_kind.display(&sess.tycx),
-                        "any integer",
-                    ));
-                }
-            }
-
-            ast::BinaryOp::Eq | ast::BinaryOp::NEq => (),
-
-            ast::BinaryOp::And | ast::BinaryOp::Or => {
-                if !ty_kind.is_bool() {
-                    return Err(TypeError::type_mismatch(
-                        self.span,
-                        sess.tycx.common_types.bool.display(&sess.tycx),
-                        ty_kind.display(&sess.tycx),
-                    ));
-                }
-            }
+            | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(),
+            ast::BinaryOp::Eq | ast::BinaryOp::NEq => sess.tycx.var(),
+            ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
         };
+
+        lhs_res.ty.unify(&expected_ty, sess).or_report_err(
+            &sess.tycx,
+            expected_ty,
+            lhs_res.ty,
+            self.lhs.span,
+        )?;
+
+        rhs_res
+            .ty
+            .unify(&lhs_res.ty, sess)
+            .or_coerce_exprs(
+                &mut self.lhs,
+                &mut self.rhs,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            )
+            .or_report_err(&sess.tycx, lhs_res.ty, rhs_res.ty, self.rhs.span)?;
 
         let result_ty = match &self.op {
             ast::BinaryOp::Add
@@ -1674,34 +1640,34 @@ impl Check for ast::Unary {
         _expected_ty: Option<Ty>,
     ) -> CheckResult {
         let res = self.lhs.check(sess, env, None)?;
-        let kind = res.ty.normalize(&sess.tycx);
 
         match self.op {
             ast::UnaryOp::Ref(is_mutable) => {
-                // TODO: instead of checking type directly, apply `Ref` constraint
-                let ty = sess.tycx.bound(TyKind::Pointer(Box::new(kind), is_mutable));
+                let ty = sess
+                    .tycx
+                    .bound(TyKind::Pointer(Box::new(res.ty.into()), is_mutable));
                 Ok(Res::new(ty))
             }
-            ast::UnaryOp::Deref => match kind {
-                // TODO: instead of checking type directly, apply `Deref` constraint
-                TyKind::Pointer(inner, _) => {
-                    let ty = sess.tycx.bound(*inner);
-                    Ok(Res::new(ty))
+            ast::UnaryOp::Deref => {
+                let kind = res.ty.normalize(&sess.tycx);
+                match kind {
+                    // TODO: instead of checking type directly, apply `Deref` constraint
+                    TyKind::Pointer(inner, _) => {
+                        let ty = sess.tycx.bound(*inner);
+                        Ok(Res::new(ty))
+                    }
+                    ty => Err(TypeError::deref_non_pointer_ty(
+                        self.span,
+                        ty.display(&sess.tycx),
+                    )),
                 }
-                ty => Err(TypeError::deref_non_pointer_ty(
-                    self.span,
-                    ty.display(&sess.tycx),
-                )),
-            },
+            }
             ast::UnaryOp::Not => {
-                // TODO: instead of checking type directly, unify with `Bool`
-                if !kind.is_bool() {
-                    return Err(TypeError::type_mismatch(
-                        self.lhs.span,
-                        sess.tycx.common_types.bool.display(&sess.tycx),
-                        kind.display(&sess.tycx),
-                    ));
-                }
+                let bool = sess.tycx.common_types.bool;
+
+                res.ty
+                    .unify(&bool, sess)
+                    .or_report_err(&sess.tycx, bool, res.ty, self.lhs.span)?;
 
                 if let Some(value) = res.const_value {
                     let value = value.into_bool();
@@ -1711,13 +1677,14 @@ impl Check for ast::Unary {
                 }
             }
             ast::UnaryOp::Neg => {
-                if !kind.is_any_integer() && !kind.is_float() {
-                    return Err(TypeError::invalid_ty_in_unary(
-                        self.lhs.span,
-                        "neg",
-                        kind.display(&sess.tycx),
-                    ));
-                }
+                let anyint = sess.tycx.anyint();
+
+                res.ty.unify(&anyint, sess).or_report_err(
+                    &sess.tycx,
+                    anyint,
+                    res.ty,
+                    self.lhs.span,
+                )?;
 
                 if let Some(value) = res.const_value {
                     let value = match value {
@@ -1732,25 +1699,32 @@ impl Check for ast::Unary {
                 }
             }
             ast::UnaryOp::Plus => {
-                if kind.is_number() {
-                    Ok(Res::new(res.ty))
-                } else {
-                    Err(TypeError::invalid_ty_in_unary(
-                        self.lhs.span,
-                        "plus",
-                        kind.display(&sess.tycx),
-                    ))
-                }
+                let anyint = sess.tycx.anyint();
+
+                res.ty.unify(&anyint, sess).or_report_err(
+                    &sess.tycx,
+                    anyint,
+                    res.ty,
+                    self.lhs.span,
+                )?;
+
+                Ok(Res::new_maybe_const(res.ty, res.const_value))
             }
             ast::UnaryOp::BitwiseNot => {
-                if kind.is_any_integer() {
-                    Ok(Res::new(res.ty))
+                let anyint = sess.tycx.anyint();
+
+                res.ty.unify(&anyint, sess).or_report_err(
+                    &sess.tycx,
+                    anyint,
+                    res.ty,
+                    self.lhs.span,
+                )?;
+
+                if let Some(value) = res.const_value {
+                    let value = value.into_int();
+                    Ok(Res::new_const(res.ty, Value::Int(!value)))
                 } else {
-                    Err(TypeError::invalid_ty_in_unary(
-                        self.lhs.span,
-                        "bitwise_not",
-                        kind.display(&sess.tycx),
-                    ))
+                    Ok(Res::new(res.ty))
                 }
             }
         }
@@ -1818,7 +1792,7 @@ fn check_named_struct_literal(
                 return Err(TypeError::invalid_struct_field(
                     field.span,
                     field.symbol,
-                    TyKind::Struct(struct_ty).to_string(),
+                    TyKind::Struct(struct_ty).display(&sess.tycx),
                 ));
             }
         }

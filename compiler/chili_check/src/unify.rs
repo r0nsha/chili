@@ -37,8 +37,8 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
 
-            (TyKind::AnyInt, TyKind::AnyInt) => Ok(()),
-            (TyKind::AnyFloat, TyKind::AnyFloat) => Ok(()),
+            (TyKind::AnyInt(_), TyKind::AnyInt(_)) => Ok(()),
+            (TyKind::AnyFloat(_), TyKind::AnyFloat(_)) => Ok(()),
 
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
             (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
@@ -119,45 +119,45 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult 
     match sess.tycx.value_of(var) {
         InferenceValue::Bound(kind) => kind.clone().unify(other, sess),
         InferenceValue::AnyInt => {
-            let other = other.normalize(&sess.tycx);
-            match other {
-                TyKind::AnyInt
-                | TyKind::Int(_)
-                | TyKind::UInt(_)
-                | TyKind::AnyFloat
-                | TyKind::Float(_) => {
-                    sess.tycx.bind(var, other);
+            let other_kind = other.normalize(&sess.tycx);
+            match other_kind {
+                TyKind::Int(_) | TyKind::UInt(_) | TyKind::Float(_) => {
+                    sess.tycx.bind(var, other.clone());
                     Ok(())
                 }
-                TyKind::Var(other) => {
-                    sess.tycx.bind(other, var.into());
+                TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
+                    if other != var {
+                        sess.tycx.bind(other, var.into());
+                    }
                     Ok(())
                 }
                 _ => Err(UnifyTyErr::Mismatch),
             }
         }
         InferenceValue::AnyFloat => {
-            let other = other.normalize(&sess.tycx);
-            match other {
-                TyKind::AnyFloat | TyKind::Float(_) => {
-                    sess.tycx.bind(var, other);
+            let other_kind = other.normalize(&sess.tycx);
+            match other_kind {
+                TyKind::Float(_) => {
+                    sess.tycx.bind(var, other.clone());
                     Ok(())
                 }
-                TyKind::Var(other) => {
-                    sess.tycx.bind(other, var.into());
+                TyKind::AnyFloat(other) | TyKind::Var(other) => {
+                    if other != var {
+                        sess.tycx.bind(other, var.into());
+                    }
                     Ok(())
                 }
                 _ => Err(UnifyTyErr::Mismatch),
             }
         }
         InferenceValue::Unbound => {
-            let other = other.normalize(&sess.tycx);
+            let other_kind = other.normalize(&sess.tycx);
 
-            if TyKind::Var(var) != other {
-                if occurs(var, &other, sess) {
+            if TyKind::Var(var) != other_kind {
+                if occurs(var, &other_kind, sess) {
                     Err(UnifyTyErr::Occurs)
                 } else {
-                    sess.tycx.bind(var, other);
+                    sess.tycx.bind(var, other.clone());
                     Ok(())
                 }
             } else {
