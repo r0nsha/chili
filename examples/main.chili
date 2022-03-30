@@ -20,6 +20,10 @@ let main = fn {
     let foo = Foo { a: 5 }
     let foo: Foo = .{ a: 5 }
 
+    let x = fn() { 
+        let foo = Foo { a: 5 }
+    }
+
     print_answer(answer)
 }
 

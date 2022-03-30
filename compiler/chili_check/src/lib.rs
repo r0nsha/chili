@@ -1021,7 +1021,7 @@ impl Check for ast::Expr {
                         && binding_info.scope_level < min_scope_level
                     {
                         return Err(Diagnostic::error()
-                            .with_message("can't capture dynamic environment yet - not implemented")
+                            .with_message("can't capture dynamic environment yet - closures are not implemented yet")
                             .with_labels(vec![Label::primary(
                                 self.span.file_id,
                                 self.span.range(),
