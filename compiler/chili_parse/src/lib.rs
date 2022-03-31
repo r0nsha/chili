@@ -70,7 +70,6 @@ macro_rules! parse_delimited_list {
             } else if eat!($parser, $close_delim) {
                 break;
             } else {
-                println!("got `{}`", $parser.peek());
                 return Err(SyntaxError::expected($parser.span(), $msg));
             }
         }

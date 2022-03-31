@@ -10,15 +10,7 @@ members = [
     "compiler/chili_astgen",
     "compiler/chili_resolve",
     "compiler/chili_check",
-    # "compiler/chili_typeck",
-    # "compiler/chili_check",
     # "compiler/chili_lint",
     # "compiler/chili_llvm",
     "compiler/chili_main",
 ]
-
-[profile.dev]
-opt-level = 0
-
-[profile.release]
-opt-level = 3
