@@ -46,8 +46,6 @@ pub fn check(
     Ok((sess.new_ast, sess.tycx))
 }
 
-pub(crate) type ConstBindingsMap = HashMap<BindingInfoId, Value>;
-
 pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
     pub(crate) target_metrics: TargetMetrics,
@@ -59,9 +57,6 @@ pub(crate) struct CheckSess<'s> {
 
     // The new typed ast being generated
     pub(crate) new_ast: ast::TypedAst,
-
-    // Map of bindings to their const value, if there's any
-    pub(crate) const_bindings: ConstBindingsMap,
 
     // Information that's relevant for the global context
     pub(crate) global_scopes: HashMap<ModuleId, Scope>,
@@ -93,7 +88,6 @@ impl<'s> CheckSess<'s> {
             tycx: TyCtx::new(),
             old_asts: old_ast,
             new_ast: ast::TypedAst::new(),
-            const_bindings: HashMap::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -221,6 +215,7 @@ impl<'s> CheckSess<'s> {
                 symbol,
                 ast::Visibility::Public,
                 sess.tycx.bound(ty.kind().create_type()),
+                Some(Value::Type(ty)),
                 false,
                 ast::BindingKind::Type,
                 ScopeLevel::Global,
@@ -231,7 +226,6 @@ impl<'s> CheckSess<'s> {
             let info = sess.workspace.get_binding_info_mut(id).unwrap();
             info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
 
-            sess.const_bindings.insert(id, Value::Type(ty));
             sess.builtin_types.insert(symbol, id);
         };
 
@@ -259,10 +253,26 @@ impl<'s> CheckSess<'s> {
 
         mk(self, builtin::SYM_NEVER, self.tycx.common_types.never);
     }
+
+    // pub(crate) fn print_const_bindings(&self, filter: Option<&str>) {
+    //     println!("--------------------------------");
+    //     for (id, value) in self.const_bindings.iter() {
+    //         let info = self.workspace.get_binding_info(*id).unwrap();
+
+    //         if let Some(filter) = filter {
+    //             if info.symbol != filter {
+    //                 continue;
+    //             }
+    //         }
+
+    //         println!("{:?} : {} : {:?}", info.scope_level, info.symbol, value);
+    //     }
+    // }
 }
 
 pub(crate) type CheckResult = DiagnosticResult<Res>;
 
+#[derive(Debug)]
 pub(crate) struct Res {
     ty: Ty,
     const_value: Option<Value>,
@@ -356,6 +366,7 @@ impl Check for ast::Import {
             self.alias,
             self.visibility,
             ty,
+            const_value,
             false,
             ast::BindingKind::Import,
             self.span,
@@ -425,26 +436,27 @@ impl Check for ast::Binding {
             None
         };
 
+        let const_value = match &self.pattern {
+            Pattern::Single(pat) => {
+                // don't allow const values with mutable bindings or patterns
+                // that are not `Single` and are not mutable
+                if !pat.is_mutable {
+                    const_value
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
         sess.bind_pattern(
             env,
             &mut self.pattern,
             self.visibility,
             binding_ty,
+            const_value,
             self.kind,
         )?;
-
-        match &self.pattern {
-            Pattern::Single(pat) => {
-                // don't allow const values with mutable bindings or patterns
-                // that are not `Single` and are not mutable
-                if let Some(const_value) = const_value {
-                    if !pat.is_mutable {
-                        sess.const_bindings.insert(pat.binding_info_id, const_value);
-                    }
-                }
-            }
-            _ => (),
-        }
 
         Ok(Res::new_maybe_const(binding_ty, const_value))
     }
@@ -471,6 +483,7 @@ impl Check for ast::Fn {
             self.sig.name,
             ast::Visibility::Private,
             sig_res.ty,
+            None,
             false,
             ast::BindingKind::Value,
             self.body.span,
@@ -483,6 +496,7 @@ impl Check for ast::Fn {
                 &mut param.pattern,
                 ast::Visibility::Private,
                 ty,
+                None,
                 ast::BindingKind::Value,
             )?;
         }
@@ -706,6 +720,7 @@ impl Check for ast::Expr {
                     for_.iter_name,
                     ast::Visibility::Private,
                     iter_ty,
+                    None,
                     false,
                     ast::BindingKind::Value,
                     self.span, // TODO: use iter's actual span
@@ -716,6 +731,7 @@ impl Check for ast::Expr {
                     for_.iter_index_name,
                     ast::Visibility::Private,
                     sess.tycx.common_types.uint,
+                    None,
                     false,
                     ast::BindingKind::Value,
                     self.span, // TODO: use iter_index's actual span
@@ -1004,7 +1020,7 @@ impl Check for ast::Expr {
                 symbol,
                 binding_info_id,
                 ..
-            } => match env.find_symbol(*symbol) {
+            } => match sess.get_symbol(env, *symbol) {
                 Some(id) => {
                     // this is a local binding
                     *binding_info_id = id;
@@ -1032,10 +1048,7 @@ impl Check for ast::Expr {
                         .workspace
                         .get_binding_info(id)
                         .map(|binding_info| {
-                            Res::new_maybe_const(
-                                binding_info.ty,
-                                sess.const_bindings.get(&id).cloned(),
-                            )
+                            Res::new_maybe_const(binding_info.ty, binding_info.const_value)
                         })
                         .unwrap())
                 }
@@ -1207,7 +1220,11 @@ impl Check for ast::Expr {
                 ))
             }
             ast::ExprKind::StructType(st) => {
-                st.name = if st.name.is_empty() {
+                // env.push_scope();
+
+                let is_anonymous = st.name.is_empty();
+
+                st.name = if is_anonymous {
                     get_anonymous_struct_name(self.span)
                 } else {
                     st.name
@@ -1215,15 +1232,15 @@ impl Check for ast::Expr {
 
                 let inferred_ty = sess.tycx.var();
 
-                st.binding_info_id = sess.bind_symbol(
-                    env,
-                    st.name,
-                    ast::Visibility::Private,
-                    inferred_ty,
-                    false,
-                    ast::BindingKind::Type,
-                    self.span,
-                )?;
+                // st.binding_info_id = sess.bind_symbol(
+                //     env,
+                //     st.name,
+                //     ast::Visibility::Private,
+                //     inferred_ty,
+                //     false,
+                //     ast::BindingKind::Type,
+                //     self.span,
+                // )?;
 
                 let opaque_struct =
                     TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
@@ -1231,8 +1248,8 @@ impl Check for ast::Expr {
 
                 inferred_ty.unify(&opaque_struct, sess).unwrap();
 
-                sess.const_bindings
-                    .insert(st.binding_info_id, Value::Type(inferred_ty));
+                // sess.const_bindings
+                //     .insert(st.binding_info_id, Value::Type(inferred_ty));
 
                 sess.self_types.push(inferred_ty);
 
@@ -1258,16 +1275,17 @@ impl Check for ast::Expr {
                     });
                 }
 
-                let struct_ty = StructTy {
+                let struct_ty = TyKind::Struct(StructTy {
                     name: st.name,
                     qualified_name: st.name,
                     binding_info_id: st.binding_info_id,
                     kind: st.kind,
                     fields: struct_ty_fields,
-                };
-                let struct_ty = TyKind::Struct(struct_ty);
+                });
 
                 sess.self_types.pop();
+
+                // env.pop_scope();
 
                 Ok(Res::new_const(
                     sess.tycx.bound(struct_ty.clone().create_type()),

@@ -6,6 +6,7 @@ use chili_ast::{
     ast,
     pattern::{Pattern, SymbolPattern},
     ty::Ty,
+    value::Value,
     workspace::{BindingInfoId, ModuleId},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -14,9 +15,9 @@ use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn get_binding_res(&self, id: BindingInfoId) -> Option<Res> {
-        self.workspace.get_binding_info(id).map(|binding_info| {
-            Res::new_maybe_const(binding_info.ty, self.const_bindings.get(&id).cloned())
-        })
+        self.workspace
+            .get_binding_info(id)
+            .map(|binding_info| Res::new_maybe_const(binding_info.ty, binding_info.const_value))
     }
 
     pub(crate) fn get_global_symbol(
@@ -45,12 +46,22 @@ impl<'s> CheckSess<'s> {
             .insert(symbol, id);
     }
 
+    pub(crate) fn get_symbol(&self, env: &Env, symbol: Ustr) -> Option<BindingInfoId> {
+        if env.scope_level().is_global() {
+            let module_id = env.module_id();
+            self.get_global_symbol(module_id, symbol)
+        } else {
+            env.find_symbol(symbol)
+        }
+    }
+
     pub(crate) fn bind_symbol(
         &mut self,
         env: &mut Env,
         symbol: Ustr,
         visibility: ast::Visibility,
         ty: Ty,
+        const_value: Option<Value>,
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
@@ -70,6 +81,7 @@ impl<'s> CheckSess<'s> {
                 symbol,
                 visibility,
                 ty,
+                const_value,
                 is_mutable,
                 kind,
                 scope_level,
@@ -89,6 +101,7 @@ impl<'s> CheckSess<'s> {
                 symbol,
                 visibility,
                 ty,
+                const_value,
                 is_mutable,
                 kind,
                 scope_level,
@@ -108,6 +121,7 @@ impl<'s> CheckSess<'s> {
         pattern: &mut SymbolPattern,
         visibility: ast::Visibility,
         ty: Ty,
+        const_value: Option<Value>,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<BindingInfoId> {
         pattern.binding_info_id = self.bind_symbol(
@@ -115,6 +129,7 @@ impl<'s> CheckSess<'s> {
             pattern.alias.unwrap_or(pattern.symbol),
             visibility,
             ty,
+            const_value,
             pattern.is_mutable,
             kind,
             pattern.span,
@@ -129,11 +144,12 @@ impl<'s> CheckSess<'s> {
         pattern: &mut Pattern,
         visibility: ast::Visibility,
         ty: Ty,
+        const_value: Option<Value>,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<()> {
         match pattern {
             Pattern::Single(pat) => {
-                self.bind_symbol_pattern(env, pat, visibility, ty, kind)?;
+                self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
             }
             // TODO: Need InferenceValue::PartialStruct(Vec<(Ustr, Ty)>)
             Pattern::StructUnpack(_) => {
