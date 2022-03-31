@@ -144,7 +144,6 @@ impl FnTyParam {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructTy {
     pub name: Ustr,
-    pub qualified_name: Ustr,
     pub binding_info_id: BindingInfoId,
     pub fields: Vec<StructTyField>,
     pub kind: StructTyKind,
@@ -190,7 +189,6 @@ impl StructTy {
     pub fn opaque(name: Ustr, binding_info_id: BindingInfoId, kind: StructTyKind) -> Self {
         Self {
             name,
-            qualified_name: name,
             binding_info_id,
             fields: vec![],
             kind,
@@ -200,7 +198,6 @@ impl StructTy {
     pub fn temp(fields: Vec<StructTyField>, kind: StructTyKind) -> Self {
         Self {
             name: ustr(""),
-            qualified_name: ustr(""),
             binding_info_id: Default::default(),
             fields,
             kind,

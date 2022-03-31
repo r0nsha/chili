@@ -2,10 +2,10 @@ use super::*;
 
 impl Hash for StructTy {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // self.name.hash(state);
-        self.qualified_name.hash(state);
-        // self.fields.hash(state);
-        // self.kind.hash(state);
+        self.name.hash(state);
+        self.binding_info_id.hash(state);
+        self.fields.hash(state);
+        self.kind.hash(state);
     }
 }
 

@@ -128,12 +128,7 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Block> {
         expect!(self, OpenCurly, "{")?;
-        let block = self.parse_block()?;
-
-        Ok(match block.kind {
-            ExprKind::Block(block) => block,
-            _ => unreachable!(),
-        })
+        self.parse_block()
     }
 }
 

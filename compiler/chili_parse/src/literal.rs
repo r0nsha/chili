@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ast::{ArrayLiteralKind, Expr, ExprKind, Literal, StructLiteralField};
+use chili_ast::ast::{self, ArrayLiteralKind, Expr, ExprKind, Literal, StructLiteralField};
 use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
@@ -107,12 +107,10 @@ impl<'p> Parser<'p> {
                     self.parse_expr()?
                 } else {
                     Expr::new(
-                        ExprKind::Ident {
+                        ExprKind::Ident(ast::Ident {
                             symbol: id_token.symbol(),
-                            is_mutable: false,
-                            binding_span: Span::unknown(),
                             binding_info_id: Default::default(),
-                        },
+                        }),
                         id_token.span,
                     )
                 };
@@ -129,7 +127,7 @@ impl<'p> Parser<'p> {
         );
 
         Ok(Expr::new(
-            ExprKind::StructLiteral { type_expr, fields },
+            ExprKind::StructLiteral(ast::StructLiteral { type_expr, fields }),
             start_span.to(self.previous_span()),
         ))
     }

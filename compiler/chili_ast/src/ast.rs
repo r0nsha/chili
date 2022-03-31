@@ -97,76 +97,78 @@ impl Expr {
     }
 
     pub fn is_mutable(&self) -> bool {
-        match &self.kind {
-            ExprKind::MemberAccess { expr, .. } => expr.is_mutable(),
+        todo!()
+        // match &self.kind {
+        //     ExprKind::MemberAccess { expr, .. } => expr.is_mutable(),
 
-            ExprKind::Ident { is_mutable, .. } => *is_mutable,
+        //     ExprKind::Ident { is_mutable, .. } => *is_mutable,
 
-            ExprKind::MultiPointerType(_, _)
-            | ExprKind::ArrayType(_, _)
-            | ExprKind::SliceType(_, _)
-            | ExprKind::StructType(_)
-            | ExprKind::FnType(_) => false,
+        //     ExprKind::MultiPointerType(_, _)
+        //     | ExprKind::ArrayType(_, _)
+        //     | ExprKind::SliceType(_, _)
+        //     | ExprKind::StructType(_)
+        //     | ExprKind::FnType(_) => false,
 
-            _ => true,
-        }
+        //     _ => true,
+        // }
     }
 
     pub fn display_name_and_binding_span(&self) -> MaybeSpanned<String> {
-        match &self.kind {
-            ExprKind::Builtin(_) => MaybeSpanned::not_spanned("@_(_)".to_string()),
-            ExprKind::Fn(_) => MaybeSpanned::not_spanned("fn..".to_string()),
-            ExprKind::For { .. } => MaybeSpanned::not_spanned("for..".to_string()),
-            ExprKind::Break { .. } => MaybeSpanned::not_spanned("break".to_string()),
-            ExprKind::Continue { .. } => MaybeSpanned::not_spanned("continue".to_string()),
-            ExprKind::Block { .. } => MaybeSpanned::not_spanned("{..}".to_string()),
-            ExprKind::If { .. } => MaybeSpanned::not_spanned("if..".to_string()),
-            ExprKind::Binary(binary) => MaybeSpanned::not_spanned(format!(
-                "{} {} {}",
-                binary.lhs.display_name_and_binding_span().value,
-                binary.op.to_string(),
-                binary.rhs.display_name_and_binding_span().value
-            )),
-            ExprKind::Unary(unary) => {
-                let lhs = unary.lhs.display_name_and_binding_span();
-                lhs.map(|v| format!("{}{}", unary.op.to_string(), v))
-            }
-            ExprKind::Subscript { expr, .. } => {
-                let expr = expr.display_name_and_binding_span();
-                expr.map(|v| format!("{}[_]", v))
-            }
-            ExprKind::Slice { expr, .. } => {
-                let expr = expr.display_name_and_binding_span();
-                expr.map(|v| format!("{}[..]", v))
-            }
-            ExprKind::FnCall(call) => {
-                let callee = call.callee.display_name_and_binding_span();
-                callee.map(|v| format!("{}()", v))
-            }
-            ExprKind::MemberAccess { expr, member } => {
-                let expr = expr.display_name_and_binding_span();
-                expr.map(|v| format!("{}.{}", v, member))
-            }
-            ExprKind::Ident {
-                symbol,
-                is_mutable: _,
-                binding_span,
-                binding_info_id: _,
-            } => MaybeSpanned::spanned(symbol.to_string(), *binding_span),
-            ExprKind::ArrayLiteral { .. } => MaybeSpanned::not_spanned("[_]{..}".to_string()),
-            ExprKind::TupleLiteral(_) => MaybeSpanned::not_spanned("(..)".to_string()),
-            ExprKind::StructLiteral { .. } => MaybeSpanned::not_spanned("_{..}".to_string()),
-            ExprKind::Literal(kind) => MaybeSpanned::not_spanned(match kind {
-                Literal::Unit => "()".to_string(),
-                Literal::Nil => "nil".to_string(),
-                Literal::Bool(v) => v.to_string(),
-                Literal::Int(v) => v.to_string(),
-                Literal::Float(v) => v.to_string(),
-                Literal::Str(v) => v.to_string(),
-                Literal::Char(v) => v.to_string(),
-            }),
-            _ => MaybeSpanned::not_spanned("_".to_string()),
-        }
+        todo!()
+        // match &self.kind {
+        //     ExprKind::Builtin(_) => MaybeSpanned::not_spanned("@_(_)".to_string()),
+        //     ExprKind::Fn(_) => MaybeSpanned::not_spanned("fn..".to_string()),
+        //     ExprKind::For { .. } => MaybeSpanned::not_spanned("for..".to_string()),
+        //     ExprKind::Break { .. } => MaybeSpanned::not_spanned("break".to_string()),
+        //     ExprKind::Continue { .. } => MaybeSpanned::not_spanned("continue".to_string()),
+        //     ExprKind::Block { .. } => MaybeSpanned::not_spanned("{..}".to_string()),
+        //     ExprKind::If { .. } => MaybeSpanned::not_spanned("if..".to_string()),
+        //     ExprKind::Binary(binary) => MaybeSpanned::not_spanned(format!(
+        //         "{} {} {}",
+        //         binary.lhs.display_name_and_binding_span().value,
+        //         binary.op.to_string(),
+        //         binary.rhs.display_name_and_binding_span().value
+        //     )),
+        //     ExprKind::Unary(unary) => {
+        //         let lhs = unary.lhs.display_name_and_binding_span();
+        //         lhs.map(|v| format!("{}{}", unary.op.to_string(), v))
+        //     }
+        //     ExprKind::Subscript { expr, .. } => {
+        //         let expr = expr.display_name_and_binding_span();
+        //         expr.map(|v| format!("{}[_]", v))
+        //     }
+        //     ExprKind::Slice { expr, .. } => {
+        //         let expr = expr.display_name_and_binding_span();
+        //         expr.map(|v| format!("{}[..]", v))
+        //     }
+        //     ExprKind::FnCall(call) => {
+        //         let callee = call.callee.display_name_and_binding_span();
+        //         callee.map(|v| format!("{}()", v))
+        //     }
+        //     ExprKind::MemberAccess { expr, member } => {
+        //         let expr = expr.display_name_and_binding_span();
+        //         expr.map(|v| format!("{}.{}", v, member))
+        //     }
+        //     ExprKind::Ident {
+        //         symbol,
+        //         is_mutable: _,
+        //         binding_span,
+        //         binding_info_id: _,
+        //     } => MaybeSpanned::spanned(symbol.to_string(), *binding_span),
+        //     ExprKind::ArrayLiteral { .. } => MaybeSpanned::not_spanned("[_]{..}".to_string()),
+        //     ExprKind::TupleLiteral(_) => MaybeSpanned::not_spanned("(..)".to_string()),
+        //     ExprKind::StructLiteral { .. } => MaybeSpanned::not_spanned("_{..}".to_string()),
+        //     ExprKind::Literal(kind) => MaybeSpanned::not_spanned(match kind {
+        //         Literal::Unit => "()".to_string(),
+        //         Literal::Nil => "nil".to_string(),
+        //         Literal::Bool(v) => v.to_string(),
+        //         Literal::Int(v) => v.to_string(),
+        //         Literal::Float(v) => v.to_string(),
+        //         Literal::Str(v) => v.to_string(),
+        //         Literal::Char(v) => v.to_string(),
+        //     }),
+        //     _ => MaybeSpanned::not_spanned("_".to_string()),
+        // }
     }
 }
 
@@ -176,62 +178,27 @@ pub enum ExprKind {
     Foreign(Vec<Binding>),
     Binding(Box<Binding>),
     Defer(Box<Expr>),
-    Assign {
-        lvalue: Box<Expr>,
-        rvalue: Box<Expr>,
-    },
+    Assign(Assign),
     Cast(Cast),
     Builtin(Builtin),
     Fn(Fn),
-    While {
-        cond: Box<Expr>,
-        block: Box<Expr>,
-    },
+    While(While),
     For(For),
-    Break {
-        deferred: Vec<Expr>,
-    },
-    Continue {
-        deferred: Vec<Expr>,
-    },
-    Return {
-        expr: Option<Box<Expr>>,
-        deferred: Vec<Expr>,
-    },
-    If {
-        cond: Box<Expr>,
-        then_expr: Box<Expr>,
-        else_expr: Option<Box<Expr>>,
-    },
+    Break(Deferred),
+    Continue(Deferred),
+    Return(Return),
+    If(If),
     Block(Block),
     Binary(Binary),
     Unary(Unary),
-    Subscript {
-        expr: Box<Expr>,
-        index: Box<Expr>,
-    },
-    Slice {
-        expr: Box<Expr>,
-        low: Option<Box<Expr>>,
-        high: Option<Box<Expr>>,
-    },
+    Subscript(Subscript),
+    Slice(Slice),
     FnCall(FnCall),
-    MemberAccess {
-        expr: Box<Expr>,
-        member: Ustr,
-    },
-    Ident {
-        symbol: Ustr,
-        is_mutable: bool,
-        binding_span: Span,
-        binding_info_id: BindingInfoId,
-    },
+    MemberAccess(MemberAccess),
+    Ident(Ident),
     ArrayLiteral(ArrayLiteralKind),
     TupleLiteral(Vec<Expr>),
-    StructLiteral {
-        type_expr: Option<Box<Expr>>,
-        fields: Vec<StructLiteralField>,
-    },
+    StructLiteral(StructLiteral),
     Literal(Literal),
     PointerType(Box<Expr>, bool),
     MultiPointerType(Box<Expr>, bool),
@@ -243,7 +210,24 @@ pub enum ExprKind {
     NeverType,
     UnitType,
     PlaceholderType,
-    Noop,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Deferred {
+    pub deferred: Vec<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Return {
+    pub expr: Option<Box<Expr>>,
+    pub deferred: Vec<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct If {
+    pub cond: Box<Expr>,
+    pub then: Box<Expr>,
+    pub otherwise: Option<Box<Expr>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -267,6 +251,19 @@ pub struct Unary {
     pub op: UnaryOp,
     pub lhs: Box<Expr>,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Subscript {
+    pub expr: Box<Expr>,
+    pub index: Box<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Slice {
+    pub expr: Box<Expr>,
+    pub low: Option<Box<Expr>>,
+    pub high: Option<Box<Expr>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -305,6 +302,24 @@ pub struct CallArg {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct MemberAccess {
+    pub expr: Box<Expr>,
+    pub member: Ustr,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Ident {
+    pub symbol: Ustr,
+    pub binding_info_id: BindingInfoId,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StructLiteral {
+    pub type_expr: Option<Box<Expr>>,
+    pub fields: Vec<StructLiteralField>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum ArrayLiteralKind {
     List(Vec<Expr>),
     Fill { len: Box<Expr>, expr: Box<Expr> },
@@ -329,10 +344,22 @@ pub enum Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Assign {
+    pub lvalue: Box<Expr>,
+    pub rvalue: Box<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Cast {
     pub ty_expr: Option<Box<Expr>>,
     pub expr: Box<Expr>,
     pub target_ty: Ty,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct While {
+    pub cond: Box<Expr>,
+    pub block: Block,
 }
 
 #[derive(Debug, PartialEq, Clone)]

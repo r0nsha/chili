@@ -1,8 +1,10 @@
 use crate::{func::ParseFnSigKind, *};
-use chili_ast::ast::{Expr, ExprKind, StructType, StructTypeField};
-use chili_ast::ty::StructTyKind;
+use chili_ast::{
+    ast::{self, Expr, ExprKind, StructType, StructTypeField},
+    ty::StructTyKind,
+};
 use chili_error::SyntaxError;
-use chili_span::{Span, To};
+use chili_span::To;
 use chili_token::TokenKind::*;
 
 const SELF_SYMBOL: &str = "Self";
@@ -23,12 +25,10 @@ impl<'p> Parser<'p> {
             let kind = if symbol == SELF_SYMBOL {
                 ExprKind::SelfType
             } else {
-                ExprKind::Ident {
+                ExprKind::Ident(ast::Ident {
                     symbol,
-                    is_mutable: false,
-                    binding_span: Span::unknown(),
                     binding_info_id: Default::default(),
-                }
+                })
             };
 
             Ok(Expr::new(kind, token.span))

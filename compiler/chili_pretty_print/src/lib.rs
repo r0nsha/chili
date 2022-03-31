@@ -265,10 +265,10 @@ impl PrintTree for ast::Expr {
                 expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Assign { lvalue, rvalue } => {
+            ast::ExprKind::Assign(assign) => {
                 b.begin_child("assign".to_string());
-                lvalue.print_tree(b, workspace, tycx);
-                rvalue.print_tree(b, workspace, tycx);
+                assign.lvalue.print_tree(b, workspace, tycx);
+                assign.rvalue.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Cast(cast) => {
@@ -300,10 +300,10 @@ impl PrintTree for ast::Expr {
                 closure.body.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::While { cond, block } => {
+            ast::ExprKind::While(while_) => {
                 b.begin_child("while".to_string());
-                cond.print_tree(b, workspace, tycx);
-                block.print_tree(b, workspace, tycx);
+                while_.cond.print_tree(b, workspace, tycx);
+                while_.block.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::For(for_) => {
@@ -333,32 +333,28 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Break { deferred } => {
-                build_deferred(b, deferred, workspace, tycx);
+            ast::ExprKind::Break(e) => {
+                build_deferred(b, &e.deferred, workspace, tycx);
                 b.add_empty_child("break".to_string());
             }
-            ast::ExprKind::Continue { deferred } => {
-                build_deferred(b, deferred, workspace, tycx);
+            ast::ExprKind::Continue(e) => {
+                build_deferred(b, &e.deferred, workspace, tycx);
                 b.add_empty_child("continue".to_string());
             }
-            ast::ExprKind::Return { expr, deferred } => {
+            ast::ExprKind::Return(ret) => {
                 b.begin_child("return".to_string());
-                build_deferred(b, deferred, workspace, tycx);
-                expr.print_tree(b, workspace, tycx);
+                build_deferred(b, &ret.deferred, workspace, tycx);
+                ret.expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::If {
-                cond,
-                then_expr,
-                else_expr,
-            } => {
+            ast::ExprKind::If(if_) => {
                 b.begin_child(format!("if <{}>", tycx.ty_kind(self.ty)));
-                cond.print_tree(b, workspace, tycx);
-                then_expr.print_tree(b, workspace, tycx);
+                if_.cond.print_tree(b, workspace, tycx);
+                if_.then.print_tree(b, workspace, tycx);
 
-                if let Some(else_expr) = else_expr {
+                if let Some(otherwise) = &if_.otherwise {
                     b.begin_child("else".to_string());
-                    else_expr.print_tree(b, workspace, tycx);
+                    otherwise.print_tree(b, workspace, tycx);
                     b.end_child();
                 }
 
@@ -378,23 +374,23 @@ impl PrintTree for ast::Expr {
                 unary.lhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Subscript { expr, index } => {
+            ast::ExprKind::Subscript(sub) => {
                 b.begin_child(format!("subscript <{}>", tycx.ty_kind(self.ty)));
-                expr.print_tree(b, workspace, tycx);
-                index.print_tree(b, workspace, tycx);
+                sub.expr.print_tree(b, workspace, tycx);
+                sub.index.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Slice { expr, low, high } => {
+            ast::ExprKind::Slice(slice) => {
                 b.begin_child("slice".to_string());
-                expr.print_tree(b, workspace, tycx);
+                slice.expr.print_tree(b, workspace, tycx);
 
-                if let Some(low) = low {
+                if let Some(low) = &slice.low {
                     low.print_tree(b, workspace, tycx);
                 } else {
                     b.add_empty_child("0".to_string());
                 }
 
-                if let Some(high) = high {
+                if let Some(high) = &slice.high {
                     high.print_tree(b, workspace, tycx);
                 } else {
                     b.add_empty_child("n".to_string());
@@ -425,13 +421,17 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::MemberAccess { expr, member } => {
-                b.begin_child(format!("access `{}` <{}>", member, tycx.ty_kind(self.ty)));
-                expr.print_tree(b, workspace, tycx);
+            ast::ExprKind::MemberAccess(access) => {
+                b.begin_child(format!(
+                    "access `{}` <{}>",
+                    access.member,
+                    tycx.ty_kind(self.ty)
+                ));
+                access.expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Ident { symbol, .. } => {
-                b.add_empty_child(format!("`{}` <{}>", symbol, tycx.ty_kind(self.ty)));
+            ast::ExprKind::Ident(ident) => {
+                b.add_empty_child(format!("`{}` <{}>", ident.symbol, tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::ArrayLiteral(kind) => {
                 b.begin_child(format!("array literal <{}>", tycx.ty_kind(self.ty)));
@@ -457,10 +457,10 @@ impl PrintTree for ast::Expr {
                 elements.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::StructLiteral { type_expr, fields } => {
+            ast::ExprKind::StructLiteral(lit) => {
                 b.begin_child(format!("struct literal <{}>", tycx.ty_kind(self.ty)));
-                type_expr.print_tree(b, workspace, tycx);
-                for f in fields {
+                lit.type_expr.print_tree(b, workspace, tycx);
+                for f in &lit.fields {
                     b.begin_child(f.symbol.to_string());
                     f.value.print_tree(b, workspace, tycx);
                     b.end_child();
@@ -535,9 +535,6 @@ impl PrintTree for ast::Expr {
             }
             ast::ExprKind::PlaceholderType => {
                 b.add_empty_child(format!("_ (type hole) <{}>", tycx.ty_kind(self.ty)));
-            }
-            ast::ExprKind::Noop => {
-                b.add_empty_child("noop".to_string());
             }
         }
     }

@@ -615,19 +615,19 @@ impl Check for ast::Expr {
                 expr.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Assign { lvalue, rvalue } => {
-                let lres = lvalue.check(sess, env, None)?;
-                let rres = rvalue.check(sess, env, Some(lres.ty))?;
+            ast::ExprKind::Assign(assign) => {
+                let lres = assign.lvalue.check(sess, env, None)?;
+                let rres = assign.rvalue.check(sess, env, Some(lres.ty))?;
 
                 rres.ty
                     .unify(&lres.ty, sess)
                     .or_coerce_expr_into_ty(
-                        rvalue,
+                        &mut assign.rvalue,
                         lres.ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, lres.ty, rres.ty, rvalue.span)?;
+                    .or_report_err(&sess.tycx, lres.ty, rres.ty, assign.rvalue.span)?;
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
@@ -646,23 +646,23 @@ impl Check for ast::Expr {
                 }
             },
             ast::ExprKind::Fn(f) => f.check(sess, env, expected_ty),
-            ast::ExprKind::While { cond, block } => {
+            ast::ExprKind::While(while_) => {
                 let cond_ty = sess.tycx.common_types.bool;
-                let cond_res = cond.check(sess, env, Some(cond_ty))?;
+                let cond_res = while_.cond.check(sess, env, Some(cond_ty))?;
 
                 cond_res
                     .ty
                     .unify(&cond_ty, sess)
                     .or_coerce_expr_into_ty(
-                        cond,
+                        &mut while_.cond,
                         cond_ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, cond.span)?;
+                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, while_.cond.span)?;
 
                 sess.loop_depth += 1;
-                block.check(sess, env, None)?;
+                while_.block.check(sess, env, None)?;
                 sess.loop_depth -= 1;
 
                 Ok(Res::new(sess.tycx.common_types.unit))
@@ -743,34 +743,34 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Break { deferred } => {
+            ast::ExprKind::Break(e) => {
                 if sess.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(self.span, "break"));
                 }
 
-                for expr in deferred.iter_mut() {
+                for expr in e.deferred.iter_mut() {
                     expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::Continue { deferred } => {
+            ast::ExprKind::Continue(e) => {
                 if sess.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(self.span, "continue"));
                 }
 
-                for expr in deferred.iter_mut() {
+                for expr in e.deferred.iter_mut() {
                     expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::Return { expr, deferred } => {
+            ast::ExprKind::Return(ret) => {
                 let function_frame = sess
                     .function_frame()
                     .ok_or(SyntaxError::outside_of_function(self.span, "return"))?;
 
-                if let Some(expr) = expr {
+                if let Some(expr) = &mut ret.expr {
                     let expected = function_frame.return_ty;
                     let res = expr.check(sess, env, Some(expected))?;
                     res.ty
@@ -790,59 +790,55 @@ impl Check for ast::Expr {
                         .or_report_err(&sess.tycx, expected, function_frame.return_ty, self.span)?;
                 }
 
-                for expr in deferred.iter_mut() {
+                for expr in ret.deferred.iter_mut() {
                     expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::If {
-                cond,
-                then_expr,
-                else_expr,
-            } => {
+            ast::ExprKind::If(if_) => {
                 let cond_ty = sess.tycx.common_types.bool;
-                let cond_res = cond.check(sess, env, Some(cond_ty))?;
+                let cond_res = if_.cond.check(sess, env, Some(cond_ty))?;
 
                 cond_res
                     .ty
                     .unify(&cond_ty, sess)
                     .or_coerce_expr_into_ty(
-                        cond,
+                        &mut if_.cond,
                         cond_ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, cond.span)?;
+                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, if_.cond.span)?;
 
-                let then_res = then_expr.check(sess, env, expected_ty)?;
+                let then_res = if_.then.check(sess, env, expected_ty)?;
 
-                if let Some(else_expr) = else_expr {
-                    let else_res = else_expr.check(sess, env, Some(then_res.ty))?;
+                if let Some(otherwise) = &mut if_.otherwise {
+                    let otherwise_res = otherwise.check(sess, env, Some(then_res.ty))?;
 
-                    else_res
+                    otherwise_res
                         .ty
                         .unify(&then_res.ty, sess)
                         .or_coerce_exprs(
-                            then_expr,
-                            else_expr,
+                            &mut if_.then,
+                            otherwise,
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, then_res.ty, else_res.ty, else_expr.span)?;
+                        .or_report_err(&sess.tycx, then_res.ty, otherwise_res.ty, otherwise.span)?;
 
                     // if the condition, the then expr and the otherwise expr
                     // are all constant, we can resolve them at compile time
                     if cond_res.const_value.is_some()
                         && then_res.const_value.is_some()
-                        && else_res.const_value.is_some()
+                        && otherwise_res.const_value.is_some()
                     {
                         let cond = cond_res.const_value.unwrap().into_bool();
 
                         let const_value = if cond {
                             then_res.const_value.unwrap()
                         } else {
-                            else_res.const_value.unwrap()
+                            otherwise_res.const_value.unwrap()
                         };
 
                         Ok(Res::new_const(then_res.ty, const_value))
@@ -856,22 +852,22 @@ impl Check for ast::Expr {
             ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
             ast::ExprKind::Binary(binary) => binary.check(sess, env, expected_ty),
             ast::ExprKind::Unary(unary) => unary.check(sess, env, expected_ty),
-            ast::ExprKind::Subscript { expr, index } => {
-                let index_res = index.check(sess, env, None)?;
+            ast::ExprKind::Subscript(sub) => {
+                let index_res = sub.index.check(sess, env, None)?;
                 let uint = sess.tycx.common_types.uint;
 
                 index_res
                     .ty
                     .unify(&uint, sess)
                     .or_coerce_expr_into_ty(
-                        index,
+                        &mut sub.index,
                         uint,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, uint, index_res.ty, index.span)?;
+                    .or_report_err(&sess.tycx, uint, index_res.ty, sub.index.span)?;
 
-                let res = expr.check(sess, env, None)?;
+                let res = sub.expr.check(sess, env, None)?;
                 let kind = res.ty.normalize(&sess.tycx);
                 let kind_deref = kind.maybe_deref_once();
 
@@ -885,7 +881,7 @@ impl Check for ast::Expr {
                                 value
                             );
                             return Err(Diagnostic::error().with_message(msg).with_labels(vec![
-                                Label::primary(index.span.file_id, index.span.range())
+                                Label::primary(sub.index.span.file_id, sub.index.span.range())
                                     .with_message("index out of bounds"),
                             ]));
                         }
@@ -900,17 +896,17 @@ impl Check for ast::Expr {
                         Ok(Res::new(ty))
                     }
                     _ => Err(TypeError::invalid_expr_in_subscript(
-                        expr.span,
+                        sub.expr.span,
                         kind.display(&sess.tycx),
                     )),
                 }
             }
-            ast::ExprKind::Slice { expr, low, high } => {
-                let expr_res = expr.check(sess, env, None)?;
+            ast::ExprKind::Slice(slice) => {
+                let expr_res = slice.expr.check(sess, env, None)?;
                 let expr_ty = expr_res.ty.normalize(&sess.tycx);
                 let uint = sess.tycx.common_types.uint;
 
-                if let Some(low) = low {
+                if let Some(low) = &mut slice.low {
                     let res = low.check(sess, env, None)?;
 
                     res.ty
@@ -924,7 +920,7 @@ impl Check for ast::Expr {
                         .or_report_err(&sess.tycx, uint, res.ty, low.span)?;
                 }
 
-                if let Some(high) = high {
+                if let Some(high) = &mut slice.high {
                     let res = high.check(sess, env, None)?;
 
                     res.ty
@@ -946,7 +942,7 @@ impl Check for ast::Expr {
                     }
                     _ => {
                         return Err(TypeError::invalid_expr_in_slice(
-                            expr.span,
+                            slice.expr.span,
                             expr_ty.display(&sess.tycx),
                         ))
                     }
@@ -957,43 +953,46 @@ impl Check for ast::Expr {
                 Ok(Res::new(ty))
             }
             ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
-            ast::ExprKind::MemberAccess { expr, member } => {
-                let res = expr.check(sess, env, None)?;
+            ast::ExprKind::MemberAccess(access) => {
+                let res = access.expr.check(sess, env, None)?;
                 let kind = res.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
-                    ty @ TyKind::Tuple(tys) => match member.as_str().parse::<i32>() {
+                    ty @ TyKind::Tuple(tys) => match access.member.as_str().parse::<i32>() {
                         Ok(index) => match tys.get(index as usize) {
                             Some(field_ty) => Ok(Res::new(sess.tycx.bound(field_ty.clone()))),
                             None => Err(TypeError::tuple_field_out_of_bounds(
-                                expr.span,
-                                &member,
+                                access.expr.span,
+                                &access.member,
                                 ty.display(&sess.tycx),
                                 tys.len() - 1,
                             )),
                         },
                         Err(_) => Err(TypeError::non_numeric_tuple_field(
-                            expr.span,
-                            &member,
+                            access.expr.span,
+                            &access.member,
                             ty.display(&sess.tycx),
                         )),
                     },
-                    ty @ TyKind::Struct(st) => match st.fields.iter().find(|f| f.symbol == *member)
-                    {
-                        Some(field) => Ok(Res::new(sess.tycx.bound(field.ty.clone()))),
-                        None => Err(TypeError::invalid_struct_field(
-                            expr.span,
-                            *member,
-                            ty.display(&sess.tycx),
-                        )),
-                    },
-                    TyKind::Array(_, size) if member.as_str() == BUILTIN_FIELD_LEN => Ok(
+                    ty @ TyKind::Struct(st) => {
+                        match st.fields.iter().find(|f| f.symbol == access.member) {
+                            Some(field) => Ok(Res::new(sess.tycx.bound(field.ty.clone()))),
+                            None => Err(TypeError::invalid_struct_field(
+                                access.expr.span,
+                                access.member,
+                                ty.display(&sess.tycx),
+                            )),
+                        }
+                    }
+                    TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => Ok(
                         Res::new_const(sess.tycx.common_types.uint, Value::Int(*size as _)),
                     ),
-                    TyKind::Slice(..) if member.as_str() == BUILTIN_FIELD_LEN => {
+                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         Ok(Res::new(sess.tycx.common_types.uint))
                     }
-                    TyKind::Slice(inner, is_mutable) if member.as_str() == BUILTIN_FIELD_DATA => {
+                    TyKind::Slice(inner, is_mutable)
+                        if access.member.as_str() == BUILTIN_FIELD_DATA =>
+                    {
                         Ok(Res::new(
                             sess.tycx
                                 .bound(TyKind::MultiPointer(inner.clone(), *is_mutable)),
@@ -1006,24 +1005,20 @@ impl Check for ast::Expr {
                                 span: self.span,
                             },
                             *module_id,
-                            *member,
+                            access.member,
                         )?;
                         Ok(res)
                     }
                     ty => Err(TypeError::member_access_on_invalid_type(
-                        expr.span,
+                        access.expr.span,
                         ty.display(&sess.tycx),
                     )),
                 }
             }
-            ast::ExprKind::Ident {
-                symbol,
-                binding_info_id,
-                ..
-            } => match sess.get_symbol(env, *symbol) {
+            ast::ExprKind::Ident(ident) => match sess.get_symbol(env, ident.symbol) {
                 Some(id) => {
                     // this is a local binding
-                    *binding_info_id = id;
+                    ident.binding_info_id = id;
                     sess.workspace.increment_binding_use(id);
 
                     let binding_info = sess.workspace.get_binding_info(id).unwrap();
@@ -1060,10 +1055,10 @@ impl Check for ast::Expr {
                             span: self.span,
                         },
                         env.module_id(),
-                        *symbol,
+                        ident.symbol,
                     )?;
 
-                    *binding_info_id = id;
+                    ident.binding_info_id = id;
                     sess.workspace.increment_binding_use(id);
 
                     Ok(res)
@@ -1135,7 +1130,7 @@ impl Check for ast::Expr {
                     Ok(Res::new(ty))
                 }
             }
-            ast::ExprKind::StructLiteral { type_expr, fields } => match type_expr {
+            ast::ExprKind::StructLiteral(lit) => match &mut lit.type_expr {
                 Some(type_expr) => {
                     let res = type_expr.check(sess, env, None)?;
                     let ty = sess.extract_const_type(res.const_value, res.ty, type_expr.span)?;
@@ -1143,9 +1138,13 @@ impl Check for ast::Expr {
                     let kind = ty.normalize(&sess.tycx);
 
                     match kind {
-                        TyKind::Struct(struct_ty) => {
-                            check_named_struct_literal(sess, env, struct_ty, fields, self.span)
-                        }
+                        TyKind::Struct(struct_ty) => check_named_struct_literal(
+                            sess,
+                            env,
+                            struct_ty,
+                            &mut lit.fields,
+                            self.span,
+                        ),
                         _ => Err(Diagnostic::error()
                             .with_message(format!(
                                 "type `{}` does not support struct initialization syntax",
@@ -1161,13 +1160,22 @@ impl Check for ast::Expr {
                     Some(ty) => {
                         let kind = ty.normalize(&sess.tycx);
                         match kind {
-                            TyKind::Struct(struct_ty) => {
-                                check_named_struct_literal(sess, env, struct_ty, fields, self.span)
-                            }
-                            _ => check_anonymous_struct_literal(sess, env, fields, self.span),
+                            TyKind::Struct(struct_ty) => check_named_struct_literal(
+                                sess,
+                                env,
+                                struct_ty,
+                                &mut lit.fields,
+                                self.span,
+                            ),
+                            _ => check_anonymous_struct_literal(
+                                sess,
+                                env,
+                                &mut lit.fields,
+                                self.span,
+                            ),
                         }
                     }
-                    None => check_anonymous_struct_literal(sess, env, fields, self.span),
+                    None => check_anonymous_struct_literal(sess, env, &mut lit.fields, self.span),
                 },
             },
             ast::ExprKind::Literal(lit) => lit.check(sess, env, expected_ty),
@@ -1277,7 +1285,6 @@ impl Check for ast::Expr {
 
                 let struct_ty = TyKind::Struct(StructTy {
                     name: st.name,
-                    qualified_name: st.name,
                     binding_info_id: st.binding_info_id,
                     kind: st.kind,
                     fields: struct_ty_fields,
@@ -1326,7 +1333,6 @@ impl Check for ast::Expr {
                     Value::Type(ty),
                 ))
             }
-            ast::ExprKind::Noop => Ok(Res::new(sess.tycx.var())),
         }?;
 
         self.ty = res.ty;
@@ -1829,7 +1835,6 @@ fn check_anonymous_struct_literal(
     let name = get_anonymous_struct_name(span);
     let mut struct_ty = StructTy {
         name,
-        qualified_name: name,
         binding_info_id: BindingInfoId::unknown(),
         kind: StructTyKind::Struct,
         fields: vec![],

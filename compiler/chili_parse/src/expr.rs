@@ -126,14 +126,14 @@ impl<'p> Parser<'p> {
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         expect!(self, OpenCurly, "{")?;
-        let then_expr = self.parse_block()?;
+        let then = self.parse_block_expr()?;
 
-        let else_expr = if eat!(self, Else) {
+        let otherwise = if eat!(self, Else) {
             let expr = if eat!(self, If) {
                 self.parse_if()?
             } else {
                 expect!(self, OpenCurly, "{")?;
-                self.parse_block()?
+                self.parse_block_expr()?
             };
 
             Some(Box::new(expr))
@@ -142,16 +142,16 @@ impl<'p> Parser<'p> {
         };
 
         Ok(Expr::new(
-            ExprKind::If {
+            ExprKind::If(ast::If {
                 cond: Box::new(cond),
-                then_expr: Box::new(then_expr),
-                else_expr,
-            },
+                then: Box::new(then),
+                otherwise,
+            }),
             span.to(self.previous_span()),
         ))
     }
 
-    pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Expr> {
+    pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Block> {
         let start_span = self.previous().span;
 
         let exprs = parse_delimited_list!(
@@ -163,15 +163,18 @@ impl<'p> Parser<'p> {
         );
 
         let span = start_span.to(self.previous_span());
-        Ok(Expr::new(
-            ExprKind::Block(Block {
-                exprs,
-                deferred: vec![],
-                yields: true,
-                span,
-            }),
+        Ok(Block {
+            exprs,
+            deferred: vec![],
+            yields: true,
             span,
-        ))
+        })
+    }
+
+    pub(crate) fn parse_block_expr(&mut self) -> DiagnosticResult<Expr> {
+        let block = self.parse_block()?;
+        let span = block.span;
+        Ok(Expr::new(ExprKind::Block(block), span))
     }
 
     pub(crate) fn parse_logic_or(&mut self) -> DiagnosticResult<Expr> {
@@ -255,12 +258,10 @@ impl<'p> Parser<'p> {
             let token = self.previous();
             let symbol = token.symbol();
             Expr::new(
-                ExprKind::Ident {
+                ExprKind::Ident(ast::Ident {
                     symbol,
-                    is_mutable: false,
-                    binding_span: Span::unknown(),
                     binding_info_id: Default::default(),
-                },
+                }),
                 token.span,
             )
         } else if eat!(self, If) {
@@ -270,7 +271,7 @@ impl<'p> Parser<'p> {
         } else if eat!(self, For) {
             self.parse_for()?
         } else if eat!(self, OpenCurly) {
-            self.parse_block()?
+            self.parse_block_expr()?
         } else if eat!(self, OpenBracket) {
             self.parse_array_literal()?
         } else if eat!(self, Dot) {
@@ -370,10 +371,10 @@ impl<'p> Parser<'p> {
         let block = self.parse_block()?;
 
         Ok(Expr::new(
-            ExprKind::While {
+            ExprKind::While(ast::While {
                 cond: Box::new(cond),
-                block: Box::new(block),
-            },
+                block,
+            }),
             start_span.to(self.previous_span()),
         ))
     }
@@ -437,7 +438,7 @@ impl<'p> Parser<'p> {
         };
 
         expect!(self, OpenCurly, "{")?;
-        let expr = self.parse_block()?;
+        let block = self.parse_block_expr()?;
 
         Ok(Expr::new(
             ExprKind::For(ast::For {
@@ -446,7 +447,7 @@ impl<'p> Parser<'p> {
                 iter_index_name,
                 iter_index_id: Default::default(),
                 iterator,
-                block: Box::new(expr),
+                block: Box::new(block),
             }),
             start_span.to(self.previous_span()),
         ))
@@ -457,8 +458,8 @@ impl<'p> Parser<'p> {
         let span = token.span;
 
         let kind = match token.kind {
-            Break => ExprKind::Break { deferred: vec![] },
-            Continue => ExprKind::Continue { deferred: vec![] },
+            Break => ExprKind::Break(ast::Deferred { deferred: vec![] }),
+            Continue => ExprKind::Continue(ast::Deferred { deferred: vec![] }),
             Return => {
                 let expr = if !self.peek().kind.is_expr_start() && token_is!(self, Semicolon) {
                     None
@@ -467,10 +468,10 @@ impl<'p> Parser<'p> {
                     Some(Box::new(expr))
                 };
 
-                ExprKind::Return {
+                ExprKind::Return(ast::Return {
                     expr,
                     deferred: vec![],
-                }
+                })
             }
             _ => {
                 return Err(Diagnostic::bug().with_message("got an invalid terminator"));

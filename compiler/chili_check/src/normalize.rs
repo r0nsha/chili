@@ -81,7 +81,6 @@ impl Normalize {
 
                     let st = TyKind::Struct(StructTy {
                         name: st.name,
-                        qualified_name: st.qualified_name,
                         binding_info_id: st.binding_info_id,
                         fields: st
                             .fields

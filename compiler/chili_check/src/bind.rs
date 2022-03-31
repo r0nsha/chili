@@ -1,6 +1,6 @@
 use crate::{
     env::{Env, Scope},
-    CheckSess, Res,
+    CheckSess,
 };
 use chili_ast::{
     ast,
@@ -14,12 +14,6 @@ use chili_span::Span;
 use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
-    pub(crate) fn get_binding_res(&self, id: BindingInfoId) -> Option<Res> {
-        self.workspace
-            .get_binding_info(id)
-            .map(|binding_info| Res::new_maybe_const(binding_info.ty, binding_info.const_value))
-    }
-
     pub(crate) fn get_global_symbol(
         &self,
         module_id: ModuleId,

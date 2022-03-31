@@ -90,10 +90,10 @@ impl<'p> Parser<'p> {
         let end_span = self.previous().span;
 
         Ok(Expr::new(
-            ExprKind::Assign {
+            ExprKind::Assign(ast::Assign {
                 lvalue: Box::new(expr),
                 rvalue: Box::new(rvalue),
-            },
+            }),
             start_span.to(end_span),
         ))
     }
@@ -106,7 +106,7 @@ impl<'p> Parser<'p> {
         let rvalue_span = rvalue.span;
 
         Ok(Expr::new(
-            ExprKind::Assign {
+            ExprKind::Assign(ast::Assign {
                 lvalue: Box::new(lvalue.clone()),
                 rvalue: Box::new(Expr::new(
                     ExprKind::Binary(ast::Binary {
@@ -117,7 +117,7 @@ impl<'p> Parser<'p> {
                     }),
                     rvalue_span,
                 )),
-            },
+            }),
             lvalue_span.to(rvalue_span),
         ))
     }
@@ -149,18 +149,18 @@ impl<'p> Parser<'p> {
 
         let expr = match token.kind {
             Id(id) => Expr::new(
-                ExprKind::MemberAccess {
+                ExprKind::MemberAccess(ast::MemberAccess {
                     expr: Box::new(expr),
                     member: id,
-                },
+                }),
                 start_span.to(token.span),
             ),
 
             Int(i) => Expr::new(
-                ExprKind::MemberAccess {
+                ExprKind::MemberAccess(ast::MemberAccess {
                     expr: Box::new(expr),
                     member: ustr(&i.to_string()),
-                },
+                }),
                 start_span.to(token.span),
             ),
 
@@ -169,20 +169,20 @@ impl<'p> Parser<'p> {
                 let components = token.lexeme.split('.').collect::<Vec<&str>>();
 
                 let first_access = Expr::new(
-                    ExprKind::MemberAccess {
+                    ExprKind::MemberAccess(ast::MemberAccess {
                         expr: Box::new(expr),
                         member: ustr(components[0]),
-                    },
+                    }),
                     start_span.to(token.span.with_end(EndPosition {
                         index: token.span.end.index - components[0].len() + 1,
                     })),
                 );
 
                 let second_access = Expr::new(
-                    ExprKind::MemberAccess {
+                    ExprKind::MemberAccess(ast::MemberAccess {
                         expr: Box::new(first_access),
                         member: ustr(components[0]),
-                    },
+                    }),
                     start_span.to(token.span),
                 );
 
@@ -281,11 +281,11 @@ impl<'p> Parser<'p> {
                     expect!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
-                        ExprKind::Slice {
+                        ExprKind::Slice(ast::Slice {
                             expr: Box::new(expr),
                             low: Some(Box::new(index)),
                             high,
-                        },
+                        }),
                         start_span.to(self.previous_span()),
                     ));
                 }
@@ -293,10 +293,10 @@ impl<'p> Parser<'p> {
                 expect!(self, CloseBracket, "]")?;
 
                 Ok(Expr::new(
-                    ExprKind::Subscript {
+                    ExprKind::Subscript(ast::Subscript {
                         expr: Box::new(expr),
                         index: Box::new(index),
-                    },
+                    }),
                     start_span.to(self.previous_span()),
                 ))
             }
@@ -310,11 +310,11 @@ impl<'p> Parser<'p> {
                     expect!(self, CloseBracket, "]")?;
 
                     Ok(Expr::new(
-                        ExprKind::Slice {
+                        ExprKind::Slice(ast::Slice {
                             expr: Box::new(expr),
                             low: None,
                             high,
-                        },
+                        }),
                         start_span.to(self.previous_span()),
                     ))
                 } else {
