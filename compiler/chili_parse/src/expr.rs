@@ -226,21 +226,23 @@ impl<'p> Parser<'p> {
             let start_span = self.previous().span;
             let token = self.previous().kind;
 
+            let op = match token {
+                Amp => UnaryOp::Ref(eat!(self, Mut)),
+                Star => UnaryOp::Deref,
+                Minus => UnaryOp::Neg,
+                Plus => UnaryOp::Plus,
+                Bang => UnaryOp::Not,
+                Tilde => UnaryOp::BitwiseNot,
+                t => panic!("{} is not a unary op", t),
+            };
+
             let lhs = self.parse_unary()?;
 
             let span = start_span.to(self.previous_span());
 
             let expr = Expr::new(
                 ExprKind::Unary(ast::Unary {
-                    op: match token {
-                        Amp => UnaryOp::Ref(eat!(self, Mut)),
-                        Star => UnaryOp::Deref,
-                        Minus => UnaryOp::Neg,
-                        Plus => UnaryOp::Plus,
-                        Bang => UnaryOp::Not,
-                        Tilde => UnaryOp::BitwiseNot,
-                        t => panic!("{} is not a unary op", t),
-                    },
+                    op,
                     lhs: Box::new(lhs),
                     span,
                 }),

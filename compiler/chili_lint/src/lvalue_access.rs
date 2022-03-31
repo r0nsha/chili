@@ -1,14 +1,13 @@
 use crate::sess::LintSess;
 use chili_ast::{ast, ty::TyKind, workspace::BindingInfoId};
-use chili_check::normalize::NormalizeTy;
+use chili_check::{display::DisplayTy, normalize::NormalizeTy};
 use chili_error::DiagnosticResult;
-use chili_span::{MaybeSpanned, Span};
+use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
 pub(crate) enum LvalueAccessErr {
     ImmutableReference { ty: TyKind, span: Span },
-    ImmutableMemberAccess { member: Ustr, span: Span },
     ImmutableIdent { id: BindingInfoId, span: Span },
     InvalidLvalue,
 }
@@ -24,43 +23,13 @@ impl<'s> LintSess<'s> {
         self.check_lvalue_mutability_internal(expr)
             .map_err(|err| -> Diagnostic<usize> {
                 match err {
-                    ImmutableReference { ty, span } => {
-                        todo!()
-                        // let mut labels = vec![Label::primary(expr_span.file_id, expr_span.range())
-                        //     .with_message("cannot assign")];
-
-                        // if let Some(binding_span) = binding_span {
-                        //     labels.push(
-                        //         Label::secondary(binding_span.file_id, binding_span.range())
-                        //             .with_message("consider referencing as mutable"),
-                        //     );
-                        // }
-
-                        // Diagnostic::error()
-                        //     .with_message(format!(
-                        //         "cannot assign to `{}`, which is behind an immutable `{}`",
-                        //         symbol, ty_str
-                        //     ))
-                        //     .with_labels(labels)
-                    }
-                    ImmutableMemberAccess { member, span } => {
-                        todo!()
-                        // Diagnostic::error()
-                        // .with_message(format!(
-                        //     "cannot assign to `{}`, as `{}` is not declared as mutable",
-                        //     full_path, root_symbol
-                        // ))
-                        // .with_labels(vec![
-                        //     Label::primary(expr_span.file_id, expr_span.range())
-                        //         .with_message("cannot assign"),
-                        //     Label::secondary(binding_span.file_id, binding_span.range()).with_message(
-                        //         format!(
-                        //             "consider changing this to be mutable: `mut {}`",
-                        //             root_symbol
-                        //         ),
-                        //     ),
-                        // ])
-                    }
+                    ImmutableReference { ty, span } => Diagnostic::error()
+                        .with_message(format!(
+                            "cannot assign to the value, it is behind an immutable `{}`",
+                            ty.display(self.tycx)
+                        ))
+                        .with_labels(vec![Label::primary(span.file_id, span.range())
+                            .with_message("cannot assign")]),
                     ImmutableIdent { id, span } => {
                         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
@@ -70,7 +39,7 @@ impl<'s> LintSess<'s> {
                                 binding_info.symbol
                             ))
                             .with_labels(vec![
-                                Label::primary(expr_span.file_id, expr_span.range())
+                                Label::primary(span.file_id, span.range())
                                     .with_message("cannot assign"),
                                 Label::secondary(
                                     binding_info.span.file_id,

@@ -6,7 +6,7 @@ let main = fn {
     let y: int = x
     let z = x + y
     let v = -z + x
-    let answer: i32 = 42
+    let mut answer: i32 = 1
     answer = 5
     let a = (1, 2)
     let array: [3]int = [1,2,3]
@@ -18,13 +18,16 @@ let main = fn {
 
     type Foo = {a:int}
     let foo = Foo { a: 5 }
-    let foo: Foo = .{ a: 5 }
+    let foo: *mut Foo = &mut .{ a: 5 }
+    foo.a = 1
 
     let x = fn() { 
         let foo = Foo { a: 5 }
     }
 
     print_answer(answer)
+
+    ()
 }
 
 let fib = fn(n) {

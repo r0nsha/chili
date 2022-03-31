@@ -64,32 +64,14 @@ pub fn do_build(build_options: BuildOptions) {
         }
     };
 
-    // Fully infer and typecheck types of asts
+    // Lint - does auxillary checks which are not _required_ for type inference
 
-    // time! { "typeck",
-    //     if let Err(diagnostic) = chili_typeck::typeck(&mut workspace, &mut tycx, &mut asts) {
-    //         emit_single_diagnostic(&workspace.files, diagnostic);
-    //         return;
-    //     }
-    // }
-
-    // // Check - does type inference, type checking and const folding
-
-    // time! { "check",
-    //     if let Err(diagnostic) = chili_check::check(&mut workspace, &mut asts) {
-    //         emit_single_diagnostic(&workspace.files, diagnostic);
-    //         return;
-    //     }
-    // }
-
-    // // Lint - does auxillary checks which are not _required_ for type inference
-
-    // time! { "lint",
-    //     if let Err(diagnostic) = chili_lint::lint(&mut workspace, &mut asts) {
-    //         emit_single_diagnostic(&workspace.files, diagnostic);
-    //         return;
-    //     }
-    // }
+    time! { "lint",
+        if let Err(diagnostic) = chili_lint::lint(&mut workspace, &tycx, &typed_ast) {
+            emit_single_diagnostic(&workspace.files, diagnostic);
+            return;
+        }
+    }
 
     // time! { "codegen(llvm)",
     //     chili_llvm::codegen(&workspace, &asts)

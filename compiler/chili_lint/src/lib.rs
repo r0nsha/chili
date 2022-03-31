@@ -4,14 +4,18 @@ mod ref_access;
 mod sess;
 mod type_limits;
 
-use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
+use chili_ast::{
+    ast::{self, TypedAst},
+    pattern::Pattern,
+    workspace::Workspace,
+};
 use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_error::{DiagnosticResult, TypeError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 
-pub fn lint(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<ast::Ast>) -> DiagnosticResult<()> {
+pub fn lint(workspace: &Workspace, tycx: &TyCtx, ast: &TypedAst) -> DiagnosticResult<()> {
     let mut sess = LintSess {
         workspace,
         tycx,
@@ -20,8 +24,8 @@ pub fn lint(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<ast::Ast>) -> Diagno
 
     sess.init_scopes.push_scope();
 
-    for ast in asts.iter() {
-        ast.lint(&mut sess)?;
+    for binding in ast.bindings.values() {
+        binding.lint(&mut sess)?;
     }
 
     sess.init_scopes.push_scope();
@@ -106,18 +110,23 @@ impl Lint for ast::Binding {
             }
 
             // * don't allow types to be bounded to mutable bindings
-            match &self.pattern {
-                Pattern::Single(pat) => {
-                    if pat.is_mutable {
-                        return Err(Diagnostic::error()
-                            .with_message("variable of type `type` must be immutable")
-                            .with_labels(vec![Label::primary(pat.span.file_id, pat.span.range())])
-                            .with_notes(vec![String::from(
-                                "try removing the `mut` from the declaration",
-                            )]));
+            if is_a_type {
+                match &self.pattern {
+                    Pattern::Single(pat) => {
+                        if pat.is_mutable {
+                            return Err(Diagnostic::error()
+                                .with_message("variable of type `type` must be immutable")
+                                .with_labels(vec![Label::primary(
+                                    pat.span.file_id,
+                                    pat.span.range(),
+                                )])
+                                .with_notes(vec![String::from(
+                                    "try removing the `mut` from the declaration",
+                                )]));
+                        }
                     }
+                    Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
                 }
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
             }
         }
 
@@ -146,7 +155,6 @@ impl Lint for ast::Expr {
                 e.lint(sess)?;
             }
             ast::ExprKind::Assign(assign) => {
-                assign.lvalue.lint(sess)?;
                 assign.rvalue.lint(sess)?;
 
                 match &assign.lvalue.kind {
@@ -155,6 +163,7 @@ impl Lint for ast::Expr {
                     }
                     _ => {
                         sess.check_lvalue_access(&assign.lvalue, assign.lvalue.span)?;
+                        assign.lvalue.lint(sess)?;
                     }
                 };
             }
@@ -179,9 +188,10 @@ impl Lint for ast::Expr {
                         || ty.variadic)
                 {
                     return Err(Diagnostic::error()
-                        .with_message(
-                            "entry point function `main` has wrong type, expected `fn() -> ()`",
-                        )
+                        .with_message(format!(
+                            "entry point function `main` has type `{}`, expected `fn() -> ()`",
+                            ty
+                        ))
                         .with_labels(vec![Label::primary(self.span.file_id, self.span.range())]));
                 }
 
