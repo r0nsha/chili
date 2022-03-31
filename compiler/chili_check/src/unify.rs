@@ -37,8 +37,10 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
 
-            (TyKind::AnyInt(_), TyKind::AnyInt(_)) => Ok(()),
-            (TyKind::AnyFloat(_), TyKind::AnyFloat(_)) => Ok(()),
+            (TyKind::AnyInt(_), TyKind::AnyInt(_))
+            | (TyKind::AnyInt(_), TyKind::AnyFloat(_))
+            | (TyKind::AnyFloat(_), TyKind::AnyInt(_))
+            | (TyKind::AnyFloat(_), TyKind::AnyFloat(_)) => Ok(()),
 
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
             (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
@@ -141,7 +143,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult 
                     sess.tycx.bind(var, other.clone());
                     Ok(())
                 }
-                TyKind::AnyFloat(other) | TyKind::Var(other) => {
+                TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
                     if other != var {
                         sess.tycx.bind(other, var.into());
                     }

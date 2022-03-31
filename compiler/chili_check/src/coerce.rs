@@ -27,6 +27,9 @@ impl Coerce for TyKind {
         let (left, right) = (self, to);
 
         match (left, right) {
+            (TyKind::AnyInt(_), TyKind::AnyFloat(_)) => CoerceToRight,
+            (TyKind::AnyFloat(_), TyKind::AnyInt(_)) => CoerceToLeft,
+
             // * int -> same or bigger int
             (TyKind::Int(left), TyKind::Int(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
