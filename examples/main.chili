@@ -17,9 +17,9 @@ let main = fn {
     }
 
     type Foo = {a:int}
-    let foo = Foo { a: 5 }
-    let foo: *mut Foo = &mut .{ a: 5 }
-    foo.a = 1
+    let mut foo = Foo { a: 5 }
+    let foo_ref = &mut foo
+    foo_ref.a = 1
 
     let x = fn() { 
         let foo = Foo { a: 5 }

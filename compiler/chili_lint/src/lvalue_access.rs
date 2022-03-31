@@ -4,7 +4,6 @@ use chili_check::{display::DisplayTy, normalize::NormalizeTy};
 use chili_error::DiagnosticResult;
 use chili_span::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use ustr::Ustr;
 
 pub(crate) enum LvalueAccessErr {
     ImmutableReference { ty: TyKind, span: Span },

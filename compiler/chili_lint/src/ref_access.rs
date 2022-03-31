@@ -1,234 +1,184 @@
-// use chili_ast::{
-//     ast,
-//     ty::Ty,
-//     workspace::{BindingInfo, ModuleId, Workspace},
-// };
-// use chili_error::DiagnosticResult;
-// use chili_span::Span;
-// use codespan_reporting::diagnostic::{Diagnostic, Label};
-// use ustr::{ustr, Ustr};
+use crate::sess::LintSess;
+use chili_ast::{
+    ast,
+    ty::TyKind,
+    workspace::{BindingInfo, BindingInfoId, ModuleId},
+};
+use chili_check::{display::DisplayTy, normalize::NormalizeTy};
+use chili_error::DiagnosticResult;
+use chili_span::Span;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use ustr::Ustr;
 
-// use crate::sess::LintSess;
+enum RefAccessErr {
+    ImmutableReference { ty: TyKind, span: Span },
+    ImmutableBinding { id: BindingInfoId, span: Span },
+}
 
-// enum RefAccessErr {
-//     ImmutableReference {
-//         symbol: Ustr,
-//         ty_str: String,
-//     },
-//     ImmutableMemberAccess {
-//         root_symbol: Ustr,
-//         binding_span: Span,
-//         full_path: String,
-//     },
-//     Immutablebinding {
-//         symbol: Ustr,
-//         binding_span: Span,
-//     },
-// }
+impl<'s> LintSess<'s> {
+    pub(super) fn check_expr_can_be_mutably_referenced(
+        &self,
+        expr: &ast::Expr,
+    ) -> DiagnosticResult<()> {
+        use RefAccessErr::*;
 
-// pub(super) fn check_expr_can_be_mutably_referenced(
-//     sess: &LintSess,
-//     expr: &ast::Expr,
-// ) -> DiagnosticResult<()> {
-//     use RefAccessErr::*;
+        self.check_expr_can_be_mutably_referenced_internal(expr, true)
+            .map_err(|err| match err {
+                ImmutableReference { ty, span } => Diagnostic::error()
+                    .with_message(format!(
+                        "cannot reference value, because it is behind an immutable `{}`",
+                        ty.display(self.tycx)
+                    ))
+                    .with_labels(vec![
+                        Label::primary(span.file_id, span.range()).with_message("cannot reference")
+                    ]),
+                ImmutableBinding { id, span } => {
+                    let binding_info = self.workspace.get_binding_info(id).unwrap();
 
-//     check_expr_can_be_mutably_referenced_internal(sess, expr, true).map_err(|err| match err {
-//         ImmutableReference { symbol, ty_str } => Diagnostic::error()
-//             .with_message(format!(
-//                 "cannot reference `{}`, because it is behind an immutable `{}`",
-//                 symbol, ty_str
-//             ))
-//             .with_labels(vec![Label::primary(expr.span.file_id, expr.span.range())
-//                 .with_message("cannot reference")]),
-//         ImmutableMemberAccess {
-//             root_symbol,
-//             binding_span,
-//             full_path,
-//         } => Diagnostic::error()
-//             .with_message(format!(
-//                 "cannot reference `{}`, as `{}` is not declared as mutable",
-//                 full_path, root_symbol
-//             ))
-//             .with_labels(vec![
-//                 Label::primary(expr.span.file_id, expr.span.range())
-//                     .with_message("cannot reference"),
-//                 Label::secondary(binding_span.file_id, binding_span.range()).with_message(format!(
-//                     "consider changing this to be mutable: `mut {}`",
-//                     root_symbol
-//                 )),
-//             ]),
-//         Immutablebinding {
-//             symbol,
-//             binding_span,
-//         } => Diagnostic::error()
-//             .with_message(format!(
-//                 "cannot reference `{}` as mutable, as it is not declared as mutable",
-//                 symbol
-//             ))
-//             .with_labels(vec![
-//                 Label::primary(expr.span.file_id, expr.span.range())
-//                     .with_message("cannot reference immutable variable"),
-//                 Label::secondary(binding_span.file_id, binding_span.range()).with_message(format!(
-//                     "consider changing this to be mutable: `mut {}`",
-//                     symbol
-//                 )),
-//             ]),
-//     })
-// }
+                    Diagnostic::error()
+                        .with_message(format!(
+                            "cannot reference `{}` as mutable, as it is not declared as mutable",
+                            binding_info.symbol
+                        ))
+                        .with_labels(vec![
+                            Label::primary(span.file_id, span.range())
+                                .with_message("cannot reference immutable variable"),
+                            Label::secondary(binding_info.span.file_id, binding_info.span.range())
+                                .with_message(format!(
+                                    "consider changing this to be mutable: `mut {}`",
+                                    binding_info.symbol
+                                )),
+                        ])
+                }
+            })
+    }
 
-// fn check_expr_can_be_mutably_referenced_internal(
-//     sess: &LintSess,
-//     expr: &ast::Expr,
-//     is_direct_ref: bool,
-// ) -> Result<(), RefAccessErr> {
-//     use RefAccessErr::*;
+    fn check_expr_can_be_mutably_referenced_internal(
+        &self,
+        expr: &ast::Expr,
+        is_direct_ref: bool,
+    ) -> Result<(), RefAccessErr> {
+        use RefAccessErr::*;
 
-//     let ty = &expr.ty;
+        let ty = expr.ty.normalize(self.tycx);
 
-//     match &expr.kind {
-//         ast::ExprKind::MemberAccess { expr, member } => {
-//             match check_expr_can_be_mutably_referenced_internal(sess, expr, true) {
-//                 Ok(_) => match ty {
-//                     Ty::Tuple(tys) => {
-//                         let index = member.parse::<usize>().unwrap();
-//                         let ty = &tys[index];
+        match &expr.kind {
+            ast::ExprKind::MemberAccess(access) => {
+                match self.check_expr_can_be_mutably_referenced_internal(expr, true) {
+                    Ok(_) => match ty {
+                        TyKind::Tuple(tys) => {
+                            let index = access.member.parse::<usize>().unwrap();
+                            let ty = tys[index].normalize(self.tycx);
 
-//                         match ty {
-//                             Ty::Slice(_, is_mutable)
-//                             | Ty::MultiPointer(_, is_mutable)
-//                             | Ty::Pointer(_, is_mutable)
-//                                 if !is_mutable =>
-//                             {
-//                                 Err(ImmutableReference {
-//                                     symbol: *member,
-//                                     ty_str: ty.to_string(),
-//                                 })
-//                             }
-//                             _ => Ok(()),
-//                         }
-//                     }
-//                     Ty::Struct(struct_ty) => {
-//                         let field_ty = struct_ty
-//                             .fields
-//                             .iter()
-//                             .find(|f| f.symbol == *member)
-//                             .map(|f| &f.ty)
-//                             .unwrap();
+                            match ty {
+                                TyKind::Slice(_, is_mutable)
+                                | TyKind::MultiPointer(_, is_mutable)
+                                | TyKind::Pointer(_, is_mutable)
+                                    if !is_mutable =>
+                                {
+                                    Err(ImmutableReference {
+                                        ty,
+                                        span: expr.span,
+                                    })
+                                }
+                                _ => Ok(()),
+                            }
+                        }
+                        TyKind::Struct(struct_ty) => {
+                            let ty = struct_ty
+                                .fields
+                                .iter()
+                                .find(|f| f.symbol == access.member)
+                                .map(|f| f.ty.normalize(self.tycx))
+                                .unwrap();
 
-//                         match field_ty {
-//                             Ty::Slice(_, is_mutable)
-//                             | Ty::MultiPointer(_, is_mutable)
-//                             | Ty::Pointer(_, is_mutable)
-//                                 if !is_mutable =>
-//                             {
-//                                 Err(ImmutableReference {
-//                                     symbol: *member,
-//                                     ty_str: field_ty.to_string(),
-//                                 })
-//                             }
-//                             _ => Ok(()),
-//                         }
-//                     }
-//                     Ty::Module(module_id) => {
-//                         let binding_info =
-//                             find_binding_info_in_module(sess.workspace, *module_id, *member);
+                            match ty {
+                                TyKind::Slice(_, is_mutable)
+                                | TyKind::MultiPointer(_, is_mutable)
+                                | TyKind::Pointer(_, is_mutable)
+                                    if !is_mutable =>
+                                {
+                                    Err(ImmutableReference {
+                                        ty,
+                                        span: expr.span,
+                                    })
+                                }
+                                _ => Ok(()),
+                            }
+                        }
+                        TyKind::Module(module_id) => {
+                            let binding_info =
+                                self.find_binding_info_in_module(module_id, access.member);
+                            let ty = binding_info.ty.normalize(self.tycx);
 
-//                         match &binding_info.ty {
-//                             Ty::Slice(_, is_mutable)
-//                             | Ty::MultiPointer(_, is_mutable)
-//                             | Ty::Pointer(_, is_mutable)
-//                                 if !is_mutable =>
-//                             {
-//                                 Err(ImmutableReference {
-//                                     symbol: *member,
-//                                     ty_str: binding_info.ty.to_string(),
-//                                 })
-//                             }
-//                             _ => {
-//                                 if binding_info.is_mutable {
-//                                     Ok(())
-//                                 } else {
-//                                     let module_info =
-//                                         sess.workspace.get_module_info(*module_id).unwrap();
+                            match ty {
+                                TyKind::Slice(_, is_mutable)
+                                | TyKind::MultiPointer(_, is_mutable)
+                                | TyKind::Pointer(_, is_mutable)
+                                    if !is_mutable =>
+                                {
+                                    Err(ImmutableReference {
+                                        ty,
+                                        span: expr.span,
+                                    })
+                                }
+                                _ => {
+                                    if binding_info.is_mutable {
+                                        Ok(())
+                                    } else {
+                                        Err(ImmutableBinding {
+                                            id: binding_info.id,
+                                            span: expr.span,
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                        _ => Ok(()),
+                    },
+                    Err(err) => Err(err),
+                }
+            }
+            ast::ExprKind::Ident(ident) => {
+                match ty {
+                    TyKind::Slice(_, is_mutable)
+                    | TyKind::MultiPointer(_, is_mutable)
+                    | TyKind::Pointer(_, is_mutable) => {
+                        if is_mutable && is_direct_ref {
+                            return Ok(());
+                        } else {
+                            return Err(ImmutableReference {
+                                ty,
+                                span: expr.span,
+                            });
+                        }
+                    }
+                    _ => (),
+                }
 
-//                                     Err(Immutablebinding {
-//                                         symbol: ustr(&format!("{}.{}", module_info.name, member)),
-//                                         binding_span: binding_info.span,
-//                                     })
-//                                 }
-//                             }
-//                         }
-//                     }
-//                     _ => Ok(()),
-//                 },
-//                 Err(err) => Err(match err {
-//                     ImmutableMemberAccess {
-//                         root_symbol,
-//                         binding_span,
-//                         full_path,
-//                     } => ImmutableMemberAccess {
-//                         root_symbol,
-//                         binding_span,
-//                         full_path: format!("{}.{}", full_path, member),
-//                     },
-//                     ImmutableReference { symbol, ty_str } => ImmutableReference {
-//                         symbol: ustr(&format!("{}.{}", symbol, member)),
-//                         ty_str,
-//                     },
-//                     Immutablebinding {
-//                         symbol,
-//                         binding_span,
-//                     } => ImmutableMemberAccess {
-//                         root_symbol: symbol,
-//                         binding_span,
-//                         full_path: format!("{}.{}", symbol, member),
-//                     },
-//                 }),
-//             }
-//         }
-//         ast::ExprKind::Id {
-//             symbol,
-//             is_mutable,
-//             binding_span,
-//             binding_info_id: _,
-//         } => {
-//             match ty {
-//                 Ty::Slice(_, is_mutable)
-//                 | Ty::MultiPointer(_, is_mutable)
-//                 | Ty::Pointer(_, is_mutable) => {
-//                     if *is_mutable && is_direct_ref {
-//                         return Ok(());
-//                     } else {
-//                         return Err(ImmutableReference {
-//                             symbol: *symbol,
-//                             ty_str: ty.to_string(),
-//                         });
-//                     }
-//                 }
-//                 _ => (),
-//             }
+                let binding_info = self
+                    .workspace
+                    .get_binding_info(ident.binding_info_id)
+                    .unwrap();
 
-//             if *is_mutable {
-//                 Ok(())
-//             } else {
-//                 Err(Immutablebinding {
-//                     symbol: *symbol,
-//                     binding_span: *binding_span,
-//                 })
-//             }
-//         }
-//         _ => Ok(()),
-//     }
-// }
+                if binding_info.is_mutable {
+                    Ok(())
+                } else {
+                    Err(ImmutableBinding {
+                        id: ident.binding_info_id,
+                        span: expr.span,
+                    })
+                }
+            }
+            _ => Ok(()),
+        }
+    }
 
-// fn find_binding_info_in_module(
-//     workspace: &Workspace,
-//     module_id: ModuleId,
-//     symbol: Ustr,
-// ) -> &BindingInfo {
-//     workspace
-//         .binding_infos
-//         .iter()
-//         .find(|b| b.module_id == module_id && b.symbol == symbol)
-//         .unwrap()
-// }
+    fn find_binding_info_in_module(&self, module_id: ModuleId, symbol: Ustr) -> &BindingInfo {
+        self.workspace
+            .binding_infos
+            .iter()
+            .find(|b| b.module_id == module_id && b.symbol == symbol)
+            .unwrap()
+    }
+}

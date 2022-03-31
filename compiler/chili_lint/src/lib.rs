@@ -238,8 +238,7 @@ impl Lint for ast::Expr {
                 match &unary.op {
                     ast::UnaryOp::Ref(is_mutable_ref) => {
                         if *is_mutable_ref {
-                            todo!()
-                            // check_expr_can_be_mutably_referenced(sess, &unary.lhs)?;
+                            sess.check_expr_can_be_mutably_referenced(&unary.lhs)?;
                         }
                     }
                     _ => (),
