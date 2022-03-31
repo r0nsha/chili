@@ -531,7 +531,7 @@ impl Check for ast::FnSig {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        _expected_ty: Option<Ty>,
     ) -> CheckResult {
         let mut ty_params = vec![];
         let mut param_map = UstrMap::default();
