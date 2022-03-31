@@ -52,7 +52,6 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
     //      `use foo.B`
     //      `use foo.C`
     //
-
     let exports = exports.get(&import.target_module_id).unwrap();
     exports
         .iter()

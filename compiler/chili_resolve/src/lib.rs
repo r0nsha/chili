@@ -4,12 +4,12 @@ use chili_ast::{ast::Ast, workspace::Workspace};
 use import::{collect_module_exports, resolve_imports};
 
 pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
-    collect_module_exports(&asts, &mut workspace.exports);
-
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);
     }
+
+    collect_module_exports(&asts, &mut workspace.exports);
 
     // Assign module ids to all imports
     for ast in asts.iter_mut() {

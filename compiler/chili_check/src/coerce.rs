@@ -36,8 +36,26 @@ impl Coerce for TyKind {
                 }
             }
 
+            // * int -> same or bigger uint
+            (TyKind::Int(left), TyKind::UInt(right)) => {
+                if left.size_of(word_size) <= right.size_of(word_size) {
+                    CoerceToRight
+                } else {
+                    CoerceToLeft
+                }
+            }
+
             // * uint -> same or bigger uint
             (TyKind::UInt(left), TyKind::UInt(right)) => {
+                if left.size_of(word_size) <= right.size_of(word_size) {
+                    CoerceToRight
+                } else {
+                    CoerceToLeft
+                }
+            }
+
+            // * uint -> same or bigger int
+            (TyKind::UInt(left), TyKind::Int(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -195,10 +213,10 @@ impl OrCoerceExprIntoTy for UnifyTyResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {
-                let (left, right) = (expr.ty.normalize(tycx), ty.normalize(tycx));
-                match left.coerce(&right, word_size) {
+                let (expr_ty, ty) = (expr.ty.normalize(tycx), ty.normalize(tycx));
+                match expr_ty.coerce(&ty, word_size) {
                     CoercionResult::CoerceToRight => {
-                        coerce_expr(tycx, expr, right);
+                        coerce_expr(tycx, expr, ty);
                         Ok(())
                     }
                     CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => Err(e),
@@ -207,34 +225,3 @@ impl OrCoerceExprIntoTy for UnifyTyResult {
         }
     }
 }
-
-// pub fn unify_or_coerce_expr_expr(
-//     &mut self,
-//     left_expr: &mut Expr,
-//     right_expr: &mut Expr,
-//     span: Span,
-// ) -> DiagnosticResult<Ty> {
-//     match self.unify_ty_ty(&left_expr.ty, &right_expr.ty, span) {
-//         Ok(ty) => Ok(ty),
-//         Err(_) => {
-//             let left_expr_ty = self.normalize_ty(&left_expr.ty);
-//             let right_expr_ty = self.normalize_ty(&right_expr.ty);
-
-//             match left_expr_ty.try_coerce(&right_expr_ty, self.word_size) {
-//                 CoercionResult::CoerceToLeft => {
-//                     *right_expr = right_expr.coerce(left_expr_ty.clone());
-//                     Ok(left_expr_ty)
-//                 }
-//                 CoercionResult::CoerceToRight => {
-//                     *left_expr = left_expr.coerce(right_expr_ty.clone());
-//                     Ok(right_expr_ty)
-//                 }
-//                 CoercionResult::NoCoercion => Err(self
-//                     .map_unification_error(
-//                         UnificationError(left_expr_ty, right_expr_ty),
-//                         span,
-//                     )),
-//             }
-//         }
-//     }
-// }
