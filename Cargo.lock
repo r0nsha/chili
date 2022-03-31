@@ -164,6 +164,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "chili_lint"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_check",
+ "chili_error",
+ "chili_span",
+ "codespan",
+ "codespan-reporting",
+ "common",
+ "ustr",
+]
+
+[[package]]
 name = "chili_main"
 version = "0.1.0"
 dependencies = [
@@ -171,6 +185,7 @@ dependencies = [
  "chili_astgen",
  "chili_check",
  "chili_error",
+ "chili_lint",
  "chili_pretty_print",
  "chili_resolve",
  "chili_span",

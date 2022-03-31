@@ -6,6 +6,7 @@ mod type_limits;
 
 use access::{check_assign_lvalue_id_access, check_id_access};
 use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
+use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_error::{DiagnosticResult, TypeError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::scopes::Scopes;
@@ -14,9 +15,10 @@ use ref_access::check_expr_can_be_mutably_referenced;
 use sess::{InitState, LintSess};
 use type_limits::check_type_limits;
 
-pub fn lint(workspace: &Workspace, asts: &Vec<ast::Ast>) -> DiagnosticResult<()> {
+pub fn lint(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<ast::Ast>) -> DiagnosticResult<()> {
     let mut sess = LintSess {
         workspace,
+        tycx,
         init_scopes: Scopes::new(),
     };
 
@@ -70,7 +72,7 @@ impl Lint for ast::Ast {
 
 impl Lint for ast::Binding {
     fn lint(&self, sess: &mut LintSess) -> DiagnosticResult<()> {
-        let init_state = if self.value.is_some() {
+        let init_state = if self.expr.is_some() {
             InitState::Init
         } else {
             InitState::NotInit
@@ -80,17 +82,17 @@ impl Lint for ast::Binding {
             sess.init_scopes.insert(symbol.binding_info_id, init_state);
         }
 
-        self.value.lint(sess)?;
+        self.expr.lint(sess)?;
 
-        if let Some(value) = &self.value {
-            let is_a_type = value.ty.is_type();
+        if let Some(expr) = &self.expr {
+            let is_a_type = expr.ty.normalize(&sess.tycx).is_type();
 
             match &self.kind {
-                ast::BindingKind::Let => {
+                ast::BindingKind::Value => {
                     if is_a_type {
                         return Err(TypeError::expected(
-                            value.span,
-                            value.ty.to_string(),
+                            expr.span,
+                            expr.ty.to_string(),
                             "a value",
                         ));
                     }
@@ -98,8 +100,8 @@ impl Lint for ast::Binding {
                 ast::BindingKind::Type => {
                     if !is_a_type {
                         return Err(TypeError::expected(
-                            value.span,
-                            value.ty.to_string(),
+                            expr.span,
+                            expr.ty.to_string(),
                             "a type",
                         ));
                     }
@@ -147,18 +149,16 @@ impl Lint for ast::Expr {
             ast::ExprKind::Binding(e) => {
                 e.lint(sess)?;
             }
-            ast::ExprKind::Assign { lvalue, rvalue } => {
-                lvalue.lint(sess)?;
-                rvalue.lint(sess)?;
+            ast::ExprKind::Assign(assign) => {
+                assign.lvalue.lint(sess)?;
+                assign.rvalue.lint(sess)?;
 
-                match &lvalue.kind {
-                    ast::ExprKind::Id {
-                        binding_info_id, ..
-                    } => {
-                        check_assign_lvalue_id_access(sess, lvalue, *binding_info_id)?;
+                match &assign.lvalue.kind {
+                    ast::ExprKind::Ident(ident) => {
+                        check_assign_lvalue_id_access(sess, &assign.lvalue, ident.binding_info_id)?;
                     }
                     _ => {
-                        check_lvalue_access(lvalue, lvalue.span)?;
+                        check_lvalue_access(&assign.lvalue, assign.lvalue.span)?;
                     }
                 };
             }
@@ -174,7 +174,7 @@ impl Lint for ast::Expr {
                 }
             },
             ast::ExprKind::Fn(f) => {
-                let ty = f.sig.ty.as_fn();
+                let ty = f.sig.ty.normalize(&sess.tycx).as_fn();
 
                 // if this is the main function, check its type matches a fn() -> [() | !]
                 if f.is_entry_point
@@ -191,9 +191,9 @@ impl Lint for ast::Expr {
 
                 f.body.lint(sess)?;
             }
-            ast::ExprKind::While { cond, block } => {
-                cond.lint(sess)?;
-                block.lint(sess)?;
+            ast::ExprKind::While(while_) => {
+                while_.cond.lint(sess)?;
+                while_.block.lint(sess)?;
             }
             ast::ExprKind::For(for_) => {
                 match &for_.iterator {
@@ -205,73 +205,69 @@ impl Lint for ast::Expr {
                         v.lint(sess)?;
                     }
                 }
-                for_.expr.lint(sess)?;
+                for_.block.lint(sess)?;
             }
-            ast::ExprKind::Break { deferred } | ast::ExprKind::Continue { deferred } => {
-                deferred.lint(sess)?;
+            ast::ExprKind::Break(e) | ast::ExprKind::Continue(e) => {
+                e.deferred.lint(sess)?;
             }
-            ast::ExprKind::Return { expr, deferred } => {
-                expr.lint(sess)?;
-                deferred.lint(sess)?;
+            ast::ExprKind::Return(ret) => {
+                ret.expr.lint(sess)?;
+                ret.deferred.lint(sess)?;
             }
-            ast::ExprKind::If {
-                cond,
-                then_expr,
-                else_expr,
-            } => {
-                cond.lint(sess)?;
-                then_expr.lint(sess)?;
-                else_expr.lint(sess)?;
+            ast::ExprKind::If(if_) => {
+                if_.cond.lint(sess)?;
+                if_.then.lint(sess)?;
+                if_.otherwise.lint(sess)?;
             }
             ast::ExprKind::Block(block) => {
                 block.lint(sess)?;
             }
-            ast::ExprKind::Binary { lhs, op: _, rhs } => {
-                lhs.lint(sess)?;
-                rhs.lint(sess)?;
+            ast::ExprKind::Binary(binary) => {
+                binary.lhs.lint(sess)?;
+                binary.rhs.lint(sess)?;
             }
-            ast::ExprKind::Unary { op, lhs } => {
-                lhs.lint(sess)?;
+            ast::ExprKind::Unary(unary) => {
+                unary.lhs.lint(sess)?;
 
-                match op {
+                match &unary.op {
                     ast::UnaryOp::Ref(is_mutable_ref) => {
                         if *is_mutable_ref {
-                            check_expr_can_be_mutably_referenced(sess, lhs)?;
+                            check_expr_can_be_mutably_referenced(sess, &unary.lhs)?;
                         }
                     }
                     _ => (),
                 }
             }
-            ast::ExprKind::Subscript { expr, index } => {
-                expr.lint(sess)?;
-                index.lint(sess)?;
+            ast::ExprKind::Subscript(sub) => {
+                sub.expr.lint(sess)?;
+                sub.index.lint(sess)?;
             }
-            ast::ExprKind::Slice { expr, low, high } => {
-                expr.lint(sess)?;
-                low.lint(sess)?;
-                high.lint(sess)?;
+            ast::ExprKind::Slice(slice) => {
+                slice.expr.lint(sess)?;
+                slice.low.lint(sess)?;
+                slice.high.lint(sess)?;
 
-                if let None = high {
-                    if expr.ty.normalize(&sess.tycx).is_multi_pointer() {
+                if let None = &slice.high {
+                    if slice.expr.ty.normalize(&sess.tycx).is_multi_pointer() {
                         return Err(Diagnostic::error()
                         .with_message(
                             "multi pointer has unknown length, so you must specify the ending index",
                         )
                         .with_labels(vec![Label::primary(
-                            expr.span.file_id,
-                            expr.span.range(),
+                            slice.expr.span.file_id,
+                            slice.expr.span.range(),
                         )]));
                     }
                 }
             }
-            ast::ExprKind::Call(c) => {
-                c.callee.lint(sess)?;
-                for a in &c.args {
-                    a.value.lint(sess)?;
+            ast::ExprKind::FnCall(call) => {
+                call.callee.lint(sess)?;
+                for arg in &call.args {
+                    arg.expr.lint(sess)?;
                 }
             }
-            ast::ExprKind::MemberAccess { expr, member: _ } => {
-                expr.lint(sess)?;
+            ast::ExprKind::MemberAccess(access) => {
+                access.expr.lint(sess)?;
             }
             ast::ExprKind::ArrayLiteral(k) => match k {
                 ast::ArrayLiteralKind::List(l) => {
@@ -285,10 +281,10 @@ impl Lint for ast::Expr {
             ast::ExprKind::TupleLiteral(l) => {
                 l.lint(sess)?;
             }
-            ast::ExprKind::StructLiteral { type_expr, fields } => {
-                type_expr.lint(sess)?;
-                for f in fields {
-                    f.value.lint(sess)?;
+            ast::ExprKind::StructLiteral(lit) => {
+                lit.type_expr.lint(sess)?;
+                for field in &lit.fields {
+                    field.value.lint(sess)?;
                 }
             }
             ast::ExprKind::PointerType(e, _) => {
@@ -315,18 +311,15 @@ impl Lint for ast::Expr {
                 sig.ret.lint(sess)?;
             }
 
-            ast::ExprKind::Id {
-                binding_info_id, ..
-            } => {
-                check_id_access(sess, *binding_info_id, self.span)?;
+            ast::ExprKind::Ident(ident) => {
+                check_id_access(sess, ident.binding_info_id, self.span)?;
             }
 
             ast::ExprKind::Literal(_)
             | ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
-            | ast::ExprKind::PlaceholderType
-            | ast::ExprKind::Noop => (),
+            | ast::ExprKind::PlaceholderType => (),
         }
 
         check_type_limits(self)?;

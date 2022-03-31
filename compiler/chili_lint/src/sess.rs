@@ -1,8 +1,10 @@
 use chili_ast::workspace::{BindingInfoId, Workspace};
+use chili_check::ty_ctx::TyCtx;
 use common::scopes::Scopes;
 
-pub(crate) struct LintSess<'l> {
-    pub(crate) workspace: &'l Workspace,
+pub(crate) struct LintSess<'s> {
+    pub(crate) workspace: &'s Workspace,
+    pub(crate) tycx: &'s TyCtx,
     pub(crate) init_scopes: Scopes<BindingInfoId, InitState>,
 }
 
