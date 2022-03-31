@@ -4,16 +4,12 @@ mod ref_access;
 mod sess;
 mod type_limits;
 
-use access::{check_assign_lvalue_id_access, check_id_access};
 use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
 use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_error::{DiagnosticResult, TypeError};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::scopes::Scopes;
-use lvalue_access::check_lvalue_access;
-use ref_access::check_expr_can_be_mutably_referenced;
 use sess::{InitState, LintSess};
-use type_limits::check_type_limits;
 
 pub fn lint(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<ast::Ast>) -> DiagnosticResult<()> {
     let mut sess = LintSess {
@@ -155,10 +151,10 @@ impl Lint for ast::Expr {
 
                 match &assign.lvalue.kind {
                     ast::ExprKind::Ident(ident) => {
-                        check_assign_lvalue_id_access(sess, &assign.lvalue, ident.binding_info_id)?;
+                        sess.check_assign_lvalue_id_access(&assign.lvalue, ident.binding_info_id)?;
                     }
                     _ => {
-                        check_lvalue_access(&assign.lvalue, assign.lvalue.span)?;
+                        sess.check_lvalue_access(&assign.lvalue, assign.lvalue.span)?;
                     }
                 };
             }
@@ -174,7 +170,7 @@ impl Lint for ast::Expr {
                 }
             },
             ast::ExprKind::Fn(f) => {
-                let ty = f.sig.ty.normalize(&sess.tycx).as_fn();
+                let ty = f.sig.ty.normalize(&sess.tycx).into_fn();
 
                 // if this is the main function, check its type matches a fn() -> [() | !]
                 if f.is_entry_point
@@ -232,7 +228,8 @@ impl Lint for ast::Expr {
                 match &unary.op {
                     ast::UnaryOp::Ref(is_mutable_ref) => {
                         if *is_mutable_ref {
-                            check_expr_can_be_mutably_referenced(sess, &unary.lhs)?;
+                            todo!()
+                            // check_expr_can_be_mutably_referenced(sess, &unary.lhs)?;
                         }
                     }
                     _ => (),
@@ -312,7 +309,7 @@ impl Lint for ast::Expr {
             }
 
             ast::ExprKind::Ident(ident) => {
-                check_id_access(sess, ident.binding_info_id, self.span)?;
+                sess.check_id_access(ident.binding_info_id, self.span)?;
             }
 
             ast::ExprKind::Literal(_)
@@ -322,7 +319,7 @@ impl Lint for ast::Expr {
             | ast::ExprKind::PlaceholderType => (),
         }
 
-        check_type_limits(self)?;
+        sess.check_type_limits(self)?;
 
         Ok(())
     }
