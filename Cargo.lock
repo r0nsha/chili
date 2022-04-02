@@ -154,6 +154,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "chili_defer"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "common",
+]
+
+[[package]]
 name = "chili_error"
 version = "0.1.0"
 dependencies = [
@@ -184,6 +194,7 @@ dependencies = [
  "chili_ast",
  "chili_astgen",
  "chili_check",
+ "chili_defer",
  "chili_error",
  "chili_lint",
  "chili_pretty_print",

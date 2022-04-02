@@ -11,6 +11,7 @@ members = [
     "compiler/chili_resolve",
     "compiler/chili_check",
     "compiler/chili_lint",
+    "compiler/chili_defer",
     # "compiler/chili_llvm",
     "compiler/chili_main",
 ]

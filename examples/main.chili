@@ -2,50 +2,12 @@
 # use c.printf
 
 let main = fn {
-    let a = !true
-    let b = -5.0
-    let c = ~5
-    let d = 1 + 2 - 3 + 5 * 2 - 10
-    let e = if !true {
-        5
-    } 
-    # let x: i32 = 42
-    # let y: int = x
-    # let z = x + y
-    # let v = -z + x
-    # let mut answer: i32 = 1
-    # answer = 5
-    # let a = (1, 2)
-    # let array: [3]int = [1,2,3]
-
-    # type Node = {
-    #     value: int,
-    #     next: *Self,
-    # }
-
-    # type Foo = {a:int}
-    # let mut foo = Foo { a: 5 }
-    # let foo_ref = &mut foo
-    # foo_ref.a = 1
-
-    # let x = fn() { 
-    #     let foo = Foo { a: 5 }
-    # }
-
-    # print_answer(answer)
-
-    # ()
 }
 
-# let fib = fn(n) {
-# 	# if n < 2 {
-# 	# 	n + 1
-# 	# } else {
-# 	# 	fib(n - 1) + fib(n - 2)
-# 	# }
-# }
-
-# let print_answer = fn(answer) {
-#     c.printf("What is the answer?\n".data)
-#     printf("The answer is %d\n".data, answer)
-# }
+let fib = fn(n) {
+	if n < 2 {
+		n + 1
+	} else {
+		fib(n - 1) + fib(n - 2)
+	}
+}
