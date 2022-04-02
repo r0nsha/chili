@@ -336,6 +336,16 @@ pub enum Literal {
     Char(char),
 }
 
+impl Literal {
+    pub fn into_expr(self, ty: Ty, span: Span) -> Expr {
+        Expr {
+            kind: ExprKind::Literal(self),
+            ty,
+            span,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Builtin {
     SizeOf(Box<Expr>),

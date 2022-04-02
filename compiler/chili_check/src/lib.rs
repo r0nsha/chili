@@ -253,21 +253,6 @@ impl<'s> CheckSess<'s> {
 
         mk(self, builtin::SYM_NEVER, self.tycx.common_types.never);
     }
-
-    // pub(crate) fn print_const_bindings(&self, filter: Option<&str>) {
-    //     println!("--------------------------------");
-    //     for (id, value) in self.const_bindings.iter() {
-    //         let info = self.workspace.get_binding_info(*id).unwrap();
-
-    //         if let Some(filter) = filter {
-    //             if info.symbol != filter {
-    //                 continue;
-    //             }
-    //         }
-
-    //         println!("{:?} : {} : {:?}", info.scope_level, info.symbol, value);
-    //     }
-    // }
 }
 
 pub(crate) type CheckResult = DiagnosticResult<Res>;
@@ -827,31 +812,213 @@ impl Check for ast::Expr {
                         )
                         .or_report_err(&sess.tycx, then_res.ty, otherwise_res.ty, otherwise.span)?;
 
-                    // if the condition, the then expr and the otherwise expr
-                    // are all constant, we can resolve them at compile time
-                    if cond_res.const_value.is_some()
-                        && then_res.const_value.is_some()
-                        && otherwise_res.const_value.is_some()
-                    {
-                        let cond = cond_res.const_value.unwrap().into_bool();
-
-                        let const_value = if cond {
-                            then_res.const_value.unwrap()
+                    // if the condition is a constant, we can choose the branch at compile time
+                    if let Some(cond_value) = cond_res.const_value {
+                        if cond_value.into_bool() {
+                            *self = if_.then.as_ref().clone();
+                            Ok(Res::new_maybe_const(then_res.ty, then_res.const_value))
                         } else {
-                            otherwise_res.const_value.unwrap()
-                        };
-
-                        Ok(Res::new_const(then_res.ty, const_value))
+                            *self = otherwise.as_ref().clone();
+                            Ok(Res::new_maybe_const(
+                                otherwise_res.ty,
+                                otherwise_res.const_value,
+                            ))
+                        }
                     } else {
                         Ok(Res::new(then_res.ty))
                     }
                 } else {
-                    Ok(Res::new(sess.tycx.common_types.unit))
+                    let unit = sess.tycx.common_types.unit;
+                    // if the condition is a constant, we can either choose the then
+                    // branch at compile time, or transform this into a unit
+                    if let Some(cond_value) = cond_res.const_value {
+                        if cond_value.into_bool() {
+                            *self = if_.then.as_ref().clone();
+                            Ok(Res::new_maybe_const(then_res.ty, then_res.const_value))
+                        } else {
+                            *self = ast::Expr::typed(
+                                ast::ExprKind::Literal(ast::Literal::Unit),
+                                unit,
+                                self.span,
+                            );
+                            Ok(Res::new(unit))
+                        }
+                    } else {
+                        Ok(Res::new(unit))
+                    }
                 }
             }
             ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
-            ast::ExprKind::Binary(binary) => binary.check(sess, env, expected_ty),
-            ast::ExprKind::Unary(unary) => unary.check(sess, env, expected_ty),
+            ast::ExprKind::Binary(binary) => {
+                let lhs_res = binary.lhs.check(sess, env, expected_ty)?;
+                let rhs_res = binary.rhs.check(sess, env, expected_ty)?;
+
+                let expected_ty = match &binary.op {
+                    ast::BinaryOp::Add
+                    | ast::BinaryOp::Sub
+                    | ast::BinaryOp::Mul
+                    | ast::BinaryOp::Div
+                    | ast::BinaryOp::Rem
+                    | ast::BinaryOp::Lt
+                    | ast::BinaryOp::LtEq
+                    | ast::BinaryOp::Gt
+                    | ast::BinaryOp::GtEq
+                    | ast::BinaryOp::Shl
+                    | ast::BinaryOp::Shr
+                    | ast::BinaryOp::BitwiseOr
+                    | ast::BinaryOp::BitwiseXor
+                    | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(),
+                    ast::BinaryOp::Eq | ast::BinaryOp::NEq => sess.tycx.var(),
+                    ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
+                };
+
+                lhs_res.ty.unify(&expected_ty, sess).or_report_err(
+                    &sess.tycx,
+                    expected_ty,
+                    lhs_res.ty,
+                    binary.lhs.span,
+                )?;
+
+                rhs_res
+                    .ty
+                    .unify(&lhs_res.ty, sess)
+                    .or_coerce_exprs(
+                        &mut binary.lhs,
+                        &mut binary.rhs,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(&sess.tycx, lhs_res.ty, rhs_res.ty, binary.rhs.span)?;
+
+                let result_ty = match &binary.op {
+                    ast::BinaryOp::Add
+                    | ast::BinaryOp::Sub
+                    | ast::BinaryOp::Mul
+                    | ast::BinaryOp::Div
+                    | ast::BinaryOp::Rem
+                    | ast::BinaryOp::Shl
+                    | ast::BinaryOp::Shr
+                    | ast::BinaryOp::BitwiseOr
+                    | ast::BinaryOp::BitwiseXor
+                    | ast::BinaryOp::BitwiseAnd => binary.lhs.ty,
+
+                    ast::BinaryOp::Eq
+                    | ast::BinaryOp::NEq
+                    | ast::BinaryOp::Lt
+                    | ast::BinaryOp::LtEq
+                    | ast::BinaryOp::Gt
+                    | ast::BinaryOp::GtEq
+                    | ast::BinaryOp::And
+                    | ast::BinaryOp::Or => sess.tycx.common_types.bool,
+                };
+
+                match (lhs_res.const_value, rhs_res.const_value) {
+                    (Some(lhs), Some(rhs)) => {
+                        let value = const_fold_binary(lhs, rhs, binary.op, self.span)?;
+                        *self = value.into_literal().into_expr(result_ty, self.span);
+                        Ok(Res::new_const(result_ty, value))
+                    }
+                    _ => Ok(Res::new(result_ty)),
+                }
+            }
+            ast::ExprKind::Unary(unary) => {
+                let res = unary.lhs.check(sess, env, None)?;
+
+                match unary.op {
+                    ast::UnaryOp::Ref(is_mutable) => {
+                        let ty = sess
+                            .tycx
+                            .bound(TyKind::Pointer(Box::new(res.ty.into()), is_mutable));
+                        Ok(Res::new(ty))
+                    }
+                    ast::UnaryOp::Deref => {
+                        let kind = res.ty.normalize(&sess.tycx);
+                        match kind {
+                            // TODO: instead of checking type directly, apply `Deref` constraint
+                            TyKind::Pointer(inner, _) => {
+                                let ty = sess.tycx.bound(*inner);
+                                Ok(Res::new(ty))
+                            }
+                            ty => Err(TypeError::deref_non_pointer_ty(
+                                self.span,
+                                ty.display(&sess.tycx),
+                            )),
+                        }
+                    }
+                    ast::UnaryOp::Not => {
+                        let bool = sess.tycx.common_types.bool;
+
+                        res.ty.unify(&bool, sess).or_report_err(
+                            &sess.tycx,
+                            bool,
+                            res.ty,
+                            unary.lhs.span,
+                        )?;
+
+                        if let Some(value) = res.const_value {
+                            let value = Value::Bool(!value.into_bool());
+                            *self = value.into_literal().into_expr(res.ty, self.span);
+                            Ok(Res::new_const(res.ty, value))
+                        } else {
+                            Ok(Res::new(res.ty))
+                        }
+                    }
+                    ast::UnaryOp::Neg => {
+                        let anyint = sess.tycx.anyint();
+
+                        res.ty.unify(&anyint, sess).or_report_err(
+                            &sess.tycx,
+                            anyint,
+                            res.ty,
+                            unary.lhs.span,
+                        )?;
+
+                        if let Some(value) = res.const_value {
+                            let value = match value {
+                                Value::Int(i) => Value::Int(-i),
+                                Value::Float(f) => Value::Float(-f),
+                                _ => unreachable!("got {}", value),
+                            };
+
+                            *self = value.into_literal().into_expr(res.ty, self.span);
+
+                            Ok(Res::new_const(res.ty, value))
+                        } else {
+                            Ok(Res::new(res.ty))
+                        }
+                    }
+                    ast::UnaryOp::Plus => {
+                        let anyint = sess.tycx.anyint();
+
+                        res.ty.unify(&anyint, sess).or_report_err(
+                            &sess.tycx,
+                            anyint,
+                            res.ty,
+                            unary.lhs.span,
+                        )?;
+
+                        Ok(Res::new_maybe_const(res.ty, res.const_value))
+                    }
+                    ast::UnaryOp::BitwiseNot => {
+                        let anyint = sess.tycx.anyint();
+
+                        res.ty.unify(&anyint, sess).or_report_err(
+                            &sess.tycx,
+                            anyint,
+                            res.ty,
+                            unary.lhs.span,
+                        )?;
+
+                        if let Some(value) = res.const_value {
+                            let value = Value::Int(!value.into_int());
+                            *self = value.into_literal().into_expr(res.ty, self.span);
+                            Ok(Res::new_const(res.ty, value))
+                        } else {
+                            Ok(Res::new(res.ty))
+                        }
+                    }
+                }
+            }
             ast::ExprKind::Subscript(sub) => {
                 let index_res = sub.index.check(sess, env, None)?;
                 let uint = sess.tycx.common_types.uint;
@@ -1228,8 +1395,6 @@ impl Check for ast::Expr {
                 ))
             }
             ast::ExprKind::StructType(st) => {
-                // env.push_scope();
-
                 let is_anonymous = st.name.is_empty();
 
                 st.name = if is_anonymous {
@@ -1240,24 +1405,11 @@ impl Check for ast::Expr {
 
                 let inferred_ty = sess.tycx.var();
 
-                // st.binding_info_id = sess.bind_symbol(
-                //     env,
-                //     st.name,
-                //     ast::Visibility::Private,
-                //     inferred_ty,
-                //     false,
-                //     ast::BindingKind::Type,
-                //     self.span,
-                // )?;
-
                 let opaque_struct =
                     TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
                         .create_type();
 
                 inferred_ty.unify(&opaque_struct, sess).unwrap();
-
-                // sess.const_bindings
-                //     .insert(st.binding_info_id, Value::Type(inferred_ty));
 
                 sess.self_types.push(inferred_ty);
 
@@ -1291,8 +1443,6 @@ impl Check for ast::Expr {
                 });
 
                 sess.self_types.pop();
-
-                // env.pop_scope();
 
                 Ok(Res::new_const(
                     sess.tycx.bound(struct_ty.clone().create_type()),
@@ -1553,184 +1703,6 @@ impl Check for ast::Block {
         env.pop_scope();
 
         Ok(res)
-    }
-}
-
-impl Check for ast::Binary {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<Ty>,
-    ) -> CheckResult {
-        let lhs_res = self.lhs.check(sess, env, expected_ty)?;
-        let rhs_res = self.rhs.check(sess, env, expected_ty)?;
-
-        let expected_ty = match &self.op {
-            ast::BinaryOp::Add
-            | ast::BinaryOp::Sub
-            | ast::BinaryOp::Mul
-            | ast::BinaryOp::Div
-            | ast::BinaryOp::Rem
-            | ast::BinaryOp::Lt
-            | ast::BinaryOp::LtEq
-            | ast::BinaryOp::Gt
-            | ast::BinaryOp::GtEq
-            | ast::BinaryOp::Shl
-            | ast::BinaryOp::Shr
-            | ast::BinaryOp::BitwiseOr
-            | ast::BinaryOp::BitwiseXor
-            | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(),
-            ast::BinaryOp::Eq | ast::BinaryOp::NEq => sess.tycx.var(),
-            ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
-        };
-
-        lhs_res.ty.unify(&expected_ty, sess).or_report_err(
-            &sess.tycx,
-            expected_ty,
-            lhs_res.ty,
-            self.lhs.span,
-        )?;
-
-        rhs_res
-            .ty
-            .unify(&lhs_res.ty, sess)
-            .or_coerce_exprs(
-                &mut self.lhs,
-                &mut self.rhs,
-                &mut sess.tycx,
-                sess.target_metrics.word_size,
-            )
-            .or_report_err(&sess.tycx, lhs_res.ty, rhs_res.ty, self.rhs.span)?;
-
-        let result_ty = match &self.op {
-            ast::BinaryOp::Add
-            | ast::BinaryOp::Sub
-            | ast::BinaryOp::Mul
-            | ast::BinaryOp::Div
-            | ast::BinaryOp::Rem
-            | ast::BinaryOp::Shl
-            | ast::BinaryOp::Shr
-            | ast::BinaryOp::BitwiseOr
-            | ast::BinaryOp::BitwiseXor
-            | ast::BinaryOp::BitwiseAnd => self.lhs.ty,
-
-            ast::BinaryOp::Eq
-            | ast::BinaryOp::NEq
-            | ast::BinaryOp::Lt
-            | ast::BinaryOp::LtEq
-            | ast::BinaryOp::Gt
-            | ast::BinaryOp::GtEq
-            | ast::BinaryOp::And
-            | ast::BinaryOp::Or => sess.tycx.common_types.bool,
-        };
-
-        match (lhs_res.const_value, rhs_res.const_value) {
-            (Some(lhs), Some(rhs)) => {
-                let const_value = const_fold_binary(lhs, rhs, self.op, self.span)?;
-                Ok(Res::new_const(result_ty, const_value))
-            }
-            _ => Ok(Res::new(result_ty)),
-        }
-    }
-}
-
-impl Check for ast::Unary {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        _expected_ty: Option<Ty>,
-    ) -> CheckResult {
-        let res = self.lhs.check(sess, env, None)?;
-
-        match self.op {
-            ast::UnaryOp::Ref(is_mutable) => {
-                let ty = sess
-                    .tycx
-                    .bound(TyKind::Pointer(Box::new(res.ty.into()), is_mutable));
-                Ok(Res::new(ty))
-            }
-            ast::UnaryOp::Deref => {
-                let kind = res.ty.normalize(&sess.tycx);
-                match kind {
-                    // TODO: instead of checking type directly, apply `Deref` constraint
-                    TyKind::Pointer(inner, _) => {
-                        let ty = sess.tycx.bound(*inner);
-                        Ok(Res::new(ty))
-                    }
-                    ty => Err(TypeError::deref_non_pointer_ty(
-                        self.span,
-                        ty.display(&sess.tycx),
-                    )),
-                }
-            }
-            ast::UnaryOp::Not => {
-                let bool = sess.tycx.common_types.bool;
-
-                res.ty
-                    .unify(&bool, sess)
-                    .or_report_err(&sess.tycx, bool, res.ty, self.lhs.span)?;
-
-                if let Some(value) = res.const_value {
-                    let value = value.into_bool();
-                    Ok(Res::new_const(res.ty, Value::Bool(!value)))
-                } else {
-                    Ok(Res::new(res.ty))
-                }
-            }
-            ast::UnaryOp::Neg => {
-                let anyint = sess.tycx.anyint();
-
-                res.ty.unify(&anyint, sess).or_report_err(
-                    &sess.tycx,
-                    anyint,
-                    res.ty,
-                    self.lhs.span,
-                )?;
-
-                if let Some(value) = res.const_value {
-                    let value = match value {
-                        Value::Int(i) => Value::Int(-i),
-                        Value::Float(f) => Value::Float(-f),
-                        _ => unreachable!("got {}", value),
-                    };
-
-                    Ok(Res::new_const(res.ty, value))
-                } else {
-                    Ok(Res::new(res.ty))
-                }
-            }
-            ast::UnaryOp::Plus => {
-                let anyint = sess.tycx.anyint();
-
-                res.ty.unify(&anyint, sess).or_report_err(
-                    &sess.tycx,
-                    anyint,
-                    res.ty,
-                    self.lhs.span,
-                )?;
-
-                Ok(Res::new_maybe_const(res.ty, res.const_value))
-            }
-            ast::UnaryOp::BitwiseNot => {
-                let anyint = sess.tycx.anyint();
-
-                res.ty.unify(&anyint, sess).or_report_err(
-                    &sess.tycx,
-                    anyint,
-                    res.ty,
-                    self.lhs.span,
-                )?;
-
-                if let Some(value) = res.const_value {
-                    let value = value.into_int();
-                    Ok(Res::new_const(res.ty, Value::Int(!value)))
-                } else {
-                    Ok(Res::new(res.ty))
-                }
-            }
-        }
     }
 }
 

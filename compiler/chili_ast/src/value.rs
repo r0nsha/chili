@@ -65,12 +65,10 @@ impl Value {
             _ => panic!(),
         }
     }
-}
 
-impl Into<Literal> for Value {
-    fn into(self) -> Literal {
+    pub fn into_literal(self) -> Literal {
         match self {
-            Value::Type(_) => panic!(),
+            Value::Type(_) => panic!("unexpected Value::Type"),
             Value::Bool(v) => Literal::Bool(v),
             Value::Int(v) => Literal::Int(v),
             Value::Float(v) => Literal::Float(v),
