@@ -401,21 +401,6 @@ impl Check for ast::Binding {
                 )
                 .or_report_err(&sess.tycx, binding_ty, res.ty, expr.span)?;
 
-            // If this expressions matches the entry point function's requirements
-            // Tag it as the entry function
-            match &self.pattern {
-                Pattern::Single(pat) => {
-                    if sess.workspace.entry_point_function_id.is_none()
-                        && pat.symbol == "main"
-                        && expr.is_fn()
-                    {
-                        sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
-                        expr.as_fn_mut().is_entry_point = true;
-                    }
-                }
-                _ => (),
-            }
-
             res.const_value
         } else {
             None
@@ -442,6 +427,23 @@ impl Check for ast::Binding {
             const_value,
             self.kind,
         )?;
+
+        if let Some(expr) = &mut self.expr {
+            // If this expressions matches the entry point function's requirements
+            // Tag it as the entry function
+            match &self.pattern {
+                Pattern::Single(pat) => {
+                    if sess.workspace.entry_point_function_id.is_none()
+                        && pat.symbol == "main"
+                        && expr.is_fn()
+                    {
+                        sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
+                        expr.as_fn_mut().is_entry_point = true;
+                    }
+                }
+                _ => (),
+            }
+        }
 
         Ok(Res::new_maybe_const(binding_ty, const_value))
     }
