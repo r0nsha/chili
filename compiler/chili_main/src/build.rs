@@ -73,6 +73,11 @@ pub fn do_build(build_options: BuildOptions) {
         chili_defer::solve_defers(&mut typed_ast)
     }
 
+    // Mark all bindings that should codegen
+    time! { "mark codegen",
+        chili_graph::mark_codegen_path(&mut workspace, &tycx, &typed_ast)
+    }
+
     // time! { "codegen(llvm)",
     //     chili_llvm::codegen(&workspace, &asts)
     // }

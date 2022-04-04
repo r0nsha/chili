@@ -1,7 +1,10 @@
-# use c
+use c
 # use c.printf
 
 let main = fn {
+    fib(1)
+    c.printf("a".data)
+    ()
 }
 
 let fib = fn(n) {

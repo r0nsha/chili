@@ -178,6 +178,7 @@ name = "chili_graph"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
+ "chili_check",
 ]
 
 [[package]]

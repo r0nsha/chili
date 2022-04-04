@@ -260,6 +260,13 @@ impl TyKind {
         }
     }
 
+    pub fn is_module(&self) -> bool {
+        match self {
+            TyKind::Module(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_number(&self) -> bool {
         self.is_any_integer() || self.is_float()
     }

@@ -488,9 +488,23 @@ pub enum BindingKind {
 }
 
 impl BindingKind {
+    pub fn is_value(&self) -> bool {
+        match self {
+            BindingKind::Value => true,
+            _ => false,
+        }
+    }
+
     pub fn is_type(&self) -> bool {
         match self {
             BindingKind::Type => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_import(&self) -> bool {
+        match self {
+            BindingKind::Import => true,
             _ => false,
         }
     }
