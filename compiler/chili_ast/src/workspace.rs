@@ -113,6 +113,10 @@ impl Workspace {
         self.module_infos.get(id.0)
     }
 
+    pub fn get_root_module_info(&self) -> &ModuleInfo {
+        self.get_module_info(self.root_module_id).unwrap()
+    }
+
     pub fn find_module_info(&self, module_info: ModuleInfo) -> Option<ModuleId> {
         self.module_infos
             .iter()
@@ -181,6 +185,10 @@ impl Workspace {
 impl BindingInfo {
     pub fn qualified_name(&self) -> Ustr {
         ustr(&format!("{}.{}", self.scope_name, self.symbol))
+    }
+
+    pub fn should_codegen(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::SHOULD_CODEGEN)
     }
 }
 

@@ -13,7 +13,7 @@ use super::{
     codegen::Codegen,
 };
 
-trait IntoLlvmType<'cg, 'ctx> {
+pub(crate) trait IntoLlvmType<'cg, 'ctx> {
     fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx>;
 }
 

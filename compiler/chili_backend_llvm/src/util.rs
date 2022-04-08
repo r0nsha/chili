@@ -1,6 +1,7 @@
 use crate::{
     abi::{align_of, size_of},
     codegen::{Codegen, CodegenDeclsMap, CodegenState},
+    ty::IntoLlvmType,
 };
 use chili_ast::ast::FnSig;
 use chili_ast::ty::*;
@@ -36,7 +37,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .build_global_string_ptr(&value, name)
                 .as_pointer_value();
 
-            let element_ty = Ty::UInt(UIntTy::U8);
+            let element_ty = TyKind::UInt(UIntTy::U8);
             let ty = self.slice_type(&element_ty);
 
             let str_slice_ptr = self.module.add_global(ty, Some(AddressSpace::Generic), "");
@@ -50,7 +51,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 str_ptr.into(),
                 self.ptr_sized_int_type.const_zero(),
                 self.ptr_sized_int_type.const_int(value.len() as u64, false),
-                &element_ty,
+                element_ty,
             );
 
             self.global_str_map.insert(value, str_slice_ptr);
@@ -66,7 +67,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_nil(&mut self, ty: TyKind) -> BasicValueEnum<'ctx> {
-        let llvm_ty = self.llvm_type(ty);
+        let llvm_ty = ty.llvm_type(self);
         llvm_ty.into_pointer_type().const_null().into()
     }
 
@@ -89,11 +90,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         sliced_value: BasicValueEnum<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
-        element_ty: &Ty,
+        element_ty: TyKind,
     ) {
         let data = self.builder.build_bitcast(
             sliced_value,
-            self.llvm_type(element_ty).ptr_type(AddressSpace::Generic),
+            element_ty.llvm_type(self).ptr_type(AddressSpace::Generic),
             "bitcast_slice_data",
         );
 
@@ -161,8 +162,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         symbol: Ustr,
     ) -> PointerValue<'ctx> {
         if !symbol.is_empty() {
-            if let Some((decl, depth)) = state.env.get_with_depth(&symbol) {
-                let is_same_depth = depth == state.env.depth();
+            if let Some((decl, depth)) = state.scopes.get_with_depth(&symbol) {
+                let is_same_depth = depth == state.scopes.depth();
                 let ptr = decl.into_pointer_value();
                 let is_same_type = ptr.get_type().get_element_type() == llvm_ty.as_any_type_enum();
                 if is_same_depth && is_same_type {
@@ -267,7 +268,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     #[allow(unused)]
     pub(super) fn build_memset(&mut self, ptr: PointerValue<'ctx>, ty: &Ty, value: IntValue<'ctx>) {
-        let ty = self.llvm_type(ty);
+        let ty = ty.llvm_type(self);
         let bytes_to_set = ty.size_of().unwrap();
         self.builder
             .build_memset(
@@ -540,17 +541,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_subscript(
         &mut self,
         agg: BasicValueEnum<'ctx>,
-        agg_ty: &Ty,
+        agg_ty: TyKind,
         index: IntValue<'ctx>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let ty = agg_ty.maybe_deref_once();
 
         let agg = match ty {
-            Ty::Array(..) | Ty::MultiPointer(..) => {
+            TyKind::Array(..) | TyKind::MultiPointer(..) => {
                 self.maybe_load_double_pointer(agg.into_pointer_value())
             }
-            Ty::Slice(..) => {
+            TyKind::Slice(..) => {
                 let value = if agg.is_pointer_value() {
                     self.maybe_load_double_pointer(agg.into_pointer_value())
                         .into()
@@ -567,12 +568,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let access = unsafe {
             match ty {
-                Ty::Array(..) => self.builder.build_gep(
+                TyKind::Array(..) => self.builder.build_gep(
                     agg,
                     &[index.get_type().const_zero(), index],
                     "array_subscript",
                 ),
-                Ty::MultiPointer(..) | Ty::Slice(..) => {
+                TyKind::MultiPointer(..) | TyKind::Slice(..) => {
                     self.builder.build_gep(agg, &[index], "subscript")
                 }
                 ty => unreachable!("{}", ty),

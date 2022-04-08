@@ -1,6 +1,8 @@
-use crate::codegen::{Codegen, CodegenState};
+use crate::{
+    codegen::{Codegen, CodegenState},
+    ty::IntoLlvmType,
+};
 use chili_ast::{ast, ty::*};
-use chili_check::normalize::NormalizeTy;
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
     values::{BasicValueEnum, PointerValue},
@@ -16,10 +18,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let struct_ty = ty.into_struct();
+        let struct_llvm_type = ty.llvm_type(self);
 
         let struct_ptr = if struct_ty.is_union() {
-            let struct_llvm_type = self.llvm_type(ty);
-
             let value = self.gen_expr(state, &fields[0].value, true);
             let field_ptr = self.build_alloca(state, value.get_type());
 
@@ -33,8 +34,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             struct_ptr
         } else {
-            let struct_llvm_ty = self.llvm_type(ty);
-            let struct_ptr = self.build_alloca(state, struct_llvm_ty);
+            let struct_ptr = self.build_alloca(state, struct_llvm_type);
 
             for field in fields {
                 let field_index = struct_ty
@@ -101,31 +101,31 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             ast::Literal::Int(v) => match ty {
-                TyKind::Int(_) | TyKind::UInt(_) => self
-                    .llvm_type(ty)
+                TyKind::Int(_) | TyKind::UInt(_) => ty
+                    .llvm_type(self)
                     .into_int_type()
                     .const_int(*v as u64, ty.is_int())
                     .into(),
 
-                TyKind::Float(_) => self
-                    .llvm_type(ty)
+                TyKind::Float(_) => ty
+                    .llvm_type(self)
                     .into_float_type()
                     .const_float(*v as f64)
                     .into(),
 
-                _ => self
-                    .llvm_type(ty)
+                _ => ty
+                    .llvm_type(self)
                     .into_int_type()
                     .const_int(*v as u64, ty.is_int())
                     .into(),
             },
 
-            ast::Literal::Float(v) => self.llvm_type(ty).into_float_type().const_float(*v).into(),
+            ast::Literal::Float(v) => ty.llvm_type(self).into_float_type().const_float(*v).into(),
 
             ast::Literal::Str(v) => self.gen_global_str("", v.as_str(), deref),
 
-            ast::Literal::Char(v) => self
-                .llvm_type(ty)
+            ast::Literal::Char(v) => ty
+                .llvm_type(self)
                 .into_int_type()
                 .const_int(*v as u64, false)
                 .into(),

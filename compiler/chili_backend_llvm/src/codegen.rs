@@ -3,14 +3,15 @@ use super::{
     util::is_a_load_inst,
 };
 use chili_ast::{
-    ast::{ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import, ModuleInfo},
+    ast::{ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import, TypedAst},
     pattern::{Pattern, SymbolPattern},
+    workspace::{BindingInfoId, ModuleInfo},
 };
 use chili_ast::{ty::*, workspace::Workspace};
 use chili_check::ty_ctx::TyCtx;
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-    env::Env,
+    scopes::Scopes,
     target::TargetMetrics,
 };
 use inkwell::{
@@ -19,7 +20,7 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, IntType},
+    types::{BasicTypeEnum, IntType},
     values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     AddressSpace, IntPredicate,
 };
@@ -57,6 +58,8 @@ impl<'ctx> CodegenDecl<'ctx> {
 pub struct Codegen<'cg, 'ctx> {
     pub workspace: &'cg Workspace,
     pub tycx: &'cg TyCtx,
+    pub ast: &'cg TypedAst,
+
     pub target_metrics: TargetMetrics,
 
     pub context: &'ctx Context,
@@ -83,7 +86,7 @@ pub(super) struct CodegenState<'ctx> {
     pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
     pub(super) decl_block: BasicBlock<'ctx>,
     pub(super) curr_block: BasicBlock<'ctx>,
-    pub(super) env: Env<CodegenDecl<'ctx>>,
+    pub(super) scopes: Scopes<BindingInfoId, CodegenDecl<'ctx>>,
 }
 
 impl<'ctx> CodegenState<'ctx> {
@@ -103,20 +106,20 @@ impl<'ctx> CodegenState<'ctx> {
             loop_blocks: vec![],
             decl_block,
             curr_block: entry_block,
-            env: Env::new(),
+            scopes: Env::new(),
         }
     }
 
     pub(super) fn push_named_scope(&mut self, name: Ustr) {
-        self.env.push_named_scope(name);
+        self.scopes.push_named_scope(name);
     }
 
     pub(super) fn push_scope(&mut self) {
-        self.env.push_scope();
+        self.scopes.push_scope();
     }
 
     pub(super) fn pop_scope(&mut self) {
-        self.env.pop_scope();
+        self.scopes.pop_scope();
     }
 }
 
@@ -374,7 +377,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
-        ty: &Ty,
+        ty: TyKind,
         value: BasicValueEnum<'ctx>,
     ) {
         match pattern {
@@ -505,7 +508,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .set_alignment(align as u32)
             .unwrap();
 
-        state.env.insert(name, CodegenDecl::Local(ptr));
+        state.scopes.insert(name, CodegenDecl::Local(ptr));
     }
 
     pub(super) fn gen_expr(
@@ -522,7 +525,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ExprKind::Import(imports) => {
                 for import in imports.iter() {
                     let decl = self.resolve_decl_from_import(import);
-                    state.env.insert(import.alias, decl);
+                    state.scopes.insert(import.alias, decl);
                 }
 
                 self.gen_unit()
@@ -540,7 +543,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let symbol = binding.pattern.into_single().symbol;
                         let ty = self.llvm_type(&binding.ty);
                         let global_value = self.add_global_uninit(&symbol, ty, Linkage::External);
-                        state.env.insert(symbol, CodegenDecl::Global(global_value));
+                        state
+                            .scopes
+                            .insert(symbol, CodegenDecl::Global(global_value));
                     }
                 }
 
@@ -964,7 +969,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ExprKind::Id { symbol, .. } => {
-                let decl = match state.env.get(&symbol) {
+                let decl = match state.scopes.get(&symbol) {
                     Some(decl) => decl.clone(),
                     None => self.find_or_gen_top_level_decl(state.module_info, *symbol),
                 };

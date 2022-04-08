@@ -1,6 +1,7 @@
 use crate::codegen::{Codegen, CodegenState};
 use chili_ast::ast::{Expr, UnaryOp};
 use chili_ast::ty::*;
+use chili_check::normalize::NormalizeTy;
 use chili_span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
@@ -13,6 +14,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
+        let ty = lhs.ty.normalize(self.tycx);
         match op {
             UnaryOp::Ref(_) => self.gen_expr(state, &lhs, false),
             UnaryOp::Deref => {
@@ -24,27 +26,27 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     ptr
                 }
             }
-            UnaryOp::Neg => match &lhs.ty {
-                Ty::Int(_) => self
+            UnaryOp::Neg => match ty {
+                TyKind::Int(_) => self
                     .builder
                     .build_int_neg(self.gen_expr(state, lhs, true).into_int_value(), "sneg")
                     .into(),
-                Ty::Float(_) => self
+                TyKind::Float(_) => self
                     .builder
                     .build_float_neg(self.gen_expr(state, lhs, true).into_float_value(), "fneg")
                     .into(),
                 _ => unreachable!("{}", lhs.ty),
             },
             UnaryOp::Plus => self.gen_expr(state, lhs, true),
-            UnaryOp::Not => match &lhs.ty {
-                Ty::Pointer(_, _) => {
+            UnaryOp::Not => match ty {
+                TyKind::Pointer(_, _) => {
                     let value = self.gen_expr(state, lhs, true);
 
                     self.builder
                         .build_is_null(value.into_pointer_value(), "ptr_is_nil")
                         .into()
                 }
-                Ty::Bool => self
+                TyKind::Bool => self
                     .builder
                     .build_int_compare(
                         IntPredicate::EQ,

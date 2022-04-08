@@ -10,10 +10,7 @@ mod ty;
 mod unary;
 mod util;
 
-use chili_ast::{
-    ast::{Ast, ForeignLibrary},
-    workspace::Workspace,
-};
+use chili_ast::{ast, workspace::Workspace};
 use chili_check::ty_ctx::TyCtx;
 use codegen::Codegen;
 use common::{build_options::BuildOptions, target::TargetPlatform, time};
@@ -35,7 +32,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<Ast>) {
+pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -58,6 +55,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<Ast>) {
     let mut cg = Codegen {
         workspace,
         tycx,
+        ast,
         target_metrics: workspace.build_options.target_platform.metrics(),
         context: &context,
         module: &module,
@@ -158,15 +156,15 @@ fn build_executable(
     build_options: &BuildOptions,
     target_machine: &TargetMachine,
     module: &Module,
-    foreign_libraries: &HashSet<ForeignLibrary>,
+    foreign_libraries: &HashSet<ast::ForeignLibrary>,
 ) -> String {
     let mut lib_paths = vec![];
     let mut libs = vec![];
 
     for lib in foreign_libraries.iter() {
         match lib {
-            ForeignLibrary::System(lib_name) => libs.push(lib_name),
-            ForeignLibrary::Path { lib_path, lib_name } => {
+            ast::ForeignLibrary::System(lib_name) => libs.push(lib_name),
+            ast::ForeignLibrary::Path { lib_path, lib_name } => {
                 lib_paths.push(lib_path);
                 libs.push(lib_name);
             }

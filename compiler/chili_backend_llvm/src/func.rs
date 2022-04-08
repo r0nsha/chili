@@ -1,11 +1,12 @@
 use crate::{
     abi::{AbiFn, AbiTyKind},
     codegen::{Codegen, CodegenState},
+    ty::IntoLlvmType,
     util::LlvmName,
     CallingConv,
 };
-use chili_ast::ast::{BindingKind, Call, ExprKind, Fn, FnSig, ModuleInfo};
-use chili_ast::ty::*;
+use chili_ast::{ast, ty::*, workspace::ModuleInfo};
+use chili_check::normalize::NormalizeTy;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
@@ -19,7 +20,10 @@ use inkwell::{
 use ustr::ustr;
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
-    fn gen_startup(&mut self, entry_point_func: FunctionValue<'ctx>) -> FunctionValue<'ctx> {
+    fn gen_entry_point_function(
+        &mut self,
+        entry_point_func: FunctionValue<'ctx>,
+    ) -> FunctionValue<'ctx> {
         let name = "main";
 
         let linkage = Some(Linkage::External);
@@ -60,10 +64,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         // };
         let startup_fn_type = FnTy {
             params: vec![
-                FnTyParam::unnamed(Ty::UInt(UIntTy::U32)),
-                FnTyParam::unnamed(Ty::UInt(UIntTy::U8).pointer_type(false).pointer_type(false)),
+                FnTyParam::unnamed(TyKind::UInt(UIntTy::U32)),
+                FnTyParam::unnamed(
+                    TyKind::UInt(UIntTy::U8)
+                        .pointer_type(false)
+                        .pointer_type(false),
+                ),
             ],
-            ret: Box::new(Ty::UInt(UIntTy::U32)),
+            ret: Box::new(TyKind::UInt(UIntTy::U32)),
             variadic: false,
             lib_name: None,
         };
@@ -90,9 +98,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let decl_block = self.context.append_basic_block(function, "decls");
         let entry_block = self.context.append_basic_block(function, "entry");
 
-        let root_module = self.ir.root_module();
+        let root_module_info = self.workspace.get_root_module_info();
+
         let mut state = CodegenState::new(
-            root_module.info,
+            *root_module_info,
             function,
             startup_fn_type,
             None,
@@ -104,41 +113,35 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        for module in self.ir.modules.values() {
-            state.module_info = module.info;
+        for (id, binding) in self.ast.bindings {
+            let binding_info = self.workspace.get_binding_info(id).unwrap();
 
-            for binding in module.bindings.iter() {
-                if !binding.should_codegen || binding.kind == BindingKind::Type {
-                    continue;
-                }
-
-                match binding.ty {
-                    Ty::Module { .. } | Ty::Type(..) => (),
-                    _ => {
-                        match binding.value.as_ref() {
-                            Some(expr) => match &expr.kind {
-                                // * if the binding is a fn or fn-type, don't
-                                //   initialize its value
-                                // * i can probably come up with cleaner code
-                                //   here...
-                                ExprKind::Fn(_) | ExprKind::FnType(_) => continue,
-                                _ => (),
-                            },
-                            None => (),
-                        }
-
-                        let symbol = binding.pattern.into_single().symbol;
-
-                        let ptr = self
-                            .find_or_gen_top_level_decl(state.module_info, symbol)
-                            .into_pointer_value();
-
-                        let value =
-                            self.gen_expr(&mut state, binding.value.as_ref().unwrap(), true);
-                        self.build_store(ptr, value);
-                    }
-                }
+            if !binding_info.should_codegen() {
+                continue;
             }
+
+            state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+
+            match binding.expr.as_ref() {
+                Some(expr) => match &expr.kind {
+                    // * if the binding is a fn or fn-type, don't
+                    //   initialize its value
+                    // * i can probably come up with cleaner code
+                    //   here...
+                    ast::ExprKind::Fn(_) | ast::ExprKind::FnType(_) => continue,
+                    _ => (),
+                },
+                None => (),
+            }
+
+            let symbol = binding.pattern.into_single().symbol;
+
+            let ptr = self
+                .find_or_gen_top_level_decl(state.module_info, symbol)
+                .into_pointer_value();
+
+            let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
+            self.build_store(ptr, value);
         }
 
         self.gen_fn_call(
@@ -146,12 +149,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             entry_point_func,
             &FnTy {
                 params: vec![],
-                ret: Box::new(Ty::Unit),
+                ret: Box::new(TyKind::Unit),
                 variadic: false,
                 lib_name: None,
             },
             vec![],
-            &Ty::Unit,
+            &TyKind::Unit,
         );
 
         // TODO: if this is DLL Main, return 1 instead of 0
@@ -173,7 +176,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_fn(
         &mut self,
         module_info: ModuleInfo,
-        func: &Fn,
+        func: &ast::Fn,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         if let Some(f) = self
@@ -195,8 +198,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let decl_block = self.context.append_basic_block(function, "decls");
         let entry_block = self.context.append_basic_block(function, "entry");
 
-        let fn_ty = func.sig.ty.into_fn();
-        let abi_fn = self.fn_type_map.get(fn_ty).unwrap().clone();
+        let fn_ty = func.sig.ty.normalize(self.tycx).into_fn();
+        let abi_fn = self.fn_type_map.get(&fn_ty).unwrap().clone();
 
         let return_ptr = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = function.get_first_param().unwrap().into_pointer_value();
@@ -209,14 +212,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let mut state = CodegenState::new(
             module_info,
             function,
-            func.sig.ty.into_fn().clone(),
+            fn_ty,
             return_ptr,
             decl_block,
             entry_block,
         );
 
         if let Some(prev_state) = prev_state {
-            state.env = prev_state.env;
+            state.scopes = prev_state.scopes;
         }
 
         self.start_block(&mut state, entry_block);
@@ -236,25 +239,26 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 value
             };
 
-            let param_ty = match &param.ty.as_ref().unwrap().ty {
-                Ty::Type(inner) => inner,
+            let param_ty = match param.ty.as_ref().unwrap().ty.normalize(self.tycx) {
+                TyKind::Type(inner) => inner,
                 t => unreachable!("got {}", t),
             };
 
-            let llvm_param_ty = self.llvm_type(param_ty);
+            let llvm_param_ty = param_ty.llvm_type(self);
 
             let value = self.build_transmute(&state, value, llvm_param_ty);
 
-            self.gen_binding_pattern_from_value(&mut state, &param.pattern, param_ty, value);
+            self.gen_binding_pattern_from_value(&mut state, &param.pattern, *param_ty, value);
         }
 
         for (index, expr) in func.body.exprs.iter().enumerate() {
+            let ty = expr.ty.normalize(self.tycx);
             let value = self.gen_expr(&mut state, expr, true);
 
             if func.body.yields
                 && index == func.body.exprs.len() - 1
-                && !expr.ty.is_unit()
-                && !expr.ty.is_never()
+                && !ty.is_unit()
+                && !ty.is_never()
             {
                 self.gen_return(&mut state, Some(value), &func.body.deferred);
             }
@@ -271,8 +275,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let function_value = self.verify_and_optimize_function(function, &func.sig.name);
 
-        if func.is_startup {
-            self.gen_startup(function_value);
+        if func.is_entry_point {
+            self.gen_entry_point_function(function_value);
         }
 
         if let Some(prev_block) = prev_block {
@@ -300,11 +304,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn declare_fn_sig(
         &mut self,
         module_info: ModuleInfo,
-        sig: &FnSig,
+        sig: &ast::FnSig,
     ) -> FunctionValue<'ctx> {
-        let fn_sig_ty = sig.ty.into_fn();
-        let fn_type = self.fn_type(fn_sig_ty);
-        let abi_fn = self.fn_type_map.get(fn_sig_ty).unwrap();
+        let fn_sig_ty = sig.ty.normalize(self.tycx).into_fn();
+        let fn_type = self.fn_type(&fn_sig_ty);
+        let abi_fn = self.fn_type_map.get(&fn_sig_ty).unwrap();
 
         let llvm_name = sig.llvm_name(module_info.name);
 
@@ -346,10 +350,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_fn_call_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        call: &Call,
-        result_ty: &Ty,
+        call: &ast::FnCall,
+        result_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {
-        let fn_ty = call.callee.ty.into_fn();
+        let fn_ty = call.callee.ty.normalize(self.tycx).into_fn();
         let mut args = vec![];
 
         for (index, arg) in call.args.iter().enumerate() {
@@ -362,7 +366,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             } else {
                 index
             };
-            let value = self.gen_expr(state, &arg.value, true);
+            let value = self.gen_expr(state, &arg.expr, true);
             args.push((value, index));
         }
 
@@ -381,7 +385,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let callable_value: CallableValue = callee_ptr.try_into().unwrap();
 
-        self.gen_fn_call(state, callable_value, fn_ty, args, result_ty)
+        self.gen_fn_call(state, callable_value, &fn_ty, args, result_ty)
     }
 
     pub(super) fn gen_fn_call(
@@ -390,7 +394,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         callee: impl Into<CallableValue<'ctx>>,
         callee_ty: &FnTy,
         args: Vec<BasicValueEnum<'ctx>>,
-        result_ty: &Ty,
+        result_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {
         let abi_fn = self
             .fn_type_map
@@ -476,8 +480,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             value
         };
 
-        let result_llvm_ty = self.llvm_type(result_ty);
-        let value = self.build_transmute(state, value, result_llvm_ty);
+        let result_ty = result_ty.llvm_type(self);
+        let value = self.build_transmute(state, value, result_ty);
 
         if callee_ty.ret.is_never() {
             self.build_unreachable();
