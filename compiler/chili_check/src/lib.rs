@@ -723,7 +723,9 @@ impl Check for ast::Expr {
                     }
                 };
 
-                sess.bind_symbol(
+                env.push_scope();
+
+                for_.iter_id = sess.bind_symbol(
                     env,
                     for_.iter_name,
                     ast::Visibility::Private,
@@ -734,7 +736,7 @@ impl Check for ast::Expr {
                     self.span, // TODO: use iter's actual span
                 )?;
 
-                sess.bind_symbol(
+                for_.iter_index_id = sess.bind_symbol(
                     env,
                     for_.iter_index_name,
                     ast::Visibility::Private,
@@ -748,6 +750,8 @@ impl Check for ast::Expr {
                 sess.loop_depth += 1;
                 for_.block.check(sess, env, None)?;
                 sess.loop_depth -= 1;
+
+                env.pop_scope();
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }

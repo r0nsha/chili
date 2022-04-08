@@ -27,7 +27,7 @@ use inkwell::{
     AddressSpace, IntPredicate,
 };
 use std::collections::HashMap;
-use ustr::{Ustr, UstrMap};
+use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CodegenDecl<'ctx> {
@@ -480,8 +480,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         id: BindingInfoId,
         ptr: PointerValue<'ctx>,
     ) {
-        let binding_info = self.workspace.get_binding_info(id).unwrap();
-        ptr.set_name(&binding_info.symbol);
+        let name = self
+            .workspace
+            .get_binding_info(id)
+            .map_or(ustr(""), |b| b.symbol);
+
+        ptr.set_name(&name);
 
         let align = align_of(
             ptr.get_type().get_element_type().try_into().unwrap(),
@@ -493,9 +497,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .set_alignment(align as u32)
             .unwrap();
 
-        assert!(id != BindingInfoId::unknown());
-
-        state.scopes.insert(id, CodegenDecl::Local(ptr));
+        if id != BindingInfoId::unknown() {
+            state.scopes.insert(id, CodegenDecl::Local(ptr));
+        }
     }
 
     pub(super) fn gen_expr(
@@ -632,7 +636,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     ast::ForIter::Range(start, end) => {
                         let start = self.gen_expr(state, start, true).into_int_value();
                         let end = self.gen_expr(state, end, true).into_int_value();
-
                         (start, end)
                     }
                     ast::ForIter::Value(value, ..) => {
@@ -702,7 +705,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     exit: loop_exit,
                 });
 
-                self.gen_expr(state, expr, true);
+                self.gen_expr(state, &for_.block, true);
 
                 if self.current_block().get_terminator().is_none() {
                     let step = start.get_type().const_int(1, true);
@@ -1235,7 +1238,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
 
-            (TyKind::Int(_), TyKind::Float(_)) => self
+            (TyKind::AnyInt(_) | TyKind::Int(_), TyKind::Float(_)) => self
                 .builder
                 .build_signed_int_to_float(
                     value.into_int_value(),
