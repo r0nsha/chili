@@ -1,7 +1,7 @@
 use std.c.printf
 
 let main = fn {
-    let result = fib(3)
+    let result = fib(30)
     printf("result: %d\n".data, result)
     ()
 }

@@ -39,79 +39,59 @@ impl Display for Token {
 
 #[derive(strum_macros::Display, Debug, PartialEq, Clone, Copy)]
 pub enum TokenKind {
-    At,
-
+    // Delimiters
+    OpenParen,
+    CloseParen,
+    OpenCurly,
+    CloseCurly,
+    OpenBracket,
+    CloseBracket,
     Newline,
     Semicolon,
     Colon,
+    At,
 
-    OpenParen,
-    CloseParen,
-
-    OpenCurly,
-    CloseCurly,
-
-    OpenBracket,
-    CloseBracket,
-
+    // Operators
     Plus,
     PlusEq,
-
     Minus,
     MinusEq,
-
     Star,
     StarEq,
-
     FwSlash,
     FwSlashEq,
-
     Percent,
     PercentEq,
-
     QuestionMark,
-
     Comma,
-
     Amp,
     AmpEq,
-
     AmpAmp,
     AmpAmpEq,
-
     Bar,
     BarEq,
-
     BarBar,
     BarBarEq,
-
     Tilde,
-
     Caret,
     CaretEq,
-
     Bang,
     BangEq,
-
     Eq,
     EqEq,
-
     Lt,
     LtEq,
-
     LtLt,
     LtLtEq,
-
     Gt,
     GtEq,
     GtGt,
     GtGtEq,
-
     Dot,
     DotDot,
-
     RightArrow,
 
+    // Keywords
     If,
     Else,
     While,
@@ -132,10 +112,11 @@ pub enum TokenKind {
     Union,
     Match,
 
+    // Accessors
     Placeholder,
-
     Id(Ustr),
 
+    // Literals
     Nil,
     True,
     False,
@@ -144,6 +125,7 @@ pub enum TokenKind {
     Str(Ustr),
     Char(char),
 
+    // Misc
     Unknown(char),
     Eof,
 }
