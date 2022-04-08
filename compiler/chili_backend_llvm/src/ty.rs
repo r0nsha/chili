@@ -28,6 +28,8 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
     fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
         match self {
             TyKind::Bool => cg.context.bool_type().into(),
+            TyKind::AnyInt(_) => cg.context.i32_type().into(),
+            TyKind::AnyFloat(_) => cg.context.f32_type().into(),
             TyKind::Int(inner) => match inner {
                 IntTy::I8 => cg.context.i8_type().into(),
                 IntTy::I16 => cg.context.i16_type().into(),

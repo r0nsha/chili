@@ -5,7 +5,7 @@ use super::{
     util::is_a_load_inst,
 };
 use chili_ast::{
-    ast::{self, ArrayLiteralKind, Binding, Builtin, Expr, ExprKind, ForIter, Import, TypedAst},
+    ast,
     pattern::{Pattern, SymbolPattern},
     workspace::{BindingInfoId, ModuleInfo},
 };
@@ -55,12 +55,19 @@ impl<'ctx> CodegenDecl<'ctx> {
             _ => panic!("can't get function value of {:?}", self),
         }
     }
+
+    pub fn into_global_value(&self) -> GlobalValue<'ctx> {
+        match self {
+            CodegenDecl::Global(g) => *g,
+            _ => panic!("can't get global value of {:?}", self),
+        }
+    }
 }
 
 pub struct Codegen<'cg, 'ctx> {
     pub workspace: &'cg Workspace,
     pub tycx: &'cg TyCtx,
-    pub ast: &'cg TypedAst,
+    pub ast: &'cg ast::TypedAst,
 
     pub target_metrics: TargetMetrics,
 
@@ -126,148 +133,96 @@ pub(super) struct LoopBlock<'ctx> {
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn codegen(&mut self) {
-        let root_module_info = self.workspace.get_root_module_info();
-        let entry_point_function_binding = self
-            .ast
-            .bindings
-            .get(&self.workspace.entry_point_function_id.unwrap())
-            .unwrap();
-        self.gen_top_level_binding(*root_module_info, entry_point_function_binding);
+        // Declare
+        for (id, binding) in self.ast.bindings.iter().filter(|(&id, _)| {
+            self.workspace
+                .get_binding_info(id)
+                .unwrap()
+                .should_codegen()
+        }) {
+            self.declare_top_level_binding(*id, binding);
+        }
+
+        // Codegen functions
+        for (_, binding) in self.ast.bindings.iter().filter(|(&id, _)| {
+            self.workspace
+                .get_binding_info(id)
+                .unwrap()
+                .should_codegen()
+        }) {
+            if let Some(expr) = &binding.expr {
+                if let ast::ExprKind::Fn(f) = &expr.kind {
+                    let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+                    self.gen_fn(module_info, f, None);
+                }
+            }
+        }
     }
 
-    pub(super) fn find_or_gen_binding_by_name(
+    pub(super) fn declare_top_level_binding(
         &mut self,
-        module_name: impl Into<Ustr>,
-        symbol: impl Into<Ustr>,
+        id: BindingInfoId,
+        binding: &ast::Binding,
     ) -> CodegenDecl<'ctx> {
-        todo!()
-        // self.find_or_gen_top_level_decl(self.ir.module_info(module_name.into()), symbol.into())
+        let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+
+        match binding.expr.as_ref() {
+            Some(expr) => match &expr.kind {
+                ast::ExprKind::Fn(func) => {
+                    return self.declare_fn(id, module_info, &func.sig);
+                }
+                ast::ExprKind::FnType(sig) => {
+                    return self.declare_fn(id, module_info, sig);
+                }
+                _ => (),
+            },
+            None => (),
+        }
+
+        self.declare_global(id, binding, module_info)
     }
 
-    pub(super) fn find_or_gen_top_level_decl(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        todo!()
-        // match self.module_decl_map.get(&module_info.name) {
-        //     Some(module) => match module.get(&symbol) {
-        //         Some(decl) => return decl.clone(),
-        //         None => (),
-        //     },
-        //     None => (),
-        // }
-
-        // let module = self.ir.modules.get(&module_info.name).unwrap();
-
-        // if let Some(binding) = module.find_binding(symbol) {
-        //     if !binding.should_codegen {
-        //         unreachable!()
-        //     }
-
-        //     self.gen_top_level_binding(module_info, binding)
-        // } else if let Some(import) = module.find_import(symbol) {
-        //     if import.import_path.is_empty() {
-        //         let decl = CodegenDecl::Module(import.module_info);
-
-        //         self.get_or_insert_new_module(module_info.name)
-        //             .insert(import.alias, decl);
-
-        //         decl
-        //     } else {
-        //         self.resolve_decl_from_import(import)
-        //     }
-        // } else {
-        //     unreachable!(
-        //         "couldn't find top level symbol `{}` in module `{}`",
-        //         symbol, module_info.name
-        //     )
-        // }
-    }
-
-    pub(crate) fn resolve_decl_from_import(&mut self, import: &Import) -> CodegenDecl<'ctx> {
-        todo!()
-        // let mut decl = CodegenDecl::Module(import.module_info);
-
-        // if !import.import_path.is_empty() {
-        //     // go over the import_path, and get the relevant symbol
-        //     let mut current_module_info = import.module_info;
-
-        //     for symbol in import.import_path.iter() {
-        //         decl =
-        //             self.find_or_gen_top_level_decl(current_module_info, symbol.value.as_symbol());
-
-        //         match decl {
-        //             CodegenDecl::Module(info) => {
-        //                 current_module_info = info;
-        //             }
-        //             _ => (),
-        //         }
-        //     }
-        // }
-
-        // decl
-    }
-
-    pub(super) fn gen_top_level_binding(
+    pub(super) fn declare_fn(
         &mut self,
+        id: BindingInfoId,
         module_info: ModuleInfo,
-        binding: &Binding,
+        sig: &ast::FnSig,
     ) -> CodegenDecl<'ctx> {
-        todo!()
-        // match binding.expr.as_ref() {
-        //     Some(expr) => match &expr.kind {
-        //         ExprKind::Fn(func) => {
-        //             // * generate top level function
-        //             let function = self.gen_fn(module_info, func, None);
+        let function = self.declare_fn_sig(module_info, sig);
+        let decl = CodegenDecl::Function(function);
+        self.global_decls.insert(id, decl);
+        decl
+    }
 
-        //             let decl = CodegenDecl::Function(function);
-        //             self.get_or_insert_new_module(module_info.name)
-        //                 .insert(func.sig.name, decl);
+    pub(super) fn declare_global(
+        &mut self,
+        id: BindingInfoId,
+        binding: &ast::Binding,
+        module_info: ModuleInfo,
+    ) -> CodegenDecl<'ctx> {
+        // forward declare the global value, i.e: `let answer = 42`
+        // the global value will is initialized by the entry point function
+        let pat = binding.pattern.as_single_ref();
+        let ty = binding.ty.llvm_type(self);
 
-        //             return decl;
-        //         }
-        //         ExprKind::FnType(sig) => {
-        //             // * generate top level function type
-        //             let function = self.declare_fn_sig(module_info, sig);
+        let global_value = if binding.lib_name.is_some() {
+            self.add_global_uninit(&pat.symbol, ty, Linkage::External)
+        } else {
+            self.add_global(
+                &if module_info.name.is_empty() {
+                    pat.to_string()
+                } else {
+                    format!("{}.{}", module_info.name, pat)
+                },
+                ty,
+                Linkage::Private,
+            )
+        };
 
-        //             let decl = CodegenDecl::Function(function);
-        //             self.get_or_insert_new_module(module_info.name)
-        //                 .insert(sig.name, decl);
+        let decl = CodegenDecl::Global(global_value);
+        self.global_decls.insert(id, decl);
 
-        //             return decl;
-        //         }
-        //         _ => (),
-        //     },
-        //     None => (),
-        // }
-
-        // // * forward declare the global value, i.e: `let answer = 42`
-        // // * the global value will is initialized by the startup function, see
-        // //   `fn gen_startup`
-        // let pat = binding.pattern.as_single_ref();
-        // let binding_info = self
-        //     .workspace
-        //     .get_binding_info(pat.binding_info_id)
-        //     .unwrap();
-
-        // let ty = binding_info.ty.llvm_type(self);
-
-        // let global_value = if binding.lib_name.is_some() {
-        //     self.add_global_uninit(&pat.symbol, ty, Linkage::External)
-        // } else {
-        //     self.add_global(
-        //         &if module_info.name.is_empty() {
-        //             pat.to_string()
-        //         } else {
-        //             format!("{}.{}", module_info.name, pat)
-        //         },
-        //         ty,
-        //         Linkage::Private,
-        //     )
-        // };
-
-        // // TODO: use HashMap<BindingInfoId, CodegenDecl>
-        // self.get_or_insert_new_module(module_info.name)
-        //     .insert(pat.symbol, CodegenDecl::Global(global_value));
-
-        // CodegenDecl::Global(global_value)
+        decl
     }
 
     pub(super) fn add_global(
@@ -292,12 +247,21 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         global_value
     }
 
+    pub(super) fn find_decl_by_name(
+        &mut self,
+        module_name: impl Into<Ustr>,
+        symbol: impl Into<Ustr>,
+    ) -> CodegenDecl<'ctx> {
+        todo!()
+        // self.find_or_gen_top_level_decl(self.ir.module_info(module_name.into()), symbol.into())
+    }
+
     pub(super) fn gen_binding_pattern_from_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
         ty: &TyKind,
-        expr: &Option<Expr>,
+        expr: &Option<ast::Expr>,
     ) {
         match pattern {
             Pattern::Single(SymbolPattern { symbol, .. }) => {
@@ -511,7 +475,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        expr: &Expr,
+        expr: &ast::Expr,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         if self.current_block().get_terminator().is_some() {
@@ -519,15 +483,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         let value = match &expr.kind {
-            ExprKind::Import(imports) => {
-                for import in imports.iter() {
-                    let decl = self.resolve_decl_from_import(import);
-                    state.scopes.insert(import.alias, decl);
-                }
+            ast::ExprKind::Import(imports) => {
+                todo!();
+                // for import in imports.iter() {
+                //     let decl = self.resolve_decl_from_import(import);
+                //     state.scopes.insert(import.alias, decl);
+                // }
 
                 self.gen_unit()
             }
-            ExprKind::Foreign(bindings) => {
+            ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter() {
                     let ty = binding.ty.normalize(self.tycx);
                     if ty.is_fn() {
@@ -549,7 +514,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Binding(binding) => {
+            ast::ExprKind::Binding(binding) => {
                 self.gen_binding_pattern_from_expr(
                     state,
                     &binding.pattern,
@@ -559,8 +524,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Defer(_) => self.gen_unit(),
-            ExprKind::Assign(assign) => {
+            ast::ExprKind::Defer(_) => self.gen_unit(),
+            ast::ExprKind::Assign(assign) => {
                 let left = self
                     .gen_expr(state, &assign.lvalue, false)
                     .into_pointer_value();
@@ -573,17 +538,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
-            ExprKind::Builtin(builtin) => match builtin {
-                Builtin::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
+            ast::ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
+            ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
                     TyKind::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                Builtin::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
                     TyKind::Type(ty) => ty.llvm_type(self).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                Builtin::Panic(msg_expr) => {
+                ast::Builtin::Panic(msg_expr) => {
                     let message = if let Some(msg_expr) = msg_expr {
                         self.gen_expr(state, msg_expr, true)
                     } else {
@@ -594,14 +559,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_unit()
                 }
             },
-            ExprKind::Fn(func) => {
+            ast::ExprKind::Fn(func) => {
                 let function = self.gen_fn(state.module_info, func, Some(state.clone()));
 
                 self.start_block(state, state.curr_block);
 
                 function.as_global_value().as_pointer_value().into()
             }
-            ExprKind::While(while_) => {
+            ast::ExprKind::While(while_) => {
                 let loop_head = self.append_basic_block(state, "loop_head");
                 let loop_body = self.append_basic_block(state, "loop_body");
                 let loop_exit = self.append_basic_block(state, "loop_exit");
@@ -633,19 +598,19 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 return self.gen_unit();
             }
-            ExprKind::For(for_) => {
+            ast::ExprKind::For(for_) => {
                 let loop_head = self.append_basic_block(state, "loop_head");
                 let loop_body = self.append_basic_block(state, "loop_body");
                 let loop_exit = self.append_basic_block(state, "loop_exit");
 
                 let (start, end) = match &for_.iterator {
-                    ForIter::Range(start, end) => {
+                    ast::ForIter::Range(start, end) => {
                         let start = self.gen_expr(state, start, true).into_int_value();
                         let end = self.gen_expr(state, end, true).into_int_value();
 
                         (start, end)
                     }
-                    ForIter::Value(value, ..) => {
+                    ast::ForIter::Value(value, ..) => {
                         let start = self.ptr_sized_int_type.const_zero();
                         let end = match value.ty.normalize(self.tycx).maybe_deref_once() {
                             TyKind::Array(_, len) => {
@@ -665,10 +630,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 state.push_scope();
 
                 let it = match &for_.iterator {
-                    ForIter::Range(_, _) => {
+                    ast::ForIter::Range(_, _) => {
                         self.gen_local_with_alloca(state, for_.iter_name, start.into())
                     }
-                    ForIter::Value(value) => {
+                    ast::ForIter::Value(value) => {
                         let by_ref = value.ty.normalize(self.tycx).is_pointer();
 
                         let agg = self.gen_expr(state, value, false).into_pointer_value();
@@ -695,8 +660,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let continue_condition = self.builder.build_int_compare(
                     match &for_.iterator {
-                        ForIter::Range(..) => IntPredicate::SLE,
-                        ForIter::Value(..) => IntPredicate::SLT,
+                        ast::ForIter::Range(..) => IntPredicate::SLE,
+                        ast::ForIter::Value(..) => IntPredicate::SLT,
                     },
                     curr_index,
                     end,
@@ -725,14 +690,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.build_store(it_index, next_index.into());
 
                     match &for_.iterator {
-                        ForIter::Range(_, _) => {
+                        ast::ForIter::Range(_, _) => {
                             let it_value = self.build_load(it.into()).into_int_value();
                             let next_it =
                                 self.builder.build_int_add(it_value, step, "for_next_index");
 
                             self.build_store(it, next_it.into());
                         }
-                        ForIter::Value(value) => {
+                        ast::ForIter::Value(value) => {
                             let by_ref = value.ty.normalize(self.tycx).is_pointer();
 
                             let agg = self.gen_expr(state, value, false).into_pointer_value();
@@ -759,7 +724,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Break(e) => {
+            ast::ExprKind::Break(e) => {
                 self.gen_expr_list(state, &e.deferred);
 
                 let exit_block = state.loop_blocks.last().unwrap().exit;
@@ -767,7 +732,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Continue(e) => {
+            ast::ExprKind::Continue(e) => {
                 self.gen_expr_list(state, &e.deferred);
 
                 let head_block = state.loop_blocks.last().unwrap().head;
@@ -775,18 +740,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ExprKind::Return(ret) => {
+            ast::ExprKind::Return(ret) => {
                 let value = ret
                     .expr
                     .as_ref()
                     .map(|expr| self.gen_expr(state, expr, true));
                 self.gen_return(state, value, &ret.deferred)
             }
-            ExprKind::If(if_) => self.gen_if_expr(state, if_),
-            ExprKind::Block(block) => self.gen_block(state, block),
-            ExprKind::Binary(binary) => self.gen_binary(state, binary, expr.span),
-            ExprKind::Unary(unary) => self.gen_unary(state, unary, expr.span, deref),
-            ExprKind::Subscript(sub) => {
+            ast::ExprKind::If(if_) => self.gen_if_expr(state, if_),
+            ast::ExprKind::Block(block) => self.gen_block(state, block),
+            ast::ExprKind::Binary(binary) => self.gen_binary(state, binary, expr.span),
+            ast::ExprKind::Unary(unary) => self.gen_unary(state, unary, expr.span, deref),
+            ast::ExprKind::Subscript(sub) => {
                 let value = self.gen_expr(state, &sub.expr, false);
                 let index = self.gen_expr(state, &sub.index, true).into_int_value();
 
@@ -805,7 +770,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_subscript(value, &ty, index, deref)
             }
-            ExprKind::Slice(slice) => {
+            ast::ExprKind::Slice(slice) => {
                 let ptr = self
                     .gen_expr(state, &slice.expr, false)
                     .into_pointer_value();
@@ -873,8 +838,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     slice_ptr.into()
                 }
             }
-            ExprKind::FnCall(call) => self.gen_fn_call_expr(state, call, expr.ty),
-            ExprKind::MemberAccess(access) => {
+            ast::ExprKind::FnCall(call) => self.gen_fn_call_expr(state, call, expr.ty),
+            ast::ExprKind::MemberAccess(access) => {
                 let value = self.gen_expr(state, &access.expr, false);
                 let accessed_ty = access.expr.ty.normalize(self.tycx);
 
@@ -956,10 +921,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     value
                 }
             }
-            ExprKind::Ident(ident) => {
+            ast::ExprKind::Ident(ident) => {
                 let decl = match state.scopes.get(ident.symbol) {
                     Some((_, decl)) => decl.clone(),
-                    None => self.find_or_gen_top_level_decl(ident.binding_info_id),
+                    None => todo!(), // self.find_or_gen_top_level_decl(ident.binding_info_id),
                 };
 
                 match decl {
@@ -974,10 +939,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                 }
             }
-            ExprKind::ArrayLiteral(kind) => {
+            ast::ExprKind::ArrayLiteral(kind) => {
                 let ty = expr.ty.normalize(self.tycx);
                 let array_ptr = match kind {
-                    ArrayLiteralKind::List(elements) => {
+                    ast::ArrayLiteralKind::List(elements) => {
                         let elements: Vec<BasicValueEnum> = elements
                             .iter()
                             .map(|e| self.gen_expr(state, e, true))
@@ -1008,7 +973,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         array_ptr.into()
                     }
-                    ArrayLiteralKind::Fill {
+                    ast::ArrayLiteralKind::Fill {
                         expr: element_expr,
                         len: _,
                     } => {
@@ -1083,7 +1048,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     array_ptr
                 }
             }
-            ExprKind::TupleLiteral(elements) => {
+            ast::ExprKind::TupleLiteral(elements) => {
                 let ty = expr.ty.normalize(self.tycx);
                 if ty.is_type() {
                     return self.gen_unit();
@@ -1112,28 +1077,28 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     tuple.into()
                 }
             }
-            ExprKind::StructLiteral(lit) => self.gen_struct_literal_named(
+            ast::ExprKind::StructLiteral(lit) => self.gen_struct_literal_named(
                 state,
                 &expr.ty.normalize(self.tycx),
                 &lit.fields,
                 deref,
             ),
 
-            ExprKind::Literal(value) => {
+            ast::ExprKind::Literal(value) => {
                 self.gen_literal_value(value, &expr.ty.normalize(self.tycx), deref)
             }
 
-            ExprKind::PointerType(..)
-            | ExprKind::MultiPointerType(..)
-            | ExprKind::ArrayType(..)
-            | ExprKind::SliceType(..)
-            | ExprKind::StructType(..)
-            | ExprKind::SelfType
-            | ExprKind::UnitType
-            | ExprKind::NeverType
-            | ExprKind::PlaceholderType => self.gen_unit(),
+            ast::ExprKind::PointerType(..)
+            | ast::ExprKind::MultiPointerType(..)
+            | ast::ExprKind::ArrayType(..)
+            | ast::ExprKind::SliceType(..)
+            | ast::ExprKind::StructType(..)
+            | ast::ExprKind::SelfType
+            | ast::ExprKind::UnitType
+            | ast::ExprKind::NeverType
+            | ast::ExprKind::PlaceholderType => self.gen_unit(),
 
-            ExprKind::FnType(sig) => {
+            ast::ExprKind::FnType(sig) => {
                 if sig.lib_name.is_some() {
                     // this is a foreign function
                     let function = self.declare_fn_sig(state.module_info, sig);
@@ -1172,7 +1137,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         value
     }
 
-    pub(super) fn gen_expr_list(&mut self, state: &mut CodegenState<'ctx>, expr_list: &Vec<Expr>) {
+    pub(super) fn gen_expr_list(
+        &mut self,
+        state: &mut CodegenState<'ctx>,
+        expr_list: &Vec<ast::Expr>,
+    ) {
         for expr in expr_list {
             self.gen_expr(state, expr, true);
         }
@@ -1182,7 +1151,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         symbol: Ustr,
-        expr: &Option<Expr>,
+        expr: &Option<ast::Expr>,
         ty: &TyKind,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
@@ -1198,7 +1167,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_cast(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        expr: &Box<Expr>,
+        expr: &Box<ast::Expr>,
         target_ty: &Ty,
     ) -> BasicValueEnum<'ctx> {
         let value = self.gen_expr(state, expr, true);
@@ -1341,7 +1310,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         value: Option<BasicValueEnum<'ctx>>,
-        deferred: &Vec<Expr>,
+        deferred: &Vec<ast::Expr>,
     ) -> BasicValueEnum<'ctx> {
         let abi_fn = self.fn_types.get(&state.fn_type).unwrap().clone();
 

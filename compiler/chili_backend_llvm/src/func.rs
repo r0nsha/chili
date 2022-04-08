@@ -113,31 +113,25 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        for (id, binding) in self.ast.bindings.iter() {
-            let binding_info = self.workspace.get_binding_info(*id).unwrap();
-
-            if !binding_info.should_codegen() {
-                continue;
-            }
-
+        for (id, binding) in self.ast.bindings.iter().filter(|(&id, _)| {
+            self.workspace
+                .get_binding_info(id)
+                .unwrap()
+                .should_codegen()
+        }) {
             state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
             match binding.expr.as_ref() {
                 Some(expr) => match &expr.kind {
-                    // * if the binding is a fn or fn-type, don't
-                    //   initialize its value
-                    // * i can probably come up with cleaner code
-                    //   here...
+                    // if the binding is a fn or fn-type, don't initialize its value
+                    // Note (Ron): i can probably come up with a cleaner solution here
                     ast::ExprKind::Fn(_) | ast::ExprKind::FnType(_) => continue,
                     _ => (),
                 },
                 None => (),
             }
 
-            let ptr = self
-                .find_or_gen_top_level_decl(binding.pattern.as_single_ref().binding_info_id)
-                .into_pointer_value();
-
+            let ptr = self.global_decls.get(id).unwrap().into_pointer_value();
             let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
             self.build_store(ptr, value);
         }
@@ -177,13 +171,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         func: &ast::Fn,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
-        if let Some(f) = self
-            .module
-            .get_function(&func.sig.llvm_name(module_info.name))
-        {
-            return f;
-        }
-
         let prev_block = if let Some(ref prev_state) = prev_state {
             Some(prev_state.curr_block)
         } else {
@@ -191,7 +178,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         };
 
         let fn_name = func.sig.name;
-        let function = self.declare_fn_sig(module_info, &func.sig);
+        let function = if let Some(f) = self
+            .module
+            .get_function(&func.sig.llvm_name(module_info.name))
+        {
+            f
+        } else {
+            self.declare_fn_sig(module_info, &func.sig)
+        };
 
         let decl_block = self.context.append_basic_block(function, "decls");
         let entry_block = self.context.append_basic_block(function, "entry");
