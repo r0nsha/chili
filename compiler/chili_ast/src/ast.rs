@@ -392,6 +392,7 @@ pub enum ForIter {
 pub struct Fn {
     pub sig: FnSig,
     pub body: Block,
+    pub binding_info_id: BindingInfoId,
     pub is_entry_point: bool,
 }
 
@@ -685,7 +686,7 @@ pub struct Import {
     pub target_module_info: ModuleInfo,
 
     // If this import contains a path, this is the resolved binding info id, during `check` phase
-    pub target_binding_info: Option<BindingInfoId>,
+    pub target_binding_info_id: Option<BindingInfoId>,
     pub alias: Ustr,
     pub import_path: ImportPath,
     pub visibility: Visibility,

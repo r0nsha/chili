@@ -1,30 +1,32 @@
-use chili_ast::{ast, compiler_info, workspace::ModuleInfo};
+use chili_ast::{
+    ast, compiler_info,
+    workspace::{ModuleId, ModuleInfo, Workspace},
+};
 use chili_span::Span;
 use std::collections::HashSet;
 
 pub(crate) fn insert_std_import(ast: &mut ast::Ast, imports: &mut HashSet<ModuleInfo>) {
-    add_intrinsic_module(ast, imports, compiler_info::std_module_info())
+    let module_info = compiler_info::std_module_info();
+
+    add_intrinsic_module(ast, imports, module_info)
 }
 
 pub(crate) fn add_intrinsic_module(
     ast: &mut ast::Ast,
     imports: &mut HashSet<ModuleInfo>,
-    intrinsic_module_info: ModuleInfo,
+    module_info: ModuleInfo,
 ) {
-    let intrinsic_module_info =
-        ModuleInfo::new(intrinsic_module_info.name, intrinsic_module_info.file_path);
-
     ast.imports.push(ast::Import {
         module_id: Default::default(),
         binding_info_id: Default::default(),
         target_module_id: Default::default(),
-        target_module_info: intrinsic_module_info,
-        target_binding_info: None,
-        alias: intrinsic_module_info.name,
+        target_module_info: module_info,
+        target_binding_info_id: None,
+        alias: module_info.name,
         import_path: vec![],
         visibility: ast::Visibility::Private,
         span: Span::unknown(),
     });
 
-    imports.insert(intrinsic_module_info);
+    imports.insert(module_info);
 }

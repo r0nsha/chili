@@ -78,12 +78,13 @@ pub fn do_build(build_options: BuildOptions) {
         chili_graph::mark_codegen_path(&mut workspace, &tycx, &typed_ast)
     }
 
+    // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
+
+    // Code generation
     chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
 
     all_sw.stop();
     print_stats(stats, all_sw.elapsed().as_millis());
-
-    // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {

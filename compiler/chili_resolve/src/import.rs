@@ -64,7 +64,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
             ));
             Import {
                 module_id: import.module_id,
-                target_binding_info: import.target_binding_info,
+                target_binding_info_id: import.target_binding_info_id,
                 target_module_id: import.target_module_id,
                 target_module_info: import.target_module_info,
                 alias: *symbol,

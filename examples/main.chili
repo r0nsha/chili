@@ -1,9 +1,9 @@
-use c.printf
+# use std.c.printf
 
 let main = fn {
-    let result = fib(3)
-    printf("result: %d\n".data, result)
-    ()
+    # let result = fib(3)
+    # printf("result: %d\n".data, result)
+    # ()
 }
 
 let fib = fn(n) {

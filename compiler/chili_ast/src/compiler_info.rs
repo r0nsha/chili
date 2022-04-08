@@ -1,10 +1,7 @@
-use std::path::PathBuf;
-
-use ustr::{ustr, Ustr};
-
-use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
-
 use crate::workspace::ModuleInfo;
+use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
+use std::path::PathBuf;
+use ustr::ustr;
 
 pub const STD: &str = "std";
 
@@ -12,7 +9,7 @@ pub fn std_module_root_dir() -> PathBuf {
     // TODO: this needs to come from a configurable path
     let mut dir = std::env::current_dir().unwrap();
     dir.push("lib");
-    dir.push("std");
+    dir.push(STD);
     dir
 }
 

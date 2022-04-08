@@ -145,12 +145,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         // Declare imports
         for (id, import) in self.ast.imports.iter() {
-            if let Some(decl) = self
-                .global_decls
-                .get(&import.target_binding_info.unwrap())
-                .cloned()
-            {
-                self.global_decls.insert(*id, decl);
+            if let Some(target_id) = import.target_binding_info_id {
+                if let Some(decl) = self.global_decls.get(&target_id).cloned() {
+                    self.global_decls.insert(*id, decl);
+                }
             }
         }
 
@@ -266,9 +264,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> CodegenDecl<'ctx> {
         let module_name: Ustr = module_name.into();
         let symbol: Ustr = symbol.into();
-        for i in self.workspace.module_infos.iter() {
-            dbg!(i);
-        }
+
         let module_id = ModuleId(
             self.workspace
                 .module_infos
@@ -277,15 +273,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .expect(&format!("couldn't find {}", module_name)),
         );
 
-        let id = BindingInfoId(
-            self.workspace
-                .binding_infos
-                .iter()
-                .position(|b| b.module_id == module_id && b.symbol == symbol)
-                .expect(&format!("couldn't find {} in {}", symbol, module_name)),
-        );
+        let binding_info = self
+            .workspace
+            .binding_infos
+            .iter()
+            .find(|b| b.module_id == module_id && b.symbol == symbol)
+            .expect(&format!("couldn't find {} in {}", symbol, module_name));
+
+        let id = binding_info.id;
 
         self.global_decls.get(&id).cloned().unwrap_or_else(|| {
+            println!("{:#?}", binding_info);
+            // for id in self.ast.bindings.keys() {
+            //     print!("{} ", id.0);
+            // }
+            // println!();
+            // println!("{} {}.{}", id.0, module_name, symbol);
             let binding = &self.ast.bindings[&id];
             self.declare_top_level_binding(id, &binding);
             self.gen_top_level_binding(&binding);
@@ -977,6 +980,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::ExprKind::Ident(ident) => {
                 assert!(ident.binding_info_id != BindingInfoId::unknown());
 
+                println!("{}", ident.symbol);
                 let decl = match state.scopes.get(ident.binding_info_id) {
                     Some((_, decl)) => decl,
                     None => self.global_decls.get(&ident.binding_info_id).unwrap(),

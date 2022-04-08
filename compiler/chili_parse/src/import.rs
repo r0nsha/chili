@@ -161,7 +161,7 @@ impl<'p> Parser<'p> {
                 import_path.push(Spanned::new(ImportPathNode::Glob, self.previous().span));
                 Ok(vec![Import {
                     module_id: Default::default(),
-                    target_binding_info: None,
+                    target_binding_info_id: None,
                     target_module_id: Default::default(),
                     target_module_info: ModuleInfo::new(module, path),
                     alias: ustr(""),
@@ -182,7 +182,7 @@ impl<'p> Parser<'p> {
 
             Ok(vec![Import {
                 module_id: Default::default(),
-                target_binding_info: None,
+                target_binding_info_id: None,
                 target_module_id: Default::default(),
                 target_module_info: ModuleInfo::new(module, path),
                 alias,

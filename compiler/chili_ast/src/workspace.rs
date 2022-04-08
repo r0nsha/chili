@@ -170,16 +170,6 @@ impl Workspace {
             binding_info.uses += 1;
         }
     }
-
-    pub fn find_binding_info_by_name(
-        &self,
-        module_id: ModuleId,
-        name: Ustr,
-    ) -> Option<&BindingInfo> {
-        self.binding_infos
-            .iter()
-            .find(|b| b.module_id == module_id && b.symbol == name)
-    }
 }
 
 impl BindingInfo {

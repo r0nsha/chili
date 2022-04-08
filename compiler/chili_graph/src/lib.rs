@@ -90,7 +90,7 @@ impl<T: Visit> Visit for Box<T> {
 
 impl Visit for ast::Import {
     fn visit(&self, sess: &mut Sess) {
-        if let Some(target) = self.target_binding_info {
+        if let Some(target) = self.target_binding_info_id {
             sess.mark_and_visit(target);
         }
     }

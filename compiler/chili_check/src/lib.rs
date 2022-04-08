@@ -344,7 +344,7 @@ impl Check for ast::Import {
             }
         }
 
-        self.target_binding_info = target_binding_info;
+        self.target_binding_info_id = target_binding_info;
 
         self.binding_info_id = sess.bind_symbol(
             env,
@@ -457,24 +457,8 @@ impl Check for ast::Fn {
         expected_ty: Option<Ty>,
     ) -> CheckResult {
         let sig_res = self.sig.check(sess, env, expected_ty)?;
-
-        let fn_ty = sess.tycx.ty_kind(sig_res.ty);
-        let fn_ty = fn_ty.as_fn();
-
+        let fn_ty = sess.tycx.ty_kind(sig_res.ty).into_fn();
         let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
-
-        env.push_named_scope(self.sig.name);
-
-        sess.bind_symbol(
-            env,
-            self.sig.name,
-            ast::Visibility::Private,
-            sig_res.ty,
-            None,
-            false,
-            ast::BindingKind::Value,
-            self.body.span,
-        )?;
 
         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
             let ty = sess.tycx.bound(param_ty.ty.clone());
@@ -487,6 +471,19 @@ impl Check for ast::Fn {
                 ast::BindingKind::Value,
             )?;
         }
+
+        env.push_named_scope(self.sig.name);
+
+        self.binding_info_id = sess.bind_symbol(
+            env,
+            self.sig.name,
+            ast::Visibility::Private,
+            sig_res.ty,
+            None,
+            false,
+            ast::BindingKind::Value,
+            self.body.span,
+        )?;
 
         let body_res = sess.with_function_frame(
             FunctionFrame {
