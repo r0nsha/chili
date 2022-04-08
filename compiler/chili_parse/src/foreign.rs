@@ -2,6 +2,7 @@ use crate::{func::ParseFnSigKind, *};
 use chili_ast::{
     ast::{Binding, BindingKind, Expr, ExprKind, Visibility},
     pattern::{Pattern, SymbolPattern},
+    ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
@@ -70,6 +71,7 @@ impl<'p> Parser<'p> {
                 visibility,
                 BindingKind::Value,
                 pattern,
+                Ty::unknown(),
                 None,
                 Some(Expr::new(
                     ExprKind::FnType(sig),
@@ -84,6 +86,7 @@ impl<'p> Parser<'p> {
                 visibility,
                 BindingKind::Value,
                 pattern,
+                Ty::unknown(),
                 Some(ty_expr),
                 None,
                 Some(lib_name),

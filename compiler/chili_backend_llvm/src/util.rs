@@ -1,6 +1,6 @@
 use crate::{
     abi::{align_of, size_of},
-    codegen::{Codegen, CodegenDeclsMap, CodegenState},
+    codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
 use chili_ast::ast::FnSig;
@@ -13,16 +13,9 @@ use inkwell::{
     AddressSpace, IntPredicate,
 };
 use std::mem;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{ustr, Ustr};
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
-    #[inline]
-    pub(super) fn get_or_insert_new_module(&mut self, module: Ustr) -> &mut CodegenDeclsMap<'ctx> {
-        self.global_decls
-            .entry(module)
-            .or_insert(UstrMap::default())
-    }
-
     pub(super) fn gen_global_str(
         &mut self,
         name: &str,
@@ -51,7 +44,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 str_ptr.into(),
                 self.ptr_sized_int_type.const_zero(),
                 self.ptr_sized_int_type.const_int(value.len() as u64, false),
-                element_ty,
+                &element_ty,
             );
 
             self.static_strs.insert(value, str_slice_ptr);
@@ -66,7 +59,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(super) fn gen_nil(&mut self, ty: TyKind) -> BasicValueEnum<'ctx> {
+    pub(super) fn gen_nil(&mut self, ty: &TyKind) -> BasicValueEnum<'ctx> {
         let llvm_ty = ty.llvm_type(self);
         llvm_ty.into_pointer_type().const_null().into()
     }
@@ -90,7 +83,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         sliced_value: BasicValueEnum<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
-        element_ty: TyKind,
+        element_ty: &TyKind,
     ) {
         let data = self.builder.build_bitcast(
             sliced_value,
@@ -541,7 +534,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_subscript(
         &mut self,
         agg: BasicValueEnum<'ctx>,
-        agg_ty: TyKind,
+        agg_ty: &TyKind,
         index: IntValue<'ctx>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {

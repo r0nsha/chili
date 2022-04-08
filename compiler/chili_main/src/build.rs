@@ -79,7 +79,7 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     time! { "codegen(llvm)",
-        chili_backend_llvm::codegen(&workspace, &tycx, &asts)
+        chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast)
     }
 
     all_sw.stop();

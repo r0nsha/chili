@@ -1,6 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chili_ast::ast::{Expr, UnaryOp};
-use chili_ast::ty::*;
+use chili_ast::{ast, ty::*};
 use chili_check::normalize::NormalizeTy;
 use chili_span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
@@ -9,16 +8,15 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_unary(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        op: &UnaryOp,
-        lhs: &Box<Expr>,
+        unary: &ast::Unary,
         span: Span,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
-        let ty = lhs.ty.normalize(self.tycx);
-        match op {
-            UnaryOp::Ref(_) => self.gen_expr(state, &lhs, false),
-            UnaryOp::Deref => {
-                let ptr = self.gen_expr(state, lhs, true);
+        let ty = unary.lhs.ty.normalize(self.tycx);
+        match unary.op {
+            ast::UnaryOp::Ref(_) => self.gen_expr(state, &unary.lhs, false),
+            ast::UnaryOp::Deref => {
+                let ptr = self.gen_expr(state, &unary.lhs, true);
                 self.gen_runtime_check_null_pointer_deref(state, ptr.into_pointer_value(), span);
                 if deref {
                     self.build_load(ptr)
@@ -26,21 +24,27 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     ptr
                 }
             }
-            UnaryOp::Neg => match ty {
+            ast::UnaryOp::Neg => match ty {
                 TyKind::Int(_) => self
                     .builder
-                    .build_int_neg(self.gen_expr(state, lhs, true).into_int_value(), "sneg")
+                    .build_int_neg(
+                        self.gen_expr(state, &unary.lhs, true).into_int_value(),
+                        "sneg",
+                    )
                     .into(),
                 TyKind::Float(_) => self
                     .builder
-                    .build_float_neg(self.gen_expr(state, lhs, true).into_float_value(), "fneg")
+                    .build_float_neg(
+                        self.gen_expr(state, &unary.lhs, true).into_float_value(),
+                        "fneg",
+                    )
                     .into(),
-                _ => unreachable!("{}", lhs.ty),
+                _ => unreachable!("{}", &unary.lhs.ty),
             },
-            UnaryOp::Plus => self.gen_expr(state, lhs, true),
-            UnaryOp::Not => match ty {
+            ast::UnaryOp::Plus => self.gen_expr(state, &unary.lhs, true),
+            ast::UnaryOp::Not => match ty {
                 TyKind::Pointer(_, _) => {
-                    let value = self.gen_expr(state, lhs, true);
+                    let value = self.gen_expr(state, &unary.lhs, true);
 
                     self.builder
                         .build_is_null(value.into_pointer_value(), "ptr_is_nil")
@@ -50,15 +54,15 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .builder
                     .build_int_compare(
                         IntPredicate::EQ,
-                        self.gen_expr(state, lhs, true).into_int_value(),
+                        self.gen_expr(state, &unary.lhs, true).into_int_value(),
                         self.context.custom_width_int_type(1).const_zero(),
                         "bnot",
                     )
                     .into(),
                 _ => unreachable!(),
             },
-            UnaryOp::BitwiseNot => {
-                let value = self.gen_expr(state, lhs, true).into_int_value();
+            ast::UnaryOp::BitwiseNot => {
+                let value = self.gen_expr(state, &unary.lhs, true).into_int_value();
                 self.builder.build_not(value, "bwnot").into()
             }
         }

@@ -1,6 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chili_ast::ast::{BinaryOp, Expr};
-use chili_ast::ty::*;
+use chili_ast::{ast, ty::*};
 use chili_check::normalize::NormalizeTy;
 use chili_span::Span;
 use inkwell::{
@@ -13,15 +12,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_binary(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        lhs: &Box<Expr>,
-        op: &BinaryOp,
-        rhs: &Box<Expr>,
+        binary: &ast::Binary,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
-        let ty = lhs.ty.normalize(self.tycx);
+        let ty = binary.lhs.ty.normalize(self.tycx);
 
-        let lhs = self.gen_expr(state, lhs, true);
-        let rhs = self.gen_expr(state, rhs, true);
+        let lhs = self.gen_expr(state, &binary.lhs, true);
+        let rhs = self.gen_expr(state, &binary.rhs, true);
 
         let (lhs, rhs) = if lhs.is_pointer_value() {
             (
@@ -36,22 +33,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             (lhs, rhs)
         };
 
-        match op {
-            BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, span),
-            BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, span),
-            BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, span),
-            BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, span),
-            BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, span),
-            BinaryOp::Eq
-            | BinaryOp::NEq
-            | BinaryOp::Lt
-            | BinaryOp::LtEq
-            | BinaryOp::Gt
-            | BinaryOp::GtEq => {
+        match binary.op {
+            ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, span),
+            ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, span),
+            ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, span),
+            ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, span),
+            ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, span),
+            ast::BinaryOp::Eq
+            | ast::BinaryOp::NEq
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::LtEq
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::GtEq => {
                 if ty.is_float() {
                     self.builder
                         .build_float_compare(
-                            op.into_float_predicate(),
+                            binary.op.into_float_predicate(),
                             lhs.into_float_value(),
                             rhs.into_float_value(),
                             "",
@@ -60,7 +57,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 } else {
                     self.builder
                         .build_int_compare(
-                            op.into_int_predicate(ty.is_int()),
+                            binary.op.into_int_predicate(ty.is_int()),
                             lhs.into_int_value(),
                             rhs.into_int_value(),
                             "",
@@ -68,11 +65,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         .into()
                 }
             }
-            BinaryOp::And | BinaryOp::BitwiseAnd => self.gen_and(lhs, rhs),
-            BinaryOp::Or | BinaryOp::BitwiseOr => self.gen_or(lhs, rhs),
-            BinaryOp::Shl => self.gen_shl(lhs, rhs),
-            BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
-            BinaryOp::BitwiseXor => self.gen_xor(lhs, rhs),
+            ast::BinaryOp::And | ast::BinaryOp::BitwiseAnd => self.gen_and(lhs, rhs),
+            ast::BinaryOp::Or | ast::BinaryOp::BitwiseOr => self.gen_or(lhs, rhs),
+            ast::BinaryOp::Shl => self.gen_shl(lhs, rhs),
+            ast::BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
+            ast::BinaryOp::BitwiseXor => self.gen_xor(lhs, rhs),
         }
     }
 
@@ -98,7 +95,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn = self.get_overflow_fn(BinaryOp::Add, ty, lhs.get_type());
+                let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Add, ty, lhs.get_type());
 
                 let result = self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "add");
 
@@ -133,7 +130,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn = self.get_overflow_fn(BinaryOp::Sub, ty, lhs.get_type());
+                let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Sub, ty, lhs.get_type());
 
                 let result =
                     self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "subtract");
@@ -169,7 +166,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn = self.get_overflow_fn(BinaryOp::Mul, ty, lhs.get_type());
+                let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Mul, ty, lhs.get_type());
 
                 let result =
                     self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "multiply");
@@ -300,7 +297,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     fn get_overflow_fn(
         &mut self,
-        op: BinaryOp,
+        op: ast::BinaryOp,
         ty: TyKind,
         operand_type: IntType<'ctx>,
     ) -> FunctionValue<'ctx> {
@@ -316,9 +313,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             "{}{}",
             if ty.is_int() { "s" } else { "u" },
             match op {
-                BinaryOp::Add => "add",
-                BinaryOp::Sub => "sub",
-                BinaryOp::Mul => "mul",
+                ast::BinaryOp::Add => "add",
+                ast::BinaryOp::Sub => "sub",
+                ast::BinaryOp::Mul => "mul",
                 _ => panic!(),
             }
         );
@@ -359,33 +356,33 @@ trait IntoIntPredicate {
     fn into_int_predicate(self, is_signed: bool) -> IntPredicate;
 }
 
-impl IntoIntPredicate for BinaryOp {
+impl IntoIntPredicate for ast::BinaryOp {
     fn into_int_predicate(self, is_signed: bool) -> IntPredicate {
         match self {
-            BinaryOp::Eq => IntPredicate::EQ,
-            BinaryOp::NEq => IntPredicate::NE,
-            BinaryOp::Lt => {
+            ast::BinaryOp::Eq => IntPredicate::EQ,
+            ast::BinaryOp::NEq => IntPredicate::NE,
+            ast::BinaryOp::Lt => {
                 if is_signed {
                     IntPredicate::SLT
                 } else {
                     IntPredicate::ULT
                 }
             }
-            BinaryOp::LtEq => {
+            ast::BinaryOp::LtEq => {
                 if is_signed {
                     IntPredicate::SLE
                 } else {
                     IntPredicate::ULE
                 }
             }
-            BinaryOp::Gt => {
+            ast::BinaryOp::Gt => {
                 if is_signed {
                     IntPredicate::SGT
                 } else {
                     IntPredicate::UGT
                 }
             }
-            BinaryOp::GtEq => {
+            ast::BinaryOp::GtEq => {
                 if is_signed {
                     IntPredicate::SGE
                 } else {
@@ -401,15 +398,15 @@ trait IntoFloatPredicate {
     fn into_float_predicate(self) -> FloatPredicate;
 }
 
-impl IntoFloatPredicate for BinaryOp {
+impl IntoFloatPredicate for ast::BinaryOp {
     fn into_float_predicate(self) -> FloatPredicate {
         match self {
-            BinaryOp::Eq => FloatPredicate::OEQ,
-            BinaryOp::NEq => FloatPredicate::ONE,
-            BinaryOp::Lt => FloatPredicate::OLT,
-            BinaryOp::LtEq => FloatPredicate::OLE,
-            BinaryOp::Gt => FloatPredicate::OGT,
-            BinaryOp::GtEq => FloatPredicate::OGE,
+            ast::BinaryOp::Eq => FloatPredicate::OEQ,
+            ast::BinaryOp::NEq => FloatPredicate::ONE,
+            ast::BinaryOp::Lt => FloatPredicate::OLT,
+            ast::BinaryOp::LtEq => FloatPredicate::OLE,
+            ast::BinaryOp::Gt => FloatPredicate::OGT,
+            ast::BinaryOp::GtEq => FloatPredicate::OGE,
             _ => panic!("got {}", self),
         }
     }

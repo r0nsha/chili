@@ -113,8 +113,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        for (id, binding) in self.ast.bindings {
-            let binding_info = self.workspace.get_binding_info(id).unwrap();
+        for (id, binding) in self.ast.bindings.iter() {
+            let binding_info = self.workspace.get_binding_info(*id).unwrap();
 
             if !binding_info.should_codegen() {
                 continue;
@@ -134,10 +134,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 None => (),
             }
 
-            let symbol = binding.pattern.into_single().symbol;
-
             let ptr = self
-                .find_or_gen_top_level_decl(state.module_info, symbol)
+                .find_or_gen_top_level_decl(binding.pattern.as_single_ref().binding_info_id)
                 .into_pointer_value();
 
             let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
@@ -351,7 +349,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         call: &ast::FnCall,
-        result_ty: &TyKind,
+        result_ty: Ty,
     ) -> BasicValueEnum<'ctx> {
         let fn_ty = call.callee.ty.normalize(self.tycx).into_fn();
         let mut args = vec![];
@@ -385,7 +383,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let callable_value: CallableValue = callee_ptr.try_into().unwrap();
 
-        self.gen_fn_call(state, callable_value, &fn_ty, args, result_ty)
+        self.gen_fn_call(
+            state,
+            callable_value,
+            &fn_ty,
+            args,
+            &result_ty.normalize(self.tycx),
+        )
     }
 
     pub(super) fn gen_fn_call(

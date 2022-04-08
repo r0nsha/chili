@@ -455,6 +455,7 @@ pub struct Binding {
     pub kind: BindingKind,
     pub pattern: Pattern,
     pub ty_expr: Option<Expr>,
+    pub ty: Ty,
     pub expr: Option<Expr>,
     pub lib_name: Option<Ustr>,
 }
@@ -464,6 +465,7 @@ impl Binding {
         visibility: Visibility,
         kind: BindingKind,
         pattern: Pattern,
+        ty: Ty,
         ty_expr: Option<Expr>,
         value: Option<Expr>,
         lib_name: Option<Ustr>,
@@ -473,6 +475,7 @@ impl Binding {
             visibility,
             kind,
             pattern,
+            ty,
             ty_expr,
             expr: value,
             lib_name,

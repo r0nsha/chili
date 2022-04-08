@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chili_ast::ast::Expr;
+use chili_ast::ast;
 use inkwell::{
     basic_block::BasicBlock,
     values::{BasicValueEnum, IntValue},
@@ -9,20 +9,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_if_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        cond: &Expr,
-        then_expr: &Expr,
-        else_expr: &Option<Box<Expr>>,
+        if_: &ast::If,
     ) -> BasicValueEnum<'ctx> {
-        let cond = self.gen_expr(state, cond, true).into_int_value();
+        let cond = self.gen_expr(state, &if_.cond, true).into_int_value();
 
         let then = |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
-            cg.gen_expr(state, then_expr, true)
+            cg.gen_expr(state, &if_.then, true)
         };
 
-        let else_ = if let Some(else_expr) = else_expr {
+        let else_ = if let Some(otherwise) = &if_.otherwise {
             Some(
                 |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
-                    cg.gen_expr(state, else_expr, true)
+                    cg.gen_expr(state, otherwise, true)
                 },
             )
         } else {
@@ -40,7 +38,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         cond: IntValue<'ctx>,
         then: Then,
-        else_: Option<Else>,
+        otherwise: Option<Else>,
     ) -> BasicValueEnum<'ctx> {
         let then_block = self.append_basic_block(state, "if_then");
         let else_block = self.append_basic_block(state, "if_else");
@@ -54,7 +52,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let then_value = then(self, state);
 
-        let then_value = if else_.is_some() {
+        let then_value = if otherwise.is_some() {
             then_value
         } else {
             self.gen_unit()
@@ -73,7 +71,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(state, else_block);
 
-        let else_value = if let Some(else_) = else_ {
+        let else_value = if let Some(else_) = otherwise {
             else_(self, state)
         } else {
             self.gen_unit()

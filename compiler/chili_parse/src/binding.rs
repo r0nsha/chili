@@ -2,6 +2,7 @@ use crate::*;
 use chili_ast::{
     ast::{Binding, BindingKind, Visibility},
     pattern::Pattern,
+    ty::Ty,
 };
 
 impl<'p> Parser<'p> {
@@ -24,7 +25,15 @@ impl<'p> Parser<'p> {
                 if require_value {
                     expect!(self, Eq, "=")?;
                 } else if !eat!(self, Eq) {
-                    return Ok(Binding::new(visibility, kind, pattern, ty_expr, None, None));
+                    return Ok(Binding::new(
+                        visibility,
+                        kind,
+                        pattern,
+                        Ty::unknown(),
+                        ty_expr,
+                        None,
+                        None,
+                    ));
                 }
 
                 let value = if pattern.is_single() {
@@ -37,6 +46,7 @@ impl<'p> Parser<'p> {
                     visibility,
                     kind,
                     pattern,
+                    Ty::unknown(),
                     ty_expr,
                     Some(value),
                     None,
@@ -51,6 +61,7 @@ impl<'p> Parser<'p> {
                     visibility,
                     kind,
                     Pattern::Single(pattern),
+                    Ty::unknown(),
                     None,
                     Some(value),
                     None,

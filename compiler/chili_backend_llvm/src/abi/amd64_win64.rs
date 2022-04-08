@@ -1,8 +1,6 @@
-use inkwell::types::{BasicTypeEnum, FunctionType};
-
-use crate::util::IsAggregateType;
-
 use super::{i386, size_of, AbiFn, AbiInfo, AbiTy};
+use crate::util::IsAggregateType;
+use inkwell::types::{BasicTypeEnum, FunctionType};
 
 pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFn<'ctx> {
     AbiFn {

@@ -381,7 +381,7 @@ impl Check for ast::Binding {
                 )?);
         }
 
-        let binding_ty = if let Some(ty_expr) = &mut self.ty_expr {
+        self.ty = if let Some(ty_expr) = &mut self.ty_expr {
             let res = ty_expr.check(sess, env, None)?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
         } else {
@@ -389,17 +389,17 @@ impl Check for ast::Binding {
         };
 
         let const_value = if let Some(expr) = &mut self.expr {
-            let res = expr.check(sess, env, Some(binding_ty))?;
+            let res = expr.check(sess, env, Some(self.ty))?;
 
             res.ty
-                .unify(&binding_ty, sess)
+                .unify(&self.ty, sess)
                 .or_coerce_expr_into_ty(
                     expr,
-                    binding_ty,
+                    self.ty,
                     &mut sess.tycx,
                     sess.target_metrics.word_size,
                 )
-                .or_report_err(&sess.tycx, binding_ty, res.ty, expr.span)?;
+                .or_report_err(&sess.tycx, self.ty, res.ty, expr.span)?;
 
             res.const_value
         } else {
@@ -423,7 +423,7 @@ impl Check for ast::Binding {
             env,
             &mut self.pattern,
             self.visibility,
-            binding_ty,
+            self.ty,
             const_value,
             self.kind,
         )?;
@@ -445,7 +445,7 @@ impl Check for ast::Binding {
             }
         }
 
-        Ok(Res::new_maybe_const(binding_ty, const_value))
+        Ok(Res::new_maybe_const(self.ty, const_value))
     }
 }
 
