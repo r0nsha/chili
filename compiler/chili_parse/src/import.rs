@@ -1,15 +1,13 @@
 use crate::*;
 use chili_ast::{
     ast::{Import, ImportPath, ImportPathNode, Visibility},
+    compiler_info,
     workspace::ModuleInfo,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, Spanned};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use common::{
-    builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT},
-    compiler_info,
-};
+use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
 use std::path::{Path, PathBuf};
 use ustr::{ustr, Ustr};
 

@@ -69,7 +69,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
     };
 
     time! { "llvm",
-        cg.codegen()
+        cg.start()
     };
 
     dump_ir(&module, workspace.build_options.source_path());

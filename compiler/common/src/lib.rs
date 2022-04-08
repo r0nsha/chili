@@ -1,6 +1,5 @@
 pub mod build_options;
 pub mod builtin;
-pub mod compiler_info;
 pub mod mem;
 pub mod scopes;
 pub mod target;

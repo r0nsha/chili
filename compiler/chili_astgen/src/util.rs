@@ -1,8 +1,6 @@
-use std::collections::HashSet;
-
-use chili_ast::{ast, workspace::ModuleInfo};
+use chili_ast::{ast, compiler_info, workspace::ModuleInfo};
 use chili_span::Span;
-use common::compiler_info::{self, IntrinsticModuleInfo};
+use std::collections::HashSet;
 
 pub(crate) fn insert_std_import(ast: &mut ast::Ast, imports: &mut HashSet<ModuleInfo>) {
     add_intrinsic_module(ast, imports, compiler_info::std_module_info())
@@ -11,7 +9,7 @@ pub(crate) fn insert_std_import(ast: &mut ast::Ast, imports: &mut HashSet<Module
 pub(crate) fn add_intrinsic_module(
     ast: &mut ast::Ast,
     imports: &mut HashSet<ModuleInfo>,
-    intrinsic_module_info: IntrinsticModuleInfo,
+    intrinsic_module_info: ModuleInfo,
 ) {
     let intrinsic_module_info =
         ModuleInfo::new(intrinsic_module_info.name, intrinsic_module_info.file_path);

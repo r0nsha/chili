@@ -17,7 +17,7 @@ pub fn do_build(build_options: BuildOptions) {
     let absolute_path = source_path.absolutize().unwrap();
 
     let root_dir = absolute_path.parent().unwrap().to_path_buf();
-    let std_dir = common::compiler_info::std_module_root_dir();
+    let std_dir = chili_ast::compiler_info::std_module_root_dir();
 
     let mut workspace = Workspace::new(build_options.clone(), root_dir, std_dir);
 

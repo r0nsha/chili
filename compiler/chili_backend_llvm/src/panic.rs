@@ -20,12 +20,15 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         message: BasicValueEnum<'ctx>,
         span: Span,
     ) {
-        todo!()
-        // let panic_fn = self
-        //     .find_or_gen_binding_by_name("std.panicking", "default_panic_handler")
-        //     .into_function_value();
+        let panic_fn = self
+            .find_decl_by_name("std.panicking", "default_panic_handler")
+            .into_function_value();
 
-        // let panic_type = self
+        todo!();
+
+        // let panic_type =
+        // self.workspace.find_binding_info_by_name(module_id, name)
+        // self
         //     .ir
         //     .module("std.panicking")
         //     .find_binding("default_panic_handler")
