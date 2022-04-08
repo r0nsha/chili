@@ -1,5 +1,5 @@
 [package]
-name = "chili_llvm"
+name = "chili_backend_llvm"
 version = "0.1.0"
 edition = "2021"
 

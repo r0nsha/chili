@@ -78,9 +78,9 @@ pub fn do_build(build_options: BuildOptions) {
         chili_graph::mark_codegen_path(&mut workspace, &tycx, &typed_ast)
     }
 
-    // time! { "codegen(llvm)",
-    //     chili_llvm::codegen(&workspace, &asts)
-    // }
+    time! { "codegen(llvm)",
+        chili_backend_llvm::codegen(&workspace, &asts)
+    }
 
     all_sw.stop();
     print_stats(stats, all_sw.elapsed().as_millis());

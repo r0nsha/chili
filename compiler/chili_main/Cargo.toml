@@ -27,4 +27,4 @@ chili_check = { path = "../chili_check" }
 chili_lint = { path = "../chili_lint" }
 chili_defer = { path = "../chili_defer" }
 chili_graph = { path = "../chili_graph" }
-# chili_llvm = { path = "../chili_llvm" }
+chili_backend_llvm = { path = "../chili_backend_llvm" }
