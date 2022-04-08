@@ -1,20 +1,20 @@
-use raylib.*;
+use raylib.?;
 
-let main = fn() {
+let main = fn {
 	let width = 1920;
 	let height = 1080;
 
 	InitWindow(width, height, "chili language example - 3d cube\0".data);
 	SetTargetFPS(60);
 
-	let cube_pos = Vector3 { x=0, y=0, z=0 };
+	let cube_pos = Vector3 { x: 0, y: 0, z: 0 };
 
 	let mut camera = Camera3D {
-		position = Vector3 { x=0, y=10, z=10 },
-		target = cube_pos,
-		up = Vector3 { x=0, y=1, z=0 },
-		fovy = 45,
-		projection = CAMERA_PERSPECTIVE,
+		position: Vector3 { x: 0, y: 10, z: 10 },
+		target: cube_pos,
+		up: Vector3 { x: 0, y: 1, z: 0 },
+		fovy: 45,
+		projection: CAMERA_PERSPECTIVE,
 	};
 
 	let camera_speed = 0.25;

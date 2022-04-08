@@ -1,8 +1,7 @@
 pub mod build_options;
 pub mod builtin;
-pub mod compiler_info;
-pub mod env;
 pub mod mem;
+pub mod scopes;
 pub mod target;
 
 use std::time::Duration;
@@ -58,16 +57,11 @@ impl<'s> Stopwatch<'s> {
 }
 
 #[macro_export]
-macro_rules! sw {
-    ($label: literal, $body: block) => {
+macro_rules! time {
+    ($label: literal, $body: expr) => {{
         let sw = common::Stopwatch::start_new($label);
-        $body
+        let res = $body;
         sw.print();
-    };
-}
-
-// NOTE (Ron): checks that mutability rules are equal. This fn shouldn't be
-// here.....
-pub fn mut_eq(from: bool, to: bool) -> bool {
-    from == to || (!from && to)
+        res
+    }};
 }

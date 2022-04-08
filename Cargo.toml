@@ -1,21 +1,18 @@
 [workspace]
 members = [
     "compiler/common",
-    "compiler/chilic_span",
-    "compiler/chilic_error",
-    "compiler/chilic_ty",
-    "compiler/chilic_ast",
-    "compiler/chilic_pass",
-    "compiler/chilic_token",
-    "compiler/chilic_parse",
-    "compiler/chilic_check",
-    "compiler/chilic_infer",
-    "compiler/chilic_llvm",
-    "compiler/chilic_main",
+    "compiler/chili_span",
+    "compiler/chili_error",
+    "compiler/chili_ast",
+    "compiler/chili_pretty_print",
+    "compiler/chili_token",
+    "compiler/chili_parse",
+    "compiler/chili_astgen",
+    "compiler/chili_resolve",
+    "compiler/chili_check",
+    "compiler/chili_lint",
+    "compiler/chili_defer",
+    "compiler/chili_graph",
+    "compiler/chili_backend_llvm",
+    "compiler/chili_main",
 ]
-
-[profile.dev]
-opt-level = 0
-
-[profile.release]
-opt-level = 3

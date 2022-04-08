@@ -16,3 +16,7 @@ pub fn default_iter_name() -> Ustr {
 pub fn default_index_name() -> Ustr {
     ustr("it_index")
 }
+
+pub fn implicit_fn_param_name() -> Ustr {
+    ustr("it")
+}

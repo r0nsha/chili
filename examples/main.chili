@@ -1,20 +1,15 @@
-use c.?;
-
-type Foo = { a: i32, b: f32 }
+use std.c.printf
 
 let main = fn {
-    # let foreign("system:libucrt") printf = fn(f: [*]u8, ..) -> i64;
-    let foo = Foo { a : 1, b : 1.0 };
-    defer printf("2\n".data);
-    printf("1\n".data);
-    printf("%d\n".data, answer());
-    printf("%d\n".data, myfav());
-    let bee = if true {
-        5
-    } else {
-        10
-    };
+    let result = fib(30)
+    printf("result: %d\n".data, result)
+    ()
 }
 
-let answer = fn() -> int { 42 }
-let myfav = fn() -> int { 5; 69 }
+let fib = fn(n) {
+	if n < 2 {
+		n + 1
+	} else {
+		fib(n - 1) + fib(n - 2)
+	}
+}
