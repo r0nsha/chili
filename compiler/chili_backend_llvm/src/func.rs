@@ -23,7 +23,7 @@ use inkwell::{
 };
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
-    fn gen_entry_point_function(
+    pub(crate) fn gen_entry_point_function(
         &mut self,
         entry_point_func: FunctionValue<'ctx>,
     ) -> FunctionValue<'ctx> {
@@ -116,14 +116,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        for (id, binding) in self.ast.bindings.iter().filter(|(&id, _)| {
-            self.workspace
-                .get_binding_info(id)
-                .unwrap()
-                .should_codegen()
-        }) {
-            state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
-
+        for (id, binding) in self.ast.bindings.iter() {
             match binding.expr.as_ref() {
                 Some(expr) => match &expr.kind {
                     // if the binding is a fn or fn-type, don't initialize its value
@@ -134,9 +127,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 None => (),
             }
 
-            let ptr = self.global_decls.get(id).unwrap().into_pointer_value();
-            let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
-            self.build_store(ptr, value);
+            if let Some(ptr) = self.global_decls.get(id).map(|d| d.into_pointer_value()) {
+                state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+                let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
+                self.build_store(ptr, value);
+            }
         }
 
         self.gen_fn_call(
@@ -243,7 +238,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             let value = self.build_transmute(&state, value, llvm_param_ty);
 
-            self.gen_binding_pattern_from_value(&mut state, &param.pattern, param_ty, value);
+            self.gen_binding_pattern_with_value(&mut state, &param.pattern, param_ty, value);
         }
 
         for (index, expr) in func.body.exprs.iter().enumerate() {
@@ -270,9 +265,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let function_value = self.verify_and_optimize_function(function, &func.sig.name);
 
-        if func.is_entry_point {
-            self.gen_entry_point_function(function_value);
-        }
+        // if func.is_entry_point {
+        //     self.gen_entry_point_function(function_value);
+        // }
 
         if let Some(prev_block) = prev_block {
             self.builder.position_at_end(prev_block);

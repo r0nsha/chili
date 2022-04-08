@@ -38,14 +38,18 @@ impl<'a> Sess<'a> {
     }
 
     fn mark(&mut self, id: BindingInfoId) {
+        assert!(id != BindingInfoId::unknown());
+
         let entry_point_function_id = self.workspace.entry_point_function_id.unwrap();
         let info = self.workspace.get_binding_info_mut(id).unwrap();
         let ty = info.ty.normalize(self.tycx);
 
         let should_codegen =
-            info.uses > 0 && !info.kind.is_import() && !ty.is_type() && !ty.is_module();
+            info.uses > 0 || id == entry_point_function_id || !info.scope_level.is_global();
+        let should_codegen =
+            should_codegen && !info.kind.is_import() && !ty.is_type() && !ty.is_module();
 
-        if should_codegen || id == entry_point_function_id || !info.scope_level.is_global() {
+        if should_codegen || id == entry_point_function_id {
             info.flags.insert(BindingInfoFlags::SHOULD_CODEGEN);
         }
     }

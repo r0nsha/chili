@@ -419,14 +419,40 @@ impl Check for ast::Binding {
             _ => None,
         };
 
-        sess.bind_pattern(
-            env,
-            &mut self.pattern,
-            self.visibility,
-            self.ty,
-            const_value,
-            self.kind,
-        )?;
+        if self.expr.as_ref().map_or(false, |e| e.is_fn()) {
+            // because functions can be recursive,
+            // we special case them and use the id bounded after checking the function signature
+            let fn_expr = self.expr.as_mut().unwrap().as_fn_mut();
+
+            let binding_info = sess
+                .workspace
+                .get_binding_info_mut(fn_expr.binding_info_id)
+                .unwrap();
+
+            binding_info.visibility = self.visibility;
+
+            // If this binding matches the entry point function's requirements
+            // Tag it as the entry function
+            match &mut self.pattern {
+                Pattern::Single(pat) => {
+                    pat.binding_info_id = fn_expr.binding_info_id;
+                    if sess.workspace.entry_point_function_id.is_none() && pat.symbol == "main" {
+                        sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
+                        fn_expr.is_entry_point = true;
+                    }
+                }
+                _ => (),
+            }
+        } else {
+            sess.bind_pattern(
+                env,
+                &mut self.pattern,
+                self.visibility,
+                self.ty,
+                const_value,
+                self.kind,
+            )?;
+        }
 
         if let Some(expr) = &mut self.expr {
             // If this expressions matches the entry point function's requirements
@@ -472,18 +498,18 @@ impl Check for ast::Fn {
             )?;
         }
 
-        env.push_named_scope(self.sig.name);
-
-        self.binding_info_id = sess.bind_symbol(
-            env,
-            self.sig.name,
-            ast::Visibility::Private,
-            sig_res.ty,
-            None,
-            false,
-            ast::BindingKind::Value,
-            self.body.span,
-        )?;
+        if !self.sig.name.is_empty() {
+            self.binding_info_id = sess.bind_symbol(
+                env,
+                self.sig.name,
+                ast::Visibility::Private,
+                sig_res.ty,
+                None,
+                false,
+                ast::BindingKind::Value,
+                self.body.span,
+            )?;
+        }
 
         let body_res = sess.with_function_frame(
             FunctionFrame {
@@ -503,8 +529,6 @@ impl Check for ast::Fn {
             );
         }
         unify_res.or_report_err(&sess.tycx, return_ty, body_res.ty, self.body.span)?;
-
-        env.pop_scope();
 
         Ok(Res::new(sig_res.ty))
     }
@@ -1454,9 +1478,24 @@ impl Check for ast::Expr {
                     TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
                         .create_type();
 
-                inferred_ty.unify(&opaque_struct, sess).unwrap();
+                inferred_ty
+                    .unify(&opaque_struct.clone().create_type(), sess)
+                    .unwrap();
 
                 sess.self_types.push(inferred_ty);
+                env.push_scope();
+
+                let opaque_struct_ty = sess.tycx.bound(opaque_struct);
+                st.binding_info_id = sess.bind_symbol(
+                    env,
+                    st.name,
+                    ast::Visibility::Private,
+                    inferred_ty,
+                    Some(Value::Type(opaque_struct_ty)),
+                    false,
+                    ast::BindingKind::Type,
+                    self.span,
+                )?;
 
                 let mut field_map = UstrMap::<Span>::default();
                 let mut struct_ty_fields = vec![];
@@ -1480,14 +1519,15 @@ impl Check for ast::Expr {
                     });
                 }
 
+                env.pop_scope();
+                sess.self_types.pop();
+
                 let struct_ty = TyKind::Struct(StructTy {
                     name: st.name,
                     binding_info_id: st.binding_info_id,
                     kind: st.kind,
                     fields: struct_ty_fields,
                 });
-
-                sess.self_types.pop();
 
                 Ok(Res::new_const(
                     sess.tycx.bound(struct_ty.clone().create_type()),

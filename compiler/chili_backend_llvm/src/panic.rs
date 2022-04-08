@@ -1,4 +1,7 @@
+use crate::ty::IntoLlvmType;
+
 use super::codegen::{Codegen, CodegenState};
+use chili_check::normalize::NormalizeTy;
 use chili_span::Span;
 use inkwell::values::{BasicValueEnum, IntValue};
 
@@ -24,52 +27,46 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .find_decl_by_name("std.panicking", "default_panic_handler")
             .into_function_value();
 
-        todo!();
+        let default_panic_handler_info =
+            self.find_binding_info_by_name("std.panicking", "default_panic_handler");
 
-        // let panic_type =
-        // self.workspace.find_binding_info_by_name(module_id, name)
-        // self
-        //     .ir
-        //     .module("std.panicking")
-        //     .find_binding("default_panic_handler")
-        //     .unwrap()
-        //     .ty
-        //     .into_fn();
+        let panic_type = default_panic_handler_info
+            .ty
+            .clone()
+            .normalize(self.tycx)
+            .into_fn();
 
-        // let panic_info_llvm_type = self
-        //     .module
-        //     .get_struct_type("std.panicking.PanicInfo")
-        //     .unwrap();
+        let panic_info_llvm_type = panic_type.params.first().unwrap().ty.llvm_type(self);
 
-        // let program = self.gen_global_str("panic_program", "main", true);
+        let program = self.gen_global_str("panic_program", "main", true);
 
-        // let file_path = self.gen_global_str("panic_file_path", state.module_info.file_path, true);
+        let file_path = self.gen_global_str("panic_file_path", state.module_info.file_path, true);
 
-        // let line = self
-        //     .ptr_sized_int_type
-        //     .const_int(span.start.line as _, false);
+        let line = self
+            .ptr_sized_int_type
+            .const_int(span.start.line as _, false);
 
-        // let column = self
-        //     .ptr_sized_int_type
-        //     .const_int(span.start.column as _, false);
+        let column = self
+            .ptr_sized_int_type
+            .const_int(span.start.column as _, false);
 
-        // let panic_info = self.gen_struct(
-        //     state,
-        //     panic_info_llvm_type.into(),
-        //     &[program, message, file_path, line.into(), column.into()],
-        // );
+        let panic_info = self.gen_struct(
+            state,
+            panic_info_llvm_type.into(),
+            &[program, message, file_path, line.into(), column.into()],
+        );
 
-        // let panic_info = self.build_load(panic_info.into());
+        let panic_info = self.build_load(panic_info.into());
 
-        // self.gen_fn_call(
-        //     state,
-        //     panic_fn,
-        //     panic_type,
-        //     vec![panic_info],
-        //     &panic_type.ret,
-        // );
+        self.gen_fn_call(
+            state,
+            panic_fn,
+            &panic_type,
+            vec![panic_info],
+            &panic_type.ret,
+        );
 
-        // self.build_unreachable();
+        self.build_unreachable();
     }
 
     pub(super) fn gen_conditional_panic(

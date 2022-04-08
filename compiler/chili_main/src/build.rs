@@ -74,9 +74,9 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     // Mark all bindings that should codegen
-    time! { "mark codegen",
-        chili_graph::mark_codegen_path(&mut workspace, &tycx, &typed_ast)
-    }
+    // time! { "mark codegen",
+    //     chili_graph::mark_codegen_path(&mut workspace, &tycx, &typed_ast)
+    // }
 
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 

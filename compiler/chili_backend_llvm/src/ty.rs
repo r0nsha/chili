@@ -180,28 +180,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        todo!("{} :: {:?}", struct_ty.name, struct_ty.binding_info_id)
-        // match self.type_map.get(&struct_ty.qualified_name) {
-        //     Some(t) => t.into_struct_type(),
-        //     None => self.create_named_struct_type(struct_ty),
-        // }
+        match self.types.get(&struct_ty.binding_info_id) {
+            Some(t) => t.into_struct_type(),
+            None => self.create_named_struct_type(struct_ty),
+        }
     }
 
     pub(super) fn create_named_struct_type(
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        todo!("{} :: {:?}", struct_ty.name, struct_ty.binding_info_id)
-        // let struct_type = self.context.opaque_struct_type(&struct_ty.qualified_name);
-
-        // self.type_map
-        //     .insert(struct_ty.qualified_name, struct_type.into());
-
-        // let fields = self.create_struct_type_fields(struct_ty);
-
-        // struct_type.set_body(&fields, struct_ty.is_packed_struct());
-
-        // struct_type
+        let struct_type = self.context.opaque_struct_type(&struct_ty.name);
+        self.types
+            .insert(struct_ty.binding_info_id, struct_type.into());
+        let fields = self.create_struct_type_fields(struct_ty);
+        struct_type.set_body(&fields, struct_ty.is_packed_struct());
+        struct_type
     }
 
     pub(super) fn create_anonymous_struct_type(

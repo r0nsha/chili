@@ -7,7 +7,7 @@ use super::{
 use chili_ast::{
     ast,
     pattern::{Pattern, SymbolPattern},
-    workspace::{BindingInfoId, ModuleId, ModuleInfo},
+    workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_ast::{ty::*, workspace::Workspace};
 use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
@@ -78,7 +78,7 @@ pub struct Codegen<'cg, 'ctx> {
     pub ptr_sized_int_type: IntType<'ctx>,
 
     pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
-    pub types: UstrMap<BasicTypeEnum<'ctx>>,
+    pub types: HashMap<BindingInfoId, BasicTypeEnum<'ctx>>,
     pub fn_types: HashMap<FnTy, AbiFn<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
 }
@@ -133,84 +133,52 @@ pub(super) struct LoopBlock<'ctx> {
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn start(&mut self) {
-        // Declare bindings
-        for (id, binding) in self.ast.bindings.iter().filter(|(&id, _)| {
-            self.workspace
-                .get_binding_info(id)
-                .unwrap()
-                .should_codegen()
-        }) {
-            self.declare_top_level_binding(*id, binding);
-        }
+        let ep_id = self.workspace.entry_point_function_id.unwrap();
+        self.gen_top_level_binding(ep_id);
 
-        // Declare imports
-        for (id, import) in self.ast.imports.iter() {
-            if let Some(target_id) = import.target_binding_info_id {
-                if let Some(decl) = self.global_decls.get(&target_id).cloned() {
-                    self.global_decls.insert(*id, decl);
-                }
-            }
-        }
+        let ep_function = self.global_decls.get(&ep_id).unwrap().into_function_value();
+        self.gen_entry_point_function(ep_function);
+    }
 
-        // Codegen functions
-        for (_, binding) in self.ast.bindings.iter().filter(|(&id, _)| {
-            self.workspace
-                .get_binding_info(id)
-                .unwrap()
-                .should_codegen()
-        }) {
-            self.gen_top_level_binding(binding);
+    pub(super) fn find_or_gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
+        match self.global_decls.get(&id) {
+            Some(decl) => decl.clone(),
+            None => self.gen_top_level_binding(id),
         }
     }
 
-    pub(super) fn declare_top_level_binding(&mut self, id: BindingInfoId, binding: &ast::Binding) {
-        let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+    pub(super) fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
+        if let Some(binding) = self.ast.bindings.get(&id) {
+            let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
-        match binding.expr.as_ref() {
-            Some(expr) => match &expr.kind {
-                ast::ExprKind::Fn(func) => {
-                    self.declare_fn(id, module_info, &func.sig);
-                }
-                ast::ExprKind::Foreign(bindings) => {
-                    for binding in bindings {
-                        self.declare_top_level_binding(
-                            binding.pattern.as_single_ref().binding_info_id,
-                            binding,
-                        );
+            match binding.expr.as_ref() {
+                Some(expr) => match &expr.kind {
+                    ast::ExprKind::Fn(func) => {
+                        let function = self.declare_fn_sig(module_info, &func.sig);
+                        let decl = CodegenDecl::Function(function);
+                        self.global_decls.insert(id, decl);
+                        self.gen_fn(module_info, func, None);
+                        decl
                     }
-                }
-                ast::ExprKind::FnType(sig) => {
-                    self.declare_fn(id, module_info, sig);
-                }
-                _ => {
-                    self.declare_global(id, binding);
-                }
-            },
-            None => {
-                self.declare_global(id, binding);
+                    ast::ExprKind::FnType(sig) => {
+                        let function = self.declare_fn_sig(module_info, sig);
+                        let decl = CodegenDecl::Function(function);
+                        self.global_decls.insert(id, decl);
+                        decl
+                    }
+                    _ => self.declare_global(id, binding),
+                },
+                None => self.declare_global(id, binding),
             }
+        } else if let Some(import) = self.ast.imports.get(&id) {
+            self.gen_import(import)
+        } else {
+            unreachable!("{:?}", id)
         }
     }
 
-    pub(super) fn gen_top_level_binding(&mut self, binding: &ast::Binding) {
-        if let Some(expr) = &binding.expr {
-            if let ast::ExprKind::Fn(f) = &expr.kind {
-                let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
-                self.gen_fn(module_info, f, None);
-            }
-        }
-    }
-
-    pub(super) fn declare_fn(
-        &mut self,
-        id: BindingInfoId,
-        module_info: ModuleInfo,
-        sig: &ast::FnSig,
-    ) -> CodegenDecl<'ctx> {
-        let function = self.declare_fn_sig(module_info, sig);
-        let decl = CodegenDecl::Function(function);
-        self.global_decls.insert(id, decl);
-        decl
+    pub(super) fn gen_import(&mut self, import: &ast::Import) -> CodegenDecl<'ctx> {
+        self.gen_top_level_binding(import.target_binding_info_id.unwrap())
     }
 
     pub(super) fn declare_global(
@@ -257,11 +225,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         global_value
     }
 
-    pub(super) fn find_decl_by_name(
+    pub(super) fn find_binding_info_by_name(
         &mut self,
         module_name: impl Into<Ustr>,
         symbol: impl Into<Ustr>,
-    ) -> CodegenDecl<'ctx> {
+    ) -> &BindingInfo {
         let module_name: Ustr = module_name.into();
         let symbol: Ustr = symbol.into();
 
@@ -273,41 +241,44 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .expect(&format!("couldn't find {}", module_name)),
         );
 
-        let binding_info = self
-            .workspace
+        self.workspace
             .binding_infos
             .iter()
-            .find(|b| b.module_id == module_id && b.symbol == symbol)
-            .expect(&format!("couldn't find {} in {}", symbol, module_name));
-
-        let id = binding_info.id;
-
-        self.global_decls.get(&id).cloned().unwrap_or_else(|| {
-            println!("{:#?}", binding_info);
-            // for id in self.ast.bindings.keys() {
-            //     print!("{} ", id.0);
-            // }
-            // println!();
-            // println!("{} {}.{}", id.0, module_name, symbol);
-            let binding = &self.ast.bindings[&id];
-            self.declare_top_level_binding(id, &binding);
-            self.gen_top_level_binding(&binding);
-            self.global_decls.get(&id).cloned().unwrap()
-        })
+            .find(|b| {
+                !b.is_temp_recursive_function_binding()
+                    && b.module_id == module_id
+                    && b.symbol == symbol
+            })
+            .expect(&format!("couldn't find {} in {}", symbol, module_name))
     }
 
-    pub(super) fn gen_binding_pattern_from_expr(
+    pub(super) fn find_decl_by_name(
+        &mut self,
+        module_name: impl Into<Ustr>,
+        symbol: impl Into<Ustr>,
+    ) -> CodegenDecl<'ctx> {
+        let binding_info = self.find_binding_info_by_name(module_name, symbol);
+        let id = binding_info.id;
+        self.global_decls
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| self.gen_top_level_binding(id))
+    }
+
+    pub(super) fn gen_binding_pattern_with_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
         ty: &TyKind,
         expr: &Option<ast::Expr>,
     ) {
+        if ty.is_type() || ty.is_module() {
+            return;
+        }
+
         match pattern {
             Pattern::Single(SymbolPattern {
-                binding_info_id,
-                symbol,
-                ..
+                binding_info_id, ..
             }) => {
                 self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
             }
@@ -320,7 +291,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 for SymbolPattern {
                     binding_info_id,
                     symbol,
-                    alias,
                     ignore,
                     ..
                 } in pattern.symbols.iter()
@@ -384,7 +354,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(super) fn gen_binding_pattern_from_value(
+    pub(super) fn gen_binding_pattern_with_value(
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
@@ -540,19 +510,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let value = match &expr.kind {
             ast::ExprKind::Import(imports) => {
-                todo!();
-                // for import in imports.iter() {
-                //     let decl = self.resolve_decl_from_import(import);
-                //     state.scopes.insert(import.alias, decl);
-                // }
-
+                for import in imports.iter() {
+                    let decl = self.gen_import(import);
+                    state.scopes.insert(import.binding_info_id, decl);
+                }
                 self.gen_unit()
             }
             ast::ExprKind::Foreign(bindings) => {
                 for binding in bindings.iter() {
                     let ty = binding.ty.normalize(self.tycx);
                     if ty.is_fn() {
-                        self.gen_binding_pattern_from_expr(
+                        self.gen_binding_pattern_with_expr(
                             state,
                             &binding.pattern,
                             &ty,
@@ -572,7 +540,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_unit()
             }
             ast::ExprKind::Binding(binding) => {
-                self.gen_binding_pattern_from_expr(
+                self.gen_binding_pattern_with_expr(
                     state,
                     &binding.pattern,
                     &binding.ty.normalize(self.tycx),
@@ -980,10 +948,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::ExprKind::Ident(ident) => {
                 assert!(ident.binding_info_id != BindingInfoId::unknown());
 
-                println!("{}", ident.symbol);
                 let decl = match state.scopes.get(ident.binding_info_id) {
-                    Some((_, decl)) => decl,
-                    None => self.global_decls.get(&ident.binding_info_id).unwrap(),
+                    Some((_, decl)) => decl.clone(),
+                    None => self.find_or_gen_top_level_binding(ident.binding_info_id),
                 };
 
                 match decl {

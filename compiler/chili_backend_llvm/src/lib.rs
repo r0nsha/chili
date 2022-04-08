@@ -63,7 +63,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
         builder: &builder,
         ptr_sized_int_type: context.ptr_sized_int_type(&target_machine.get_target_data(), None),
         global_decls: HashMap::default(),
-        types: UstrMap::default(),
+        types: HashMap::default(),
         static_strs: UstrMap::default(),
         fn_types: HashMap::new(),
     };

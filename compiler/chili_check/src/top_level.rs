@@ -18,12 +18,6 @@ where
 impl CheckTopLevel for ast::Binding {
     fn check_top_level(&mut self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult {
         let res = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
-        if self.pattern.as_single_ref().symbol == "default_panic_handler" {
-            println!(
-                "{} -> default_panic_handler",
-                self.pattern.as_single_ref().binding_info_id.0,
-            );
-        }
         sess.new_ast
             .bindings
             .insert(self.pattern.as_single_ref().binding_info_id, self.clone());
