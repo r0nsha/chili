@@ -199,7 +199,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let entry_block = self.context.append_basic_block(function, "entry");
 
         let fn_ty = func.sig.ty.normalize(self.tycx).into_fn();
-        let abi_fn = self.fn_type_map.get(&fn_ty).unwrap().clone();
+        let abi_fn = self.fn_types.get(&fn_ty).unwrap().clone();
 
         let return_ptr = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = function.get_first_param().unwrap().into_pointer_value();
@@ -224,7 +224,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        state.push_named_scope(fn_name);
+        state.push_scope();
 
         let mut params = function.get_params();
 
@@ -308,7 +308,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> FunctionValue<'ctx> {
         let fn_sig_ty = sig.ty.normalize(self.tycx).into_fn();
         let fn_type = self.fn_type(&fn_sig_ty);
-        let abi_fn = self.fn_type_map.get(&fn_sig_ty).unwrap();
+        let abi_fn = self.fn_types.get(&fn_sig_ty).unwrap();
 
         let llvm_name = sig.llvm_name(module_info.name);
 
@@ -397,7 +397,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         result_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {
         let abi_fn = self
-            .fn_type_map
+            .fn_types
             .get(callee_ty)
             .expect(&format!("not found: {}", callee_ty))
             .clone();

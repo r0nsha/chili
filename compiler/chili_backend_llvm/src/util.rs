@@ -18,7 +18,7 @@ use ustr::{ustr, Ustr, UstrMap};
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[inline]
     pub(super) fn get_or_insert_new_module(&mut self, module: Ustr) -> &mut CodegenDeclsMap<'ctx> {
-        self.module_decl_map
+        self.global_decls
             .entry(module)
             .or_insert(UstrMap::default())
     }
@@ -30,7 +30,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let value = value.into();
-        let cached_str = self.global_str_map.get(&value).map(|v| *v);
+        let cached_str = self.static_strs.get(&value).map(|v| *v);
         let str_ptr = cached_str.unwrap_or_else(|| {
             let str_ptr = self
                 .builder
@@ -54,7 +54,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 element_ty,
             );
 
-            self.global_str_map.insert(value, str_slice_ptr);
+            self.static_strs.insert(value, str_slice_ptr);
 
             str_slice_ptr
         });
@@ -162,7 +162,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         symbol: Ustr,
     ) -> PointerValue<'ctx> {
         if !symbol.is_empty() {
-            if let Some((decl, depth)) = state.scopes.get_with_depth(&symbol) {
+            if let Some((depth, decl)) = state.scopes.get(symbol) {
                 let is_same_depth = depth == state.scopes.depth();
                 let ptr = decl.into_pointer_value();
                 let is_same_type = ptr.get_type().get_element_type() == llvm_ty.as_any_type_enum();

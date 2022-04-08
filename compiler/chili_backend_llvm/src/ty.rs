@@ -125,7 +125,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let abi_compliant_fn_ty =
             abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_ty);
 
-        self.fn_type_map
+        self.fn_types
             .insert(func.clone(), abi_compliant_fn_ty.clone());
 
         // println!("after: {:#?}", self.abi_fn_to_type(&abi_compliant_fn_ty));
@@ -178,7 +178,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        todo!()
+        todo!("{} :: {:?}", struct_ty.name, struct_ty.binding_info_id)
         // match self.type_map.get(&struct_ty.qualified_name) {
         //     Some(t) => t.into_struct_type(),
         //     None => self.create_named_struct_type(struct_ty),
@@ -189,7 +189,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        todo!()
+        todo!("{} :: {:?}", struct_ty.name, struct_ty.binding_info_id)
         // let struct_type = self.context.opaque_struct_type(&struct_ty.qualified_name);
 
         // self.type_map

@@ -1,3 +1,5 @@
+use crate::ty::IntoLlvmType;
+
 use super::{
     abi::{align_of, size_of, AbiFn},
     util::is_a_load_inst,
@@ -8,7 +10,7 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleInfo},
 };
 use chili_ast::{ty::*, workspace::Workspace};
-use chili_check::ty_ctx::TyCtx;
+use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     scopes::Scopes,
@@ -68,14 +70,11 @@ pub struct Codegen<'cg, 'ctx> {
     pub builder: &'cg Builder<'ctx>,
     pub ptr_sized_int_type: IntType<'ctx>,
 
-    pub module_decl_map: ModuleToCodegenDeclsMap<'ctx>,
-    pub type_map: UstrMap<BasicTypeEnum<'ctx>>,
-    pub global_str_map: UstrMap<PointerValue<'ctx>>,
-    pub fn_type_map: HashMap<FnTy, AbiFn<'ctx>>,
+    pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
+    pub types: UstrMap<BasicTypeEnum<'ctx>>,
+    pub fn_types: HashMap<FnTy, AbiFn<'ctx>>,
+    pub static_strs: UstrMap<PointerValue<'ctx>>,
 }
-
-pub(super) type ModuleToCodegenDeclsMap<'ctx> = UstrMap<CodegenDeclsMap<'ctx>>;
-pub(super) type CodegenDeclsMap<'ctx> = UstrMap<CodegenDecl<'ctx>>;
 
 #[derive(Clone)]
 pub(super) struct CodegenState<'ctx> {
@@ -86,7 +85,7 @@ pub(super) struct CodegenState<'ctx> {
     pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
     pub(super) decl_block: BasicBlock<'ctx>,
     pub(super) curr_block: BasicBlock<'ctx>,
-    pub(super) scopes: Scopes<BindingInfoId, CodegenDecl<'ctx>>,
+    pub(super) scopes: Scopes<Ustr, CodegenDecl<'ctx>>, // TODO: switch to BindingInfoId
 }
 
 impl<'ctx> CodegenState<'ctx> {
@@ -106,12 +105,8 @@ impl<'ctx> CodegenState<'ctx> {
             loop_blocks: vec![],
             decl_block,
             curr_block: entry_block,
-            scopes: Env::new(),
+            scopes: Scopes::new(),
         }
-    }
-
-    pub(super) fn push_named_scope(&mut self, name: Ustr) {
-        self.scopes.push_named_scope(name);
     }
 
     pub(super) fn push_scope(&mut self) {
@@ -131,21 +126,13 @@ pub(super) struct LoopBlock<'ctx> {
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn codegen(&mut self) {
-        let root_module = self.ir.root_module();
-
-        let startup_binding = root_module
+        let root_module_info = self.workspace.get_root_module_info();
+        let entry_point_function_binding = self
+            .ast
             .bindings
-            .iter()
-            .find(|binding| match &binding.value {
-                Some(expr) => match &expr.kind {
-                    ExprKind::Fn(func) => func.is_startup,
-                    _ => false,
-                },
-                None => false,
-            })
-            .expect("couldn't find startup function");
-
-        self.gen_top_level_binding(root_module.info, startup_binding);
+            .get(&self.workspace.entry_point_function_id.unwrap())
+            .unwrap();
+        self.gen_top_level_binding(*root_module_info, entry_point_function_binding);
     }
 
     pub(super) fn find_or_gen_binding_by_name(
@@ -153,7 +140,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         module_name: impl Into<Ustr>,
         symbol: impl Into<Ustr>,
     ) -> CodegenDecl<'ctx> {
-        self.find_or_gen_top_level_decl(self.ir.module_info(module_name.into()), symbol.into())
+        todo!()
+        // self.find_or_gen_top_level_decl(self.ir.module_info(module_name.into()), symbol.into())
     }
 
     pub(super) fn find_or_gen_top_level_decl(
@@ -161,62 +149,64 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         module_info: ModuleInfo,
         symbol: Ustr,
     ) -> CodegenDecl<'ctx> {
-        match self.module_decl_map.get(&module_info.name) {
-            Some(module) => match module.get(&symbol) {
-                Some(decl) => return decl.clone(),
-                None => (),
-            },
-            None => (),
-        }
+        todo!()
+        // match self.module_decl_map.get(&module_info.name) {
+        //     Some(module) => match module.get(&symbol) {
+        //         Some(decl) => return decl.clone(),
+        //         None => (),
+        //     },
+        //     None => (),
+        // }
 
-        let module = self.ir.modules.get(&module_info.name).unwrap();
+        // let module = self.ir.modules.get(&module_info.name).unwrap();
 
-        if let Some(binding) = module.find_binding(symbol) {
-            if !binding.should_codegen {
-                unreachable!()
-            }
+        // if let Some(binding) = module.find_binding(symbol) {
+        //     if !binding.should_codegen {
+        //         unreachable!()
+        //     }
 
-            self.gen_top_level_binding(module_info, binding)
-        } else if let Some(import) = module.find_import(symbol) {
-            if import.import_path.is_empty() {
-                let decl = CodegenDecl::Module(import.module_info);
+        //     self.gen_top_level_binding(module_info, binding)
+        // } else if let Some(import) = module.find_import(symbol) {
+        //     if import.import_path.is_empty() {
+        //         let decl = CodegenDecl::Module(import.module_info);
 
-                self.get_or_insert_new_module(module_info.name)
-                    .insert(import.alias, decl);
+        //         self.get_or_insert_new_module(module_info.name)
+        //             .insert(import.alias, decl);
 
-                decl
-            } else {
-                self.resolve_decl_from_import(import)
-            }
-        } else {
-            unreachable!(
-                "couldn't find top level symbol `{}` in module `{}`",
-                symbol, module_info.name
-            )
-        }
+        //         decl
+        //     } else {
+        //         self.resolve_decl_from_import(import)
+        //     }
+        // } else {
+        //     unreachable!(
+        //         "couldn't find top level symbol `{}` in module `{}`",
+        //         symbol, module_info.name
+        //     )
+        // }
     }
 
     pub(crate) fn resolve_decl_from_import(&mut self, import: &Import) -> CodegenDecl<'ctx> {
-        let mut decl = CodegenDecl::Module(import.module_info);
+        todo!()
+        // let mut decl = CodegenDecl::Module(import.module_info);
 
-        if !import.import_path.is_empty() {
-            // go over the import_path, and get the relevant symbol
-            let mut current_module_info = import.module_info;
+        // if !import.import_path.is_empty() {
+        //     // go over the import_path, and get the relevant symbol
+        //     let mut current_module_info = import.module_info;
 
-            for symbol in import.import_path.iter() {
-                decl =
-                    self.find_or_gen_top_level_decl(current_module_info, symbol.value.as_symbol());
+        //     for symbol in import.import_path.iter() {
+        //         decl =
+        //             self.find_or_gen_top_level_decl(current_module_info, symbol.value.as_symbol());
 
-                match decl {
-                    CodegenDecl::Module(info) => {
-                        current_module_info = info;
-                    }
-                    _ => (),
-                }
-            }
-        }
+        //         match decl {
+        //             CodegenDecl::Module(info) => {
+        //                 current_module_info = info;
+        //             }
+        //             _ => (),
+        //         }
+        //     }
+        // }
 
-        decl
+        // decl
     }
 
     pub(super) fn gen_top_level_binding(
@@ -224,7 +214,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         module_info: ModuleInfo,
         binding: &Binding,
     ) -> CodegenDecl<'ctx> {
-        match binding.value.as_ref() {
+        match binding.expr.as_ref() {
             Some(expr) => match &expr.kind {
                 ExprKind::Fn(func) => {
                     // * generate top level function
@@ -254,25 +244,31 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         // * forward declare the global value, i.e: `let answer = 42`
         // * the global value will is initialized by the startup function, see
         //   `fn gen_startup`
-        let symbol = binding.pattern.into_single().symbol;
-        let ty = self.llvm_type(&binding.ty);
+        let pat = binding.pattern.as_single_ref();
+        let binding_info = self
+            .workspace
+            .get_binding_info(pat.binding_info_id)
+            .unwrap();
+
+        let ty = binding_info.ty.llvm_type(self);
 
         let global_value = if binding.lib_name.is_some() {
-            self.add_global_uninit(&symbol, ty, Linkage::External)
+            self.add_global_uninit(&pat.symbol, ty, Linkage::External)
         } else {
             self.add_global(
                 &if module_info.name.is_empty() {
-                    symbol.to_string()
+                    pat.to_string()
                 } else {
-                    format!("{}.{}", module_info.name, symbol)
+                    format!("{}.{}", module_info.name, pat)
                 },
                 ty,
                 Linkage::Private,
             )
         };
 
+        // TODO: use HashMap<BindingInfoId, CodegenDecl>
         self.get_or_insert_new_module(module_info.name)
-            .insert(symbol, CodegenDecl::Global(global_value));
+            .insert(pat.symbol, CodegenDecl::Global(global_value));
 
         CodegenDecl::Global(global_value)
     }
@@ -314,6 +310,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let ptr =
                     self.gen_local_and_store_expr(state, ustr("struct_destr_alloca"), &expr, ty);
 
+                let ty = ty.normalize(self.tycx);
                 let struct_ty = ty.maybe_deref_once().into_struct().clone();
 
                 for SymbolPattern {
@@ -333,7 +330,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         .position(|f| f.symbol == *symbol)
                         .unwrap();
 
-                    let llvm_type = Some(self.llvm_type(ty));
+                    let llvm_type = Some(ty.llvm_type(self));
                     let value = self.gen_struct_access(ptr.into(), field_index as u32, llvm_type);
 
                     self.gen_local_with_alloca(
@@ -357,8 +354,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         continue;
                     }
 
-                    let llvm_type = Some(self.llvm_type(ty));
+                    let ty = ty.normalize(self.tycx);
+                    let llvm_type = Some(ty.llvm_type(self));
+
                     let value = self.gen_struct_access(ptr.into(), i as u32, llvm_type);
+
                     self.gen_local_with_alloca(
                         state,
                         *symbol,
@@ -1323,7 +1323,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         value: Option<BasicValueEnum<'ctx>>,
         deferred: &Vec<Expr>,
     ) -> BasicValueEnum<'ctx> {
-        let abi_fn = self.fn_type_map.get(&state.fn_type).unwrap().clone();
+        let abi_fn = self.fn_types.get(&state.fn_type).unwrap().clone();
 
         if abi_fn.ret.kind.is_indirect() {
             let return_ptr = state.return_ptr.unwrap();
