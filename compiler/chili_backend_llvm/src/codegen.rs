@@ -7,6 +7,7 @@ use chili_ast::{
     pattern::{Pattern, SymbolPattern},
 };
 use chili_ast::{ty::*, workspace::Workspace};
+use chili_check::ty_ctx::TyCtx;
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     env::Env,
@@ -53,8 +54,9 @@ impl<'ctx> CodegenDecl<'ctx> {
     }
 }
 
-pub struct Codegen<'w, 'cg, 'ctx> {
+pub struct Codegen<'cg, 'ctx> {
     pub workspace: &'cg Workspace,
+    pub tycx: &'cg TyCtx,
     pub target_metrics: TargetMetrics,
 
     pub context: &'ctx Context,
@@ -124,7 +126,7 @@ pub(super) struct LoopBlock<'ctx> {
     exit: BasicBlock<'ctx>,
 }
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn codegen(&mut self) {
         let root_module = self.ir.root_module();
 

@@ -11,9 +11,10 @@ mod unary;
 mod util;
 
 use chili_ast::{
-    ast::{Ast, ForeignLibrary, Ir},
+    ast::{Ast, ForeignLibrary},
     workspace::Workspace,
 };
+use chili_check::ty_ctx::TyCtx;
 use codegen::Codegen;
 use common::{build_options::BuildOptions, target::TargetPlatform, time};
 use execute::Execute;
@@ -34,7 +35,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, asts: &Vec<Ast>) {
+pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, asts: &Vec<Ast>) {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -56,6 +57,7 @@ pub fn codegen<'w>(workspace: &Workspace, asts: &Vec<Ast>) {
 
     let mut cg = Codegen {
         workspace,
+        tycx,
         target_metrics: workspace.build_options.target_platform.metrics(),
         context: &context,
         module: &module,
@@ -72,16 +74,16 @@ pub fn codegen<'w>(workspace: &Workspace, asts: &Vec<Ast>) {
         cg.codegen();
     });
 
-    dump_ir(&module, build_options.source_path());
+    dump_ir(&module, workspace.build_options.source_path());
 
     let executable_path = build_executable(
-        &build_options,
+        &workspace.build_options,
         &target_machine,
         &module,
-        ir.foreign_libraries.clone(),
+        &workspace.foreign_libraries,
     );
 
-    if build_options.run {
+    if workspace.build_options.run {
         Command::new(executable_path).spawn().unwrap();
     }
 }
@@ -156,7 +158,7 @@ fn build_executable(
     build_options: &BuildOptions,
     target_machine: &TargetMachine,
     module: &Module,
-    foreign_libraries: HashSet<ForeignLibrary>,
+    foreign_libraries: &HashSet<ForeignLibrary>,
 ) -> String {
     let mut lib_paths = vec![];
     let mut libs = vec![];

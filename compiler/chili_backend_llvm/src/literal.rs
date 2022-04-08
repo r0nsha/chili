@@ -1,18 +1,18 @@
 use crate::codegen::{Codegen, CodegenState};
-use chili_ast::ast::{LiteralKind, StructLiteralField};
-use chili_ast::ty::*;
+use chili_ast::{ast, ty::*};
+use chili_check::normalize::NormalizeTy;
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
     values::{BasicValueEnum, PointerValue},
     AddressSpace,
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_struct_literal_named(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        ty: &Ty,
-        fields: &Vec<StructLiteralField>,
+        ty: TyKind,
+        fields: &Vec<ast::StructLiteralField>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let struct_ty = ty.into_struct();
@@ -85,42 +85,46 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
 
     pub(super) fn gen_literal_value(
         &mut self,
-        value: &LiteralKind,
-        ty: &Ty,
+        value: &ast::Literal,
+        ty: TyKind,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         match value {
-            LiteralKind::Unit => self.gen_unit(),
+            ast::Literal::Unit => self.gen_unit(),
 
-            LiteralKind::Nil => self.gen_nil(ty),
+            ast::Literal::Nil => self.gen_nil(ty),
 
-            LiteralKind::Bool(v) => self
+            ast::Literal::Bool(v) => self
                 .context
                 .bool_type()
                 .const_int(if *v { 1 } else { 0 }, false)
                 .into(),
 
-            LiteralKind::Int(v) => match ty {
-                Ty::Int(_) | Ty::UInt(_) => self
+            ast::Literal::Int(v) => match ty {
+                TyKind::Int(_) | TyKind::UInt(_) => self
                     .llvm_type(ty)
                     .into_int_type()
                     .const_int(*v as u64, ty.is_int())
                     .into(),
 
-                Ty::Float(_) => self
+                TyKind::Float(_) => self
                     .llvm_type(ty)
                     .into_float_type()
                     .const_float(*v as f64)
                     .into(),
 
-                _ => unreachable!(),
+                _ => self
+                    .llvm_type(ty)
+                    .into_int_type()
+                    .const_int(*v as u64, ty.is_int())
+                    .into(),
             },
 
-            LiteralKind::Float(v) => self.llvm_type(ty).into_float_type().const_float(*v).into(),
+            ast::Literal::Float(v) => self.llvm_type(ty).into_float_type().const_float(*v).into(),
 
-            LiteralKind::Str(v) => self.gen_global_str("", v.as_str(), deref),
+            ast::Literal::Str(v) => self.gen_global_str("", v.as_str(), deref),
 
-            LiteralKind::Char(v) => self
+            ast::Literal::Char(v) => self
                 .llvm_type(ty)
                 .into_int_type()
                 .const_int(*v as u64, false)

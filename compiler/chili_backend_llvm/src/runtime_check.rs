@@ -5,7 +5,7 @@ use inkwell::{
     IntPredicate,
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_runtime_check_division_by_zero(
         &mut self,
         state: &mut CodegenState<'ctx>,

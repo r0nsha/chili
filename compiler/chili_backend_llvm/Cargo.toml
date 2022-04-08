@@ -15,3 +15,4 @@ chili_span = { path = "../chili_span" }
 chili_error = { path = "../chili_error" }
 chili_parse = { path = "../chili_parse" }
 chili_ast = { path = "../chili_ast" }
+chili_check = { path = "../chili_check" }

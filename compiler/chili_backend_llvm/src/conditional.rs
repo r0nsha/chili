@@ -5,7 +5,7 @@ use inkwell::{
     values::{BasicValueEnum, IntValue},
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_if_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -15,13 +15,13 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let cond = self.gen_expr(state, cond, true).into_int_value();
 
-        let then = |cg: &mut Codegen<'w, 'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
+        let then = |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
             cg.gen_expr(state, then_expr, true)
         };
 
         let else_ = if let Some(else_expr) = else_expr {
             Some(
-                |cg: &mut Codegen<'w, 'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
+                |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
                     cg.gen_expr(state, else_expr, true)
                 },
             )
@@ -33,8 +33,8 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
     }
 
     pub(super) fn gen_conditional<
-        Then: FnOnce(&mut Codegen<'w, 'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
-        Else: FnOnce(&mut Codegen<'w, 'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
+        Then: FnOnce(&mut Codegen<'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
+        Else: FnOnce(&mut Codegen<'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
     >(
         &mut self,
         state: &mut CodegenState<'ctx>,

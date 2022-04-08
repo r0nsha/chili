@@ -14,7 +14,7 @@ use inkwell::{
 use std::mem;
 use ustr::{ustr, Ustr, UstrMap};
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[inline]
     pub(super) fn get_or_insert_new_module(&mut self, module: Ustr) -> &mut CodegenDeclsMap<'ctx> {
         self.module_decl_map
@@ -65,7 +65,7 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         }
     }
 
-    pub(super) fn gen_nil(&mut self, ty: &Ty) -> BasicValueEnum<'ctx> {
+    pub(super) fn gen_nil(&mut self, ty: TyKind) -> BasicValueEnum<'ctx> {
         let llvm_ty = self.llvm_type(ty);
         llvm_ty.into_pointer_type().const_null().into()
     }

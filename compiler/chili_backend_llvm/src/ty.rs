@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use chili_ast::ty::{size::SizeOf, *};
 
+use chili_check::normalize::NormalizeTy;
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, PointerType},
     AddressSpace,
@@ -12,67 +13,82 @@ use super::{
     codegen::Codegen,
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
-    pub(super) fn llvm_type(&mut self, ty: &Ty) -> BasicTypeEnum<'ctx> {
-        match ty {
-            Ty::Bool => self.context.bool_type().into(),
-            Ty::Int(inner) => match inner {
-                IntTy::I8 => self.context.i8_type().into(),
-                IntTy::I16 => self.context.i16_type().into(),
-                IntTy::I32 => self.context.i32_type().into(),
-                IntTy::I64 => self.context.i64_type().into(),
-                IntTy::Isize => self.ptr_sized_int_type.into(),
+trait IntoLlvmType<'cg, 'ctx> {
+    fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx>;
+}
+
+impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Ty {
+    fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
+        let kind = self.normalize(cg.tycx);
+        kind.llvm_type(cg)
+    }
+}
+
+impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
+    fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
+        match self {
+            TyKind::Bool => cg.context.bool_type().into(),
+            TyKind::Int(inner) => match inner {
+                IntTy::I8 => cg.context.i8_type().into(),
+                IntTy::I16 => cg.context.i16_type().into(),
+                IntTy::I32 => cg.context.i32_type().into(),
+                IntTy::I64 => cg.context.i64_type().into(),
+                IntTy::Int => cg.ptr_sized_int_type.into(),
             },
-            Ty::UInt(inner) => match inner {
-                UIntTy::U8 => self.context.i8_type().into(),
-                UIntTy::U16 => self.context.i16_type().into(),
-                UIntTy::U32 => self.context.i32_type().into(),
-                UIntTy::U64 => self.context.i64_type().into(),
-                UIntTy::Usize => self.ptr_sized_int_type.into(),
+            TyKind::UInt(inner) => match inner {
+                UIntTy::U8 => cg.context.i8_type().into(),
+                UIntTy::U16 => cg.context.i16_type().into(),
+                UIntTy::U32 => cg.context.i32_type().into(),
+                UIntTy::U64 => cg.context.i64_type().into(),
+                UIntTy::UInt => cg.ptr_sized_int_type.into(),
             },
-            Ty::Float(inner) => match inner {
-                FloatTy::F16 => self.context.f16_type().into(),
-                FloatTy::F32 => self.context.f32_type().into(),
-                FloatTy::F64 => self.context.f64_type().into(),
-                FloatTy::Fsize => if self.target_metrics.word_size == 8 {
-                    self.context.f64_type()
+            TyKind::Float(inner) => match inner {
+                FloatTy::F16 => cg.context.f16_type().into(),
+                FloatTy::F32 => cg.context.f32_type().into(),
+                FloatTy::F64 => cg.context.f64_type().into(),
+                FloatTy::Float => if cg.target_metrics.word_size == 8 {
+                    cg.context.f64_type()
                 } else {
-                    self.context.f32_type()
+                    cg.context.f32_type()
                 }
                 .into(),
             },
-            Ty::Pointer(inner, _) | Ty::MultiPointer(inner, ..) => {
-                let ty = self.llvm_type(&inner);
+            TyKind::Pointer(inner, _) | TyKind::MultiPointer(inner, ..) => {
+                let ty = inner.llvm_type(cg);
                 ty.ptr_type(AddressSpace::Generic).into()
             }
-            Ty::Type(_) | Ty::Unit | Ty::Never | Ty::Module { .. } => self.unit_type(),
-            Ty::Fn(func) => self.fn_type(func).ptr_type(AddressSpace::Generic).into(),
-            Ty::Array(inner, size) => self.llvm_type(inner).array_type(*size as u32).into(),
-            Ty::Slice(inner, ..) => self.slice_type(inner),
-            Ty::Tuple(tys) => self
+            TyKind::Type(_) | TyKind::Unit | TyKind::Never | TyKind::Module { .. } => {
+                cg.unit_type()
+            }
+            TyKind::Fn(func) => cg.fn_type(func).ptr_type(AddressSpace::Generic).into(),
+            TyKind::Array(inner, size) => inner.llvm_type(cg).array_type(*size as u32).into(),
+            TyKind::Slice(inner, ..) => cg.slice_type(inner),
+            TyKind::Tuple(tys) => cg
                 .context
                 .struct_type(
                     &tys.iter()
-                        .map(|ty| self.llvm_type(ty))
+                        .map(|ty| ty.llvm_type(cg))
                         .collect::<Vec<BasicTypeEnum>>(),
                     false,
                 )
                 .into(),
-            Ty::Struct(struct_ty) => {
+            TyKind::Struct(struct_ty) => {
                 let struct_type = if struct_ty.name.is_empty() {
-                    self.create_anonymous_struct_type(struct_ty)
+                    cg.create_anonymous_struct_type(struct_ty)
                 } else {
-                    self.get_or_create_named_struct_type(struct_ty)
+                    cg.get_or_create_named_struct_type(struct_ty)
                 };
 
                 struct_type.into()
             }
             _ => {
-                panic!("bug: type `{}` in llvm codegen", ty)
+                panic!("bug: type `{}` in llvm codegen", self)
             }
         }
     }
+}
 
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn unit_type(&self) -> BasicTypeEnum<'ctx> {
         self.context.struct_type(&[], false).into()
     }
@@ -81,11 +97,12 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub(super) fn slice_type(&mut self, element_ty: &Ty) -> BasicTypeEnum<'ctx> {
+    pub(super) fn slice_type(&mut self, element_ty: &TyKind) -> BasicTypeEnum<'ctx> {
         self.context
             .struct_type(
                 &[
-                    self.llvm_type(element_ty)
+                    element_ty
+                        .llvm_type(self)
                         .ptr_type(AddressSpace::Generic)
                         .into(),
                     self.ptr_sized_int_type.into(),
@@ -99,14 +116,14 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         let params: Vec<BasicMetadataTypeEnum> = func
             .params
             .iter()
-            .map(|p| self.llvm_type(&p.ty).into())
+            .map(|p| p.ty.llvm_type(self).into())
             .collect();
-        let ret = self.llvm_type(&func.ret);
+        let ret = func.ret.llvm_type(self);
         let fn_ty = ret.fn_type(&params, func.variadic);
 
         // println!("before: {:#?}", fn_ty);
         let abi_compliant_fn_ty =
-            abi::get_abi_compliant_fn(self.context, self.target_metrics, fn_ty);
+            abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_ty);
 
         self.fn_type_map
             .insert(func.clone(), abi_compliant_fn_ty.clone());
@@ -161,26 +178,28 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        match self.type_map.get(&struct_ty.qualified_name) {
-            Some(t) => t.into_struct_type(),
-            None => self.create_named_struct_type(struct_ty),
-        }
+        todo!()
+        // match self.type_map.get(&struct_ty.qualified_name) {
+        //     Some(t) => t.into_struct_type(),
+        //     None => self.create_named_struct_type(struct_ty),
+        // }
     }
 
     pub(super) fn create_named_struct_type(
         &mut self,
         struct_ty: &StructTy,
     ) -> inkwell::types::StructType<'ctx> {
-        let struct_type = self.context.opaque_struct_type(&struct_ty.qualified_name);
+        todo!()
+        // let struct_type = self.context.opaque_struct_type(&struct_ty.qualified_name);
 
-        self.type_map
-            .insert(struct_ty.qualified_name, struct_type.into());
+        // self.type_map
+        //     .insert(struct_ty.qualified_name, struct_type.into());
 
-        let fields = self.create_struct_type_fields(struct_ty);
+        // let fields = self.create_struct_type_fields(struct_ty);
 
-        struct_type.set_body(&fields, struct_ty.is_packed_struct());
+        // struct_type.set_body(&fields, struct_ty.is_packed_struct());
 
-        struct_type
+        // struct_type
     }
 
     pub(super) fn create_anonymous_struct_type(
@@ -212,14 +231,14 @@ impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
                 })
                 .unwrap();
 
-            let field_ty = self.llvm_type(&largest_field.ty);
+            let field_ty = largest_field.ty.llvm_type(self);
 
             vec![field_ty]
         } else {
             struct_ty
                 .fields
                 .iter()
-                .map(|f| self.llvm_type(&f.ty))
+                .map(|f| f.ty.llvm_type(self))
                 .collect::<Vec<BasicTypeEnum>>()
         }
     }

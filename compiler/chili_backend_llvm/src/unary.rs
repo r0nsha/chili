@@ -4,7 +4,7 @@ use chili_ast::ty::*;
 use chili_span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_unary(
         &mut self,
         state: &mut CodegenState<'ctx>,

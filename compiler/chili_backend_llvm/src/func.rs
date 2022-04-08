@@ -18,7 +18,7 @@ use inkwell::{
 };
 use ustr::ustr;
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     fn gen_startup(&mut self, entry_point_func: FunctionValue<'ctx>) -> FunctionValue<'ctx> {
         let name = "main";
 

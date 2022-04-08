@@ -2,7 +2,7 @@ use super::codegen::{Codegen, CodegenState};
 use chili_span::Span;
 use inkwell::values::{BasicValueEnum, IntValue};
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[allow(unused)]
     pub(super) fn gen_panic_with_message(
         &mut self,

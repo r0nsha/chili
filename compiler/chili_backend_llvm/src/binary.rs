@@ -8,7 +8,7 @@ use inkwell::{
     FloatPredicate, IntPredicate,
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'w, 'cg, 'ctx> {
+impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_binary(
         &mut self,
         state: &mut CodegenState<'ctx>,
