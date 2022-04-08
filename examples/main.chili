@@ -1,15 +1,38 @@
-use std.c.printf
-
 let main = fn {
-    let result = fib(30)
-    printf("result: %d\n".data, result)
-    ()
-}
-
-let fib = fn(n) {
-	if n < 2 {
-		n + 1
-	} else {
-		fib(n - 1) + fib(n - 2)
-	}
+    type Foo = { a: _ }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
+    let foo = Foo { a: 1 }
 }
