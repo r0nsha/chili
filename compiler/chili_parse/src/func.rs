@@ -2,6 +2,7 @@ use crate::*;
 use chili_ast::{
     ast::{Block, Expr, ExprKind, Fn, FnParam, FnSig},
     pattern::{Pattern, SymbolPattern},
+    ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::{Span, To};
@@ -82,7 +83,11 @@ impl<'p> Parser<'p> {
                             None
                         };
 
-                        FnParam { pattern, ty }
+                        FnParam {
+                            pattern,
+                            ty_expr: ty,
+                            ty: Ty::unknown(),
+                        }
                     }
                     ParseFnSigKind::Type => {
                         // the parameter's name is optional, so we are checking
@@ -94,7 +99,11 @@ impl<'p> Parser<'p> {
                                 let pattern = Pattern::Single(self.parse_symbol_pattern()?);
                                 expect!(self, Colon, ":")?;
                                 let ty = Some(Box::new(self.parse_ty()?));
-                                FnParam { pattern, ty }
+                                FnParam {
+                                    pattern,
+                                    ty_expr: ty,
+                                    ty: Ty::unknown(),
+                                }
                             } else {
                                 // (type, ..)
                                 self.revert(1);
@@ -108,14 +117,22 @@ impl<'p> Parser<'p> {
                                 });
 
                                 let ty = Some(Box::new(self.parse_ty()?));
-                                FnParam { pattern, ty }
+                                FnParam {
+                                    pattern,
+                                    ty_expr: ty,
+                                    ty: Ty::unknown(),
+                                }
                             }
                         } else {
                             // (a: type, ..)
                             let pattern = Pattern::Single(self.parse_symbol_pattern()?);
                             expect!(self, Colon, ":")?;
                             let ty = Some(Box::new(self.parse_ty()?));
-                            FnParam { pattern, ty }
+                            FnParam {
+                                pattern,
+                                ty_expr: ty,
+                                ty: Ty::unknown(),
+                            }
                         }
                     }
                 }

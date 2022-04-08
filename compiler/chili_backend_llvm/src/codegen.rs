@@ -27,7 +27,7 @@ use inkwell::{
     AddressSpace, IntPredicate,
 };
 use std::collections::HashMap;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CodegenDecl<'ctx> {
@@ -92,7 +92,7 @@ pub(super) struct CodegenState<'ctx> {
     pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
     pub(super) decl_block: BasicBlock<'ctx>,
     pub(super) curr_block: BasicBlock<'ctx>,
-    pub(super) scopes: Scopes<Ustr, CodegenDecl<'ctx>>, // TODO: switch to BindingInfoId
+    pub(super) scopes: Scopes<BindingInfoId, CodegenDecl<'ctx>>, // TODO: switch to BindingInfoId
 }
 
 impl<'ctx> CodegenState<'ctx> {
@@ -179,7 +179,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             None => (),
         }
 
-        self.declare_global(id, binding, module_info)
+        self.declare_global(id, binding)
     }
 
     pub(super) fn declare_fn(
@@ -198,25 +198,15 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         id: BindingInfoId,
         binding: &ast::Binding,
-        module_info: ModuleInfo,
     ) -> CodegenDecl<'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
         // the global value will is initialized by the entry point function
-        let pat = binding.pattern.as_single_ref();
         let ty = binding.ty.llvm_type(self);
 
         let global_value = if binding.lib_name.is_some() {
-            self.add_global_uninit(&pat.symbol, ty, Linkage::External)
+            self.add_global_uninit(id, ty, Linkage::External)
         } else {
-            self.add_global(
-                &if module_info.name.is_empty() {
-                    pat.to_string()
-                } else {
-                    format!("{}.{}", module_info.name, pat)
-                },
-                ty,
-                Linkage::Private,
-            )
+            self.add_global(id, ty, Linkage::Private)
         };
 
         let decl = CodegenDecl::Global(global_value);
@@ -227,22 +217,23 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(super) fn add_global(
         &mut self,
-        name: &str,
+        id: BindingInfoId,
         ty: BasicTypeEnum<'ctx>,
         linkage: Linkage,
     ) -> GlobalValue<'ctx> {
-        let global_value = self.add_global_uninit(name, ty, linkage);
+        let global_value = self.add_global_uninit(id, ty, linkage);
         global_value.set_initializer(&ty.const_zero());
         global_value
     }
 
     pub(super) fn add_global_uninit(
         &mut self,
-        name: &str,
+        id: BindingInfoId,
         ty: BasicTypeEnum<'ctx>,
         linkage: Linkage,
     ) -> GlobalValue<'ctx> {
-        let global_value = self.module.add_global(ty, None, name);
+        let binding_info = self.workspace.get_binding_info(id).unwrap();
+        let global_value = self.module.add_global(ty, None, &binding_info.symbol);
         global_value.set_linkage(linkage);
         global_value
     }
@@ -264,17 +255,21 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         expr: &Option<ast::Expr>,
     ) {
         match pattern {
-            Pattern::Single(SymbolPattern { symbol, .. }) => {
-                self.gen_local_and_store_expr(state, *symbol, &expr, ty);
+            Pattern::Single(SymbolPattern {
+                binding_info_id,
+                symbol,
+                ..
+            }) => {
+                self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
             }
             Pattern::StructUnpack(pattern) => {
-                let ptr =
-                    self.gen_local_and_store_expr(state, ustr("struct_destr_alloca"), &expr, ty);
+                let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
 
                 let ty = ty.normalize(self.tycx);
                 let struct_ty = ty.maybe_deref_once().into_struct().clone();
 
                 for SymbolPattern {
+                    binding_info_id,
                     symbol,
                     alias,
                     ignore,
@@ -296,7 +291,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                     self.gen_local_with_alloca(
                         state,
-                        alias.unwrap_or(*symbol),
+                        *binding_info_id,
                         if ty.is_pointer() {
                             value
                         } else {
@@ -306,10 +301,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             Pattern::TupleUnpack(pattern) => {
-                let ptr =
-                    self.gen_local_and_store_expr(state, ustr("tuple_destr_alloca"), &expr, ty);
+                let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
 
-                for (i, SymbolPattern { symbol, ignore, .. }) in pattern.symbols.iter().enumerate()
+                for (
+                    i,
+                    SymbolPattern {
+                        binding_info_id,
+                        ignore,
+                        ..
+                    },
+                ) in pattern.symbols.iter().enumerate()
                 {
                     if *ignore {
                         continue;
@@ -322,7 +323,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                     self.gen_local_with_alloca(
                         state,
-                        *symbol,
+                        *binding_info_id,
                         if ty.is_pointer() {
                             value
                         } else {
@@ -343,15 +344,15 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         match pattern {
             Pattern::Single(symbol) => {
-                self.gen_local_with_alloca(state, symbol.symbol, value);
+                self.gen_local_with_alloca(state, symbol.binding_info_id, value);
             }
             Pattern::StructUnpack(pattern) => {
                 let struct_ty = ty.maybe_deref_once().into_struct().clone();
 
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern {
+                        binding_info_id,
                         symbol,
-                        alias,
                         ignore,
                         ..
                     } = pattern.symbols[i];
@@ -374,12 +375,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.build_load(value)
                     };
 
-                    self.gen_local_with_alloca(state, alias.unwrap_or(symbol), value);
+                    self.gen_local_with_alloca(state, binding_info_id, value);
                 }
             }
             Pattern::TupleUnpack(pattern) => {
                 for i in 0..pattern.symbols.len() {
-                    let SymbolPattern { symbol, ignore, .. } = pattern.symbols[i];
+                    let SymbolPattern {
+                        binding_info_id,
+                        ignore,
+                        ..
+                    } = pattern.symbols[i];
 
                     if ignore {
                         continue;
@@ -393,7 +398,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.build_load(value)
                     };
 
-                    self.gen_local_with_alloca(state, symbol, value);
+                    self.gen_local_with_alloca(state, binding_info_id, value);
                 }
             }
         }
@@ -402,38 +407,37 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_local_uninit(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        name: Ustr,
+        id: BindingInfoId,
         ty: &TyKind,
     ) -> PointerValue<'ctx> {
         let ty = ty.llvm_type(self);
-        let ptr = self.build_alloca_named(state, ty, name);
-        self.gen_local_internal(state, name, ptr);
+        let ptr = self.build_alloca_named(state, ty, id);
+        self.gen_local_internal(state, id, ptr);
         ptr
     }
 
     pub(super) fn gen_local_with_alloca(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        name: Ustr,
+        id: BindingInfoId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        let ptr = self.build_alloca_named(state, value.get_type(), name);
+        let ptr = self.build_alloca_named(state, value.get_type(), id);
         self.build_store(ptr, value);
-        self.gen_local_internal(state, name, ptr);
-        value.set_name(&name);
+        self.gen_local_internal(state, id, ptr);
         ptr
     }
 
     pub(super) fn gen_local_or_load_addr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        name: Ustr,
+        id: BindingInfoId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
         if is_a_load_inst(value) {
             self.get_operand(value).into_pointer_value()
         } else {
-            self.gen_local_with_alloca(state, name, value)
+            self.gen_local_with_alloca(state, id, value)
         }
     }
 
@@ -454,10 +458,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     fn gen_local_internal(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        name: Ustr,
+        id: BindingInfoId,
         ptr: PointerValue<'ctx>,
     ) {
-        ptr.set_name(&name);
+        let binding_info = self.workspace.get_binding_info(id).unwrap();
+        ptr.set_name(&binding_info.symbol);
 
         let align = align_of(
             ptr.get_type().get_element_type().try_into().unwrap(),
@@ -469,7 +474,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .set_alignment(align as u32)
             .unwrap();
 
-        state.scopes.insert(name, CodegenDecl::Local(ptr));
+        assert!(id != BindingInfoId::unknown());
+
+        state.scopes.insert(id, CodegenDecl::Local(ptr));
     }
 
     pub(super) fn gen_expr(
@@ -503,12 +510,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             &binding.expr,
                         );
                     } else {
-                        let symbol = binding.pattern.into_single().symbol;
+                        let pat = binding.pattern.as_single_ref();
                         let ty = ty.llvm_type(self);
-                        let global_value = self.add_global_uninit(&symbol, ty, Linkage::External);
+                        let global_value =
+                            self.add_global_uninit(pat.binding_info_id, ty, Linkage::External);
                         state
                             .scopes
-                            .insert(symbol, CodegenDecl::Global(global_value));
+                            .insert(pat.binding_info_id, CodegenDecl::Global(global_value));
                     }
                 }
 
@@ -631,7 +639,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let it = match &for_.iterator {
                     ast::ForIter::Range(_, _) => {
-                        self.gen_local_with_alloca(state, for_.iter_name, start.into())
+                        self.gen_local_with_alloca(state, for_.iter_id, start.into())
                     }
                     ast::ForIter::Value(value) => {
                         let by_ref = value.ty.normalize(self.tycx).is_pointer();
@@ -646,12 +654,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             !by_ref,
                         );
 
-                        self.gen_local_with_alloca(state, for_.iter_name, item)
+                        self.gen_local_with_alloca(state, for_.iter_id, item)
                     }
                 };
 
-                let it_index =
-                    self.gen_local_with_alloca(state, for_.iter_index_name, start.into());
+                let it_index = self.gen_local_with_alloca(state, for_.iter_index_id, start.into());
 
                 self.builder.build_unconditional_branch(loop_head);
                 self.start_block(state, loop_head);
@@ -922,9 +929,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::ExprKind::Ident(ident) => {
-                let decl = match state.scopes.get(ident.symbol) {
-                    Some((_, decl)) => decl.clone(),
-                    None => todo!(), // self.find_or_gen_top_level_decl(ident.binding_info_id),
+                assert!(ident.binding_info_id != BindingInfoId::unknown());
+
+                let decl = match state.scopes.get(ident.binding_info_id) {
+                    Some((_, decl)) => decl,
+                    None => self.global_decls.get(&ident.binding_info_id).unwrap(),
                 };
 
                 match decl {
@@ -1150,17 +1159,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_local_and_store_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        symbol: Ustr,
+        id: BindingInfoId,
         expr: &Option<ast::Expr>,
         ty: &TyKind,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
-            let ptr = self.gen_local_uninit(state, symbol, ty);
+            let ptr = self.gen_local_uninit(state, id, ty);
             let value = self.gen_expr(state, expr, true);
             self.build_store(ptr, value);
             ptr
         } else {
-            self.gen_local_uninit(state, symbol, ty)
+            self.gen_local_uninit(state, id, ty)
         }
     }
 
@@ -1195,14 +1204,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let cast_type = target_ty.llvm_type(self);
 
         match (from_ty, target_ty) {
-            (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::UInt(_)) => self
+            (TyKind::Bool, TyKind::AnyInt(_))
+            | (TyKind::Bool, TyKind::Int(_))
+            | (TyKind::Bool, TyKind::UInt(_)) => self
                 .builder
                 .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
-            (TyKind::UInt(_), TyKind::Int(_))
-            | (TyKind::Int(_), TyKind::UInt(_))
-            | (TyKind::Int(_), TyKind::Int(_))
-            | (TyKind::UInt(_), TyKind::UInt(_)) => self
+            (
+                TyKind::AnyInt(_) | TyKind::Int(_) | TyKind::UInt(_),
+                TyKind::AnyInt(_) | TyKind::Int(_) | TyKind::UInt(_),
+            ) => self
                 .builder
                 .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
@@ -1225,7 +1236,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (TyKind::Float(_), TyKind::Int(_)) => self
+            (TyKind::Float(_), TyKind::AnyInt(_) | TyKind::Int(_)) => self
                 .builder
                 .build_float_to_signed_int(
                     value.into_float_value(),
@@ -1250,9 +1261,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (TyKind::Pointer(..), TyKind::Pointer(..))
-            | (TyKind::Pointer(..), TyKind::MultiPointer(..))
-            | (TyKind::MultiPointer(..), TyKind::Pointer(..)) => self
+            (
+                TyKind::Pointer(..) | TyKind::MultiPointer(..),
+                TyKind::Pointer(..) | TyKind::MultiPointer(..),
+            ) => self
                 .builder
                 .build_pointer_cast(
                     value.into_pointer_value(),
@@ -1262,29 +1274,26 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             // pointer <=> int | uint
-            (TyKind::Pointer(..), TyKind::Int(..)) | (TyKind::Pointer(..), TyKind::UInt(..)) => {
-                self.builder
-                    .build_ptr_to_int(
-                        value.into_pointer_value(),
-                        cast_type.into_int_type(),
-                        INST_NAME,
-                    )
-                    .into()
-            }
+            (TyKind::Pointer(..), TyKind::AnyInt(_) | TyKind::Int(..) | TyKind::UInt(..)) => self
+                .builder
+                .build_ptr_to_int(
+                    value.into_pointer_value(),
+                    cast_type.into_int_type(),
+                    INST_NAME,
+                )
+                .into(),
 
             // int | uint <=> pointer
-            (TyKind::Int(..), TyKind::Pointer(..)) | (TyKind::UInt(..), TyKind::Pointer(..)) => {
-                self.builder
-                    .build_int_to_ptr(
-                        value.into_int_value(),
-                        cast_type.into_pointer_type(),
-                        INST_NAME,
-                    )
-                    .into()
-            }
+            (TyKind::AnyInt(_) | TyKind::Int(..) | TyKind::UInt(..), TyKind::Pointer(..)) => self
+                .builder
+                .build_int_to_ptr(
+                    value.into_int_value(),
+                    cast_type.into_pointer_type(),
+                    INST_NAME,
+                )
+                .into(),
 
-            (TyKind::Pointer(t, _), TyKind::Slice(t_slice, ..))
-            | (TyKind::Slice(t_slice, ..), TyKind::Pointer(t, _)) => match t.as_ref() {
+            (TyKind::Pointer(t, _), TyKind::Slice(t_slice, ..)) => match t.as_ref() {
                 TyKind::Array(_, size) => {
                     let slice_ty = self.slice_type(t_slice);
                     let ptr = self.build_alloca(state, slice_ty);

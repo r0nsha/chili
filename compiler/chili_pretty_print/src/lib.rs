@@ -219,7 +219,7 @@ impl PrintTree for ast::FnSig {
         for param in &self.params {
             b.begin_child(param.pattern.to_string());
 
-            if let Some(ty) = &param.ty {
+            if let Some(ty) = &param.ty_expr {
                 ty.print_tree(b, workspace, tycx);
             } else {
                 b.add_empty_child("inferred".to_string());

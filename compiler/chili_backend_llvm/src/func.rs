@@ -5,7 +5,11 @@ use crate::{
     util::LlvmName,
     CallingConv,
 };
-use chili_ast::{ast, ty::*, workspace::ModuleInfo};
+use chili_ast::{
+    ast,
+    ty::*,
+    workspace::{BindingInfoId, ModuleInfo},
+};
 use chili_check::normalize::NormalizeTy;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -17,7 +21,6 @@ use inkwell::{
     },
     AddressSpace,
 };
-use ustr::ustr;
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     fn gen_entry_point_function(
@@ -231,16 +234,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 value
             };
 
-            let param_ty = match param.ty.as_ref().unwrap().ty.normalize(self.tycx) {
-                TyKind::Type(inner) => inner,
-                t => unreachable!("got {}", t),
+            let param_ty = match param.ty.normalize(self.tycx) {
+                TyKind::Type(inner) => *inner,
+                t => t,
             };
 
             let llvm_param_ty = param_ty.llvm_type(self);
 
             let value = self.build_transmute(&state, value, llvm_param_ty);
 
-            self.gen_binding_pattern_from_value(&mut state, &param.pattern, *param_ty, value);
+            self.gen_binding_pattern_from_value(&mut state, &param.pattern, param_ty, value);
         }
 
         for (index, expr) in func.body.exprs.iter().enumerate() {
@@ -437,7 +440,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.build_store(ptr, arg);
                         ptr
                     } else if callee_ty.lib_name.is_none() {
-                        self.gen_local_or_load_addr(state, ustr(""), arg)
+                        self.gen_local_or_load_addr(state, BindingInfoId::unknown(), arg)
                     } else {
                         self.build_copy_value_to_ptr(state, arg, arg_type, 16)
                     };

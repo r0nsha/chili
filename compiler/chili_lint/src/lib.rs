@@ -312,7 +312,7 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::FnType(sig) => {
                 for p in &sig.params {
-                    p.ty.lint(sess)?;
+                    p.ty_expr.lint(sess)?;
                 }
                 sig.ret.lint(sess)?;
             }

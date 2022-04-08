@@ -408,7 +408,8 @@ pub struct FnSig {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FnParam {
     pub pattern: Pattern,
-    pub ty: Option<Box<Expr>>,
+    pub ty_expr: Option<Box<Expr>>,
+    pub ty: Ty,
 }
 
 impl ToString for FnParam {

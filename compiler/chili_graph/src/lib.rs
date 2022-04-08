@@ -180,7 +180,7 @@ impl Visit for ast::Fn {
 
 impl Visit for ast::FnSig {
     fn visit(&self, sess: &mut Sess) {
-        self.params.iter().for_each(|p| p.ty.visit(sess));
+        self.params.iter().for_each(|p| p.ty_expr.visit(sess));
         self.ret.visit(sess);
     }
 }

@@ -3,8 +3,8 @@ use crate::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use chili_ast::ast::FnSig;
 use chili_ast::ty::*;
+use chili_ast::{ast::FnSig, workspace::BindingInfoId};
 use common::mem::calculate_align;
 use inkwell::{
     basic_block::BasicBlock,
@@ -152,20 +152,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &self,
         state: &mut CodegenState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,
-        symbol: Ustr,
+        id: BindingInfoId,
     ) -> PointerValue<'ctx> {
-        if !symbol.is_empty() {
-            if let Some((depth, decl)) = state.scopes.get(symbol) {
-                let is_same_depth = depth == state.scopes.depth();
-                let ptr = decl.into_pointer_value();
-                let is_same_type = ptr.get_type().get_element_type() == llvm_ty.as_any_type_enum();
-                if is_same_depth && is_same_type {
-                    return ptr;
-                }
+        if let Some((depth, decl)) = state.scopes.get(id) {
+            let is_same_depth = depth == state.scopes.depth();
+            let ptr = decl.into_pointer_value();
+            let is_same_type = ptr.get_type().get_element_type() == llvm_ty.as_any_type_enum();
+            if is_same_depth && is_same_type {
+                return ptr;
             }
         }
 
-        self.build_alloca_internal(state, llvm_ty, &symbol)
+        let name = self
+            .workspace
+            .get_binding_info(id)
+            .map_or(ustr(""), |b| b.symbol);
+        self.build_alloca_internal(state, llvm_ty, &name)
     }
 
     fn build_alloca_internal(
@@ -283,7 +285,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let dst_align = align_of(dst_type, self.target_metrics.word_size);
         let align = align.min(dst_align as _);
 
-        let ptr = self.gen_local_with_alloca(state, ustr(""), value);
+        let ptr = self.gen_local_with_alloca(state, BindingInfoId::unknown(), value);
 
         ptr.as_instruction_value()
             .unwrap()

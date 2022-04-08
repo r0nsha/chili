@@ -524,7 +524,7 @@ impl Check for ast::FnSig {
         let mut param_map = UstrMap::default();
 
         for param in self.params.iter_mut() {
-            let ty = if let Some(expr) = &mut param.ty {
+            param.ty = if let Some(expr) = &mut param.ty_expr {
                 let res = expr.check(sess, env, None)?;
                 sess.extract_const_type(res.const_value, res.ty, expr.span)?
             } else {
@@ -537,7 +537,7 @@ impl Check for ast::FnSig {
                 } else {
                     ustr("")
                 },
-                ty: ty.into(),
+                ty: param.ty.into(),
             });
 
             for pat in param.pattern.symbols() {

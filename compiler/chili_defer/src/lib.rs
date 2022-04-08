@@ -250,7 +250,7 @@ impl SolveDefer for ast::Expr {
 impl SolveDefer for ast::FnSig {
     fn solve_defer(&mut self, sess: &mut DeferSess) {
         for p in self.params.iter_mut() {
-            p.ty.solve_defer(sess);
+            p.ty_expr.solve_defer(sess);
         }
         self.ret.solve_defer(sess);
     }
