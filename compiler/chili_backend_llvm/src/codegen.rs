@@ -1184,9 +1184,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         ty: &TyKind,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
-            let ptr = self.gen_local_uninit(state, id, ty);
             let value = self.gen_expr(state, expr, true);
-            self.build_store(ptr, value);
+            let ptr = self.gen_local_or_load_addr(state, id, value);
+            state.scopes.insert(id, CodegenDecl::Local(ptr));
             ptr
         } else {
             self.gen_local_uninit(state, id, ty)
