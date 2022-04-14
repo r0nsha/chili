@@ -128,17 +128,14 @@ impl<'lx> Lexer<'lx> {
                     }
                 }
                 '?' => QuestionMark,
-                '#' => {
-                    if self.is('[') {
-                        self.eat_multiline_comment()
-                    } else {
-                        self.eat_comment()
-                    }
-
-                    self.eat_token()?
-                }
                 '/' => {
-                    if self.is('=') {
+                    if self.is('/') {
+                        self.eat_comment();
+                        self.eat_token()?
+                    } else if self.is('*') {
+                        self.eat_multiline_comment();
+                        self.eat_token()?
+                    } else if self.is('=') {
                         FwSlashEq
                     } else {
                         FwSlash
@@ -255,10 +252,7 @@ impl<'lx> Lexer<'lx> {
                         let span = self.cursor.span();
                         return Err(Diagnostic::error()
                             .with_message(format!("invalid token `{}`", ch))
-                            .with_labels(vec![Label::primary(
-                                span.file_id,
-                                span.range(),
-                            )]));
+                            .with_labels(vec![Label::primary(span.file_id, span.range())]));
                     }
                 }
             }
@@ -278,13 +272,8 @@ impl<'lx> Lexer<'lx> {
         if self.is_eof() {
             let span = self.cursor.span();
             return Err(Diagnostic::error()
-                .with_message(
-                    "missing a terminating ' at the of string literal",
-                )
-                .with_labels(vec![Label::primary(
-                    span.file_id,
-                    span.range(),
-                )]));
+                .with_message("missing a terminating ' at the of string literal")
+                .with_labels(vec![Label::primary(span.file_id, span.range())]));
         }
 
         self.bump();
@@ -303,26 +292,16 @@ impl<'lx> Lexer<'lx> {
                     let span = self.cursor.span();
 
                     return Err(Diagnostic::error()
-                        .with_message(
-                            "character literal must be one character long",
-                        )
-                        .with_labels(vec![Label::primary(
-                            span.file_id,
-                            span.range(),
-                        )]));
+                        .with_message("character literal must be one character long")
+                        .with_labels(vec![Label::primary(span.file_id, span.range())]));
                 }
 
                 Ok(Char(s.chars().next().unwrap()))
             }
             Err(e) => match e {
-                UnescapeError::InvalidEscapeSequence(span) => {
-                    Err(Diagnostic::error()
-                        .with_message("invalid escape sequence")
-                        .with_labels(vec![Label::primary(
-                            span.file_id,
-                            span.range(),
-                        )]))
-                }
+                UnescapeError::InvalidEscapeSequence(span) => Err(Diagnostic::error()
+                    .with_message("invalid escape sequence")
+                    .with_labels(vec![Label::primary(span.file_id, span.range())])),
             },
         }
     }
@@ -337,13 +316,8 @@ impl<'lx> Lexer<'lx> {
         if self.is_eof() {
             let span = self.cursor.span();
             return Err(Diagnostic::error()
-                .with_message(
-                    "missing a terminating \" at the of string literal",
-                )
-                .with_labels(vec![Label::primary(
-                    span.file_id,
-                    span.range(),
-                )]));
+                .with_message("missing a terminating \" at the of string literal")
+                .with_labels(vec![Label::primary(span.file_id, span.range())]));
         }
 
         self.bump();
@@ -378,10 +352,7 @@ impl<'lx> Lexer<'lx> {
                     "missing a terminating {} at the of string literal",
                     DOUBLE_QUOTE
                 ))
-                .with_labels(vec![Label::primary(
-                    span.file_id,
-                    span.range(),
-                )]));
+                .with_labels(vec![Label::primary(span.file_id, span.range())]));
         }
 
         self.bump();
@@ -397,14 +368,9 @@ impl<'lx> Lexer<'lx> {
         match unescape(&slice, self.cursor.span()) {
             Ok(s) => Ok(Str(ustr(&s))),
             Err(e) => match e {
-                UnescapeError::InvalidEscapeSequence(span) => {
-                    Err(Diagnostic::error()
-                        .with_message("invalid escape sequence")
-                        .with_labels(vec![Label::primary(
-                            span.file_id,
-                            span.range(),
-                        )]))
-                }
+                UnescapeError::InvalidEscapeSequence(span) => Err(Diagnostic::error()
+                    .with_message("invalid escape sequence")
+                    .with_labels(vec![Label::primary(span.file_id, span.range())])),
             },
         }
     }
@@ -412,8 +378,8 @@ impl<'lx> Lexer<'lx> {
     fn eat_multiline_comment(&mut self) {
         self.bump();
 
-        while self.peek_two() != "]#" && !self.is_eof() {
-            if self.peek_two() == "#[" {
+        while self.peek_two() != "*/" && !self.is_eof() {
+            if self.peek_two() == "/*" {
                 self.eat_multiline_comment();
             }
 
@@ -459,9 +425,7 @@ impl<'lx> Lexer<'lx> {
             let literal = self.source.range(self.cursor);
             match literal.replace('_', "").parse::<i64>() {
                 Ok(i) => Ok(Int(i)),
-                Err(_) => {
-                    Err(LexerError::integer_too_large(self.cursor.span()))
-                }
+                Err(_) => Err(LexerError::integer_too_large(self.cursor.span())),
             }
         }
     }
@@ -502,11 +466,7 @@ impl<'lx> Lexer<'lx> {
             if let Some(to_add) = to_add {
                 decimal_value = match decimal_value.checked_add(to_add) {
                     Some(v) => v,
-                    None => {
-                        return Err(LexerError::integer_too_large(
-                            self.cursor.span(),
-                        ))
-                    }
+                    None => return Err(LexerError::integer_too_large(self.cursor.span())),
                 };
                 base = base * 16;
             }
@@ -536,14 +496,9 @@ impl<'lx> Lexer<'lx> {
 
         for char in octal_value.chars().rev() {
             let digit = char.to_digit(10).unwrap();
-            decimal_value = match decimal_value.checked_add(digit as i64 * base)
-            {
+            decimal_value = match decimal_value.checked_add(digit as i64 * base) {
                 Some(v) => v,
-                None => {
-                    return Err(LexerError::integer_too_large(
-                        self.cursor.span(),
-                    ))
-                }
+                None => return Err(LexerError::integer_too_large(self.cursor.span())),
             };
             base *= 8;
         }
@@ -572,14 +527,9 @@ impl<'lx> Lexer<'lx> {
 
         for char in binary_value.chars().rev() {
             let digit = char.to_digit(10).unwrap();
-            decimal_value = match decimal_value.checked_add(digit as i64 * base)
-            {
+            decimal_value = match decimal_value.checked_add(digit as i64 * base) {
                 Some(v) => v,
-                None => {
-                    return Err(LexerError::integer_too_large(
-                        self.cursor.span(),
-                    ))
-                }
+                None => return Err(LexerError::integer_too_large(self.cursor.span())),
             };
             base *= 2;
         }

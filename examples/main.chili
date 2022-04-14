@@ -1,4 +1,13 @@
 let main = fn {
+    // hello
+    /*
+        hello
+        /* nested hello */
+        // yes
+    */
+    // YES // yes
+    // yay
+    
     type Foo = { a: _ }
     let mut foo = Foo { a: 1 }
     foo = Foo { a: 4 }

@@ -1,4 +1,4 @@
 pub use c
 pub use panicking
-# pub use process
-# pub use string
+pub use process
+pub use string

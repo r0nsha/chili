@@ -48,7 +48,7 @@ let String_grow = fn(string: *mut String) {
     string.data = if new_data != nil {
         new_data as *u8 as [*mut]u8
     } else {
-        # TODO: return Result here instead of just panicking...
+        // TODO: return Result here instead of just panicking...
         printf("---------- Out Of Memory ----------\n".data);
         exit(1)
     };
