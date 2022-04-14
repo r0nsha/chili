@@ -486,18 +486,6 @@ impl Check for ast::Fn {
         let fn_ty = sess.tycx.ty_kind(sig_res.ty).into_fn();
         let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
 
-        for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
-            let ty = sess.tycx.bound(param_ty.ty.clone());
-            sess.bind_pattern(
-                env,
-                &mut param.pattern,
-                ast::Visibility::Private,
-                ty,
-                None,
-                ast::BindingKind::Value,
-            )?;
-        }
-
         if !self.sig.name.is_empty() {
             self.binding_info_id = sess.bind_symbol(
                 env,
@@ -508,6 +496,20 @@ impl Check for ast::Fn {
                 false,
                 ast::BindingKind::Value,
                 self.body.span,
+            )?;
+        }
+
+        env.push_scope();
+
+        for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
+            let ty = sess.tycx.bound(param_ty.ty.clone());
+            sess.bind_pattern(
+                env,
+                &mut param.pattern,
+                ast::Visibility::Private,
+                ty,
+                None,
+                ast::BindingKind::Value,
             )?;
         }
 
@@ -529,6 +531,8 @@ impl Check for ast::Fn {
             );
         }
         unify_res.or_report_err(&sess.tycx, return_ty, body_res.ty, self.body.span)?;
+
+        env.pop_scope();
 
         Ok(Res::new(sig_res.ty))
     }
