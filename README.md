@@ -60,21 +60,21 @@ let main = fn()  {
 ## Breaking down: Hello World
 
 ```rust
-# declares a symbol named `printf`, which comes from the foreign `system` library - `libucrt`
+// declares a symbol named `printf`, which comes from the foreign `system` library - `libucrt`
 let foreign("system:libucrt") printf
 
-# the signature of the `printf` function.
-# the function takes a many-item pointer to unsigned bytes (u8).
-# the `..` indicates that the function is variadic.
-# ` -> i64` indicates that the function returns a 64bit signed integer.
+// the signature of the `printf` function.
+// the function takes a many-item pointer to unsigned bytes (u8).
+// the `..` indicates that the function is variadic.
+// ` -> i64` indicates that the function returns a 64bit signed integer.
 fn(input: [*]u8, ..) -> i64;
 
-# declares the `main` function, which takes no arguments and returns the unit type `()`
+// declares the `main` function, which takes no arguments and returns the unit type `()`
 let main = fn()  {
 
-# calls `printf`, passing it the `data` part of the string literal "Hello World\n".
-# string literals are slices to unsigned bytes: []u8.
-# the data field returns the underlying many-item pointer to that slice: [*]u8
+// calls `printf`, passing it the `data` part of the string literal "Hello World\n".
+// string literals are slices to unsigned bytes: []u8.
+// the data field returns the underlying many-item pointer to that slice: [*]u8
 	printf("Hello World\n".data);
 }
 ```
@@ -139,89 +139,89 @@ As the language is in its very early stages, every contribution will help in sha
 ### Types
 
 ```rust
-# integers
+// integers
 i8 i16 i32 i64
-int # machine-word sized integer
+int // machine-word sized integer
 
-# unsigned integers
+// unsigned integers
 u8 u16 u32 u64
-uint # machine-word sized unsigned integer
+uint // machine-word sized unsigned integer
 
-# floats
+// floats
 f16 f32 f64
 
-*t # immutable pointer to t
-*mut t # mutable pointer to t
+*t // immutable pointer to t
+*mut t // mutable pointer to t
 
-[n]t # array of type t with size n
-[]t # slice of type t
-str # alias to []u8
+[n]t // array of type t with size n
+[]t // slice of type t
+str // alias to []u8
 
-(t1, t2, ..) # tuple
+(t1, t2, ..) // tuple
 
-{ x t1, y t2, .. } # struct
+{ x: t1, y: t2, .. } // struct
 ```
 
 ### Variables
 
 ```rust
 let x = 5;
-let x: int = 5; # you can annotate the variable with a type
+let x: int = 5; // you can annotate the variable with a type
 ```
 
 ### Arrays & Slices
 
 ```rust
-let array: [3]int = [1, 2, 3]; # [1, 2, 3]
+let array: [3]int = [1, 2, 3]; // [1, 2, 3]
 
-# a slice is a struct contains a pointer to an array, and its length
-let slice: []int = array[1..]; # [2, 3]
+// a slice is a struct contains a pointer to an array, and its length
+let slice: []int = array[1..]; // [2, 3]
 
-# references to arrays can be coerced to slices
+// references to arrays can be coerced to slices
 let slice: []int = &array;
 
-array.len # get the length an array
-slice.len # get the length a slice
+array.len // get the length of the array
+slice.len // get the length of the slice
 ```
 
 ### Tuples
 
 ```rust
-let v = (1, 2); # initializes a tuple with (1, 2)
+let v = (1, 2); // initializes a tuple with (1, 2)
 
-let first = v.0; # access the 0th component of the tuple
+let first = v.0; // access the 0th component of the tuple
 
-let (x, y) = v; # destructure `v` into its components
+let (x, y) = v; // destructure `v` into its components
 ```
 
 ### Structs
 
 ```rust
-type Vector2 = { # named struct declaration
+type Vector2 = { // named struct declaration
 	x: f32,
 	y: f32
 };
 
-let v = Vector2 { x = 1, y = 2 }; # initializes a Vector2 with { x = 1, y = 2 }
+let v = Vector2 { x = 1, y = 2 }; // initializes a Vector2 with { x = 1, y = 2 }
 
-let x = v.x; # access the `x` field
+let x = v.x; // access the `x` field
 
-let {x, y} = v; # destructure `v` into its components
+let {x, y} = v; // destructure `v` into its components
 ```
 
 ### Functions
 
 ```rust
-# function declaration with explicit return
+// function declaration with explicit return
 let add = fn(a: int, b: int) -> int {
 	return a + b;
 }
 
-# function declaration with implicit return
+// function declaration with implicit return
 let add = fn(a: int, b: int) -> int {
-	# the return and the semicolon can be omitted here
-	# to indicate that we want to return the value.
-	# this is true for all blocks.
+	// the return and the semicolon can be omitted here
+	// to indicate that we want to return the value.
+	// this is true for all blocks.
 	a + b
 }
 ```
@@ -229,37 +229,37 @@ let add = fn(a: int, b: int) -> int {
 ### Importing from other modules
 
 ```rust
-# each file is a seperated module (or namespace in other languages)
+// each file is a seperated module (or namespace in other languages)
 
-# file: foo.chili
+// file: foo.chili
 
-# all functions/variables in a file are private by default
+// all functions/variables in a file are private by default
 let foo = 5;
 
-# add the `pub` keyword to make it public to other modules
+// add the `pub` keyword to make it public to other modules
 pub let im_public = 5;
 
-# file: bar.chili
+// file: bar.chili
 
-# you can use other modules(files) using the `use` keyword
-# foo is on the same directory as us, so we only have to type `foo`.
+// you can use other modules(files) using the `use` keyword
+// foo is on the same directory as us, so we only have to type `foo`.
 use foo;
 
 let main = fn() {
     let x = im_public; # we can now use im_public in `bar.chili`
 }
 
-# `deep` is nested two-level deep, so to reach it we have to
-# go through its parent modules, `this` and `is`
+// `deep` is nested two-level deep, so to reach it we have to
+// go through its parent modules, `this` and `is`
 use this.is.deep;
 
-# we can also use specific functions/variables
+// we can also use specific functions/variables
 use foo.im_public;
 
-# we can automatically use all of `foo`s symbols using *
+// we can automatically use all of `foo`s symbols using *
 use foo.*;
 
-# we can combine imports however we like
+// we can combine imports however we like
 use foo.im_public;
 use this.{
     is.deep,
