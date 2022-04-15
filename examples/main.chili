@@ -10,14 +10,14 @@ let main = fn {
 
     let a = 5
 
-	let b = map(a, fn(it) { it * 2 })
-    print(b)
+	let a = map(a, fn(it) { it * 2 })
+    print(a)
 
-	let c = map(b) fn(it) { it * 2 }
-    print(c)
+	let a = map(a) fn(it) { it * 2 }
+    print(a)
 
-	let c = map(b) fn(it) { it * 2 }
-    print(c)
+	let a = map(a) fn { it * 2 }
+    print(a)
 
     ()
 }

@@ -17,7 +17,7 @@ use crate::{
 };
 use chili_ast::{
     ast::{self, ForeignLibrary},
-    pattern::Pattern,
+    pattern::{Pattern, SymbolPattern},
     ty::{FnTy, FnTyParam, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
@@ -543,35 +543,68 @@ impl Check for ast::FnSig {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<Ty>,
+        expected_ty: Option<Ty>,
     ) -> CheckResult {
         let mut ty_params = vec![];
         let mut param_map = UstrMap::default();
 
-        for param in self.params.iter_mut() {
-            param.ty = if let Some(expr) = &mut param.ty_expr {
-                let res = expr.check(sess, env, None)?;
-                sess.extract_const_type(res.const_value, res.ty, expr.span)?
-            } else {
-                sess.tycx.var()
-            };
-
-            ty_params.push(FnTyParam {
-                symbol: if param.pattern.is_single() {
-                    param.pattern.as_single_ref().symbol
+        if !self.params.is_empty() {
+            for param in self.params.iter_mut() {
+                param.ty = if let Some(expr) = &mut param.ty_expr {
+                    let res = expr.check(sess, env, None)?;
+                    sess.extract_const_type(res.const_value, res.ty, expr.span)?
                 } else {
-                    ustr("")
-                },
-                ty: param.ty.into(),
-            });
+                    sess.tycx.var()
+                };
 
-            for pat in param.pattern.symbols() {
-                if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
-                    return Err(SyntaxError::duplicate_symbol(
-                        already_defined_span,
-                        pat.span,
-                        pat.symbol,
-                    ));
+                ty_params.push(FnTyParam {
+                    symbol: if param.pattern.is_single() {
+                        param.pattern.as_single_ref().symbol
+                    } else {
+                        ustr("")
+                    },
+                    ty: param.ty.into(),
+                });
+
+                for pat in param.pattern.symbols() {
+                    if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
+                        return Err(SyntaxError::duplicate_symbol(
+                            already_defined_span,
+                            pat.span,
+                            pat.symbol,
+                        ));
+                    }
+                }
+            }
+        } else {
+            // if the function signature has no parameters, and the
+            // parent type is a function with 1 parameter, add an implicit `it` parameter
+            if let Some(ty) = expected_ty {
+                match ty.normalize(&sess.tycx) {
+                    TyKind::Fn(f) => {
+                        if f.params.len() == 1 {
+                            let symbol = ustr("it");
+
+                            self.params.push(ast::FnParam {
+                                pattern: Pattern::Single(SymbolPattern {
+                                    binding_info_id: Default::default(),
+                                    symbol,
+                                    alias: None,
+                                    span: Span::unknown(),
+                                    is_mutable: false,
+                                    ignore: false,
+                                }),
+                                ty_expr: None,
+                                ty: sess.tycx.bound(f.params[0].ty.clone()),
+                            });
+
+                            ty_params.push(FnTyParam {
+                                symbol,
+                                ty: f.params[0].ty.clone(),
+                            });
+                        }
+                    }
+                    _ => (),
                 }
             }
         }

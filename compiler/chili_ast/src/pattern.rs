@@ -112,6 +112,13 @@ impl Display for UnpackPattern {
     }
 }
 
+// bitflags! {
+//     pub struct PatternFlags : u8 {
+//         const IS_MUTABLE = 1 << 0;
+//         const IGNORE = 1 << 1;
+//     }
+// }
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct SymbolPattern {
     pub binding_info_id: BindingInfoId,
