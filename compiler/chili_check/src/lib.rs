@@ -710,7 +710,15 @@ impl Check for ast::Expr {
                 while_.block.check(sess, env, None)?;
                 sess.loop_depth -= 1;
 
-                Ok(Res::new(sess.tycx.common_types.unit))
+                if let Some(cond) = cond_res.const_value {
+                    if cond.into_bool() {
+                        Ok(Res::new(sess.tycx.common_types.never))
+                    } else {
+                        Ok(Res::new(sess.tycx.common_types.unit))
+                    }
+                } else {
+                    Ok(Res::new(sess.tycx.common_types.unit))
+                }
             }
             ast::ExprKind::For(for_) => {
                 let iter_ty = match &mut for_.iterator {
