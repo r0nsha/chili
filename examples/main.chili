@@ -1,14 +1,24 @@
+use c.printf
+
 let main = fn {
-    // hello
-    /*
-        hello
-        /* nested hello */
-        // yes
-    */
-    // YES // yes
-    // yay
-    
-    type Foo = { a: _ }
-    let mut foo = Foo { a: 1 }
-    foo = Foo { a: 4 }
+    let map = fn(a: int, f: fn(int) -> int) -> int {
+        f(a)
+    }
+    let print = fn(n: int) {
+        printf("%d\n".data, n)
+    }
+
+    let a = 5
+
+	let b = map(a, fn(it) { it * 2 })
+    print(b)
+
+	let c = map(b) fn(it) { it * 2 }
+    print(c)
+
+	let c = map(b) fn(it) { it * 2 }
+    print(c)
+
+    ()
 }
+

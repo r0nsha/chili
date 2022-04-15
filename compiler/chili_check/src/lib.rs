@@ -1542,7 +1542,18 @@ impl Check for ast::Expr {
                     Value::Type(sess.tycx.bound(struct_ty)),
                 ))
             }
-            ast::ExprKind::FnType(sig) => sig.check(sess, env, expected_ty),
+            ast::ExprKind::FnType(sig) => {
+                let res = sig.check(sess, env, expected_ty)?;
+
+                if sig.lib_name.is_some() {
+                    Ok(Res::new(res.ty))
+                } else {
+                    Ok(Res::new_const(
+                        sess.tycx.bound(TyKind::Var(res.ty).create_type()),
+                        Value::Type(res.ty),
+                    ))
+                }
+            }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
                     sess.tycx.bound(TyKind::Var(ty).create_type()),
