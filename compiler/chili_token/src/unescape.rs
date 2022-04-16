@@ -31,20 +31,17 @@ pub fn unescape(s: &str, start_span: Span) -> Result<String, UnescapeError> {
                 '\"' => s.push('\"'),
                 '\\' => s.push('\\'),
                 _ => {
-                    return Err(UnescapeError::InvalidEscapeSequence(
-                        Span::new(
-                            start_span.file_id,
-                            Position {
-                                index: start_span.start.index + processed,
-                                line: start_span.start.line,
-                                column: start_span.start.column
-                                    + processed as u16,
-                            },
-                            EndPosition {
-                                index: start_span.start.index + processed + 1,
-                            },
-                        ),
-                    ))
+                    return Err(UnescapeError::InvalidEscapeSequence(Span::new(
+                        start_span.file_id,
+                        Position {
+                            index: start_span.start.index + processed,
+                            line: start_span.start.line,
+                            column: start_span.start.column + processed as u16,
+                        },
+                        EndPosition {
+                            index: start_span.start.index + processed + 1,
+                        },
+                    )))
                 }
             };
         }

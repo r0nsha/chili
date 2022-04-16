@@ -1,14 +1,15 @@
-use std::process::exit;
+pub mod diagnostic;
+pub mod emitter;
 
+use chili_span::Span;
 use codespan_reporting::{
     diagnostic::*,
     files::SimpleFiles,
     term::termcolor::{ColorChoice, StandardStream},
     term::*,
 };
+use std::process::exit;
 use ustr::Ustr;
-
-use chili_span::Span;
 
 pub type Diagnostics = Vec<Diagnostic<usize>>;
 pub type DiagnosticResult<T> = Result<T, Diagnostic<usize>>;
@@ -32,7 +33,7 @@ pub fn emit_diagnostics(files: &SimpleFiles<String, String>, diagnostics: &mut D
         display_style: DisplayStyle::Rich,
         tab_width: 4,
         styles: Styles::default(),
-        chars: Chars::box_drawing(),
+        chars: Chars::ascii(),
         start_context_lines: 3,
         end_context_lines: 1,
     };

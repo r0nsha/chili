@@ -192,7 +192,10 @@ impl Lint for ast::Expr {
                             "entry point function `main` has type `{}`, expected `fn() -> ()`",
                             ty
                         ))
-                        .with_labels(vec![Label::primary(self.span.file_id, self.span.range())]));
+                        .with_labels(vec![Label::primary(
+                            self.span.file_id,
+                            self.span.range(),
+                        )]));
                 }
 
                 f.body.lint(sess)?;
