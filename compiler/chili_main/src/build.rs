@@ -1,7 +1,6 @@
 use chili_ast::workspace::Workspace;
 use chili_astgen::{AstGenerationMode, AstGenerationStats};
 use chili_error::emit_single_diagnostic;
-use codespan_reporting::diagnostic::Diagnostic;
 use colored::Colorize;
 use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
@@ -23,6 +22,7 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Check that root file exists
     if !source_path.exists() {
+        workspace.diagnostics.add(diagnostic);
         emit_single_diagnostic(
             &workspace.files,
             Diagnostic::error()

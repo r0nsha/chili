@@ -80,8 +80,8 @@ impl<'a> AstGenerator<'a> {
             let mut workspace = self.workspace.lock().unwrap();
 
             let file_id = workspace
-                .files
-                .add(module_info.file_path.to_string(), unindent(&source));
+                .diagnostics
+                .add_file(module_info.file_path.to_string(), unindent(&source));
 
             if is_root {
                 workspace.root_file_id = file_id;

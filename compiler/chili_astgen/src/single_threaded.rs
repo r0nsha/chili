@@ -66,8 +66,8 @@ impl<'a> AstGenerator<'a> {
 
         let file_id = self
             .workspace
-            .files
-            .add(module_info.file_path.to_string(), unindent(&source));
+            .diagnostics
+            .add_file(module_info.file_path.to_string(), unindent(&source));
 
         if is_root {
             self.workspace.root_file_id = file_id;

@@ -4,6 +4,7 @@ use crate::{
     value::Value,
 };
 use bitflags::bitflags;
+use chili_error::{diagnostic::Diagnostic, emitter::DiagnosticEmitter};
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use common::build_options::BuildOptions;
@@ -17,10 +18,11 @@ use ustr::{ustr, Ustr, UstrMap};
 pub type ModuleExports = HashMap<ModuleId, UstrMap<BindingInfoId>>;
 
 pub struct Workspace {
+    // The build options, either passed by the user, or inferred from the host machine
     pub build_options: BuildOptions,
 
-    // Mapping from file id's to their source. Stored for diagnostics
-    pub files: SimpleFiles<String, String>,
+    // Diagnostics are responsible for both keeping errors/warnings and for emitting them
+    pub diagnostics: Diagnostics,
 
     // The root source file's id. Resolved during ast generation
     pub root_file_id: FileId,
@@ -56,7 +58,6 @@ impl Workspace {
     pub fn new(build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
         Self {
             build_options,
-            files: SimpleFiles::new(),
             root_file_id: Default::default(),
             root_dir,
             std_dir,
@@ -66,7 +67,44 @@ impl Workspace {
             exports: Default::default(),
             entry_point_function_id: None,
             foreign_libraries: Default::default(),
+            diagnostics: Diagnostics {
+                files: SimpleFiles::new(),
+                emitter: DiagnosticEmitter::new(),
+                diagnostics: vec![],
+            },
         }
+    }
+}
+
+pub struct Diagnostics {
+    files: SimpleFiles<String, String>,
+    emitter: DiagnosticEmitter,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl Diagnostics {
+    pub fn add_file(&mut self, name: String, source: String) -> FileId {
+        self.files.add(name, source)
+    }
+
+    pub fn errors(&self) -> &[Diagnostic] {
+        &self.diagnostics
+    }
+
+    pub fn add(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    pub fn count(&self) -> usize {
+        self.diagnostics.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count() == 0
+    }
+
+    pub fn emit(self) {
+        self.emitter.emit_many(&self.files, self.diagnostics)
     }
 }
 

@@ -16,7 +16,7 @@ pub struct DiagnosticEmitter {
 }
 
 impl DiagnosticEmitter {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             writer: StandardStream::stderr(ColorChoice::Always),
             config: Config {
