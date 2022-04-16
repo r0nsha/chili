@@ -10,8 +10,6 @@ path = "src/main.rs"
 [dependencies]
 clap = "2.33.3"
 colored = "2.0.0"
-codespan = "0.11.1"
-codespan-reporting = "0.11.1"
 num-format = "0.4.0"
 ustr = "0.8.1"
 path-absolutize = "3.0.11"
@@ -26,4 +24,4 @@ chili_resolve = { path = "../chili_resolve" }
 chili_check = { path = "../chili_check" }
 chili_lint = { path = "../chili_lint" }
 chili_defer = { path = "../chili_defer" }
-# chili_backend_llvm = { path = "../chili_backend_llvm" }
+chili_backend_llvm = { path = "../chili_backend_llvm" }

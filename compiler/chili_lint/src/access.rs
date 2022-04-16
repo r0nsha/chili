@@ -1,7 +1,9 @@
 use chili_ast::{ast, workspace::BindingInfoId};
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::sess::{InitState, LintSess};
 
@@ -22,11 +24,8 @@ impl<'s> LintSess<'s> {
 
                 return Err(Diagnostic::error()
                     .with_message(msg.clone())
-                    .with_labels(vec![
-                        Label::primary(span.file_id, span.range()).with_message(msg),
-                        Label::secondary(binding_info.span.file_id, binding_info.span.range())
-                            .with_message("defined here"),
-                    ]));
+                    .with_label(Label::primary(span, msg))
+                    .with_label(Label::secondary(binding_info.span, "defined here")));
             }
         }
 
@@ -48,11 +47,8 @@ impl<'s> LintSess<'s> {
             );
             return Err(Diagnostic::error()
                 .with_message(msg.clone())
-                .with_labels(vec![
-                    Label::primary(lvalue.span.file_id, lvalue.span.range()).with_message(msg),
-                    Label::secondary(binding_info.span.file_id, binding_info.span.range())
-                        .with_message("defined here"),
-                ]));
+                .with_label(Label::primary(lvalue.span, msg))
+                .with_label(Label::secondary(binding_info.span, "defined here")));
         }
 
         if init_state.is_init() {

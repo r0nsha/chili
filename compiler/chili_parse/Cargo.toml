@@ -7,8 +7,6 @@ edition = "2021"
 colored = "2.0.0"
 strum_macros = "0.23.1"
 ptree = "0.4.0"
-codespan = "0.11.1"
-codespan-reporting = "0.11.1"
 ustr = "0.8.1"
 bitflags = "1.3.2"
 

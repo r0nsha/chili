@@ -10,8 +10,10 @@ use chili_ast::{
     workspace::Workspace,
 };
 use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
-use chili_error::{DiagnosticResult, TypeError};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult, TypeError,
+};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 
@@ -116,13 +118,8 @@ impl Lint for ast::Binding {
                         if pat.is_mutable {
                             return Err(Diagnostic::error()
                                 .with_message("variable of type `type` must be immutable")
-                                .with_labels(vec![Label::primary(
-                                    pat.span.file_id,
-                                    pat.span.range(),
-                                )])
-                                .with_notes(vec![String::from(
-                                    "try removing the `mut` from the declaration",
-                                )]));
+                                .with_label(Label::primary(pat.span, "variable is mutable"))
+                                .with_note("try removing the `mut` from the declaration"));
                         }
                     }
                     Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
@@ -192,10 +189,10 @@ impl Lint for ast::Expr {
                             "entry point function `main` has type `{}`, expected `fn() -> ()`",
                             ty
                         ))
-                        .with_labels(vec![Label::primary(
-                            self.span.file_id,
-                            self.span.range(),
-                        )]));
+                        .with_label(Label::primary(
+                            self.span,
+                            "invalid type of entry point function",
+                        )));
                 }
 
                 f.body.lint(sess)?;
@@ -262,10 +259,9 @@ impl Lint for ast::Expr {
                         .with_message(
                             "multi pointer has unknown length, so you must specify the ending index",
                         )
-                        .with_labels(vec![Label::primary(
-                            slice.expr.span.file_id,
-                            slice.expr.span.range(),
-                        )]));
+                        .with_label(Label::primary(
+                            slice.expr.span,"multi pointer has unknown length"
+                        )));
                     }
                 }
             }

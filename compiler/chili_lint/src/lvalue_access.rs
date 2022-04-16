@@ -1,9 +1,11 @@
 use crate::sess::LintSess;
 use chili_ast::{ast, ty::TyKind, workspace::BindingInfoId};
 use chili_check::{display::DisplayTy, normalize::NormalizeTy};
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 pub(crate) enum LvalueAccessErr {
     ImmutableReference { ty: TyKind, span: Span },
@@ -20,15 +22,14 @@ impl<'s> LintSess<'s> {
         use LvalueAccessErr::*;
 
         self.check_lvalue_mutability_internal(expr)
-            .map_err(|err| -> Diagnostic<usize> {
+            .map_err(|err| -> Diagnostic {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
                         .with_message(format!(
                             "cannot assign to the value, it is behind an immutable `{}`",
                             ty.display(self.tycx)
                         ))
-                        .with_labels(vec![Label::primary(span.file_id, span.range())
-                            .with_message("cannot assign")]),
+                        .with_label(Label::primary(span, "cannot assign")),
                     ImmutableIdent { id, span } => {
                         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
@@ -37,23 +38,21 @@ impl<'s> LintSess<'s> {
                                 "cannot assign to `{}`, as it is not declared as mutable",
                                 binding_info.symbol
                             ))
-                            .with_labels(vec![
-                                Label::primary(span.file_id, span.range())
-                                    .with_message("cannot assign"),
-                                Label::secondary(
-                                    binding_info.span.file_id,
-                                    binding_info.span.range(),
-                                )
-                                .with_message(format!(
+                            .with_label(Label::primary(span, "cannot assign"))
+                            .with_label(Label::secondary(
+                                binding_info.span,
+                                format!(
                                     "consider making this binding mutable: `mut {}`",
                                     binding_info.symbol
-                                )),
-                            ])
+                                ),
+                            ))
                     }
                     InvalidLvalue => Diagnostic::error()
                         .with_message("invalid left-hand side of assignment")
-                        .with_labels(vec![Label::primary(expr_span.file_id, expr_span.range())
-                            .with_message("cannot assign to this expression")]),
+                        .with_label(Label::primary(
+                            expr_span,
+                            "cannot assign to this expression",
+                        )),
                 }
             })
     }

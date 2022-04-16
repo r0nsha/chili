@@ -3,9 +3,11 @@ use chili_ast::{
     ast,
     workspace::{BindingInfo, BindingInfoId, ModuleId},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
 pub(crate) trait CheckTopLevel
@@ -127,11 +129,7 @@ impl<'s> CheckSess<'s> {
 
             Err(Diagnostic::error()
                 .with_message(message)
-                .with_labels(vec![Label::primary(
-                    caller_info.span.file_id,
-                    caller_info.span.range(),
-                )
-                .with_message(label_message)]))
+                .with_label(Label::primary(caller_info.span, label_message)))
         }
     }
 
@@ -148,12 +146,8 @@ impl<'s> CheckSess<'s> {
                     "associated symbol `{}` is private",
                     binding_info.symbol
                 ))
-                .with_labels(vec![
-                    Label::primary(caller_info.span.file_id, caller_info.span.range())
-                        .with_message("accessed here"),
-                    Label::secondary(binding_info.span.file_id, binding_info.span.range())
-                        .with_message("defined here"),
-                ]))
+                .with_label(Label::primary(caller_info.span, "accessed here"))
+                .with_label(Label::secondary(binding_info.span, "defined here")))
         } else {
             Ok(())
         }

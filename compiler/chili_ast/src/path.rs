@@ -1,10 +1,10 @@
-use std::path::Path;
-
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use path_absolutize::Absolutize;
-
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
+use path_absolutize::Absolutize;
+use std::path::Path;
 
 pub fn resolve_relative_path(
     path: &str,
@@ -24,13 +24,10 @@ pub fn resolve_relative_path(
     } else {
         let diagnostic = Diagnostic::error()
             .with_message(format!("path `{}` doesn't exist", path.display()))
-            .with_notes(vec![format!(
-                "absolute path is: {}",
-                absolute_path.display()
-            )]);
+            .with_note(format!("absolute path is: {}", absolute_path.display()));
 
         Err(match span {
-            Some(span) => diagnostic.with_labels(vec![Label::primary(span.file_id, span.range())]),
+            Some(span) => diagnostic.with_label(Label::primary(span, "doesn't exist")),
             None => diagnostic,
         })
     }

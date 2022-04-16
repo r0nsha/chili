@@ -3,9 +3,11 @@ use chili_ast::{
     ty::{IntTy, Ty, TyKind, UIntTy},
 };
 use chili_check::normalize::NormalizeTy;
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::fmt::Display;
 
 use crate::sess::LintSess;
@@ -79,13 +81,11 @@ fn overflow_err<V: Copy + Display, M: Copy + Display>(
     min: M,
     max: M,
     span: Span,
-) -> Diagnostic<usize> {
+) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!(
             "integer literal of type `{}` must be between {} and {}, but found {}",
             ty, min, max, value
         ))
-        .with_labels(vec![
-            Label::primary(span.file_id, span.range()).with_message("integer literal overflow")
-        ])
+        .with_label(Label::primary(span, "integer literal overflow"))
 }

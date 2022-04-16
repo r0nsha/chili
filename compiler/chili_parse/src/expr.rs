@@ -6,7 +6,6 @@ use chili_ast::ast::{
 use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
-use codespan_reporting::diagnostic::Diagnostic;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
 
@@ -475,9 +474,7 @@ impl<'p> Parser<'p> {
                     deferred: vec![],
                 })
             }
-            _ => {
-                return Err(Diagnostic::bug().with_message("got an invalid terminator"));
-            }
+            _ => panic!("got an invalid terminator"),
         };
 
         return Ok(Expr::new(kind, span.to(self.previous_span())));

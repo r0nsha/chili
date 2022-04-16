@@ -3,7 +3,6 @@ use chili_ast::ast::{self, ArrayLiteralKind, Expr, ExprKind, Literal, StructLite
 use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 impl<'p> Parser<'p> {
     pub(crate) fn parse_literal(&mut self) -> DiagnosticResult<Expr> {
@@ -18,13 +17,7 @@ impl<'p> Parser<'p> {
             Float(value) => Literal::Float(*value),
             Str(value) => Literal::Str(value.to_string()),
             Char(value) => Literal::Char(*value),
-            _ => {
-                return Err(Diagnostic::bug()
-                    .with_message(format!("unexpected literal `{}`", token.lexeme))
-                    .with_labels(vec![
-                        Label::primary(span.file_id, span.range()).with_message("unknown literal")
-                    ]));
-            }
+            _ => panic!("unexpected literal `{}`", token.lexeme),
         };
 
         Ok(Expr::new(ExprKind::Literal(value), span))

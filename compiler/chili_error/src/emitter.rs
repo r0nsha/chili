@@ -56,7 +56,7 @@ type CodespanDiagnostic = codespan_reporting::diagnostic::Diagnostic<FileId>;
 impl Into<Severity> for DiagnosticKind {
     fn into(self) -> Severity {
         match self {
-            DiagnosticKind::Err => Severity::Error,
+            DiagnosticKind::Error => Severity::Error,
         }
     }
 }
@@ -64,7 +64,6 @@ impl Into<Severity> for DiagnosticKind {
 impl Into<CodespanDiagnostic> for Diagnostic {
     fn into(self) -> CodespanDiagnostic {
         CodespanDiagnostic::new(self.kind.into())
-            .with_code(self.code)
             .with_message(self.message.unwrap_or(Default::default()))
             .with_labels(
                 self.labels

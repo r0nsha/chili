@@ -7,8 +7,8 @@ use crate::{
     Token,
     TokenKind::{self, *},
 };
+use chili_error::diagnostic::{Diagnostic, Label};
 use chili_error::{DiagnosticResult, LexerError};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use unicode_xid::UnicodeXID;
 use ustr::ustr;
 
@@ -250,9 +250,10 @@ impl<'lx> Lexer<'lx> {
                         self.eat_number()?
                     } else {
                         let span = self.cursor.span();
+                        let message = format!("invalid token `{}`", ch);
                         return Err(Diagnostic::error()
-                            .with_message(format!("invalid token `{}`", ch))
-                            .with_labels(vec![Label::primary(span.file_id, span.range())]));
+                            .with_message(message.clone())
+                            .with_label(Label::primary(span, message)));
                     }
                 }
             }
@@ -271,9 +272,10 @@ impl<'lx> Lexer<'lx> {
 
         if self.is_eof() {
             let span = self.cursor.span();
+            let message = "missing a terminating ' at the of string literal";
             return Err(Diagnostic::error()
-                .with_message("missing a terminating ' at the of string literal")
-                .with_labels(vec![Label::primary(span.file_id, span.range())]));
+                .with_message(message)
+                .with_label(Label::primary(span, message)));
         }
 
         self.bump();
@@ -290,18 +292,21 @@ impl<'lx> Lexer<'lx> {
             Ok(s) => {
                 if s.len() != 1 {
                     let span = self.cursor.span();
-
+                    let message = "character literal must be one character long";
                     return Err(Diagnostic::error()
-                        .with_message("character literal must be one character long")
-                        .with_labels(vec![Label::primary(span.file_id, span.range())]));
+                        .with_message(message)
+                        .with_label(Label::primary(span, message)));
                 }
 
                 Ok(Char(s.chars().next().unwrap()))
             }
             Err(e) => match e {
-                UnescapeError::InvalidEscapeSequence(span) => Err(Diagnostic::error()
-                    .with_message("invalid escape sequence")
-                    .with_labels(vec![Label::primary(span.file_id, span.range())])),
+                UnescapeError::InvalidEscapeSequence(span) => {
+                    let message = "invalid escape sequence";
+                    return Err(Diagnostic::error()
+                        .with_message(message)
+                        .with_label(Label::primary(span, message)));
+                }
             },
         }
     }
@@ -315,9 +320,10 @@ impl<'lx> Lexer<'lx> {
 
         if self.is_eof() {
             let span = self.cursor.span();
+            let message = "missing a terminating \" at the of string literal";
             return Err(Diagnostic::error()
-                .with_message("missing a terminating \" at the of string literal")
-                .with_labels(vec![Label::primary(span.file_id, span.range())]));
+                .with_message(message)
+                .with_label(Label::primary(span, message)));
         }
 
         self.bump();
@@ -352,7 +358,7 @@ impl<'lx> Lexer<'lx> {
                     "missing a terminating {} at the of string literal",
                     DOUBLE_QUOTE
                 ))
-                .with_labels(vec![Label::primary(span.file_id, span.range())]));
+                .with_label(Label::primary(span, "missing terminator")));
         }
 
         self.bump();
@@ -368,9 +374,12 @@ impl<'lx> Lexer<'lx> {
         match unescape(&slice, self.cursor.span()) {
             Ok(s) => Ok(Str(ustr(&s))),
             Err(e) => match e {
-                UnescapeError::InvalidEscapeSequence(span) => Err(Diagnostic::error()
-                    .with_message("invalid escape sequence")
-                    .with_labels(vec![Label::primary(span.file_id, span.range())])),
+                UnescapeError::InvalidEscapeSequence(span) => {
+                    let message = "invalid escape sequence";
+                    return Err(Diagnostic::error()
+                        .with_message(message)
+                        .with_label(Label::primary(span, message)));
+                }
             },
         }
     }

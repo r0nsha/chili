@@ -4,9 +4,11 @@ use chili_ast::{
     compiler_info,
     workspace::ModuleInfo,
 };
-use chili_error::{DiagnosticResult, SyntaxError};
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult, SyntaxError,
+};
 use chili_span::{Span, Spanned};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
 use std::path::{Path, PathBuf};
 use ustr::{ustr, Ustr};
@@ -215,14 +217,14 @@ impl<'p> Parser<'p> {
     }
 }
 
-fn module_not_found_err(path_buf: &PathBuf, module: &str, span: Span) -> Diagnostic<usize> {
+fn module_not_found_err(path_buf: &PathBuf, module: &str, span: Span) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!("couldn't find module `{}`", module))
-        .with_labels(vec![Label::primary(span.file_id, span.range())])
-        .with_notes(vec![format!(
+        .with_label(Label::primary(span, "not found"))
+        .with_note(format!(
             "tried to resolve this path: {}",
             path_buf.display()
-        )])
+        ))
 }
 
 fn check_path_is_under_root_or_std(
@@ -236,6 +238,6 @@ fn check_path_is_under_root_or_std(
     } else {
         Err(Diagnostic::error()
             .with_message("cannot use modules outside of the root module scope")
-            .with_labels(vec![Label::primary(span.file_id, span.range())]))
+            .with_label(Label::primary(span, "cannot use")))
     }
 }

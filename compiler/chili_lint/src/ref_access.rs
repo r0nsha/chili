@@ -5,9 +5,11 @@ use chili_ast::{
     workspace::{BindingInfo, BindingInfoId, ModuleId},
 };
 use chili_check::{display::DisplayTy, normalize::NormalizeTy};
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::Ustr;
 
 enum RefAccessErr {
@@ -29,9 +31,7 @@ impl<'s> LintSess<'s> {
                         "cannot reference value, because it is behind an immutable `{}`",
                         ty.display(self.tycx)
                     ))
-                    .with_labels(vec![
-                        Label::primary(span.file_id, span.range()).with_message("cannot reference")
-                    ]),
+                    .with_label(Label::primary(span, "cannot reference")),
                 ImmutableBinding { id, span } => {
                     let binding_info = self.workspace.get_binding_info(id).unwrap();
 
@@ -40,15 +40,14 @@ impl<'s> LintSess<'s> {
                             "cannot reference `{}` as mutable, as it is not declared as mutable",
                             binding_info.symbol
                         ))
-                        .with_labels(vec![
-                            Label::primary(span.file_id, span.range())
-                                .with_message("cannot reference immutable variable"),
-                            Label::secondary(binding_info.span.file_id, binding_info.span.range())
-                                .with_message(format!(
-                                    "consider changing this to be mutable: `mut {}`",
-                                    binding_info.symbol
-                                )),
-                        ])
+                        .with_label(Label::primary(span, "cannot reference immutable variable"))
+                        .with_label(Label::secondary(
+                            binding_info.span,
+                            format!(
+                                "consider changing this to be mutable: `mut {}`",
+                                binding_info.symbol
+                            ),
+                        ))
                 }
             })
     }

@@ -22,9 +22,11 @@ use chili_ast::{
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
-use chili_error::{DiagnosticResult, SyntaxError, TypeError};
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult, SyntaxError, TypeError,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use coerce::{OrCoerceExprIntoTy, OrCoerceExprs};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -112,8 +114,7 @@ impl<'s> CheckSess<'s> {
                         let span = binding.pattern.span();
                         return Err(Diagnostic::error()
                             .with_message("this pattern is not supported yet for global bindings")
-                            .with_labels(vec![Label::primary(span.file_id, span.range())
-                                .with_message("not supported yet")]));
+                            .with_label(Label::primary(span, "not supported yet")));
                     }
                 };
             }
@@ -130,9 +131,7 @@ impl<'s> CheckSess<'s> {
         if self.workspace.entry_point_function_id.is_none() {
             return Err(Diagnostic::error()
                 .with_message("entry point function `main` is not defined")
-                .with_notes(vec![
-                    "define function `let main = fn() {}` in your entry file".to_string(),
-                ]));
+                .with_note("define function `let main = fn() {}` in your entry file"));
         }
 
         Ok(())
@@ -749,10 +748,7 @@ impl Check for ast::Expr {
                             _ => {
                                 return Err(Diagnostic::error()
                                     .with_message(format!("can't iterate over `{}`", ty))
-                                    .with_labels(vec![Label::primary(
-                                        value.span.file_id,
-                                        value.span.range(),
-                                    )]));
+                                    .with_label(Label::primary(value.span, "can't iterate")));
                             }
                         }
                     }
@@ -1155,10 +1151,9 @@ impl Check for ast::Expr {
                                 size - 1,
                                 value
                             );
-                            return Err(Diagnostic::error().with_message(msg).with_labels(vec![
-                                Label::primary(sub.index.span.file_id, sub.index.span.range())
-                                    .with_message("index out of bounds"),
-                            ]));
+                            return Err(Diagnostic::error().with_message(msg).with_label(
+                                Label::primary(sub.index.span, "index out of bounds"),
+                            ));
                         }
                     }
                 }
@@ -1308,11 +1303,10 @@ impl Check for ast::Expr {
                         && binding_info.scope_level < min_scope_level
                     {
                         return Err(Diagnostic::error()
-                            .with_message("can't capture dynamic environment yet - closures are not implemented yet")
-                            .with_labels(vec![Label::primary(
-                                self.span.file_id,
-                                self.span.range(),
-                            )]));
+                            .with_message(
+                                "can't capture environment - closures are not implemented yet",
+                            )
+                            .with_label(Label::primary(self.span, "can't capture")));
                     }
 
                     Ok(sess
@@ -1426,10 +1420,7 @@ impl Check for ast::Expr {
                                 "type `{}` does not support struct initialization syntax",
                                 ty
                             ))
-                            .with_labels(vec![Label::primary(
-                                type_expr.span.file_id,
-                                type_expr.span.range(),
-                            )])),
+                            .with_label(Label::primary(type_expr.span, "not a struct type"))),
                     }
                 }
                 None => match expected_ty {
@@ -1593,10 +1584,7 @@ impl Check for ast::Expr {
                 )),
                 None => Err(Diagnostic::error()
                     .with_message("`Self` is only available within struct types")
-                    .with_labels(vec![Label::primary(
-                        self.span.file_id,
-                        self.span.range().clone(),
-                    )])),
+                    .with_label(Label::primary(self.span, "`Self` is invalid here"))),
             },
             ast::ExprKind::NeverType => {
                 let ty = sess.tycx.common_types.never;
@@ -1722,10 +1710,7 @@ impl Check for ast::Cast {
                 None => {
                     return Err(Diagnostic::error()
                         .with_message("can't infer the type cast's target type")
-                        .with_labels(vec![Label::primary(
-                            self.expr.span.file_id,
-                            self.expr.span.range(),
-                        )]))
+                        .with_label(Label::primary(self.expr.span, "can't infer")))
                 }
             }
         };
@@ -1741,11 +1726,10 @@ impl Check for ast::Cast {
                     "cannot cast from `{}` to `{}`",
                     source_ty, target_ty
                 ))
-                .with_labels(vec![Label::primary(
-                    self.expr.span.file_id,
-                    self.expr.span.range(),
-                )
-                .with_message(format!("invalid cast to `{}`", target_ty))]))
+                .with_label(Label::primary(
+                    self.expr.span,
+                    format!("invalid cast to `{}`", target_ty),
+                )))
         }
     }
 }
@@ -1857,7 +1841,7 @@ fn check_named_struct_literal(
     if struct_ty.is_union() && fields.len() != 1 {
         return Err(Diagnostic::error()
             .with_message("union literal should have exactly one field")
-            .with_labels(vec![Label::primary(span.file_id, span.range())]));
+            .with_label(Label::primary(span, format!("type is `{}`", struct_ty))));
     }
 
     if !struct_ty.is_union() && !uninit_fields.is_empty() {
@@ -1870,7 +1854,7 @@ fn check_named_struct_literal(
                     .collect::<Vec<&str>>()
                     .join(", ")
             ))
-            .with_labels(vec![Label::primary(span.file_id, span.range())]));
+            .with_label(Label::primary(span, "missing fields")));
     }
 
     Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty))))

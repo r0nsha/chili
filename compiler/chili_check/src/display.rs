@@ -3,9 +3,11 @@ use crate::{
     ty_ctx::TyCtx,
     unify::{UnifyTyErr, UnifyTyResult},
 };
-use chili_error::DiagnosticResult;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult,
+};
 use chili_span::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 pub trait DisplayTy {
     fn display(&self, tycx: &TyCtx) -> String;
@@ -45,15 +47,13 @@ impl OrReportErr for UnifyTyResult {
                         "mismatched types - expected {}, but found {}",
                         expected, found
                     ))
-                    .with_labels(vec![Label::primary(span.file_id, span.range().clone())
-                        .with_message(format!("expected {}", expected))]),
+                    .with_label(Label::primary(span, format!("expected {}", expected))),
                 UnifyTyErr::Occurs => Diagnostic::error()
                     .with_message(format!(
                         "found recursive type - {} is equal to {}",
                         expected, found
                     ))
-                    .with_labels(vec![Label::primary(span.file_id, span.range().clone())
-                        .with_message(format!("expected {}", expected))]),
+                    .with_label(Label::primary(span, format!("expected {}", expected))),
             }
         })
     }
