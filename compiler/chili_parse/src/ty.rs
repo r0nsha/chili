@@ -1,4 +1,4 @@
-use crate::{func::ParseFnSigKind, *};
+use crate::*;
 use chili_ast::{
     ast::{self, Expr, ExprKind, StructType, StructTypeField},
     ty::StructTyKind,
@@ -181,7 +181,7 @@ impl<'p> Parser<'p> {
     fn parse_fn_ty(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
         let name = self.get_decl_name();
-        let sig = self.parse_fn_fn_sig(name, ParseFnSigKind::Type)?;
+        let sig = self.parse_fn_sig(name)?;
 
         Ok(Expr::new(
             ExprKind::FnType(sig),

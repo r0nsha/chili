@@ -1,4 +1,4 @@
-use crate::{func::ParseFnSigKind, *};
+use crate::*;
 use chili_ast::{
     ast::{Binding, BindingKind, Expr, ExprKind, Visibility},
     pattern::{Pattern, SymbolPattern},
@@ -64,7 +64,7 @@ impl<'p> Parser<'p> {
             expect!(self, Fn, "fn")?;
 
             let fn_sig_start_span = self.previous().span;
-            let mut sig = self.parse_fn_fn_sig(id.symbol(), ParseFnSigKind::Value)?;
+            let mut sig = self.parse_fn_sig(id.symbol())?;
             sig.lib_name = Some(lib_name);
 
             Binding::new(

@@ -1,11 +1,2 @@
 let main = fn {
-	let sum = create_zeroed_array(3)
-}
-
-// let create_zeroed_array = fn(n: uint) { 
-//     [0; n] 
-// }
-
-let create_zeroed_array = fn(let n: uint) { 
-    [0; n] 
 }

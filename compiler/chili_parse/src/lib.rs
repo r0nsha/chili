@@ -163,10 +163,6 @@ impl<'p> Parser<'p> {
         }
     }
 
-    pub(crate) fn revert(&mut self, tokens: usize) {
-        self.current -= tokens;
-    }
-
     pub(crate) fn bump(&mut self) -> &Token {
         if !self.is_end() {
             self.current += 1;
