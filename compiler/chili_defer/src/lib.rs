@@ -197,7 +197,7 @@ impl SolveDefer for ast::Expr {
             ast::ExprKind::FnCall(call) => {
                 call.callee.solve_defer(sess);
                 for arg in call.args.iter_mut() {
-                    arg.expr.solve_defer(sess);
+                    arg.solve_defer(sess);
                 }
             }
             ast::ExprKind::MemberAccess(access) => {

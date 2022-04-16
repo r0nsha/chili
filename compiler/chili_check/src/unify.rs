@@ -64,7 +64,7 @@ impl UnifyTy<TyKind> for TyKind {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
-                        p1.ty.unify(&p2.ty, sess)?;
+                        p1.unify(p2, sess)?;
                     }
                     Ok(())
                 }
@@ -176,9 +176,7 @@ fn occurs(var: Ty, kind: &TyKind, sess: &CheckSess) -> bool {
                 var == *other
             }
         },
-        TyKind::Fn(f) => {
-            f.params.iter().any(|p| occurs(var, &p.ty, sess)) || occurs(var, &f.ret, sess)
-        }
+        TyKind::Fn(f) => f.params.iter().any(|p| occurs(var, p, sess)) || occurs(var, &f.ret, sess),
         TyKind::Pointer(ty, _)
         | TyKind::MultiPointer(ty, _)
         | TyKind::Array(ty, _)

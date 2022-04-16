@@ -18,7 +18,7 @@ use crate::{
 use chili_ast::{
     ast::{self, ForeignLibrary},
     pattern::{Pattern, SymbolPattern},
-    ty::{FnTy, FnTyParam, StructTy, StructTyField, StructTyKind, Ty, TyKind},
+    ty::{FnTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     value::Value,
     workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
 };
@@ -502,7 +502,7 @@ impl Check for ast::Fn {
         env.push_scope();
 
         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
-            let ty = sess.tycx.bound(param_ty.ty.clone());
+            let ty = sess.tycx.bound(param_ty.clone());
             sess.bind_pattern(
                 env,
                 &mut param.pattern,
@@ -557,14 +557,7 @@ impl Check for ast::FnSig {
                     sess.tycx.var()
                 };
 
-                ty_params.push(FnTyParam {
-                    symbol: if param.pattern.is_single() {
-                        param.pattern.as_single_ref().symbol
-                    } else {
-                        ustr("")
-                    },
-                    ty: param.ty.into(),
-                });
+                ty_params.push(param.ty.into());
 
                 for pat in param.pattern.symbols() {
                     if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
@@ -595,13 +588,10 @@ impl Check for ast::FnSig {
                                     ignore: false,
                                 }),
                                 ty_expr: None,
-                                ty: sess.tycx.bound(f.params[0].ty.clone()),
+                                ty: sess.tycx.bound(f.params[0].clone()),
                             });
 
-                            ty_params.push(FnTyParam {
-                                symbol,
-                                ty: f.params[0].ty.clone(),
-                            });
+                            ty_params.push(f.params[0].clone());
                         }
                     }
                     _ => (),
@@ -1284,7 +1274,7 @@ impl Check for ast::Expr {
                         ))
                     }
                     TyKind::Module(module_id) => {
-                        let (res, _) = sess.check_top_level_symbol(
+                        let (res, id) = sess.check_top_level_symbol(
                             CallerInfo {
                                 module_id: env.module_id(),
                                 span: self.span,
@@ -1292,6 +1282,7 @@ impl Check for ast::Expr {
                             *module_id,
                             access.member,
                         )?;
+                        sess.workspace.increment_binding_use(id);
                         Ok(res)
                     }
                     ty => Err(TypeError::member_access_on_invalid_type(
@@ -1663,93 +1654,38 @@ impl Check for ast::FnCall {
                     ));
                 }
 
-                let mut passed_args = UstrMap::default();
-
                 for (index, arg) in self.args.iter_mut().enumerate() {
-                    if let Some(symbol) = &arg.symbol {
-                        // this is a named argument
+                    if let Some(param) = fn_ty.params.get(index) {
+                        let param_ty = sess.tycx.bound(param.clone());
+                        let res = arg.check(sess, env, Some(param_ty))?;
 
-                        if let Some(passed_span) = passed_args.insert(symbol.value, symbol.span) {
-                            return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "duplicate argument passed `{}`",
-                                    symbol.value
-                                ))
-                                .with_labels(vec![
-                                    Label::primary(symbol.span.file_id, symbol.span.range())
-                                        .with_message("duplicate passed here"),
-                                    Label::secondary(passed_span.file_id, passed_span.range())
-                                        .with_message("has already been passed here"),
-                                ]));
-                        }
-
-                        let found_param_index =
-                            fn_ty.params.iter().position(|p| p.symbol == symbol.value);
-
-                        if let Some(index) = found_param_index {
-                            let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
-                            let res = arg.expr.check(sess, env, Some(param_ty))?;
-
-                            res.ty
-                                .unify(&param_ty, sess)
-                                .or_coerce_expr_into_ty(
-                                    &mut arg.expr,
-                                    param_ty,
-                                    &mut sess.tycx,
-                                    sess.target_metrics.word_size,
-                                )
-                                .or_report_err(&sess.tycx, param_ty, res.ty, arg.expr.span)?;
-                        } else {
-                            return Err(Diagnostic::error()
-                                .with_message(format!("unknown argument `{}`", symbol.value))
-                                .with_labels(vec![Label::primary(
-                                    symbol.span.file_id,
-                                    symbol.span.range(),
-                                )]));
-                        }
+                        res.ty
+                            .unify(&param_ty, sess)
+                            .or_coerce_expr_into_ty(
+                                arg,
+                                param_ty,
+                                &mut sess.tycx,
+                                sess.target_metrics.word_size,
+                            )
+                            .or_report_err(&sess.tycx, param_ty, res.ty, arg.span)?;
                     } else {
-                        // this is a positional argument
-                        if let Some(param) = fn_ty.params.get(index) {
-                            passed_args.insert(param.symbol, arg.expr.span);
-
-                            let param_ty = sess.tycx.bound(fn_ty.params[index].ty.clone());
-                            let res = arg.expr.check(sess, env, Some(param_ty))?;
-
-                            res.ty
-                                .unify(&param_ty, sess)
-                                .or_coerce_expr_into_ty(
-                                    &mut arg.expr,
-                                    param_ty,
-                                    &mut sess.tycx,
-                                    sess.target_metrics.word_size,
-                                )
-                                .or_report_err(&sess.tycx, param_ty, res.ty, arg.expr.span)?;
-                        } else {
-                            // this is a variadic argument, meaning that the argument's
-                            // index is greater than the function's param length
-                            arg.expr.check(sess, env, None)?;
-                        }
-                    };
+                        // this is a variadic argument, meaning that the argument's
+                        // index is greater than the function's param length
+                        arg.check(sess, env, None)?;
+                    }
                 }
 
                 Ok(Res::new(sess.tycx.bound(fn_ty.ret.as_ref().clone())))
             }
             ty => {
                 for arg in self.args.iter_mut() {
-                    arg.expr.check(sess, env, None)?;
+                    arg.check(sess, env, None)?;
                 }
 
                 let return_ty = sess.tycx.var();
 
                 let inferred_fn_ty = TyKind::Fn(FnTy {
-                    params: self
-                        .args
-                        .iter()
-                        .map(|arg| FnTyParam {
-                            symbol: arg.symbol.as_ref().map_or(ustr(""), |s| s.value),
-                            ty: arg.expr.ty.into(),
-                        })
-                        .collect(),
+                    params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
                     variadic: false,
                     lib_name: None,

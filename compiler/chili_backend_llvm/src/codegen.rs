@@ -919,25 +919,35 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         BUILTIN_FIELD_DATA => self.gen_load_slice_data(value).into(),
                         _ => unreachable!("got field `{}`", access.member),
                     },
-                    TyKind::Module(id) => {
-                        todo!()
-                        // let decl = self.find_or_gen_top_level_decl(
-                        //     ModuleInfo::new(*name, *file_path),
-                        //     *field,
-                        // );
+                    TyKind::Module(module_id) => {
+                        let id = BindingInfoId(
+                            self.workspace
+                                .binding_infos
+                                .iter()
+                                .position(|info| {
+                                    info.module_id == module_id && info.symbol == access.member
+                                })
+                                .expect(&format!(
+                                    "couldn't find member `{}` in module `{}`",
+                                    self.workspace.get_module_info(module_id).unwrap().name,
+                                    access.member
+                                )),
+                        );
 
-                        // match decl {
-                        //     CodegenDecl::Module { .. } => self.gen_unit(),
-                        //     _ => {
-                        //         let ptr = decl.into_pointer_value();
+                        let decl = self.find_or_gen_top_level_binding(id);
 
-                        //         if deref {
-                        //             self.build_load(ptr.into())
-                        //         } else {
-                        //             ptr.into()
-                        //         }
-                        //     }
-                        // }
+                        match decl {
+                            CodegenDecl::Module { .. } => self.gen_unit(),
+                            _ => {
+                                let ptr = decl.into_pointer_value();
+
+                                if deref {
+                                    self.build_load(ptr.into())
+                                } else {
+                                    ptr.into()
+                                }
+                            }
+                        }
                     }
                     _ => unreachable!("invalid ty `{}`", accessed_ty),
                 };

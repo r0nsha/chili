@@ -1,24 +1,11 @@
-use c.printf
-
 let main = fn {
-    let map = fn(a: int, f: fn(int) -> int) -> int {
-        f(a)
-    }
-    let print = fn(n: int) {
-        printf("%d\n".data, n)
-    }
-
-    let a = 5
-
-	let a = map(a, fn(it) { it * 2 })
-    print(a)
-
-	let a = map(a) fn(it) { it * 2 }
-    print(a)
-
-	let a = map(a) fn { it * 2 }
-    print(a)
-
-    ()
+	let sum = create_zeroed_array(3)
 }
 
+// let create_zeroed_array = fn(n: uint) { 
+//     [0; n] 
+// }
+
+let create_zeroed_array = fn(let n: uint) { 
+    [0; n] 
+}

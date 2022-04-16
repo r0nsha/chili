@@ -81,33 +81,6 @@ impl<T> Spanned<T> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct MaybeSpanned<T> {
-    pub value: T,
-    pub span: Option<Span>,
-}
-
-impl<T> MaybeSpanned<T> {
-    pub fn new(value: T, span: Option<Span>) -> Self {
-        Self { value, span }
-    }
-
-    pub fn not_spanned(value: T) -> Self {
-        Self { value, span: None }
-    }
-
-    pub fn spanned(value: T, span: Span) -> Self {
-        Self {
-            value,
-            span: Some(span),
-        }
-    }
-
-    pub fn map<F: FnOnce(T) -> T>(self, f: F) -> Self {
-        Self::new(f(self.value), self.span)
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Position {
     pub index: usize,

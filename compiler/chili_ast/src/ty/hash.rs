@@ -24,9 +24,3 @@ impl Hash for FnTy {
         self.lib_name.hash(state);
     }
 }
-
-impl Hash for FnTyParam {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.ty.hash(state);
-    }
-}

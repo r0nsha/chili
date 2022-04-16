@@ -268,9 +268,7 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::FnCall(call) => {
                 call.callee.lint(sess)?;
-                for arg in &call.args {
-                    arg.expr.lint(sess)?;
-                }
+                call.args.lint(sess)?;
             }
             ast::ExprKind::MemberAccess(access) => {
                 access.expr.lint(sess)?;

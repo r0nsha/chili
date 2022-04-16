@@ -1,8 +1,0 @@
-[package]
-name = "chili_graph"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-chili_ast = { path = "../chili_ast" }
-chili_check = { path = "../chili_check" }

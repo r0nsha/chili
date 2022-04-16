@@ -12,7 +12,6 @@ members = [
     "compiler/chili_check",
     "compiler/chili_lint",
     "compiler/chili_defer",
-    "compiler/chili_graph",
     "compiler/chili_backend_llvm",
     "compiler/chili_main",
 ]

@@ -13,7 +13,7 @@ impl<'p> Parser<'p> {
                 } else if eat!(self, OpenParen) {
                     self.parse_tuple_unpack()
                 } else {
-                    Err(SyntaxError::expected(self.span(), "pattern"))
+                    Err(SyntaxError::expected(self.span(), "a pattern"))
                 }
             }
         }

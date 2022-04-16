@@ -1,9 +1,8 @@
 use crate::*;
-use chili_ast::ast::{self, BinaryOp, CallArg, Cast, Expr, ExprKind, FnCall, UnaryOp};
+use chili_ast::ast::{self, BinaryOp, Cast, Expr, ExprKind, FnCall, UnaryOp};
 use chili_error::*;
-use chili_span::{EndPosition, Spanned, To};
+use chili_span::{EndPosition, To};
 use chili_token::TokenKind::*;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ustr::ustr;
 
 impl<'p> Parser<'p> {
@@ -49,12 +48,7 @@ impl<'p> Parser<'p> {
             } else if eat!(self, Fn) {
                 let start_span = expr.span;
 
-                let fn_expr = self.parse_fn()?;
-                let fn_arg = CallArg {
-                    symbol: None,
-                    expr: fn_expr,
-                };
-
+                let fn_arg = self.parse_fn()?;
                 let span = start_span.to(self.previous_span());
 
                 match &mut expr.kind {
@@ -216,47 +210,8 @@ impl<'p> Parser<'p> {
 
     fn parse_call(&mut self, callee: Expr) -> DiagnosticResult<Expr> {
         let start_span = callee.span;
-        let mut used_named_argument = false;
-
-        let args = parse_delimited_list!(
-            self,
-            CloseParen,
-            Comma,
-            {
-                let symbol = if eat!(self, Id(_)) {
-                    let id_token = self.previous();
-
-                    let symbol = id_token.symbol();
-                    let span = id_token.span;
-
-                    if eat!(self, Colon) {
-                        Some(Spanned::new(symbol, span))
-                    } else {
-                        self.revert(1);
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                if symbol.is_some() {
-                    used_named_argument = true;
-                } else if used_named_argument {
-                    let span = self.span();
-                    return Err(Diagnostic::error()
-                        .with_message("can't use positional arguments after named arguments")
-                        .with_labels(vec![Label::primary(span.file_id, span.range())]));
-                }
-
-                let expr = self.parse_expr()?;
-
-                CallArg { symbol, expr }
-            },
-            ", or )"
-        );
-
+        let args = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
         let span = start_span.to(self.previous_span());
-
         Ok(Expr::new(
             ExprKind::FnCall(FnCall {
                 callee: Box::new(callee),

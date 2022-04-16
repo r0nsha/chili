@@ -67,12 +67,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         // };
         let startup_fn_type = FnTy {
             params: vec![
-                FnTyParam::unnamed(TyKind::UInt(UIntTy::U32)),
-                FnTyParam::unnamed(
-                    TyKind::UInt(UIntTy::U8)
-                        .pointer_type(false)
-                        .pointer_type(false),
-                ),
+                TyKind::UInt(UIntTy::U32),
+                TyKind::UInt(UIntTy::U8)
+                    .pointer_type(false)
+                    .pointer_type(false),
             ],
             ret: Box::new(TyKind::UInt(UIntTy::U32)),
             variadic: false,
@@ -347,16 +345,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let mut args = vec![];
 
         for (index, arg) in call.args.iter().enumerate() {
-            let index = if let Some(symbol) = &arg.symbol {
-                fn_ty
-                    .params
-                    .iter()
-                    .position(|f| f.symbol == symbol.value)
-                    .unwrap()
-            } else {
-                index
-            };
-            let value = self.gen_expr(state, &arg.expr, true);
+            let value = self.gen_expr(state, arg, true);
             args.push((value, index));
         }
 
@@ -371,7 +360,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let callee_ptr = self.maybe_load_double_pointer(callee_ptr);
 
         // println!("callee: {:#?}", callee_ptr.get_type());
-        // println!("{}", call.callee.display_name_and_binding_span().value);
 
         let callable_value: CallableValue = callee_ptr.try_into().unwrap();
 

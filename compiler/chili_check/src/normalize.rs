@@ -44,10 +44,7 @@ impl Normalize {
                 params: f
                     .params
                     .iter()
-                    .map(|p| FnTyParam {
-                        symbol: p.symbol,
-                        ty: self.normalize_kind(tycx, &p.ty),
-                    })
+                    .map(|p| self.normalize_kind(tycx, p))
                     .collect(),
                 ret: Box::new(f.ret.normalize(tycx)),
                 variadic: f.variadic,

@@ -407,15 +407,7 @@ impl PrintTree for ast::Expr {
 
                 if !call.args.is_empty() {
                     b.begin_child("args".to_string());
-                    for arg in &call.args {
-                        if let Some(symbol) = &arg.symbol {
-                            b.begin_child(symbol.value.to_string());
-                            arg.expr.print_tree(b, workspace, tycx);
-                            b.end_child();
-                        } else {
-                            arg.expr.print_tree(b, workspace, tycx);
-                        }
-                    }
+                    call.args.print_tree(b, workspace, tycx);
                     b.end_child();
                 }
 

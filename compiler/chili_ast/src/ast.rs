@@ -5,7 +5,7 @@ use crate::{
     workspace::{BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_error::DiagnosticResult;
-use chili_span::{MaybeSpanned, Span, Spanned};
+use chili_span::{Span, Spanned};
 use chili_token::TokenKind;
 use std::{
     collections::HashMap,
@@ -94,81 +94,6 @@ impl Expr {
             ExprKind::FnType(..) => true,
             _ => false,
         }
-    }
-
-    pub fn is_mutable(&self) -> bool {
-        todo!()
-        // match &self.kind {
-        //     ExprKind::MemberAccess { expr, .. } => expr.is_mutable(),
-
-        //     ExprKind::Ident { is_mutable, .. } => *is_mutable,
-
-        //     ExprKind::MultiPointerType(_, _)
-        //     | ExprKind::ArrayType(_, _)
-        //     | ExprKind::SliceType(_, _)
-        //     | ExprKind::StructType(_)
-        //     | ExprKind::FnType(_) => false,
-
-        //     _ => true,
-        // }
-    }
-
-    pub fn display_name_and_binding_span(&self) -> MaybeSpanned<String> {
-        todo!()
-        // match &self.kind {
-        //     ExprKind::Builtin(_) => MaybeSpanned::not_spanned("@_(_)".to_string()),
-        //     ExprKind::Fn(_) => MaybeSpanned::not_spanned("fn..".to_string()),
-        //     ExprKind::For { .. } => MaybeSpanned::not_spanned("for..".to_string()),
-        //     ExprKind::Break { .. } => MaybeSpanned::not_spanned("break".to_string()),
-        //     ExprKind::Continue { .. } => MaybeSpanned::not_spanned("continue".to_string()),
-        //     ExprKind::Block { .. } => MaybeSpanned::not_spanned("{..}".to_string()),
-        //     ExprKind::If { .. } => MaybeSpanned::not_spanned("if..".to_string()),
-        //     ExprKind::Binary(binary) => MaybeSpanned::not_spanned(format!(
-        //         "{} {} {}",
-        //         binary.lhs.display_name_and_binding_span().value,
-        //         binary.op.to_string(),
-        //         binary.rhs.display_name_and_binding_span().value
-        //     )),
-        //     ExprKind::Unary(unary) => {
-        //         let lhs = unary.lhs.display_name_and_binding_span();
-        //         lhs.map(|v| format!("{}{}", unary.op.to_string(), v))
-        //     }
-        //     ExprKind::Subscript { expr, .. } => {
-        //         let expr = expr.display_name_and_binding_span();
-        //         expr.map(|v| format!("{}[_]", v))
-        //     }
-        //     ExprKind::Slice { expr, .. } => {
-        //         let expr = expr.display_name_and_binding_span();
-        //         expr.map(|v| format!("{}[..]", v))
-        //     }
-        //     ExprKind::FnCall(call) => {
-        //         let callee = call.callee.display_name_and_binding_span();
-        //         callee.map(|v| format!("{}()", v))
-        //     }
-        //     ExprKind::MemberAccess { expr, member } => {
-        //         let expr = expr.display_name_and_binding_span();
-        //         expr.map(|v| format!("{}.{}", v, member))
-        //     }
-        //     ExprKind::Ident {
-        //         symbol,
-        //         is_mutable: _,
-        //         binding_span,
-        //         binding_info_id: _,
-        //     } => MaybeSpanned::spanned(symbol.to_string(), *binding_span),
-        //     ExprKind::ArrayLiteral { .. } => MaybeSpanned::not_spanned("[_]{..}".to_string()),
-        //     ExprKind::TupleLiteral(_) => MaybeSpanned::not_spanned("(..)".to_string()),
-        //     ExprKind::StructLiteral { .. } => MaybeSpanned::not_spanned("_{..}".to_string()),
-        //     ExprKind::Literal(kind) => MaybeSpanned::not_spanned(match kind {
-        //         Literal::Unit => "()".to_string(),
-        //         Literal::Nil => "nil".to_string(),
-        //         Literal::Bool(v) => v.to_string(),
-        //         Literal::Int(v) => v.to_string(),
-        //         Literal::Float(v) => v.to_string(),
-        //         Literal::Str(v) => v.to_string(),
-        //         Literal::Char(v) => v.to_string(),
-        //     }),
-        //     _ => MaybeSpanned::not_spanned("_".to_string()),
-        // }
     }
 }
 
@@ -291,14 +216,8 @@ pub struct StructLiteralField {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FnCall {
     pub callee: Box<Expr>,
-    pub args: Vec<CallArg>,
+    pub args: Vec<Expr>,
     pub span: Span,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct CallArg {
-    pub symbol: Option<Spanned<Ustr>>,
-    pub expr: Expr,
 }
 
 #[derive(Debug, PartialEq, Clone)]

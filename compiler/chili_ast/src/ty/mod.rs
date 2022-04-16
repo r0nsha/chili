@@ -113,32 +113,10 @@ impl Default for FloatTy {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FnTy {
-    pub params: Vec<FnTyParam>,
+    pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
     pub variadic: bool,
     pub lib_name: Option<Ustr>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FnTyParam {
-    pub symbol: Ustr,
-    pub ty: TyKind,
-}
-
-impl FnTyParam {
-    pub fn named(symbol: impl Into<Ustr>, ty: TyKind) -> Self {
-        Self {
-            symbol: symbol.into(),
-            ty,
-        }
-    }
-
-    pub fn unnamed(ty: TyKind) -> Self {
-        Self {
-            symbol: ustr(""),
-            ty,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
