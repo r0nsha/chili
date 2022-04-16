@@ -157,12 +157,14 @@ impl<'p> Parser<'p> {
         }
     }
 
+    #[inline]
     pub(crate) fn skip_redundant_tokens(&mut self) {
         while token_is!(self, Semicolon) {
             self.bump();
         }
     }
 
+    #[inline]
     pub(crate) fn bump(&mut self) -> &Token {
         if !self.is_end() {
             self.current += 1;
@@ -171,6 +173,7 @@ impl<'p> Parser<'p> {
         self.previous()
     }
 
+    #[inline]
     pub(crate) fn is_end(&self) -> bool {
         self.peek().kind == Eof
     }
@@ -187,18 +190,22 @@ impl<'p> Parser<'p> {
         self.marked.pop();
     }
 
+    #[inline]
     pub(crate) fn peek(&self) -> &Token {
         self.tokens.get(self.current).unwrap()
     }
 
+    #[inline]
     pub(crate) fn previous(&self) -> &Token {
         self.tokens.get(self.current - 1).unwrap()
     }
 
+    #[inline]
     pub(crate) fn span(&self) -> Span {
         self.peek().span
     }
 
+    #[inline]
     pub(crate) fn previous_span(&self) -> Span {
         self.previous().span
     }
