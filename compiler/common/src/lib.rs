@@ -33,10 +33,6 @@ impl<'s> Stopwatch<'s> {
         self.sw.start();
     }
 
-    pub fn stop(&mut self) {
-        self.sw.stop();
-    }
-
     pub fn elapsed(&self) -> Duration {
         self.sw.elapsed()
     }

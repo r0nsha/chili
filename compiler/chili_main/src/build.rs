@@ -6,9 +6,7 @@ use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
-pub fn start_workspace(build_options: BuildOptions) {
-    let mut all_sw = Stopwatch::start_new("time");
-
+pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     // Set up workspace
     let source_path = build_options.source_path();
     let absolute_path = source_path.absolutize().unwrap();
@@ -18,26 +16,36 @@ pub fn start_workspace(build_options: BuildOptions) {
 
     let mut workspace = Workspace::new(build_options.clone(), root_dir, std_dir);
 
+    let all_sw = if workspace.build_options.verbose {
+        Some(Stopwatch::start_new("time"))
+    } else {
+        None
+    };
+
     // Check that root file exists
     if !source_path.exists() {
         workspace.diagnostics.add(
             Diagnostic::error()
                 .with_message(format!("file `{}` doesn't exist", source_path.display())),
         );
-        workspace.diagnostics.emit_and_exit();
+        workspace.diagnostics.emit();
+        return workspace;
     }
 
     // Parse all source files into ast's
     let (mut asts, stats) = time! { workspace.build_options.verbose, "parse", {
             match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
                 Ok(r) => r,
-                Err(_) => workspace.diagnostics.emit_and_exit()
+                Err(_) => {
+                    workspace.diagnostics.emit();
+                    return workspace;
+                }
             }
         }
     };
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit_and_exit();
+        workspace.diagnostics.emit();
     }
 
     // General pre-check transforms, such as glob import expansion
@@ -51,13 +59,14 @@ pub fn start_workspace(build_options: BuildOptions) {
             Ok(result) => result,
             Err(diagnostic) => {
                 workspace.diagnostics.add(diagnostic);
-                workspace.diagnostics.emit_and_exit();
+                workspace.diagnostics.emit();
+                return workspace;
             }
         }
     };
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit_and_exit();
+        workspace.diagnostics.emit();
     }
 
     // Lint - does auxillary checks which are not required for type inference
@@ -66,7 +75,7 @@ pub fn start_workspace(build_options: BuildOptions) {
     }
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit_and_exit();
+        workspace.diagnostics.emit();
     }
 
     // Defer - resolve all `defer` statements
@@ -79,8 +88,11 @@ pub fn start_workspace(build_options: BuildOptions) {
     // Code generation
     chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
 
-    all_sw.stop();
-    print_stats(stats, all_sw.elapsed().as_millis());
+    if workspace.build_options.verbose {
+        print_stats(stats, all_sw.unwrap().elapsed().as_millis());
+    }
+
+    workspace
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {
