@@ -58,10 +58,14 @@ impl<'s> Stopwatch<'s> {
 
 #[macro_export]
 macro_rules! time {
-    ($label: literal, $body: expr) => {{
-        let sw = common::Stopwatch::start_new($label);
-        let res = $body;
-        sw.print();
-        res
+    ($enabled: expr, $label: literal, $body: expr) => {{
+        if $enabled {
+            let sw = common::Stopwatch::start_new($label);
+            let res = $body;
+            sw.print();
+            res
+        } else {
+            $body
+        }
     }};
 }

@@ -6,7 +6,7 @@ use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
-pub fn do_build(build_options: BuildOptions) {
+pub fn start_workspace(build_options: BuildOptions) {
     println!();
 
     let mut all_sw = Stopwatch::start_new("time");
@@ -30,7 +30,7 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     // Parse all source files into ast's
-    let (mut asts, stats) = time! { "parse", {
+    let (mut asts, stats) = time! { workspace.build_options.verbose, "parse", {
             match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
                 Ok(r) => r,
                 Err(_) => workspace.diagnostics.emit_and_exit()
@@ -43,12 +43,12 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     // General pre-check transforms, such as glob import expansion
-    time! { "resolve",
+    time! { workspace.build_options.verbose, "resolve",
         chili_resolve::resolve(&mut workspace, &mut asts)
     };
 
-    // Infer, type inference, static analysis, const folding, etc..
-    let (mut typed_ast, tycx) = time! { "check",
+    // Type inference, type checking, static analysis, const folding, etc..
+    let (mut typed_ast, tycx) = time! { workspace.build_options.verbose, "check",
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
@@ -63,7 +63,7 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     // Lint - does auxillary checks which are not required for type inference
-    time! { "lint",
+    time! { workspace.build_options.verbose, "lint",
         chili_lint::lint(&mut workspace, &tycx, &typed_ast)
     }
 
@@ -72,7 +72,7 @@ pub fn do_build(build_options: BuildOptions) {
     }
 
     // Defer - resolve all `defer` statements
-    time! { "defer",
+    time! { workspace.build_options.verbose, "defer",
         chili_defer::solve_defers(&mut typed_ast)
     }
 

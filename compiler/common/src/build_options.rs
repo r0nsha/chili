@@ -6,6 +6,7 @@ pub struct BuildOptions {
     pub source_file: String,
     pub target_platform: TargetPlatform,
     pub run: bool,
+    pub verbose: bool,
 }
 
 impl BuildOptions {

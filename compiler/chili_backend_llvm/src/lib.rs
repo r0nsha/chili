@@ -68,7 +68,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
         fn_types: HashMap::new(),
     };
 
-    time! { "llvm",
+    time! { workspace.build_options.verbose, "llvm",
         cg.start()
     };
 
@@ -176,7 +176,7 @@ fn build_executable(
     let object_file = source_path.with_extension("obj");
     let executable_file = source_path.with_extension("exe");
 
-    time! { "write obj",
+    time! { build_options.verbose, "write obj",
         target_machine
             .write_to_file(&module, FileType::Object, &object_file)
             .unwrap()
@@ -188,7 +188,7 @@ fn build_executable(
     // &file_path.with_extension("s"))         .unwrap();
     // });
 
-    time! { "link",
+    time! { build_options.verbose, "link",
         Command::new("lld-link")
             .arg(format!("/out:{}", executable_file.to_str().unwrap()))
             .arg("/entry:mainCRTStartup")
