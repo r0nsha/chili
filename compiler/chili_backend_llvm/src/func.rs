@@ -23,10 +23,22 @@ use inkwell::{
 };
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
-    pub(crate) fn gen_entry_point_function(
-        &mut self,
-        entry_point_func: FunctionValue<'ctx>,
-    ) -> FunctionValue<'ctx> {
+    pub(crate) fn gen_entry_point_function(&mut self) -> FunctionValue<'ctx> {
+        let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
+
+        let entry_point_func_info = self
+            .workspace
+            .get_binding_info(entry_point_func_id)
+            .unwrap();
+
+        let entry_point_func = self
+            .global_decls
+            .get(&entry_point_func_id)
+            .unwrap()
+            .into_function_value();
+
+        let fn_ty = entry_point_func_info.ty.normalize(self.tycx).into_fn();
+
         let name = "main";
 
         let linkage = Some(Linkage::External);
@@ -132,18 +144,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
         }
 
-        self.gen_fn_call(
-            &mut state,
-            entry_point_func,
-            &FnTy {
-                params: vec![],
-                ret: Box::new(TyKind::Unit),
-                variadic: false,
-                lib_name: None,
-            },
-            vec![],
-            &TyKind::Unit,
-        );
+        self.gen_fn_call(&mut state, entry_point_func, &fn_ty, vec![], &fn_ty.ret);
 
         // TODO: if this is DLL Main, return 1 instead of 0
 

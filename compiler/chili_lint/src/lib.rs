@@ -173,23 +173,23 @@ impl Lint for ast::Expr {
                 let ty = f.sig.ty.normalize(&sess.tycx).into_fn();
 
                 // if this is the main function, check its type matches a fn() -> [() | !]
-                if f.is_entry_point
-                    && (!(ty.ret.is_unit() || ty.ret.is_never())
-                        || !ty.params.is_empty()
-                        || ty.variadic)
-                {
-                    sess.workspace.diagnostics.add(
-                        Diagnostic::error()
-                            .with_message(format!(
-                                "entry point function `main` has type `{}`, expected `fn() -> ()`",
-                                ty
-                            ))
-                            .with_label(Label::primary(
-                                self.span,
-                                "invalid type of entry point function",
-                            )),
-                    );
-                }
+                // if f.is_entry_point
+                //     && (!(ty.ret.is_unit() || ty.ret.is_never())
+                //         || !ty.params.is_empty()
+                //         || ty.variadic)
+                // {
+                //     sess.workspace.diagnostics.add(
+                //         Diagnostic::error()
+                //             .with_message(format!(
+                //                 "entry point function `main` has type `{}`, expected `fn() -> ()`",
+                //                 ty
+                //             ))
+                //             .with_label(Label::primary(
+                //                 self.span,
+                //                 "invalid type of entry point function",
+                //             )),
+                //     );
+                // }
 
                 f.body.lint(sess);
             }

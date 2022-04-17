@@ -135,9 +135,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn start(&mut self) {
         let ep_id = self.workspace.entry_point_function_id.unwrap();
         self.gen_top_level_binding(ep_id);
-
-        let ep_function = self.global_decls.get(&ep_id).unwrap().into_function_value();
-        self.gen_entry_point_function(ep_function);
+        self.gen_entry_point_function();
     }
 
     pub(super) fn find_or_gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
