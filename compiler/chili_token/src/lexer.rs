@@ -32,15 +32,8 @@ impl<'lx> Lexer<'lx> {
     }
 
     pub fn scan(mut self) -> DiagnosticResult<Vec<Token>> {
-        while !self.is_eof() {
-            let tt = self.eat_token()?;
-            self.add_token(tt);
-        }
-
-        self.add_token(Eof);
-
+        self.eat_all_tokens()?;
         self.replace_terminating_newlines_with_semicolons();
-
         Ok(self.tokens)
     }
 
@@ -50,19 +43,19 @@ impl<'lx> Lexer<'lx> {
         for i in 0..self.tokens.len() {
             let token = self.tokens[i].kind;
 
-            if matches!(token, Newline) {
+            if let Newline = token {
                 match last_token {
                     Some(t) => {
-                        // if previous token can end an expression
+                        // if the previous token can end an expression,
+                        // and the next token can start an expression,
+                        // replace the newline with a semicolon
                         if t.is_expr_end() {
                             let next_token = match self.tokens.get(i + 1) {
                                 Some(t) => t.kind.clone(),
                                 None => Eof,
                             };
 
-                            // if next token can start an expression
                             if next_token.is_expr_start() {
-                                // replace the newline with a semicolon
                                 self.tokens[i].kind = Semicolon;
                             }
                         }
@@ -80,6 +73,15 @@ impl<'lx> Lexer<'lx> {
             .filter(|t| t.kind != Newline)
             .cloned()
             .collect();
+    }
+
+    pub(crate) fn eat_all_tokens(&mut self) -> DiagnosticResult<()> {
+        while !self.is_eof() {
+            let tt = self.eat_token()?;
+            self.add_token(tt);
+        }
+        self.add_token(Eof);
+        Ok(())
     }
 
     pub(crate) fn eat_token(&mut self) -> DiagnosticResult<TokenKind> {

@@ -2,6 +2,7 @@ use chili_span::Span;
 
 pub type DiagnosticCode = String;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum DiagnosticKind {
     Error,
 }

@@ -4,7 +4,6 @@ use chili_ast::{
     path::resolve_relative_path,
     workspace::{ModuleInfo, Workspace},
 };
-use chili_error::DiagnosticResult;
 use chili_parse::Parser;
 use chili_token::{lexer::Lexer, TokenKind};
 use std::{collections::HashSet, path::PathBuf};
@@ -33,12 +32,13 @@ impl<'a> AstGenerator<'a> {
             &self.workspace.build_options.source_file,
             &common::builtin::root_module(),
             None,
-        )?;
+        )
+        .map_err(|diag| self.workspace.diagnostics.add(diag))?;
 
         let root_module_info =
             ModuleInfo::new(common::builtin::root_module(), ustr(&root_file_path));
 
-        self.add_source_file(&mut asts, root_module_info, true)?;
+        self.add_source_file(&mut asts, root_module_info, true);
 
         Ok((
             asts,
@@ -48,20 +48,15 @@ impl<'a> AstGenerator<'a> {
         ))
     }
 
-    fn add_source_file(
-        &mut self,
-        asts: &mut Vec<Ast>,
-        module_info: ModuleInfo,
-        is_root: bool,
-    ) -> DiagnosticResult<()> {
+    fn add_source_file(&mut self, asts: &mut Vec<Ast>, module_info: ModuleInfo, is_root: bool) {
         if !self.parsed_modules.insert(module_info) {
-            return Ok(());
+            return;
         }
 
         let source = std::fs::read_to_string(module_info.file_path.as_str())
             .expect(&format!("failed to read `{}`", module_info.file_path));
 
-        // TODO: this should be behind a `verbose` or `debug` flag or something
+        // TODO: this should be behind a `verbose` flag
         self.total_lines += source.lines().count();
 
         let file_id = self
@@ -73,7 +68,14 @@ impl<'a> AstGenerator<'a> {
             self.workspace.root_file_id = file_id;
         }
 
-        let tokens = Lexer::new(file_id, &source).scan()?;
+        let tokens = match Lexer::new(file_id, &source).scan() {
+            Ok(t) => t,
+            Err(diag) => {
+                self.workspace.diagnostics.add(diag);
+                return;
+            }
+        };
+
         // println!(
         //     "{:?}",
         //     tokens
@@ -83,33 +85,34 @@ impl<'a> AstGenerator<'a> {
         // );
 
         if tokens.is_empty() || tokens.first().unwrap().kind == TokenKind::Eof {
-            return Ok(());
+            // The file is empty, we can just return
+            return;
         }
 
-        let mut parser = Parser::new(
+        let current_dir = PathBuf::from(module_info.file_path.as_str())
+            .parent()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let mut parse_result = Parser::new(
             tokens,
             module_info,
             &self.workspace.root_dir,
             &self.workspace.std_dir,
-            PathBuf::from(module_info.file_path.as_str())
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        );
-
-        let mut parse_result = parser.parse()?;
+            current_dir,
+            &mut self.workspace.diagnostics,
+        )
+        .parse();
 
         // implicitly add `std` to every file we parse
         insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
 
         for u in parse_result.imports.iter() {
-            self.add_source_file(asts, *u, false)?;
+            self.add_source_file(asts, *u, false);
         }
 
         asts.push(parse_result.ast);
-
-        Ok(())
     }
 }

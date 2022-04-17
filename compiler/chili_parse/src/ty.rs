@@ -11,7 +11,7 @@ const SELF_SYMBOL: &str = "Self";
 
 impl<'p> Parser<'p> {
     pub(super) fn parse_decl_ty(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
-        self.skip_redundant_tokens();
+        self.skip_trailing_semicolons();
         self.decl_name_frames.push(decl_name);
         let ty = self.parse_ty()?;
         self.decl_name_frames.pop();

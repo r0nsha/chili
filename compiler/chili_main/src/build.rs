@@ -26,23 +26,21 @@ pub fn do_build(build_options: BuildOptions) {
             Diagnostic::error()
                 .with_message(format!("file `{}` doesn't exist", source_path.display())),
         );
-        workspace.diagnostics.emit();
-        return;
+        workspace.diagnostics.emit_and_exit();
     }
 
     // Parse all source files into ast's
     let (mut asts, stats) = time! { "parse", {
-            // TODO: pass `AstGenerationMode` from a `-mt` flag
             match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
-                Ok(result) => result,
-                Err(diagnostic) => {
-                    workspace.diagnostics.add(diagnostic);
-                    workspace.diagnostics.emit();
-                    return;
-                }
+                Ok(r) => r,
+                Err(_) => workspace.diagnostics.emit_and_exit()
             }
         }
     };
+
+    if workspace.diagnostics.has_errors() {
+        workspace.diagnostics.emit_and_exit();
+    }
 
     // General pre-check transforms, such as glob import expansion
     time! { "resolve",
@@ -55,18 +53,20 @@ pub fn do_build(build_options: BuildOptions) {
             Ok(result) => result,
             Err(diagnostic) => {
                 workspace.diagnostics.add(diagnostic);
-                workspace.diagnostics.emit();
-                return;
+                workspace.diagnostics.emit_and_exit();
             }
         }
     };
+
+    if workspace.diagnostics.has_errors() {
+        workspace.diagnostics.emit_and_exit();
+    }
 
     // Lint - does auxillary checks which are not required for type inference
     time! { "lint",
         if let Err(diagnostic) = chili_lint::lint(&mut workspace, &tycx, &typed_ast) {
             workspace.diagnostics.add(diagnostic);
-            workspace.diagnostics.emit();
-            return;
+            workspace.diagnostics.emit_and_exit();
         }
     }
 

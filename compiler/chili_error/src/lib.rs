@@ -1,9 +1,11 @@
 pub mod diagnostic;
 pub mod emitter;
 
+use std::process::exit;
+
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
-use diagnostic::{Diagnostic, Label};
+use diagnostic::{Diagnostic, DiagnosticKind, Label};
 use emitter::DiagnosticEmitter;
 use ustr::Ustr;
 
@@ -38,12 +40,20 @@ impl Diagnostics {
         self.diagnostics.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.count() == 0
+    pub fn error_count(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.kind == DiagnosticKind::Error)
+            .count()
     }
 
-    pub fn emit(self) {
-        self.emitter.emit_many(&self.files, self.diagnostics)
+    pub fn has_errors(&self) -> bool {
+        self.error_count() > 0
+    }
+
+    pub fn emit_and_exit(self) -> ! {
+        self.emitter.emit_many(&self.files, self.diagnostics);
+        exit(0)
     }
 }
 

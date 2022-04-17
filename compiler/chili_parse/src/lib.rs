@@ -11,7 +11,7 @@ mod ty;
 
 use bitflags::bitflags;
 use chili_ast::{ast::Ast, workspace::ModuleInfo};
-use chili_error::{DiagnosticResult, SyntaxError};
+use chili_error::{DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::Span;
 use chili_token::{Token, TokenKind::*};
 use std::{collections::HashSet, path::Path};
@@ -94,6 +94,7 @@ pub struct Parser<'p> {
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
     restrictions: Restrictions,
+    diagnostics: &'p mut Diagnostics,
 }
 
 pub struct ParserResult {
@@ -108,6 +109,7 @@ impl<'p> Parser<'p> {
         root_dir: &'p Path,
         std_dir: &'p Path,
         current_dir: String,
+        diagnostics: &'p mut Diagnostics,
     ) -> Self {
         Self {
             tokens,
@@ -120,21 +122,22 @@ impl<'p> Parser<'p> {
             decl_name_frames: Default::default(),
             used_modules: Default::default(),
             restrictions: Restrictions::empty(),
+            diagnostics,
         }
     }
 
-    pub fn parse(&mut self) -> DiagnosticResult<ParserResult> {
+    pub fn parse(&mut self) -> ParserResult {
         let mut ast = Ast::new(self.module_info);
 
         while !self.is_end() {
-            self.parse_top_level(&mut ast)?;
-            self.skip_redundant_tokens();
+            let _ = self.parse_top_level(&mut ast);
+            self.skip_trailing_semicolons();
         }
 
-        Ok(ParserResult {
+        ParserResult {
             ast,
             imports: self.used_modules.clone(),
-        })
+        }
     }
 
     pub(crate) fn with_res<T>(
@@ -154,13 +157,6 @@ impl<'p> Parser<'p> {
             *self.decl_name_frames.last().unwrap()
         } else {
             ustr("")
-        }
-    }
-
-    #[inline]
-    pub(crate) fn skip_redundant_tokens(&mut self) {
-        while token_is!(self, Semicolon) {
-            self.bump();
         }
     }
 
@@ -208,5 +204,31 @@ impl<'p> Parser<'p> {
     #[inline]
     pub(crate) fn previous_span(&self) -> Span {
         self.previous().span
+    }
+
+    #[inline]
+    pub(crate) fn skip_trailing_semicolons(&mut self) {
+        while token_is!(self, Semicolon) {
+            self.bump();
+        }
+    }
+
+    pub(crate) fn try_recover_from_err(&mut self) {
+        while !self.is_end() && !token_is!(self, Semicolon) {
+            self.bump();
+        }
+    }
+}
+
+pub(crate) trait OrRecover<T> {
+    fn or_recover(self, parser: &mut Parser) -> Result<T, ()>;
+}
+
+impl<T> OrRecover<T> for DiagnosticResult<T> {
+    fn or_recover(self, parser: &mut Parser) -> Result<T, ()> {
+        self.map_err(|diag| {
+            parser.diagnostics.add(diag);
+            parser.try_recover_from_err();
+        })
     }
 }

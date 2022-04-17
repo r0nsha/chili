@@ -9,7 +9,7 @@ unindent = "0.1.7"
 crossbeam = "0.8.1"
 crossbeam-utils = "0.8.7"
 dashmap = "5.1.0"
-alloc_counter = "0.0.4"
+
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }
 chili_token = { path = "../chili_token" }
