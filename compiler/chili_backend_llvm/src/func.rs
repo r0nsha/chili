@@ -449,10 +449,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let value = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = self.build_alloca(state, abi_fn.ret.ty);
             return_ptr.set_name("__call_result");
-            self.gen_call_internal(callee, processed_args, Some(return_ptr));
+            self.gen_call_inner(callee, processed_args, Some(return_ptr));
             self.build_load(return_ptr.into())
         } else {
-            let value = self.gen_call_internal(callee, processed_args, None);
+            let value = self.gen_call_inner(callee, processed_args, None);
             let value = self.build_transmute(
                 state,
                 value,
@@ -474,7 +474,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         value
     }
 
-    fn gen_call_internal(
+    fn gen_call_inner(
         &mut self,
         callee: impl Into<CallableValue<'ctx>>,
         mut args: Vec<BasicMetadataValueEnum<'ctx>>,

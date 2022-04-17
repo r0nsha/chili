@@ -21,7 +21,7 @@ impl<'s> LintSess<'s> {
     ) -> DiagnosticResult<()> {
         use LvalueAccessErr::*;
 
-        self.check_lvalue_mutability_internal(expr)
+        self.check_lvalue_mutability_inner(expr)
             .map_err(|err| -> Diagnostic {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
@@ -57,7 +57,7 @@ impl<'s> LintSess<'s> {
             })
     }
 
-    fn check_lvalue_mutability_internal(&self, expr: &ast::Expr) -> Result<(), LvalueAccessErr> {
+    fn check_lvalue_mutability_inner(&self, expr: &ast::Expr) -> Result<(), LvalueAccessErr> {
         use LvalueAccessErr::*;
 
         match &expr.kind {
@@ -80,10 +80,8 @@ impl<'s> LintSess<'s> {
                 }
                 _ => Err(InvalidLvalue),
             },
-            ast::ExprKind::MemberAccess(access) => {
-                self.check_lvalue_mutability_internal(&access.expr)
-            }
-            ast::ExprKind::Subscript(sub) => self.check_lvalue_mutability_internal(&sub.expr),
+            ast::ExprKind::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.expr),
+            ast::ExprKind::Subscript(sub) => self.check_lvalue_mutability_inner(&sub.expr),
             ast::ExprKind::Ident(ident) => {
                 let binding_info = self
                     .workspace

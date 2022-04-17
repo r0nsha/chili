@@ -24,7 +24,7 @@ impl<'s> LintSess<'s> {
     ) -> DiagnosticResult<()> {
         use RefAccessErr::*;
 
-        self.check_expr_can_be_mutably_referenced_internal(expr, true)
+        self.check_expr_can_be_mutably_referenced_inner(expr, true)
             .map_err(|err| match err {
                 ImmutableReference { ty, span } => Diagnostic::error()
                     .with_message(format!(
@@ -52,7 +52,7 @@ impl<'s> LintSess<'s> {
             })
     }
 
-    fn check_expr_can_be_mutably_referenced_internal(
+    fn check_expr_can_be_mutably_referenced_inner(
         &self,
         expr: &ast::Expr,
         is_direct_ref: bool,
@@ -63,7 +63,7 @@ impl<'s> LintSess<'s> {
 
         match &expr.kind {
             ast::ExprKind::MemberAccess(access) => {
-                match self.check_expr_can_be_mutably_referenced_internal(expr, true) {
+                match self.check_expr_can_be_mutably_referenced_inner(expr, true) {
                     Ok(_) => match ty {
                         TyKind::Tuple(tys) => {
                             let index = access.member.parse::<usize>().unwrap();

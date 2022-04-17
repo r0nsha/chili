@@ -36,21 +36,21 @@ macro_rules! parse_binary {
 
 impl<'p> Parser<'p> {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_internal(ustr("")))
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(ustr("")))
     }
 
     pub(crate) fn parse_expr_with_res(
         &mut self,
         restrictions: Restrictions,
     ) -> DiagnosticResult<Expr> {
-        self.with_res(restrictions, |p| p.parse_expr_internal(ustr("")))
+        self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
     }
 
     pub(crate) fn parse_decl_expr(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_internal(decl_name))
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(decl_name))
     }
 
-    fn parse_expr_internal(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
+    fn parse_expr_inner(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
         let is_stmt = self.restrictions.contains(Restrictions::STMT_EXPR);
 
         self.decl_name_frames.push(decl_name);

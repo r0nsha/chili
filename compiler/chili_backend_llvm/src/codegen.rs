@@ -431,7 +431,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> PointerValue<'ctx> {
         let ty = ty.llvm_type(self);
         let ptr = self.build_alloca_named(state, ty, id);
-        self.gen_local_internal(state, id, ptr);
+        self.gen_local_inner(state, id, ptr);
         ptr
     }
 
@@ -443,7 +443,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> PointerValue<'ctx> {
         let ptr = self.build_alloca_named(state, value.get_type(), id);
         self.build_store(ptr, value);
-        self.gen_local_internal(state, id, ptr);
+        self.gen_local_inner(state, id, ptr);
         ptr
     }
 
@@ -474,7 +474,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    fn gen_local_internal(
+    fn gen_local_inner(
         &mut self,
         state: &mut CodegenState<'ctx>,
         id: BindingInfoId,
@@ -1210,7 +1210,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         target_ty: &Ty,
     ) -> BasicValueEnum<'ctx> {
         let value = self.gen_expr(state, expr, true);
-        self.gen_cast_internal(
+        self.gen_cast_inner(
             state,
             value,
             &expr.ty.normalize(self.tycx),
@@ -1218,7 +1218,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         )
     }
 
-    fn gen_cast_internal(
+    fn gen_cast_inner(
         &mut self,
         state: &mut CodegenState<'ctx>,
         value: BasicValueEnum<'ctx>,

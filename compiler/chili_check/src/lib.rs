@@ -899,58 +899,6 @@ impl Check for ast::Expr {
                 } else {
                     Ok(Res::new(unit))
                 }
-
-                // let then_res = if_.then.check(sess, env, expected_ty)?;
-
-                // if let Some(otherwise) = &mut if_.otherwise {
-                //     let otherwise_res = otherwise.check(sess, env, Some(then_res.ty))?;
-
-                //     otherwise_res
-                //         .ty
-                //         .unify(&then_res.ty, sess)
-                //         .or_coerce_exprs(
-                //             &mut if_.then,
-                //             otherwise,
-                //             &mut sess.tycx,
-                //             sess.target_metrics.word_size,
-                //         )
-                //         .or_report_err(&sess.tycx, then_res.ty, otherwise_res.ty, otherwise.span)?;
-
-                //     // if the condition is a constant, we can choose the branch at compile time
-                //     if let Some(cond_value) = cond_res.const_value {
-                //         if cond_value.into_bool() {
-                //             *self = if_.then.as_ref().clone();
-                //             Ok(Res::new_maybe_const(then_res.ty, then_res.const_value))
-                //         } else {
-                //             *self = otherwise.as_ref().clone();
-                //             Ok(Res::new_maybe_const(
-                //                 otherwise_res.ty,
-                //                 otherwise_res.const_value,
-                //             ))
-                //         }
-                //     } else {
-                //         Ok(Res::new(then_res.ty))
-                //     }
-                // } else {
-                //     let unit = sess.tycx.common_types.unit;
-                //     // if the condition is a constant, we can either choose the then
-                //     // branch at compile time, or transform this into a unit
-                //     if let Some(cond_value) = cond_res.const_value {
-                //         if cond_value.into_bool() {
-                //             *self = if_.then.as_ref().clone();
-                //             Ok(Res::new_maybe_const(then_res.ty, then_res.const_value))
-                //         } else {
-                //             *self = ast::Expr::typed(
-                //                 ast::ExprKind::Literal(ast::Literal::Unit),
-                //                 unit,
-                //                 self.span,
-                //             );
-                //             Ok(Res::new(unit))
-                //         }
-                //     } else {
-                //         Ok(Res::new(unit))
-                //     }
-                // }
             }
             ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
             ast::ExprKind::Binary(binary) => {

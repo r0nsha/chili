@@ -145,7 +145,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &CodegenState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        self.build_alloca_internal(state, llvm_ty, "")
+        self.build_alloca_inner(state, llvm_ty, "")
     }
 
     pub(super) fn build_alloca_named(
@@ -167,10 +167,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .workspace
             .get_binding_info(id)
             .map_or(ustr(""), |b| b.symbol);
-        self.build_alloca_internal(state, llvm_ty, &name)
+        self.build_alloca_inner(state, llvm_ty, &name)
     }
 
-    fn build_alloca_internal(
+    fn build_alloca_inner(
         &self,
         state: &CodegenState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,

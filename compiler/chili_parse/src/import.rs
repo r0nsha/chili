@@ -15,14 +15,14 @@ use ustr::{ustr, Ustr};
 
 impl<'p> Parser<'p> {
     pub(crate) fn parse_import(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
-        let imports = self.parse_import_internal(visibility)?;
+        let imports = self.parse_import_inner(visibility)?;
         imports.iter().for_each(|import| {
             self.used_modules.insert(import.target_module_info);
         });
         Ok(imports)
     }
 
-    fn parse_import_internal(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
+    fn parse_import_inner(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
         if eat!(self, Tilde) {
             expect!(self, Dot, ".")?;
             todo!("implement `from_root` use: `use ~.foo.bar`");
@@ -46,8 +46,7 @@ impl<'p> Parser<'p> {
                 let mut path_buf = PathBuf::from(&self.current_dir);
                 path_buf.push(name);
 
-                let module = self.get_module_name_from_path(&path_buf);
-                let module = ustr(&module);
+                let module = ustr(&self.get_module_name_from_path(&path_buf));
                 let alias = ustr(name);
 
                 if path_buf.with_extension(SOURCE_FILE_EXT).is_file() {
@@ -89,7 +88,7 @@ impl<'p> Parser<'p> {
         visibility: Visibility,
         module_name_span: Span,
     ) -> DiagnosticResult<Vec<Import>> {
-        let imports = self.parse_import_postfix_internal(
+        let imports = self.parse_import_postfix_inner(
             ustr(path_buf.to_str().unwrap()),
             module,
             alias,
@@ -101,7 +100,7 @@ impl<'p> Parser<'p> {
         Ok(imports)
     }
 
-    fn parse_import_postfix_internal(
+    fn parse_import_postfix_inner(
         &mut self,
         path: Ustr,
         module: Ustr,
@@ -120,7 +119,7 @@ impl<'p> Parser<'p> {
 
                 import_path.push(Spanned::new(ImportPathNode::Symbol(alias), id_token.span));
 
-                self.parse_import_postfix_internal(
+                self.parse_import_postfix_inner(
                     path,
                     module,
                     alias,
@@ -141,7 +140,7 @@ impl<'p> Parser<'p> {
                     local_import_path
                         .push(Spanned::new(ImportPathNode::Symbol(alias), id_token.span));
 
-                    let import = self.parse_import_postfix_internal(
+                    let import = self.parse_import_postfix_inner(
                         path,
                         module,
                         alias,
