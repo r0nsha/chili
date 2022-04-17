@@ -6,7 +6,10 @@ use chili_ast::{
 };
 use chili_parse::Parser;
 use chili_token::{lexer::Lexer, TokenKind};
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 use unindent::unindent;
 use ustr::ustr;
 
@@ -29,7 +32,7 @@ impl<'a> AstGenerator<'a> {
         let mut asts: Vec<Ast> = vec![];
 
         let root_file_path = resolve_relative_path(
-            &self.workspace.build_options.source_file,
+            &Path::new(&self.workspace.build_options.source_file),
             &common::builtin::root_module(),
             None,
         )

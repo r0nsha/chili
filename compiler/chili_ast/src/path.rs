@@ -7,12 +7,10 @@ use path_absolutize::Absolutize;
 use std::path::Path;
 
 pub fn resolve_relative_path(
-    path: &str,
+    path: &Path,
     relative_to: &str,
     span: Option<Span>,
 ) -> DiagnosticResult<String> {
-    let path = Path::new(&path);
-
     let absolute_path = if relative_to.is_empty() {
         path.absolutize().unwrap()
     } else {

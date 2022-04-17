@@ -359,7 +359,7 @@ impl ForeignLibrary {
                 .to_str()
                 .unwrap();
 
-            let path = resolve_relative_path(string, relative_to, Some(span))?;
+            let path = resolve_relative_path(Path::new(string), relative_to, Some(span))?;
             let path = Path::new(&path);
 
             Ok(ForeignLibrary::Path {

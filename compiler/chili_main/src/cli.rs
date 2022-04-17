@@ -1,52 +1,60 @@
-use std::path::Path;
-
-use clap::clap_app;
+use crate::build::start_workspace;
+use clap::*;
 use colored::Colorize;
 use common::{build_options::BuildOptions, target::TargetPlatform};
+use std::path::Path;
 
-use crate::build::start_workspace;
+#[derive(Parser, Debug)]
+#[clap(
+    author,
+    version,
+    about,
+    long_about = "Compiler for the Chili programming language"
+)]
+struct Cli {
+    /// The main action the compiler should take
+    #[clap(subcommand)]
+    action: Action,
+}
+
+#[derive(clap::Subcommand, Debug, PartialEq, Eq)]
+enum Action {
+    /// Compile a chili source file, as an executable
+    Build(Args),
+    /// Same as `build`, but also runs the compiled executable
+    Run(Args),
+}
+
+#[derive(Args, Debug, PartialEq, Eq)]
+struct Args {
+    /// The main action the compiler should take
+    input: String,
+
+    /// Print trace information verbosely
+    #[clap(short, long)]
+    verbose: bool,
+}
 
 pub fn start_cli() {
-    let mut app = clap_app!(compiler =>
-        (version: "0.0.1")
-        (author: "Ron Shavit <r0nsh4v1t@gmail.com>")
-        (@subcommand build =>
-            (about: "compile a chili source file, as an executable.")
-            (@arg input: +required "sets the input file to use.")
-        )
-        (@subcommand run =>
-            (about: "same as the 'build' command, but also runs the compiled executable.")
-            (@arg input: +required "sets the input file to use")
-        )
-        (@arg verbose: -v --verbose "print trace information verbosely")
-    );
+    let cli = Cli::parse();
 
-    let matches = app.clone().get_matches();
-
-    let (run, sub_matches) = match matches.subcommand() {
-        ("build", Some(matches)) => (false, matches),
-        ("run", Some(matches)) => (true, matches),
-        _ => {
-            app.print_long_help().expect("failed printing help message");
-            std::process::exit(0);
-        }
+    let (run, args) = match cli.action {
+        Action::Build(args) => (false, args),
+        Action::Run(args) => (true, args),
     };
 
-    let input_file = sub_matches.value_of("input").unwrap_or_else(|| {
-        app.print_long_help().expect("failed printing help message");
-        std::process::exit(0);
-    });
+    match get_file_path(&args.input) {
+        Ok(file) => {
+            let build_options = BuildOptions {
+                source_file: file.to_string(),
+                target_platform: TargetPlatform::WindowsAmd64,
+                run,
+                verbose: args.verbose,
+            };
 
-    let verbose = matches.is_present("verbose");
-
-    match get_file_path(input_file) {
-        Ok(file) => start_workspace(BuildOptions {
-            source_file: file.to_string(),
-            target_platform: TargetPlatform::WindowsAmd64,
-            run,
-            verbose,
-        }),
-        Err(why) => print_err(&why),
+            start_workspace(build_options);
+        }
+        Err(e) => print_err(&e),
     }
 }
 
