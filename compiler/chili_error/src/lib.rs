@@ -50,8 +50,8 @@ impl Diagnostics {
     }
 
     pub fn emit(&self) {
-        todo!()
-        // self.emitter.emit_many(&self.files, self.diagnostics);
+        self.emitter
+            .emit_many(&self.files, self.diagnostics.clone());
     }
 }
 

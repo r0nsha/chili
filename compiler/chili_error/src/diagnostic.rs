@@ -2,17 +2,19 @@ use chili_span::Span;
 
 pub type DiagnosticCode = String;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DiagnosticKind {
     Error,
 }
 
+#[derive(Clone)]
 pub struct Label {
     pub kind: LabelKind,
     pub span: Span,
     pub message: String,
 }
 
+#[derive(Clone, Copy)]
 pub enum LabelKind {
     Primary,
     Secondary,
@@ -36,6 +38,7 @@ impl Label {
     }
 }
 
+#[derive(Clone)]
 pub struct Diagnostic {
     pub kind: DiagnosticKind,
     pub message: Option<String>,
