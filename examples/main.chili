@@ -1,10 +1,2 @@
 let main = fn {
-    let 2 = go
-}
-
-let main = fn {
-    fn(x -> Hello) -> int {
-        x = 555
-        let x = 1
-    }
 }

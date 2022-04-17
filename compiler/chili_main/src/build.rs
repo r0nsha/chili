@@ -7,8 +7,6 @@ use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
 pub fn start_workspace(build_options: BuildOptions) {
-    println!();
-
     let mut all_sw = Stopwatch::start_new("time");
 
     // Set up workspace
