@@ -7,6 +7,8 @@ pub struct BuildOptions {
     pub target_platform: TargetPlatform,
     pub run: bool,
     pub verbose: bool,
+    pub emit_llvm_ir: bool,
+    pub no_codegen: bool,
 }
 
 impl BuildOptions {

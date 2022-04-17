@@ -31,8 +31,16 @@ struct Args {
     input: String,
 
     /// Print trace information verbosely
-    #[clap(short, long)]
+    #[clap(long)]
     verbose: bool,
+
+    /// Emit LLVM IR file
+    #[clap(long)]
+    emit_llvm: bool,
+
+    /// Skip the code generation phase
+    #[clap(long)]
+    no_codegen: bool,
 }
 
 pub fn start_cli() {
@@ -50,6 +58,8 @@ pub fn start_cli() {
                 target_platform: TargetPlatform::WindowsAmd64,
                 run,
                 verbose: args.verbose,
+                emit_llvm_ir: args.emit_llvm,
+                no_codegen: args.no_codegen,
             };
 
             start_workspace(build_options);

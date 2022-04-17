@@ -86,7 +86,9 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 
     // Code generation
-    chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
+    if !workspace.build_options.no_codegen {
+        chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
+    }
 
     if workspace.build_options.verbose {
         print_stats(stats, all_sw.unwrap().elapsed().as_millis());

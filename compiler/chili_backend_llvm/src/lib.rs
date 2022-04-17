@@ -72,7 +72,9 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
         cg.start()
     };
 
-    dump_ir(&module, workspace.build_options.source_path());
+    if workspace.build_options.emit_llvm_ir {
+        dump_ir(&module, workspace.build_options.source_path());
+    }
 
     let executable_path = build_executable(
         &workspace.build_options,
