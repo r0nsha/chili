@@ -5,5 +5,6 @@ let main = fn {
 let main = fn {
     fn(x -> Hello) -> int {
         x = 555
+        let x = 1
     }
 }

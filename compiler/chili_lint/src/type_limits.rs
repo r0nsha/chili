@@ -3,17 +3,14 @@ use chili_ast::{
     ty::{IntTy, Ty, TyKind, UIntTy},
 };
 use chili_check::normalize::NormalizeTy;
-use chili_error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult,
-};
+use chili_error::diagnostic::{Diagnostic, Label};
 use chili_span::Span;
 use std::fmt::Display;
 
 use crate::sess::LintSess;
 
 impl<'s> LintSess<'s> {
-    pub fn check_type_limits(&self, e: &ast::Expr) -> DiagnosticResult<()> {
+    pub fn check_type_limits(&mut self, e: &ast::Expr) {
         match &e.kind {
             ast::ExprKind::Literal(k) => match k {
                 &ast::Literal::Int(value) => match &e.ty.normalize(self.tycx) {
@@ -21,36 +18,38 @@ impl<'s> LintSess<'s> {
                         let (min, max) = int_ty_range(*int_ty);
 
                         if value < min || value > max {
-                            Err(overflow_err(value, &e.ty, min, max, e.span))
-                        } else {
-                            Ok(())
+                            self.workspace
+                                .diagnostics
+                                .add(overflow_err(value, &e.ty, min, max, e.span))
                         }
                     }
                     TyKind::UInt(uint_ty) => {
                         let (min, max) = uint_ty_range(*uint_ty);
 
                         if value.is_negative() {
-                            Err(overflow_err(value, &e.ty, min, max, e.span))
+                            self.workspace
+                                .diagnostics
+                                .add(overflow_err(value, &e.ty, min, max, e.span))
                         } else {
                             let value = value as u64;
 
                             if value < min || value > max {
-                                Err(overflow_err(value, &e.ty, min, max, e.span))
-                            } else {
-                                Ok(())
+                                self.workspace
+                                    .diagnostics
+                                    .add(overflow_err(value, &e.ty, min, max, e.span))
                             }
                         }
                     }
-                    _ => Ok(()),
+                    _ => (),
                 },
                 ast::Literal::Float(_)
                 | ast::Literal::Unit
                 | ast::Literal::Nil
                 | ast::Literal::Bool(_)
                 | ast::Literal::Str(_)
-                | ast::Literal::Char(_) => Ok(()),
+                | ast::Literal::Char(_) => (),
             },
-            _ => Ok(()),
+            _ => (),
         }
     }
 }

@@ -64,10 +64,11 @@ pub fn do_build(build_options: BuildOptions) {
 
     // Lint - does auxillary checks which are not required for type inference
     time! { "lint",
-        if let Err(diagnostic) = chili_lint::lint(&mut workspace, &tycx, &typed_ast) {
-            workspace.diagnostics.add(diagnostic);
-            workspace.diagnostics.emit_and_exit();
-        }
+        chili_lint::lint(&mut workspace, &tycx, &typed_ast)
+    }
+
+    if workspace.diagnostics.has_errors() {
+        workspace.diagnostics.emit_and_exit();
     }
 
     // Defer - resolve all `defer` statements

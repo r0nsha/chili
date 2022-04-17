@@ -243,6 +243,8 @@ impl SolveDefer for ast::Expr {
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
             | ast::ExprKind::PlaceholderType => (),
+
+            ast::ExprKind::Error => panic!("unexpected error node"),
         };
     }
 }

@@ -279,6 +279,7 @@ impl TokenKind {
                 | Float(_)
                 | Str(_)
                 | Char(_)
+                | Eof
         )
     }
 }

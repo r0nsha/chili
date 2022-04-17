@@ -1147,6 +1147,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_unit()
                 }
             }
+
+            ast::ExprKind::Error => panic!("unexpected error node"),
         };
 
         if expr.ty.normalize(self.tycx).is_never() {

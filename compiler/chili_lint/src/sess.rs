@@ -3,7 +3,7 @@ use chili_check::ty_ctx::TyCtx;
 use common::scopes::Scopes;
 
 pub(crate) struct LintSess<'s> {
-    pub(crate) workspace: &'s Workspace,
+    pub(crate) workspace: &'s mut Workspace,
     pub(crate) tycx: &'s TyCtx,
     pub(crate) init_scopes: Scopes<BindingInfoId, InitState>,
 }

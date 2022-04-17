@@ -165,7 +165,6 @@ impl<'p> Parser<'p> {
         if !self.is_end() {
             self.current += 1;
         }
-
         self.previous()
     }
 

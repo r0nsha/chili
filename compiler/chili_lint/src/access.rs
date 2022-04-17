@@ -1,18 +1,11 @@
 use chili_ast::{ast, workspace::BindingInfoId};
-use chili_error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult,
-};
+use chili_error::diagnostic::{Diagnostic, Label};
 use chili_span::Span;
 
 use crate::sess::{InitState, LintSess};
 
 impl<'s> LintSess<'s> {
-    pub(crate) fn check_id_access(
-        &self,
-        binding_info_id: BindingInfoId,
-        span: Span,
-    ) -> DiagnosticResult<()> {
+    pub(crate) fn check_id_access(&mut self, binding_info_id: BindingInfoId, span: Span) {
         if let Some((_, state)) = self.init_scopes.get(binding_info_id) {
             if state.is_not_init() {
                 let binding_info = self.workspace.get_binding_info(binding_info_id).unwrap();
@@ -22,21 +15,21 @@ impl<'s> LintSess<'s> {
                     binding_info.symbol
                 );
 
-                return Err(Diagnostic::error()
-                    .with_message(msg.clone())
-                    .with_label(Label::primary(span, msg))
-                    .with_label(Label::secondary(binding_info.span, "defined here")));
+                self.workspace.diagnostics.add(
+                    Diagnostic::error()
+                        .with_message(msg.clone())
+                        .with_label(Label::primary(span, msg))
+                        .with_label(Label::secondary(binding_info.span, "defined here")),
+                );
             }
         }
-
-        Ok(())
     }
 
     pub(crate) fn check_assign_lvalue_id_access(
         &mut self,
         lvalue: &ast::Expr,
         binding_info_id: BindingInfoId,
-    ) -> DiagnosticResult<()> {
+    ) {
         let binding_info = self.workspace.get_binding_info(binding_info_id).unwrap();
         let (_, init_state) = self.init_scopes.get(binding_info_id).unwrap();
 
@@ -45,19 +38,19 @@ impl<'s> LintSess<'s> {
                 "cannot assign twice to immutable variable `{}`",
                 binding_info.symbol
             );
-            return Err(Diagnostic::error()
-                .with_message(msg.clone())
-                .with_label(Label::primary(lvalue.span, msg))
-                .with_label(Label::secondary(binding_info.span, "defined here")));
+            self.workspace.diagnostics.add(
+                Diagnostic::error()
+                    .with_message(msg.clone())
+                    .with_label(Label::primary(lvalue.span, msg))
+                    .with_label(Label::secondary(binding_info.span, "defined here")),
+            );
         }
 
         if init_state.is_init() {
-            self.check_lvalue_access(lvalue, lvalue.span)?;
+            self.check_lvalue_access(lvalue, lvalue.span);
         } else {
             // set binding as init in the current scope
             *self.init_scopes.get_mut(binding_info_id).unwrap().1 = InitState::Init;
         }
-
-        Ok(())
     }
 }

@@ -5,10 +5,7 @@ use chili_ast::{
     workspace::{BindingInfo, BindingInfoId, ModuleId},
 };
 use chili_check::{display::DisplayTy, normalize::NormalizeTy};
-use chili_error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult,
-};
+use chili_error::diagnostic::{Diagnostic, Label};
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -18,13 +15,11 @@ enum RefAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub(super) fn check_expr_can_be_mutably_referenced(
-        &self,
-        expr: &ast::Expr,
-    ) -> DiagnosticResult<()> {
+    pub(super) fn check_expr_can_be_mutably_referenced(&mut self, expr: &ast::Expr) {
         use RefAccessErr::*;
 
-        self.check_expr_can_be_mutably_referenced_inner(expr, true)
+        let result = self
+            .check_expr_can_be_mutably_referenced_inner(expr, true)
             .map_err(|err| match err {
                 ImmutableReference { ty, span } => Diagnostic::error()
                     .with_message(format!(
@@ -49,7 +44,11 @@ impl<'s> LintSess<'s> {
                             ),
                         ))
                 }
-            })
+            });
+
+        if let Err(diag) = result {
+            self.workspace.diagnostics.add(diag);
+        }
     }
 
     fn check_expr_can_be_mutably_referenced_inner(

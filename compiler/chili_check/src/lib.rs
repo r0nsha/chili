@@ -1555,6 +1555,7 @@ impl Check for ast::Expr {
                     Value::Type(ty),
                 ))
             }
+            ast::ExprKind::Error => Ok(Res::new(sess.tycx.var())),
         }?;
 
         self.ty = res.ty;

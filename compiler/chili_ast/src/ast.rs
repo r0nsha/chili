@@ -135,6 +135,7 @@ pub enum ExprKind {
     NeverType,
     UnitType,
     PlaceholderType,
+    Error,
 }
 
 #[derive(Debug, PartialEq, Clone)]

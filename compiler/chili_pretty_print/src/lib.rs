@@ -528,6 +528,9 @@ impl PrintTree for ast::Expr {
             ast::ExprKind::PlaceholderType => {
                 b.add_empty_child(format!("_ (type hole) <{}>", tycx.ty_kind(self.ty)));
             }
+            ast::ExprKind::Error => {
+                b.add_empty_child("ERROR".to_string());
+            }
         }
     }
 }

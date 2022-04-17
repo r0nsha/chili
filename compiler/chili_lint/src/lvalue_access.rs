@@ -1,10 +1,7 @@
 use crate::sess::LintSess;
 use chili_ast::{ast, ty::TyKind, workspace::BindingInfoId};
 use chili_check::{display::DisplayTy, normalize::NormalizeTy};
-use chili_error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult,
-};
+use chili_error::diagnostic::{Diagnostic, Label};
 use chili_span::Span;
 
 pub(crate) enum LvalueAccessErr {
@@ -14,14 +11,11 @@ pub(crate) enum LvalueAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub(crate) fn check_lvalue_access(
-        &self,
-        expr: &ast::Expr,
-        expr_span: Span,
-    ) -> DiagnosticResult<()> {
+    pub(crate) fn check_lvalue_access(&mut self, expr: &ast::Expr, expr_span: Span) {
         use LvalueAccessErr::*;
 
-        self.check_lvalue_mutability_inner(expr)
+        let result = self
+            .check_lvalue_mutability_inner(expr)
             .map_err(|err| -> Diagnostic {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
@@ -54,7 +48,11 @@ impl<'s> LintSess<'s> {
                             "cannot assign to this expression",
                         )),
                 }
-            })
+            });
+
+        if let Err(diag) = result {
+            self.workspace.diagnostics.add(diag);
+        }
     }
 
     fn check_lvalue_mutability_inner(&self, expr: &ast::Expr) -> Result<(), LvalueAccessErr> {

@@ -36,6 +36,7 @@ impl<'p> Parser<'p> {
                 self.span(),
                 &format!("an item, got `{}`", self.peek().lexeme),
             ));
+            self.bump();
         }
 
         Ok(())
