@@ -4,9 +4,8 @@ pub mod mem;
 pub mod scopes;
 pub mod target;
 
-use std::time::Duration;
-
 use colored::{Color, Colorize};
+use std::time::Duration;
 use stopwatch::Stopwatch as SW;
 
 pub struct Stopwatch<'s> {
@@ -38,17 +37,17 @@ impl<'s> Stopwatch<'s> {
     }
 
     pub fn print(&self) {
-        let value = (self.elapsed().as_micros() as f32) / 1000.0;
-        let color = if value < 1.0 {
+        let value = self.elapsed().as_micros();
+        let color = if value < 100 {
+            Color::BrightCyan
+        } else if value < 1000 {
             Color::BrightGreen
-        } else if value < 5.0 {
+        } else if value < 1000 * 10 {
             Color::BrightYellow
-        } else if value < 10.0 {
-            Color::Yellow
         } else {
             Color::BrightRed
         };
-        println!("{:<16}{:.2}ms", self.label.color(color).bold(), value);
+        println!("{:<16}{}μs", self.label.color(color).bold(), value);
     }
 }
 

@@ -245,14 +245,14 @@ pub enum ArrayLiteralKind {
     Fill { len: Box<Expr>, expr: Box<Expr> },
 }
 
-#[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone)]
+#[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone, Copy)]
 pub enum Literal {
     Unit,
     Nil,
     Bool(bool),
     Int(i64),
     Float(f64),
-    Str(String),
+    Str(Ustr),
     Char(char),
 }
 

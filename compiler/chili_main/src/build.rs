@@ -87,7 +87,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     // Code generation
     if !workspace.build_options.no_codegen {
-        chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
+        // chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
     }
 
     if workspace.build_options.verbose {
@@ -98,12 +98,11 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {
-    println!();
+    println!("------------------------");
     println!(
         "{}\t{}",
         "lines:".cyan().bold(),
         stats.total_lines.to_formatted_string(&Locale::en)
     );
     println!("{}\t{}m", "time:".cyan().bold(), elapsed_ms);
-    println!();
 }

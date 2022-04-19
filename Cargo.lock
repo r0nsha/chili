@@ -214,7 +214,6 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_astgen",
- "chili_backend_llvm",
  "chili_check",
  "chili_defer",
  "chili_error",

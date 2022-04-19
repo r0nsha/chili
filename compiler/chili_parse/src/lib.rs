@@ -14,6 +14,7 @@ use chili_ast::{ast::Ast, workspace::ModuleInfo};
 use chili_error::{DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::Span;
 use chili_token::{Token, TokenKind::*};
+use common::time;
 use std::{collections::HashSet, path::Path};
 use ustr::{ustr, Ustr};
 

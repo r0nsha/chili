@@ -15,7 +15,7 @@ impl<'p> Parser<'p> {
             False => Literal::Bool(false),
             Int(value) => Literal::Int(*value),
             Float(value) => Literal::Float(*value),
-            Str(value) => Literal::Str(value.to_string()),
+            Str(value) => Literal::Str(*value),
             Char(value) => Literal::Char(*value),
             _ => panic!("unexpected literal `{}`", token.lexeme),
         };
