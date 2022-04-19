@@ -4,8 +4,8 @@ use chili_ast::{
     ty::TyKind,
     workspace::{BindingInfo, BindingInfoId, ModuleId},
 };
-use chili_check::{display::DisplayTy, normalize::NormalizeTy};
 use chili_error::diagnostic::{Diagnostic, Label};
+use chili_infer::{display::DisplayTy, normalize::NormalizeTy};
 use chili_span::Span;
 use ustr::Ustr;
 

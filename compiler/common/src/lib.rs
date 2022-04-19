@@ -42,7 +42,7 @@ impl<'s> Stopwatch<'s> {
             Color::BrightCyan
         } else if value < 1000 {
             Color::BrightGreen
-        } else if value < 1000 * 10 {
+        } else if value < 1000 * 100 {
             Color::BrightYellow
         } else {
             Color::BrightRed

@@ -1,7 +1,7 @@
 // use crate::tycx::{TyBinding, TyContext};
 // use chili_ast::{ast, ty::*};
 
-// pub(crate) trait Substitute {
+// pub trait Substitute {
 //     fn substitute(&mut self, tycx: &TyContext);
 // }
 
@@ -207,7 +207,7 @@
 //     }
 // }
 
-// pub(crate) fn substitute_ty(ty: &Ty, tycx: &TyContext) -> Ty {
+// pub fn substitute_ty(ty: &Ty, tycx: &TyContext) -> Ty {
 //     match ty {
 //         Ty::Var(var) => find_type_or_default(*var, tycx, || {
 //             panic!(

@@ -157,7 +157,7 @@ fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: TyKind) {
     )
 }
 
-pub(crate) trait OrCoerceExprs {
+pub trait OrCoerceExprs {
     fn or_coerce_exprs(
         self,
         left: &mut ast::Expr,
@@ -195,7 +195,7 @@ impl OrCoerceExprs for UnifyTyResult {
     }
 }
 
-pub(crate) trait OrCoerceExprIntoTy {
+pub trait OrCoerceExprIntoTy {
     fn or_coerce_expr_into_ty(
         self,
         expr: &mut ast::Expr,

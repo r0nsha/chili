@@ -154,8 +154,8 @@ name = "chili_backend_llvm"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
- "chili_check",
  "chili_error",
+ "chili_infer",
  "chili_parse",
  "chili_span",
  "common",
@@ -170,6 +170,7 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
+ "chili_infer",
  "chili_span",
  "common",
  "slab",
@@ -197,12 +198,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "chili_infer"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "common",
+ "slab",
+ "ustr",
+]
+
+[[package]]
 name = "chili_lint"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
- "chili_check",
  "chili_error",
+ "chili_infer",
  "chili_span",
  "common",
  "ustr",
@@ -250,8 +263,8 @@ name = "chili_pretty_print"
 version = "0.1.0"
 dependencies = [
  "chili_ast",
- "chili_check",
  "chili_error",
+ "chili_infer",
  "chili_span",
  "chili_token",
  "common",

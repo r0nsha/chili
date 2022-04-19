@@ -1,38 +1,41 @@
-use crate::{normalize::NormalizeTy, ty_ctx::InferenceValue, CheckSess};
+use crate::{
+    normalize::NormalizeTy,
+    ty_ctx::{InferenceValue, TyCtx},
+};
 use chili_ast::ty::*;
 
-pub(crate) trait UnifyTy<T>
+pub trait UnifyTy<T>
 where
     Self: Sized,
     T: Sized,
 {
-    fn unify(&self, other: &T, sess: &mut CheckSess) -> UnifyTyResult;
+    fn unify(&self, other: &T, tycx: &mut TyCtx) -> UnifyTyResult;
 }
 
 impl UnifyTy<Ty> for Ty {
-    fn unify(&self, other: &Ty, sess: &mut CheckSess) -> UnifyTyResult {
+    fn unify(&self, other: &Ty, tycx: &mut TyCtx) -> UnifyTyResult {
         let t1 = TyKind::Var(*self);
         let t2 = TyKind::Var(*other);
-        t1.unify(&t2, sess)
+        t1.unify(&t2, tycx)
     }
 }
 
 impl UnifyTy<TyKind> for Ty {
-    fn unify(&self, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult {
+    fn unify(&self, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
         let ty = TyKind::Var(*self);
-        ty.unify(other, sess)
+        ty.unify(other, tycx)
     }
 }
 
 impl UnifyTy<Ty> for TyKind {
-    fn unify(&self, other: &Ty, sess: &mut CheckSess) -> UnifyTyResult {
+    fn unify(&self, other: &Ty, tycx: &mut TyCtx) -> UnifyTyResult {
         let other = TyKind::Var(*other);
-        self.unify(&other, sess)
+        self.unify(&other, tycx)
     }
 }
 
 impl UnifyTy<TyKind> for TyKind {
-    fn unify(&self, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult {
+    fn unify(&self, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
         match (self, other) {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
@@ -52,19 +55,19 @@ impl UnifyTy<TyKind> for TyKind {
                 if !can_coerce_mut(*a1, *a2) {
                     Err(UnifyTyErr::Mismatch)
                 } else {
-                    t1.unify(t2.as_ref(), sess)?;
+                    t1.unify(t2.as_ref(), tycx)?;
                     Ok(())
                 }
             }
 
             (TyKind::Fn(f1), TyKind::Fn(f2)) => {
-                f1.ret.unify(f2.ret.as_ref(), sess)?;
+                f1.ret.unify(f2.ret.as_ref(), tycx)?;
 
                 if f1.params.len() != f2.params.len() && !f1.variadic && !f2.variadic {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
-                        p1.unify(p2, sess)?;
+                        p1.unify(p2, tycx)?;
                     }
                     Ok(())
                 }
@@ -74,7 +77,7 @@ impl UnifyTy<TyKind> for TyKind {
                 if *s1 != *s2 {
                     Err(UnifyTyErr::Mismatch)
                 } else {
-                    t1.unify(t2.as_ref(), sess)?;
+                    t1.unify(t2.as_ref(), tycx)?;
                     Ok(())
                 }
             }
@@ -84,7 +87,7 @@ impl UnifyTy<TyKind> for TyKind {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (t1, t2) in t1.iter().zip(t2.iter()) {
-                        t1.unify(t2, sess)?;
+                        t1.unify(t2, tycx)?;
                     }
                     Ok(())
                 }
@@ -97,17 +100,17 @@ impl UnifyTy<TyKind> for TyKind {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (f1, f2) in t1.fields.iter().zip(t2.fields.iter()) {
-                        f1.ty.unify(&f2.ty, sess)?;
+                        f1.ty.unify(&f2.ty, tycx)?;
                     }
                     Ok(())
                 }
             }
 
-            (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), sess),
-            // (TyKind::Type(t1), t2) => t1.unify(t2, sess),
-            // (t1, TyKind::Type(t2)) => t1.unify(t2.as_ref(), sess),
-            (TyKind::Var(var), _) => unify_var_ty(*var, other, sess),
-            (_, TyKind::Var(var)) => unify_var_ty(*var, self, sess),
+            (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
+            // (TyKind::Type(t1), t2) => t1.unify(t2, tycx),
+            // (t1, TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
+            (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx),
+            (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx),
 
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 
@@ -116,19 +119,19 @@ impl UnifyTy<TyKind> for TyKind {
     }
 }
 
-fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult {
-    match sess.tycx.value_of(var) {
-        InferenceValue::Bound(kind) => kind.clone().unify(other, sess),
+fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
+    match tycx.value_of(var) {
+        InferenceValue::Bound(kind) => kind.clone().unify(other, tycx),
         InferenceValue::AnyInt => {
-            let other_kind = other.normalize(&sess.tycx);
+            let other_kind = other.normalize(&tycx);
             match other_kind {
                 TyKind::Int(_) | TyKind::UInt(_) | TyKind::Float(_) => {
-                    sess.tycx.bind(var, other.clone());
+                    tycx.bind(var, other.clone());
                     Ok(())
                 }
                 TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
                     if other != var {
-                        sess.tycx.bind(other, var.into());
+                        tycx.bind(other, var.into());
                     }
                     Ok(())
                 }
@@ -136,15 +139,15 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult 
             }
         }
         InferenceValue::AnyFloat => {
-            let other_kind = other.normalize(&sess.tycx);
+            let other_kind = other.normalize(&tycx);
             match other_kind {
                 TyKind::Float(_) => {
-                    sess.tycx.bind(var, other.clone());
+                    tycx.bind(var, other.clone());
                     Ok(())
                 }
                 TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
                     if other != var {
-                        sess.tycx.bind(other, var.into());
+                        tycx.bind(other, var.into());
                     }
                     Ok(())
                 }
@@ -152,13 +155,13 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult 
             }
         }
         InferenceValue::Unbound => {
-            let other_kind = other.normalize(&sess.tycx);
+            let other_kind = other.normalize(&tycx);
 
             if TyKind::Var(var) != other_kind {
-                if occurs(var, &other_kind, sess) {
+                if occurs(var, &other_kind, tycx) {
                     Err(UnifyTyErr::Occurs)
                 } else {
-                    sess.tycx.bind(var, other.clone());
+                    tycx.bind(var, other.clone());
                     Ok(())
                 }
             } else {
@@ -168,29 +171,29 @@ fn unify_var_ty(var: Ty, other: &TyKind, sess: &mut CheckSess) -> UnifyTyResult 
     }
 }
 
-fn occurs(var: Ty, kind: &TyKind, sess: &CheckSess) -> bool {
+fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
     match kind {
-        TyKind::Var(other) => match sess.tycx.value_of(*other) {
-            InferenceValue::Bound(ty) => occurs(var, &ty, sess),
+        TyKind::Var(other) => match tycx.value_of(*other) {
+            InferenceValue::Bound(ty) => occurs(var, &ty, tycx),
             InferenceValue::AnyInt | InferenceValue::AnyFloat | InferenceValue::Unbound => {
                 var == *other
             }
         },
-        TyKind::Fn(f) => f.params.iter().any(|p| occurs(var, p, sess)) || occurs(var, &f.ret, sess),
+        TyKind::Fn(f) => f.params.iter().any(|p| occurs(var, p, tycx)) || occurs(var, &f.ret, tycx),
         TyKind::Pointer(ty, _)
         | TyKind::MultiPointer(ty, _)
         | TyKind::Array(ty, _)
-        | TyKind::Slice(ty, _) => occurs(var, ty, sess),
-        TyKind::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, sess)),
-        TyKind::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, sess)),
+        | TyKind::Slice(ty, _) => occurs(var, ty, tycx),
+        TyKind::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx)),
+        TyKind::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tycx)),
         _ => false,
     }
 }
 
-pub(crate) type UnifyTyResult = Result<(), UnifyTyErr>;
+pub type UnifyTyResult = Result<(), UnifyTyErr>;
 
 #[derive(Debug)]
-pub(crate) enum UnifyTyErr {
+pub enum UnifyTyErr {
     Mismatch,
     Occurs,
 }

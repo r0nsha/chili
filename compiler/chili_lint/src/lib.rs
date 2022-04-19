@@ -9,11 +9,11 @@ use chili_ast::{
     pattern::Pattern,
     workspace::Workspace,
 };
-use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_error::{
     diagnostic::{Diagnostic, Label},
     TypeError,
 };
+use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 

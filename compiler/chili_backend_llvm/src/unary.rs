@@ -1,6 +1,6 @@
 use crate::codegen::{Codegen, CodegenState};
 use chili_ast::{ast, ty::*};
-use chili_check::normalize::NormalizeTy;
+use chili_infer::normalize::NormalizeTy;
 use chili_span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
 

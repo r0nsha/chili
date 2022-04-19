@@ -1,20 +1,9 @@
 mod bind;
 mod builtin;
-mod cast;
-mod coerce;
 mod const_fold;
-pub mod display;
 mod env;
-pub mod normalize;
-mod substitute;
 mod top_level;
-pub mod ty_ctx;
-pub mod unify;
 
-use crate::{
-    cast::CanCast, display::DisplayTy, normalize::NormalizeTy, top_level::CheckTopLevel,
-    ty_ctx::TyCtx, unify::UnifyTy,
-};
 use chili_ast::{
     ast::{self, ForeignLibrary},
     pattern::{Pattern, SymbolPattern},
@@ -26,17 +15,23 @@ use chili_error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult, SyntaxError, TypeError,
 };
+use chili_infer::{
+    cast::CanCast,
+    coerce::{OrCoerceExprIntoTy, OrCoerceExprs},
+    display::{DisplayTy, OrReportErr},
+    normalize::NormalizeTy,
+    ty_ctx::TyCtx,
+    unify::UnifyTy,
+};
 use chili_span::Span;
-use coerce::{OrCoerceExprIntoTy, OrCoerceExprs};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     target::TargetMetrics,
 };
 use const_fold::binary::const_fold_binary;
-use display::OrReportErr;
 use env::{Env, Scope};
 use std::collections::HashMap;
-use top_level::CallerInfo;
+use top_level::{CallerInfo, CheckTopLevel};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
 pub fn check(
@@ -391,7 +386,7 @@ impl Check for ast::Binding {
             let res = expr.check(sess, env, Some(self.ty))?;
 
             res.ty
-                .unify(&self.ty, sess)
+                .unify(&self.ty, &mut sess.tycx)
                 .or_coerce_expr_into_ty(
                     expr,
                     self.ty,
@@ -520,7 +515,7 @@ impl Check for ast::Fn {
             |sess| self.body.check(sess, env, None),
         )?;
 
-        let mut unify_res = body_res.ty.unify(&return_ty, sess);
+        let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
         if let Some(last_expr) = self.body.exprs.last_mut() {
             unify_res = unify_res.or_coerce_expr_into_ty(
                 last_expr,
@@ -654,7 +649,7 @@ impl Check for ast::Expr {
                 let rres = assign.rvalue.check(sess, env, Some(lres.ty))?;
 
                 rres.ty
-                    .unify(&lres.ty, sess)
+                    .unify(&lres.ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut assign.rvalue,
                         lres.ty,
@@ -686,7 +681,7 @@ impl Check for ast::Expr {
 
                 cond_res
                     .ty
-                    .unify(&cond_ty, sess)
+                    .unify(&cond_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut while_.cond,
                         cond_ty,
@@ -717,7 +712,7 @@ impl Check for ast::Expr {
 
                         let anyint = sess.tycx.anyint();
 
-                        start_res.ty.unify(&anyint, sess).or_report_err(
+                        start_res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             start_res.ty,
@@ -726,7 +721,7 @@ impl Check for ast::Expr {
 
                         start_res
                             .ty
-                            .unify(&end_res.ty, sess)
+                            .unify(&end_res.ty, &mut sess.tycx)
                             .or_coerce_exprs(
                                 start,
                                 end,
@@ -817,7 +812,7 @@ impl Check for ast::Expr {
                     let expected = function_frame.return_ty;
                     let res = expr.check(sess, env, Some(expected))?;
                     res.ty
-                        .unify(&expected, sess)
+                        .unify(&expected, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             expr,
                             expected,
@@ -829,7 +824,7 @@ impl Check for ast::Expr {
                     let expected = sess.tycx.common_types.unit;
                     function_frame
                         .return_ty
-                        .unify(&expected, sess)
+                        .unify(&expected, &mut sess.tycx)
                         .or_report_err(&sess.tycx, expected, function_frame.return_ty, self.span)?;
                 }
 
@@ -846,7 +841,7 @@ impl Check for ast::Expr {
 
                 cond_res
                     .ty
-                    .unify(&cond_ty, sess)
+                    .unify(&cond_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut if_.cond,
                         cond_ty,
@@ -886,7 +881,7 @@ impl Check for ast::Expr {
 
                     otherwise_res
                         .ty
-                        .unify(&then_res.ty, sess)
+                        .unify(&then_res.ty, &mut sess.tycx)
                         .or_coerce_exprs(
                             &mut if_.then,
                             otherwise,
@@ -924,16 +919,14 @@ impl Check for ast::Expr {
                     ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
-                lhs_res.ty.unify(&expected_ty, sess).or_report_err(
-                    &sess.tycx,
-                    expected_ty,
-                    lhs_res.ty,
-                    binary.lhs.span,
-                )?;
+                lhs_res
+                    .ty
+                    .unify(&expected_ty, &mut sess.tycx)
+                    .or_report_err(&sess.tycx, expected_ty, lhs_res.ty, binary.lhs.span)?;
 
                 rhs_res
                     .ty
-                    .unify(&lhs_res.ty, sess)
+                    .unify(&lhs_res.ty, &mut sess.tycx)
                     .or_coerce_exprs(
                         &mut binary.lhs,
                         &mut binary.rhs,
@@ -1000,7 +993,7 @@ impl Check for ast::Expr {
                     ast::UnaryOp::Not => {
                         let bool = sess.tycx.common_types.bool;
 
-                        res.ty.unify(&bool, sess).or_report_err(
+                        res.ty.unify(&bool, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             bool,
                             res.ty,
@@ -1018,7 +1011,7 @@ impl Check for ast::Expr {
                     ast::UnaryOp::Neg => {
                         let anyint = sess.tycx.anyint();
 
-                        res.ty.unify(&anyint, sess).or_report_err(
+                        res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             res.ty,
@@ -1042,7 +1035,7 @@ impl Check for ast::Expr {
                     ast::UnaryOp::Plus => {
                         let anyint = sess.tycx.anyint();
 
-                        res.ty.unify(&anyint, sess).or_report_err(
+                        res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             res.ty,
@@ -1054,7 +1047,7 @@ impl Check for ast::Expr {
                     ast::UnaryOp::BitwiseNot => {
                         let anyint = sess.tycx.anyint();
 
-                        res.ty.unify(&anyint, sess).or_report_err(
+                        res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             res.ty,
@@ -1077,7 +1070,7 @@ impl Check for ast::Expr {
 
                 index_res
                     .ty
-                    .unify(&uint, sess)
+                    .unify(&uint, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut sub.index,
                         uint,
@@ -1128,7 +1121,7 @@ impl Check for ast::Expr {
                     let res = low.check(sess, env, None)?;
 
                     res.ty
-                        .unify(&uint, sess)
+                        .unify(&uint, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             low,
                             uint,
@@ -1142,7 +1135,7 @@ impl Check for ast::Expr {
                     let res = high.check(sess, env, None)?;
 
                     res.ty
-                        .unify(&uint, sess)
+                        .unify(&uint, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             high,
                             uint,
@@ -1289,7 +1282,7 @@ impl Check for ast::Expr {
                     for el in elements.iter_mut() {
                         let res = el.check(sess, env, Some(element_ty))?;
                         res.ty
-                            .unify(&element_ty, sess)
+                            .unify(&element_ty, &mut sess.tycx)
                             .or_coerce_expr_into_ty(
                                 el,
                                 element_ty,
@@ -1458,7 +1451,7 @@ impl Check for ast::Expr {
                         .create_type();
 
                 inferred_ty
-                    .unify(&opaque_struct.clone().create_type(), sess)
+                    .unify(&opaque_struct.clone().create_type(), &mut sess.tycx)
                     .unwrap();
 
                 sess.self_types.push(inferred_ty);
@@ -1597,7 +1590,7 @@ impl Check for ast::FnCall {
                         let res = arg.check(sess, env, Some(param_ty))?;
 
                         res.ty
-                            .unify(&param_ty, sess)
+                            .unify(&param_ty, &mut sess.tycx)
                             .or_coerce_expr_into_ty(
                                 arg,
                                 param_ty,
@@ -1628,7 +1621,7 @@ impl Check for ast::FnCall {
                     lib_name: None,
                 });
 
-                ty.unify(&inferred_fn_ty, sess).or_report_err(
+                ty.unify(&inferred_fn_ty, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     inferred_fn_ty,
                     ty,
@@ -1768,7 +1761,7 @@ fn check_named_struct_literal(
 
                 field_res
                     .ty
-                    .unify(&expected_ty, sess)
+                    .unify(&expected_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut field.value,
                         expected_ty,

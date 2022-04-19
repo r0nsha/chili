@@ -1,5 +1,5 @@
 use chili_ast::workspace::{BindingInfoId, Workspace};
-use chili_check::ty_ctx::TyCtx;
+use chili_infer::ty_ctx::TyCtx;
 use common::scopes::Scopes;
 
 pub(crate) struct LintSess<'s> {

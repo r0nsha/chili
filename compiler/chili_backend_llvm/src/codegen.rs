@@ -10,7 +10,7 @@ use chili_ast::{
     workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_ast::{ty::*, workspace::Workspace};
-use chili_check::{normalize::NormalizeTy, ty_ctx::TyCtx};
+use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     scopes::Scopes,

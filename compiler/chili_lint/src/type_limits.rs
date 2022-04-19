@@ -2,8 +2,8 @@ use chili_ast::{
     ast,
     ty::{IntTy, Ty, TyKind, UIntTy},
 };
-use chili_check::normalize::NormalizeTy;
 use chili_error::diagnostic::{Diagnostic, Label};
+use chili_infer::normalize::NormalizeTy;
 use chili_span::Span;
 use std::fmt::Display;
 

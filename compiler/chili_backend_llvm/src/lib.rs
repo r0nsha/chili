@@ -11,7 +11,7 @@ mod unary;
 mod util;
 
 use chili_ast::{ast, workspace::Workspace};
-use chili_check::ty_ctx::TyCtx;
+use chili_infer::ty_ctx::TyCtx;
 use codegen::Codegen;
 use common::{build_options::BuildOptions, target::TargetPlatform, time};
 use execute::Execute;

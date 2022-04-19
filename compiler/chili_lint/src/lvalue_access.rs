@@ -1,7 +1,7 @@
 use crate::sess::LintSess;
 use chili_ast::{ast, ty::TyKind, workspace::BindingInfoId};
-use chili_check::{display::DisplayTy, normalize::NormalizeTy};
 use chili_error::diagnostic::{Diagnostic, Label};
+use chili_infer::{display::DisplayTy, normalize::NormalizeTy};
 use chili_span::Span;
 
 pub(crate) enum LvalueAccessErr {

@@ -19,7 +19,7 @@ impl<T: NormalizeTy> DisplayTy for T {
     }
 }
 
-pub(crate) trait OrReportErr {
+pub trait OrReportErr {
     fn or_report_err(
         self,
         tycx: &TyCtx,

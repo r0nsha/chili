@@ -14,7 +14,6 @@ impl<'p> Parser<'p> {
         }
 
         // compound operations (non-recursive)
-
         if eat!(
             self,
             PlusEq

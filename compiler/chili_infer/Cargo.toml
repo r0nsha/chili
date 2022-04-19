@@ -1,5 +1,5 @@
 [package]
-name = "chili_check"
+name = "chili_infer"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,4 +11,3 @@ common = { path = '../common' }
 chili_span = { path = '../chili_span' }
 chili_error = { path = '../chili_error' }
 chili_ast = { path = '../chili_ast' }
-chili_infer = { path = '../chili_infer' }
