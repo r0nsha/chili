@@ -33,6 +33,7 @@ impl Ast {
     }
 }
 
+// TODO: Iterating a HashMap is slow. Switch these to `Vec` with a separate mapping
 #[derive(Debug, Clone)]
 pub struct TypedAst {
     pub imports: HashMap<BindingInfoId, Import>,

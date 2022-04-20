@@ -20,6 +20,7 @@ use chili_infer::{
     coerce::{OrCoerceExprIntoTy, OrCoerceExprs},
     display::{DisplayTy, OrReportErr},
     normalize::NormalizeTy,
+    substitute::Substitute,
     ty_ctx::TyCtx,
     unify::UnifyTy,
 };
@@ -40,6 +41,7 @@ pub fn check(
 ) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
     let mut sess = CheckSess::new(workspace, &ast);
     sess.start()?;
+    sess.new_ast.substitute(&mut sess.tycx);
     Ok((sess.new_ast, sess.tycx))
 }
 
