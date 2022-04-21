@@ -749,16 +749,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::ExprKind::Break(e) => {
-                self.gen_expr_list(state, &e.deferred);
+            ast::ExprKind::Break(term) => {
+                self.gen_expr_list(state, &term.deferred);
 
                 let exit_block = state.loop_blocks.last().unwrap().exit;
                 self.builder.build_unconditional_branch(exit_block);
 
                 self.gen_unit()
             }
-            ast::ExprKind::Continue(e) => {
-                self.gen_expr_list(state, &e.deferred);
+            ast::ExprKind::Continue(term) => {
+                self.gen_expr_list(state, &term.deferred);
 
                 let head_block = state.loop_blocks.last().unwrap().head;
                 self.builder.build_unconditional_branch(head_block);
@@ -1085,13 +1085,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     array_ptr
                 }
             }
-            ast::ExprKind::TupleLiteral(elements) => {
+            ast::ExprKind::TupleLiteral(lit) => {
                 let ty = expr.ty.normalize(self.tycx);
                 if ty.is_type() {
                     return self.gen_unit();
                 }
 
-                let values: Vec<BasicValueEnum> = elements
+                let values: Vec<BasicValueEnum> = lit
+                    .elements
                     .iter()
                     .map(|e| self.gen_expr(state, e, true))
                     .collect();

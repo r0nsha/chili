@@ -116,15 +116,12 @@ impl SolveDefer for ast::Expr {
     fn solve_defer(&mut self, sess: &mut DeferSess) {
         match &mut self.kind {
             ast::ExprKind::Import(..) => (),
-            ast::ExprKind::Foreign(bindings) => {
-                bindings.solve_defer(sess);
-            }
-            ast::ExprKind::Binding(binding) => {
-                binding.solve_defer(sess);
-            }
-            ast::ExprKind::Defer(expr) => {
-                sess.current_stack_mut().deferred.push(*expr.clone());
-            }
+            ast::ExprKind::Foreign(bindings) => bindings.solve_defer(sess),
+            ast::ExprKind::Binding(binding) => binding.solve_defer(sess),
+            ast::ExprKind::Defer(defer) => sess
+                .current_stack_mut()
+                .deferred
+                .push(defer.expr.as_ref().clone()),
             ast::ExprKind::Assign(assign) => {
                 assign.lvalue.solve_defer(sess);
                 assign.rvalue.solve_defer(sess);
@@ -154,14 +151,14 @@ impl SolveDefer for ast::Expr {
 
                 sess.pop_stack();
             }
-            ast::ExprKind::Break(e) | ast::ExprKind::Continue(e) => {
+            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
                 for stack in sess.stacks().iter().rev() {
                     if let DeferStackKind::Loop = stack.kind {
                         break;
                     }
 
                     for expr in stack.deferred.iter().rev() {
-                        e.deferred.push(expr.clone())
+                        term.deferred.push(expr.clone())
                     }
                 }
             }
@@ -200,35 +197,27 @@ impl SolveDefer for ast::Expr {
                     arg.solve_defer(sess);
                 }
             }
-            ast::ExprKind::MemberAccess(access) => {
-                access.expr.solve_defer(sess);
-            }
+            ast::ExprKind::MemberAccess(access) => access.expr.solve_defer(sess),
             ast::ExprKind::ArrayLiteral(kind) => match kind {
-                ast::ArrayLiteralKind::List(elements) => {
-                    elements.solve_defer(sess);
-                }
+                ast::ArrayLiteralKind::List(elements) => elements.solve_defer(sess),
                 ast::ArrayLiteralKind::Fill { expr, len } => {
                     len.solve_defer(sess);
                     expr.solve_defer(sess);
                 }
             },
-            ast::ExprKind::TupleLiteral(elements) => elements.solve_defer(sess),
+            ast::ExprKind::TupleLiteral(lit) => lit.elements.solve_defer(sess),
             ast::ExprKind::StructLiteral(lit) => {
                 lit.type_expr.solve_defer(sess);
                 for field in lit.fields.iter_mut() {
                     field.value.solve_defer(sess);
                 }
             }
-            ast::ExprKind::PointerType(expr, ..) => expr.solve_defer(sess),
-            ast::ExprKind::MultiPointerType(expr, ..) => {
-                expr.solve_defer(sess);
-            }
-            ast::ExprKind::ArrayType(expr, size) => {
-                expr.solve_defer(sess);
-                size.solve_defer(sess);
-            }
-            ast::ExprKind::SliceType(expr, ..) => {
-                expr.solve_defer(sess);
+            ast::ExprKind::PointerType(e)
+            | ast::ExprKind::MultiPointerType(e)
+            | ast::ExprKind::SliceType(e) => e.inner.solve_defer(sess),
+            ast::ExprKind::ArrayType(at) => {
+                at.inner.solve_defer(sess);
+                at.size.solve_defer(sess);
             }
             ast::ExprKind::StructType(t) => {
                 for field in t.fields.iter_mut() {
@@ -236,14 +225,12 @@ impl SolveDefer for ast::Expr {
                 }
             }
             ast::ExprKind::FnType(sig) => sig.solve_defer(sess),
-
             ast::ExprKind::Ident(_)
             | ast::ExprKind::Literal(_)
             | ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
             | ast::ExprKind::PlaceholderType => (),
-
             ast::ExprKind::Error => panic!("unexpected error node"),
         };
     }

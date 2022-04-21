@@ -260,9 +260,9 @@ impl PrintTree for ast::Expr {
             ast::ExprKind::Import(imports) => imports.print_tree(b, workspace, tycx),
             ast::ExprKind::Foreign(bindings) => bindings.print_tree(b, workspace, tycx),
             ast::ExprKind::Binding(binding) => binding.print_tree(b, workspace, tycx),
-            ast::ExprKind::Defer(expr) => {
+            ast::ExprKind::Defer(defer) => {
                 b.begin_child("defer".to_string());
-                expr.print_tree(b, workspace, tycx);
+                defer.expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Assign(assign) => {
@@ -333,12 +333,12 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Break(e) => {
-                build_deferred(b, &e.deferred, workspace, tycx);
+            ast::ExprKind::Break(term) => {
+                build_deferred(b, &term.deferred, workspace, tycx);
                 b.add_empty_child("break".to_string());
             }
-            ast::ExprKind::Continue(e) => {
-                build_deferred(b, &e.deferred, workspace, tycx);
+            ast::ExprKind::Continue(term) => {
+                build_deferred(b, &term.deferred, workspace, tycx);
                 b.add_empty_child("continue".to_string());
             }
             ast::ExprKind::Return(ret) => {
@@ -444,9 +444,9 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::TupleLiteral(elements) => {
+            ast::ExprKind::TupleLiteral(lit) => {
                 b.begin_child(format!("tuple literal <{}>", tycx.ty_kind(self.ty)));
-                elements.print_tree(b, workspace, tycx);
+                lit.elements.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::StructLiteral(lit) => {
@@ -462,44 +462,44 @@ impl PrintTree for ast::Expr {
             ast::ExprKind::Literal(kind) => {
                 b.add_empty_child(format!("{} <{}>", kind.to_string(), tycx.ty_kind(self.ty)));
             }
-            ast::ExprKind::PointerType(expr, is_mutable) => {
+            ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 b.begin_child(format!(
                     "{}pointer type <{}>",
                     if *is_mutable { "mut " } else { "" },
                     tycx.ty_kind(self.ty)
                 ));
-                expr.print_tree(b, workspace, tycx);
+                inner.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::MultiPointerType(expr, is_mutable) => {
+            ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 b.begin_child(format!(
                     "{}multi-pointer type <{}>",
                     if *is_mutable { "mut " } else { "" },
                     tycx.ty_kind(self.ty)
                 ));
-                expr.print_tree(b, workspace, tycx);
+                inner.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::SliceType(expr, is_mutable) => {
+            ast::ExprKind::ArrayType(at) => {
+                b.begin_child(format!("array type <{}>", tycx.ty_kind(self.ty)));
+
+                b.begin_child("type".to_string());
+                at.inner.print_tree(b, workspace, tycx);
+                b.end_child();
+
+                b.begin_child("size".to_string());
+                at.size.print_tree(b, workspace, tycx);
+                b.end_child();
+
+                b.end_child();
+            }
+            ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
                 b.begin_child(format!(
                     "{}slice type <{}>",
                     if *is_mutable { "mut " } else { "" },
                     tycx.ty_kind(self.ty)
                 ));
-                expr.print_tree(b, workspace, tycx);
-                b.end_child();
-            }
-            ast::ExprKind::ArrayType(expr, size) => {
-                b.begin_child(format!("array type <{}>", tycx.ty_kind(self.ty)));
-
-                b.begin_child("type".to_string());
-                expr.print_tree(b, workspace, tycx);
-                b.end_child();
-
-                b.begin_child("size".to_string());
-                size.print_tree(b, workspace, tycx);
-                b.end_child();
-
+                inner.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::StructType(ty) => {

@@ -103,15 +103,15 @@ pub enum ExprKind {
     Import(Vec<Import>),
     Foreign(Vec<Binding>),
     Binding(Box<Binding>),
-    Defer(Box<Expr>),
+    Defer(Defer),
     Assign(Assign),
     Cast(Cast),
     Builtin(Builtin),
     Fn(Fn),
     While(While),
     For(For),
-    Break(Deferred),
-    Continue(Deferred),
+    Break(Terminator),
+    Continue(Terminator),
     Return(Return),
     If(If),
     Block(Block),
@@ -123,13 +123,13 @@ pub enum ExprKind {
     MemberAccess(MemberAccess),
     Ident(Ident),
     ArrayLiteral(ArrayLiteralKind),
-    TupleLiteral(Vec<Expr>),
+    TupleLiteral(TupleLiteral),
     StructLiteral(StructLiteral),
     Literal(Literal),
-    PointerType(Box<Expr>, bool),
-    MultiPointerType(Box<Expr>, bool),
-    ArrayType(Box<Expr>, Box<Expr>),
-    SliceType(Box<Expr>, bool),
+    PointerType(ExprAndMut),
+    MultiPointerType(ExprAndMut),
+    ArrayType(ArrayType),
+    SliceType(ExprAndMut),
     StructType(StructType),
     FnType(FnSig),
     SelfType,
@@ -140,7 +140,29 @@ pub enum ExprKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Deferred {
+pub struct Defer {
+    pub expr: Box<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TupleLiteral {
+    pub elements: Vec<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ArrayType {
+    pub inner: Box<Expr>,
+    pub size: Box<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ExprAndMut {
+    pub inner: Box<Expr>,
+    pub is_mutable: bool,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Terminator {
     pub deferred: Vec<Expr>,
 }
 

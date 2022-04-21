@@ -69,13 +69,13 @@ impl<'p> Parser<'p> {
         first_expr: Expr,
         start_span: Span,
     ) -> DiagnosticResult<Expr> {
-        let mut exprs =
+        let mut elements =
             parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
 
-        exprs.insert(0, first_expr);
+        elements.insert(0, first_expr);
 
         Ok(Expr::new(
-            ExprKind::TupleLiteral(exprs),
+            ExprKind::TupleLiteral(ast::TupleLiteral { elements }),
             start_span.to(self.previous_span()),
         ))
     }

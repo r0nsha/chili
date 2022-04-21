@@ -20,7 +20,7 @@ use chili_infer::{
     coerce::{OrCoerceExprIntoTy, OrCoerceExprs},
     display::{DisplayTy, OrReportErr},
     normalize::NormalizeTy,
-    substitute::Substitute,
+    substitute::substitute,
     ty_ctx::TyCtx,
     unify::UnifyTy,
 };
@@ -41,7 +41,11 @@ pub fn check(
 ) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
     let mut sess = CheckSess::new(workspace, &ast);
     sess.start()?;
-    sess.new_ast.substitute(&mut sess.tycx);
+    substitute(
+        &mut sess.workspace.diagnostics,
+        &mut sess.tycx,
+        &sess.new_ast,
+    );
     Ok((sess.new_ast, sess.tycx))
 }
 
@@ -642,8 +646,8 @@ impl Check for ast::Expr {
                 binding.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Defer(expr) => {
-                expr.check(sess, env, None)?;
+            ast::ExprKind::Defer(defer) => {
+                defer.expr.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
             ast::ExprKind::Assign(assign) => {
@@ -783,23 +787,23 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Break(e) => {
+            ast::ExprKind::Break(term) => {
                 if sess.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(self.span, "break"));
                 }
 
-                for expr in e.deferred.iter_mut() {
+                for expr in term.deferred.iter_mut() {
                     expr.check(sess, env, None)?;
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::Continue(e) => {
+            ast::ExprKind::Continue(term) => {
                 if sess.loop_depth == 0 {
                     return Err(SyntaxError::outside_of_loop(self.span, "continue"));
                 }
 
-                for expr in e.deferred.iter_mut() {
+                for expr in term.deferred.iter_mut() {
                     expr.check(sess, env, None)?;
                 }
 
@@ -1318,10 +1322,10 @@ impl Check for ast::Expr {
                     Ok(Res::new(ty))
                 }
             },
-            ast::ExprKind::TupleLiteral(elements) => {
+            ast::ExprKind::TupleLiteral(lit) => {
                 let mut elements_res = vec![];
 
-                for el in elements.iter_mut() {
+                for el in lit.elements.iter_mut() {
                     let res = el.check(sess, env, None)?;
                     elements_res.push(res);
                 }
@@ -1330,7 +1334,8 @@ impl Check for ast::Expr {
                     .iter()
                     .all(|res| res.const_value.as_ref().map_or(false, |v| v.is_type()));
 
-                let element_tys: Vec<TyKind> = elements.iter().map(|e| TyKind::Var(e.ty)).collect();
+                let element_tys: Vec<TyKind> =
+                    lit.elements.iter().map(|e| TyKind::Var(e.ty)).collect();
                 let kind = TyKind::Tuple(element_tys);
                 let ty = sess.tycx.bound(kind.clone());
 
@@ -1389,7 +1394,7 @@ impl Check for ast::Expr {
                 },
             },
             ast::ExprKind::Literal(lit) => lit.check(sess, env, expected_ty),
-            ast::ExprKind::PointerType(inner, is_mutable) => {
+            ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
@@ -1398,7 +1403,7 @@ impl Check for ast::Expr {
                     Value::Type(sess.tycx.bound(kind.clone())),
                 ))
             }
-            ast::ExprKind::MultiPointerType(inner, is_mutable) => {
+            ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
@@ -1407,7 +1412,7 @@ impl Check for ast::Expr {
                     Value::Type(sess.tycx.bound(kind)),
                 ))
             }
-            ast::ExprKind::ArrayType(inner, size) => {
+            ast::ExprKind::ArrayType(ast::ArrayType { inner, size }) => {
                 let inner_res = inner.check(sess, env, None)?;
                 let inner_ty =
                     sess.extract_const_type(inner_res.const_value, inner_res.ty, inner.span)?;
@@ -1428,7 +1433,7 @@ impl Check for ast::Expr {
                     Value::Type(sess.tycx.bound(kind)),
                 ))
             }
-            ast::ExprKind::SliceType(inner, is_mutable) => {
+            ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);

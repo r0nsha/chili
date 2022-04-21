@@ -254,12 +254,6 @@ impl TypeError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn cant_solve_inference(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("can't infer the expression's type, try adding more type information")
-            .with_label(Label::primary(span, "can't infer type"))
-    }
-
     pub fn type_mismatch(span: Span, expected: String, actual: String) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!(

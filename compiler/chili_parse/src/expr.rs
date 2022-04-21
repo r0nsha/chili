@@ -80,7 +80,12 @@ impl<'p> Parser<'p> {
             } else if eat!(self, Defer) {
                 let span = self.span();
                 let expr = self.parse_expr()?;
-                Ok(Expr::new(ExprKind::Defer(Box::new(expr)), span))
+                Ok(Expr::new(
+                    ExprKind::Defer(ast::Defer {
+                        expr: Box::new(expr),
+                    }),
+                    span,
+                ))
             } else if eat!(self, Type) {
                 let start_span = self.previous().span;
 
@@ -472,8 +477,8 @@ impl<'p> Parser<'p> {
         let span = token.span;
 
         let kind = match token.kind {
-            Break => ExprKind::Break(ast::Deferred { deferred: vec![] }),
-            Continue => ExprKind::Continue(ast::Deferred { deferred: vec![] }),
+            Break => ExprKind::Break(ast::Terminator { deferred: vec![] }),
+            Continue => ExprKind::Continue(ast::Terminator { deferred: vec![] }),
             Return => {
                 let expr = if !self.peek().kind.is_expr_start() && token_is!(self, Semicolon) {
                     None

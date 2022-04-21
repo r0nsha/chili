@@ -2,223 +2,220 @@ use core::panic;
 use std::collections::HashSet;
 
 use chili_ast::{ast, ty::*};
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    Diagnostics,
+};
 use chili_span::Span;
 
 use crate::{normalize::NormalizeTy, ty_ctx::TyCtx};
 
-pub trait Substitute {
-    fn substitute(&self, tycx: &mut TyCtx);
+pub fn substitute<'a>(
+    diagnostics: &'a mut Diagnostics,
+    tycx: &'a mut TyCtx,
+    typed_ast: &'a ast::TypedAst,
+) {
+    let mut sess = Sess { diagnostics, tycx };
+    typed_ast.substitute(&mut sess);
 }
 
-impl<T: Substitute> Substitute for Vec<T> {
-    fn substitute(&self, tycx: &mut TyCtx) {
+struct Sess<'a> {
+    diagnostics: &'a mut Diagnostics,
+    tycx: &'a mut TyCtx,
+}
+
+trait Substitute<'a> {
+    fn substitute(&self, sess: &mut Sess<'a>);
+}
+
+impl<'a, T: Substitute<'a>> Substitute<'a> for Vec<T> {
+    fn substitute(&self, sess: &mut Sess<'a>) {
         for element in self {
-            element.substitute(tycx);
+            element.substitute(sess);
         }
     }
 }
 
-impl<T: Substitute> Substitute for Option<T> {
-    fn substitute(&self, tycx: &mut TyCtx) {
+impl<'a, T: Substitute<'a>> Substitute<'a> for Option<T> {
+    fn substitute(&self, sess: &mut Sess<'a>) {
         if let Some(e) = self {
-            e.substitute(tycx);
+            e.substitute(sess);
         }
     }
 }
 
-impl<T: Substitute> Substitute for Box<T> {
-    fn substitute(&self, tycx: &mut TyCtx) {
-        self.as_ref().substitute(tycx)
+impl<'a, T: Substitute<'a>> Substitute<'a> for Box<T> {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.as_ref().substitute(sess)
     }
 }
 
-impl Substitute for ast::TypedAst {
-    fn substitute(&self, tycx: &mut TyCtx) {
+impl<'a> Substitute<'a> for ast::TypedAst {
+    fn substitute(&self, sess: &mut Sess<'a>) {
         for binding in self.bindings.values() {
-            binding.substitute(tycx);
+            binding.substitute(sess);
         }
     }
 }
 
-impl Substitute for ast::Binding {
-    fn substitute(&self, tycx: &mut TyCtx) {
-        self.ty_expr.substitute(tycx);
-        self.expr.substitute(tycx);
+impl<'a> Substitute<'a> for ast::Binding {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty_expr.substitute(sess);
+        self.expr.substitute(sess);
     }
 }
 
-impl Substitute for ast::Block {
-    fn substitute(&self, tycx: &mut TyCtx) {
-        self.exprs.substitute(tycx);
-        self.deferred.substitute(tycx);
+impl<'a> Substitute<'a> for ast::Block {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.exprs.substitute(sess);
+        self.deferred.substitute(sess);
     }
 }
 
-impl Substitute for ast::Fn {
-    fn substitute(&self, tycx: &mut TyCtx) {
-        self.sig.substitute(tycx);
-        self.body.substitute(tycx);
+impl<'a> Substitute<'a> for ast::Fn {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.sig.substitute(sess);
+        self.body.substitute(sess);
     }
 }
 
-impl Substitute for ast::FnSig {
-    fn substitute(&self, tycx: &mut TyCtx) {
+impl<'a> Substitute<'a> for ast::FnSig {
+    fn substitute(&self, sess: &mut Sess<'a>) {
         for param in self.params.iter() {
-            param.ty_expr.substitute(tycx);
-            param.ty.substitute(tycx, param.pattern.span());
+            param.ty_expr.substitute(sess);
+            param.ty.substitute(sess, param.pattern.span());
         }
-        self.ret.substitute(tycx);
+        self.ret.substitute(sess);
         // TODO: replace unknown span
-        self.ty.substitute(tycx, Span::unknown());
+        self.ty.substitute(sess, Span::unknown());
     }
 }
 
-impl Substitute for ast::Cast {
-    fn substitute(&self, tycx: &mut TyCtx) {
-        self.expr.substitute(tycx);
-        self.ty_expr.substitute(tycx);
+impl<'a> Substitute<'a> for ast::Cast {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.expr.substitute(sess);
+        self.ty_expr.substitute(sess);
         // TODO: replace unknown span
         self.target_ty.substitute(
-            tycx,
+            sess,
             self.ty_expr.as_ref().map_or(Span::unknown(), |e| e.span),
         );
     }
 }
 
-impl Substitute for ast::Expr {
-    fn substitute(&self, tycx: &mut TyCtx) {
+impl<'a> Substitute<'a> for ast::Expr {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+
         match &self.kind {
             ast::ExprKind::Import(..) | ast::ExprKind::Defer(_) => (),
-            ast::ExprKind::Foreign(bindings) => {
-                bindings.substitute(tycx);
-            }
-            ast::ExprKind::Binding(binding) => {
-                binding.substitute(tycx);
-            }
+            ast::ExprKind::Foreign(bindings) => bindings.substitute(sess),
+            ast::ExprKind::Binding(binding) => binding.substitute(sess),
             ast::ExprKind::Assign(assign) => {
-                assign.lvalue.substitute(tycx);
-                assign.rvalue.substitute(tycx);
+                assign.lvalue.substitute(sess);
+                assign.rvalue.substitute(sess);
             }
-            ast::ExprKind::Cast(info) => info.substitute(tycx),
+            ast::ExprKind::Cast(info) => info.substitute(sess),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => expr.substitute(tycx),
-                ast::Builtin::Panic(expr) => {
-                    expr.substitute(tycx);
-                }
+                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => expr.substitute(sess),
+                ast::Builtin::Panic(expr) => expr.substitute(sess),
             },
-            ast::ExprKind::Fn(func) => {
-                func.substitute(tycx);
-            }
+            ast::ExprKind::Fn(func) => func.substitute(sess),
             ast::ExprKind::While(while_) => {
-                while_.cond.substitute(tycx);
-                while_.block.substitute(tycx);
+                while_.cond.substitute(sess);
+                while_.block.substitute(sess);
             }
             ast::ExprKind::For(for_) => {
                 match &for_.iterator {
                     ast::ForIter::Range(start, end) => {
-                        start.substitute(tycx);
-                        end.substitute(tycx);
+                        start.substitute(sess);
+                        end.substitute(sess);
                     }
                     ast::ForIter::Value(value) => {
-                        value.substitute(tycx);
+                        value.substitute(sess);
                     }
                 }
 
-                for_.block.substitute(tycx);
+                for_.block.substitute(sess);
             }
-            ast::ExprKind::Break(e) | ast::ExprKind::Continue(e) => {
-                e.deferred.substitute(tycx);
+            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
+                term.deferred.substitute(sess)
             }
             ast::ExprKind::Return(ret) => {
-                ret.deferred.substitute(tycx);
-                ret.expr.substitute(tycx);
+                ret.deferred.substitute(sess);
+                ret.expr.substitute(sess);
             }
             ast::ExprKind::If(if_) => {
-                if_.cond.substitute(tycx);
-                if_.then.substitute(tycx);
-                if_.otherwise.substitute(tycx);
+                if_.cond.substitute(sess);
+                if_.then.substitute(sess);
+                if_.otherwise.substitute(sess);
             }
             ast::ExprKind::Block(block) => {
-                block.exprs.substitute(tycx);
-                block.deferred.substitute(tycx);
+                block.exprs.substitute(sess);
+                block.deferred.substitute(sess);
             }
             ast::ExprKind::Binary(binary) => {
-                binary.lhs.substitute(tycx);
-                binary.rhs.substitute(tycx);
+                binary.lhs.substitute(sess);
+                binary.rhs.substitute(sess);
             }
-            ast::ExprKind::Unary(unary) => {
-                unary.lhs.substitute(tycx);
-            }
+            ast::ExprKind::Unary(unary) => unary.lhs.substitute(sess),
             ast::ExprKind::Subscript(sub) => {
-                sub.expr.substitute(tycx);
-                sub.index.substitute(tycx);
+                sub.expr.substitute(sess);
+                sub.index.substitute(sess);
             }
             ast::ExprKind::Slice(slice) => {
-                slice.expr.substitute(tycx);
-                slice.low.substitute(tycx);
-                slice.high.substitute(tycx);
+                slice.expr.substitute(sess);
+                slice.low.substitute(sess);
+                slice.high.substitute(sess);
             }
             ast::ExprKind::FnCall(call) => {
-                call.callee.substitute(tycx);
-                call.args.substitute(tycx);
+                call.callee.substitute(sess);
+                call.args.substitute(sess);
             }
-            ast::ExprKind::MemberAccess(access) => {
-                access.expr.substitute(tycx);
-            }
+            ast::ExprKind::MemberAccess(access) => access.expr.substitute(sess),
             ast::ExprKind::ArrayLiteral(kind) => match kind {
-                ast::ArrayLiteralKind::List(elements) => {
-                    elements.substitute(tycx);
-                }
+                ast::ArrayLiteralKind::List(elements) => elements.substitute(sess),
+
                 ast::ArrayLiteralKind::Fill { expr, len } => {
-                    len.substitute(tycx);
-                    expr.substitute(tycx);
+                    len.substitute(sess);
+                    expr.substitute(sess);
                 }
             },
-            ast::ExprKind::TupleLiteral(elements) => {
-                elements.substitute(tycx);
-            }
+            ast::ExprKind::TupleLiteral(lit) => lit.elements.substitute(sess),
             ast::ExprKind::StructLiteral(lit) => {
-                lit.type_expr.substitute(tycx);
+                lit.type_expr.substitute(sess);
                 for f in lit.fields.iter() {
-                    f.value.substitute(tycx);
+                    f.value.substitute(sess);
                 }
             }
-
-            ast::ExprKind::PointerType(expr, ..)
-            | ast::ExprKind::MultiPointerType(expr, ..)
-            | ast::ExprKind::SliceType(expr, ..)
-            | ast::ExprKind::ArrayType(expr, ..) => expr.substitute(tycx),
-
+            ast::ExprKind::PointerType(expr)
+            | ast::ExprKind::MultiPointerType(expr)
+            | ast::ExprKind::SliceType(expr) => expr.inner.substitute(sess),
+            ast::ExprKind::ArrayType(at) => at.inner.substitute(sess),
             ast::ExprKind::StructType(struct_type, ..) => {
                 for f in struct_type.fields.iter() {
-                    f.ty.substitute(tycx);
+                    f.ty.substitute(sess);
                 }
             }
-
-            ast::ExprKind::FnType(sig) => {
-                sig.substitute(tycx);
-            }
-
+            ast::ExprKind::FnType(sig) => sig.substitute(sess),
             ast::ExprKind::Ident(_)
             | ast::ExprKind::Literal(_)
             | ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
             | ast::ExprKind::PlaceholderType => (),
-
             ast::ExprKind::Error => panic!("unexpected error node"),
         }
-
-        self.ty.substitute(tycx, self.span);
     }
 }
 
-trait SubstituteTy {
-    fn substitute(&self, tycx: &mut TyCtx, span: Span);
+trait SubstituteTy<'a> {
+    fn substitute(&self, sess: &mut Sess<'a>, span: Span);
 }
-impl SubstituteTy for Ty {
-    fn substitute(&self, tycx: &mut TyCtx, span: Span) {
-        let ty = self.normalize(tycx);
+
+impl<'a> SubstituteTy<'a> for Ty {
+    fn substitute(&self, sess: &mut Sess<'a>, span: Span) {
+        let ty = self.normalize(sess.tycx);
 
         // Check if any type variables are left after normalization
         // (normalization = reducing the type variable to its concrete type, recursively)
@@ -226,9 +223,15 @@ impl SubstituteTy for Ty {
         extract_free_type_vars(&ty, &mut free_tys);
 
         if free_tys.is_empty() {
-            tycx.bind(*self, ty);
+            sess.tycx.bind(*self, ty);
         } else {
-            println!("{:?}", free_tys);
+            sess.diagnostics.add(
+                Diagnostic::error()
+                    .with_message(
+                        "can't infer the expression's type, try adding more type information",
+                    )
+                    .with_label(Label::primary(span, "can't infer type")),
+            );
         }
     }
 }

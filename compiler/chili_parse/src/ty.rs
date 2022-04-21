@@ -40,7 +40,10 @@ impl<'p> Parser<'p> {
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
-                ExprKind::PointerType(Box::new(ty), is_mutable),
+                ExprKind::PointerType(ast::ExprAndMut {
+                    inner: Box::new(ty),
+                    is_mutable,
+                }),
                 start_span.to(self.previous_span()),
             ))
         } else if eat!(self, Bang) {
@@ -77,7 +80,10 @@ impl<'p> Parser<'p> {
             let inner = self.parse_ty()?;
 
             let ty = Expr::new(
-                ExprKind::MultiPointerType(Box::new(inner), is_mutable),
+                ExprKind::MultiPointerType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable,
+                }),
                 start_span.to(self.previous_span()),
             );
 
@@ -89,7 +95,10 @@ impl<'p> Parser<'p> {
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
-                ExprKind::SliceType(Box::new(ty), is_mutable),
+                ExprKind::SliceType(ast::ExprAndMut {
+                    inner: Box::new(ty),
+                    is_mutable,
+                }),
                 start_span.to(self.previous_span()),
             ))
         } else {
@@ -100,7 +109,10 @@ impl<'p> Parser<'p> {
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
-                ExprKind::ArrayType(Box::new(ty), Box::new(size)),
+                ExprKind::ArrayType(ast::ArrayType {
+                    inner: Box::new(ty),
+                    size: Box::new(size),
+                }),
                 start_span.to(self.previous_span()),
             ))
         }
@@ -109,10 +121,10 @@ impl<'p> Parser<'p> {
     fn parse_tuple_ty(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
 
-        let tys = parse_delimited_list!(self, CloseParen, Comma, self.parse_ty()?, ", or )");
+        let elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_ty()?, ", or )");
 
         Ok(Expr::new(
-            ExprKind::TupleLiteral(tys),
+            ExprKind::TupleLiteral(ast::TupleLiteral { elements }),
             start_span.to(self.previous_span()),
         ))
     }
