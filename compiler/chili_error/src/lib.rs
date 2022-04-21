@@ -261,7 +261,7 @@ impl TypeError {
     pub fn type_mismatch(span: Span, expected: String, actual: String) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!(
-                "mismatched types - expected `{}`, but found `{}`",
+                "mismatched types - expected `{}`, found `{}`",
                 expected, actual
             ))
             .with_label(Label::primary(span, format!("expected {}", expected)))
@@ -293,7 +293,7 @@ impl TypeError {
 
     pub fn invalid_ty_in_condition(span: Span, ty: String) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!("expected type `bool`, but found `{}`", ty))
+            .with_message(format!("expected type `bool`, found `{}`", ty))
             .with_label(Label::primary(span, ""))
     }
 
@@ -355,7 +355,7 @@ impl TypeError {
 
     pub fn expected(span: Span, ty: String, expectation: &str) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!("expected {}, but found {}", expectation, ty))
+            .with_message(format!("expected {}, found {}", expectation, ty))
             .with_label(Label::primary(span, format!("expected {}", expectation)))
     }
 

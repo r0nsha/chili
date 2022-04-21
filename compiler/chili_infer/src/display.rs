@@ -24,8 +24,9 @@ pub trait OrReportErr {
         self,
         tycx: &TyCtx,
         expected: impl DisplayTy,
+        expected_span: Option<Span>,
         found: impl DisplayTy,
-        span: Span,
+        found_span: Span,
     ) -> DiagnosticResult<()>;
 }
 
@@ -34,8 +35,9 @@ impl OrReportErr for UnifyTyResult {
         self,
         tycx: &TyCtx,
         expected: impl DisplayTy,
+        expected_span: Option<Span>,
         found: impl DisplayTy,
-        span: Span,
+        found_span: Span,
     ) -> DiagnosticResult<()> {
         self.map_err(|e| {
             let expected = expected.display(tycx);
@@ -44,16 +46,19 @@ impl OrReportErr for UnifyTyResult {
             match e {
                 UnifyTyErr::Mismatch => Diagnostic::error()
                     .with_message(format!(
-                        "mismatched types - expected {}, but found {}",
+                        "mismatched types - expected {}, found {}",
                         expected, found
                     ))
-                    .with_label(Label::primary(span, format!("expected {}", expected))),
+                    .with_label(Label::primary(found_span, format!("expected {}", expected)))
+                    .maybe_with_label(
+                        expected_span.map(|span| Label::secondary(span, "expected due to this")),
+                    ),
                 UnifyTyErr::Occurs => Diagnostic::error()
                     .with_message(format!(
                         "found recursive type - {} is equal to {}",
                         expected, found
                     ))
-                    .with_label(Label::primary(span, format!("expected {}", expected))),
+                    .with_label(Label::primary(found_span, "type is recursive")),
             }
         })
     }

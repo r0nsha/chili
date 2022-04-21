@@ -79,6 +79,7 @@ pub(crate) struct CheckSess<'s> {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FunctionFrame {
     return_ty: Ty,
+    return_ty_span: Span,
     scope_level: ScopeLevel,
 }
 
@@ -401,7 +402,13 @@ impl Check for ast::Binding {
                     &mut sess.tycx,
                     sess.target_metrics.word_size,
                 )
-                .or_report_err(&sess.tycx, self.ty, res.ty, expr.span)?;
+                .or_report_err(
+                    &sess.tycx,
+                    self.ty,
+                    self.ty_expr.as_ref().map(|e| e.span),
+                    res.ty,
+                    expr.span,
+                )?;
 
             res.const_value
         } else {
@@ -486,10 +493,12 @@ impl Check for ast::Fn {
     ) -> CheckResult {
         let sig_res = self.sig.check(sess, env, expected_ty)?;
         let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
+
         let return_ty = sess.tycx.bound(
             fn_ty.ret.as_ref().clone(),
             self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span),
         );
+        let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
 
         if !self.sig.name.is_empty() {
             self.binding_info_id = sess.bind_symbol(
@@ -527,6 +536,7 @@ impl Check for ast::Fn {
         let body_res = sess.with_function_frame(
             FunctionFrame {
                 return_ty,
+                return_ty_span,
                 scope_level: env.scope_level(),
             },
             |sess| self.body.check(sess, env, None),
@@ -541,7 +551,13 @@ impl Check for ast::Fn {
                 sess.target_metrics.word_size,
             );
         }
-        unify_res.or_report_err(&sess.tycx, return_ty, body_res.ty, self.body.span)?;
+        unify_res.or_report_err(
+            &sess.tycx,
+            return_ty,
+            Some(return_ty_span),
+            body_res.ty,
+            self.body.span,
+        )?;
 
         env.pop_scope();
 
@@ -676,7 +692,13 @@ impl Check for ast::Expr {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, lres.ty, rres.ty, assign.rvalue.span)?;
+                    .or_report_err(
+                        &sess.tycx,
+                        lres.ty,
+                        Some(assign.lvalue.span),
+                        rres.ty,
+                        assign.rvalue.span,
+                    )?;
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
@@ -708,7 +730,7 @@ impl Check for ast::Expr {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, while_.cond.span)?;
+                    .or_report_err(&sess.tycx, cond_ty, None, cond_res.ty, while_.cond.span)?;
 
                 sess.loop_depth += 1;
                 while_.block.check(sess, env, None)?;
@@ -735,6 +757,7 @@ impl Check for ast::Expr {
                         start_res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
+                            None,
                             start_res.ty,
                             start.span,
                         )?;
@@ -748,7 +771,13 @@ impl Check for ast::Expr {
                                 &mut sess.tycx,
                                 sess.target_metrics.word_size,
                             )
-                            .or_report_err(&sess.tycx, start_res.ty, end_res.ty, end.span)?;
+                            .or_report_err(
+                                &sess.tycx,
+                                start_res.ty,
+                                Some(start.span),
+                                end_res.ty,
+                                end.span,
+                            )?;
 
                         start_res.ty
                     }
@@ -839,13 +868,25 @@ impl Check for ast::Expr {
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, expected, res.ty, expr.span)?;
+                        .or_report_err(
+                            &sess.tycx,
+                            expected,
+                            Some(function_frame.return_ty_span),
+                            res.ty,
+                            expr.span,
+                        )?;
                 } else {
                     let expected = sess.tycx.common_types.unit;
                     function_frame
                         .return_ty
                         .unify(&expected, &mut sess.tycx)
-                        .or_report_err(&sess.tycx, expected, function_frame.return_ty, self.span)?;
+                        .or_report_err(
+                            &sess.tycx,
+                            expected,
+                            None,
+                            function_frame.return_ty,
+                            self.span,
+                        )?;
                 }
 
                 for expr in ret.deferred.iter_mut() {
@@ -868,7 +909,7 @@ impl Check for ast::Expr {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, cond_res.ty, if_.cond.span)?;
+                    .or_report_err(&sess.tycx, cond_ty, None, cond_res.ty, if_.cond.span)?;
 
                 // if the condition is compile-time known, only check the resulting branch
                 if let Some(cond_value) = cond_res.const_value {
@@ -911,7 +952,13 @@ impl Check for ast::Expr {
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, then_res.ty, otherwise_res.ty, otherwise.span)?;
+                        .or_report_err(
+                            &sess.tycx,
+                            then_res.ty,
+                            Some(if_.then.span),
+                            otherwise_res.ty,
+                            otherwise.span,
+                        )?;
 
                     Ok(Res::new(then_res.ty))
                 } else {
@@ -945,7 +992,7 @@ impl Check for ast::Expr {
                 lhs_res
                     .ty
                     .unify(&expected_ty, &mut sess.tycx)
-                    .or_report_err(&sess.tycx, expected_ty, lhs_res.ty, binary.lhs.span)?;
+                    .or_report_err(&sess.tycx, expected_ty, None, lhs_res.ty, binary.lhs.span)?;
 
                 rhs_res
                     .ty
@@ -956,7 +1003,7 @@ impl Check for ast::Expr {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, lhs_res.ty, rhs_res.ty, binary.rhs.span)?;
+                    .or_report_err(&sess.tycx, lhs_res.ty, None, rhs_res.ty, binary.rhs.span)?;
 
                 let result_ty = match &binary.op {
                     ast::BinaryOp::Add
@@ -1020,6 +1067,7 @@ impl Check for ast::Expr {
                         res.ty.unify(&bool, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             bool,
+                            None,
                             res.ty,
                             unary.lhs.span,
                         )?;
@@ -1038,6 +1086,7 @@ impl Check for ast::Expr {
                         res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
+                            None,
                             res.ty,
                             unary.lhs.span,
                         )?;
@@ -1062,6 +1111,7 @@ impl Check for ast::Expr {
                         res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
+                            None,
                             res.ty,
                             unary.lhs.span,
                         )?;
@@ -1074,6 +1124,7 @@ impl Check for ast::Expr {
                         res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
+                            None,
                             res.ty,
                             unary.lhs.span,
                         )?;
@@ -1101,7 +1152,7 @@ impl Check for ast::Expr {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, uint, index_res.ty, sub.index.span)?;
+                    .or_report_err(&sess.tycx, uint, None, index_res.ty, sub.index.span)?;
 
                 let res = sub.expr.check(sess, env, None)?;
                 let kind = res.ty.normalize(&sess.tycx);
@@ -1152,7 +1203,7 @@ impl Check for ast::Expr {
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, uint, res.ty, low.span)?;
+                        .or_report_err(&sess.tycx, uint, None, res.ty, low.span)?;
                 }
 
                 if let Some(high) = &mut slice.high {
@@ -1166,7 +1217,13 @@ impl Check for ast::Expr {
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, uint, res.ty, high.span)?;
+                        .or_report_err(
+                            &sess.tycx,
+                            uint,
+                            slice.low.as_ref().map(|e| e.span),
+                            res.ty,
+                            high.span,
+                        )?;
                 }
 
                 let (result_ty, is_mutable) = match expr_ty {
@@ -1307,7 +1364,8 @@ impl Check for ast::Expr {
             },
             ast::ExprKind::ArrayLiteral(lit) => match &mut lit.kind {
                 ast::ArrayLiteralKind::List(elements) => {
-                    let element_ty = sess.tycx.var(self.span);
+                    let element_ty_span = elements.first().map_or(self.span, |e| e.span);
+                    let element_ty = sess.tycx.var(element_ty_span);
 
                     for el in elements.iter_mut() {
                         let res = el.check(sess, env, Some(element_ty))?;
@@ -1319,7 +1377,13 @@ impl Check for ast::Expr {
                                 &mut sess.tycx,
                                 sess.target_metrics.word_size,
                             )
-                            .or_report_err(&sess.tycx, element_ty, res.ty, el.span)?;
+                            .or_report_err(
+                                &sess.tycx,
+                                element_ty,
+                                Some(element_ty_span),
+                                res.ty,
+                                el.span,
+                            )?;
                     }
 
                     let ty = sess.tycx.bound(
@@ -1631,7 +1695,7 @@ impl Check for ast::FnCall {
                                 &mut sess.tycx,
                                 sess.target_metrics.word_size,
                             )
-                            .or_report_err(&sess.tycx, param_ty, res.ty, arg.span)?;
+                            .or_report_err(&sess.tycx, param_ty, None, res.ty, arg.span)?;
                     } else {
                         // this is a variadic argument, meaning that the argument's
                         // index is greater than the function's param length
@@ -1660,6 +1724,7 @@ impl Check for ast::FnCall {
                 ty.unify(&inferred_fn_ty, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     inferred_fn_ty,
+                    None,
                     ty,
                     self.callee.span,
                 )?;
@@ -1808,7 +1873,13 @@ fn check_named_struct_literal(
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, expected_ty, field_res.ty, field.value.span)?;
+                    .or_report_err(
+                        &sess.tycx,
+                        expected_ty,
+                        Some(ty_field.span),
+                        field_res.ty,
+                        field.value.span,
+                    )?;
             }
             None => {
                 return Err(TypeError::invalid_struct_field(

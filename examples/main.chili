@@ -1,6 +1,7 @@
 use c.printf
 
 let main = fn {
+    let x: str = 5
     printf("Hello".data)
 }
 

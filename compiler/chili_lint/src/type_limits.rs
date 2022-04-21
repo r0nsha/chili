@@ -83,7 +83,7 @@ fn overflow_err<V: Copy + Display, M: Copy + Display>(
 ) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!(
-            "integer literal of type `{}` must be between {} and {}, but found {}",
+            "integer literal of type `{}` must be between {} and {}, found {}",
             ty, min, max, value
         ))
         .with_label(Label::primary(span, "integer literal overflow"))

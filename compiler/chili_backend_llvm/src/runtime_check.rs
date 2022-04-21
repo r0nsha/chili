@@ -93,7 +93,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let message = self.gen_global_str(
             &NAME,
-            "slice index starts at (start) but at ends at (end)",
+            "slice index starts at (start) but ends at (end)",
             true,
         );
 
