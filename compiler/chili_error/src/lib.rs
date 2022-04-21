@@ -30,8 +30,12 @@ impl Diagnostics {
         &self.diagnostics
     }
 
-    pub fn add(&mut self, diagnostic: Diagnostic) {
+    pub fn push(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
+    }
+
+    pub fn extend(&mut self, diagnostics: impl IntoIterator<Item = Diagnostic>) {
+        self.diagnostics.extend(diagnostics);
     }
 
     pub fn count(&self) -> usize {

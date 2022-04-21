@@ -24,7 +24,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     // Check that root file exists
     if !source_path.exists() {
-        workspace.diagnostics.add(
+        workspace.diagnostics.push(
             Diagnostic::error()
                 .with_message(format!("file `{}` doesn't exist", source_path.display())),
         );
@@ -46,6 +46,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     if workspace.diagnostics.has_errors() {
         workspace.diagnostics.emit();
+        return workspace;
     }
 
     // General pre-check transforms, such as glob import expansion
@@ -58,7 +59,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
-                workspace.diagnostics.add(diagnostic);
+                workspace.diagnostics.push(diagnostic);
                 workspace.diagnostics.emit();
                 return workspace;
             }
@@ -67,6 +68,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     if workspace.diagnostics.has_errors() {
         workspace.diagnostics.emit();
+        return workspace;
     }
 
     // Lint - does auxillary checks which are not required for type inference
@@ -76,6 +78,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     if workspace.diagnostics.has_errors() {
         workspace.diagnostics.emit();
+        return workspace;
     }
 
     // Defer - resolve all `defer` statements

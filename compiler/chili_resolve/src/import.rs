@@ -60,7 +60,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
             import_path.pop();
             import_path.push(Spanned::new(
                 ImportPathNode::Symbol(*symbol),
-                import.span().clone(),
+                import.path_span().clone(),
             ));
             Import {
                 module_id: import.module_id,
@@ -70,7 +70,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
                 alias: *symbol,
                 import_path,
                 visibility: import.visibility,
-                span: import.span().clone(),
+                span: import.path_span().clone(),
                 binding_info_id: import.binding_info_id,
             }
         })

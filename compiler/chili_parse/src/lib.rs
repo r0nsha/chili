@@ -227,7 +227,7 @@ pub(crate) trait OrRecover<T> {
 impl<T> OrRecover<T> for DiagnosticResult<T> {
     fn or_recover(self, parser: &mut Parser) -> Result<T, ()> {
         self.map_err(|diag| {
-            parser.diagnostics.add(diag);
+            parser.diagnostics.push(diag);
             parser.try_recover_from_err();
         })
     }

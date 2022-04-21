@@ -5,9 +5,5 @@ let main = fn {
 }
 
 let a = fn(x) {
-    b(x)
-}
-
-let b = fn(x) {
-    a(x)
+    5
 }

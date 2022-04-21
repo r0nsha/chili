@@ -87,7 +87,7 @@ impl Lint for ast::Binding {
             match &self.kind {
                 ast::BindingKind::Value => {
                     if is_a_type {
-                        sess.workspace.diagnostics.add(TypeError::expected(
+                        sess.workspace.diagnostics.push(TypeError::expected(
                             expr.span,
                             expr.ty.to_string(),
                             "a value",
@@ -96,7 +96,7 @@ impl Lint for ast::Binding {
                 }
                 ast::BindingKind::Type => {
                     if !is_a_type {
-                        sess.workspace.diagnostics.add(TypeError::expected(
+                        sess.workspace.diagnostics.push(TypeError::expected(
                             expr.span,
                             expr.ty.to_string(),
                             "a type",
@@ -111,7 +111,7 @@ impl Lint for ast::Binding {
                 match &self.pattern {
                     Pattern::Single(pat) => {
                         if pat.is_mutable {
-                            sess.workspace.diagnostics.add(
+                            sess.workspace.diagnostics.push(
                                 Diagnostic::error()
                                     .with_message("variable of type `type` must be immutable")
                                     .with_label(Label::primary(pat.span, "variable is mutable"))
@@ -161,7 +161,7 @@ impl Lint for ast::Expr {
                 ast::Builtin::Panic(e) => e.lint(sess),
             },
             ast::ExprKind::Fn(f) => {
-                let ty = f.sig.ty.normalize(&sess.tycx).into_fn();
+                // let ty = f.sig.ty.normalize(&sess.tycx).into_fn();
 
                 // if this is the main function, check its type matches a fn() -> [() | !]
                 // if f.is_entry_point
@@ -240,7 +240,7 @@ impl Lint for ast::Expr {
 
                 if let None = &slice.high {
                     if slice.expr.ty.normalize(&sess.tycx).is_multi_pointer() {
-                        sess.workspace.diagnostics.add(Diagnostic::error()
+                        sess.workspace.diagnostics.push(Diagnostic::error()
                         .with_message(
                             "multi pointer has unknown length, so you must specify the ending index",
                         )
@@ -255,7 +255,7 @@ impl Lint for ast::Expr {
                 call.args.lint(sess);
             }
             ast::ExprKind::MemberAccess(access) => access.expr.lint(sess),
-            ast::ExprKind::ArrayLiteral(k) => match k {
+            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
                 ast::ArrayLiteralKind::List(l) => l.lint(sess),
                 ast::ArrayLiteralKind::Fill { len, expr } => {
                     len.lint(sess);

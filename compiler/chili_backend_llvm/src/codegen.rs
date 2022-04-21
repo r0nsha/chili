@@ -976,9 +976,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                 }
             }
-            ast::ExprKind::ArrayLiteral(kind) => {
+            ast::ExprKind::ArrayLiteral(lit) => {
                 let ty = expr.ty.normalize(self.tycx);
-                let array_ptr = match kind {
+                let array_ptr = match &lit.kind {
                     ast::ArrayLiteralKind::List(elements) => {
                         let elements: Vec<BasicValueEnum> = elements
                             .iter()
@@ -1122,8 +1122,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 deref,
             ),
 
-            ast::ExprKind::Literal(value) => {
-                self.gen_literal_value(value, &expr.ty.normalize(self.tycx), deref)
+            ast::ExprKind::Literal(lit) => {
+                self.gen_literal_value(&lit.kind, &expr.ty.normalize(self.tycx), deref)
             }
 
             ast::ExprKind::PointerType(..)

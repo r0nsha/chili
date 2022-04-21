@@ -29,6 +29,8 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FnSig> {
+        let start_span = self.previous_span();
+
         let (params, variadic) = self.parse_fn_params()?;
 
         let ret_ty = if eat!(self, RightArrow) {
@@ -44,6 +46,7 @@ impl<'p> Parser<'p> {
             variadic,
             ret: ret_ty,
             ty: Default::default(),
+            span: start_span.to(self.previous_span()),
         })
     }
 

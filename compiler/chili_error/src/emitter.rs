@@ -1,7 +1,7 @@
-use crate::diagnostic::{Diagnostic, DiagnosticKind};
+use crate::diagnostic::{Diagnostic, DiagnosticKind, LabelKind};
 use chili_span::FileId;
 use codespan_reporting::{
-    diagnostic::Severity,
+    diagnostic::{LabelStyle, Severity},
     files::SimpleFiles,
     term::{
         emit,
@@ -53,14 +53,6 @@ impl DiagnosticEmitter {
 
 type CodespanDiagnostic = codespan_reporting::diagnostic::Diagnostic<FileId>;
 
-impl Into<Severity> for DiagnosticKind {
-    fn into(self) -> Severity {
-        match self {
-            DiagnosticKind::Error => Severity::Error,
-        }
-    }
-}
-
 impl Into<CodespanDiagnostic> for Diagnostic {
     fn into(self) -> CodespanDiagnostic {
         CodespanDiagnostic::new(self.kind.into())
@@ -69,7 +61,8 @@ impl Into<CodespanDiagnostic> for Diagnostic {
                 self.labels
                     .into_iter()
                     .map(|l| {
-                        codespan_reporting::diagnostic::Label::primary(
+                        codespan_reporting::diagnostic::Label::new(
+                            l.kind.into(),
                             l.span.file_id,
                             l.span.range(),
                         )
@@ -78,5 +71,21 @@ impl Into<CodespanDiagnostic> for Diagnostic {
                     .collect(),
             )
             .with_notes(self.notes)
+    }
+}
+
+impl Into<Severity> for DiagnosticKind {
+    fn into(self) -> Severity {
+        match self {
+            DiagnosticKind::Error => Severity::Error,
+        }
+    }
+}
+impl Into<LabelStyle> for LabelKind {
+    fn into(self) -> LabelStyle {
+        match self {
+            LabelKind::Primary => LabelStyle::Primary,
+            LabelKind::Secondary => LabelStyle::Secondary,
+        }
     }
 }

@@ -36,7 +36,7 @@ impl<'a> AstGenerator<'a> {
             &common::builtin::root_module(),
             None,
         )
-        .map_err(|diag| self.workspace.diagnostics.add(diag))?;
+        .map_err(|diag| self.workspace.diagnostics.push(diag))?;
 
         let root_module_info =
             ModuleInfo::new(common::builtin::root_module(), ustr(&root_file_path));
@@ -74,7 +74,7 @@ impl<'a> AstGenerator<'a> {
         let tokens = match Lexer::new(file_id, &source).scan() {
             Ok(t) => t,
             Err(diag) => {
-                self.workspace.diagnostics.add(diag);
+                self.workspace.diagnostics.push(diag);
                 return;
             }
         };

@@ -15,7 +15,7 @@ impl<'s> LintSess<'s> {
                     binding_info.symbol
                 );
 
-                self.workspace.diagnostics.add(
+                self.workspace.diagnostics.push(
                     Diagnostic::error()
                         .with_message(msg.clone())
                         .with_label(Label::primary(span, msg))
@@ -38,7 +38,7 @@ impl<'s> LintSess<'s> {
                 "cannot assign twice to immutable variable `{}`",
                 binding_info.symbol
             );
-            self.workspace.diagnostics.add(
+            self.workspace.diagnostics.push(
                 Diagnostic::error()
                     .with_message(msg.clone())
                     .with_label(Label::primary(lvalue.span, msg))

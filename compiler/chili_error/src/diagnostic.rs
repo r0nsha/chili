@@ -74,6 +74,13 @@ impl Diagnostic {
         self
     }
 
+    pub fn maybe_with_label(mut self, label: Option<Label>) -> Self {
+        if let Some(label) = label {
+            self.add_label(label);
+        }
+        self
+    }
+
     pub fn add_note(&mut self, note: impl ToString) {
         self.notes.push(note.to_string());
     }

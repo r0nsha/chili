@@ -122,7 +122,7 @@ pub enum ExprKind {
     FnCall(FnCall),
     MemberAccess(MemberAccess),
     Ident(Ident),
-    ArrayLiteral(ArrayLiteralKind),
+    ArrayLiteral(ArrayLiteral),
     TupleLiteral(TupleLiteral),
     StructLiteral(StructLiteral),
     Literal(Literal),
@@ -137,6 +137,11 @@ pub enum ExprKind {
     UnitType,
     PlaceholderType,
     Error,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ArrayLiteral {
+    pub kind: ArrayLiteralKind,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -268,8 +273,14 @@ pub enum ArrayLiteralKind {
     Fill { len: Box<Expr>, expr: Box<Expr> },
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct Literal {
+    pub kind: LiteralKind,
+    pub span: Span,
+}
+
 #[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone, Copy)]
-pub enum Literal {
+pub enum LiteralKind {
     Unit,
     Nil,
     Bool(bool),
@@ -279,10 +290,10 @@ pub enum Literal {
     Char(char),
 }
 
-impl Literal {
+impl LiteralKind {
     pub fn into_expr(self, ty: Ty, span: Span) -> Expr {
         Expr {
-            kind: ExprKind::Literal(self),
+            kind: ExprKind::Literal(Literal { kind: self, span }),
             ty,
             span,
         }
@@ -347,6 +358,7 @@ pub struct FnSig {
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
     pub ty: Ty,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -637,7 +649,7 @@ pub struct Import {
 }
 
 impl Import {
-    pub fn span(&self) -> Span {
+    pub fn path_span(&self) -> Span {
         if self.import_path.is_empty() {
             self.span
         } else {
@@ -722,19 +734,19 @@ impl fmt::Display for FnSig {
     }
 }
 
-impl fmt::Display for Literal {
+impl fmt::Display for LiteralKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Literal::Unit => "()".to_string(),
-                Literal::Nil => "nil".to_string(),
-                Literal::Bool(v) => v.to_string(),
-                Literal::Int(v) => v.to_string(),
-                Literal::Float(v) => v.to_string(),
-                Literal::Str(v) => format!("\"{}\"", v),
-                Literal::Char(v) => format!("'{}'", v),
+                LiteralKind::Unit => "()".to_string(),
+                LiteralKind::Nil => "nil".to_string(),
+                LiteralKind::Bool(v) => v.to_string(),
+                LiteralKind::Int(v) => v.to_string(),
+                LiteralKind::Float(v) => v.to_string(),
+                LiteralKind::Str(v) => format!("\"{}\"", v),
+                LiteralKind::Char(v) => format!("'{}'", v),
             }
         )
     }

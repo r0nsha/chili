@@ -1,4 +1,5 @@
 use chili_ast::ty::*;
+use chili_span::Span;
 use core::fmt;
 use slab::Slab;
 use std::hash::Hash;
@@ -7,45 +8,54 @@ use crate::normalize::NormalizeTy;
 
 pub struct TyCtx {
     bindings: Slab<InferenceValue>,
+    binding_spans: Slab<Option<Span>>,
     pub common_types: CommonTypes,
 }
 
 impl TyCtx {
     pub fn new() -> Self {
-        let mut type_bindings = Default::default();
-        let common_types = CommonTypes::new(&mut type_bindings);
+        let mut bindings = Default::default();
+        let mut binding_spans = Default::default();
+        let common_types = CommonTypes::new(&mut bindings, &mut binding_spans);
         Self {
-            bindings: type_bindings,
+            bindings,
+            binding_spans,
             common_types,
         }
     }
 
     #[inline]
-    fn insert(&mut self, binding: InferenceValue) -> Ty {
+    fn insert(&mut self, binding: InferenceValue, span: Option<Span>) -> Ty {
+        self.binding_spans.insert(span);
         Ty(self.bindings.insert(binding))
     }
 
     #[inline]
-    pub fn var(&mut self) -> Ty {
-        self.insert(InferenceValue::Unbound)
+    pub fn var(&mut self, span: Span) -> Ty {
+        self.insert(InferenceValue::Unbound, Some(span))
     }
 
     #[inline]
-    pub fn anyint(&mut self) -> Ty {
-        self.insert(InferenceValue::AnyInt)
+    pub fn anyint(&mut self, span: Span) -> Ty {
+        self.insert(InferenceValue::AnyInt, Some(span))
     }
 
     #[inline]
-    pub fn anyfloat(&mut self) -> Ty {
-        self.insert(InferenceValue::AnyFloat)
+    pub fn anyfloat(&mut self, span: Span) -> Ty {
+        self.insert(InferenceValue::AnyFloat, Some(span))
     }
 
     #[inline]
-    pub fn bound(&mut self, kind: TyKind) -> Ty {
+    pub fn bound(&mut self, kind: TyKind, span: Span) -> Ty {
         match kind {
             TyKind::Var(ty) => ty,
-            _ => self.insert(InferenceValue::Bound(kind)),
+            _ => self.insert(InferenceValue::Bound(kind), Some(span)),
         }
+    }
+
+    #[inline]
+    pub fn builtin(&mut self, kind: TyKind) -> Ty {
+        self.insert(InferenceValue::Bound(kind), None)
     }
 
     #[inline]
@@ -59,6 +69,11 @@ impl TyCtx {
     #[inline]
     pub fn ty_kind(&self, ty: Ty) -> TyKind {
         ty.normalize(self)
+    }
+
+    #[inline]
+    pub fn ty_span(&self, ty: Ty) -> Option<Span> {
+        self.binding_spans.get(ty.0).cloned().flatten()
     }
 
     #[inline]
@@ -123,10 +138,16 @@ pub struct CommonTypes {
 }
 
 impl CommonTypes {
-    pub fn new(bindings: &mut Slab<InferenceValue>) -> Self {
+    pub fn new(
+        bindings: &mut Slab<InferenceValue>,
+        binding_spans: &mut Slab<Option<Span>>,
+    ) -> Self {
         use TyKind::*;
 
-        let mut mk = |kind| Ty(bindings.insert(InferenceValue::Bound(kind)));
+        let mut mk = |kind| {
+            binding_spans.insert(None);
+            Ty(bindings.insert(InferenceValue::Bound(kind)))
+        };
 
         Self {
             unknown: mk(Unknown),

@@ -32,7 +32,7 @@ impl<'p> Parser<'p> {
             let bindings = self.parse_foreign_block().or_recover(self)?;
             ast.bindings.extend(bindings);
         } else {
-            self.diagnostics.add(SyntaxError::expected(
+            self.diagnostics.push(SyntaxError::expected(
                 self.span(),
                 &format!("an item, got `{}`", self.peek().lexeme),
             ));

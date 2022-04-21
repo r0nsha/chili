@@ -47,7 +47,7 @@ impl<'s> LintSess<'s> {
             });
 
         if let Err(diag) = result {
-            self.workspace.diagnostics.add(diag);
+            self.workspace.diagnostics.push(diag);
         }
     }
 

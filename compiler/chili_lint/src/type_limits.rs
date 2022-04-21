@@ -12,15 +12,15 @@ use crate::sess::LintSess;
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, e: &ast::Expr) {
         match &e.kind {
-            ast::ExprKind::Literal(k) => match k {
-                &ast::Literal::Int(value) => match &e.ty.normalize(self.tycx) {
+            ast::ExprKind::Literal(lit) => match &lit.kind {
+                &ast::LiteralKind::Int(value) => match &e.ty.normalize(self.tycx) {
                     TyKind::Int(int_ty) => {
                         let (min, max) = int_ty_range(*int_ty);
 
                         if value < min || value > max {
                             self.workspace
                                 .diagnostics
-                                .add(overflow_err(value, &e.ty, min, max, e.span))
+                                .push(overflow_err(value, &e.ty, min, max, e.span))
                         }
                     }
                     TyKind::UInt(uint_ty) => {
@@ -29,25 +29,25 @@ impl<'s> LintSess<'s> {
                         if value.is_negative() {
                             self.workspace
                                 .diagnostics
-                                .add(overflow_err(value, &e.ty, min, max, e.span))
+                                .push(overflow_err(value, &e.ty, min, max, e.span))
                         } else {
                             let value = value as u64;
 
                             if value < min || value > max {
                                 self.workspace
                                     .diagnostics
-                                    .add(overflow_err(value, &e.ty, min, max, e.span))
+                                    .push(overflow_err(value, &e.ty, min, max, e.span))
                             }
                         }
                     }
                     _ => (),
                 },
-                ast::Literal::Float(_)
-                | ast::Literal::Unit
-                | ast::Literal::Nil
-                | ast::Literal::Bool(_)
-                | ast::Literal::Str(_)
-                | ast::Literal::Char(_) => (),
+                ast::LiteralKind::Float(_)
+                | ast::LiteralKind::Unit
+                | ast::LiteralKind::Nil
+                | ast::LiteralKind::Bool(_)
+                | ast::LiteralKind::Str(_)
+                | ast::LiteralKind::Char(_) => (),
             },
             _ => (),
         }

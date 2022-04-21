@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chili_ast::{ast, ty::*};
 use chili_error::{
@@ -15,13 +15,47 @@ pub fn substitute<'a>(
     tycx: &'a mut TyCtx,
     typed_ast: &'a ast::TypedAst,
 ) {
-    let mut sess = Sess { diagnostics, tycx };
+    let mut sess = Sess {
+        diagnostics,
+        tycx,
+        erroneous_tys: HashMap::new(),
+    };
+
     typed_ast.substitute(&mut sess);
+
+    let diagnostics: Vec<Diagnostic> = sess
+        .erroneous_tys
+        .iter()
+        .flat_map(|(&ty, spans)| {
+            let ty_span = sess.tycx.ty_span(ty);
+            let ty_origin_label = ty_span.map(|span| {
+                Label::secondary(span, "because its type originates from this expression")
+            });
+
+            spans
+                .iter()
+                .filter(|&&span| ty_span.map_or(true, |ty_span| span != ty_span))
+                .map(|&span| {
+                    Diagnostic::error()
+                        .with_message(
+                            "can't infer the expression's type, try adding more type information",
+                        )
+                        .with_label(Label::primary(span, "can't infer type"))
+                        .maybe_with_label(ty_origin_label.clone())
+                })
+                .collect::<Vec<Diagnostic>>()
+        })
+        .collect();
+
+    sess.diagnostics.extend(diagnostics);
 }
 
 struct Sess<'a> {
     diagnostics: &'a mut Diagnostics,
     tycx: &'a mut TyCtx,
+
+    // map of Ty -> Set of reduced expression spans that couldn't be inferred because of this ty
+    erroneous_tys: HashMap<Ty, Vec<Span>>,
 }
 
 trait Substitute<'a> {
@@ -86,8 +120,7 @@ impl<'a> Substitute<'a> for ast::FnSig {
             param.ty.substitute(sess, param.pattern.span());
         }
         self.ret.substitute(sess);
-        // TODO: replace unknown span
-        self.ty.substitute(sess, Span::unknown());
+        self.ty.substitute(sess, self.span);
     }
 }
 
@@ -95,10 +128,9 @@ impl<'a> Substitute<'a> for ast::Cast {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.expr.substitute(sess);
         self.ty_expr.substitute(sess);
-        // TODO: replace unknown span
         self.target_ty.substitute(
             sess,
-            self.ty_expr.as_ref().map_or(Span::unknown(), |e| e.span),
+            self.ty_expr.as_ref().map_or(self.expr.span, |e| e.span),
         );
     }
 }
@@ -173,9 +205,8 @@ impl<'a> Substitute<'a> for ast::Expr {
                 call.args.substitute(sess);
             }
             ast::ExprKind::MemberAccess(access) => access.expr.substitute(sess),
-            ast::ExprKind::ArrayLiteral(kind) => match kind {
+            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
                 ast::ArrayLiteralKind::List(elements) => elements.substitute(sess),
-
                 ast::ArrayLiteralKind::Fill { expr, len } => {
                     len.substitute(sess);
                     expr.substitute(sess);
@@ -225,13 +256,17 @@ impl<'a> SubstituteTy<'a> for Ty {
         if free_tys.is_empty() {
             sess.tycx.bind(*self, ty);
         } else {
-            sess.diagnostics.add(
-                Diagnostic::error()
-                    .with_message(
-                        "can't infer the expression's type, try adding more type information",
-                    )
-                    .with_label(Label::primary(span, "can't infer type")),
-            );
+            for &ty in free_tys.iter() {
+                let span_set = sess.erroneous_tys.entry(ty).or_default();
+
+                if let Some(index) = span_set.iter().position(|s| {
+                    s.start.index <= span.start.index && s.end.index >= span.end.index
+                }) {
+                    span_set.remove(index);
+                }
+
+                span_set.push(span);
+            }
         }
     }
 }

@@ -425,10 +425,10 @@ impl PrintTree for ast::Expr {
             ast::ExprKind::Ident(ident) => {
                 b.add_empty_child(format!("`{}` <{}>", ident.symbol, tycx.ty_kind(self.ty)));
             }
-            ast::ExprKind::ArrayLiteral(kind) => {
+            ast::ExprKind::ArrayLiteral(lit) => {
                 b.begin_child(format!("array literal <{}>", tycx.ty_kind(self.ty)));
 
-                match kind {
+                match &lit.kind {
                     ast::ArrayLiteralKind::List(elements) => {
                         b.begin_child("list".to_string());
                         elements.print_tree(b, workspace, tycx);
@@ -459,8 +459,12 @@ impl PrintTree for ast::Expr {
                 }
                 b.end_child();
             }
-            ast::ExprKind::Literal(kind) => {
-                b.add_empty_child(format!("{} <{}>", kind.to_string(), tycx.ty_kind(self.ty)));
+            ast::ExprKind::Literal(lit) => {
+                b.add_empty_child(format!(
+                    "{} <{}>",
+                    lit.kind.to_string(),
+                    tycx.ty_kind(self.ty)
+                ));
             }
             ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 b.begin_child(format!(

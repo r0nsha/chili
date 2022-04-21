@@ -198,7 +198,7 @@ impl SolveDefer for ast::Expr {
                 }
             }
             ast::ExprKind::MemberAccess(access) => access.expr.solve_defer(sess),
-            ast::ExprKind::ArrayLiteral(kind) => match kind {
+            ast::ExprKind::ArrayLiteral(lit) => match &mut lit.kind {
                 ast::ArrayLiteralKind::List(elements) => elements.solve_defer(sess),
                 ast::ArrayLiteralKind::Fill { expr, len } => {
                     len.solve_defer(sess);

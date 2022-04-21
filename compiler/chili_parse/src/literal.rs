@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ast::{self, ArrayLiteralKind, Expr, ExprKind, Literal, StructLiteralField};
+use chili_ast::ast::{self, Expr, ExprKind, LiteralKind, StructLiteralField};
 use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
@@ -9,18 +9,21 @@ impl<'p> Parser<'p> {
         let token = self.previous();
         let span = token.span;
 
-        let value = match &token.kind {
-            Nil => Literal::Nil,
-            True => Literal::Bool(true),
-            False => Literal::Bool(false),
-            Int(value) => Literal::Int(*value),
-            Float(value) => Literal::Float(*value),
-            Str(value) => Literal::Str(*value),
-            Char(value) => Literal::Char(*value),
+        let kind = match &token.kind {
+            Nil => LiteralKind::Nil,
+            True => LiteralKind::Bool(true),
+            False => LiteralKind::Bool(false),
+            Int(value) => LiteralKind::Int(*value),
+            Float(value) => LiteralKind::Float(*value),
+            Str(value) => LiteralKind::Str(*value),
+            Char(value) => LiteralKind::Char(*value),
             _ => panic!("unexpected literal `{}`", token.lexeme),
         };
 
-        Ok(Expr::new(ExprKind::Literal(value), span))
+        Ok(Expr::new(
+            ExprKind::Literal(ast::Literal { kind, span }),
+            span,
+        ))
     }
 
     pub(crate) fn parse_array_literal(&mut self) -> DiagnosticResult<Expr> {
@@ -38,9 +41,11 @@ impl<'p> Parser<'p> {
                     expect!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
-                        ExprKind::ArrayLiteral(ArrayLiteralKind::Fill {
-                            expr: Box::new(expr),
-                            len: Box::new(len),
+                        ExprKind::ArrayLiteral(ast::ArrayLiteral {
+                            kind: ast::ArrayLiteralKind::Fill {
+                                expr: Box::new(expr),
+                                len: Box::new(len),
+                            },
                         }),
                         start_span.to(self.previous_span()),
                     ));
@@ -59,7 +64,9 @@ impl<'p> Parser<'p> {
         }
 
         Ok(Expr::new(
-            ExprKind::ArrayLiteral(ArrayLiteralKind::List(elements)),
+            ExprKind::ArrayLiteral(ast::ArrayLiteral {
+                kind: ast::ArrayLiteralKind::List(elements),
+            }),
             start_span.to(self.previous_span()),
         ))
     }

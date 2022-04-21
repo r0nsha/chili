@@ -1,4 +1,4 @@
-use crate::{ast::Literal, ty::Ty};
+use crate::{ast::LiteralKind, ty::Ty};
 use strum_macros::Display;
 
 #[derive(Debug, Display, PartialEq, Clone, Copy)]
@@ -66,12 +66,12 @@ impl Value {
         }
     }
 
-    pub fn into_literal(self) -> Literal {
+    pub fn into_literal(self) -> LiteralKind {
         match self {
             Value::Type(_) => panic!("unexpected Value::Type"),
-            Value::Bool(v) => Literal::Bool(v),
-            Value::Int(v) => Literal::Int(v),
-            Value::Float(v) => Literal::Float(v),
+            Value::Bool(v) => LiteralKind::Bool(v),
+            Value::Int(v) => LiteralKind::Int(v),
+            Value::Float(v) => LiteralKind::Float(v),
         }
     }
 }

@@ -214,7 +214,7 @@ impl<'s> CheckSess<'s> {
                 Default::default(),
                 symbol,
                 ast::Visibility::Public,
-                sess.tycx.bound(ty.kind().create_type()),
+                sess.tycx.builtin(ty.kind().create_type()),
                 Some(Value::Type(ty)),
                 false,
                 ast::BindingKind::Type,
@@ -310,7 +310,9 @@ impl Check for ast::Import {
         let mut previous_module_id = env.module_id();
         let mut module_id = self.target_module_id;
 
-        let mut ty = sess.tycx.bound(TyKind::Module(self.target_module_id));
+        let mut ty = sess
+            .tycx
+            .bound(TyKind::Module(self.target_module_id), self.span);
         let mut const_value = None;
         let mut target_binding_info = None;
 
@@ -385,7 +387,7 @@ impl Check for ast::Binding {
             let res = ty_expr.check(sess, env, None)?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
         } else {
-            sess.tycx.var()
+            sess.tycx.var(self.pattern.span())
         };
 
         let const_value = if let Some(expr) = &mut self.expr {
@@ -483,8 +485,11 @@ impl Check for ast::Fn {
         expected_ty: Option<Ty>,
     ) -> CheckResult {
         let sig_res = self.sig.check(sess, env, expected_ty)?;
-        let fn_ty = sess.tycx.ty_kind(sig_res.ty).into_fn();
-        let return_ty = sess.tycx.bound(fn_ty.ret.as_ref().clone());
+        let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
+        let return_ty = sess.tycx.bound(
+            fn_ty.ret.as_ref().clone(),
+            self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span),
+        );
 
         if !self.sig.name.is_empty() {
             self.binding_info_id = sess.bind_symbol(
@@ -502,7 +507,13 @@ impl Check for ast::Fn {
         env.push_scope();
 
         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
-            let ty = sess.tycx.bound(param_ty.clone());
+            let ty = sess.tycx.bound(
+                param_ty.clone(),
+                param
+                    .ty_expr
+                    .as_ref()
+                    .map_or(param.pattern.span(), |e| e.span),
+            );
             sess.bind_pattern(
                 env,
                 &mut param.pattern,
@@ -554,7 +565,7 @@ impl Check for ast::FnSig {
                     let res = expr.check(sess, env, None)?;
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?
                 } else {
-                    sess.tycx.var()
+                    sess.tycx.var(param.pattern.span())
                 };
 
                 ty_params.push(param.ty.into());
@@ -588,7 +599,7 @@ impl Check for ast::FnSig {
                                     ignore: false,
                                 }),
                                 ty_expr: None,
-                                ty: sess.tycx.bound(f.params[0].clone()),
+                                ty: sess.tycx.bound(f.params[0].clone(), self.span),
                             });
 
                             ty_params.push(f.params[0].clone());
@@ -605,15 +616,18 @@ impl Check for ast::FnSig {
         } else if self.lib_name.is_some() {
             sess.tycx.common_types.unit
         } else {
-            sess.tycx.var()
+            sess.tycx.var(self.span)
         };
 
-        self.ty = sess.tycx.bound(TyKind::Fn(FnTy {
-            params: ty_params,
-            ret: Box::new(ret.into()),
-            variadic: self.variadic,
-            lib_name: self.lib_name,
-        }));
+        self.ty = sess.tycx.bound(
+            TyKind::Fn(FnTy {
+                params: ty_params,
+                ret: Box::new(ret.into()),
+                variadic: self.variadic,
+                lib_name: self.lib_name,
+            }),
+            self.span,
+        );
 
         Ok(Res {
             ty: self.ty,
@@ -716,7 +730,7 @@ impl Check for ast::Expr {
                         let start_res = start.check(sess, env, None)?;
                         let end_res = end.check(sess, env, None)?;
 
-                        let anyint = sess.tycx.anyint();
+                        let anyint = sess.tycx.anyint(start.span);
 
                         start_res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
@@ -744,7 +758,7 @@ impl Check for ast::Expr {
 
                         match ty.maybe_deref_once() {
                             TyKind::Array(inner, ..) | TyKind::Slice(inner, ..) => {
-                                sess.tycx.bound(*inner)
+                                sess.tycx.bound(*inner, value.span)
                             }
                             _ => {
                                 return Err(Diagnostic::error()
@@ -869,7 +883,10 @@ impl Check for ast::Expr {
                             Ok(res)
                         } else {
                             *self = ast::Expr::typed(
-                                ast::ExprKind::Literal(ast::Literal::Unit),
+                                ast::ExprKind::Literal(ast::Literal {
+                                    kind: ast::LiteralKind::Unit,
+                                    span: self.span,
+                                }),
                                 unit,
                                 self.span,
                             );
@@ -920,8 +937,8 @@ impl Check for ast::Expr {
                     | ast::BinaryOp::Shr
                     | ast::BinaryOp::BitwiseOr
                     | ast::BinaryOp::BitwiseXor
-                    | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(),
-                    ast::BinaryOp::Eq | ast::BinaryOp::NEq => sess.tycx.var(),
+                    | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(binary.span),
+                    ast::BinaryOp::Eq | ast::BinaryOp::NEq => sess.tycx.var(binary.span),
                     ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
@@ -977,9 +994,10 @@ impl Check for ast::Expr {
 
                 match unary.op {
                     ast::UnaryOp::Ref(is_mutable) => {
-                        let ty = sess
-                            .tycx
-                            .bound(TyKind::Pointer(Box::new(res.ty.into()), is_mutable));
+                        let ty = sess.tycx.bound(
+                            TyKind::Pointer(Box::new(res.ty.into()), is_mutable),
+                            unary.span,
+                        );
                         Ok(Res::new(ty))
                     }
                     ast::UnaryOp::Deref => {
@@ -987,7 +1005,7 @@ impl Check for ast::Expr {
                         match kind {
                             // TODO: instead of checking type directly, apply `Deref` constraint
                             TyKind::Pointer(inner, _) => {
-                                let ty = sess.tycx.bound(*inner);
+                                let ty = sess.tycx.bound(*inner, unary.span);
                                 Ok(Res::new(ty))
                             }
                             ty => Err(TypeError::deref_non_pointer_ty(
@@ -1015,7 +1033,7 @@ impl Check for ast::Expr {
                         }
                     }
                     ast::UnaryOp::Neg => {
-                        let anyint = sess.tycx.anyint();
+                        let anyint = sess.tycx.anyint(unary.span);
 
                         res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
@@ -1039,7 +1057,7 @@ impl Check for ast::Expr {
                         }
                     }
                     ast::UnaryOp::Plus => {
-                        let anyint = sess.tycx.anyint();
+                        let anyint = sess.tycx.anyint(unary.span);
 
                         res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
@@ -1051,7 +1069,7 @@ impl Check for ast::Expr {
                         Ok(Res::new_maybe_const(res.ty, res.const_value))
                     }
                     ast::UnaryOp::BitwiseNot => {
-                        let anyint = sess.tycx.anyint();
+                        let anyint = sess.tycx.anyint(unary.span);
 
                         res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
@@ -1109,7 +1127,7 @@ impl Check for ast::Expr {
                     TyKind::Array(inner, ..)
                     | TyKind::Slice(inner, ..)
                     | TyKind::MultiPointer(inner, ..) => {
-                        let ty = sess.tycx.bound(*inner);
+                        let ty = sess.tycx.bound(*inner, self.span);
                         Ok(Res::new(ty))
                     }
                     _ => Err(TypeError::invalid_expr_in_subscript(
@@ -1165,7 +1183,9 @@ impl Check for ast::Expr {
                     }
                 };
 
-                let ty = sess.tycx.bound(TyKind::Slice(result_ty, is_mutable));
+                let ty = sess
+                    .tycx
+                    .bound(TyKind::Slice(result_ty, is_mutable), self.span);
 
                 Ok(Res::new(ty))
             }
@@ -1177,7 +1197,9 @@ impl Check for ast::Expr {
                 match &kind.maybe_deref_once() {
                     ty @ TyKind::Tuple(tys) => match access.member.as_str().parse::<i32>() {
                         Ok(index) => match tys.get(index as usize) {
-                            Some(field_ty) => Ok(Res::new(sess.tycx.bound(field_ty.clone()))),
+                            Some(field_ty) => {
+                                Ok(Res::new(sess.tycx.bound(field_ty.clone(), self.span)))
+                            }
                             None => Err(TypeError::tuple_field_out_of_bounds(
                                 access.expr.span,
                                 &access.member,
@@ -1193,7 +1215,9 @@ impl Check for ast::Expr {
                     },
                     ty @ TyKind::Struct(st) => {
                         match st.fields.iter().find(|f| f.symbol == access.member) {
-                            Some(field) => Ok(Res::new(sess.tycx.bound(field.ty.clone()))),
+                            Some(field) => {
+                                Ok(Res::new(sess.tycx.bound(field.ty.clone(), self.span)))
+                            }
                             None => Err(TypeError::invalid_struct_field(
                                 access.expr.span,
                                 access.member,
@@ -1210,10 +1234,10 @@ impl Check for ast::Expr {
                     TyKind::Slice(inner, is_mutable)
                         if access.member.as_str() == BUILTIN_FIELD_DATA =>
                     {
-                        Ok(Res::new(
-                            sess.tycx
-                                .bound(TyKind::MultiPointer(inner.clone(), *is_mutable)),
-                        ))
+                        Ok(Res::new(sess.tycx.bound(
+                            TyKind::MultiPointer(inner.clone(), *is_mutable),
+                            self.span,
+                        )))
                     }
                     TyKind::Module(module_id) => {
                         let (res, id) = sess.check_top_level_symbol(
@@ -1281,9 +1305,9 @@ impl Check for ast::Expr {
                     Ok(res)
                 }
             },
-            ast::ExprKind::ArrayLiteral(kind) => match kind {
+            ast::ExprKind::ArrayLiteral(lit) => match &mut lit.kind {
                 ast::ArrayLiteralKind::List(elements) => {
-                    let element_ty = sess.tycx.var();
+                    let element_ty = sess.tycx.var(self.span);
 
                     for el in elements.iter_mut() {
                         let res = el.check(sess, env, Some(element_ty))?;
@@ -1298,9 +1322,10 @@ impl Check for ast::Expr {
                             .or_report_err(&sess.tycx, element_ty, res.ty, el.span)?;
                     }
 
-                    let ty = sess
-                        .tycx
-                        .bound(TyKind::Array(Box::new(element_ty.into()), elements.len()));
+                    let ty = sess.tycx.bound(
+                        TyKind::Array(Box::new(element_ty.into()), elements.len()),
+                        self.span,
+                    );
 
                     Ok(Res::new(ty))
                 }
@@ -1315,9 +1340,10 @@ impl Check for ast::Expr {
 
                     let expr = expr.check(sess, env, None)?;
 
-                    let ty = sess
-                        .tycx
-                        .bound(TyKind::Array(Box::new(expr.ty.into()), len_value as _));
+                    let ty = sess.tycx.bound(
+                        TyKind::Array(Box::new(expr.ty.into()), len_value as _),
+                        self.span,
+                    );
 
                     Ok(Res::new(ty))
                 }
@@ -1337,11 +1363,11 @@ impl Check for ast::Expr {
                 let element_tys: Vec<TyKind> =
                     lit.elements.iter().map(|e| TyKind::Var(e.ty)).collect();
                 let kind = TyKind::Tuple(element_tys);
-                let ty = sess.tycx.bound(kind.clone());
+                let ty = sess.tycx.bound(kind.clone(), self.span);
 
                 if is_tuple_type {
                     Ok(Res::new_const(
-                        sess.tycx.bound(kind.create_type()),
+                        sess.tycx.bound(kind.create_type(), self.span),
                         Value::Type(ty),
                     ))
                 } else {
@@ -1399,8 +1425,8 @@ impl Check for ast::Expr {
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type()),
-                    Value::Type(sess.tycx.bound(kind.clone())),
+                    sess.tycx.bound(kind.clone().create_type(), self.span),
+                    Value::Type(sess.tycx.bound(kind.clone(), self.span)),
                 ))
             }
             ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
@@ -1408,8 +1434,8 @@ impl Check for ast::Expr {
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type()),
-                    Value::Type(sess.tycx.bound(kind)),
+                    sess.tycx.bound(kind.clone().create_type(), self.span),
+                    Value::Type(sess.tycx.bound(kind, self.span)),
                 ))
             }
             ast::ExprKind::ArrayType(ast::ArrayType { inner, size }) => {
@@ -1429,8 +1455,8 @@ impl Check for ast::Expr {
                 let kind = TyKind::Array(Box::new(inner_ty.into()), size_value as usize);
 
                 Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type()),
-                    Value::Type(sess.tycx.bound(kind)),
+                    sess.tycx.bound(kind.clone().create_type(), self.span),
+                    Value::Type(sess.tycx.bound(kind, self.span)),
                 ))
             }
             ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
@@ -1438,8 +1464,8 @@ impl Check for ast::Expr {
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type()),
-                    Value::Type(sess.tycx.bound(kind)),
+                    sess.tycx.bound(kind.clone().create_type(), self.span),
+                    Value::Type(sess.tycx.bound(kind, self.span)),
                 ))
             }
             ast::ExprKind::StructType(st) => {
@@ -1451,7 +1477,7 @@ impl Check for ast::Expr {
                     st.name
                 };
 
-                let inferred_ty = sess.tycx.var();
+                let inferred_ty = sess.tycx.var(self.span);
 
                 let opaque_struct =
                     TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
@@ -1464,7 +1490,7 @@ impl Check for ast::Expr {
                 sess.self_types.push(inferred_ty);
                 env.push_scope();
 
-                let opaque_struct_ty = sess.tycx.bound(opaque_struct);
+                let opaque_struct_ty = sess.tycx.bound(opaque_struct, self.span);
                 st.binding_info_id = sess.bind_symbol(
                     env,
                     st.name,
@@ -1509,8 +1535,8 @@ impl Check for ast::Expr {
                 });
 
                 Ok(Res::new_const(
-                    sess.tycx.bound(struct_ty.clone().create_type()),
-                    Value::Type(sess.tycx.bound(struct_ty)),
+                    sess.tycx.bound(struct_ty.clone().create_type(), self.span),
+                    Value::Type(sess.tycx.bound(struct_ty, self.span)),
                 ))
             }
             ast::ExprKind::FnType(sig) => {
@@ -1520,14 +1546,15 @@ impl Check for ast::Expr {
                     Ok(Res::new(res.ty))
                 } else {
                     Ok(Res::new_const(
-                        sess.tycx.bound(TyKind::Var(res.ty).create_type()),
+                        sess.tycx
+                            .bound(TyKind::Var(res.ty).create_type(), self.span),
                         Value::Type(res.ty),
                     ))
                 }
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
                     Value::Type(ty),
                 )),
                 None => Err(Diagnostic::error()
@@ -1537,25 +1564,25 @@ impl Check for ast::Expr {
             ast::ExprKind::NeverType => {
                 let ty = sess.tycx.common_types.never;
                 Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
                     Value::Type(ty),
                 ))
             }
             ast::ExprKind::UnitType => {
                 let ty = sess.tycx.common_types.unit;
                 Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
                     Value::Type(ty),
                 ))
             }
             ast::ExprKind::PlaceholderType => {
-                let ty = sess.tycx.var();
+                let ty = sess.tycx.var(self.span);
                 Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type()),
+                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
                     Value::Type(ty),
                 ))
             }
-            ast::ExprKind::Error => Ok(Res::new(sess.tycx.var())),
+            ast::ExprKind::Error => Ok(Res::new(sess.tycx.var(self.span))),
         }?;
 
         self.ty = res.ty;
@@ -1593,7 +1620,7 @@ impl Check for ast::FnCall {
 
                 for (index, arg) in self.args.iter_mut().enumerate() {
                     if let Some(param) = fn_ty.params.get(index) {
-                        let param_ty = sess.tycx.bound(param.clone());
+                        let param_ty = sess.tycx.bound(param.clone(), self.span);
                         let res = arg.check(sess, env, Some(param_ty))?;
 
                         res.ty
@@ -1612,14 +1639,16 @@ impl Check for ast::FnCall {
                     }
                 }
 
-                Ok(Res::new(sess.tycx.bound(fn_ty.ret.as_ref().clone())))
+                Ok(Res::new(
+                    sess.tycx.bound(fn_ty.ret.as_ref().clone(), self.span),
+                ))
             }
             ty => {
                 for arg in self.args.iter_mut() {
                     arg.check(sess, env, None)?;
                 }
 
-                let return_ty = sess.tycx.var();
+                let return_ty = sess.tycx.var(self.span);
 
                 let inferred_fn_ty = TyKind::Fn(FnTy {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
@@ -1727,14 +1756,18 @@ impl Check for ast::Literal {
         _env: &mut Env,
         _expected_ty: Option<Ty>,
     ) -> CheckResult {
-        let res = match self {
-            ast::Literal::Unit => Res::new(sess.tycx.common_types.unit),
-            ast::Literal::Nil => Res::new(sess.tycx.var()),
-            ast::Literal::Bool(b) => Res::new_const(sess.tycx.common_types.bool, Value::Bool(*b)),
-            ast::Literal::Int(i) => Res::new_const(sess.tycx.anyint(), Value::Int(*i)),
-            ast::Literal::Float(f) => Res::new_const(sess.tycx.anyfloat(), Value::Float(*f)),
-            ast::Literal::Str(_) => Res::new(sess.tycx.common_types.str),
-            ast::Literal::Char(_) => Res::new(sess.tycx.common_types.u8),
+        let res = match &self.kind {
+            ast::LiteralKind::Unit => Res::new(sess.tycx.common_types.unit),
+            ast::LiteralKind::Nil => Res::new(sess.tycx.var(self.span)),
+            ast::LiteralKind::Bool(b) => {
+                Res::new_const(sess.tycx.common_types.bool, Value::Bool(*b))
+            }
+            ast::LiteralKind::Int(i) => Res::new_const(sess.tycx.anyint(self.span), Value::Int(*i)),
+            ast::LiteralKind::Float(f) => {
+                Res::new_const(sess.tycx.anyfloat(self.span), Value::Float(*f))
+            }
+            ast::LiteralKind::Str(_) => Res::new(sess.tycx.common_types.str),
+            ast::LiteralKind::Char(_) => Res::new(sess.tycx.common_types.u8),
         };
         Ok(res)
     }
@@ -1763,7 +1796,7 @@ fn check_named_struct_literal(
             Some(ty_field) => {
                 uninit_fields.remove(&field.symbol);
 
-                let expected_ty = sess.tycx.bound(ty_field.ty.clone());
+                let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
                 let field_res = field.value.check(sess, env, Some(expected_ty))?;
 
                 field_res
@@ -1806,7 +1839,7 @@ fn check_named_struct_literal(
             .with_label(Label::primary(span, "missing fields")));
     }
 
-    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty))))
+    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
 }
 
 #[inline]
@@ -1843,7 +1876,7 @@ fn check_anonymous_struct_literal(
         });
     }
 
-    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty))))
+    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
 }
 
 fn get_anonymous_struct_name(span: Span) -> Ustr {

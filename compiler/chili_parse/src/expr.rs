@@ -1,7 +1,6 @@
 use crate::*;
 use chili_ast::ast::{
-    self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, Literal, UnaryOp,
-    Visibility,
+    self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, UnaryOp, Visibility,
 };
 use chili_error::*;
 use chili_span::{Span, To};
@@ -318,9 +317,13 @@ impl<'p> Parser<'p> {
             let start_span = self.previous().span;
 
             if eat!(self, CloseParen) {
+                let span = start_span.to(self.previous_span());
                 Expr::new(
-                    ExprKind::Literal(Literal::Unit),
-                    start_span.to(self.previous_span()),
+                    ExprKind::Literal(ast::Literal {
+                        kind: ast::LiteralKind::Unit,
+                        span,
+                    }),
+                    span,
                 )
             } else {
                 let mut expr = self.parse_expr()?;

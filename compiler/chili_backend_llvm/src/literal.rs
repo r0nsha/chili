@@ -85,22 +85,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(super) fn gen_literal_value(
         &mut self,
-        value: &ast::Literal,
+        value: &ast::LiteralKind,
         ty: &TyKind,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         match value {
-            ast::Literal::Unit => self.gen_unit(),
+            ast::LiteralKind::Unit => self.gen_unit(),
 
-            ast::Literal::Nil => self.gen_nil(ty),
+            ast::LiteralKind::Nil => self.gen_nil(ty),
 
-            ast::Literal::Bool(v) => self
+            ast::LiteralKind::Bool(v) => self
                 .context
                 .bool_type()
                 .const_int(if *v { 1 } else { 0 }, false)
                 .into(),
 
-            ast::Literal::Int(v) => match ty {
+            ast::LiteralKind::Int(v) => match ty {
                 TyKind::Int(_) | TyKind::UInt(_) => ty
                     .llvm_type(self)
                     .into_int_type()
@@ -120,11 +120,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .into(),
             },
 
-            ast::Literal::Float(v) => ty.llvm_type(self).into_float_type().const_float(*v).into(),
+            ast::LiteralKind::Float(v) => {
+                ty.llvm_type(self).into_float_type().const_float(*v).into()
+            }
 
-            ast::Literal::Str(v) => self.gen_global_str("", v.as_str(), deref),
+            ast::LiteralKind::Str(v) => self.gen_global_str("", v.as_str(), deref),
 
-            ast::Literal::Char(v) => ty
+            ast::LiteralKind::Char(v) => ty
                 .llvm_type(self)
                 .into_int_type()
                 .const_int(*v as u64, false)
