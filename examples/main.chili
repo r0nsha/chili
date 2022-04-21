@@ -1,10 +1,5 @@
 use c.printf
 
 let main = fn {
-    let x: str = 5
     printf("Hello".data)
-}
-
-let a = fn(x) {
-    5
 }
