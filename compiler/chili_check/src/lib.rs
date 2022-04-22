@@ -7,7 +7,7 @@ mod top_level;
 use chili_ast::{
     ast::{self, ForeignLibrary},
     pattern::{Pattern, SymbolPattern},
-    ty::{FnTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
+    ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     value::Value,
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -217,7 +217,7 @@ impl<'s> CheckSess<'s> {
                 module_id: Default::default(),
                 symbol,
                 visibility: ast::Visibility::Public,
-                ty: sess.tycx.builtin(ty.kind().create_type()),
+                ty: sess.tycx.bound_builtin(ty.kind().create_type()),
                 const_value: Some(Value::Type(ty)),
                 is_mutable: false,
                 kind: ast::BindingKind::Type,
@@ -1254,6 +1254,17 @@ impl Check for ast::Expr {
             ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
             ast::ExprKind::MemberAccess(access) => {
                 let res = access.expr.check(sess, env, None)?;
+
+                let member_ty = sess.tycx.var(self.span);
+                let partial_struct = sess.tycx.partial_struct(
+                    PartialStructTy(HashMap::from([(access.member, TyKind::Var(member_ty))])),
+                    self.span,
+                );
+
+                res.ty
+                    .unify(&partial_struct, &mut sess.tycx)
+                    .or_report_err(&sess.tycx, partial_struct, None, res.ty, self.span)?;
+
                 let kind = res.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
@@ -1287,6 +1298,16 @@ impl Check for ast::Expr {
                             )),
                         }
                     }
+                    ty @ TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
+                        match partial.get(&access.member) {
+                            Some(ty) => Ok(Res::new(sess.tycx.bound(ty.clone(), self.span))),
+                            None => Err(TypeError::invalid_struct_field(
+                                access.expr.span,
+                                access.member,
+                                ty.display(&sess.tycx),
+                            )),
+                        }
+                    }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => Ok(
                         Res::new_const(sess.tycx.common_types.uint, Value::Int(*size as _)),
                     ),
@@ -1313,6 +1334,26 @@ impl Check for ast::Expr {
                         sess.workspace.increment_binding_use(id);
                         Ok(res)
                     }
+                    // TyKind::Var(ty) => {
+                    //     let member_ty = sess.tycx.var(self.span);
+                    //     let partial_struct = sess.tycx.partial_struct(
+                    //         PartialStructTy(HashMap::from([(
+                    //             access.member,
+                    //             TyKind::Var(member_ty),
+                    //         )])),
+                    //         self.span,
+                    //     );
+
+                    //     ty.unify(&partial_struct, &mut sess.tycx).or_report_err(
+                    //         &sess.tycx,
+                    //         partial_struct,
+                    //         None,
+                    //         *ty,
+                    //         self.span,
+                    //     )?;
+
+                    //     Ok(Res::new(member_ty))
+                    // }
                     ty => Err(TypeError::member_access_on_invalid_type(
                         access.expr.span,
                         ty.display(&sess.tycx),

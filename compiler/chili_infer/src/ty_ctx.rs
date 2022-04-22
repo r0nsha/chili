@@ -46,16 +46,21 @@ impl TyCtx {
     }
 
     #[inline]
+    pub fn partial_struct(&mut self, partial_struct: PartialStructTy, span: Span) -> Ty {
+        self.insert(InferenceValue::PartialStruct(partial_struct), Some(span))
+    }
+
+    #[inline]
+    pub fn bound_builtin(&mut self, kind: TyKind) -> Ty {
+        self.insert(InferenceValue::Bound(kind), None)
+    }
+
+    #[inline]
     pub fn bound(&mut self, kind: TyKind, span: Span) -> Ty {
         match kind {
             TyKind::Var(ty) => ty,
             _ => self.insert(InferenceValue::Bound(kind), Some(span)),
         }
-    }
-
-    #[inline]
-    pub fn builtin(&mut self, kind: TyKind) -> Ty {
-        self.insert(InferenceValue::Bound(kind), None)
     }
 
     #[inline]

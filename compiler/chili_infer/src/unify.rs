@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use crate::{inference_value::InferenceValue, normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_ast::ty::*;
+use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
+use ustr::ustr;
 
 pub trait UnifyTy<T>
 where
@@ -117,8 +121,8 @@ impl UnifyTy<TyKind> for TyKind {
 }
 
 fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
-    match tycx.value_of(var) {
-        InferenceValue::Bound(kind) => kind.clone().unify(other, tycx),
+    match tycx.value_of(var).clone() {
+        InferenceValue::Bound(kind) => kind.unify(other, tycx),
         InferenceValue::AnyInt => {
             let other_kind = other.normalize(&tycx);
             match other_kind {
@@ -151,25 +155,47 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                 _ => Err(UnifyTyErr::Mismatch),
             }
         }
-        InferenceValue::PartialStruct(partial) => {
+        InferenceValue::PartialStruct(mut partial_struct) => {
             let other_kind = other.normalize(&tycx);
             match other_kind {
+                TyKind::Slice(..) | TyKind::Array(..)
+                    if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN))
+                        || partial_struct.contains_key(&ustr(BUILTIN_FIELD_DATA)) =>
+                {
+                    tycx.bind_ty(var, other_kind);
+                    Ok(())
+                }
                 TyKind::Struct(ref other_struct) => {
                     for field in other_struct.fields.iter() {
                         todo!("check that all fields with the same names unify")
                     }
-                    for (name, ty) in partial.iter() {
+                    for (name, ty) in partial_struct.iter() {
                         todo!("any field that exists in partial, but doesn't exist in struct, is an error")
                     }
                     todo!("tycx.bind_ty(var, other_kind);");
                     Ok(())
                 }
                 TyKind::Infer(other, InferTy::PartialStruct(ref other_partial)) => {
-                    for (symbol, ty) in partial.iter() {
-                        todo!("if the field exists in other_partial -> unify");
-                        todo!("add the field to the new partial struct ty")
+                    for (symbol, ty) in partial_struct.iter() {
+                        // if both partial structs have this field, unify there types
+                        if let Some(other_ty) = other_partial.get(symbol) {
+                            ty.unify(other_ty, tycx)?;
+                        }
                     }
-                    todo!("tycx.bind_ty(var, other_kind);");
+
+                    for (symbol, ty) in other_partial.iter() {
+                        // if the other partial struct has fields that this struct doesn't, add them
+                        if !partial_struct.contains_key(symbol) {
+                            partial_struct.insert(*symbol, ty.clone());
+                        }
+                    }
+
+                    // bind both vars to the new partial struct
+                    let value = InferenceValue::PartialStruct(partial_struct);
+
+                    tycx.bind_value(var, value.clone());
+                    tycx.bind_value(other, value);
+
                     Ok(())
                 }
                 TyKind::Var(other) => {

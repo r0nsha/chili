@@ -71,16 +71,15 @@ impl Display for StructTy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}{{ {} }}",
-            match self.kind {
-                StructTyKind::Struct => "struct",
-                StructTyKind::PackedStruct => "struct(packed)",
-                StructTyKind::Union => "union",
-            },
+            "{} {{ {} }}",
             if self.name.is_empty() {
-                " ".to_string()
+                match self.kind {
+                    StructTyKind::Struct => "struct",
+                    StructTyKind::PackedStruct => "struct(packed)",
+                    StructTyKind::Union => "union",
+                }
             } else {
-                format!(" {} ", self.name)
+                self.name.as_str()
             },
             self.fields
                 .iter()

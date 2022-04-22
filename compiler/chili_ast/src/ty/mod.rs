@@ -4,7 +4,11 @@ pub mod size;
 
 use crate::workspace::{BindingInfoId, ModuleId};
 use chili_span::Span;
-use std::{fmt, ops::Deref};
+use std::{
+    collections::HashMap,
+    fmt,
+    ops::{Deref, DerefMut},
+};
 use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -122,13 +126,19 @@ pub struct StructTy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct PartialStructTy(UstrMap<TyKind>);
+pub struct PartialStructTy(pub HashMap<Ustr, TyKind>);
 
 impl Deref for PartialStructTy {
-    type Target = UstrMap<TyKind>;
+    type Target = HashMap<Ustr, TyKind>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for PartialStructTy {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
