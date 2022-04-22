@@ -57,7 +57,7 @@ impl Display for TyKind {
                 TyKind::Type(inner) => inner.to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "!".to_string(),
-                TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.into_struct().to_string(),
+                TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),
                 TyKind::Infer(_, InferTy::AnyInt) => "[anyint]".to_string(),
                 TyKind::Infer(_, InferTy::AnyFloat) => "[anyfloat]".to_string(),
                 TyKind::Var(v) => v.to_string(),
@@ -84,6 +84,19 @@ impl Display for StructTy {
             self.fields
                 .iter()
                 .map(|f| format!("{}: {}", f.symbol, f.ty))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+impl Display for PartialStructTy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "struct {{ {} }}",
+            self.iter()
+                .map(|(symbol, ty)| format!("{}: {}", symbol, ty))
                 .collect::<Vec<String>>()
                 .join(", ")
         )

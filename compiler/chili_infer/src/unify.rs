@@ -41,10 +41,10 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
 
-            (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyInt))
-            | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat))
-            | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt))
-            | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyFloat)) => Ok(()),
+            (
+                TyKind::Infer(_, InferTy::AnyInt | InferTy::AnyFloat),
+                TyKind::Infer(_, InferTy::AnyInt | InferTy::AnyFloat),
+            ) => Ok(()),
 
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
             (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
@@ -100,11 +100,20 @@ impl UnifyTy<TyKind> for TyKind {
                 } else if t1.fields.len() != t2.fields.len() || t1.kind != t2.kind {
                     Err(UnifyTyErr::Mismatch)
                 } else {
-                    for (f1, f2) in t1.fields.iter().zip(t2.fields.iter()) {
-                        f1.ty.unify(&f2.ty, tycx)?;
+                    for f1 in t1.fields.iter() {
+                        if let Some(f2) = t2.fields.iter().find(|f| f.symbol == f1.symbol) {
+                            f1.ty.unify(&f2.ty, tycx)?;
+                        } else {
+                            return Err(UnifyTyErr::Mismatch);
+                        }
                     }
                     Ok(())
                 }
+            }
+
+            (TyKind::Infer(var, InferTy::PartialStruct(_)), other @ TyKind::Struct(_))
+            | (other @ TyKind::Struct(_), TyKind::Infer(var, InferTy::PartialStruct(_))) => {
+                unify_var_ty(*var, other, tycx)
             }
 
             (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
@@ -166,18 +175,25 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                     Ok(())
                 }
                 TyKind::Struct(ref other_struct) => {
-                    for field in other_struct.fields.iter() {
-                        todo!("check that all fields with the same names unify")
+                    for (symbol, ty) in partial_struct.iter() {
+                        // if both the partial struct and the struct have this field, unify their types
+                        if let Some(other_ty) =
+                            other_struct.fields.iter().find(|f| f.symbol == *symbol)
+                        {
+                            ty.unify(&other_ty.ty, tycx)?;
+                        } else {
+                            // any field that exists in the partial struct, but doesn't exist in struct, is an error
+                            return Err(UnifyTyErr::Mismatch);
+                        }
                     }
-                    for (name, ty) in partial_struct.iter() {
-                        todo!("any field that exists in partial, but doesn't exist in struct, is an error")
-                    }
-                    todo!("tycx.bind_ty(var, other_kind);");
+
+                    tycx.bind_ty(var, other_kind);
+
                     Ok(())
                 }
                 TyKind::Infer(other, InferTy::PartialStruct(ref other_partial)) => {
                     for (symbol, ty) in partial_struct.iter() {
-                        // if both partial structs have this field, unify there types
+                        // if both partial structs have this field, unify their types
                         if let Some(other_ty) = other_partial.get(symbol) {
                             ty.unify(other_ty, tycx)?;
                         }
@@ -202,6 +218,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                     if other != var {
                         tycx.bind_ty(other, var.into());
                     }
+
                     Ok(())
                 }
                 _ => Err(UnifyTyErr::Mismatch),

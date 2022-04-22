@@ -19,7 +19,7 @@ impl fmt::Display for InferenceValue {
                 InferenceValue::Bound(t) => t.to_string(),
                 InferenceValue::AnyInt => "[anyint]".to_string(),
                 InferenceValue::AnyFloat => "[anyfloat]".to_string(),
-                InferenceValue::PartialStruct(partial) => partial.into_struct().to_string(),
+                InferenceValue::PartialStruct(partial) => partial.to_string(),
                 InferenceValue::Unbound => "unbound".to_string(),
             }
         )
