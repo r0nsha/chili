@@ -365,5 +365,6 @@ impl TypeError {
         Diagnostic::error()
             .with_message(format!("cannot index type `{}`", ty))
             .with_label(Label::primary(span, ""))
+            .with_note("this error will be fixed when some king of behavioral polymorphism (i.e traits/interfaces) is implemented")
     }
 }
