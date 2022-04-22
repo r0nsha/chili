@@ -37,10 +37,10 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
 
-            (TyKind::AnyInt(_), TyKind::AnyInt(_))
-            | (TyKind::AnyInt(_), TyKind::AnyFloat(_))
-            | (TyKind::AnyFloat(_), TyKind::AnyInt(_))
-            | (TyKind::AnyFloat(_), TyKind::AnyFloat(_)) => Ok(()),
+            (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyInt))
+            | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat))
+            | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt))
+            | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyFloat)) => Ok(()),
 
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
             (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
@@ -126,7 +126,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                     tycx.bind_ty(var, other_kind);
                     Ok(())
                 }
-                TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
+                TyKind::Infer(other, InferTy::AnyInt | InferTy::AnyFloat) | TyKind::Var(other) => {
                     if other != var {
                         tycx.bind_ty(other, var.into());
                     }
@@ -142,7 +142,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                     tycx.bind_ty(var, other_kind);
                     Ok(())
                 }
-                TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
+                TyKind::Infer(other, InferTy::AnyInt | InferTy::AnyFloat) | TyKind::Var(other) => {
                     if other != var {
                         tycx.bind_ty(other, var.into());
                     }
@@ -164,7 +164,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                     tycx.bind_ty(var, other_kind);
                     Ok(())
                 }
-                TyKind::PartialStruct(ref other_partial) => {
+                TyKind::Infer(other, InferTy::PartialStruct(ref other_partial)) => {
                     for (symbol, ty) in partial.iter() {
                         // TODO: if the field exists in other_partial -> unify
                         // TODO: add the field to the new partial struct ty

@@ -11,26 +11,26 @@ impl CanCast<TyKind> for TyKind {
             || match (self, to) {
                 (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::UInt(_)) => true,
 
-                (TyKind::AnyInt(_), TyKind::AnyInt(_))
-                | (TyKind::AnyInt(_), TyKind::Int(_))
-                | (TyKind::AnyInt(_), TyKind::UInt(_))
-                | (TyKind::AnyInt(_), TyKind::AnyFloat(_))
-                | (TyKind::AnyInt(_), TyKind::Float(_)) => true,
+                (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyInt))
+                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Int(_))
+                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::UInt(_))
+                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat))
+                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Float(_)) => true,
 
                 (TyKind::Int(_), TyKind::Int(_))
                 | (TyKind::Int(_), TyKind::UInt(_))
-                | (TyKind::Int(_), TyKind::AnyFloat(_))
+                | (TyKind::Int(_), TyKind::Infer(_, InferTy::AnyFloat))
                 | (TyKind::Int(_), TyKind::Float(_)) => true,
 
                 (TyKind::UInt(_), TyKind::Int(_))
                 | (TyKind::UInt(_), TyKind::UInt(_))
                 | (TyKind::UInt(_), TyKind::Float(_)) => true,
 
-                (TyKind::AnyFloat(_), TyKind::AnyInt(_))
-                | (TyKind::AnyFloat(_), TyKind::Int(_))
-                | (TyKind::AnyFloat(_), TyKind::UInt(_))
-                | (TyKind::AnyFloat(_), TyKind::AnyFloat(_))
-                | (TyKind::AnyFloat(_), TyKind::Float(_)) => true,
+                (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt))
+                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Int(_))
+                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::UInt(_))
+                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyFloat))
+                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Float(_)) => true,
 
                 (TyKind::Float(_), TyKind::Int(_))
                 | (TyKind::Float(_), TyKind::UInt(_))

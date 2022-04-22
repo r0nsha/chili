@@ -54,12 +54,12 @@ impl Display for TyKind {
                         .join(", ")
                 ),
                 TyKind::Struct(ty) => ty.to_string(),
-                TyKind::PartialStruct(ty) => ty.into_struct().to_string(),
                 TyKind::Type(inner) => inner.to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "!".to_string(),
-                TyKind::AnyInt(_) => "[anyint]".to_string(),
-                TyKind::AnyFloat(_) => "[anyfloat]".to_string(),
+                TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.into_struct().to_string(),
+                TyKind::Infer(_, InferTy::AnyInt) => "[anyint]".to_string(),
+                TyKind::Infer(_, InferTy::AnyFloat) => "[anyfloat]".to_string(),
                 TyKind::Var(v) => v.to_string(),
                 TyKind::Unknown => "[unknown]".to_string(),
             }

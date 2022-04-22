@@ -2,7 +2,7 @@
 
 let main = fn {
 	let x = 5
-	let y = 10
+	let y: i32 = 10 + x
 }
 // let main = fn {
 // 	test1(5) // invalid

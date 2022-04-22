@@ -1,6 +1,6 @@
 use chili_ast::{
     ast,
-    ty::{size::SizeOf, TyKind},
+    ty::{size::SizeOf, *},
 };
 
 use crate::{
@@ -27,8 +27,12 @@ impl Coerce for TyKind {
         let (left, right) = (self, to);
 
         match (left, right) {
-            (TyKind::AnyInt(_), TyKind::AnyFloat(_)) => CoerceToRight,
-            (TyKind::AnyFloat(_), TyKind::AnyInt(_)) => CoerceToLeft,
+            (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat)) => {
+                CoerceToRight
+            }
+            (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt)) => {
+                CoerceToLeft
+            }
 
             // * int -> same or bigger int
             (TyKind::Int(left), TyKind::Int(right)) => {

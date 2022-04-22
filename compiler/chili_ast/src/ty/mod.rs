@@ -47,13 +47,18 @@ pub enum TyKind {
     Slice(Box<TyKind>, bool),
     Tuple(Vec<TyKind>),
     Struct(StructTy),
-    PartialStruct(PartialStructTy),
     Module(ModuleId),
     Type(Box<TyKind>),
     Var(Ty),
-    AnyInt(Ty),
-    AnyFloat(Ty),
+    Infer(Ty, InferTy),
     Unknown,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum InferTy {
+    AnyInt,
+    AnyFloat,
+    PartialStruct(PartialStructTy),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -237,11 +242,11 @@ impl TyKind {
     }
 
     pub fn is_anyint(&self) -> bool {
-        matches!(self, TyKind::AnyInt(_))
+        matches!(self, TyKind::Infer(_, InferTy::AnyInt))
     }
 
     pub fn is_anyfloat(&self) -> bool {
-        matches!(self, TyKind::AnyFloat(_))
+        matches!(self, TyKind::Infer(_, InferTy::AnyFloat))
     }
 
     pub fn is_int(&self) -> bool {

@@ -31,9 +31,11 @@ impl Normalize {
     fn normalize_ty(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
         match tycx.value_of(ty) {
             InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
-            InferenceValue::AnyInt => TyKind::AnyInt(ty),
-            InferenceValue::AnyFloat => TyKind::AnyFloat(ty),
-            InferenceValue::PartialStruct(partial) => TyKind::PartialStruct(partial.clone()),
+            InferenceValue::AnyInt => TyKind::Infer(ty, InferTy::AnyInt),
+            InferenceValue::AnyFloat => TyKind::Infer(ty, InferTy::AnyFloat),
+            InferenceValue::PartialStruct(partial) => {
+                TyKind::Infer(ty, InferTy::PartialStruct(partial.clone()))
+            }
             _ => TyKind::Var(ty),
         }
     }
