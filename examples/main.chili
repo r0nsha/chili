@@ -1,23 +1,19 @@
-// use c.printf
+use c.printf
 
 let main = fn {
-	let x = 5
-	let y: i32 = 10 + x
+	test1(5) // invalid
+	printf("%d\n".data, test1(.{ a: 1, b: 2 })) // valid
+	printf("%d\n".data, test1(.{ a: 1, c: 3, b: 2})) // valid
+
+	// test2(5) // invalid
+	// printf("%d\n".data, test2(.{ a: 1, b: 2 })) // valid
+	// printf("%d\n".data, test2(.{ a: 1, c: 3, b: 2})) // valid
 }
-// let main = fn {
-// 	test1(5) // invalid
-// 	printf("%d\n".data, test1(.{ a: 1, b: 2 })) // valid
-// 	printf("%d\n".data, test1(.{ a: 1, c: 3, b: 2})) // valid
 
-// 	// test2(5) // invalid
-// 	// printf("%d\n".data, test2(.{ a: 1, b: 2 })) // valid
-// 	// printf("%d\n".data, test2(.{ a: 1, c: 3, b: 2})) // valid
-// }
+let test1 = fn(x) {
+	x.a + x.b
+}
 
-// let test1 = fn(x) {
-// 	x.a + x.b
-// }
-
-// let test2 = fn({a, b}) {
-// 	a + b
-// }
+let test2 = fn({a, b}) {
+	a + b
+}

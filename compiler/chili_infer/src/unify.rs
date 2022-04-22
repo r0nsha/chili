@@ -156,19 +156,25 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             match other_kind {
                 TyKind::Struct(ref other_struct) => {
                     for field in other_struct.fields.iter() {
+                        todo!("1")
                         // TODO: check that all fields with the same names unify
                     }
                     for (name, ty) in partial.iter() {
+                        todo!("2")
                         // TODO: any field that exists in partial, but doesn't exist in struct, is an error
                     }
+                    todo!("5");
                     tycx.bind_ty(var, other_kind);
                     Ok(())
                 }
                 TyKind::Infer(other, InferTy::PartialStruct(ref other_partial)) => {
                     for (symbol, ty) in partial.iter() {
                         // TODO: if the field exists in other_partial -> unify
+                        todo!("3");
                         // TODO: add the field to the new partial struct ty
+                        todo!("4")
                     }
+                    todo!("6");
                     tycx.bind_ty(var, other_kind);
                     Ok(())
                 }
