@@ -1,10 +1,12 @@
-use c.printf
+// use c.printf
 
-let main = fn {
-	printf("Hello\n".data)
-	add(1, 2)
-}
+// let main = fn {
+// 	printf("Hello\n".data)
+// 	add(1, 2)
+// }
 
-let add = fn(a, b) {
-	a + b
-}
+// let add = fn(a, b) {
+// 	a + b
+// }
+
+// @run(1 + 2)
