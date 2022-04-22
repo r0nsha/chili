@@ -42,28 +42,23 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 _ => unreachable!("{}", &unary.lhs.ty),
             },
             ast::UnaryOp::Plus => self.gen_expr(state, &unary.lhs, true),
-            ast::UnaryOp::Not => match ty {
-                TyKind::Pointer(_, _) => {
-                    let value = self.gen_expr(state, &unary.lhs, true);
-
-                    self.builder
-                        .build_is_null(value.into_pointer_value(), "ptr_is_nil")
-                        .into()
-                }
-                TyKind::Bool => self
-                    .builder
-                    .build_int_compare(
-                        IntPredicate::EQ,
-                        self.gen_expr(state, &unary.lhs, true).into_int_value(),
-                        self.context.custom_width_int_type(1).const_zero(),
-                        "bnot",
-                    )
-                    .into(),
-                _ => unreachable!(),
-            },
-            ast::UnaryOp::BitwiseNot => {
+            ast::UnaryOp::Not => {
                 let value = self.gen_expr(state, &unary.lhs, true).into_int_value();
-                self.builder.build_not(value, "bwnot").into()
+                match ty {
+                    TyKind::Int(_) | TyKind::UInt(_) | TyKind::Infer(_, InferTy::AnyInt) => {
+                        self.builder.build_not(value, "not").into()
+                    }
+                    TyKind::Bool => self
+                        .builder
+                        .build_int_compare(
+                            IntPredicate::EQ,
+                            value,
+                            self.context.custom_width_int_type(1).const_zero(),
+                            "bnot",
+                        )
+                        .into(),
+                    _ => unreachable!(),
+                }
             }
         }
     }

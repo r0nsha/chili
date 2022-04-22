@@ -138,7 +138,7 @@ impl<'vm> VM<'vm> {
                         _ => panic!("invalid types in division"),
                     }
                 }
-                Instruction::Mod => {
+                Instruction::Rem => {
                     binary_op!(self.stack, %);
                 }
                 Instruction::Neg => match self.stack.pop() {
@@ -152,7 +152,7 @@ impl<'vm> VM<'vm> {
                 Instruction::Eq => {
                     comp_op!(self.stack, ==);
                 }
-                Instruction::NEq => {
+                Instruction::Neq => {
                     comp_op!(self.stack, !=);
                 }
                 Instruction::Lt => {
@@ -167,10 +167,10 @@ impl<'vm> VM<'vm> {
                 Instruction::GtEq => {
                     comp_op!(self.stack, >=);
                 }
-                Instruction::BAnd => {
+                Instruction::And => {
                     logic_op!(self.stack, &&);
                 }
-                Instruction::BOr => {
+                Instruction::Or => {
                     logic_op!(self.stack, ||);
                 } // Instruction::Jmp(addr) => {
                 //     self.jmp(addr);

@@ -1,4 +1,4 @@
-use crate::{interp::InterpSess, value::Value, vm::Bytecode};
+use crate::{instruction::Instruction, interp::InterpSess, value::Value, vm::Bytecode};
 use chili_ast::ast;
 
 pub(crate) trait Lower {
@@ -23,7 +23,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::Return(_) => todo!(),
             ast::ExprKind::If(_) => todo!(),
             ast::ExprKind::Block(_) => todo!(),
-            ast::ExprKind::Binary(_) => todo!(),
+            ast::ExprKind::Binary(binary) => binary.lower(sess, code),
             ast::ExprKind::Unary(_) => todo!(),
             ast::ExprKind::Subscript(_) => todo!(),
             ast::ExprKind::Slice(_) => todo!(),
@@ -46,6 +46,14 @@ impl Lower for ast::Expr {
             ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::Error => todo!(),
         }
+    }
+}
+
+impl Lower for ast::Binary {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+        self.lhs.lower(sess, code);
+        self.rhs.lower(sess, code);
+        code.push(self.op.into())
     }
 }
 

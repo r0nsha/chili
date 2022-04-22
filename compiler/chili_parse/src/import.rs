@@ -23,11 +23,6 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_import_inner(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
-        if eat!(self, Tilde) {
-            expect!(self, Dot, ".")?;
-            todo!("implement `from_root` use: `use ~.foo.bar`");
-        }
-
         let id_token = expect!(self, Ident(_), "identifier")?;
         let name = id_token.symbol().as_str();
 

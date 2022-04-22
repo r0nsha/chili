@@ -12,7 +12,7 @@ pub(crate) fn const_fold_binary(
         (ConstValue::Bool(lhs), ConstValue::Bool(rhs)) => {
             let value = match op {
                 ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Neq => ConstValue::Bool(lhs != rhs),
                 ast::BinaryOp::And => ConstValue::Bool(lhs && rhs),
                 ast::BinaryOp::Or => ConstValue::Bool(lhs || rhs),
                 _ => unreachable!("got {}", op),
@@ -45,7 +45,7 @@ pub(crate) fn const_fold_binary(
                 ast::BinaryOp::BitwiseXor => ConstValue::Int(lhs ^ rhs),
                 ast::BinaryOp::BitwiseAnd => ConstValue::Int(lhs & rhs),
                 ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Neq => ConstValue::Bool(lhs != rhs),
                 ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
                 ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
                 ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
@@ -63,7 +63,7 @@ pub(crate) fn const_fold_binary(
                 ast::BinaryOp::Div => ConstValue::Float(lhs / rhs),
                 ast::BinaryOp::Rem => ConstValue::Float(lhs % rhs),
                 ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Neq => ConstValue::Bool(lhs != rhs),
                 ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
                 ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
                 ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
@@ -95,7 +95,7 @@ pub(crate) fn const_fold_binary(
                     ConstValue::Float(lhs % rhs)
                 }
                 ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Neq => ConstValue::Bool(lhs != rhs),
                 ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
                 ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
                 ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
@@ -127,7 +127,7 @@ pub(crate) fn const_fold_binary(
                     ConstValue::Float(lhs % rhs)
                 }
                 ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Neq => ConstValue::Bool(lhs != rhs),
                 ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
                 ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
                 ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),

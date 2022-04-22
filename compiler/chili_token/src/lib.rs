@@ -72,7 +72,6 @@ pub enum TokenKind {
     BarEq,
     BarBar,
     BarBarEq,
-    Tilde,
     Caret,
     CaretEq,
     Bang,
@@ -165,7 +164,6 @@ impl TokenKind {
             BarEq => "|=",
             BarBar => "||",
             BarBarEq => "||=",
-            Tilde => "~",
             Caret => "^",
             CaretEq => "^=",
             Bang => "!",
@@ -229,7 +227,6 @@ impl TokenKind {
                 | QuestionMark
                 | Amp
                 | Bar
-                | Tilde
                 | Bang
                 | If
                 | While

@@ -465,7 +465,7 @@ pub enum BinaryOp {
     Div,
     Rem,
     Eq,
-    NEq,
+    Neq,
     Lt,
     LtEq,
     Gt,
@@ -492,7 +492,7 @@ impl Display for BinaryOp {
                 Div => "/",
                 Rem => "%",
                 Eq => "==",
-                NEq => "!=",
+                Neq => "!=",
                 Lt => "<",
                 LtEq => "<=",
                 Gt => ">",
@@ -519,7 +519,7 @@ impl From<TokenKind> for BinaryOp {
             FwSlash | FwSlashEq => BinaryOp::Div,
             Percent | PercentEq => BinaryOp::Rem,
             EqEq => BinaryOp::Eq,
-            BangEq => BinaryOp::NEq,
+            BangEq => BinaryOp::Neq,
             Lt => BinaryOp::Lt,
             LtEq => BinaryOp::LtEq,
             Gt => BinaryOp::Gt,
@@ -543,7 +543,6 @@ pub enum UnaryOp {
     Neg,
     Plus,
     Not,
-    BitwiseNot,
 }
 
 impl Display for UnaryOp {
@@ -557,7 +556,6 @@ impl Display for UnaryOp {
                 UnaryOp::Neg => "-".to_string(),
                 UnaryOp::Plus => "+".to_string(),
                 UnaryOp::Not => "!".to_string(),
-                UnaryOp::BitwiseNot => "~".to_string(),
             }
         )
     }
@@ -571,7 +569,6 @@ impl From<TokenKind> for UnaryOp {
             Minus => UnaryOp::Neg,
             Plus => UnaryOp::Plus,
             Bang => UnaryOp::Not,
-            Tilde => UnaryOp::BitwiseNot,
             _ => panic!("{} is not a unary op", kind),
         }
     }

@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use chili_ast::ast;
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Instruction {
     Noop,
@@ -9,17 +11,17 @@ pub enum Instruction {
     Sub,
     Mul,
     Div,
-    Mod,
+    Rem,
     Neg,
     Not,
     Eq,
-    NEq,
+    Neq,
     Lt,
     LtEq,
     Gt,
     GtEq,
-    BAnd,
-    BOr,
+    And,
+    Or,
     // Jmp(isize),
     // Jmpt(isize),
     // Jmpf(isize),
@@ -45,17 +47,17 @@ impl Display for Instruction {
                 Instruction::Sub => "sub".to_string(),
                 Instruction::Mul => "mul".to_string(),
                 Instruction::Div => "div".to_string(),
-                Instruction::Mod => "mod".to_string(),
+                Instruction::Rem => "mod".to_string(),
                 Instruction::Neg => "neg".to_string(),
                 Instruction::Not => "not".to_string(),
                 Instruction::Eq => "eq".to_string(),
-                Instruction::NEq => "neq".to_string(),
+                Instruction::Neq => "neq".to_string(),
                 Instruction::Lt => "lt".to_string(),
                 Instruction::LtEq => "lteq".to_string(),
                 Instruction::Gt => "gt".to_string(),
                 Instruction::GtEq => "gteq".to_string(),
-                Instruction::BAnd => "band".to_string(),
-                Instruction::BOr => "bor".to_string(),
+                Instruction::And => "band".to_string(),
+                Instruction::Or => "bor".to_string(),
                 // Instruction::Jmp(offset) => format!("jmp &{:06}", offset),
                 // Instruction::Jmpt(offset) => format!("jmpt &{:06}", offset),
                 // Instruction::Jmpf(offset) => format!("jmpf &{:06}", offset),
@@ -68,5 +70,42 @@ impl Display for Instruction {
                 Instruction::Halt => "halt".to_string(),
             }
         )
+    }
+}
+
+impl From<ast::BinaryOp> for Instruction {
+    fn from(op: ast::BinaryOp) -> Self {
+        match op {
+            ast::BinaryOp::Add => Instruction::Add,
+            ast::BinaryOp::Sub => Instruction::Sub,
+            ast::BinaryOp::Mul => Instruction::Mul,
+            ast::BinaryOp::Div => Instruction::Div,
+            ast::BinaryOp::Rem => Instruction::Rem,
+            ast::BinaryOp::Eq => Instruction::Eq,
+            ast::BinaryOp::Neq => Instruction::Neq,
+            ast::BinaryOp::Lt => Instruction::Lt,
+            ast::BinaryOp::LtEq => Instruction::LtEq,
+            ast::BinaryOp::Gt => Instruction::Gt,
+            ast::BinaryOp::GtEq => Instruction::GtEq,
+            ast::BinaryOp::And => Instruction::And,
+            ast::BinaryOp::Or => Instruction::Or,
+            ast::BinaryOp::Shl => todo!("shl"),
+            ast::BinaryOp::Shr => todo!("shr"),
+            ast::BinaryOp::BitwiseAnd => Instruction::And,
+            ast::BinaryOp::BitwiseOr => Instruction::Or,
+            ast::BinaryOp::BitwiseXor => todo!("xor"),
+        }
+    }
+}
+
+impl From<ast::UnaryOp> for Instruction {
+    fn from(op: ast::UnaryOp) -> Self {
+        match op {
+            ast::UnaryOp::Ref(_) => todo!("ref"),
+            ast::UnaryOp::Deref => todo!("deref"),
+            ast::UnaryOp::Neg => Instruction::Neg,
+            ast::UnaryOp::Plus => Instruction::Noop,
+            ast::UnaryOp::Not => Instruction::Not,
+        }
     }
 }

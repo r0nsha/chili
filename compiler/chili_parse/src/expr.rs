@@ -238,7 +238,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
-        if eat!(self, Amp | AmpAmp | Bang | Minus | Plus | Tilde) {
+        if eat!(self, Amp | AmpAmp | Bang | Minus | Plus) {
             let start_span = self.previous().span;
             let token = self.previous().kind;
 
@@ -248,7 +248,6 @@ impl<'p> Parser<'p> {
                 Minus => UnaryOp::Neg,
                 Plus => UnaryOp::Plus,
                 Bang => UnaryOp::Not,
-                Tilde => UnaryOp::BitwiseNot,
                 t => panic!("{} is not a unary op", t),
             };
 

@@ -172,7 +172,6 @@ impl<'lx> Lexer<'lx> {
                 },
                 '\'' => self.eat_char()?,
                 DOUBLE_QUOTE => self.eat_str()?,
-                '~' => Tilde,
                 '^' => {
                     if self.is('=') {
                         CaretEq

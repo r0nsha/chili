@@ -734,9 +734,9 @@ impl Check for ast::Expr {
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::Builtin::Run(expr) => {
+                ast::Builtin::Run(_) => {
                     todo!("interpret expression, return a constant");
-                    expr.check(sess, env, None)
+                    // expr.check(sess, env, None)
                 }
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
@@ -1014,7 +1014,7 @@ impl Check for ast::Expr {
                     | ast::BinaryOp::BitwiseOr
                     | ast::BinaryOp::BitwiseXor
                     | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(binary.span),
-                    ast::BinaryOp::Eq | ast::BinaryOp::NEq => sess.tycx.var(binary.span),
+                    ast::BinaryOp::Eq | ast::BinaryOp::Neq => sess.tycx.var(binary.span),
                     ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
@@ -1047,7 +1047,7 @@ impl Check for ast::Expr {
                     | ast::BinaryOp::BitwiseAnd => binary.lhs.ty,
 
                     ast::BinaryOp::Eq
-                    | ast::BinaryOp::NEq
+                    | ast::BinaryOp::Neq
                     | ast::BinaryOp::Lt
                     | ast::BinaryOp::LtEq
                     | ast::BinaryOp::Gt
@@ -1094,18 +1094,20 @@ impl Check for ast::Expr {
                         Ok(Res::new(pointee))
                     }
                     ast::UnaryOp::Not => {
+                        let anyint = sess.tycx.anyint(unary.span);
                         let bool = sess.tycx.common_types.bool;
 
-                        res.ty.unify(&bool, &mut sess.tycx).or_report_err(
-                            &sess.tycx,
-                            bool,
-                            None,
-                            res.ty,
-                            unary.lhs.span,
-                        )?;
+                        res.ty
+                            .unify(&bool, &mut sess.tycx)
+                            .or(res.ty.unify(&anyint, &mut sess.tycx))
+                            .or_report_err(&sess.tycx, bool, None, res.ty, unary.lhs.span)?;
 
                         if let Some(value) = res.const_value {
-                            let value = ConstValue::Bool(!value.into_bool());
+                            let value = match value {
+                                ConstValue::Bool(v) => ConstValue::Bool(!v),
+                                ConstValue::Int(v) => ConstValue::Int(!v),
+                                _ => panic!(),
+                            };
                             *self = value.into_literal().into_expr(res.ty, self.span);
                             Ok(Res::new_const(res.ty, value))
                         } else {
@@ -1149,25 +1151,6 @@ impl Check for ast::Expr {
                         )?;
 
                         Ok(Res::new_maybe_const(res.ty, res.const_value))
-                    }
-                    ast::UnaryOp::BitwiseNot => {
-                        let anyint = sess.tycx.anyint(unary.span);
-
-                        res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
-                            &sess.tycx,
-                            anyint,
-                            None,
-                            res.ty,
-                            unary.lhs.span,
-                        )?;
-
-                        if let Some(value) = res.const_value {
-                            let value = ConstValue::Int(!value.into_int());
-                            *self = value.into_literal().into_expr(res.ty, self.span);
-                            Ok(Res::new_const(res.ty, value))
-                        } else {
-                            Ok(Res::new(res.ty))
-                        }
                     }
                 }
             }

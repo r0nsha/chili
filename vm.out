@@ -1,7 +1,10 @@
 000000	const %0
-000001	halt
+000001	const %1
+000002	add
+000003	halt
 
 globals:
 
 constants:
 %0	int 42
+%1	int 5
