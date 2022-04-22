@@ -30,7 +30,7 @@ impl<'p> Parser<'p> {
                 let mut symbol_pattern = self.parse_symbol_pattern()?;
 
                 if eat!(self, Colon) {
-                    let id_token = expect!(self, Id(_), "identifier")?;
+                    let id_token = expect!(self, Ident(_), "identifier")?;
                     let symbol = id_token.symbol();
                     symbol_pattern.alias = Some(symbol);
                 }
@@ -70,7 +70,7 @@ impl<'p> Parser<'p> {
     pub(super) fn parse_symbol_pattern(&mut self) -> DiagnosticResult<SymbolPattern> {
         let is_mutable = eat!(self, Mut);
 
-        let (symbol, ignore) = if eat!(self, Id(_)) {
+        let (symbol, ignore) = if eat!(self, Ident(_)) {
             (self.previous().symbol(), false)
         } else if eat!(self, Placeholder) {
             (ustr(""), true)

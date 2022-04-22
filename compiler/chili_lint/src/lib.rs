@@ -157,7 +157,9 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::Cast(t) => t.expr.lint(sess),
             ast::ExprKind::Builtin(b) => match b {
-                ast::Builtin::SizeOf(e) | ast::Builtin::AlignOf(e) => e.lint(sess),
+                ast::Builtin::SizeOf(e) | ast::Builtin::AlignOf(e) | ast::Builtin::Run(e) => {
+                    e.lint(sess)
+                }
                 ast::Builtin::Panic(e) => e.lint(sess),
             },
             ast::ExprKind::Fn(f) => {

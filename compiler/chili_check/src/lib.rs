@@ -722,6 +722,7 @@ impl Check for ast::Expr {
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
+                ast::Builtin::Run(expr) => expr.check(sess, env, None),
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.check(sess, env, None)?;

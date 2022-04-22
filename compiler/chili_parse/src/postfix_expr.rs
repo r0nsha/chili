@@ -141,7 +141,7 @@ impl<'p> Parser<'p> {
         let token = self.bump();
 
         let expr = match token.kind {
-            Id(id) => Expr::new(
+            Ident(id) => Expr::new(
                 ExprKind::MemberAccess(ast::MemberAccess {
                     expr: Box::new(expr),
                     member: id,

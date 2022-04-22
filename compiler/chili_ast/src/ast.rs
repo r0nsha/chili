@@ -20,6 +20,7 @@ pub struct Ast {
     pub module_info: ModuleInfo,
     pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
+    pub run_exprs: Vec<Expr>,
 }
 
 impl Ast {
@@ -27,8 +28,9 @@ impl Ast {
         Self {
             module_id: Default::default(),
             module_info,
-            imports: Default::default(),
-            bindings: Default::default(),
+            imports: vec![],
+            bindings: vec![],
+            run_exprs: vec![],
         }
     }
 }
@@ -290,6 +292,7 @@ pub enum Builtin {
     SizeOf(Box<Expr>),
     AlignOf(Box<Expr>),
     Panic(Option<Box<Expr>>),
+    Run(Box<Expr>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

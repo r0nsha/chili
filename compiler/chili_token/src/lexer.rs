@@ -578,7 +578,7 @@ impl<'lx> Lexer<'lx> {
             "union" => Union,
             "match" => Match,
             "_" => Placeholder,
-            l => Id(ustr(l)),
+            l => Ident(ustr(l)),
         }
     }
 

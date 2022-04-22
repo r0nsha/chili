@@ -51,7 +51,7 @@ impl<'p> Parser<'p> {
     ) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
-        let id = expect!(self, Id(_), "identifier")?;
+        let id = expect!(self, Ident(_), "identifier")?;
 
         let pattern = Pattern::Single(SymbolPattern {
             binding_info_id: Default::default(),

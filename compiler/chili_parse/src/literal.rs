@@ -97,7 +97,7 @@ impl<'p> Parser<'p> {
             CloseCurly,
             Comma,
             {
-                let id_token = if eat!(self, Id(_)) {
+                let id_token = if eat!(self, Ident(_)) {
                     *self.previous()
                 } else {
                     break;

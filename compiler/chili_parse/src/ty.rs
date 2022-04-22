@@ -19,7 +19,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(super) fn parse_ty(&mut self) -> DiagnosticResult<Expr> {
-        if eat!(self, Id(_)) {
+        if eat!(self, Ident(_)) {
             let token = self.previous();
             let symbol = token.symbol();
             let kind = if symbol == SELF_SYMBOL {
@@ -152,7 +152,7 @@ impl<'p> Parser<'p> {
             CloseCurly,
             Comma,
             {
-                let id = expect!(self, Id(_), "identifier")?;
+                let id = expect!(self, Ident(_), "identifier")?;
                 let name = id.symbol();
 
                 expect!(self, Colon, ":")?;

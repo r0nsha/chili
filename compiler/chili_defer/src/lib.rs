@@ -128,7 +128,9 @@ impl SolveDefer for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.solve_defer(sess),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => expr.solve_defer(sess),
+                ast::Builtin::SizeOf(expr)
+                | ast::Builtin::AlignOf(expr)
+                | ast::Builtin::Run(expr) => expr.solve_defer(sess),
                 ast::Builtin::Panic(expr) => expr.solve_defer(sess),
             },
             ast::ExprKind::Fn(func) => func.solve_defer(sess),

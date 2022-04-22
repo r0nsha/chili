@@ -278,14 +278,19 @@ impl PrintTree for ast::Expr {
             }
             ast::ExprKind::Builtin(builtin) => {
                 match builtin {
-                    ast::Builtin::SizeOf(ty) => {
+                    ast::Builtin::SizeOf(expr) => {
                         b.begin_child("@size_of".to_string());
-                        ty.print_tree(b, workspace, tycx);
+                        expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::AlignOf(ty) => {
+                    ast::Builtin::AlignOf(expr) => {
                         b.begin_child("@align_of".to_string());
-                        ty.print_tree(b, workspace, tycx);
+                        expr.print_tree(b, workspace, tycx);
+                        b.end_child();
+                    }
+                    ast::Builtin::Run(expr) => {
+                        b.begin_child("@run".to_string());
+                        expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
                     ast::Builtin::Panic(expr) => {

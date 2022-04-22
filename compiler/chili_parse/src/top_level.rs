@@ -31,6 +31,19 @@ impl<'p> Parser<'p> {
         } else if eat!(self, Foreign) {
             let bindings = self.parse_foreign_block().or_recover(self)?;
             ast.bindings.extend(bindings);
+        } else if eat!(self, At) {
+            let token = expect!(self, Ident(_), "ident").or_recover(self)?;
+            let symbol = token.symbol();
+
+            if symbol == "run" {
+                expect!(self, OpenParen, "(").or_recover(self)?;
+                let expr = self.parse_expr().or_recover(self)?;
+                ast.run_exprs.push(expr);
+                expect!(self, OpenParen, ")").or_recover(self)?;
+            } else {
+                self.diagnostics
+                    .push(SyntaxError::expected(self.previous_span(), "run"));
+            }
         } else {
             self.diagnostics.push(SyntaxError::expected(
                 self.span(),

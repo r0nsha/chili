@@ -17,14 +17,14 @@ pub struct Token {
 impl Token {
     pub fn into_id(&self) -> Ustr {
         match self.kind {
-            TokenKind::Id(name) => name,
+            TokenKind::Ident(name) => name,
             _ => unreachable!(),
         }
     }
 
     pub fn symbol(&self) -> Ustr {
         match &self.kind {
-            TokenKind::Id(name) => *name,
+            TokenKind::Ident(name) => *name,
             TokenKind::Str(value) => ustr(value),
             _ => panic!("BUG! only call get_name for identifiers and strings"),
         }
@@ -114,7 +114,7 @@ pub enum TokenKind {
 
     // Accessors
     Placeholder,
-    Id(Ustr),
+    Ident(Ustr),
 
     // Literals
     Nil,
@@ -203,7 +203,7 @@ impl TokenKind {
             Union => "union",
             Match => "match",
             Placeholder => "_",
-            Id(_) => "identifier",
+            Ident(_) => "identifier",
             Nil => "nil",
             True => "true",
             False => "false",
@@ -247,7 +247,7 @@ impl TokenKind {
                 | Union
                 | Match
                 | Placeholder
-                | Id(_)
+                | Ident(_)
                 | Nil
                 | True
                 | False
@@ -271,7 +271,7 @@ impl TokenKind {
                 | Continue
                 | Return
                 | Placeholder
-                | Id(_)
+                | Ident(_)
                 | Nil
                 | True
                 | False

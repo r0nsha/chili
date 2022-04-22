@@ -28,7 +28,7 @@ impl<'p> Parser<'p> {
             todo!("implement `from_root` use: `use ~.foo.bar`");
         }
 
-        let id_token = expect!(self, Id(_), "identifier")?;
+        let id_token = expect!(self, Ident(_), "identifier")?;
         let name = id_token.symbol().as_str();
 
         match name {
@@ -110,7 +110,7 @@ impl<'p> Parser<'p> {
         import_path: &mut ImportPath,
     ) -> DiagnosticResult<Vec<Import>> {
         if eat!(self, Dot) {
-            if eat!(self, Id(_)) {
+            if eat!(self, Ident(_)) {
                 // single child, i.e: `use other.foo`
 
                 let id_token = self.previous();
@@ -133,7 +133,7 @@ impl<'p> Parser<'p> {
                 let mut imports = vec![];
 
                 while !eat!(self, CloseCurly) {
-                    let id_token = expect!(self, Id(_), "identifier")?;
+                    let id_token = expect!(self, Ident(_), "identifier")?;
                     let alias = id_token.symbol();
 
                     let mut local_import_path = import_path.clone();
@@ -176,7 +176,7 @@ impl<'p> Parser<'p> {
             }
         } else {
             let alias = if eat!(self, As) {
-                expect!(self, Id(_), "identifier")?.symbol()
+                expect!(self, Ident(_), "identifier")?.symbol()
             } else {
                 alias
             };

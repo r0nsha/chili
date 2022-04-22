@@ -272,7 +272,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_primary(&mut self) -> DiagnosticResult<Expr> {
-        let expr = if eat!(self, Id(_)) {
+        let expr = if eat!(self, Ident(_)) {
             let token = self.previous();
             let symbol = token.symbol();
             Expr::new(
@@ -355,7 +355,7 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
-        let id_token = expect!(self, Id(_), "identifier")?;
+        let id_token = expect!(self, Ident(_), "identifier")?;
         let symbol = id_token.symbol();
 
         expect!(self, OpenParen, "(")?;
@@ -368,6 +368,7 @@ impl<'p> Parser<'p> {
             } else {
                 Some(Box::new(self.parse_expr()?))
             }),
+            "run" => Builtin::Run(Box::new(self.parse_expr()?)),
             name => {
                 return Err(SyntaxError::unknown_builtin_function(
                     start_span.to(id_token.span),
@@ -412,13 +413,13 @@ impl<'p> Parser<'p> {
         self.mark(0);
 
         // iterator and index declarations
-        let (mut iter_name, iter_index_name) = if eat!(self, Id(_)) {
+        let (mut iter_name, iter_index_name) = if eat!(self, Ident(_)) {
             declared_names = 1;
 
             let iter_name = self.previous().symbol();
 
             let iter_index_name = if eat!(self, Comma) {
-                if eat!(self, Id(_)) {
+                if eat!(self, Ident(_)) {
                     declared_names = 2;
                     self.previous().symbol()
                 } else {
