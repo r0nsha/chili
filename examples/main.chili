@@ -1,26 +1,25 @@
-use c.printf
+// use c.printf
 
 let main = fn {
-	// test1(5) // invalid
-	// printf("%d\n".data, test1(.{ a: 1, c: 3, b: 2 })) // valid
-	// test1(.{ a: 1, b: 2, c: 3 }) // valid
+	let two = (1,2)
+	let three = (1,2,3)
+	let four = (1,2,3,4)
+
+	test1(5) // invalid
+	printf("%d\n", test1(two)) // invalid
+	printf("%d\n", test1(three)) // valid
+	printf("%d\n", test1(four)) // valid
 
 	// test2(5) // invalid
-	// printf("%d\n".data, test2(.{ a: 1, c: 3, b: 2 })) // valid
-	// printf("%d\n".data, test2(.{ a: 1, b: 2 })) // valid
-
-	// type Foo = { c: int, g: int }
-	// let x: Foo = .{ c: 1, g: 2 }
-	// test2(x) // invalid
-	type Bar = { a: int, b: int }
-	let x: Bar = .{ a: 1, b: 2 }
-	test2(x) // valid
+	// printf("%d\n", test2(two)) // invalid
+	// printf("%d\n", test2(three)) // valid
+	// printf("%d\n", test2(four)) // valid
 }
 
 let test1 = fn(x) {
-	x.a + x.b
+	x.2
 }
 
-let test2 = fn({a, b}) {
-	a + b
-}
+// let test2 = fn((a,b,c)) {
+// 	a + b + c
+// }

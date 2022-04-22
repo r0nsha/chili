@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
+use ustr::Ustr;
 
 pub trait NormalizeTy {
     fn normalize(&self, tycx: &TyCtx) -> TyKind;
@@ -100,6 +103,15 @@ impl Normalize {
                 }
             }
             TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
+            TyKind::Infer(ty, InferTy::PartialStruct(partial)) => TyKind::Infer(
+                *ty,
+                InferTy::PartialStruct(PartialStructTy(HashMap::from_iter(
+                    partial
+                        .iter()
+                        .map(|(symbol, ty)| (*symbol, ty.normalize(tycx)))
+                        .collect::<HashMap<Ustr, TyKind>>(),
+                ))),
+            ),
             _ => kind.clone(),
         }
     }

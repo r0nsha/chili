@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{{unknown}}")
+        write!(f, "[unknown]")
     }
 }
 
