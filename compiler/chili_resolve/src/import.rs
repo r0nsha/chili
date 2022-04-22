@@ -4,7 +4,7 @@ use chili_ast::{
 };
 use chili_span::Spanned;
 
-pub(crate) fn collect_module_exports(asts: &Vec<Ast>, exports: &mut ModuleExports) {
+pub(crate) fn collect_module_exports(asts: &[Ast], exports: &mut ModuleExports) {
     for ast in asts.iter() {
         let entry = exports.entry(ast.module_id).or_default();
 
@@ -35,11 +35,12 @@ pub(crate) fn resolve_imports(imports: &mut Vec<Import>, exports: &ModuleExports
         }
     }
 
-    let mut removed = 0;
-    for index in to_remove {
-        imports.remove(index - removed);
-        removed += 1;
-    }
+    to_remove
+        .into_iter()
+        .enumerate()
+        .for_each(|(removed_so_far, to_remove)| {
+            imports.remove(to_remove - removed_so_far);
+        });
 
     imports.extend(to_add);
 }
@@ -60,7 +61,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
             import_path.pop();
             import_path.push(Spanned::new(
                 ImportPathNode::Symbol(*symbol),
-                import.path_span().clone(),
+                import.path_span(),
             ));
             Import {
                 module_id: import.module_id,
@@ -70,7 +71,7 @@ fn expand_glob_import(import: Import, exports: &ModuleExports) -> Vec<Import> {
                 alias: *symbol,
                 import_path,
                 visibility: import.visibility,
-                span: import.path_span().clone(),
+                span: import.path_span(),
                 binding_info_id: import.binding_info_id,
             }
         })

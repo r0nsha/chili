@@ -124,7 +124,7 @@ impl Workspace {
         self.module_infos
             .iter()
             .position(|m| *m == module_info)
-            .map(|i| ModuleId(i))
+            .map(ModuleId)
     }
 
     pub fn add_binding_info(
@@ -253,10 +253,7 @@ impl Ord for ScopeLevel {
 
 impl ScopeLevel {
     pub fn is_global(&self) -> bool {
-        match self {
-            ScopeLevel::Global => true,
-            _ => false,
-        }
+        matches!(self, ScopeLevel::Global)
     }
 
     pub fn index(&self) -> usize {

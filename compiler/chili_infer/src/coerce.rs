@@ -145,14 +145,14 @@ impl Coerce for TyKind {
 }
 
 fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: TyKind) {
-    let to = tycx.bound(to, expr.span);
+    let target_ty = tycx.bound(to, expr.span);
     *expr = ast::Expr::typed(
         ast::ExprKind::Cast(ast::Cast {
             expr: Box::new(expr.clone()),
             ty_expr: None,
-            target_ty: to.clone(),
+            target_ty,
         }),
-        to,
+        target_ty,
         expr.span,
     )
 }

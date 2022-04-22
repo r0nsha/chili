@@ -1,17 +1,11 @@
 pub mod align;
 pub mod display;
-pub mod hash;
 pub mod size;
 
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-};
-
-use chili_span::Span;
-use ustr::{ustr, Ustr};
-
 use crate::workspace::{BindingInfoId, ModuleId};
+use chili_span::Span;
+use std::{fmt, hash::Hash};
+use ustr::{ustr, Ustr};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Ty(pub usize);
@@ -22,9 +16,9 @@ impl Default for Ty {
     }
 }
 
-impl Into<TyKind> for Ty {
-    fn into(self) -> TyKind {
-        TyKind::Var(self)
+impl From<Ty> for TyKind {
+    fn from(val: Ty) -> Self {
+        TyKind::Var(val)
     }
 }
 
@@ -105,7 +99,7 @@ impl Default for FloatTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct FnTy {
     pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
@@ -113,7 +107,7 @@ pub struct FnTy {
     pub lib_name: Option<Ustr>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct StructTy {
     pub name: Ustr,
     pub binding_info_id: BindingInfoId,
@@ -129,24 +123,15 @@ impl From<StructTy> for TyKind {
 
 impl StructTy {
     pub fn is_struct(&self) -> bool {
-        match self.kind {
-            StructTyKind::Struct => true,
-            _ => false,
-        }
+        matches!(self.kind, StructTyKind::Struct)
     }
 
     pub fn is_packed_struct(&self) -> bool {
-        match self.kind {
-            StructTyKind::PackedStruct => true,
-            _ => false,
-        }
+        matches!(self.kind, StructTyKind::PackedStruct)
     }
 
     pub fn is_union(&self) -> bool {
-        match self.kind {
-            StructTyKind::Union => true,
-            _ => false,
-        }
+        matches!(self.kind, StructTyKind::Union)
     }
 }
 
@@ -181,7 +166,7 @@ impl StructTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct StructTyField {
     pub symbol: Ustr,
     pub ty: TyKind,
@@ -198,45 +183,19 @@ impl StructTyField {
     }
 }
 
-impl Into<String> for TyKind {
-    fn into(self) -> String {
-        self.to_string()
+impl From<TyKind> for String {
+    fn from(val: TyKind) -> Self {
+        val.to_string()
     }
 }
 
 impl TyKind {
-    pub fn raw_pointer(is_mutable: bool) -> TyKind {
-        TyKind::Pointer(Box::new(TyKind::Int(IntTy::I8)), is_mutable)
-    }
-
-    pub fn str() -> TyKind {
-        TyKind::Slice(Box::new(TyKind::char()), false)
-    }
-
-    pub fn char() -> TyKind {
-        TyKind::UInt(UIntTy::U8)
-    }
-
-    pub fn create_type(self) -> TyKind {
-        TyKind::Type(Box::new(self))
-    }
-
-    pub fn anytype() -> TyKind {
-        TyKind::Unknown.create_type()
-    }
-
     pub fn is_type(&self) -> bool {
-        match self {
-            TyKind::Type(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Type(_))
     }
 
     pub fn is_module(&self) -> bool {
-        match self {
-            TyKind::Module(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Module(_))
     }
 
     pub fn is_number(&self) -> bool {
@@ -247,116 +206,68 @@ impl TyKind {
         self.is_int() || self.is_uint() || self.is_anyint()
     }
 
-    pub fn is_anyfloat(&self) -> bool {
-        match self {
-            TyKind::AnyFloat(_) => true,
-            _ => false,
-        }
+    pub fn is_anyint(&self) -> bool {
+        matches!(self, TyKind::AnyInt(_))
     }
 
-    pub fn is_anyint(&self) -> bool {
-        match self {
-            TyKind::AnyInt(_) => true,
-            _ => false,
-        }
+    pub fn is_anyfloat(&self) -> bool {
+        matches!(self, TyKind::AnyFloat(_))
     }
 
     pub fn is_int(&self) -> bool {
-        match self {
-            TyKind::Int(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Int(_))
     }
 
     pub fn is_uint(&self) -> bool {
-        match self {
-            TyKind::UInt(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::UInt(_))
     }
 
     pub fn is_float(&self) -> bool {
-        match self {
-            TyKind::Float(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Float(_))
     }
 
     pub fn is_pointer(&self) -> bool {
-        match self {
-            TyKind::Pointer(..) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Pointer(..))
     }
 
     pub fn is_multi_pointer(&self) -> bool {
-        match self {
-            TyKind::MultiPointer(..) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::MultiPointer(..))
     }
 
     pub fn is_bool(&self) -> bool {
-        match self {
-            TyKind::Bool => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Bool)
     }
 
     pub fn is_fn(&self) -> bool {
-        match self {
-            TyKind::Fn { .. } => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Fn(..))
     }
 
     pub fn is_var(&self) -> bool {
-        match self {
-            TyKind::Var(..) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Var(..))
     }
 
     pub fn is_array(&self) -> bool {
-        match self {
-            TyKind::Array(..) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Array(..))
     }
 
     pub fn is_slice(&self) -> bool {
-        match self {
-            TyKind::Slice(..) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Slice(..))
     }
 
     pub fn is_unknown(&self) -> bool {
-        match self {
-            TyKind::Unknown => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Unknown)
     }
 
     pub fn is_unit(&self) -> bool {
-        match self {
-            TyKind::Unit => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Unit)
     }
 
     pub fn is_never(&self) -> bool {
-        match self {
-            TyKind::Never => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Never)
     }
 
     pub fn is_struct(&self) -> bool {
-        match self {
-            TyKind::Struct(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Struct(_))
     }
 
     pub fn is_aggregate(&self) -> bool {
@@ -383,15 +294,33 @@ impl TyKind {
             _ => panic!("expected fn, got {:?}", self),
         }
     }
+}
 
-    pub fn element_type(&self) -> Result<&TyKind, ()> {
+impl TyKind {
+    pub fn raw_pointer(is_mutable: bool) -> TyKind {
+        TyKind::Pointer(Box::new(TyKind::Int(IntTy::I8)), is_mutable)
+    }
+
+    pub fn str() -> TyKind {
+        TyKind::Slice(Box::new(TyKind::char()), false)
+    }
+
+    pub fn char() -> TyKind {
+        TyKind::UInt(UIntTy::U8)
+    }
+
+    pub fn create_type(self) -> TyKind {
+        TyKind::Type(Box::new(self))
+    }
+
+    pub fn element_type(&self) -> Option<&TyKind> {
         match self {
             TyKind::Pointer(inner, _)
             | TyKind::MultiPointer(inner, _)
             | TyKind::Array(inner, _)
             | TyKind::Slice(inner, _)
-            | TyKind::Type(inner) => Ok(&inner),
-            _ => Err(()),
+            | TyKind::Type(inner) => Some(inner),
+            _ => None,
         }
     }
 

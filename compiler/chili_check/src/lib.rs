@@ -1063,18 +1063,6 @@ impl Check for ast::Expr {
                         )?;
 
                         Ok(Res::new(pointee))
-                        // let kind = res.ty.normalize(&sess.tycx);
-                        // match kind {
-                        //     // TODO: instead of checking type directly, apply `Deref` constraint
-                        //     TyKind::Pointer(inner, _) => {
-                        //         let ty = sess.tycx.bound(*inner, unary.span);
-                        //         Ok(Res::new(ty))
-                        //     }
-                        //     ty => Err(TypeError::deref_non_pointer_ty(
-                        //         self.span,
-                        //         ty.display(&sess.tycx),
-                        //     )),
-                        // }
                     }
                     ast::UnaryOp::Not => {
                         let bool = sess.tycx.common_types.bool;

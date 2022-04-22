@@ -347,22 +347,10 @@ impl TypeError {
             ))
     }
 
-    pub fn deref_non_pointer_ty(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot dereference type `{}`", ty))
-            .with_label(Label::primary(span, "not a pointer type"))
-    }
-
     pub fn expected(span: Span, ty: String, expectation: &str) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("expected {}, found {}", expectation, ty))
             .with_label(Label::primary(span, format!("expected {}", expectation)))
-    }
-
-    pub fn invalid_ty_in_unary(span: Span, action: &str, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("can't `{}` on `{}`", action, ty,))
-            .with_label(Label::primary(span, "invalid type in unary operation"))
     }
 
     pub fn invalid_expr_in_slice(span: Span, ty: String) -> Diagnostic {
@@ -373,18 +361,7 @@ impl TypeError {
 
     pub fn invalid_expr_in_subscript(span: Span, ty: String) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!("cannot subscript type `{}`", ty))
+            .with_message(format!("cannot index type `{}`", ty))
             .with_label(Label::primary(span, ""))
-    }
-
-    pub fn invalid_ty_in_neg(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot negate `{}`", ty))
-            .with_label(Label::primary(span, "not a valid number"))
-    }
-    pub fn type_annotations_needed(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("type annotations needed")
-            .with_label(Label::primary(span, "cannot infer type"))
     }
 }

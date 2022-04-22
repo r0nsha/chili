@@ -1,7 +1,4 @@
-use chili_ast::{
-    ast, compiler_info,
-    workspace::{ModuleId, ModuleInfo, Workspace},
-};
+use chili_ast::{ast, compiler_info, workspace::ModuleInfo};
 use chili_span::Span;
 use std::collections::HashSet;
 

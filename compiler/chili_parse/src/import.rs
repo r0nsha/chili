@@ -216,7 +216,7 @@ impl<'p> Parser<'p> {
     }
 }
 
-fn module_not_found_err(path_buf: &PathBuf, module: &str, span: Span) -> Diagnostic {
+fn module_not_found_err(path_buf: &Path, module: &str, span: Span) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!("couldn't find module `{}`", module))
         .with_label(Label::primary(span, "not found"))
@@ -228,7 +228,7 @@ fn module_not_found_err(path_buf: &PathBuf, module: &str, span: Span) -> Diagnos
 
 fn check_path_is_under_root_or_std(
     root_path: &Path,
-    path_buf: &PathBuf,
+    path_buf: &Path,
     span: Span,
 ) -> DiagnosticResult<()> {
     if path_buf.starts_with(root_path) || path_buf.starts_with(compiler_info::std_module_root_dir())

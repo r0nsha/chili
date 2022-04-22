@@ -171,15 +171,13 @@ impl<'p> Parser<'p> {
                     })),
                 );
 
-                let second_access = Expr::new(
+                Expr::new(
                     ExprKind::MemberAccess(ast::MemberAccess {
                         expr: Box::new(first_access),
                         member: ustr(components[0]),
                     }),
                     start_span.to(token.span),
-                );
-
-                second_access
+                )
             }
 
             Star => {

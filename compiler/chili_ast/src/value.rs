@@ -11,10 +11,7 @@ pub enum Value {
 
 impl Value {
     pub fn is_type(&self) -> bool {
-        match self {
-            Value::Type(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Type(_))
     }
 
     pub fn into_type(self) -> Ty {
@@ -25,10 +22,7 @@ impl Value {
     }
 
     pub fn is_bool(&self) -> bool {
-        match self {
-            Value::Bool(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Bool(_))
     }
 
     pub fn into_bool(self) -> bool {
@@ -39,10 +33,7 @@ impl Value {
     }
 
     pub fn is_int(&self) -> bool {
-        match self {
-            Value::Int(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Int(_))
     }
 
     pub fn into_int(self) -> i64 {
@@ -53,10 +44,7 @@ impl Value {
     }
 
     pub fn is_float(&self) -> bool {
-        match self {
-            Value::Float(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Float(_))
     }
 
     pub fn into_float(self) -> f64 {

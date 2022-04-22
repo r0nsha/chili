@@ -32,7 +32,7 @@ impl<'a> AstGenerator<'a> {
         let mut asts: Vec<Ast> = vec![];
 
         let root_file_path = resolve_relative_path(
-            &Path::new(&self.workspace.build_options.source_file),
+            Path::new(&self.workspace.build_options.source_file),
             &common::builtin::root_module(),
             None,
         )
@@ -57,7 +57,7 @@ impl<'a> AstGenerator<'a> {
         }
 
         let source = std::fs::read_to_string(module_info.file_path.as_str())
-            .expect(&format!("failed to read `{}`", module_info.file_path));
+            .unwrap_or_else(|_| panic!("failed to read `{}`", module_info.file_path));
 
         // TODO: this should be behind a `verbose` flag
         self.total_lines += source.lines().count();
@@ -99,7 +99,7 @@ impl<'a> AstGenerator<'a> {
             .unwrap()
             .to_string();
 
-        let mut parse_result = Parser::new(
+        let parse_result = Parser::new(
             tokens,
             module_info,
             &self.workspace.root_dir,

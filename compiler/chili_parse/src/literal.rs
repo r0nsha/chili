@@ -98,7 +98,7 @@ impl<'p> Parser<'p> {
             Comma,
             {
                 let id_token = if eat!(self, Id(_)) {
-                    self.previous().clone()
+                    *self.previous()
                 } else {
                     break;
                 };
