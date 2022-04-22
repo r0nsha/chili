@@ -1,6 +1,12 @@
 use super::*;
 use std::fmt::Display;
 
+impl fmt::Display for Ty {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{{unknown}}")
+    }
+}
+
 impl Display for TyKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

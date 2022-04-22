@@ -1,10 +1,8 @@
 use chili_ast::ty::*;
 use chili_span::Span;
-use core::fmt;
 use slab::Slab;
-use std::hash::Hash;
 
-use crate::normalize::NormalizeTy;
+use crate::{inference_value::InferenceValue, normalize::NormalizeTy};
 
 pub struct TyCtx {
     bindings: Slab<InferenceValue>,
@@ -89,29 +87,6 @@ impl TyCtx {
 
     pub fn print_ty(&self, ty: Ty) {
         println!("{} :: {}", ty, self.bindings[ty.0]);
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum InferenceValue {
-    Bound(TyKind),
-    AnyInt,
-    AnyFloat,
-    Unbound,
-}
-
-impl fmt::Display for InferenceValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                InferenceValue::Bound(t) => t.to_string(),
-                InferenceValue::AnyInt => "[anyint]".to_string(),
-                InferenceValue::AnyFloat => "[anyfloat]".to_string(),
-                InferenceValue::Unbound => "unbound".to_string(),
-            }
-        )
     }
 }
 

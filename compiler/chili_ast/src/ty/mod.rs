@@ -22,12 +22,6 @@ impl Default for Ty {
     }
 }
 
-impl fmt::Display for Ty {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "'{}", self.0)
-    }
-}
-
 impl Into<TyKind> for Ty {
     fn into(self) -> TyKind {
         TyKind::Var(self)

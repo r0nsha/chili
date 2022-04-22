@@ -1048,18 +1048,33 @@ impl Check for ast::Expr {
                         Ok(Res::new(ty))
                     }
                     ast::UnaryOp::Deref => {
-                        let kind = res.ty.normalize(&sess.tycx);
-                        match kind {
-                            // TODO: instead of checking type directly, apply `Deref` constraint
-                            TyKind::Pointer(inner, _) => {
-                                let ty = sess.tycx.bound(*inner, unary.span);
-                                Ok(Res::new(ty))
-                            }
-                            ty => Err(TypeError::deref_non_pointer_ty(
-                                self.span,
-                                ty.display(&sess.tycx),
-                            )),
-                        }
+                        let pointee = sess.tycx.var(unary.span);
+
+                        let ptr_ty = sess
+                            .tycx
+                            .bound(TyKind::Pointer(Box::new(pointee.into()), false), unary.span);
+
+                        res.ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
+                            &sess.tycx,
+                            ptr_ty,
+                            None,
+                            res.ty,
+                            unary.lhs.span,
+                        )?;
+
+                        Ok(Res::new(pointee))
+                        // let kind = res.ty.normalize(&sess.tycx);
+                        // match kind {
+                        //     // TODO: instead of checking type directly, apply `Deref` constraint
+                        //     TyKind::Pointer(inner, _) => {
+                        //         let ty = sess.tycx.bound(*inner, unary.span);
+                        //         Ok(Res::new(ty))
+                        //     }
+                        //     ty => Err(TypeError::deref_non_pointer_ty(
+                        //         self.span,
+                        //         ty.display(&sess.tycx),
+                        //     )),
+                        // }
                     }
                     ast::UnaryOp::Not => {
                         let bool = sess.tycx.common_types.bool;

@@ -1,7 +1,4 @@
-use crate::{
-    normalize::NormalizeTy,
-    ty_ctx::{InferenceValue, TyCtx},
-};
+use crate::{inference_value::InferenceValue, normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_ast::ty::*;
 
 pub trait UnifyTy<T>
@@ -126,7 +123,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             let other_kind = other.normalize(&tycx);
             match other_kind {
                 TyKind::Int(_) | TyKind::UInt(_) | TyKind::Float(_) => {
-                    tycx.bind(var, other.clone());
+                    tycx.bind(var, other_kind);
                     Ok(())
                 }
                 TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
@@ -142,7 +139,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             let other_kind = other.normalize(&tycx);
             match other_kind {
                 TyKind::Float(_) => {
-                    tycx.bind(var, other.clone());
+                    tycx.bind(var, other_kind);
                     Ok(())
                 }
                 TyKind::AnyInt(other) | TyKind::AnyFloat(other) | TyKind::Var(other) => {
@@ -173,12 +170,13 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
 
 fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
     match kind {
-        TyKind::Var(other) => match tycx.value_of(*other) {
-            InferenceValue::Bound(ty) => occurs(var, &ty, tycx),
-            InferenceValue::AnyInt | InferenceValue::AnyFloat | InferenceValue::Unbound => {
-                var == *other
+        &TyKind::Var(other) => {
+            use InferenceValue::*;
+            match tycx.value_of(other) {
+                Bound(ty) => occurs(var, ty, tycx) || var == other,
+                AnyInt | AnyFloat | Unbound => var == other,
             }
-        },
+        }
         TyKind::Fn(f) => f.params.iter().any(|p| occurs(var, p, tycx)) || occurs(var, &f.ret, tycx),
         TyKind::Pointer(ty, _)
         | TyKind::MultiPointer(ty, _)

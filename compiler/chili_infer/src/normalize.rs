@@ -1,4 +1,4 @@
-use crate::ty_ctx::{InferenceValue, TyCtx};
+use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
 
 pub trait NormalizeTy {
