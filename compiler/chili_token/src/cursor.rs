@@ -56,20 +56,20 @@ impl Cursor {
     }
 }
 
-impl Into<Range<usize>> for Cursor {
-    fn into(self) -> Range<usize> {
-        self.range()
+impl From<Cursor> for Range<usize> {
+    fn from(val: Cursor) -> Self {
+        val.range()
     }
 }
 
-impl Into<Range<usize>> for &Cursor {
-    fn into(self) -> Range<usize> {
-        self.range()
+impl From<&Cursor> for Range<usize> {
+    fn from(val: &Cursor) -> Self {
+        val.range()
     }
 }
 
-impl Into<Range<usize>> for &mut Cursor {
-    fn into(self) -> Range<usize> {
-        self.range()
+impl From<&mut Cursor> for Range<usize> {
+    fn from(val: &mut Cursor) -> Self {
+        val.range()
     }
 }

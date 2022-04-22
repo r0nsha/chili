@@ -5,11 +5,13 @@ pub struct Scopes<K: Hash + Eq, V> {
     inner: Vec<HashMap<K, V>>,
 }
 
-impl<K: Hash + Eq, V> Scopes<K, V> {
-    pub fn new() -> Self {
+impl<K: Hash + Eq, V> Default for Scopes<K, V> {
+    fn default() -> Self {
         Self { inner: vec![] }
     }
+}
 
+impl<K: Hash + Eq, V> Scopes<K, V> {
     pub fn push_scope(&mut self) {
         self.inner.push(HashMap::default());
     }

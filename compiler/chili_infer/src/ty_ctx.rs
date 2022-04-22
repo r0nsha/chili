@@ -10,8 +10,8 @@ pub struct TyCtx {
     pub common_types: CommonTypes,
 }
 
-impl TyCtx {
-    pub fn new() -> Self {
+impl Default for TyCtx {
+    fn default() -> Self {
         let mut bindings = Default::default();
         let mut binding_spans = Default::default();
         let common_types = CommonTypes::new(&mut bindings, &mut binding_spans);
@@ -21,7 +21,9 @@ impl TyCtx {
             common_types,
         }
     }
+}
 
+impl TyCtx {
     #[inline]
     fn insert(&mut self, binding: InferenceValue, span: Option<Span>) -> Ty {
         self.binding_spans.insert(span);

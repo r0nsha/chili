@@ -9,7 +9,9 @@ use chili_ast::{
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     value::Value,
-    workspace::{BindingInfoFlags, BindingInfoId, ModuleId, ScopeLevel, Workspace},
+    workspace::{
+        BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
+    },
 };
 use chili_error::{
     diagnostic::{Diagnostic, Label},
@@ -84,14 +86,14 @@ pub(crate) struct FunctionFrame {
 }
 
 impl<'s> CheckSess<'s> {
-    pub(crate) fn new(workspace: &'s mut Workspace, old_ast: &'s Vec<ast::Ast>) -> Self {
+    pub(crate) fn new(workspace: &'s mut Workspace, old_asts: &'s Vec<ast::Ast>) -> Self {
         let target_metrics = workspace.build_options.target_platform.metrics();
         Self {
             workspace,
             target_metrics,
-            tycx: TyCtx::new(),
-            old_asts: old_ast,
-            new_ast: ast::TypedAst::new(),
+            tycx: TyCtx::default(),
+            old_asts,
+            new_ast: ast::TypedAst::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -211,18 +213,18 @@ impl<'s> CheckSess<'s> {
         let mk = |sess: &mut CheckSess, symbol: &str, ty: Ty| {
             let symbol = ustr(symbol);
 
-            let id = sess.workspace.add_binding_info(
-                Default::default(),
+            let id = sess.workspace.add_binding_info(PartialBindingInfo {
+                module_id: Default::default(),
                 symbol,
-                ast::Visibility::Public,
-                sess.tycx.builtin(ty.kind().create_type()),
-                Some(Value::Type(ty)),
-                false,
-                ast::BindingKind::Type,
-                ScopeLevel::Global,
-                ustr(""),
-                Span::unknown(),
-            );
+                visibility: ast::Visibility::Public,
+                ty: sess.tycx.builtin(ty.kind().create_type()),
+                const_value: Some(Value::Type(ty)),
+                is_mutable: false,
+                kind: ast::BindingKind::Type,
+                scope_level: ScopeLevel::Global,
+                scope_name: ustr(""),
+                span: Span::unknown(),
+            });
 
             let info = sess.workspace.get_binding_info_mut(id).unwrap();
             info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);

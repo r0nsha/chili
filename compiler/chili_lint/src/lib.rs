@@ -21,7 +21,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, ast: &TypedAst) {
     let mut sess = LintSess {
         workspace,
         tycx,
-        init_scopes: Scopes::new(),
+        init_scopes: Scopes::default(),
     };
 
     sess.init_scopes.push_scope();

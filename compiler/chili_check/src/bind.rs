@@ -7,7 +7,7 @@ use chili_ast::{
     pattern::{Pattern, SymbolPattern},
     ty::Ty,
     value::Value,
-    workspace::{BindingInfoId, ModuleId},
+    workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
@@ -69,44 +69,30 @@ impl<'s> CheckSess<'s> {
                 let dup = self.workspace.get_binding_info(id).unwrap();
                 return Err(SyntaxError::duplicate_symbol(dup.span, span, dup.symbol));
             }
-
-            let id = self.workspace.add_binding_info(
-                module_id,
-                symbol,
-                visibility,
-                ty,
-                const_value,
-                is_mutable,
-                kind,
-                scope_level,
-                env.scope_name(),
-                span,
-            );
-
-            // insert symbol into its module's global scope
-            self.insert_global_symbol(module_id, symbol, id);
-
-            Ok(id)
-        } else {
-            // insert symbol into local scope
-
-            let id = self.workspace.add_binding_info(
-                module_id,
-                symbol,
-                visibility,
-                ty,
-                const_value,
-                is_mutable,
-                kind,
-                scope_level,
-                env.scope_name(),
-                span,
-            );
-
-            env.insert_symbol(symbol, id);
-
-            Ok(id)
         }
+
+        let id = self.workspace.add_binding_info(PartialBindingInfo {
+            module_id,
+            symbol,
+            visibility,
+            ty,
+            const_value,
+            is_mutable,
+            kind,
+            scope_level,
+            scope_name: env.scope_name(),
+            span,
+        });
+
+        if scope_level.is_global() {
+            // insert the symbol into its module's global scope
+            self.insert_global_symbol(module_id, symbol, id);
+        } else {
+            // insert the symbol into local scope
+            env.insert_symbol(symbol, id);
+        }
+
+        Ok(id)
     }
 
     pub(crate) fn bind_symbol_pattern(

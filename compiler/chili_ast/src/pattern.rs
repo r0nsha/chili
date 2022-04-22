@@ -18,10 +18,7 @@ pub struct UnpackPattern {
 
 impl Pattern {
     pub fn is_single(&self) -> bool {
-        match self {
-            Pattern::Single(_) => true,
-            _ => false,
-        }
+        matches!(self, Pattern::Single(_))
     }
 
     pub fn into_single(&self) -> SymbolPattern {
@@ -91,8 +88,8 @@ impl Display for Pattern {
             "{}",
             match self {
                 Pattern::Single(s) => s.to_string(),
-                Pattern::StructUnpack(s) => format!("{{{}}}", s.to_string()),
-                Pattern::TupleUnpack(s) => format!("({})", s.to_string()),
+                Pattern::StructUnpack(s) => format!("{{{}}}", s),
+                Pattern::TupleUnpack(s) => format!("({})", s),
             }
         )
     }

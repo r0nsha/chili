@@ -2,7 +2,7 @@ use std::ops::Range;
 
 pub type FileId = usize;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Span {
     pub file_id: FileId,
     pub start: Position,
@@ -47,16 +47,6 @@ impl Span {
     }
 }
 
-impl Default for Span {
-    fn default() -> Self {
-        Self {
-            file_id: Default::default(),
-            start: Default::default(),
-            end: Default::default(),
-        }
-    }
-}
-
 impl Ord for Span {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         (self.start, self.end).cmp(&(other.start, other.end))
@@ -81,7 +71,7 @@ impl<T> Spanned<T> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Position {
     pub index: usize,
     pub line: u32,
@@ -106,17 +96,7 @@ impl Position {
     }
 }
 
-impl Default for Position {
-    fn default() -> Self {
-        Self {
-            index: Default::default(),
-            line: Default::default(),
-            column: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EndPosition {
     pub index: usize,
 }
@@ -124,14 +104,6 @@ pub struct EndPosition {
 impl EndPosition {
     pub fn new(index: usize) -> Self {
         Self { index }
-    }
-}
-
-impl Default for EndPosition {
-    fn default() -> Self {
-        Self {
-            index: Default::default(),
-        }
     }
 }
 

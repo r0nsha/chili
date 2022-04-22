@@ -38,7 +38,7 @@ impl DeferSess {
             .deferred
             .iter()
             .rev()
-            .map(|e| e.clone())
+            .cloned()
             .collect()
     }
 }

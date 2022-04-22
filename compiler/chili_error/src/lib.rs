@@ -13,15 +13,17 @@ pub struct Diagnostics {
     diagnostics: Vec<Diagnostic>,
 }
 
-impl Diagnostics {
-    pub fn new() -> Self {
+impl Default for Diagnostics {
+    fn default() -> Self {
         Self {
             files: SimpleFiles::new(),
-            emitter: DiagnosticEmitter::new(),
+            emitter: DiagnosticEmitter::default(),
             diagnostics: vec![],
         }
     }
+}
 
+impl Diagnostics {
     pub fn add_file(&mut self, name: String, source: String) -> FileId {
         self.files.add(name, source)
     }
@@ -281,7 +283,7 @@ impl TypeError {
 
     pub fn undefined_self_type(span: Span) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!("cannot find type `Self` in this scope. `Self` is only available in type definitions"))
+            .with_message("cannot find type `Self` in this scope. `Self` is only available in type definitions".to_string())
             .with_label(Label::primary(span, ""))
     }
 

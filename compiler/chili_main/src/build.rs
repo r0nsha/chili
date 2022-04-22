@@ -35,8 +35,8 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     // Parse all source files into ast's
     let (mut asts, stats) = time! { workspace.build_options.verbose, "parse", {
             match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
-                Ok(r) => r,
-                Err(_) => {
+                Some(result) => result,
+                None => {
                     workspace.diagnostics.emit();
                     return workspace;
                 }

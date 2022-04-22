@@ -15,8 +15,8 @@ pub struct DiagnosticEmitter {
     config: Config,
 }
 
-impl DiagnosticEmitter {
-    pub fn new() -> Self {
+impl Default for DiagnosticEmitter {
+    fn default() -> Self {
         Self {
             writer: StandardStream::stderr(ColorChoice::Always),
             config: Config {
@@ -29,7 +29,9 @@ impl DiagnosticEmitter {
             },
         }
     }
+}
 
+impl DiagnosticEmitter {
     pub fn emit_one(&self, files: &SimpleFiles<String, String>, diagnostic: Diagnostic) {
         self.emit(&mut self.writer.lock(), files, diagnostic)
     }
@@ -53,12 +55,12 @@ impl DiagnosticEmitter {
 
 type CodespanDiagnostic = codespan_reporting::diagnostic::Diagnostic<FileId>;
 
-impl Into<CodespanDiagnostic> for Diagnostic {
-    fn into(self) -> CodespanDiagnostic {
-        CodespanDiagnostic::new(self.kind.into())
-            .with_message(self.message.unwrap_or(Default::default()))
+impl From<Diagnostic> for CodespanDiagnostic {
+    fn from(val: Diagnostic) -> Self {
+        CodespanDiagnostic::new(val.kind.into())
+            .with_message(val.message.unwrap_or_default())
             .with_labels(
-                self.labels
+                val.labels
                     .into_iter()
                     .map(|l| {
                         codespan_reporting::diagnostic::Label::new(
@@ -70,20 +72,20 @@ impl Into<CodespanDiagnostic> for Diagnostic {
                     })
                     .collect(),
             )
-            .with_notes(self.notes)
+            .with_notes(val.notes)
     }
 }
 
-impl Into<Severity> for DiagnosticKind {
-    fn into(self) -> Severity {
-        match self {
+impl From<DiagnosticKind> for Severity {
+    fn from(val: DiagnosticKind) -> Self {
+        match val {
             DiagnosticKind::Error => Severity::Error,
         }
     }
 }
-impl Into<LabelStyle> for LabelKind {
-    fn into(self) -> LabelStyle {
-        match self {
+impl From<LabelKind> for LabelStyle {
+    fn from(val: LabelKind) -> Self {
+        match val {
             LabelKind::Primary => LabelStyle::Primary,
             LabelKind::Secondary => LabelStyle::Secondary,
         }

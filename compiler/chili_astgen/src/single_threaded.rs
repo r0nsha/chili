@@ -1,4 +1,4 @@
-use crate::{util::insert_std_import, AstGenerationResult, AstGenerationStats};
+use crate::{AstGenerationResult, AstGenerationStats};
 use chili_ast::{
     ast::Ast,
     path::resolve_relative_path,
@@ -36,14 +36,15 @@ impl<'a> AstGenerator<'a> {
             &common::builtin::root_module(),
             None,
         )
-        .map_err(|diag| self.workspace.diagnostics.push(diag))?;
+        .map_err(|diag| self.workspace.diagnostics.push(diag))
+        .ok()?;
 
         let root_module_info =
             ModuleInfo::new(common::builtin::root_module(), ustr(&root_file_path));
 
         self.add_source_file(&mut asts, root_module_info, true);
 
-        Ok((
+        Some((
             asts,
             AstGenerationStats {
                 total_lines: self.total_lines,

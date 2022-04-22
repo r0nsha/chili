@@ -66,7 +66,7 @@ impl Workspace {
             exports: Default::default(),
             entry_point_function_id: None,
             foreign_libraries: Default::default(),
-            diagnostics: Diagnostics::new(),
+            diagnostics: Default::default(),
         }
     }
 }
@@ -93,6 +93,40 @@ pub struct BindingInfo {
     // the amount of times this binding was used
     pub uses: usize,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PartialBindingInfo {
+    pub module_id: ModuleId,
+    pub symbol: Ustr,
+    pub visibility: Visibility,
+    pub ty: Ty,
+    pub const_value: Option<Value>,
+    pub is_mutable: bool,
+    pub kind: BindingKind,
+    pub scope_level: ScopeLevel,
+    pub scope_name: Ustr,
+    pub span: Span,
+}
+
+impl PartialBindingInfo {
+    fn into_binding_info(self, id: BindingInfoId) -> BindingInfo {
+        BindingInfo {
+            id,
+            module_id: self.module_id,
+            symbol: self.symbol,
+            visibility: self.visibility,
+            ty: self.ty,
+            const_value: self.const_value,
+            is_mutable: self.is_mutable,
+            kind: self.kind,
+            scope_level: self.scope_level,
+            scope_name: self.scope_name,
+            uses: 0,
+            flags: BindingInfoFlags::empty(),
+            span: self.span,
+        }
+    }
 }
 
 bitflags! {
@@ -127,37 +161,9 @@ impl Workspace {
             .map(ModuleId)
     }
 
-    pub fn add_binding_info(
-        &mut self,
-        module_id: ModuleId,
-        symbol: Ustr,
-        visibility: Visibility,
-        ty: Ty,
-        const_value: Option<Value>,
-        is_mutable: bool,
-        kind: BindingKind,
-        level: ScopeLevel,
-        scope_name: Ustr,
-        span: Span,
-    ) -> BindingInfoId {
+    pub fn add_binding_info(&mut self, partial: PartialBindingInfo) -> BindingInfoId {
         let id = BindingInfoId(self.binding_infos.len());
-
-        self.binding_infos.push(BindingInfo {
-            id,
-            module_id,
-            symbol,
-            visibility,
-            ty,
-            const_value,
-            is_mutable,
-            kind,
-            scope_level: level,
-            scope_name,
-            uses: 0,
-            flags: BindingInfoFlags::empty(),
-            span,
-        });
-
+        self.binding_infos.push(partial.into_binding_info(id));
         id
     }
 

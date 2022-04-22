@@ -38,16 +38,10 @@ impl Display for TyKind {
                     FloatTy::Float => "float",
                 }
                 .to_string(),
-                TyKind::Pointer(ty, is_mutable) => format!(
-                    "*{}{}",
-                    if *is_mutable { "mut " } else { "" },
-                    ty.to_string()
-                ),
-                TyKind::MultiPointer(ty, is_mutable) => format!(
-                    "[*{}]{}",
-                    if *is_mutable { "mut" } else { "" },
-                    ty.to_string()
-                ),
+                TyKind::Pointer(ty, is_mutable) =>
+                    format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
+                TyKind::MultiPointer(ty, is_mutable) =>
+                    format!("[*{}]{}", if *is_mutable { "mut" } else { "" }, ty),
                 TyKind::Fn(func) => func.to_string(),
                 TyKind::Array(inner, size) => format!("[{}]{}", size, inner,),
                 TyKind::Slice(inner, is_mutable) =>
@@ -107,7 +101,7 @@ impl Display for FnTy {
                 .collect::<Vec<String>>()
                 .join(", "),
             if self.variadic { ", .." } else { "" },
-            self.ret.to_string(),
+            self.ret,
         )
     }
 }

@@ -1,6 +1,5 @@
 mod multi_threaded;
 mod single_threaded;
-mod util;
 
 use chili_ast::{ast, workspace::Workspace};
 
@@ -15,7 +14,7 @@ pub enum AstGenerationMode {
     MultiThreaded,
 }
 
-pub type AstGenerationResult = Result<(Vec<ast::Ast>, AstGenerationStats), ()>;
+pub type AstGenerationResult = Option<(Vec<ast::Ast>, AstGenerationStats)>;
 
 pub fn generate_ast(workspace: &mut Workspace, mode: AstGenerationMode) -> AstGenerationResult {
     match mode {

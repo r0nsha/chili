@@ -50,7 +50,7 @@ impl<'p> Parser<'p> {
                 let end_span = parser.previous_span();
                 let expr = result
                     .or_recover(parser)
-                    .unwrap_or(Expr::new(ExprKind::Error, start_span.to(end_span)));
+                    .unwrap_or_else(|_| Expr::new(ExprKind::Error, start_span.to(end_span)));
                 Ok(expr)
             } else {
                 result
@@ -498,6 +498,6 @@ impl<'p> Parser<'p> {
             _ => panic!("got an invalid terminator"),
         };
 
-        return Ok(Expr::new(kind, span.to(self.previous_span())));
+        Ok(Expr::new(kind, span.to(self.previous_span())))
     }
 }

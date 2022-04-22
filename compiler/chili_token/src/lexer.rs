@@ -51,7 +51,7 @@ impl<'lx> Lexer<'lx> {
                         // replace the newline with a semicolon
                         if t.is_expr_end() {
                             let next_token = match self.tokens.get(i + 1) {
-                                Some(t) => t.kind.clone(),
+                                Some(t) => t.kind,
                                 None => Eof,
                             };
 
@@ -305,9 +305,9 @@ impl<'lx> Lexer<'lx> {
             Err(e) => match e {
                 UnescapeError::InvalidEscapeSequence(span) => {
                     let message = "invalid escape sequence";
-                    return Err(Diagnostic::error()
+                    Err(Diagnostic::error()
                         .with_message(message)
-                        .with_label(Label::primary(span, message)));
+                        .with_label(Label::primary(span, message)))
                 }
             },
         }
@@ -378,9 +378,9 @@ impl<'lx> Lexer<'lx> {
             Err(e) => match e {
                 UnescapeError::InvalidEscapeSequence(span) => {
                     let message = "invalid escape sequence";
-                    return Err(Diagnostic::error()
+                    Err(Diagnostic::error()
                         .with_message(message)
-                        .with_label(Label::primary(span, message)));
+                        .with_label(Label::primary(span, message)))
                 }
             },
         }
@@ -449,9 +449,9 @@ impl<'lx> Lexer<'lx> {
         while !self.is_eof() {
             let char = self.peek();
 
-            if (char >= '0' && char <= '9')
-                || (char >= 'A' && char <= 'F')
-                || (char >= 'a' && char <= 'f')
+            if ('0'..='9').contains(&char)
+                || ('A'..='F').contains(&char)
+                || ('a'..='f').contains(&char)
             {
                 hex_value.push(char);
                 self.bump();
@@ -464,11 +464,11 @@ impl<'lx> Lexer<'lx> {
         let mut decimal_value: i64 = 0;
 
         for char in hex_value.chars().rev() {
-            let to_add = if char >= '0' && char <= '9' {
+            let to_add = if ('0'..='9').contains(&char) {
                 Some((char as i64 - 48) * base)
-            } else if char >= 'A' && char <= 'F' {
+            } else if ('A'..='F').contains(&char) {
                 Some((char as i64 - 55) * base)
-            } else if char >= 'a' && char <= 'f' {
+            } else if ('a'..='f').contains(&char) {
                 Some((char as i64 - 87) * base)
             } else {
                 None
@@ -479,7 +479,7 @@ impl<'lx> Lexer<'lx> {
                     Some(v) => v,
                     None => return Err(LexerError::integer_too_large(self.cursor.span())),
                 };
-                base = base * 16;
+                base *= 16;
             }
         }
 
@@ -494,7 +494,7 @@ impl<'lx> Lexer<'lx> {
         while !self.is_eof() {
             let char = self.peek();
 
-            if char >= '0' && char <= '7' {
+            if ('0'..='7').contains(&char) {
                 octal_value.push(char);
                 self.bump();
             } else {
@@ -578,7 +578,7 @@ impl<'lx> Lexer<'lx> {
             "union" => Union,
             "match" => Match,
             "_" => Placeholder,
-            l => Id(ustr(&l)),
+            l => Id(ustr(l)),
         }
     }
 

@@ -34,19 +34,10 @@ impl Ast {
 }
 
 // TODO: Iterating a HashMap is slow. Switch these to `Vec` with a separate mapping
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct TypedAst {
     pub imports: HashMap<BindingInfoId, Import>,
     pub bindings: HashMap<BindingInfoId, Binding>,
-}
-
-impl TypedAst {
-    pub fn new() -> Self {
-        Self {
-            imports: Default::default(),
-            bindings: Default::default(),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -70,10 +61,7 @@ impl Expr {
     }
 
     pub fn is_fn(&self) -> bool {
-        match &self.kind {
-            ExprKind::Fn(..) => true,
-            _ => false,
-        }
+        matches!(&self.kind, ExprKind::Fn(..))
     }
 
     pub fn as_fn(&self) -> &Fn {
@@ -91,10 +79,7 @@ impl Expr {
     }
 
     pub fn is_fn_type(&self) -> bool {
-        match &self.kind {
-            ExprKind::FnType(..) => true,
-            _ => false,
-        }
+        matches!(&self.kind, ExprKind::FnType(..))
     }
 }
 
@@ -449,24 +434,15 @@ pub enum BindingKind {
 
 impl BindingKind {
     pub fn is_value(&self) -> bool {
-        match self {
-            BindingKind::Value => true,
-            _ => false,
-        }
+        matches!(self, BindingKind::Value)
     }
 
     pub fn is_type(&self) -> bool {
-        match self {
-            BindingKind::Type => true,
-            _ => false,
-        }
+        matches!(self, BindingKind::Type)
     }
 
     pub fn is_import(&self) -> bool {
-        match self {
-            BindingKind::Import => true,
-            _ => false,
-        }
+        matches!(self, BindingKind::Import)
     }
 }
 
@@ -492,17 +468,11 @@ pub enum Visibility {
 
 impl Visibility {
     pub fn is_private(&self) -> bool {
-        match self {
-            Visibility::Private => true,
-            _ => false,
-        }
+        matches!(self, Visibility::Private)
     }
 
     pub fn is_public(&self) -> bool {
-        match self {
-            Visibility::Public => true,
-            _ => false,
-        }
+        matches!(self, Visibility::Public)
     }
 }
 
@@ -699,10 +669,7 @@ impl ImportPathNode {
     }
 
     pub fn is_glob(&self) -> bool {
-        match self {
-            ImportPathNode::Glob => true,
-            _ => false,
-        }
+        matches!(self, ImportPathNode::Glob)
     }
 }
 
@@ -719,17 +686,14 @@ impl fmt::Display for FnSig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}",
-            format!(
-                "fn: {} ({}{})",
-                self.name,
-                self.params
-                    .iter()
-                    .map(|a| a.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                if self.variadic { ", .." } else { "" }
-            )
+            "fn: {} ({}{})",
+            self.name,
+            self.params
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            if self.variadic { ", .." } else { "" }
         )
     }
 }
