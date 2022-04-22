@@ -140,9 +140,10 @@ impl<'s> CheckSess<'s> {
                 let partial_struct = PartialStructTy(HashMap::from_iter(
                     pat.symbols
                         .iter()
-                        .map(|symbol| (symbol.symbol, TyKind::Var(self.tycx.var(symbol.span))))
+                        .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).kind()))
                         .collect::<HashMap<Ustr, TyKind>>(),
                 ));
+
                 let partial_struct_ty = self.tycx.partial_struct(partial_struct.clone(), pat.span);
 
                 ty.unify(&partial_struct_ty, &mut self.tycx).or_report_err(
@@ -160,12 +161,27 @@ impl<'s> CheckSess<'s> {
                     self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
                 }
             }
-            // TODO: Need InferenceValue::PartialTuple(Vec<Ty>)
             Pattern::TupleUnpack(pat) => {
-                todo!()
-                // for pat in pat.symbols.iter_mut() {
-                //     self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
-                // }
+                let elements = pat
+                    .symbols
+                    .iter()
+                    .map(|symbol| self.tycx.var(symbol.span).kind())
+                    .collect::<Vec<TyKind>>();
+
+                let partial_tuple = self.tycx.partial_tuple(elements.clone(), pat.span);
+
+                ty.unify(&partial_tuple, &mut self.tycx).or_report_err(
+                    &self.tycx,
+                    partial_tuple,
+                    Some(pat.span),
+                    ty,
+                    ty_origin_span,
+                )?;
+
+                for (index, pat) in pat.symbols.iter_mut().enumerate() {
+                    let ty = self.tycx.bound(elements[index].clone(), pat.span);
+                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
+                }
             }
         }
 

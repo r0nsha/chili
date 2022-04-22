@@ -6,20 +6,20 @@ let main = fn {
 	let four = (1,2,3,4)
 
 	// test1(5) // invalid
-	printf("%d\n".data, test1(two)) // invalid
-	printf("%d\n".data, test1(three)) // valid
-	printf("%d\n".data, test1(four)) // valid
+	// printf("%d\n".data, test1(two)) // invalid
+	// printf("%d\n".data, test1(three)) // valid
+	// printf("%d\n".data, test1(four)) // valid
 
 	// test2(5) // invalid
 	// printf("%d\n".data, test2(two)) // invalid
 	// printf("%d\n".data, test2(three)) // valid
-	// printf("%d\n".data, test2(four)) // valid
+	printf("%d\n".data, test2(four)) // valid
 }
 
-let test1 = fn(x) {
-	x.2
-}
-
-// let test2 = fn((a,b,c)) {
-// 	a + b + c
+// let test1 = fn(x) {
+// 	x.2
 // }
+
+let test2 = fn((a,b,c)) {
+	a + b + c
+}

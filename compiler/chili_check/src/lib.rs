@@ -1474,8 +1474,7 @@ impl Check for ast::Expr {
                     .iter()
                     .all(|res| res.const_value.as_ref().map_or(false, |v| v.is_type()));
 
-                let element_tys: Vec<TyKind> =
-                    lit.elements.iter().map(|e| TyKind::Var(e.ty)).collect();
+                let element_tys: Vec<TyKind> = lit.elements.iter().map(|e| e.ty.kind()).collect();
                 let kind = TyKind::Tuple(element_tys);
                 let ty = sess.tycx.bound(kind.clone(), self.span);
 
@@ -1660,15 +1659,14 @@ impl Check for ast::Expr {
                     Ok(Res::new(res.ty))
                 } else {
                     Ok(Res::new_const(
-                        sess.tycx
-                            .bound(TyKind::Var(res.ty).create_type(), self.span),
+                        sess.tycx.bound(res.ty.kind().create_type(), self.span),
                         Value::Type(res.ty),
                     ))
                 }
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
+                    sess.tycx.bound(ty.kind().create_type(), self.span),
                     Value::Type(ty),
                 )),
                 None => Err(Diagnostic::error()
@@ -1678,21 +1676,21 @@ impl Check for ast::Expr {
             ast::ExprKind::NeverType => {
                 let ty = sess.tycx.common_types.never;
                 Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
+                    sess.tycx.bound(ty.kind().create_type(), self.span),
                     Value::Type(ty),
                 ))
             }
             ast::ExprKind::UnitType => {
                 let ty = sess.tycx.common_types.unit;
                 Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
+                    sess.tycx.bound(ty.kind().create_type(), self.span),
                     Value::Type(ty),
                 ))
             }
             ast::ExprKind::PlaceholderType => {
                 let ty = sess.tycx.var(self.span);
                 Ok(Res::new_const(
-                    sess.tycx.bound(TyKind::Var(ty).create_type(), self.span),
+                    sess.tycx.bound(ty.kind().create_type(), self.span),
                     Value::Type(ty),
                 ))
             }

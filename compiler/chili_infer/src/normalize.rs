@@ -42,7 +42,7 @@ impl Normalize {
             InferenceValue::PartialStruct(partial) => {
                 TyKind::Infer(ty, InferTy::PartialStruct(partial.clone()))
             }
-            _ => TyKind::Var(ty),
+            InferenceValue::Unbound => ty.kind(),
         }
     }
 

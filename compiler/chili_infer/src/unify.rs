@@ -13,22 +13,22 @@ where
 
 impl UnifyTy<Ty> for Ty {
     fn unify(&self, other: &Ty, tycx: &mut TyCtx) -> UnifyTyResult {
-        let t1 = TyKind::Var(*self);
-        let t2 = TyKind::Var(*other);
+        let t1 = self.kind();
+        let t2 = other.kind();
         t1.unify(&t2, tycx)
     }
 }
 
 impl UnifyTy<TyKind> for Ty {
     fn unify(&self, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
-        let ty = TyKind::Var(*self);
+        let ty = self.kind();
         ty.unify(other, tycx)
     }
 }
 
 impl UnifyTy<Ty> for TyKind {
     fn unify(&self, other: &Ty, tycx: &mut TyCtx) -> UnifyTyResult {
-        let other = TyKind::Var(*other);
+        let other = other.kind();
         self.unify(&other, tycx)
     }
 }
@@ -232,55 +232,30 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                 _ => Err(UnifyTyErr::Mismatch),
             }
         }
-        InferenceValue::PartialTuple(mut partial_tuple) => {
+        InferenceValue::PartialTuple(partial_tuple) => {
             let other_kind = other.normalize(&tycx);
             match other_kind {
-                TyKind::Tuple(other_tuple) => {
-                    todo!("1");
+                TyKind::Tuple(ref other_tuple)
+                | TyKind::Infer(_, InferTy::PartialTuple(ref other_tuple)) => {
+                    let mut any_err = false;
+
                     if other_tuple.len() < partial_tuple.len() {
+                        any_err = true;
+                    }
+
+                    for (index, ty) in partial_tuple.iter().enumerate() {
+                        if let Some(other) = other_tuple.get(index) {
+                            any_err |= ty.unify(other, tycx).is_err();
+                        }
+                    }
+
+                    tycx.bind_ty(var, other_kind);
+
+                    if any_err {
                         Err(UnifyTyErr::Mismatch)
                     } else {
-                        todo!("check that len is the same");
+                        Ok(())
                     }
-                    // for ty in partial_tuple.iter() {
-                    //     // if both the partial struct and the struct have this field, unify their types
-                    //     if let Some(other_ty) =
-                    //         other_struct.fields.iter().find(|f| f.symbol == *symbol)
-                    //     {
-                    //         ty.unify(&other_ty.ty, tycx)?;
-                    //     } else {
-                    //         // any field that exists in the partial struct, but doesn't exist in struct, is an error
-                    //         return Err(UnifyTyErr::Mismatch);
-                    //     }
-                    // }
-
-                    // tycx.bind_ty(var, other_kind);
-
-                    // Ok(())
-                }
-                TyKind::Infer(other, InferTy::PartialTuple(ref other_partial)) => {
-                    todo!()
-                    // for (symbol, ty) in partial_struct.iter() {
-                    //     // if both partial structs have this field, unify their types
-                    //     if let Some(other_ty) = other_partial.get(symbol) {
-                    //         ty.unify(other_ty, tycx)?;
-                    //     }
-                    // }
-
-                    // for (symbol, ty) in other_partial.iter() {
-                    //     // if the other partial struct has fields that this struct doesn't, add them
-                    //     if !partial_struct.contains_key(symbol) {
-                    //         partial_struct.insert(*symbol, ty.clone());
-                    //     }
-                    // }
-
-                    // // bind both vars to the new partial struct
-                    // let value = InferenceValue::PartialStruct(partial_struct);
-
-                    // tycx.bind_value(var, value.clone());
-                    // tycx.bind_value(other, value);
-
-                    // Ok(())
                 }
                 TyKind::Var(other) => {
                     if other != var {
