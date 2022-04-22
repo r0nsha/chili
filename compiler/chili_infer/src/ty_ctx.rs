@@ -77,8 +77,13 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn bind(&mut self, var: Ty, ty: TyKind) {
-        self.bindings[var.0] = InferenceValue::Bound(ty);
+    pub fn bind_ty(&mut self, var: Ty, ty: TyKind) {
+        self.bind_value(var, InferenceValue::Bound(ty))
+    }
+
+    #[inline]
+    pub fn bind_value(&mut self, var: Ty, value: InferenceValue) {
+        self.bindings[var.0] = value;
     }
 
     pub fn print_type_bindings(&self) {

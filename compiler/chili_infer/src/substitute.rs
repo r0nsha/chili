@@ -254,7 +254,7 @@ impl<'a> SubstituteTy<'a> for Ty {
         extract_free_type_vars(&ty, &mut free_tys);
 
         if free_tys.is_empty() {
-            sess.tycx.bind(*self, ty);
+            sess.tycx.bind_ty(*self, ty);
         } else {
             for &ty in free_tys.iter() {
                 let span_set = sess.erroneous_tys.entry(ty).or_default();
