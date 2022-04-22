@@ -1,7 +1,7 @@
 use crate::{
     ast::{BindingKind, ForeignLibrary, Visibility},
     ty::Ty,
-    value::Value,
+    value::ConstValue,
 };
 use bitflags::bitflags;
 use chili_error::Diagnostics;
@@ -81,7 +81,7 @@ pub struct BindingInfo {
     pub symbol: Ustr,
     pub visibility: Visibility,
     pub ty: Ty,
-    pub const_value: Option<Value>,
+    pub const_value: Option<ConstValue>,
     // what kind of access the binding has
     pub is_mutable: bool,
     pub kind: BindingKind,
@@ -101,7 +101,7 @@ pub struct PartialBindingInfo {
     pub symbol: Ustr,
     pub visibility: Visibility,
     pub ty: Ty,
-    pub const_value: Option<Value>,
+    pub const_value: Option<ConstValue>,
     pub is_mutable: bool,
     pub kind: BindingKind,
     pub scope_level: ScopeLevel,

@@ -1,0 +1,7 @@
+000000	const %0
+000001	halt
+
+globals:
+
+constants:
+%0	int 42

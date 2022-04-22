@@ -1,23 +1,19 @@
 use crate::{
     instruction::Instruction,
+    interp::Interp,
     stack::Stack,
     value::{Func, Value},
 };
+use chili_ast::workspace::BindingInfoId;
 use colored::Colorize;
-use std::{
-    fmt::Display,
-    fs::OpenOptions,
-    io::{BufWriter, Write},
-    path::Path,
-};
-use ustr::UstrMap;
+use std::{collections::HashMap, fmt::Display};
 
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
 
 pub type Bytecode = Vec<Instruction>;
 pub type Constants = Vec<Value>;
-pub type Globals = UstrMap<Value>;
+pub type Globals = HashMap<BindingInfoId, Value>;
 
 #[derive(Debug, Clone)]
 struct CallFrame {
@@ -36,11 +32,6 @@ impl Display for CallFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<{:06}\t{}>", self.ip, self.func.name,)
     }
-}
-
-pub fn run(globals: &mut Globals, constants: &mut Constants, code: Bytecode) -> Value {
-    let mut vm = VM::new(globals, constants);
-    vm.run(code)
 }
 
 macro_rules! binary_op {
@@ -77,26 +68,24 @@ macro_rules! logic_op {
     };
 }
 
-struct VM<'vm> {
-    globals: &'vm mut Globals,
-    constants: &'vm mut Constants,
+pub(crate) struct VM<'vm> {
+    interp: &'vm Interp,
     stack: Stack<Value, STACK_MAX>,
     frames: Stack<CallFrame, FRAMES_MAX>,
     // ffi: FFI,
 }
 
 impl<'vm> VM<'vm> {
-    fn new(globals: &'vm mut Globals, constants: &'vm mut Constants) -> Self {
+    pub(crate) fn new(interp: &'vm Interp) -> Self {
         Self {
-            globals,
-            constants,
+            interp,
             stack: Stack::new(),
             frames: Stack::new(),
             // ffi: FFI::new(),
         }
     }
 
-    fn run(&'vm mut self, code: Bytecode) -> Value {
+    pub(crate) fn run(&'vm mut self, code: Bytecode) -> Value {
         let function = Func {
             name: "root".to_string(),
             arg_count: 0,
@@ -113,29 +102,28 @@ impl<'vm> VM<'vm> {
             let inst = &self.current_code()[self.frames.peek(0).ip].clone();
 
             self.trace(&self.frames.peek(0).ip, &inst);
+            // std::thread::sleep(core::time::Duration::from_millis(100));
 
             self.frames.peek_mut().ip += 1;
 
-            std::thread::sleep(core::time::Duration::from_millis(100));
-
-            match inst {
-                &Instruction::Noop => (),
-                &Instruction::Pop => {
+            match *inst {
+                Instruction::Noop => (),
+                Instruction::Pop => {
                     self.stack.pop();
                 }
-                &Instruction::Const(addr) => {
+                Instruction::Const(addr) => {
                     self.stack.push(self.get_const(addr).clone());
                 }
-                &Instruction::Add => {
+                Instruction::Add => {
                     binary_op!(self.stack, +);
                 }
-                &Instruction::Sub => {
+                Instruction::Sub => {
                     binary_op!(self.stack, -);
                 }
-                &Instruction::Mul => {
+                Instruction::Mul => {
                     binary_op!(self.stack, *);
                 }
-                &Instruction::Div => {
+                Instruction::Div => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -150,109 +138,110 @@ impl<'vm> VM<'vm> {
                         _ => panic!("invalid types in division"),
                     }
                 }
-                &Instruction::Mod => {
+                Instruction::Mod => {
                     binary_op!(self.stack, %);
                 }
-                &Instruction::Neg => match self.stack.pop() {
+                Instruction::Neg => match self.stack.pop() {
                     Value::Int(v) => self.stack.push(Value::Int(-v)),
                     _ => panic!("invalid type in neg"),
                 },
-                &Instruction::Not => {
+                Instruction::Not => {
                     let value = self.stack.pop();
                     self.stack.push(Value::Bool(!value.is_truthy()));
                 }
-                &Instruction::Eq => {
+                Instruction::Eq => {
                     comp_op!(self.stack, ==);
                 }
-                &Instruction::NEq => {
+                Instruction::NEq => {
                     comp_op!(self.stack, !=);
                 }
-                &Instruction::Lt => {
+                Instruction::Lt => {
                     comp_op!(self.stack, <);
                 }
-                &Instruction::LtEq => {
+                Instruction::LtEq => {
                     comp_op!(self.stack, <=);
                 }
-                &Instruction::Gt => {
+                Instruction::Gt => {
                     comp_op!(self.stack, >);
                 }
-                &Instruction::GtEq => {
+                Instruction::GtEq => {
                     comp_op!(self.stack, >=);
                 }
-                &Instruction::BAnd => {
+                Instruction::BAnd => {
                     logic_op!(self.stack, &&);
                 }
-                &Instruction::BOr => {
+                Instruction::BOr => {
                     logic_op!(self.stack, ||);
-                } // &Instruction::Jmp(addr) => {
-                  //     self.jmp(addr);
-                  // }
-                  // &Instruction::Jmpt(addr) => {
-                  //     let value = self.stack.peek(0);
-                  //     if value.is_truthy() {
-                  //         self.jmp(addr);
-                  //     }
-                  // }
-                  // &Instruction::Jmpf(addr) => {
-                  //     let value = self.stack.peek(0);
-                  //     if !value.is_truthy() {
-                  //         self.jmp(addr);
-                  //     }
-                  // }
-                  // &Instruction::Return => {
-                  //     let frame = self.frames.pop();
-                  //     let return_value = self.stack.pop();
+                } // Instruction::Jmp(addr) => {
+                //     self.jmp(addr);
+                // }
+                // Instruction::Jmpt(addr) => {
+                //     let value = self.stack.peek(0);
+                //     if value.is_truthy() {
+                //         self.jmp(addr);
+                //     }
+                // }
+                // Instruction::Jmpf(addr) => {
+                //     let value = self.stack.peek(0);
+                //     if !value.is_truthy() {
+                //         self.jmp(addr);
+                //     }
+                // }
+                // Instruction::Return => {
+                //     let frame = self.frames.pop();
+                //     let return_value = self.stack.pop();
 
-                  //     if self.frames.is_empty() {
-                  //         return return_value;
-                  //     } else {
-                  //         self.stack.truncate(frame.slot - frame.func.arg_count);
-                  //         self.stack.push(return_value);
-                  //     }
-                  // }
-                  // &Instruction::Call(arg_count) => {
-                  //     let value = self.stack.peek(0);
-                  //     match value {
-                  //         Value::Func(func) => {
-                  //             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
-                  //             self.frames.push(frame);
-                  //         } // Value::ForeignFunc(func) => {
-                  //         //     let func = func.clone();
+                //     if self.frames.is_empty() {
+                //         break return_value;
+                //     } else {
+                //         self.stack.truncate(frame.slot - frame.func.arg_count);
+                //         self.stack.push(return_value);
+                //     }
+                // }
+                // Instruction::Call(arg_count) => {
+                //     let value = self.stack.peek(0);
+                //     match value {
+                //         Value::Func(func) => {
+                //             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
+                //             self.frames.push(frame);
+                //         } // Value::ForeignFunc(func) => {
+                //         //     let func = func.clone();
 
-                  //         //     self.stack.pop(); // this pops the actual foreign function
+                //         //     self.stack.pop(); // this pops the actual foreign function
 
-                  //         //     let mut values = (0..arg_count)
-                  //         //         .into_iter()
-                  //         //         .map(|_| self.stack.pop())
-                  //         //         .collect::<Vec<Value>>();
-                  //         //     values.reverse();
+                //         //     let mut values = (0..arg_count)
+                //         //         .into_iter()
+                //         //         .map(|_| self.stack.pop())
+                //         //         .collect::<Vec<Value>>();
+                //         //     values.reverse();
 
-                  //         // TODO: push actual value by the return value of the func
-                  //         //                                                          let result = self.ffi.call(func,
-                  //         // values).unwrap();
-                  //         // self.stack.push(Value::Int(result as i64));                         }
-                  //         _ => panic!("tried to call an uncallable value `{}`", value),
-                  //     }
-                  // }
-                  // &Instruction::GetGlobal(name) => {
-                  //     match self.globals.get(&name) {
-                  //         Some(value) => self.stack.push(value.clone()),
-                  //         None => panic!("undefined global `{}`", name),
-                  //     };
-                  // }
-                  // &Instruction::SetGlobal(name) => {
-                  //     self.globals.insert(name, self.stack.pop());
-                  // }
-                  // &Instruction::GetLocal(slot) => {
-                  //     let slot = self.frames.peek(0).slot as isize + slot;
-                  //     let value = self.stack.get(slot as usize).clone();
-                  //     self.stack.push(value);
-                  // }
-                  // &Instruction::SetLocal(slot) => {
-                  //     let slot = self.frames.peek(0).slot as isize + slot;
-                  //     let value = self.stack.peek(0).clone();
-                  //     self.stack.set(slot as usize, value);
-                  // }
+                //         // TODO: push actual value by the return value of the func
+                //         //                                                          let result = self.ffi.call(func,
+                //         // values).unwrap();
+                //         // self.stack.push(Value::Int(result as i64));                         }
+                //         _ => panic!("tried to call an uncallable value `{}`", value),
+                //     }
+                // }
+                // Instruction::GetGlobal(name) => {
+                //     match self.globals.get(&name) {
+                //         Some(value) => self.stack.push(value.clone()),
+                //         None => panic!("undefined global `{}`", name),
+                //     };
+                // }
+                // Instruction::SetGlobal(name) => {
+                //     self.globals.insert(name, self.stack.pop());
+                // }
+                // Instruction::GetLocal(slot) => {
+                //     let slot = self.frames.peek(0).slot as isize + slot;
+                //     let value = self.stack.get(slot as usize).clone();
+                //     self.stack.push(value);
+                // }
+                // Instruction::SetLocal(slot) => {
+                //     let slot = self.frames.peek(0).slot as isize + slot;
+                //     let value = self.stack.peek(0).clone();
+                //     self.stack.set(slot as usize, value);
+                // }
+                Instruction::Halt => break self.stack.pop(),
             }
         }
     }
@@ -266,7 +255,7 @@ impl<'vm> VM<'vm> {
     }
 
     fn get_const(&self, addr: usize) -> &Value {
-        self.constants.get(addr).unwrap()
+        self.interp.constants.get(addr).unwrap()
     }
 
     fn jmp(&mut self, offset: isize) {
@@ -283,58 +272,5 @@ impl<'vm> VM<'vm> {
             inst.to_string().bold(),
             stack_trace.blue()
         );
-    }
-}
-
-pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Bytecode) {
-    if let Ok(file) = &OpenOptions::new()
-        .read(false)
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .append(false)
-        .open(Path::new("vm.out"))
-    {
-        let mut writer = BufWriter::new(file);
-
-        for (index, inst) in code.iter().enumerate() {
-            writer
-                .write(format!("{:06}\t{}\n", index, inst).as_bytes())
-                .unwrap();
-        }
-
-        writer.write("\nglobals:\n".as_bytes()).unwrap();
-
-        for (name, value) in globals.iter() {
-            writer
-                .write(
-                    format!(
-                        "${} = {}\n",
-                        name,
-                        match value {
-                            Value::Int(_) | Value::Bool(_) | Value::Tuple(_) => value.to_string(),
-                            Value::Func(func) => format!(
-                                "func:\n{}",
-                                func.code
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(index, inst)| format!("{:06}\t{}", index, inst))
-                                    .collect::<Vec<String>>()
-                                    .join("\n")
-                            ),
-                        },
-                    )
-                    .as_bytes(),
-                )
-                .unwrap();
-        }
-
-        writer.write("\nconstants:\n".as_bytes()).unwrap();
-
-        for (index, constant) in constants.iter().enumerate() {
-            writer
-                .write(format!("%{}\t{}\n", index, constant,).as_bytes())
-                .unwrap();
-        }
     }
 }

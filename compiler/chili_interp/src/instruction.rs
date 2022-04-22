@@ -29,6 +29,7 @@ pub enum Instruction {
     // SetGlobal(Ustr),
     // GetLocal(isize),
     // SetLocal(isize),
+    Halt,
 }
 
 impl Display for Instruction {
@@ -64,6 +65,7 @@ impl Display for Instruction {
                 // Instruction::SetGlobal(name) => format!("set_global ${}", name),
                 // Instruction::GetLocal(slot) => format!("get_local ${}", slot),
                 // Instruction::SetLocal(slot) => format!("set_local ${}", slot),
+                Instruction::Halt => "halt".to_string(),
             }
         )
     }

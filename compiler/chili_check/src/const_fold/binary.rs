@@ -1,137 +1,137 @@
-use chili_ast::{ast, value::Value};
+use chili_ast::{ast, value::ConstValue};
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
 
 pub(crate) fn const_fold_binary(
-    lhs: Value,
-    rhs: Value,
+    lhs: ConstValue,
+    rhs: ConstValue,
     op: ast::BinaryOp,
     span: Span,
-) -> DiagnosticResult<Value> {
+) -> DiagnosticResult<ConstValue> {
     match (lhs, rhs) {
-        (Value::Bool(lhs), Value::Bool(rhs)) => {
+        (ConstValue::Bool(lhs), ConstValue::Bool(rhs)) => {
             let value = match op {
-                ast::BinaryOp::Eq => Value::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => Value::Bool(lhs != rhs),
-                ast::BinaryOp::And => Value::Bool(lhs && rhs),
-                ast::BinaryOp::Or => Value::Bool(lhs || rhs),
+                ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
+                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::And => ConstValue::Bool(lhs && rhs),
+                ast::BinaryOp::Or => ConstValue::Bool(lhs || rhs),
                 _ => unreachable!("got {}", op),
             };
 
             Ok(value)
         }
-        (Value::Int(lhs), Value::Int(rhs)) => {
+        (ConstValue::Int(lhs), ConstValue::Int(rhs)) => {
             let value = match op {
-                ast::BinaryOp::Add => Value::Int(lhs + rhs),
-                ast::BinaryOp::Sub => Value::Int(lhs - rhs),
-                ast::BinaryOp::Mul => Value::Int(lhs * rhs),
+                ast::BinaryOp::Add => ConstValue::Int(lhs + rhs),
+                ast::BinaryOp::Sub => ConstValue::Int(lhs - rhs),
+                ast::BinaryOp::Mul => ConstValue::Int(lhs * rhs),
                 ast::BinaryOp::Div => {
                     if rhs == 0 {
                         return Err(SyntaxError::divide_by_zero(span));
                     }
 
-                    Value::Int(lhs / rhs)
+                    ConstValue::Int(lhs / rhs)
                 }
                 ast::BinaryOp::Rem => {
                     if rhs == 0 {
                         return Err(SyntaxError::divide_by_zero(span));
                     }
 
-                    Value::Int(lhs % rhs)
+                    ConstValue::Int(lhs % rhs)
                 }
-                ast::BinaryOp::Shl => Value::Int(lhs << rhs),
-                ast::BinaryOp::Shr => Value::Int(lhs >> rhs),
-                ast::BinaryOp::BitwiseOr => Value::Int(lhs | rhs),
-                ast::BinaryOp::BitwiseXor => Value::Int(lhs ^ rhs),
-                ast::BinaryOp::BitwiseAnd => Value::Int(lhs & rhs),
-                ast::BinaryOp::Eq => Value::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => Value::Bool(lhs != rhs),
-                ast::BinaryOp::Lt => Value::Bool(lhs < rhs),
-                ast::BinaryOp::LtEq => Value::Bool(lhs <= rhs),
-                ast::BinaryOp::Gt => Value::Bool(lhs > rhs),
-                ast::BinaryOp::GtEq => Value::Bool(lhs >= rhs),
+                ast::BinaryOp::Shl => ConstValue::Int(lhs << rhs),
+                ast::BinaryOp::Shr => ConstValue::Int(lhs >> rhs),
+                ast::BinaryOp::BitwiseOr => ConstValue::Int(lhs | rhs),
+                ast::BinaryOp::BitwiseXor => ConstValue::Int(lhs ^ rhs),
+                ast::BinaryOp::BitwiseAnd => ConstValue::Int(lhs & rhs),
+                ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
+                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
+                ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
+                ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
+                ast::BinaryOp::GtEq => ConstValue::Bool(lhs >= rhs),
                 _ => unreachable!("got {}", op),
             };
 
             Ok(value)
         }
-        (Value::Float(lhs), Value::Float(rhs)) => {
+        (ConstValue::Float(lhs), ConstValue::Float(rhs)) => {
             let value = match op {
-                ast::BinaryOp::Add => Value::Float(lhs + rhs),
-                ast::BinaryOp::Sub => Value::Float(lhs - rhs),
-                ast::BinaryOp::Mul => Value::Float(lhs * rhs),
-                ast::BinaryOp::Div => Value::Float(lhs / rhs),
-                ast::BinaryOp::Rem => Value::Float(lhs % rhs),
-                ast::BinaryOp::Eq => Value::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => Value::Bool(lhs != rhs),
-                ast::BinaryOp::Lt => Value::Bool(lhs < rhs),
-                ast::BinaryOp::LtEq => Value::Bool(lhs <= rhs),
-                ast::BinaryOp::Gt => Value::Bool(lhs > rhs),
-                ast::BinaryOp::GtEq => Value::Bool(lhs >= rhs),
+                ast::BinaryOp::Add => ConstValue::Float(lhs + rhs),
+                ast::BinaryOp::Sub => ConstValue::Float(lhs - rhs),
+                ast::BinaryOp::Mul => ConstValue::Float(lhs * rhs),
+                ast::BinaryOp::Div => ConstValue::Float(lhs / rhs),
+                ast::BinaryOp::Rem => ConstValue::Float(lhs % rhs),
+                ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
+                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
+                ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
+                ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
+                ast::BinaryOp::GtEq => ConstValue::Bool(lhs >= rhs),
                 _ => unreachable!("got {}", op),
             };
 
             Ok(value)
         }
-        (Value::Float(lhs), Value::Int(rhs)) => {
+        (ConstValue::Float(lhs), ConstValue::Int(rhs)) => {
             let rhs = rhs as f64;
 
             let value = match op {
-                ast::BinaryOp::Add => Value::Float(lhs + rhs),
-                ast::BinaryOp::Sub => Value::Float(lhs - rhs),
-                ast::BinaryOp::Mul => Value::Float(lhs * rhs),
+                ast::BinaryOp::Add => ConstValue::Float(lhs + rhs),
+                ast::BinaryOp::Sub => ConstValue::Float(lhs - rhs),
+                ast::BinaryOp::Mul => ConstValue::Float(lhs * rhs),
                 ast::BinaryOp::Div => {
                     if rhs == 0.0 {
                         return Err(SyntaxError::divide_by_zero(span));
                     }
 
-                    Value::Float(lhs / rhs)
+                    ConstValue::Float(lhs / rhs)
                 }
                 ast::BinaryOp::Rem => {
                     if rhs == 0.0 {
                         return Err(SyntaxError::divide_by_zero(span));
                     }
 
-                    Value::Float(lhs % rhs)
+                    ConstValue::Float(lhs % rhs)
                 }
-                ast::BinaryOp::Eq => Value::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => Value::Bool(lhs != rhs),
-                ast::BinaryOp::Lt => Value::Bool(lhs < rhs),
-                ast::BinaryOp::LtEq => Value::Bool(lhs <= rhs),
-                ast::BinaryOp::Gt => Value::Bool(lhs > rhs),
-                ast::BinaryOp::GtEq => Value::Bool(lhs >= rhs),
+                ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
+                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
+                ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
+                ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
+                ast::BinaryOp::GtEq => ConstValue::Bool(lhs >= rhs),
                 _ => unreachable!("got {}", op),
             };
 
             Ok(value)
         }
-        (Value::Int(lhs), Value::Float(rhs)) => {
+        (ConstValue::Int(lhs), ConstValue::Float(rhs)) => {
             let lhs = lhs as f64;
 
             let value = match op {
-                ast::BinaryOp::Add => Value::Float(lhs + rhs),
-                ast::BinaryOp::Sub => Value::Float(lhs - rhs),
-                ast::BinaryOp::Mul => Value::Float(lhs * rhs),
+                ast::BinaryOp::Add => ConstValue::Float(lhs + rhs),
+                ast::BinaryOp::Sub => ConstValue::Float(lhs - rhs),
+                ast::BinaryOp::Mul => ConstValue::Float(lhs * rhs),
                 ast::BinaryOp::Div => {
                     if rhs == 0.0 {
                         return Err(SyntaxError::divide_by_zero(span));
                     }
 
-                    Value::Float(lhs / rhs)
+                    ConstValue::Float(lhs / rhs)
                 }
                 ast::BinaryOp::Rem => {
                     if rhs == 0.0 {
                         return Err(SyntaxError::divide_by_zero(span));
                     }
 
-                    Value::Float(lhs % rhs)
+                    ConstValue::Float(lhs % rhs)
                 }
-                ast::BinaryOp::Eq => Value::Bool(lhs == rhs),
-                ast::BinaryOp::NEq => Value::Bool(lhs != rhs),
-                ast::BinaryOp::Lt => Value::Bool(lhs < rhs),
-                ast::BinaryOp::LtEq => Value::Bool(lhs <= rhs),
-                ast::BinaryOp::Gt => Value::Bool(lhs > rhs),
-                ast::BinaryOp::GtEq => Value::Bool(lhs >= rhs),
+                ast::BinaryOp::Eq => ConstValue::Bool(lhs == rhs),
+                ast::BinaryOp::NEq => ConstValue::Bool(lhs != rhs),
+                ast::BinaryOp::Lt => ConstValue::Bool(lhs < rhs),
+                ast::BinaryOp::LtEq => ConstValue::Bool(lhs <= rhs),
+                ast::BinaryOp::Gt => ConstValue::Bool(lhs > rhs),
+                ast::BinaryOp::GtEq => ConstValue::Bool(lhs >= rhs),
                 _ => unreachable!("got {}", op),
             };
 

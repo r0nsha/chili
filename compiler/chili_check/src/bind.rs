@@ -8,7 +8,7 @@ use chili_ast::{
     ast,
     pattern::{Pattern, SymbolPattern},
     ty::{PartialStructTy, Ty, TyKind},
-    value::Value,
+    value::ConstValue,
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -58,7 +58,7 @@ impl<'s> CheckSess<'s> {
         symbol: Ustr,
         visibility: ast::Visibility,
         ty: Ty,
-        const_value: Option<Value>,
+        const_value: Option<ConstValue>,
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
@@ -104,7 +104,7 @@ impl<'s> CheckSess<'s> {
         pattern: &mut SymbolPattern,
         visibility: ast::Visibility,
         ty: Ty,
-        const_value: Option<Value>,
+        const_value: Option<ConstValue>,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<BindingInfoId> {
         pattern.binding_info_id = self.bind_symbol(
@@ -127,7 +127,7 @@ impl<'s> CheckSess<'s> {
         pattern: &mut Pattern,
         visibility: ast::Visibility,
         ty: Ty,
-        const_value: Option<Value>,
+        const_value: Option<ConstValue>,
         kind: ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {

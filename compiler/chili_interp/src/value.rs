@@ -4,6 +4,7 @@ use std::fmt::Display;
 #[derive(Debug, Clone)]
 pub enum Value {
     Int(i64),
+    Float(f64),
     Bool(bool),
     Tuple(Vec<Value>),
     Func(Func),
@@ -26,6 +27,7 @@ impl Display for Value {
             "{}",
             match self {
                 Value::Int(v) => format!("int {}", v),
+                Value::Float(v) => format!("float {}", v),
                 Value::Bool(v) => format!("bool {}", v),
                 Value::Tuple(v) => format!(
                     "({})",

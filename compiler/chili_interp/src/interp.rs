@@ -1,8 +1,12 @@
+use crate::{
+    dump_bytecode_to_file,
+    instruction::Instruction,
+    lower::Lower,
+    value::Value,
+    vm::{Bytecode, Globals, VM},
+};
+use chili_ast::ast;
 use std::collections::HashMap;
-
-use chili_ast::{ast, value::Value, workspace::BindingInfoId};
-
-use crate::vm::Bytecode;
 
 pub type InterpResult = Result<Value, InterpErr>;
 
@@ -10,15 +14,15 @@ pub type InterpResult = Result<Value, InterpErr>;
 pub enum InterpErr {}
 
 pub struct Interp {
-    globals: HashMap<BindingInfoId, Value>,
-    functions: HashMap<BindingInfoId, Bytecode>,
+    pub(crate) globals: Globals,
+    pub(crate) constants: Vec<Value>,
 }
 
 impl Interp {
     pub fn new() -> Self {
         Self {
             globals: HashMap::new(),
-            functions: HashMap::new(),
+            constants: vec![],
         }
     }
 
@@ -37,6 +41,26 @@ pub struct InterpSess<'i> {
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&mut self, expr: &ast::Expr) -> InterpResult {
-        todo!("eval")
+        let mut code = vec![];
+        expr.lower(self, &mut code);
+        code.push(Instruction::Halt);
+
+        dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
+
+        let mut vm = self.create_vm();
+        let result = vm.run(code);
+
+        println!("result = {}", result);
+
+        Ok(result)
+    }
+
+    pub(crate) fn create_vm(&'i self) -> VM<'i> {
+        VM::new(self.interp)
+    }
+
+    pub(crate) fn push_const(&mut self, code: &mut Bytecode, value: Value) {
+        self.interp.constants.push(value);
+        code.push(Instruction::Const(self.interp.constants.len() - 1));
     }
 }

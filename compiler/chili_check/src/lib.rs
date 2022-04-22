@@ -8,7 +8,7 @@ use chili_ast::{
     ast::{self, Expr, ForeignLibrary},
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
-    value::Value,
+    value::ConstValue,
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
     },
@@ -182,13 +182,13 @@ impl<'s> CheckSess<'s> {
 
     pub(crate) fn extract_const_type(
         &self,
-        const_value: Option<Value>,
+        const_value: Option<ConstValue>,
         ty: Ty,
         span: Span,
     ) -> DiagnosticResult<Ty> {
         match const_value {
             Some(v) => {
-                if let Value::Type(t) = v {
+                if let ConstValue::Type(t) = v {
                     return Ok(t);
                 }
             }
@@ -200,7 +200,7 @@ impl<'s> CheckSess<'s> {
 
     pub(crate) fn extract_const_int(
         &mut self,
-        value: Option<Value>,
+        value: Option<ConstValue>,
         ty: Ty,
         span: Span,
     ) -> DiagnosticResult<i64> {
@@ -233,7 +233,7 @@ impl<'s> CheckSess<'s> {
                 symbol,
                 visibility: ast::Visibility::Public,
                 ty: sess.tycx.bound_builtin(ty.kind().create_type()),
-                const_value: Some(Value::Type(ty)),
+                const_value: Some(ConstValue::Type(ty)),
                 is_mutable: false,
                 kind: ast::BindingKind::Type,
                 scope_level: ScopeLevel::Global,
@@ -278,7 +278,7 @@ pub(crate) type CheckResult = DiagnosticResult<Res>;
 #[derive(Debug)]
 pub(crate) struct Res {
     ty: Ty,
-    const_value: Option<Value>,
+    const_value: Option<ConstValue>,
 }
 
 impl Res {
@@ -289,11 +289,11 @@ impl Res {
         }
     }
 
-    pub(crate) fn new_maybe_const(ty: Ty, const_value: Option<Value>) -> Self {
+    pub(crate) fn new_maybe_const(ty: Ty, const_value: Option<ConstValue>) -> Self {
         Self { ty, const_value }
     }
 
-    pub(crate) fn new_const(ty: Ty, const_value: Value) -> Self {
+    pub(crate) fn new_const(ty: Ty, const_value: ConstValue) -> Self {
         Self {
             ty,
             const_value: Some(const_value),
@@ -1105,7 +1105,7 @@ impl Check for ast::Expr {
                         )?;
 
                         if let Some(value) = res.const_value {
-                            let value = Value::Bool(!value.into_bool());
+                            let value = ConstValue::Bool(!value.into_bool());
                             *self = value.into_literal().into_expr(res.ty, self.span);
                             Ok(Res::new_const(res.ty, value))
                         } else {
@@ -1125,8 +1125,8 @@ impl Check for ast::Expr {
 
                         if let Some(value) = res.const_value {
                             let value = match value {
-                                Value::Int(i) => Value::Int(-i),
-                                Value::Float(f) => Value::Float(-f),
+                                ConstValue::Int(i) => ConstValue::Int(-i),
+                                ConstValue::Float(f) => ConstValue::Float(-f),
                                 _ => unreachable!("got {}", value),
                             };
 
@@ -1162,7 +1162,7 @@ impl Check for ast::Expr {
                         )?;
 
                         if let Some(value) = res.const_value {
-                            let value = Value::Int(!value.into_int());
+                            let value = ConstValue::Int(!value.into_int());
                             *self = value.into_literal().into_expr(res.ty, self.span);
                             Ok(Res::new_const(res.ty, value))
                         } else {
@@ -1352,7 +1352,7 @@ impl Check for ast::Expr {
                         }
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => Ok(
-                        Res::new_const(sess.tycx.common_types.uint, Value::Int(*size as _)),
+                        Res::new_const(sess.tycx.common_types.uint, ConstValue::Int(*size as _)),
                     ),
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         Ok(Res::new(sess.tycx.common_types.uint))
@@ -1500,7 +1500,7 @@ impl Check for ast::Expr {
                 if is_tuple_type {
                     Ok(Res::new_const(
                         sess.tycx.bound(kind.create_type(), self.span),
-                        Value::Type(ty),
+                        ConstValue::Type(ty),
                     ))
                 } else {
                     Ok(Res::new(ty))
@@ -1558,7 +1558,7 @@ impl Check for ast::Expr {
                 let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type(), self.span),
-                    Value::Type(sess.tycx.bound(kind.clone(), self.span)),
+                    ConstValue::Type(sess.tycx.bound(kind.clone(), self.span)),
                 ))
             }
             ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
@@ -1567,7 +1567,7 @@ impl Check for ast::Expr {
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type(), self.span),
-                    Value::Type(sess.tycx.bound(kind, self.span)),
+                    ConstValue::Type(sess.tycx.bound(kind, self.span)),
                 ))
             }
             ast::ExprKind::ArrayType(ast::ArrayType { inner, size }) => {
@@ -1588,7 +1588,7 @@ impl Check for ast::Expr {
 
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type(), self.span),
-                    Value::Type(sess.tycx.bound(kind, self.span)),
+                    ConstValue::Type(sess.tycx.bound(kind, self.span)),
                 ))
             }
             ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
@@ -1597,7 +1597,7 @@ impl Check for ast::Expr {
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
                 Ok(Res::new_const(
                     sess.tycx.bound(kind.clone().create_type(), self.span),
-                    Value::Type(sess.tycx.bound(kind, self.span)),
+                    ConstValue::Type(sess.tycx.bound(kind, self.span)),
                 ))
             }
             ast::ExprKind::StructType(st) => {
@@ -1628,7 +1628,7 @@ impl Check for ast::Expr {
                     st.name,
                     ast::Visibility::Private,
                     inferred_ty,
-                    Some(Value::Type(opaque_struct_ty)),
+                    Some(ConstValue::Type(opaque_struct_ty)),
                     false,
                     ast::BindingKind::Type,
                     self.span,
@@ -1668,7 +1668,7 @@ impl Check for ast::Expr {
 
                 Ok(Res::new_const(
                     sess.tycx.bound(struct_ty.clone().create_type(), self.span),
-                    Value::Type(sess.tycx.bound(struct_ty, self.span)),
+                    ConstValue::Type(sess.tycx.bound(struct_ty, self.span)),
                 ))
             }
             ast::ExprKind::FnType(sig) => {
@@ -1679,14 +1679,14 @@ impl Check for ast::Expr {
                 } else {
                     Ok(Res::new_const(
                         sess.tycx.bound(res.ty.kind().create_type(), self.span),
-                        Value::Type(res.ty),
+                        ConstValue::Type(res.ty),
                     ))
                 }
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
                     sess.tycx.bound(ty.kind().create_type(), self.span),
-                    Value::Type(ty),
+                    ConstValue::Type(ty),
                 )),
                 None => Err(Diagnostic::error()
                     .with_message("`Self` is only available within struct types")
@@ -1696,21 +1696,21 @@ impl Check for ast::Expr {
                 let ty = sess.tycx.common_types.never;
                 Ok(Res::new_const(
                     sess.tycx.bound(ty.kind().create_type(), self.span),
-                    Value::Type(ty),
+                    ConstValue::Type(ty),
                 ))
             }
             ast::ExprKind::UnitType => {
                 let ty = sess.tycx.common_types.unit;
                 Ok(Res::new_const(
                     sess.tycx.bound(ty.kind().create_type(), self.span),
-                    Value::Type(ty),
+                    ConstValue::Type(ty),
                 ))
             }
             ast::ExprKind::PlaceholderType => {
                 let ty = sess.tycx.var(self.span);
                 Ok(Res::new_const(
                     sess.tycx.bound(ty.kind().create_type(), self.span),
-                    Value::Type(ty),
+                    ConstValue::Type(ty),
                 ))
             }
             ast::ExprKind::Error => Ok(Res::new(sess.tycx.var(self.span))),
@@ -1892,11 +1892,13 @@ impl Check for ast::Literal {
             ast::LiteralKind::Unit => Res::new(sess.tycx.common_types.unit),
             ast::LiteralKind::Nil => Res::new(sess.tycx.var(self.span)),
             ast::LiteralKind::Bool(b) => {
-                Res::new_const(sess.tycx.common_types.bool, Value::Bool(*b))
+                Res::new_const(sess.tycx.common_types.bool, ConstValue::Bool(*b))
             }
-            ast::LiteralKind::Int(i) => Res::new_const(sess.tycx.anyint(self.span), Value::Int(*i)),
+            ast::LiteralKind::Int(i) => {
+                Res::new_const(sess.tycx.anyint(self.span), ConstValue::Int(*i))
+            }
             ast::LiteralKind::Float(f) => {
-                Res::new_const(sess.tycx.anyfloat(self.span), Value::Float(*f))
+                Res::new_const(sess.tycx.anyfloat(self.span), ConstValue::Float(*f))
             }
             ast::LiteralKind::Str(_) => Res::new(sess.tycx.common_types.str),
             ast::LiteralKind::Char(_) => Res::new(sess.tycx.common_types.u8),
