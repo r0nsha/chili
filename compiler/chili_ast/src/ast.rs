@@ -400,29 +400,7 @@ pub struct Binding {
     pub ty: Ty,
     pub expr: Option<Expr>,
     pub lib_name: Option<Ustr>,
-}
-
-impl Binding {
-    pub fn new(
-        visibility: Visibility,
-        kind: BindingKind,
-        pattern: Pattern,
-        ty: Ty,
-        ty_expr: Option<Expr>,
-        value: Option<Expr>,
-        lib_name: Option<Ustr>,
-    ) -> Self {
-        Self {
-            module_id: Default::default(),
-            visibility,
-            kind,
-            pattern,
-            ty,
-            ty_expr,
-            expr: value,
-            lib_name,
-        }
-    }
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

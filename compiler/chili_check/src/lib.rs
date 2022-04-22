@@ -462,6 +462,11 @@ impl Check for ast::Binding {
                 self.ty,
                 const_value,
                 self.kind,
+                self.expr
+                    .as_ref()
+                    .map(|e| e.span)
+                    .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
+                    .unwrap_or(self.span),
             )?;
         }
 
@@ -525,6 +530,8 @@ impl Check for ast::Fn {
                     .as_ref()
                     .map_or(param.pattern.span(), |e| e.span),
             );
+
+            let span = param.pattern.span();
             sess.bind_pattern(
                 env,
                 &mut param.pattern,
@@ -532,6 +539,7 @@ impl Check for ast::Fn {
                 ty,
                 None,
                 ast::BindingKind::Value,
+                span,
             )?;
         }
 

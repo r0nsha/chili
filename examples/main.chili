@@ -2,19 +2,19 @@ use c.printf
 
 let main = fn {
 	// test1(5) // invalid
-	printf("%d\n".data, test1(.{ a: 1, b: 2 })) // valid
-	printf("%d\n".data, test1(.{ a: 1, c: 3, b: 2 })) // valid
+	// printf("%d\n".data, test1(.{ a: 1, c: 3, b: 2 })) // valid
+	// test1(.{ a: 1, b: 2, c: 3 }) // valid
 
 	// test2(5) // invalid
-	// printf("%d\n".data, test2(.{ a: 1, b: 2 })) // valid
 	// printf("%d\n".data, test2(.{ a: 1, c: 3, b: 2 })) // valid
+	// printf("%d\n".data, test2(.{ a: 1, b: 2 })) // valid
 
 	// type Foo = { c: int, g: int }
-	// let x: Foo = { c: 1, g: 2 }
-	// test2(5) // invalid
-	// type Bar = { a: int, b: int }
-	// let x: Bar = { a: 1, b: 2 }
-	// test2(5) // valid
+	// let x: Foo = .{ c: 1, g: 2 }
+	// test2(x) // invalid
+	type Bar = { a: int, b: int }
+	let x: Bar = .{ a: 1, b: 2 }
+	test2(x) // valid
 }
 
 let test1 = fn(x) {

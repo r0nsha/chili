@@ -49,6 +49,8 @@ impl<'p> Parser<'p> {
         lib_name: Ustr,
         visibility: Visibility,
     ) -> DiagnosticResult<Binding> {
+        let start_span = self.previous_span();
+
         let id = expect!(self, Id(_), "identifier")?;
 
         let pattern = Pattern::Single(SymbolPattern {
@@ -67,30 +69,34 @@ impl<'p> Parser<'p> {
             let mut sig = self.parse_fn_sig(id.symbol())?;
             sig.lib_name = Some(lib_name);
 
-            Binding::new(
+            Binding {
+                module_id: Default::default(),
                 visibility,
-                BindingKind::Value,
+                kind: BindingKind::Value,
                 pattern,
-                Ty::unknown(),
-                None,
-                Some(Expr::new(
+                ty: Ty::unknown(),
+                ty_expr: None,
+                expr: Some(Expr::new(
                     ExprKind::FnType(sig),
                     fn_sig_start_span.to(self.previous_span()),
                 )),
-                Some(lib_name),
-            )
+                lib_name: Some(lib_name),
+                span: start_span.to(self.previous_span()),
+            }
         } else {
             let ty_expr = self.parse_ty()?;
 
-            Binding::new(
+            Binding {
+                module_id: Default::default(),
                 visibility,
-                BindingKind::Value,
+                kind: BindingKind::Value,
                 pattern,
-                Ty::unknown(),
-                Some(ty_expr),
-                None,
-                Some(lib_name),
-            )
+                ty: Ty::unknown(),
+                ty_expr: Some(ty_expr),
+                expr: None,
+                lib_name: Some(lib_name),
+                span: start_span.to(self.previous_span()),
+            }
         };
 
         Ok(binding)

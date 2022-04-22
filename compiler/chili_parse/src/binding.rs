@@ -4,6 +4,7 @@ use chili_ast::{
     pattern::Pattern,
     ty::Ty,
 };
+use chili_span::To;
 
 impl<'p> Parser<'p> {
     pub(crate) fn parse_binding(
@@ -12,6 +13,8 @@ impl<'p> Parser<'p> {
         visibility: Visibility,
         require_value: bool,
     ) -> DiagnosticResult<Binding> {
+        let start_span = self.previous_span();
+
         match kind {
             BindingKind::Value | BindingKind::Import => {
                 let pattern = self.parse_pattern()?;
@@ -25,47 +28,53 @@ impl<'p> Parser<'p> {
                 if require_value {
                     expect!(self, Eq, "=")?;
                 } else if !eat!(self, Eq) {
-                    return Ok(Binding::new(
+                    return Ok(Binding {
+                        module_id: Default::default(),
                         visibility,
                         kind,
                         pattern,
-                        Ty::unknown(),
-                        ty_expr,
-                        None,
-                        None,
-                    ));
+                        ty: Ty::unknown(),
+                        ty_expr: None,
+                        expr: None,
+                        lib_name: None,
+                        span: start_span.to(self.previous_span()),
+                    });
                 }
 
-                let value = if pattern.is_single() {
+                let expr = if pattern.is_single() {
                     self.parse_decl_expr(pattern.into_single().symbol)?
                 } else {
                     self.parse_expr()?
                 };
 
-                Ok(Binding::new(
+                Ok(Binding {
+                    module_id: Default::default(),
                     visibility,
                     kind,
                     pattern,
-                    Ty::unknown(),
+                    ty: Ty::unknown(),
                     ty_expr,
-                    Some(value),
-                    None,
-                ))
+                    expr: Some(expr),
+                    lib_name: None,
+                    span: start_span.to(self.previous_span()),
+                })
             }
             BindingKind::Type => {
                 let pattern = self.parse_symbol_pattern()?;
                 expect!(self, Eq, "=")?;
-                let value = self.parse_decl_ty(pattern.symbol)?;
+                let expr = self.parse_decl_ty(pattern.symbol)?;
 
-                Ok(Binding::new(
+                Ok(Binding {
+                    module_id: Default::default(),
                     visibility,
                     kind,
-                    Pattern::Single(pattern),
-                    Ty::unknown(),
-                    None,
-                    Some(value),
-                    None,
-                ))
+                    pattern: Pattern::Single(pattern),
+                    ty: Ty::unknown(),
+                    ty_expr: None,
+                    expr: Some(expr),
+                    lib_name: None,
+                    span: start_span.to(self.previous_span()),
+                })
             }
         }
     }

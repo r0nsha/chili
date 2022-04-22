@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     env::{Env, Scope},
     CheckSess,
@@ -5,11 +7,12 @@ use crate::{
 use chili_ast::{
     ast,
     pattern::{Pattern, SymbolPattern},
-    ty::Ty,
+    ty::{PartialStructTy, Ty, TyKind},
     value::Value,
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
+use chili_infer::{display::OrReportErr, unify::UnifyTy};
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -126,23 +129,42 @@ impl<'s> CheckSess<'s> {
         ty: Ty,
         const_value: Option<Value>,
         kind: ast::BindingKind,
+        ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         match pattern {
             Pattern::Single(pat) => {
                 self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
             }
             // TODO: Need InferenceValue::PartialStruct(Vec<(Ustr, Ty)>)
-            Pattern::StructUnpack(_) => {
-                todo!()
-                // for pat in pat.symbols.iter_mut() {
-                //     self.bind_symbol_pattern(workspace, pat, visibility, ty, kind)?;
-                // }
+            Pattern::StructUnpack(pat) => {
+                let partial_struct = PartialStructTy(HashMap::from_iter(
+                    pat.symbols
+                        .iter()
+                        .map(|symbol| (symbol.symbol, TyKind::Var(self.tycx.var(symbol.span))))
+                        .collect::<HashMap<Ustr, TyKind>>(),
+                ));
+                let partial_struct_ty = self.tycx.partial_struct(partial_struct.clone(), pat.span);
+
+                ty.unify(&partial_struct_ty, &mut self.tycx).or_report_err(
+                    &self.tycx,
+                    partial_struct_ty,
+                    Some(pat.span),
+                    ty,
+                    ty_origin_span,
+                )?;
+
+                for pat in pat.symbols.iter_mut() {
+                    let ty = self
+                        .tycx
+                        .bound(partial_struct[&pat.symbol].clone(), pat.span);
+                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
+                }
             }
             // TODO: Need InferenceValue::PartialTuple(Vec<Ty>)
-            Pattern::TupleUnpack(_) => {
+            Pattern::TupleUnpack(pat) => {
                 todo!()
                 // for pat in pat.symbols.iter_mut() {
-                //     self.bind_symbol_pattern(workspace, pat, visibility, ty, kind)?;
+                //     self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
                 // }
             }
         }
