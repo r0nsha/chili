@@ -46,7 +46,7 @@ impl Display for TyKind {
                 TyKind::Array(inner, size) => format!("[{}]{}", size, inner,),
                 TyKind::Slice(inner, is_mutable) =>
                     format!("[]{}{}", if *is_mutable { "mut " } else { "" }, inner),
-                TyKind::Tuple(tys) => format!(
+                TyKind::Tuple(tys) | TyKind::Infer(_, InferTy::PartialTuple(tys)) => format!(
                     "({})",
                     tys.iter()
                         .map(|t| t.to_string())

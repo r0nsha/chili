@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{inference_value::InferenceValue, normalize::NormalizeTy, ty_ctx::TyCtx};
 use chili_ast::ty::*;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
@@ -111,14 +109,24 @@ impl UnifyTy<TyKind> for TyKind {
                 }
             }
 
-            (TyKind::Infer(var, InferTy::PartialStruct(_)), other @ TyKind::Struct(_))
+            (
+                TyKind::Infer(var, InferTy::PartialTuple(_)),
+                other @ TyKind::Tuple(_) | other @ TyKind::Infer(_, InferTy::PartialTuple(_)),
+            )
+            | (other @ TyKind::Tuple(_), TyKind::Infer(var, InferTy::PartialTuple(_))) => {
+                unify_var_ty(*var, other, tycx)
+            }
+
+            (
+                TyKind::Infer(var, InferTy::PartialStruct(_)),
+                other @ TyKind::Struct(_) | other @ TyKind::Infer(_, InferTy::PartialStruct(_)),
+            )
             | (other @ TyKind::Struct(_), TyKind::Infer(var, InferTy::PartialStruct(_))) => {
                 unify_var_ty(*var, other, tycx)
             }
 
             (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
-            // (TyKind::Type(t1), t2) => t1.unify(t2, tycx),
-            // (t1, TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
+
             (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx),
             (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx),
 
@@ -224,6 +232,66 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                 _ => Err(UnifyTyErr::Mismatch),
             }
         }
+        InferenceValue::PartialTuple(mut partial_tuple) => {
+            let other_kind = other.normalize(&tycx);
+            match other_kind {
+                TyKind::Tuple(other_tuple) => {
+                    todo!("1");
+                    if other_tuple.len() < partial_tuple.len() {
+                        Err(UnifyTyErr::Mismatch)
+                    } else {
+                        todo!("check that len is the same");
+                    }
+                    // for ty in partial_tuple.iter() {
+                    //     // if both the partial struct and the struct have this field, unify their types
+                    //     if let Some(other_ty) =
+                    //         other_struct.fields.iter().find(|f| f.symbol == *symbol)
+                    //     {
+                    //         ty.unify(&other_ty.ty, tycx)?;
+                    //     } else {
+                    //         // any field that exists in the partial struct, but doesn't exist in struct, is an error
+                    //         return Err(UnifyTyErr::Mismatch);
+                    //     }
+                    // }
+
+                    // tycx.bind_ty(var, other_kind);
+
+                    // Ok(())
+                }
+                TyKind::Infer(other, InferTy::PartialTuple(ref other_partial)) => {
+                    todo!()
+                    // for (symbol, ty) in partial_struct.iter() {
+                    //     // if both partial structs have this field, unify their types
+                    //     if let Some(other_ty) = other_partial.get(symbol) {
+                    //         ty.unify(other_ty, tycx)?;
+                    //     }
+                    // }
+
+                    // for (symbol, ty) in other_partial.iter() {
+                    //     // if the other partial struct has fields that this struct doesn't, add them
+                    //     if !partial_struct.contains_key(symbol) {
+                    //         partial_struct.insert(*symbol, ty.clone());
+                    //     }
+                    // }
+
+                    // // bind both vars to the new partial struct
+                    // let value = InferenceValue::PartialStruct(partial_struct);
+
+                    // tycx.bind_value(var, value.clone());
+                    // tycx.bind_value(other, value);
+
+                    // Ok(())
+                }
+                TyKind::Var(other) => {
+                    if other != var {
+                        tycx.bind_ty(other, var.into());
+                    }
+
+                    Ok(())
+                }
+                _ => Err(UnifyTyErr::Mismatch),
+            }
+        }
         InferenceValue::Unbound => {
             let other_kind = other.normalize(&tycx);
 
@@ -248,7 +316,10 @@ fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
             match tycx.value_of(other) {
                 Bound(ty) => occurs(var, ty, tycx) || var == other,
                 PartialStruct(partial) => {
-                    partial.iter().any(|(_, ty)| occurs(var, ty, tycx)) || var == other
+                    partial.values().any(|ty| occurs(var, ty, tycx)) || var == other
+                }
+                PartialTuple(partial) => {
+                    partial.iter().any(|ty| occurs(var, ty, tycx)) || var == other
                 }
                 AnyInt | AnyFloat | Unbound => var == other,
             }

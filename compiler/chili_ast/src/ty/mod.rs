@@ -9,7 +9,7 @@ use std::{
     fmt,
     ops::{Deref, DerefMut},
 };
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{ustr, Ustr};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct Ty(pub usize);
@@ -63,6 +63,7 @@ pub enum InferTy {
     AnyInt,
     AnyFloat,
     PartialStruct(PartialStructTy),
+    PartialTuple(Vec<TyKind>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

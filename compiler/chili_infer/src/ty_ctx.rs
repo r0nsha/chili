@@ -46,6 +46,11 @@ impl TyCtx {
     }
 
     #[inline]
+    pub fn partial_tuple(&mut self, elements: Vec<TyKind>, span: Span) -> Ty {
+        self.insert(InferenceValue::PartialTuple(elements), Some(span))
+    }
+
+    #[inline]
     pub fn partial_struct(&mut self, partial_struct: PartialStructTy, span: Span) -> Ty {
         self.insert(InferenceValue::PartialStruct(partial_struct), Some(span))
     }

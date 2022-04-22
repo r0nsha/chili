@@ -1,19 +1,19 @@
-// use c.printf
+use c.printf
 
 let main = fn {
 	let two = (1,2)
 	let three = (1,2,3)
 	let four = (1,2,3,4)
 
-	test1(5) // invalid
-	printf("%d\n", test1(two)) // invalid
-	printf("%d\n", test1(three)) // valid
-	printf("%d\n", test1(four)) // valid
+	// test1(5) // invalid
+	printf("%d\n".data, test1(two)) // invalid
+	printf("%d\n".data, test1(three)) // valid
+	printf("%d\n".data, test1(four)) // valid
 
 	// test2(5) // invalid
-	// printf("%d\n", test2(two)) // invalid
-	// printf("%d\n", test2(three)) // valid
-	// printf("%d\n", test2(four)) // valid
+	// printf("%d\n".data, test2(two)) // invalid
+	// printf("%d\n".data, test2(three)) // valid
+	// printf("%d\n".data, test2(four)) // valid
 }
 
 let test1 = fn(x) {

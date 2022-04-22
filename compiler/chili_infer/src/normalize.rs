@@ -36,6 +36,9 @@ impl Normalize {
             InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
             InferenceValue::AnyInt => TyKind::Infer(ty, InferTy::AnyInt),
             InferenceValue::AnyFloat => TyKind::Infer(ty, InferTy::AnyFloat),
+            InferenceValue::PartialTuple(elements) => {
+                TyKind::Infer(ty, InferTy::PartialTuple(elements.clone()))
+            }
             InferenceValue::PartialStruct(partial) => {
                 TyKind::Infer(ty, InferTy::PartialStruct(partial.clone()))
             }
@@ -111,6 +114,10 @@ impl Normalize {
                         .map(|(symbol, ty)| (*symbol, ty.normalize(tycx)))
                         .collect::<HashMap<Ustr, TyKind>>(),
                 ))),
+            ),
+            TyKind::Infer(ty, InferTy::PartialTuple(elements)) => TyKind::Infer(
+                *ty,
+                InferTy::PartialTuple(elements.iter().map(|ty| ty.normalize(tycx)).collect()),
             ),
             _ => kind.clone(),
         }

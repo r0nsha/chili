@@ -33,7 +33,7 @@ use common::{
 };
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope};
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::repeat_with};
 use top_level::{CallerInfo, CheckTopLevel};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -1263,37 +1263,53 @@ impl Check for ast::Expr {
             ast::ExprKind::MemberAccess(access) => {
                 let res = access.expr.check(sess, env, None)?;
 
+                // if this parsing operation succeeds, this is a tuple member access - `tup.0`
+                // otherwise, this is a struct field access - `strct.field`
+                let member_tuple_index = access.member.as_str().parse::<usize>();
+
                 let member_ty = sess.tycx.var(self.span);
-                let partial_struct = sess.tycx.partial_struct(
-                    PartialStructTy(HashMap::from([(access.member, TyKind::Var(member_ty))])),
-                    self.span,
-                );
+                let partial_ty = match member_tuple_index {
+                    Ok(index) => {
+                        let elements = repeat_with(|| sess.tycx.var(self.span))
+                            .take(index + 1)
+                            .map(TyKind::Var)
+                            .collect::<Vec<TyKind>>();
+                        sess.tycx.partial_tuple(elements, self.span)
+                    }
+                    Err(_) => {
+                        let fields = HashMap::from([(access.member, TyKind::Var(member_ty))]);
+                        sess.tycx.partial_struct(PartialStructTy(fields), self.span)
+                    }
+                };
 
                 res.ty
-                    .unify(&partial_struct, &mut sess.tycx)
-                    .or_report_err(&sess.tycx, partial_struct, None, res.ty, self.span)?;
+                    .unify(&partial_ty, &mut sess.tycx)
+                    .or_report_err(&sess.tycx, partial_ty, None, res.ty, self.span)?;
 
                 let kind = res.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
-                    ty @ TyKind::Tuple(tys) => match access.member.as_str().parse::<i32>() {
-                        Ok(index) => match tys.get(index as usize) {
-                            Some(field_ty) => {
-                                Ok(Res::new(sess.tycx.bound(field_ty.clone(), self.span)))
-                            }
-                            None => Err(TypeError::tuple_field_out_of_bounds(
+                    ty @ TyKind::Tuple(elements)
+                    | ty @ TyKind::Infer(_, InferTy::PartialTuple(elements)) => {
+                        match member_tuple_index {
+                            Ok(index) => match elements.get(index) {
+                                Some(field_ty) => {
+                                    Ok(Res::new(sess.tycx.bound(field_ty.clone(), self.span)))
+                                }
+                                None => Err(TypeError::tuple_field_out_of_bounds(
+                                    access.expr.span,
+                                    &access.member,
+                                    ty.display(&sess.tycx),
+                                    elements.len() - 1,
+                                )),
+                            },
+                            Err(_) => Err(TypeError::non_numeric_tuple_field(
                                 access.expr.span,
                                 &access.member,
                                 ty.display(&sess.tycx),
-                                tys.len() - 1,
                             )),
-                        },
-                        Err(_) => Err(TypeError::non_numeric_tuple_field(
-                            access.expr.span,
-                            &access.member,
-                            ty.display(&sess.tycx),
-                        )),
-                    },
+                        }
+                    }
                     ty @ TyKind::Struct(st) => {
                         match st.fields.iter().find(|f| f.symbol == access.member) {
                             Some(field) => {
@@ -1342,26 +1358,6 @@ impl Check for ast::Expr {
                         sess.workspace.increment_binding_use(id);
                         Ok(res)
                     }
-                    // TyKind::Var(ty) => {
-                    //     let member_ty = sess.tycx.var(self.span);
-                    //     let partial_struct = sess.tycx.partial_struct(
-                    //         PartialStructTy(HashMap::from([(
-                    //             access.member,
-                    //             TyKind::Var(member_ty),
-                    //         )])),
-                    //         self.span,
-                    //     );
-
-                    //     ty.unify(&partial_struct, &mut sess.tycx).or_report_err(
-                    //         &sess.tycx,
-                    //         partial_struct,
-                    //         None,
-                    //         *ty,
-                    //         self.span,
-                    //     )?;
-
-                    //     Ok(Res::new(member_ty))
-                    // }
                     ty => Err(TypeError::member_access_on_invalid_type(
                         access.expr.span,
                         ty.display(&sess.tycx),

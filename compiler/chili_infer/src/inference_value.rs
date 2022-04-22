@@ -6,6 +6,7 @@ pub enum InferenceValue {
     Bound(TyKind),
     AnyInt,
     AnyFloat,
+    PartialTuple(Vec<TyKind>),
     PartialStruct(PartialStructTy),
     Unbound,
 }
@@ -19,6 +20,8 @@ impl fmt::Display for InferenceValue {
                 InferenceValue::Bound(t) => t.to_string(),
                 InferenceValue::AnyInt => "[anyint]".to_string(),
                 InferenceValue::AnyFloat => "[anyfloat]".to_string(),
+                InferenceValue::PartialTuple(elements) =>
+                    TyKind::Tuple(elements.clone()).to_string(),
                 InferenceValue::PartialStruct(partial) => partial.to_string(),
                 InferenceValue::Unbound => "unbound".to_string(),
             }
