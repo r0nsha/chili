@@ -39,7 +39,7 @@ impl<'p> Parser<'p> {
                 expect!(self, OpenParen, "(").or_recover(self)?;
                 let expr = self.parse_expr().or_recover(self)?;
                 ast.run_exprs.push(expr);
-                expect!(self, OpenParen, ")").or_recover(self)?;
+                expect!(self, CloseParen, ")").or_recover(self)?;
             } else {
                 self.diagnostics
                     .push(SyntaxError::expected(self.previous_span(), "run"));

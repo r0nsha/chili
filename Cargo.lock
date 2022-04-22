@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "abort_on_panic"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955f37ac58af2416bac687c8ab66a4ccba282229bd7422a28d2281a5e66a6116"
+
+[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -76,6 +82,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
+name = "cc"
+version = "1.0.73"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -120,6 +132,7 @@ dependencies = [
  "chili_ast",
  "chili_error",
  "chili_infer",
+ "chili_interp",
  "chili_span",
  "common",
  "slab",
@@ -155,6 +168,21 @@ dependencies = [
  "chili_span",
  "common",
  "slab",
+ "ustr",
+]
+
+[[package]]
+name = "chili_interp"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_error",
+ "chili_span",
+ "colored",
+ "common",
+ "libffi",
+ "libloading",
+ "strum_macros",
  "ustr",
 ]
 
@@ -551,6 +579,36 @@ name = "libc"
 version = "0.2.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8f7255a17a627354f321ef0055d63b898c6fb27eff628af4d1b66b7331edf6"
+
+[[package]]
+name = "libffi"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e08093a2ddeee94bd0c830a53d895ff91f1f3bb0f9b3c8c6b00739cdf76bc1d"
+dependencies = [
+ "abort_on_panic",
+ "libc",
+ "libffi-sys",
+]
+
+[[package]]
+name = "libffi-sys"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab4106b7f09d7b87d021334d5618fac1dfcfb824d4c5fe111ff0074dfd242e15"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "libloading"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efbc0f03f9a775e9f6aed295c6a1ba2253c5757a9e03d55c6caa46a681abcddd"
+dependencies = [
+ "cfg-if",
+ "winapi",
+]
 
 [[package]]
 name = "linked-hash-map"

@@ -5,7 +5,7 @@ mod env;
 mod top_level;
 
 use chili_ast::{
-    ast::{self, ForeignLibrary},
+    ast::{self, Expr, ForeignLibrary},
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     value::Value,
@@ -26,6 +26,7 @@ use chili_infer::{
     ty_ctx::TyCtx,
     unify::UnifyTy,
 };
+use chili_interp::interp::{Interp, InterpResult};
 use chili_span::Span;
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -57,6 +58,8 @@ pub fn check(
 pub(crate) struct CheckSess<'s> {
     pub(crate) workspace: &'s mut Workspace,
     pub(crate) target_metrics: TargetMetrics,
+
+    pub(crate) interp: Interp,
 
     pub(crate) tycx: TyCtx,
 
@@ -94,6 +97,7 @@ impl<'s> CheckSess<'s> {
         Self {
             workspace,
             target_metrics,
+            interp: Interp::new(),
             tycx: TyCtx::default(),
             old_asts,
             new_ast: ast::TypedAst::default(),
@@ -110,6 +114,14 @@ impl<'s> CheckSess<'s> {
 
         for ast in self.old_asts.iter() {
             let module_id = ast.module_id;
+
+            for expr in ast.run_exprs.iter() {
+                self.with_env(module_id, |sess, mut env| {
+                    expr.clone().check(sess, &mut env, None)
+                })?;
+                interp_expr(expr, self).unwrap();
+            }
+
             for binding in ast.bindings.iter() {
                 match &binding.pattern {
                     Pattern::Single(pat) => {
@@ -722,7 +734,10 @@ impl Check for ast::Expr {
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::Builtin::Run(expr) => expr.check(sess, env, None),
+                ast::Builtin::Run(expr) => {
+                    todo!("interpret expression, return a constant");
+                    expr.check(sess, env, None)
+                }
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.check(sess, env, None)?;
@@ -2004,4 +2019,9 @@ fn check_anonymous_struct_literal(
 
 fn get_anonymous_struct_name(span: Span) -> Ustr {
     ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
+}
+
+fn interp_expr(expr: &Expr, sess: &mut CheckSess) -> InterpResult {
+    let mut interp_sess = sess.interp.create_session(&sess.new_ast);
+    interp_sess.eval(expr)
 }

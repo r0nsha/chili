@@ -1,0 +1,16 @@
+[package]
+name = "chili_interp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+colored = "2.0.0"
+strum_macros = "0.23.1"
+ustr = "0.8.1"
+libffi = "3.0.0"
+libloading = "0.7.1"
+
+common = { path = "../common" }
+chili_span = { path = "../chili_span" }
+chili_error = { path = "../chili_error" }
+chili_ast = { path = "../chili_ast" }
