@@ -5,7 +5,7 @@ pub mod size;
 use crate::workspace::{BindingInfoId, ModuleId};
 use chili_span::Span;
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fmt,
     ops::{Deref, DerefMut},
 };
@@ -36,7 +36,7 @@ impl Ty {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum TyKind {
     Never,
     Unit,
@@ -58,7 +58,7 @@ pub enum TyKind {
     Unknown,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum InferTy {
     AnyInt,
     AnyFloat,
@@ -66,7 +66,7 @@ pub enum InferTy {
     PartialTuple(Vec<TyKind>),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum IntTy {
     I8,
     I16,
@@ -81,7 +81,7 @@ impl Default for IntTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum UIntTy {
     U8,
     U16,
@@ -96,7 +96,7 @@ impl Default for UIntTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum FloatTy {
     F16,
     F32,
@@ -110,7 +110,7 @@ impl Default for FloatTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct FnTy {
     pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
@@ -118,7 +118,7 @@ pub struct FnTy {
     pub lib_name: Option<Ustr>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct StructTy {
     pub name: Ustr,
     pub binding_info_id: BindingInfoId,
@@ -126,11 +126,11 @@ pub struct StructTy {
     pub kind: StructTyKind,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct PartialStructTy(pub HashMap<Ustr, TyKind>);
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub struct PartialStructTy(pub BTreeMap<Ustr, TyKind>);
 
 impl Deref for PartialStructTy {
-    type Target = HashMap<Ustr, TyKind>;
+    type Target = BTreeMap<Ustr, TyKind>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -181,7 +181,7 @@ impl StructTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum StructTyKind {
     Struct,
     PackedStruct,
@@ -212,7 +212,7 @@ impl StructTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct StructTyField {
     pub symbol: Ustr,
     pub ty: TyKind,

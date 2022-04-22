@@ -33,7 +33,10 @@ use common::{
 };
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope};
-use std::{collections::HashMap, iter::repeat_with};
+use std::{
+    collections::{BTreeMap, HashMap},
+    iter::repeat_with,
+};
 use top_level::{CallerInfo, CheckTopLevel};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -1277,7 +1280,7 @@ impl Check for ast::Expr {
                         sess.tycx.partial_tuple(elements, self.span)
                     }
                     Err(_) => {
-                        let fields = HashMap::from([(access.member, TyKind::Var(member_ty))]);
+                        let fields = BTreeMap::from([(access.member, TyKind::Var(member_ty))]);
                         sess.tycx.partial_struct(PartialStructTy(fields), self.span)
                     }
                 };

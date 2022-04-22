@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::{
     env::{Env, Scope},
@@ -137,11 +137,11 @@ impl<'s> CheckSess<'s> {
             }
             // TODO: Need InferenceValue::PartialStruct(Vec<(Ustr, Ty)>)
             Pattern::StructUnpack(pat) => {
-                let partial_struct = PartialStructTy(HashMap::from_iter(
+                let partial_struct = PartialStructTy(FromIterator::from_iter(
                     pat.symbols
                         .iter()
                         .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).kind()))
-                        .collect::<HashMap<Ustr, TyKind>>(),
+                        .collect::<BTreeMap<Ustr, TyKind>>(),
                 ));
 
                 let partial_struct_ty = self.tycx.partial_struct(partial_struct.clone(), pat.span);

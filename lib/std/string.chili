@@ -57,7 +57,9 @@ let String_grow = fn(string: *mut String) {
 }
 
 pub let String_push = fn(string: *mut String, char: u8) {
-    if string.len == string.cap { String_grow(string) }
+    if string.len == string.cap { 
+        String_grow(string) 
+    }
 
     string.data[string.len] = char;
     string.len += 1;

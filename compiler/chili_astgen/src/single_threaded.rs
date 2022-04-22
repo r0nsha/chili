@@ -1,4 +1,4 @@
-use crate::{AstGenerationResult, AstGenerationStats};
+use crate::{util::insert_std_import, AstGenerationResult, AstGenerationStats};
 use chili_ast::{
     ast::Ast,
     path::resolve_relative_path,
@@ -100,7 +100,7 @@ impl<'a> AstGenerator<'a> {
             .unwrap()
             .to_string();
 
-        let parse_result = Parser::new(
+        let mut parse_result = Parser::new(
             tokens,
             module_info,
             &self.workspace.root_dir,
@@ -111,7 +111,7 @@ impl<'a> AstGenerator<'a> {
         .parse();
 
         // implicitly add `std` to every file we parse
-        // insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
+        insert_std_import(&mut parse_result.ast, &mut parse_result.imports);
 
         for u in parse_result.imports.iter() {
             self.add_source_file(asts, *u, false);

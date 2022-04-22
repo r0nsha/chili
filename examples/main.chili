@@ -1,25 +1,10 @@
 use c.printf
 
 let main = fn {
-	let two = (1,2)
-	let three = (1,2,3)
-	let four = (1,2,3,4)
-
-	// test1(5) // invalid
-	// printf("%d\n".data, test1(two)) // invalid
-	// printf("%d\n".data, test1(three)) // valid
-	// printf("%d\n".data, test1(four)) // valid
-
-	// test2(5) // invalid
-	// printf("%d\n".data, test2(two)) // invalid
-	// printf("%d\n".data, test2(three)) // valid
-	printf("%d\n".data, test2(four)) // valid
+	printf("Hello\n".data)
+	add(1, 2)
 }
 
-// let test1 = fn(x) {
-// 	x.2
-// }
-
-let test2 = fn((a,b,c)) {
-	a + b + c
+let add = fn(a, b) {
+	a + b
 }

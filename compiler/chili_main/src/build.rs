@@ -86,11 +86,11 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         chili_defer::solve_defers(&mut typed_ast)
     }
 
-    chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
+    // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 
     // Code generation
     if !workspace.build_options.no_codegen {
-        // chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
+        chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
     }
 
     if workspace.build_options.verbose {

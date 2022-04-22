@@ -112,7 +112,7 @@ impl<'ctx> CodegenState<'ctx> {
             loop_blocks: vec![],
             decl_block,
             curr_block: entry_block,
-            scopes: Scopes::new(),
+            scopes: Scopes::default(),
         }
     }
 

@@ -83,23 +83,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
-                // self
-                // .builder
-                // .build_int_add(
-                //     lhs.into_int_value(),
-                //     rhs.into_int_value(),
-                //     "iadd",
-                // )
-                // .into()
-
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Add, ty, lhs.get_type());
-
-                let result = self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "add");
-
-                result.into()
+                if self.workspace.build_options.build_mode.is_release() {
+                    self.builder.build_int_add(lhs, rhs, "iadd").into()
+                } else {
+                    let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Add, ty, lhs.get_type());
+                    let result =
+                        self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "add");
+                    result.into()
+                }
             }
             TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
                 .builder
@@ -119,23 +113,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
-                // self.builder
-                //     .build_int_sub(
-                //         lhs.into_int_value(),
-                //         rhs.into_int_value(),
-                //         "isub",
-                //     )
-                //     .into()
-
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Sub, ty, lhs.get_type());
-
-                let result =
-                    self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "subtract");
-
-                result.into()
+                if self.workspace.build_options.build_mode.is_release() {
+                    self.builder.build_int_sub(lhs, rhs, "iadd").into()
+                } else {
+                    let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Sub, ty, lhs.get_type());
+                    let result =
+                        self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "subtract");
+                    result.into()
+                }
             }
             TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
                 .builder
@@ -155,23 +143,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match &ty {
             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
-                // self.builder
-                //     .build_int_mul(
-                //         lhs.into_int_value(),
-                //         rhs.into_int_value(),
-                //         "imul",
-                //     )
-                //     .into()
-
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Mul, ty, lhs.get_type());
-
-                let result =
-                    self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "multiply");
-
-                result.into()
+                if self.workspace.build_options.build_mode.is_release() {
+                    self.builder.build_int_mul(lhs, rhs, "iadd").into()
+                } else {
+                    let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Mul, ty, lhs.get_type());
+                    let result =
+                        self.gen_call_overflow_fn(state, overflow_fn, lhs, rhs, span, "multiply");
+                    result.into()
+                }
             }
             TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
                 .builder

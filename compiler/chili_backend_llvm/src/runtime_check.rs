@@ -5,6 +5,14 @@ use inkwell::{
     IntPredicate,
 };
 
+macro_rules! release_guard {
+    ($cg: expr) => {{
+        if $cg.workspace.build_options.build_mode.is_release() {
+            return;
+        }
+    }};
+}
+
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_runtime_check_division_by_zero(
         &mut self,
@@ -12,6 +20,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         divisor: IntValue<'ctx>,
         span: Span,
     ) {
+        release_guard!(self);
+
         const NAME: &str = "__runtime_check_division_by_zero";
         let cond = self.builder.build_int_compare(
             IntPredicate::EQ,
@@ -29,6 +39,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         ptr: PointerValue<'ctx>,
         span: Span,
     ) {
+        release_guard!(self);
+
         const NAME: &str = "__runtime_check_null_pointer_dereference";
         let cond = self.builder.build_is_null(ptr, "");
         let message = self.gen_global_str(NAME, "attempt to dereference a null pointer", true);
@@ -42,10 +54,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
         op: &str,
     ) {
+        release_guard!(self);
+
         let name = format!("__runtime_check_overflow_{}", op);
-
         let message = self.gen_global_str(&name, format!("attempt to {} with overflow", op), true);
-
         self.gen_conditional_panic(state, &name, cond, message, span);
     }
 
@@ -56,6 +68,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         len: IntValue<'ctx>,
         span: Span,
     ) {
+        release_guard!(self);
+
         const NAME: &str = "__runtime_check_index_out_of_bounds";
 
         let message = self.gen_global_str(
@@ -89,6 +103,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         high: IntValue<'ctx>,
         span: Span,
     ) {
+        release_guard!(self);
+
         const NAME: &str = "__runtime_check_slice_end_before_start";
 
         let message = self.gen_global_str(
@@ -112,6 +128,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         len: IntValue<'ctx>,
         span: Span,
     ) {
+        release_guard!(self);
+
         const NAME: &str = "__runtime_check_slice_range_out_of_bounds";
 
         let message = self.gen_global_str(

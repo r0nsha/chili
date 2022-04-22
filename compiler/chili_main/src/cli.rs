@@ -1,7 +1,10 @@
 use crate::build::start_workspace;
 use clap::*;
 use colored::Colorize;
-use common::{build_options::BuildOptions, target::TargetPlatform};
+use common::{
+    build_options::{BuildMode, BuildOptions},
+    target::TargetPlatform,
+};
 use std::path::Path;
 
 #[derive(Parser, Debug)]
@@ -30,6 +33,10 @@ struct Args {
     /// The main action the compiler should take
     input: String,
 
+    /// Change the build mode to release, disabling runtime safety and enabling optimizations
+    #[clap(long)]
+    release: bool,
+
     /// Print trace information verbosely
     #[clap(long)]
     verbose: bool,
@@ -56,6 +63,11 @@ pub fn start_cli() {
             let build_options = BuildOptions {
                 source_file: file.to_string(),
                 target_platform: TargetPlatform::WindowsAmd64,
+                build_mode: if args.release {
+                    BuildMode::Release
+                } else {
+                    BuildMode::Debug
+                },
                 run,
                 verbose: args.verbose,
                 emit_llvm_ir: args.emit_llvm,

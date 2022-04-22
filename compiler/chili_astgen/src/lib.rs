@@ -1,5 +1,6 @@
 mod multi_threaded;
 mod single_threaded;
+mod util;
 
 use chili_ast::{ast, workspace::Workspace};
 
