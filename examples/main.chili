@@ -5,9 +5,9 @@
 // 	add(1, 2)
 // }
 
-// let add = fn(a, b) {
-// 	a + b
-// }
+let add = fn(a, b) {
+	a + b
+}
 
-@run(42 + 5)
+@run(add(42, 5))
 // @run(1 + 2)

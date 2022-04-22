@@ -252,7 +252,7 @@ impl Lint for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::FnCall(call) => {
+            ast::ExprKind::Call(call) => {
                 call.callee.lint(sess);
                 call.args.lint(sess);
             }

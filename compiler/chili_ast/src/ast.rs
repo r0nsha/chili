@@ -106,7 +106,7 @@ pub enum ExprKind {
     Unary(Unary),
     Subscript(Subscript),
     Slice(Slice),
-    FnCall(FnCall),
+    Call(Call),
     MemberAccess(MemberAccess),
     Ident(Ident),
     ArrayLiteral(ArrayLiteral),
@@ -230,7 +230,7 @@ pub struct StructLiteralField {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FnCall {
+pub struct Call {
     pub callee: Box<Expr>,
     pub args: Vec<Expr>,
     pub span: Span,

@@ -27,7 +27,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::Unary(_) => todo!(),
             ast::ExprKind::Subscript(_) => todo!(),
             ast::ExprKind::Slice(_) => todo!(),
-            ast::ExprKind::FnCall(_) => todo!(),
+            ast::ExprKind::Call(_) => todo!(),
             ast::ExprKind::MemberAccess(_) => todo!(),
             ast::ExprKind::Ident(_) => todo!(),
             ast::ExprKind::ArrayLiteral(_) => todo!(),

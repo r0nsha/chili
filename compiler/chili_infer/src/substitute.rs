@@ -202,7 +202,7 @@ impl<'a> Substitute<'a> for ast::Expr {
                 slice.low.substitute(sess);
                 slice.high.substitute(sess);
             }
-            ast::ExprKind::FnCall(call) => {
+            ast::ExprKind::Call(call) => {
                 call.callee.substitute(sess);
                 call.args.substitute(sess);
             }

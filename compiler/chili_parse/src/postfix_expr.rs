@@ -1,5 +1,5 @@
 use crate::*;
-use chili_ast::ast::{self, BinaryOp, Cast, Expr, ExprKind, FnCall, UnaryOp};
+use chili_ast::ast::{self, BinaryOp, Call, Cast, Expr, ExprKind, UnaryOp};
 use chili_error::*;
 use chili_span::{EndPosition, To};
 use chili_token::TokenKind::*;
@@ -51,7 +51,7 @@ impl<'p> Parser<'p> {
                 let span = start_span.to(self.previous_span());
 
                 match &mut expr.kind {
-                    ExprKind::FnCall(call) => {
+                    ExprKind::Call(call) => {
                         // map(x) fn ...
                         call.args.push(fn_arg);
                         expr
@@ -59,7 +59,7 @@ impl<'p> Parser<'p> {
                     _ => {
                         // map fn ...
                         Expr::new(
-                            ExprKind::FnCall(FnCall {
+                            ExprKind::Call(Call {
                                 callee: Box::new(expr),
                                 args: vec![fn_arg],
                                 span,
@@ -210,7 +210,7 @@ impl<'p> Parser<'p> {
         let args = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
         let span = start_span.to(self.previous_span());
         Ok(Expr::new(
-            ExprKind::FnCall(FnCall {
+            ExprKind::Call(Call {
                 callee: Box::new(callee),
                 args,
                 span,

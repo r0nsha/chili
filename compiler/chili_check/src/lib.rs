@@ -1261,7 +1261,7 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(ty))
             }
-            ast::ExprKind::FnCall(call) => call.check(sess, env, expected_ty),
+            ast::ExprKind::Call(call) => call.check(sess, env, expected_ty),
             ast::ExprKind::MemberAccess(access) => {
                 let res = access.expr.check(sess, env, None)?;
 
@@ -1705,7 +1705,7 @@ impl Check for ast::Expr {
     }
 }
 
-impl Check for ast::FnCall {
+impl Check for ast::Call {
     fn check(
         &mut self,
         sess: &mut CheckSess,

@@ -193,7 +193,7 @@ impl SolveDefer for ast::Expr {
                 slice.low.solve_defer(sess);
                 slice.high.solve_defer(sess);
             }
-            ast::ExprKind::FnCall(call) => {
+            ast::ExprKind::Call(call) => {
                 call.callee.solve_defer(sess);
                 for arg in call.args.iter_mut() {
                     arg.solve_defer(sess);
