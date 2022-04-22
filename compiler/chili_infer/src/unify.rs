@@ -151,6 +151,36 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                 _ => Err(UnifyTyErr::Mismatch),
             }
         }
+        InferenceValue::PartialStruct(partial) => {
+            let other_kind = other.normalize(&tycx);
+            match other_kind {
+                TyKind::Struct(ref other_struct) => {
+                    for field in other_struct.fields.iter() {
+                        // TODO: check that all fields with the same names unify
+                    }
+                    for (name, ty) in partial.iter() {
+                        // TODO: any field that exists in partial, but doesn't exist in struct, is an error
+                    }
+                    tycx.bind(var, other_kind);
+                    Ok(())
+                }
+                TyKind::PartialStruct(ref other_partial) => {
+                    for (symbol, ty) in partial.iter() {
+                        // TODO: if the field exists in other_partial -> unify
+                        // TODO: add the field to the new partial struct ty
+                    }
+                    tycx.bind(var, other_kind);
+                    Ok(())
+                }
+                TyKind::Var(other) => {
+                    if other != var {
+                        tycx.bind(other, var.into());
+                    }
+                    Ok(())
+                }
+                _ => Err(UnifyTyErr::Mismatch),
+            }
+        }
         InferenceValue::Unbound => {
             let other_kind = other.normalize(&tycx);
 
@@ -174,6 +204,9 @@ fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
             use InferenceValue::*;
             match tycx.value_of(other) {
                 Bound(ty) => occurs(var, ty, tycx) || var == other,
+                PartialStruct(partial) => {
+                    partial.iter().any(|(_, ty)| occurs(var, ty, tycx)) || var == other
+                }
                 AnyInt | AnyFloat | Unbound => var == other,
             }
         }

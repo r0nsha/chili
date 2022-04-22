@@ -33,6 +33,7 @@ impl Normalize {
             InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
             InferenceValue::AnyInt => TyKind::AnyInt(ty),
             InferenceValue::AnyFloat => TyKind::AnyFloat(ty),
+            InferenceValue::PartialStruct(partial) => TyKind::PartialStruct(partial.clone()),
             _ => TyKind::Var(ty),
         }
     }

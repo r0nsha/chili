@@ -4,10 +4,10 @@ pub mod size;
 
 use crate::workspace::{BindingInfoId, ModuleId};
 use chili_span::Span;
-use std::{fmt, hash::Hash};
-use ustr::{ustr, Ustr};
+use std::{fmt, ops::Deref};
+use ustr::{ustr, Ustr, UstrMap};
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct Ty(pub usize);
 
 impl Default for Ty {
@@ -32,7 +32,7 @@ impl Ty {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyKind {
     Never,
     Unit,
@@ -47,6 +47,7 @@ pub enum TyKind {
     Slice(Box<TyKind>, bool),
     Tuple(Vec<TyKind>),
     Struct(StructTy),
+    PartialStruct(PartialStructTy),
     Module(ModuleId),
     Type(Box<TyKind>),
     Var(Ty),
@@ -55,7 +56,7 @@ pub enum TyKind {
     Unknown,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum IntTy {
     I8,
     I16,
@@ -70,7 +71,7 @@ impl Default for IntTy {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum UIntTy {
     U8,
     U16,
@@ -85,7 +86,7 @@ impl Default for UIntTy {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FloatTy {
     F16,
     F32,
@@ -99,7 +100,7 @@ impl Default for FloatTy {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FnTy {
     pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
@@ -107,12 +108,41 @@ pub struct FnTy {
     pub lib_name: Option<Ustr>,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructTy {
     pub name: Ustr,
     pub binding_info_id: BindingInfoId,
     pub fields: Vec<StructTyField>,
     pub kind: StructTyKind,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct PartialStructTy(UstrMap<TyKind>);
+
+impl Deref for PartialStructTy {
+    type Target = UstrMap<TyKind>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialStructTy {
+    pub fn into_struct(&self) -> StructTy {
+        StructTy {
+            name: ustr(""),
+            binding_info_id: Default::default(),
+            fields: self
+                .iter()
+                .map(|(&symbol, ty)| StructTyField {
+                    symbol,
+                    ty: ty.clone(),
+                    span: Span::unknown(),
+                })
+                .collect(),
+            kind: StructTyKind::Struct,
+        }
+    }
 }
 
 impl From<StructTy> for TyKind {
@@ -135,7 +165,7 @@ impl StructTy {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum StructTyKind {
     Struct,
     PackedStruct,
@@ -166,7 +196,7 @@ impl StructTy {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructTyField {
     pub symbol: Ustr,
     pub ty: TyKind,
