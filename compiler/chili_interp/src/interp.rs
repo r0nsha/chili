@@ -3,9 +3,10 @@ use crate::{
     instruction::Instruction,
     lower::Lower,
     value::Value,
-    vm::{Bytecode, Globals, VM},
+    vm::{Bytecode, Constants, Globals, VM},
 };
-use chili_ast::ast;
+use chili_ast::{ast, workspace::BindingInfoId};
+use common::scopes::Scopes;
 use std::collections::HashMap;
 
 pub type InterpResult = Result<Value, InterpErr>;
@@ -15,14 +16,17 @@ pub enum InterpErr {}
 
 pub struct Interp {
     pub(crate) globals: Globals,
-    pub(crate) constants: Vec<Value>,
+    pub(crate) constants: Constants,
+
+    bindings_to_globals: HashMap<BindingInfoId, usize>,
 }
 
 impl Interp {
     pub fn new() -> Self {
         Self {
-            globals: HashMap::new(),
+            globals: vec![],
             constants: vec![],
+            bindings_to_globals: HashMap::new(),
         }
     }
 
@@ -30,20 +34,26 @@ impl Interp {
         InterpSess {
             interp: self,
             typed_ast,
+            env_stack: vec![],
         }
     }
 }
 
 pub struct InterpSess<'i> {
-    interp: &'i mut Interp,
-    typed_ast: &'i ast::TypedAst,
+    pub(crate) interp: &'i mut Interp,
+    pub(crate) typed_ast: &'i ast::TypedAst,
+    pub(crate) env_stack: Vec<Env>,
 }
+
+pub type Env = Scopes<BindingInfoId, isize>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&mut self, expr: &ast::Expr) -> InterpResult {
         let mut code = vec![];
+        self.env_stack.push(Env::default());
         expr.lower(self, &mut code);
         code.push(Instruction::Halt);
+        self.env_stack.pop();
 
         dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
 
@@ -60,7 +70,27 @@ impl<'i> InterpSess<'i> {
     }
 
     pub(crate) fn push_const(&mut self, code: &mut Bytecode, value: Value) {
+        let slot = self.interp.constants.len();
         self.interp.constants.push(value);
-        code.push(Instruction::Const(self.interp.constants.len() - 1));
+        code.push(Instruction::Const(slot));
+    }
+
+    pub(crate) fn insert_global(&mut self, id: BindingInfoId, value: Value) -> usize {
+        let slot = self.interp.globals.len();
+        self.interp.globals.push(value);
+        self.interp.bindings_to_globals.insert(id, slot);
+        slot
+    }
+
+    pub(crate) fn get_global(&self, id: BindingInfoId) -> Option<usize> {
+        self.interp.bindings_to_globals.get(&id).cloned()
+    }
+
+    pub(crate) fn env(&self) -> &Env {
+        self.env_stack.last().unwrap()
+    }
+
+    pub(crate) fn env_mut(&mut self) -> &mut Env {
+        self.env_stack.last_mut().unwrap()
     }
 }

@@ -13,7 +13,7 @@ const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
 
 pub type Bytecode = Vec<Instruction>;
 pub type Constants = Vec<Value>;
-pub type Globals = HashMap<BindingInfoId, Value>;
+pub type Globals = Vec<Value>;
 
 #[derive(Debug, Clone)]
 struct CallFrame {
@@ -198,44 +198,45 @@ impl<'vm> VM<'vm> {
                 //         self.stack.push(return_value);
                 //     }
                 // }
-                // Instruction::Call(arg_count) => {
-                //     let value = self.stack.peek(0);
-                //     match value {
-                //         Value::Func(func) => {
-                //             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
-                //             self.frames.push(frame);
-                //         } // Value::ForeignFunc(func) => {
-                //         //     let func = func.clone();
+                Instruction::Call(arg_count) => {
+                    let value = self.stack.peek(0);
+                    match value {
+                        Value::Func(func) => {
+                            let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
+                            self.frames.push(frame);
+                        }
+                        // Value::ForeignFunc(func) => {
+                        //     let func = func.clone();
 
-                //         //     self.stack.pop(); // this pops the actual foreign function
+                        //     self.stack.pop(); // this pops the actual foreign function
 
-                //         //     let mut values = (0..arg_count)
-                //         //         .into_iter()
-                //         //         .map(|_| self.stack.pop())
-                //         //         .collect::<Vec<Value>>();
-                //         //     values.reverse();
+                        //     let mut values = (0..arg_count)
+                        //         .into_iter()
+                        //         .map(|_| self.stack.pop())
+                        //         .collect::<Vec<Value>>();
+                        //     values.reverse();
 
-                //         // TODO: push actual value by the return value of the func
-                //         //                                                          let result = self.ffi.call(func,
-                //         // values).unwrap();
-                //         // self.stack.push(Value::Int(result as i64));                         }
-                //         _ => panic!("tried to call an uncallable value `{}`", value),
-                //     }
-                // }
-                // Instruction::GetGlobal(name) => {
-                //     match self.globals.get(&name) {
-                //         Some(value) => self.stack.push(value.clone()),
-                //         None => panic!("undefined global `{}`", name),
-                //     };
-                // }
+                        // TODO: push actual value by the return value of the func
+                        //                                                          let result = self.ffi.call(func,
+                        // values).unwrap();
+                        // self.stack.push(Value::Int(result as i64));                         }
+                        _ => panic!("tried to call an uncallable value `{}`", value),
+                    }
+                }
+                Instruction::GetGlobal(slot) => {
+                    match self.interp.globals.get(slot) {
+                        Some(value) => self.stack.push(value.clone()),
+                        None => panic!("undefined global `{}`", slot),
+                    };
+                }
                 // Instruction::SetGlobal(name) => {
                 //     self.globals.insert(name, self.stack.pop());
                 // }
-                // Instruction::GetLocal(slot) => {
-                //     let slot = self.frames.peek(0).slot as isize + slot;
-                //     let value = self.stack.get(slot as usize).clone();
-                //     self.stack.push(value);
-                // }
+                Instruction::GetLocal(slot) => {
+                    let slot = self.frames.peek(0).slot as isize + slot;
+                    let value = self.stack.get(slot as usize).clone();
+                    self.stack.push(value);
+                }
                 // Instruction::SetLocal(slot) => {
                 //     let slot = self.frames.peek(0).slot as isize + slot;
                 //     let value = self.stack.peek(0).clone();

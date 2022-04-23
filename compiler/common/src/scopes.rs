@@ -42,6 +42,14 @@ impl<K: Hash + Eq, V> Scopes<K, V> {
         None
     }
 
+    pub fn value(&self, k: K) -> Option<&V> {
+        self.get(k).map(|r| r.1)
+    }
+
+    pub fn value_mut(&mut self, k: K) -> Option<&mut V> {
+        self.get_mut(k).map(|r| r.1)
+    }
+
     pub fn depth(&self) -> usize {
         self.inner.len()
     }

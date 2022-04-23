@@ -31,7 +31,7 @@ impl<'s> LintSess<'s> {
         binding_info_id: BindingInfoId,
     ) {
         let binding_info = self.workspace.get_binding_info(binding_info_id).unwrap();
-        let (_, init_state) = self.init_scopes.get(binding_info_id).unwrap();
+        let init_state = self.init_scopes.value(binding_info_id).unwrap();
 
         if init_state.is_init() && !binding_info.is_mutable {
             let msg = format!(

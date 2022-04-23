@@ -26,6 +26,7 @@ impl Env {
         self.module_info
     }
 
+    #[allow(unused)]
     pub(crate) fn scope(&self) -> &Scope {
         self.scopes.last().unwrap()
     }

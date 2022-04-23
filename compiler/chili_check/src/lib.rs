@@ -116,10 +116,9 @@ impl<'s> CheckSess<'s> {
             let module_id = ast.module_id;
 
             for expr in ast.run_exprs.iter() {
-                self.with_env(module_id, |sess, mut env| {
-                    expr.clone().check(sess, &mut env, None)
-                })?;
-                interp_expr(expr, self).unwrap();
+                let mut expr = expr.clone();
+                self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
+                interp_expr(&expr, self).unwrap();
             }
 
             for binding in ast.bindings.iter() {

@@ -1,5 +1,10 @@
-use crate::{instruction::Instruction, interp::InterpSess, value::Value, vm::Bytecode};
-use chili_ast::ast;
+use crate::{
+    instruction::Instruction,
+    interp::{Env, InterpSess},
+    value::Value,
+    vm::Bytecode,
+};
+use chili_ast::{ast, workspace::BindingInfoId};
 
 pub(crate) trait Lower {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode);
@@ -24,12 +29,12 @@ impl Lower for ast::Expr {
             ast::ExprKind::If(_) => todo!(),
             ast::ExprKind::Block(_) => todo!(),
             ast::ExprKind::Binary(binary) => binary.lower(sess, code),
-            ast::ExprKind::Unary(_) => todo!(),
+            ast::ExprKind::Unary(unary) => unary.lower(sess, code),
             ast::ExprKind::Subscript(_) => todo!(),
             ast::ExprKind::Slice(_) => todo!(),
-            ast::ExprKind::Call(_) => todo!(),
+            ast::ExprKind::Call(call) => call.lower(sess, code),
             ast::ExprKind::MemberAccess(_) => todo!(),
-            ast::ExprKind::Ident(_) => todo!(),
+            ast::ExprKind::Ident(ident) => ident.lower(sess, code),
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral(_) => todo!(),
@@ -49,10 +54,63 @@ impl Lower for ast::Expr {
     }
 }
 
+impl Lower for ast::Call {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+        for arg in self.args.iter() {
+            arg.lower(sess, code);
+        }
+        self.callee.lower(sess, code);
+        code.push(Instruction::Call(self.args.len()));
+    }
+}
+
+impl Lower for ast::Ident {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+        let id = self.binding_info_id;
+        assert!(id != BindingInfoId::unknown(), "{}", self.symbol);
+
+        if let Some(slot) = sess.env().value(id) {
+            code.push(Instruction::GetLocal(*slot))
+        } else {
+            if let Some(slot) = sess.get_global(id) {
+                code.push(Instruction::GetGlobal(slot))
+            } else {
+                if let Some(binding) = sess.typed_ast.bindings.get(&id) {
+                    let slot = lower_top_level_binding(binding, sess);
+                    code.push(Instruction::GetGlobal(slot))
+                } else {
+                    panic!("binding not found!")
+                }
+            }
+        }
+    }
+}
+
+fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
+    sess.env_stack.push(Env::default());
+    binding.expr.as_ref().unwrap().lower(sess, &mut vec![]);
+    sess.env_stack.pop();
+
+    let id = binding.pattern.as_single_ref().binding_info_id;
+    assert!(id != BindingInfoId::unknown());
+
+    match sess.interp.constants.pop() {
+        Some(value) => sess.insert_global(id, value),
+        None => panic!("top level binding doesn't have a defined constant value"),
+    }
+}
+
 impl Lower for ast::Binary {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
         self.lhs.lower(sess, code);
         self.rhs.lower(sess, code);
+        code.push(self.op.into())
+    }
+}
+
+impl Lower for ast::Unary {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+        self.lhs.lower(sess, code);
         code.push(self.op.into())
     }
 }

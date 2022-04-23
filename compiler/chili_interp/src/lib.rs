@@ -34,12 +34,12 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &By
 
         writer.write("\nglobals:\n".as_bytes()).unwrap();
 
-        for (id, value) in globals.iter() {
+        for (slot, value) in globals.iter().enumerate() {
             writer
                 .write(
                     format!(
                         "${} = {}\n",
-                        id.0,
+                        slot,
                         match value {
                             Value::Int(_) | Value::Float(_) | Value::Bool(_) | Value::Tuple(_) =>
                                 value.to_string(),
