@@ -12,6 +12,10 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn unit() -> Self {
+        Value::Tuple(vec![])
+    }
+
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Bool(v) => *v,
@@ -46,6 +50,6 @@ impl Display for Value {
 #[derive(Debug, Clone)]
 pub struct Func {
     pub name: String,
-    pub arg_count: usize,
+    pub param_count: usize,
     pub code: Bytecode,
 }

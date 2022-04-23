@@ -1,9 +1,15 @@
 000000	const %0
 000001	const %1
-000002	add
-000003	halt
+000002	get_global $0
+000003	call (2)
+000004	halt
 
 globals:
+$0 = func:
+000000	get_local $-1
+000001	get_local $-2
+000002	add
+000003	return
 
 constants:
 %0	int 42

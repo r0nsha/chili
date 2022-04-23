@@ -2,7 +2,6 @@ use crate::*;
 use chili_ast::{
     ast::{Block, Expr, ExprKind, Fn, FnParam, FnSig},
     ty::Ty,
-    workspace::BindingInfoId,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
@@ -21,7 +20,7 @@ impl<'p> Parser<'p> {
             ExprKind::Fn(Fn {
                 sig,
                 body,
-                binding_info_id: BindingInfoId::unknown(),
+                binding_info_id: None,
                 is_entry_point: false,
             }),
             start_span.to(self.previous_span()),

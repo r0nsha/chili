@@ -5,7 +5,10 @@ use crate::{
     value::Value,
     vm::{Bytecode, Constants, Globals, VM},
 };
-use chili_ast::{ast, workspace::BindingInfoId};
+use chili_ast::{
+    ast,
+    workspace::{BindingInfoId, Workspace},
+};
 use common::scopes::Scopes;
 use std::collections::HashMap;
 
@@ -30,9 +33,14 @@ impl Interp {
         }
     }
 
-    pub fn create_session<'i>(&'i mut self, typed_ast: &'i ast::TypedAst) -> InterpSess<'i> {
+    pub fn create_session<'i>(
+        &'i mut self,
+        workspace: &'i Workspace,
+        typed_ast: &'i ast::TypedAst,
+    ) -> InterpSess<'i> {
         InterpSess {
             interp: self,
+            workspace,
             typed_ast,
             env_stack: vec![],
         }
@@ -41,6 +49,7 @@ impl Interp {
 
 pub struct InterpSess<'i> {
     pub(crate) interp: &'i mut Interp,
+    pub(crate) workspace: &'i Workspace,
     pub(crate) typed_ast: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<Env>,
 }
@@ -80,6 +89,10 @@ impl<'i> InterpSess<'i> {
         self.interp.globals.push(value);
         self.interp.bindings_to_globals.insert(id, slot);
         slot
+    }
+
+    pub(crate) fn insert_local_binding(&mut self, id: BindingInfoId, code: &Bytecode) {
+        self.env_mut().insert(id, (code.len() - 1) as isize)
     }
 
     pub(crate) fn get_global(&self, id: BindingInfoId) -> Option<usize> {

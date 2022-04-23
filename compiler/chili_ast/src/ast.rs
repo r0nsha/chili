@@ -334,7 +334,7 @@ pub enum ForIter {
 pub struct Fn {
     pub sig: FnSig,
     pub body: Block,
-    pub binding_info_id: BindingInfoId,
+    pub binding_info_id: Option<BindingInfoId>,
     pub is_entry_point: bool,
 }
 

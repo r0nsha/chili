@@ -451,7 +451,7 @@ impl Check for ast::Binding {
 
             let binding_info = sess
                 .workspace
-                .get_binding_info_mut(fn_expr.binding_info_id)
+                .get_binding_info_mut(fn_expr.binding_info_id.unwrap())
                 .unwrap();
 
             binding_info.visibility = self.visibility;
@@ -460,7 +460,7 @@ impl Check for ast::Binding {
             // Tag it as the entry function
             match &mut self.pattern {
                 Pattern::Single(pat) => {
-                    pat.binding_info_id = fn_expr.binding_info_id;
+                    pat.binding_info_id = fn_expr.binding_info_id.unwrap();
                     if sess.workspace.entry_point_function_id.is_none() && pat.symbol == "main" {
                         sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
                         fn_expr.is_entry_point = true;
@@ -522,7 +522,7 @@ impl Check for ast::Fn {
         let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
 
         if !self.sig.name.is_empty() {
-            self.binding_info_id = sess.bind_symbol(
+            self.binding_info_id = Some(sess.bind_symbol(
                 env,
                 self.sig.name,
                 ast::Visibility::Private,
@@ -531,7 +531,7 @@ impl Check for ast::Fn {
                 false,
                 ast::BindingKind::Value,
                 self.body.span,
-            )?;
+            )?);
         }
 
         env.push_scope();
@@ -2006,6 +2006,6 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
 }
 
 fn interp_expr(expr: &Expr, sess: &mut CheckSess) -> InterpResult {
-    let mut interp_sess = sess.interp.create_session(&sess.new_ast);
+    let mut interp_sess = sess.interp.create_session(sess.workspace, &sess.new_ast);
     interp_sess.eval(expr)
 }

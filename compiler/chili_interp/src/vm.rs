@@ -88,7 +88,7 @@ impl<'vm> VM<'vm> {
     pub(crate) fn run(&'vm mut self, code: Bytecode) -> Value {
         let function = Func {
             name: "root".to_string(),
-            arg_count: 0,
+            param_count: 0,
             code,
         };
 
@@ -187,17 +187,17 @@ impl<'vm> VM<'vm> {
                 //         self.jmp(addr);
                 //     }
                 // }
-                // Instruction::Return => {
-                //     let frame = self.frames.pop();
-                //     let return_value = self.stack.pop();
+                Instruction::Return => {
+                    let frame = self.frames.pop();
+                    let return_value = self.stack.pop();
 
-                //     if self.frames.is_empty() {
-                //         break return_value;
-                //     } else {
-                //         self.stack.truncate(frame.slot - frame.func.arg_count);
-                //         self.stack.push(return_value);
-                //     }
-                // }
+                    if self.frames.is_empty() {
+                        break return_value;
+                    } else {
+                        self.stack.truncate(frame.slot - frame.func.param_count);
+                        self.stack.push(return_value);
+                    }
+                }
                 Instruction::Call(arg_count) => {
                     let value = self.stack.peek(0);
                     match value {
