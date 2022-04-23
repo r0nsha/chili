@@ -20,3 +20,4 @@ example/main.c
 *.ilk
 *.lib
 vendor
+vm.out

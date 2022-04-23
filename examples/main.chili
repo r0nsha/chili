@@ -2,6 +2,22 @@ let add = fn(a, b) {
 	a + b
 }
 
+let a = fn(n) {
+    if n > 10 {
+        n
+    } else {
+        b(n + 1)
+    }
+}
+
+let b = fn(n) {
+    if n > 10 {
+        n
+    } else {
+        a(n + 2)
+    }
+}
+
 let fib = fn(n) {
 	if n == 0 {
         0
@@ -12,4 +28,4 @@ let fib = fn(n) {
     }
 }
 
-@run(fib(10))
+@run(a(0))
