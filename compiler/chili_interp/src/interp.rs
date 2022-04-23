@@ -1,9 +1,9 @@
 use crate::{
     dump_bytecode_to_file,
-    instruction::Instruction,
+    instruction::{Bytecode, Instruction},
     lower::Lower,
     value::Value,
-    vm::{Bytecode, Constants, Globals, VM},
+    vm::{Constants, Globals, VM},
 };
 use chili_ast::{
     ast,
@@ -58,10 +58,13 @@ pub type Env = Scopes<BindingInfoId, isize>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&mut self, expr: &ast::Expr) -> InterpResult {
-        let mut code = vec![];
+        let mut code = Bytecode::new();
+
         self.env_stack.push(Env::default());
+
         expr.lower(self, &mut code);
         code.push(Instruction::Halt);
+
         self.env_stack.pop();
 
         dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
@@ -85,14 +88,15 @@ impl<'i> InterpSess<'i> {
     }
 
     pub(crate) fn insert_global(&mut self, id: BindingInfoId, value: Value) -> usize {
-        let slot = self.interp.globals.len();
-        self.interp.globals.push(value);
-        self.interp.bindings_to_globals.insert(id, slot);
-        slot
-    }
-
-    pub(crate) fn insert_local_binding(&mut self, id: BindingInfoId, code: &Bytecode) {
-        self.env_mut().insert(id, (code.len() - 1) as isize)
+        if let Some(&slot) = self.interp.bindings_to_globals.get(&id) {
+            self.interp.globals[slot] = value;
+            slot
+        } else {
+            let slot = self.interp.globals.len();
+            self.interp.globals.push(value);
+            self.interp.bindings_to_globals.insert(id, slot);
+            slot
+        }
     }
 
     pub(crate) fn get_global(&self, id: BindingInfoId) -> Option<usize> {

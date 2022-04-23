@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
 use chili_ast::ast;
 
@@ -22,9 +25,9 @@ pub enum Instruction {
     GtEq,
     And,
     Or,
-    // Jmp(isize),
-    // Jmpt(isize),
-    // Jmpf(isize),
+    Jmp(isize),
+    Jmpt(isize),
+    Jmpf(isize),
     Return,
     Call(usize),
     GetGlobal(usize),
@@ -58,9 +61,9 @@ impl Display for Instruction {
                 Instruction::GtEq => "gteq".to_string(),
                 Instruction::And => "band".to_string(),
                 Instruction::Or => "bor".to_string(),
-                // Instruction::Jmp(offset) => format!("jmp &{:06}", offset),
-                // Instruction::Jmpt(offset) => format!("jmpt &{:06}", offset),
-                // Instruction::Jmpf(offset) => format!("jmpf &{:06}", offset),
+                Instruction::Jmp(offset) => format!("jmp &{:06}", offset),
+                Instruction::Jmpt(offset) => format!("jmpt &{:06}", offset),
+                Instruction::Jmpf(offset) => format!("jmpf &{:06}", offset),
                 Instruction::Return => "return".to_string(),
                 Instruction::Call(arg_count) => format!("call ({})", arg_count),
                 Instruction::GetGlobal(name) => format!("get_global ${}", name),
@@ -107,5 +110,28 @@ impl From<ast::UnaryOp> for Instruction {
             ast::UnaryOp::Plus => Instruction::Noop,
             ast::UnaryOp::Not => Instruction::Not,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Bytecode(Vec<Instruction>);
+
+impl Deref for Bytecode {
+    type Target = Vec<Instruction>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Bytecode {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Bytecode {
+    pub fn new() -> Self {
+        Self(vec![])
     }
 }

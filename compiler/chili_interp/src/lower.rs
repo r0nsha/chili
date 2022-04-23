@@ -1,8 +1,7 @@
 use crate::{
-    instruction::Instruction,
+    instruction::{Bytecode, Instruction},
     interp::{Env, InterpSess},
     value::{Func, Value},
-    vm::Bytecode,
 };
 use chili_ast::{ast, pattern::Pattern, workspace::BindingInfoId};
 
@@ -26,7 +25,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::Break(_) => todo!(),
             ast::ExprKind::Continue(_) => todo!(),
             ast::ExprKind::Return(_) => todo!(),
-            ast::ExprKind::If(_) => todo!(),
+            ast::ExprKind::If(if_) => if_.lower(sess, code),
             ast::ExprKind::Block(block) => block.lower(sess, code),
             ast::ExprKind::Binary(binary) => binary.lower(sess, code),
             ast::ExprKind::Unary(unary) => unary.lower(sess, code),
@@ -57,7 +56,8 @@ impl Lower for ast::Expr {
 impl Lower for ast::Fn {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
         if let Some(id) = self.binding_info_id {
-            if sess.env_stack.is_empty() {
+            let binding_info = sess.workspace.get_binding_info(id).unwrap();
+            if binding_info.scope_level.is_global() {
                 sess.insert_global(id, Value::unit());
             }
         }
@@ -80,7 +80,7 @@ impl Lower for ast::Fn {
             }
         }
 
-        let mut func_code = vec![];
+        let mut func_code = Bytecode::new();
 
         self.body.lower(sess, &mut func_code);
 
@@ -132,17 +132,24 @@ impl Lower for ast::Ident {
     }
 }
 
-fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
-    sess.env_stack.push(Env::default());
-    binding.expr.as_ref().unwrap().lower(sess, &mut vec![]);
-    sess.env_stack.pop();
+impl Lower for ast::If {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+        self.cond.lower(sess, code);
 
-    let id = binding.pattern.as_single_ref().binding_info_id;
-    assert!(id != BindingInfoId::unknown());
+        let then_jmp = push_empty_jmpf(code);
+        code.push(Instruction::Pop);
 
-    match sess.interp.constants.pop() {
-        Some(value) => sess.insert_global(id, value),
-        None => panic!("top level binding doesn't have a defined constant value"),
+        self.then.lower(sess, code);
+
+        let else_jmp = push_empty_jmp(code);
+        patch_empty_jmp(code, then_jmp);
+        code.push(Instruction::Pop);
+
+        if let Some(otherwise) = &self.otherwise {
+            otherwise.lower(sess, code);
+        }
+
+        patch_empty_jmp(code, else_jmp);
     }
 }
 
@@ -192,5 +199,51 @@ impl Lower for ast::Literal {
                 ast::LiteralKind::Char(v) => Value::Int((*v) as i64),
             },
         )
+    }
+}
+
+fn push_empty_jmpf(code: &mut Bytecode) -> usize {
+    code.push(Instruction::Jmpf(0xffff));
+    code.len() - 1
+}
+
+fn push_empty_jmp(code: &mut Bytecode) -> usize {
+    code.push(Instruction::Jmp(0xffff));
+    code.len() - 1
+}
+
+fn patch_empty_jmp(code: &mut Bytecode, pos: usize) -> isize {
+    let target_offset = (code.len() - 1 - pos) as isize;
+
+    match &mut code[pos] {
+        Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset) => {
+            *offset = target_offset
+        }
+        _ => panic!("instruction at address {} is not a jump", pos),
+    };
+
+    target_offset
+}
+
+fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
+    // TODO: this function is incomplete
+    // TODO: it implies that only global bindings resulting in a constant value works
+
+    sess.env_stack.push(Env::default());
+
+    binding
+        .expr
+        .as_ref()
+        .unwrap()
+        .lower(sess, &mut Bytecode::new());
+
+    sess.env_stack.pop();
+
+    let id = binding.pattern.as_single_ref().binding_info_id;
+    assert!(id != BindingInfoId::unknown());
+
+    match sess.interp.constants.pop() {
+        Some(value) => sess.insert_global(id, value),
+        None => panic!("top level binding doesn't have a defined constant value"),
     }
 }

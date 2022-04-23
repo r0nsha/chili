@@ -456,11 +456,12 @@ impl Check for ast::Binding {
 
             binding_info.visibility = self.visibility;
 
-            // If this binding matches the entry point function's requirements
-            // Tag it as the entry function
             match &mut self.pattern {
                 Pattern::Single(pat) => {
                     pat.binding_info_id = fn_expr.binding_info_id.unwrap();
+
+                    // If this binding matches the entry point function's requirements
+                    // Tag it as the entry function
                     if sess.workspace.entry_point_function_id.is_none() && pat.symbol == "main" {
                         sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
                         fn_expr.is_entry_point = true;

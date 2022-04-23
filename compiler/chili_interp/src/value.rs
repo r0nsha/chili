@@ -1,5 +1,6 @@
-use crate::vm::Bytecode;
 use std::fmt::Display;
+
+use crate::instruction::Bytecode;
 
 #[derive(Debug, Clone)]
 pub enum Value {

@@ -1,17 +1,15 @@
 use crate::{
-    instruction::Instruction,
+    instruction::{Bytecode, Instruction},
     interp::Interp,
     stack::Stack,
     value::{Func, Value},
 };
-use chili_ast::workspace::BindingInfoId;
 use colored::Colorize;
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
 
-pub type Bytecode = Vec<Instruction>;
 pub type Constants = Vec<Value>;
 pub type Globals = Vec<Value>;
 
@@ -99,14 +97,13 @@ impl<'vm> VM<'vm> {
 
     fn run_loop(&'vm mut self) -> Value {
         loop {
-            let inst = &self.current_code()[self.frames.peek(0).ip].clone();
+            let inst = self.code()[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
-            // std::thread::sleep(core::time::Duration::from_millis(100));
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
-            match *inst {
+            match inst {
                 Instruction::Noop => (),
                 Instruction::Pop => {
                     self.stack.pop();
@@ -172,21 +169,22 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Or => {
                     logic_op!(self.stack, ||);
-                } // Instruction::Jmp(addr) => {
-                //     self.jmp(addr);
-                // }
-                // Instruction::Jmpt(addr) => {
-                //     let value = self.stack.peek(0);
-                //     if value.is_truthy() {
-                //         self.jmp(addr);
-                //     }
-                // }
-                // Instruction::Jmpf(addr) => {
-                //     let value = self.stack.peek(0);
-                //     if !value.is_truthy() {
-                //         self.jmp(addr);
-                //     }
-                // }
+                }
+                Instruction::Jmp(addr) => {
+                    self.jmp(addr);
+                }
+                Instruction::Jmpt(addr) => {
+                    let value = self.stack.peek(0);
+                    if value.is_truthy() {
+                        self.jmp(addr);
+                    }
+                }
+                Instruction::Jmpf(addr) => {
+                    let value = self.stack.peek(0);
+                    if !value.is_truthy() {
+                        self.jmp(addr);
+                    }
+                }
                 Instruction::Return => {
                     let frame = self.frames.pop();
                     let return_value = self.stack.pop();
@@ -247,11 +245,11 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    fn current_code(&self) -> &Bytecode {
-        &self.current_func().code
+    fn code(&self) -> &Bytecode {
+        &self.func().code
     }
 
-    fn current_func(&self) -> &Func {
+    fn func(&self) -> &Func {
         &self.frames.peek(0).func
     }
 

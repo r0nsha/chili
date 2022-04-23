@@ -1,8 +1,11 @@
+use instruction::Bytecode;
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Write},
     path::Path,
 };
+use value::Value;
+use vm::{Constants, Globals};
 
 pub mod ffi;
 pub mod instruction;
@@ -11,9 +14,6 @@ mod lower;
 mod stack;
 pub mod value;
 pub mod vm;
-
-use value::Value;
-use vm::{Bytecode, Constants, Globals};
 
 pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Bytecode) {
     if let Ok(file) = &OpenOptions::new()
