@@ -1,130 +1,156 @@
-// use std::{ffi::c_void, os::raw::c_long, result::Result};
-// use chili_ast::ty::*;
-// use libffi::low::*;
-// use ustr::Ustr;
-// use crate::value::Value;
+use crate::value::{ForeignFunc, Value};
+use chili_ast::ty::*;
+use libffi::low::{
+    call, ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
+};
+use std::{ffi::c_void, mem::size_of, os::raw::c_long};
 
-// #[derive(Debug, Clone)]
-// pub struct ForeignFn {
-//     pub lib: Ustr,
-//     pub name: Ustr,
-//     pub param_tys: Vec<Ty>,
-//     pub ret_ty: Ty,
-//     pub variadic: bool,
-// }
+pub fn call_foreign_func(func: ForeignFunc, args: Vec<Value>) -> c_long {
+    let lib = load_lib(&func.lib_path);
+    let symbol = load_symbol(&lib, &func.name);
+    let cif = create_cif(&func, args.len());
+    do_ffi_call(symbol, args, cif)
+}
 
-// pub struct FFI {}
+fn do_ffi_call(symbol: libloading::Symbol<*mut c_void>, args: Vec<Value>, mut cif: ffi_cif) -> i32 {
+    let code_ptr = CodePtr::from_ptr(*symbol);
+    let args = args
+        .iter()
+        .map(|arg| unsafe { arg.as_ffi_arg() })
+        .collect::<Vec<*mut c_void>>()
+        .as_mut_ptr();
+    unsafe { call::<c_long>(&mut cif as *mut _, code_ptr, args) }
+}
 
-// impl FFI {
-//     pub fn new() -> Self {
-//         Self {}
-//     }
+fn load_lib(lib_path: &str) -> libloading::Library {
+    let lib_name = match lib_path {
+        "c" | "C" | "libucrt" => "msvcrt".to_string(), // TODO: this depends on the platform,
+        _ => lib_path.to_string(),
+    };
+    unsafe { libloading::Library::new(format!("{}.dll", lib_name)) }.unwrap()
+}
 
-//     pub fn call(&mut self, func: ForeignFunction, values: Vec<Value>) ->
-// Result<c_long, String> {         let lib_name = if func.lib.as_str() == "C" {
-//             "msvcrt"
-//         } else {
-//             func.lib.as_str()
-//         };
+fn load_symbol<'a>(
+    lib: &'a libloading::Library,
+    symbol: &str,
+) -> libloading::Symbol<'a, *mut c_void> {
+    unsafe { lib.get(symbol.as_bytes()) }.unwrap()
+}
 
-//         let lib = match unsafe {
-// libloading::Library::new(format!("{}.dll", lib_name)) } {
-// Ok(lib) => lib,             Err(_) => return Err(format!("couldn't
-// find library `{}`", lib_name)),         };
+fn create_cif(func: &ForeignFunc, arg_count: usize) -> ffi_cif {
+    let mut cif = ffi_cif::default();
+    let abi = ffi_abi_FFI_DEFAULT_ABI;
 
-//         let symbol = match unsafe { lib.get(func.name.as_str().as_bytes()) }
-// {             Ok(symbol) => symbol,
-//             Err(_) => {
-//                 return Err(format!(
-//                     "couldn't find function `{}` in library `{}`",
-//                     func.name, lib_name
-//                 ))
-//             }
-//         };
+    let ret: *mut ffi_type = unsafe { &mut func.ret_ty.as_ffi_type() };
 
-//         let ret_ty: *mut ffi_type = unsafe { &mut ty_to_ffi_ty(&func.ret_ty)
-// };
+    let mut params = func
+        .param_tys
+        .iter()
+        .map(|param| &mut unsafe { param.as_ffi_type() } as *mut _)
+        .collect::<Vec<*mut ffi_type>>();
 
-//         let mut param_tys: Vec<*mut ffi_type> = vec![];
+    if func.variadic {
+        unsafe {
+            prep_cif_var(
+                &mut cif,
+                abi,
+                params.len(),
+                arg_count,
+                ret,
+                params.as_mut_ptr(),
+            )
+        }
+        .unwrap()
+    } else {
+        unsafe { prep_cif(&mut cif, abi, params.len(), ret, params.as_mut_ptr()) }.unwrap()
+    }
 
-//         unsafe {
-//             for value in &values {
-//                 param_tys.push(&mut value_to_ffi_ty(value));
-//             }
-//         };
+    cif
+}
 
-//         let mut convention = ffi_cif::default();
+trait AsFfiType {
+    unsafe fn as_ffi_type(&self) -> ffi_type;
+}
 
-//         unsafe {
-//             let prep_result = if func.variadic {
-//                 prep_cif_var(
-//                     &mut convention,
-//                     ffi_abi_FFI_DEFAULT_ABI,
-//                     param_tys.len(),
-//                     values.len(),
-//                     ret_ty,
-//                     param_tys.as_mut_ptr(),
-//                 )
-//             } else {
-//                 prep_cif(
-//                     &mut convention,
-//                     ffi_abi_FFI_DEFAULT_ABI,
-//                     param_tys.len(),
-//                     ret_ty,
-//                     param_tys.as_mut_ptr(),
-//                 )
-//             };
+impl AsFfiType for TyKind {
+    unsafe fn as_ffi_type(&self) -> ffi_type {
+        const IS_64BIT: bool = size_of::<usize>() == 8;
 
-//             if let Err(_) = prep_result {
-//                 return Err(format!("failed calling foreign function
-// `{}`, this is probably a cause of mismatching parameter or return type
-// definitions", func.name));             }
-//         }
+        match self {
+            TyKind::Bool => types::uint8,
+            TyKind::Int(ty) => match ty {
+                IntTy::I8 => types::sint8,
+                IntTy::I16 => types::sint16,
+                IntTy::I32 => types::sint32,
+                IntTy::I64 => types::sint64,
+                IntTy::Int => {
+                    if IS_64BIT {
+                        types::sint64
+                    } else {
+                        types::sint32
+                    }
+                }
+            },
+            TyKind::UInt(ty) => match ty {
+                UIntTy::U8 => types::uint8,
+                UIntTy::U16 => types::uint16,
+                UIntTy::U32 => types::uint32,
+                UIntTy::U64 => types::uint64,
+                UIntTy::UInt => {
+                    if IS_64BIT {
+                        types::uint64
+                    } else {
+                        types::uint32
+                    }
+                }
+            },
+            TyKind::Float(_) => types::float,
+            TyKind::Unit => todo!(),
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => types::pointer,
+            TyKind::Fn(_) => todo!(),
+            TyKind::Array(_, _) => todo!(),
+            TyKind::Slice(_, _) => todo!(),
+            TyKind::Tuple(_) => todo!(),
+            TyKind::Struct(_) => todo!(),
+            TyKind::Module(_) => todo!(),
+            TyKind::Type(_) => todo!(),
+            TyKind::Var(_) => todo!(),
+            TyKind::Infer(_, ty) => match ty {
+                InferTy::AnyInt => types::sint64,
+                InferTy::AnyFloat => types::float,
+                InferTy::PartialStruct(_) => todo!(),
+                InferTy::PartialTuple(_) => todo!(),
+            },
+            TyKind::Never => types::void,
+            TyKind::Unknown => panic!("invalid type {}", self),
+        }
+    }
+}
 
-//         let mut args: Vec<*mut c_void> = vec![];
+trait AsFfiArg {
+    unsafe fn as_ffi_arg(&self) -> *mut c_void;
+}
 
-//         for value in values {
-//             let arg = match value {
-//                 Value::() => &mut 0 as *mut _ as *mut c_void,
-//                 Value::Int(mut v) => &mut v as *mut _ as *mut c_void,
-//                 Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
-//                 Value::Str(mut v) => &mut v as *mut _ as *mut c_void,
-//                 Value::Func(_) => panic!("bug! unexpected function to ffi
-// conversion"),                 Value::ForeignFunc(_) => {
-//                     panic!("bug! unexpected foreign function to ffi
-// conversion")                 }
-//             };
+impl AsFfiArg for Value {
+    unsafe fn as_ffi_arg(&self) -> *mut c_void {
+        match self {
+            Value::Int(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::Float(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::Tuple(_) => todo!("tuple"),
+            Value::Ptr(ptr) => *ptr as *mut c_void,
+            Value::Slice(_) => todo!("slice"),
+            Value::Func(_) => todo!("func"),
+            Value::ForeignFunc(_) => todo!("foreign func"),
+        }
+    }
+}
 
-//             args.push(arg);
-//         }
-
-//         let result: c_long = unsafe {
-//             call(
-//                 &mut convention,
-//                 CodePtr::from_ptr(*symbol),
-//                 args.as_mut_ptr(),
-//             )
-//         };
-
-//         Ok(result)
-//     }
-// }
-
-// unsafe fn ty_to_ffi_ty(ty: &Ty) -> ffi_type {
-//     match ty {
-//         Ty::Bool => types::uint8,
-//         Ty::I8 => types::sint8,
-//         Ty::I16 => types::sint16,
-//         Ty::I32 => types::sint32,
-//         Ty::I64 => types::sint64,
-//         Ty::() | Ty::Str | Ty::Func { .. } | Ty::Pointer(_) | Ty::Unknown =>
-// types::pointer,     }
-// }
-
-// unsafe fn value_to_ffi_ty(value: &Value) -> ffi_type {
-//     match value {
-//         Value::Int(_) => types::sint64,
-//         Value::Bool(_) => types::uint8,
-//         Value::() | Value::Str(_) | Value::Func(_) | Value::ForeignFunc(_) =>
-// types::pointer,     }
-// }
+unsafe fn value_to_ffi_ty(value: &Value) -> ffi_type {
+    todo!()
+    // match value {
+    //     Value::Int(_) => types::sint64,
+    //     Value::Bool(_) => types::uint8,
+    //     Value() | Value::Str(_) | Value::Func(_) | Value::ForeignFunc(_) => types::pointer,
+    // }
+}

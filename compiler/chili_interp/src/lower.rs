@@ -1,7 +1,9 @@
+use std::mem::{self, ManuallyDrop};
+
 use crate::{
     instruction::{Bytecode, Instruction},
     interp::{Env, InterpSess},
-    value::{FatPtr, Func, Value},
+    value::{ForeignFunc, Func, Slice, Value},
 };
 use chili_ast::{
     ast,
@@ -67,10 +69,8 @@ impl Lower for ast::Expr {
                         let slot = find_and_lower_top_level_binding(id, sess);
                         code.push(Instruction::GetGlobal(slot));
                     }
-                    ty => panic!("invalid type `{}`", ty),
+                    ty => panic!("invalid type `{}` or member `{}`", ty, access.member),
                 }
-
-                code.push(Instruction::Access(access.member));
             }
             ast::ExprKind::Ident(ident) => {
                 let id = ident.binding_info_id;
@@ -105,11 +105,16 @@ impl Lower for ast::Expr {
                     ast::LiteralKind::Bool(v) => Value::Bool(*v),
                     ast::LiteralKind::Int(v) => Value::Int(*v),
                     ast::LiteralKind::Float(v) => Value::Float(*v),
-                    ast::LiteralKind::Str(v) => Value::Slice(FatPtr {
-                        ty: self.ty.normalize(&sess.tycx),
-                        ptr: v.to_string().as_mut_ptr(),
-                        len: v.len(),
-                    }),
+                    ast::LiteralKind::Str(v) => {
+                        let ty = self.ty.normalize(&sess.tycx);
+                        // Note (Ron): We leak here...
+                        let ptr = ManuallyDrop::new(v.to_string()).as_mut_ptr();
+                        Value::Slice(Slice {
+                            ty,
+                            ptr,
+                            len: v.len(),
+                        })
+                    }
                     ast::LiteralKind::Char(v) => Value::Int((*v) as i64),
                 },
             ),
@@ -118,7 +123,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::ArrayType(_) => todo!(),
             ast::ExprKind::SliceType(_) => todo!(),
             ast::ExprKind::StructType(_) => todo!(),
-            ast::ExprKind::FnType(_) => todo!(),
+            ast::ExprKind::FnType(sig) => sig.lower(sess, code),
             ast::ExprKind::SelfType => todo!(),
             ast::ExprKind::NeverType => todo!(),
             ast::ExprKind::UnitType => todo!(),
@@ -172,6 +177,36 @@ impl Lower for ast::Fn {
         });
 
         sess.push_const(code, func);
+    }
+}
+
+impl Lower for ast::FnSig {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+        if let Some(lib_name) = self.lib_name {
+            let func_ty = self.ty.normalize(sess.tycx).into_fn();
+
+            let module_path = sess
+                .workspace
+                .get_module_info(sess.module_id())
+                .unwrap()
+                .file_path;
+
+            let lib_path = ast::ForeignLibrary::from_str(&lib_name.to_string(), &module_path)
+                .unwrap()
+                .path();
+            let lib_path = lib_path.trim_end_matches(".lib");
+
+            let foreign_func = ForeignFunc {
+                lib_path: lib_path.to_string(),
+                name: self.name.to_string(),
+                param_tys: func_ty.params,
+                ret_ty: *func_ty.ret,
+                variadic: self.variadic,
+            };
+            sess.push_const(code, Value::ForeignFunc(foreign_func));
+        } else {
+            // lower a non-foreign function signature is a no-op
+        }
     }
 }
 
@@ -276,7 +311,7 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
     // TODO: this function is incomplete
     // TODO: it implies that only global bindings resulting in a constant value works
 
-    sess.env_stack.push(Env::default());
+    sess.env_stack.push((binding.module_id, Env::default()));
 
     binding
         .expr

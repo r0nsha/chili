@@ -118,7 +118,7 @@ impl<'s> CheckSess<'s> {
             for expr in ast.run_exprs.iter() {
                 let mut expr = expr.clone();
                 self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
-                interp_expr(&expr, self).unwrap();
+                interp_expr(&expr, self, module_id).unwrap();
             }
 
             for binding in ast.bindings.iter() {
@@ -393,9 +393,9 @@ impl Check for ast::Binding {
         if let Some(lib) = self.lib_name {
             sess.workspace
                 .foreign_libraries
-                .insert(ForeignLibrary::from_str(
+                .insert(ForeignLibrary::try_from_str(
                     &lib,
-                    env.module_info().file_path,
+                    &env.module_info().file_path,
                     self.pattern.span(),
                 )?);
         }
@@ -2011,9 +2011,9 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
     ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
 }
 
-fn interp_expr(expr: &Expr, sess: &mut CheckSess) -> InterpResult {
+fn interp_expr(expr: &Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
     let mut interp_sess = sess
         .interp
         .create_session(sess.workspace, &sess.tycx, &sess.new_ast);
-    interp_sess.eval(expr)
+    interp_sess.eval(expr, module_id)
 }

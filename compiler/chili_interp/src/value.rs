@@ -1,8 +1,6 @@
-use std::fmt::Display;
-
-use chili_ast::ty::TyKind;
-
 use crate::instruction::Bytecode;
+use chili_ast::ty::TyKind;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -10,8 +8,17 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     Tuple(Vec<Value>),
+    Ptr(*mut u8),
+    Slice(Slice),
     Func(Func),
-    Slice(FatPtr), // ForeignFunc(ForeignFunc),
+    ForeignFunc(ForeignFunc),
+}
+
+#[derive(Debug, Clone)]
+pub struct Slice {
+    pub ty: TyKind,
+    pub ptr: *mut u8,
+    pub len: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -22,10 +29,12 @@ pub struct Func {
 }
 
 #[derive(Debug, Clone)]
-pub struct FatPtr {
-    pub ty: TyKind,
-    pub ptr: *mut u8,
-    pub len: usize,
+pub struct ForeignFunc {
+    pub lib_path: String,
+    pub name: String,
+    pub param_tys: Vec<TyKind>,
+    pub ret_ty: TyKind,
+    pub variadic: bool,
 }
 
 impl Value {
@@ -57,9 +66,11 @@ impl Display for Value {
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
+                Value::Ptr(p) => format!("ptr {:?}", p),
+                Value::Slice(slice) => format!("slice({}, {})", slice.ty, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
-                Value::Slice(fp) => format!("slice({}, {}, {})", fp.ty, unsafe { *fp.ptr }, fp.len),
-                // Value::ForeignFunc(func) => format!("foreign(\"{}\") func {}", func.lib, func.name),
+                Value::ForeignFunc(func) =>
+                    format!("foreign(\"{}\") fn {}", func.lib_path, func.name),
             }
         )
     }

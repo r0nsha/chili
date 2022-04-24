@@ -1,4 +1,5 @@
 use crate::{
+    ffi::call_foreign_func,
     instruction::{Bytecode, Instruction},
     interp::Interp,
     stack::Stack,
@@ -203,21 +204,21 @@ impl<'vm> VM<'vm> {
                             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
                             self.frames.push(frame);
                         }
-                        // Value::ForeignFunc(func) => {
-                        //     let func = func.clone();
+                        Value::ForeignFunc(func) => {
+                            let func = func.clone();
 
-                        //     self.stack.pop(); // this pops the actual foreign function
+                            self.stack.pop(); // this pops the actual foreign function
 
-                        //     let mut values = (0..arg_count)
-                        //         .into_iter()
-                        //         .map(|_| self.stack.pop())
-                        //         .collect::<Vec<Value>>();
-                        //     values.reverse();
+                            let mut values = (0..arg_count)
+                                .into_iter()
+                                .map(|_| self.stack.pop())
+                                .collect::<Vec<Value>>();
+                            values.reverse();
 
-                        // TODO: push actual value by the return value of the func
-                        //                                                          let result = self.ffi.call(func,
-                        // values).unwrap();
-                        // self.stack.push(Value::Int(result as i64));                         }
+                            // TODO: call_foreign_func should return a `Value`
+                            let result = call_foreign_func(func, values);
+                            self.stack.push(Value::Int(result as i64));
+                        }
                         _ => panic!("tried to call an uncallable value `{}`", value),
                     }
                 }
@@ -244,7 +245,17 @@ impl<'vm> VM<'vm> {
                     todo!("access")
                 }
                 Instruction::Index(index) => {
-                    todo!("index")
+                    let value = self.stack.pop();
+
+                    match value {
+                        Value::Tuple(elements) => self.stack.push(elements[index].clone()),
+                        Value::Slice(slice) => match index {
+                            0 => self.stack.push(Value::Ptr(slice.ptr)),
+                            1 => self.stack.push(Value::Int(slice.len as _)),
+                            _ => panic!("invalid index {}", index),
+                        },
+                        _ => panic!("invalid value {}", value),
+                    }
                 }
                 Instruction::Halt => break self.stack.pop(),
             }

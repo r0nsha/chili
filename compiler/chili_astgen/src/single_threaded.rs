@@ -1,7 +1,7 @@
 use crate::{util::insert_std_import, AstGenerationResult, AstGenerationStats};
 use chili_ast::{
     ast::Ast,
-    path::resolve_relative_path,
+    path::try_resolve_relative_path,
     workspace::{ModuleInfo, Workspace},
 };
 use chili_parse::Parser;
@@ -31,7 +31,7 @@ impl<'a> AstGenerator<'a> {
     pub fn start(&mut self) -> AstGenerationResult {
         let mut asts: Vec<Ast> = vec![];
 
-        let root_file_path = resolve_relative_path(
+        let root_file_path = try_resolve_relative_path(
             Path::new(&self.workspace.build_options.source_file),
             &common::builtin::root_module(),
             None,

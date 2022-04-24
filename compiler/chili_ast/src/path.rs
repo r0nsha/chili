@@ -6,7 +6,7 @@ use chili_span::Span;
 use path_absolutize::Absolutize;
 use std::path::Path;
 
-pub fn resolve_relative_path(
+pub fn try_resolve_relative_path(
     path: &Path,
     relative_to: &str,
     span: Option<Span>,
@@ -29,4 +29,16 @@ pub fn resolve_relative_path(
             None => diagnostic,
         })
     }
+}
+
+pub fn resolve_relative_path(path: &Path, relative_to: &str) -> Option<String> {
+    let absolute_path = if relative_to.is_empty() {
+        path.absolutize().unwrap()
+    } else {
+        path.absolutize_from(Path::new(relative_to)).unwrap()
+    };
+
+    absolute_path
+        .exists()
+        .then(|| absolute_path.to_str().unwrap().to_string())
 }

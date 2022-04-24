@@ -56,16 +56,16 @@ pub struct InterpSess<'i> {
     pub(crate) workspace: &'i Workspace,
     pub(crate) tycx: &'i TyCtx,
     pub(crate) typed_ast: &'i ast::TypedAst,
-    pub(crate) env_stack: Vec<Env>,
+    pub(crate) env_stack: Vec<(ModuleId, Env)>,
 }
 
 pub type Env = Scopes<BindingInfoId, isize>;
 
 impl<'i> InterpSess<'i> {
-    pub fn eval(&mut self, expr: &ast::Expr) -> InterpResult {
+    pub fn eval(&mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
         let mut code = Bytecode::new();
 
-        self.env_stack.push(Env::default());
+        self.env_stack.push((module_id, Env::default()));
 
         expr.lower(self, &mut code);
         code.push(Instruction::Halt);
@@ -108,12 +108,16 @@ impl<'i> InterpSess<'i> {
         self.interp.bindings_to_globals.get(&id).cloned()
     }
 
+    pub(crate) fn module_id(&self) -> ModuleId {
+        self.env_stack.last().unwrap().0
+    }
+
     pub(crate) fn env(&self) -> &Env {
-        self.env_stack.last().unwrap()
+        &self.env_stack.last().unwrap().1
     }
 
     pub(crate) fn env_mut(&mut self) -> &mut Env {
-        self.env_stack.last_mut().unwrap()
+        &mut self.env_stack.last_mut().unwrap().1
     }
 
     pub(crate) fn find_symbol(&self, module_id: ModuleId, symbol: Ustr) -> BindingInfoId {

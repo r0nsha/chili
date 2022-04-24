@@ -1,5 +1,5 @@
 use crate::{
-    path::resolve_relative_path,
+    path::{resolve_relative_path, try_resolve_relative_path},
     pattern::Pattern,
     ty::*,
     workspace::{BindingInfoId, ModuleId, ModuleInfo},
@@ -369,26 +369,48 @@ pub enum ForeignLibrary {
 }
 
 impl ForeignLibrary {
-    pub fn from_str(string: &str, module_path: Ustr, span: Span) -> DiagnosticResult<Self> {
+    pub fn try_from_str(string: &str, relative_to: &str, span: Span) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 
         if string.starts_with(SYSTEM_PREFIX) {
             let split: Vec<&str> = string.split(SYSTEM_PREFIX).collect();
             Ok(ForeignLibrary::System(split[1].to_string()))
         } else {
-            let relative_to = Path::new(module_path.as_str())
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap();
+            let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
 
-            let path = resolve_relative_path(Path::new(string), relative_to, Some(span))?;
+            let path = try_resolve_relative_path(Path::new(string), relative_to, Some(span))?;
             let path = Path::new(&path);
 
             Ok(ForeignLibrary::Path {
                 lib_path: path.parent().unwrap().to_str().unwrap().to_string(),
                 lib_name: path.file_name().unwrap().to_str().unwrap().to_string(),
             })
+        }
+    }
+
+    pub fn from_str(string: &str, relative_to: &str) -> Option<Self> {
+        const SYSTEM_PREFIX: &str = "system:";
+
+        if string.starts_with(SYSTEM_PREFIX) {
+            let split: Vec<&str> = string.split(SYSTEM_PREFIX).collect();
+            Some(ForeignLibrary::System(split[1].to_string()))
+        } else {
+            let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
+
+            let path = resolve_relative_path(Path::new(string), relative_to)?;
+            let path = Path::new(&path);
+
+            Some(ForeignLibrary::Path {
+                lib_path: path.parent().unwrap().to_str().unwrap().to_string(),
+                lib_name: path.file_name().unwrap().to_str().unwrap().to_string(),
+            })
+        }
+    }
+
+    pub fn path(&self) -> String {
+        match self {
+            ForeignLibrary::System(lib) => lib.clone(),
+            ForeignLibrary::Path { lib_path, .. } => lib_path.clone(),
         }
     }
 }
