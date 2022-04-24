@@ -240,6 +240,12 @@ impl<'vm> VM<'vm> {
                 //     let value = self.stack.peek(0).clone();
                 //     self.stack.set(slot as usize, value);
                 // }
+                Instruction::Access(member) => {
+                    todo!("access")
+                }
+                Instruction::Index(index) => {
+                    todo!("index")
+                }
                 Instruction::Halt => break self.stack.pop(),
             }
         }

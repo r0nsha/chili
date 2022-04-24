@@ -140,7 +140,7 @@ impl<'s> CheckSess<'s> {
                 let partial_struct = PartialStructTy(FromIterator::from_iter(
                     pat.symbols
                         .iter()
-                        .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).kind()))
+                        .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).as_kind()))
                         .collect::<BTreeMap<Ustr, TyKind>>(),
                 ));
 
@@ -165,7 +165,7 @@ impl<'s> CheckSess<'s> {
                 let elements = pat
                     .symbols
                     .iter()
-                    .map(|symbol| self.tycx.var(symbol.span).kind())
+                    .map(|symbol| self.tycx.var(symbol.span).as_kind())
                     .collect::<Vec<TyKind>>();
 
                 let partial_tuple = self.tycx.partial_tuple(elements.clone(), pat.span);

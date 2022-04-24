@@ -51,7 +51,6 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &By
 impl PrettyPrint for Value {
     fn pretty_print(&self) -> String {
         match self {
-            Value::Int(_) | Value::Float(_) | Value::Bool(_) | Value::Tuple(_) => self.to_string(),
             Value::Func(func) => format!(
                 "fn:{}\n{}",
                 if func.name.is_empty() {
@@ -66,6 +65,7 @@ impl PrettyPrint for Value {
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
+            _ => self.to_string(),
         }
     }
 }

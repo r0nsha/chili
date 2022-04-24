@@ -7,10 +7,12 @@ use crate::{
 };
 use chili_ast::{
     ast,
-    workspace::{BindingInfoId, Workspace},
+    workspace::{BindingInfoId, ModuleId, Workspace},
 };
+use chili_infer::ty_ctx::TyCtx;
 use common::scopes::Scopes;
 use std::collections::HashMap;
+use ustr::Ustr;
 
 pub type InterpResult = Result<Value, InterpErr>;
 
@@ -36,11 +38,13 @@ impl Interp {
     pub fn create_session<'i>(
         &'i mut self,
         workspace: &'i Workspace,
+        tycx: &'i TyCtx,
         typed_ast: &'i ast::TypedAst,
     ) -> InterpSess<'i> {
         InterpSess {
             interp: self,
             workspace,
+            tycx,
             typed_ast,
             env_stack: vec![],
         }
@@ -50,6 +54,7 @@ impl Interp {
 pub struct InterpSess<'i> {
     pub(crate) interp: &'i mut Interp,
     pub(crate) workspace: &'i Workspace,
+    pub(crate) tycx: &'i TyCtx,
     pub(crate) typed_ast: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<Env>,
 }
@@ -109,5 +114,21 @@ impl<'i> InterpSess<'i> {
 
     pub(crate) fn env_mut(&mut self) -> &mut Env {
         self.env_stack.last_mut().unwrap()
+    }
+
+    pub(crate) fn find_symbol(&self, module_id: ModuleId, symbol: Ustr) -> BindingInfoId {
+        BindingInfoId(
+            self.workspace
+                .binding_infos
+                .iter()
+                .position(|info| info.module_id == module_id && info.symbol == symbol)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "couldn't find member `{}` in module `{}`",
+                        self.workspace.get_module_info(module_id).unwrap().name,
+                        symbol
+                    )
+                }),
+        )
     }
 }

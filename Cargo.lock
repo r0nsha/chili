@@ -177,6 +177,7 @@ version = "0.1.0"
 dependencies = [
  "chili_ast",
  "chili_error",
+ "chili_infer",
  "chili_span",
  "colored",
  "common",

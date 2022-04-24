@@ -231,7 +231,7 @@ impl<'s> CheckSess<'s> {
                 module_id: Default::default(),
                 symbol,
                 visibility: ast::Visibility::Public,
-                ty: sess.tycx.bound_builtin(ty.kind().create_type()),
+                ty: sess.tycx.bound_builtin(ty.as_kind().create_type()),
                 const_value: Some(ConstValue::Type(ty)),
                 is_mutable: false,
                 kind: ast::BindingKind::Type,
@@ -1284,9 +1284,13 @@ impl Check for ast::Expr {
                     }
                 };
 
-                res.ty
-                    .unify(&partial_ty, &mut sess.tycx)
-                    .or_report_err(&sess.tycx, partial_ty, None, res.ty, self.span)?;
+                res.ty.unify(&partial_ty, &mut sess.tycx).or_report_err(
+                    &sess.tycx,
+                    partial_ty,
+                    None,
+                    res.ty,
+                    access.expr.span,
+                )?;
 
                 let kind = res.ty.normalize(&sess.tycx);
 
@@ -1476,7 +1480,8 @@ impl Check for ast::Expr {
                     .iter()
                     .all(|res| res.const_value.as_ref().map_or(false, |v| v.is_type()));
 
-                let element_tys: Vec<TyKind> = lit.elements.iter().map(|e| e.ty.kind()).collect();
+                let element_tys: Vec<TyKind> =
+                    lit.elements.iter().map(|e| e.ty.as_kind()).collect();
                 let kind = TyKind::Tuple(element_tys);
                 let ty = sess.tycx.bound(kind.clone(), self.span);
 
@@ -1661,14 +1666,14 @@ impl Check for ast::Expr {
                     Ok(Res::new(res.ty))
                 } else {
                     Ok(Res::new_const(
-                        sess.tycx.bound(res.ty.kind().create_type(), self.span),
+                        sess.tycx.bound(res.ty.as_kind().create_type(), self.span),
                         ConstValue::Type(res.ty),
                     ))
                 }
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(
-                    sess.tycx.bound(ty.kind().create_type(), self.span),
+                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
                     ConstValue::Type(ty),
                 )),
                 None => Err(Diagnostic::error()
@@ -1678,21 +1683,21 @@ impl Check for ast::Expr {
             ast::ExprKind::NeverType => {
                 let ty = sess.tycx.common_types.never;
                 Ok(Res::new_const(
-                    sess.tycx.bound(ty.kind().create_type(), self.span),
+                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
                     ConstValue::Type(ty),
                 ))
             }
             ast::ExprKind::UnitType => {
                 let ty = sess.tycx.common_types.unit;
                 Ok(Res::new_const(
-                    sess.tycx.bound(ty.kind().create_type(), self.span),
+                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
                     ConstValue::Type(ty),
                 ))
             }
             ast::ExprKind::PlaceholderType => {
                 let ty = sess.tycx.var(self.span);
                 Ok(Res::new_const(
-                    sess.tycx.bound(ty.kind().create_type(), self.span),
+                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
                     ConstValue::Type(ty),
                 ))
             }
@@ -2007,6 +2012,8 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
 }
 
 fn interp_expr(expr: &Expr, sess: &mut CheckSess) -> InterpResult {
-    let mut interp_sess = sess.interp.create_session(sess.workspace, &sess.new_ast);
+    let mut interp_sess = sess
+        .interp
+        .create_session(sess.workspace, &sess.tycx, &sess.new_ast);
     interp_sess.eval(expr)
 }

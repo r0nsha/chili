@@ -31,7 +31,7 @@ impl Ty {
         Default::default()
     }
 
-    pub fn kind(&self) -> TyKind {
+    pub fn as_kind(&self) -> TyKind {
         (*self).into()
     }
 }

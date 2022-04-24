@@ -1,31 +1,3 @@
-let add = fn(a, b) {
-	a + b
-}
+use c
 
-let a = fn(n) {
-    if n > 10 {
-        n
-    } else {
-        b(n + 1)
-    }
-}
-
-let b = fn(n) {
-    if n > 10 {
-        n
-    } else {
-        a(n + 2)
-    }
-}
-
-let fib = fn(n) {
-	if n == 0 {
-        0
-    } else if n == 1 {
-        1
-    } else {
-        fib(n - 1) + fib(n - 2)
-    }
-}
-
-@run(a(0))
+@run(c.printf("hello\n".data))

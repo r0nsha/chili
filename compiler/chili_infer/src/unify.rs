@@ -13,22 +13,22 @@ where
 
 impl UnifyTy<Ty> for Ty {
     fn unify(&self, other: &Ty, tycx: &mut TyCtx) -> UnifyTyResult {
-        let t1 = self.kind();
-        let t2 = other.kind();
+        let t1 = self.as_kind();
+        let t2 = other.as_kind();
         t1.unify(&t2, tycx)
     }
 }
 
 impl UnifyTy<TyKind> for Ty {
     fn unify(&self, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
-        let ty = self.kind();
+        let ty = self.as_kind();
         ty.unify(other, tycx)
     }
 }
 
 impl UnifyTy<Ty> for TyKind {
     fn unify(&self, other: &Ty, tycx: &mut TyCtx) -> UnifyTyResult {
-        let other = other.kind();
+        let other = other.as_kind();
         self.unify(&other, tycx)
     }
 }
@@ -119,11 +119,14 @@ impl UnifyTy<TyKind> for TyKind {
 
             (
                 TyKind::Infer(var, InferTy::PartialStruct(_)),
-                other @ TyKind::Struct(_) | other @ TyKind::Infer(_, InferTy::PartialStruct(_)),
+                other @ TyKind::Struct(_)
+                | other @ TyKind::Module(_)
+                | other @ TyKind::Infer(_, InferTy::PartialStruct(_)),
             )
-            | (other @ TyKind::Struct(_), TyKind::Infer(var, InferTy::PartialStruct(_))) => {
-                unify_var_ty(*var, other, tycx)
-            }
+            | (
+                other @ TyKind::Struct(_) | other @ TyKind::Module(_),
+                TyKind::Infer(var, InferTy::PartialStruct(_)),
+            ) => unify_var_ty(*var, other, tycx),
 
             (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
 
@@ -197,6 +200,11 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
 
                     tycx.bind_ty(var, other_kind);
 
+                    Ok(())
+                }
+                TyKind::Module(module_id) => {
+                    // TODO: check that the symbols in this PartialStruct actually exist in this module
+                    tycx.bind_ty(var, TyKind::Module(module_id));
                     Ok(())
                 }
                 TyKind::Infer(other, InferTy::PartialStruct(ref other_partial)) => {

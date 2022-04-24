@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use chili_ast::ty::TyKind;
+
 use crate::instruction::Bytecode;
 
 #[derive(Debug, Clone)]
@@ -9,7 +11,21 @@ pub enum Value {
     Bool(bool),
     Tuple(Vec<Value>),
     Func(Func),
-    // ForeignFunc(ForeignFunc),
+    Slice(FatPtr), // ForeignFunc(ForeignFunc),
+}
+
+#[derive(Debug, Clone)]
+pub struct Func {
+    pub name: String,
+    pub param_count: usize,
+    pub code: Bytecode,
+}
+
+#[derive(Debug, Clone)]
+pub struct FatPtr {
+    pub ty: TyKind,
+    pub ptr: *mut u8,
+    pub len: usize,
 }
 
 impl Value {
@@ -42,15 +58,9 @@ impl Display for Value {
                         .join(", ")
                 ),
                 Value::Func(func) => format!("fn {}", func.name),
+                Value::Slice(fp) => format!("slice({}, {}, {})", fp.ty, unsafe { *fp.ptr }, fp.len),
                 // Value::ForeignFunc(func) => format!("foreign(\"{}\") func {}", func.lib, func.name),
             }
         )
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Func {
-    pub name: String,
-    pub param_count: usize,
-    pub code: Bytecode,
 }

@@ -1,9 +1,16 @@
 use crate::{
     instruction::{Bytecode, Instruction},
     interp::{Env, InterpSess},
-    value::{Func, Value},
+    value::{FatPtr, Func, Value},
 };
-use chili_ast::{ast, pattern::Pattern, workspace::BindingInfoId};
+use chili_ast::{
+    ast,
+    pattern::Pattern,
+    ty::{InferTy, TyKind},
+    workspace::BindingInfoId,
+};
+use chili_infer::normalize::NormalizeTy;
+use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 
 pub(crate) trait Lower {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode);
@@ -32,12 +39,80 @@ impl Lower for ast::Expr {
             ast::ExprKind::Subscript(_) => todo!(),
             ast::ExprKind::Slice(_) => todo!(),
             ast::ExprKind::Call(call) => call.lower(sess, code),
-            ast::ExprKind::MemberAccess(_) => todo!(),
-            ast::ExprKind::Ident(ident) => ident.lower(sess, code),
+            ast::ExprKind::MemberAccess(access) => {
+                access.expr.lower(sess, code);
+
+                match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
+                    TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
+                        let index = access.member.parse::<usize>().unwrap();
+                        code.push(Instruction::Index(index));
+                    }
+                    TyKind::Struct(st) => {
+                        todo!("struct access")
+                    }
+                    TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
+                        todo!("partial struct access")
+                    }
+                    TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                        sess.push_const(code, Value::Int(*size as i64))
+                    }
+                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                        code.push(Instruction::Index(1));
+                    }
+                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
+                        code.push(Instruction::Index(0));
+                    }
+                    TyKind::Module(module_id) => {
+                        let id = sess.find_symbol(*module_id, access.member);
+                        let slot = find_and_lower_top_level_binding(id, sess);
+                        code.push(Instruction::GetGlobal(slot));
+                    }
+                    ty => panic!("invalid type `{}`", ty),
+                }
+
+                code.push(Instruction::Access(access.member));
+            }
+            ast::ExprKind::Ident(ident) => {
+                let id = ident.binding_info_id;
+
+                assert!(id != BindingInfoId::unknown(), "{}", ident.symbol);
+
+                match self.ty.normalize(sess.tycx) {
+                    // Note (Ron): We do nothing with modules, since they are not an actual value
+                    TyKind::Module(_) => (),
+                    _ => {
+                        if let Some(slot) = sess.env().value(id) {
+                            code.push(Instruction::GetLocal(*slot))
+                        } else {
+                            if let Some(slot) = sess.get_global(id) {
+                                code.push(Instruction::GetGlobal(slot))
+                            } else {
+                                let slot = find_and_lower_top_level_binding(id, sess);
+                                code.push(Instruction::GetGlobal(slot))
+                            }
+                        }
+                    }
+                }
+            }
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral(_) => todo!(),
-            ast::ExprKind::Literal(lit) => lit.lower(sess, code),
+            ast::ExprKind::Literal(lit) => sess.push_const(
+                code,
+                match &lit.kind {
+                    ast::LiteralKind::Unit => Value::Tuple(vec![]),
+                    ast::LiteralKind::Nil => todo!("nil"),
+                    ast::LiteralKind::Bool(v) => Value::Bool(*v),
+                    ast::LiteralKind::Int(v) => Value::Int(*v),
+                    ast::LiteralKind::Float(v) => Value::Float(*v),
+                    ast::LiteralKind::Str(v) => Value::Slice(FatPtr {
+                        ty: self.ty.normalize(&sess.tycx),
+                        ptr: v.to_string().as_mut_ptr(),
+                        len: v.len(),
+                    }),
+                    ast::LiteralKind::Char(v) => Value::Int((*v) as i64),
+                },
+            ),
             ast::ExprKind::PointerType(_) => todo!(),
             ast::ExprKind::MultiPointerType(_) => todo!(),
             ast::ExprKind::ArrayType(_) => todo!(),
@@ -110,28 +185,6 @@ impl Lower for ast::Call {
     }
 }
 
-impl Lower for ast::Ident {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
-        let id = self.binding_info_id;
-        assert!(id != BindingInfoId::unknown(), "{}", self.symbol);
-
-        if let Some(slot) = sess.env().value(id) {
-            code.push(Instruction::GetLocal(*slot))
-        } else {
-            if let Some(slot) = sess.get_global(id) {
-                code.push(Instruction::GetGlobal(slot))
-            } else {
-                if let Some(binding) = sess.typed_ast.bindings.get(&id) {
-                    let slot = lower_top_level_binding(binding, sess);
-                    code.push(Instruction::GetGlobal(slot))
-                } else {
-                    panic!("binding not found!")
-                }
-            }
-        }
-    }
-}
-
 impl Lower for ast::If {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
         self.cond.lower(sess, code);
@@ -185,23 +238,6 @@ impl Lower for ast::Unary {
     }
 }
 
-impl Lower for ast::Literal {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
-        sess.push_const(
-            code,
-            match &self.kind {
-                ast::LiteralKind::Unit => Value::Tuple(vec![]),
-                ast::LiteralKind::Nil => todo!("nil"),
-                ast::LiteralKind::Bool(v) => Value::Bool(*v),
-                ast::LiteralKind::Int(v) => Value::Int(*v),
-                ast::LiteralKind::Float(v) => Value::Float(*v),
-                ast::LiteralKind::Str(_) => todo!("Value::Slice(str)"),
-                ast::LiteralKind::Char(v) => Value::Int((*v) as i64),
-            },
-        )
-    }
-}
-
 fn push_empty_jmpf(code: &mut Bytecode) -> usize {
     code.push(Instruction::Jmpf(0xffff));
     code.len() - 1
@@ -225,6 +261,17 @@ fn patch_empty_jmp(code: &mut Bytecode, pos: usize) -> isize {
     target_offset
 }
 
+#[inline]
+fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
+    if let Some(binding) = sess.typed_ast.bindings.get(&id) {
+        lower_top_level_binding(binding, sess)
+    } else {
+        // dbg!(sess.workspace.get_binding_info(id).unwrap());
+        panic!("binding not found!")
+    }
+}
+
+#[inline]
 fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
     // TODO: this function is incomplete
     // TODO: it implies that only global bindings resulting in a constant value works

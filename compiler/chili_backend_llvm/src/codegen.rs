@@ -925,11 +925,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                                 .position(|info| {
                                     info.module_id == module_id && info.symbol == access.member
                                 })
-                                .expect(&format!(
-                                    "couldn't find member `{}` in module `{}`",
-                                    self.workspace.get_module_info(module_id).unwrap().name,
-                                    access.member
-                                )),
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "couldn't find member `{}` in module `{}`",
+                                        self.workspace.get_module_info(module_id).unwrap().name,
+                                        access.member
+                                    )
+                                }),
                         );
 
                         let decl = self.find_or_gen_top_level_binding(id);

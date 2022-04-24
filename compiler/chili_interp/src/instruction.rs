@@ -4,6 +4,7 @@ use std::{
 };
 
 use chili_ast::ast;
+use ustr::Ustr;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Instruction {
@@ -34,6 +35,8 @@ pub enum Instruction {
     // SetGlobal(Ustr),
     GetLocal(isize),
     // SetLocal(isize),
+    Access(Ustr),
+    Index(usize),
     Halt,
 }
 
@@ -70,6 +73,8 @@ impl Display for Instruction {
                 // Instruction::SetGlobal(name) => format!("set_global ${}", name),
                 Instruction::GetLocal(slot) => format!("get_local ${}", slot),
                 // Instruction::SetLocal(slot) => format!("set_local ${}", slot),
+                Instruction::Access(member) => format!("access `{}`", member),
+                Instruction::Index(idx) => format!("index {}", idx),
                 Instruction::Halt => "halt".to_string(),
             }
         )
