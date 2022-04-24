@@ -6,7 +6,7 @@ use ustr::ustr;
 pub const STD: &str = "std";
 
 pub fn std_module_root_dir() -> PathBuf {
-    // TODO: this needs to come from a configurable path
+    // TODO: maybe this needs to come from a configurable path?
     let mut dir = std::env::current_dir().unwrap();
     dir.push("lib");
     dir.push(STD);
