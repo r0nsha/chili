@@ -100,7 +100,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code()[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -216,8 +216,8 @@ impl<'vm> VM<'vm> {
                             values.reverse();
 
                             // TODO: call_foreign_func should return a `Value`
-                            let result = call_foreign_func(func, values);
-                            self.stack.push(Value::Int(result as i64));
+                            let result = unsafe { call_foreign_func(func, values) };
+                            self.stack.push(result);
                         }
                         _ => panic!("tried to call an uncallable value `{}`", value),
                     }

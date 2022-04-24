@@ -4,7 +4,9 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    // TODO: Have all int values instead of only `Int`
     Int(i64),
+    // TODO: Have all float values instead of only `Float`
     Float(f64),
     Bool(bool),
     Tuple(Vec<Value>),
