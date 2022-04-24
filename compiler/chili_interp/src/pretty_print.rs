@@ -53,7 +53,12 @@ impl PrettyPrint for Value {
         match self {
             Value::Int(_) | Value::Float(_) | Value::Bool(_) | Value::Tuple(_) => self.to_string(),
             Value::Func(func) => format!(
-                "func:\n{}",
+                "fn:{}\n{}",
+                if func.name.is_empty() {
+                    "".to_string()
+                } else {
+                    format!(" {}", func.name)
+                },
                 func.code
                     .iter()
                     .enumerate()
