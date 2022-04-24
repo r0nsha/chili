@@ -1,3 +1,7 @@
-use c
+use c.printf
 
-@run(c.printf("hello\n\0".data))
+let build = fn {
+    printf("hello\n\0".data)
+}
+
+@run(build())

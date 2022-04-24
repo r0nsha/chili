@@ -1,4 +1,4 @@
-use std::mem::{self, ManuallyDrop};
+use std::mem::ManuallyDrop;
 
 use crate::{
     instruction::{Bytecode, Instruction},
@@ -300,9 +300,10 @@ fn patch_empty_jmp(code: &mut Bytecode, pos: usize) -> isize {
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
     if let Some(binding) = sess.typed_ast.bindings.get(&id) {
         lower_top_level_binding(binding, sess)
+    } else if let Some(import) = sess.typed_ast.imports.get(&id) {
+        find_and_lower_top_level_binding(import.target_binding_info_id.unwrap(), sess)
     } else {
-        // dbg!(sess.workspace.get_binding_info(id).unwrap());
-        panic!("binding not found!")
+        panic!("binding not found: {:?}", id)
     }
 }
 
