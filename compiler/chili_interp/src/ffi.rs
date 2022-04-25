@@ -1,67 +1,58 @@
 use crate::value::{ForeignFunc, Value};
 use chili_ast::ty::*;
 use libffi::low::{
-    call, ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
+    ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
 };
 use std::{ffi::c_void, mem};
 
+const IS_64BIT: bool = mem::size_of::<usize>() == 8;
+
 pub unsafe fn call_foreign_func(func: ForeignFunc, args: Vec<Value>) -> Value {
-    let lib = load_lib(&func.lib_path);
-    let symbol = load_symbol(&lib, &func.name);
-    let cif = create_cif(&func, args.len());
-    let call_result = do_ffi_call(symbol, args, cif);
-    convert_result_to_value(call_result, func.ret_ty)
-}
-
-unsafe fn load_lib(lib_path: &str) -> libloading::Library {
-    let lib_name = match lib_path {
+    let lib_name = match func.lib_path.as_str() {
         "c" | "C" | "libucrt" => "msvcrt".to_string(), // TODO: this depends on the platform,
-        _ => lib_path.to_string(),
+        _ => func.lib_path,
     };
-    libloading::Library::new(format!("{}.dll", lib_name)).unwrap()
-}
 
-unsafe fn load_symbol<'a>(
-    lib: &'a libloading::Library,
-    symbol: &str,
-) -> libloading::Symbol<'a, *mut c_void> {
-    lib.get(symbol.as_bytes()).unwrap()
-}
+    let lib = libloading::Library::new(format!("{}.dll", lib_name)).unwrap();
 
-unsafe fn create_cif(func: &ForeignFunc, arg_count: usize) -> ffi_cif {
+    let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
+
     let mut cif = ffi_cif::default();
     let abi = ffi_abi_FFI_DEFAULT_ABI;
 
-    let ret: *mut ffi_type = &mut func.ret_ty.as_ffi_type();
+    let ret_ty: *mut ffi_type = &mut func.ret_ty.as_ffi_type();
 
-    let mut params = func
+    let mut param_tys = func
         .param_tys
         .iter()
         .map(|param| &mut param.as_ffi_type() as *mut _)
         .collect::<Vec<*mut ffi_type>>();
 
+    for arg in args.iter().skip(param_tys.len()) {
+        param_tys.push(&mut arg.as_ffi_type() as *mut _);
+    }
+
     if func.variadic {
         prep_cif_var(
             &mut cif,
             abi,
-            params.len(),
-            arg_count,
-            ret,
-            params.as_mut_ptr(),
+            param_tys.len(),
+            args.len(),
+            ret_ty,
+            param_tys.as_mut_ptr(),
         )
         .unwrap()
     } else {
-        prep_cif(&mut cif, abi, params.len(), ret, params.as_mut_ptr()).unwrap()
+        prep_cif(
+            &mut cif,
+            abi,
+            param_tys.len(),
+            ret_ty,
+            param_tys.as_mut_ptr(),
+        )
+        .unwrap()
     }
 
-    cif
-}
-
-unsafe fn do_ffi_call(
-    symbol: libloading::Symbol<*mut c_void>,
-    args: Vec<Value>,
-    mut cif: ffi_cif,
-) -> *mut c_void {
     let code_ptr = CodePtr::from_ptr(*symbol);
     let args = args
         .iter()
@@ -78,7 +69,9 @@ unsafe fn do_ffi_call(
         args,
     );
 
-    result.assume_init_mut()
+    let call_result = result.assume_init_mut();
+
+    convert_result_to_value(call_result, func.ret_ty)
 }
 
 unsafe fn convert_result_to_value(result: *mut c_void, ret_ty: TyKind) -> Value {
@@ -109,8 +102,6 @@ trait AsFfiType {
 
 impl AsFfiType for TyKind {
     unsafe fn as_ffi_type(&self) -> ffi_type {
-        const IS_64BIT: bool = mem::size_of::<usize>() == 8;
-
         match self {
             TyKind::Bool => types::uint8,
             TyKind::Int(ty) => match ty {
@@ -155,6 +146,29 @@ impl AsFfiType for TyKind {
             },
             TyKind::Never => types::void,
             _ => panic!("invalid type {}", self),
+        }
+    }
+}
+
+impl AsFfiType for Value {
+    unsafe fn as_ffi_type(&self) -> ffi_type {
+        const IS_64BIT: bool = mem::size_of::<usize>() == 8;
+
+        match self {
+            Value::Int(_) => {
+                if IS_64BIT {
+                    types::sint64
+                } else {
+                    types::sint32
+                }
+            }
+            Value::Float(_) => types::float,
+            Value::Bool(_) => types::uint8,
+            Value::Tuple(_) => todo!(),
+            Value::Ptr(_) => types::pointer,
+            Value::Slice(_) => todo!(),
+            Value::Func(_) => todo!(),
+            Value::ForeignFunc(_) => todo!(),
         }
     }
 }

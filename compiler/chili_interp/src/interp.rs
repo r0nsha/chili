@@ -62,7 +62,7 @@ pub struct InterpSess<'i> {
 pub type Env = Scopes<BindingInfoId, isize>;
 
 impl<'i> InterpSess<'i> {
-    pub fn eval(&mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
+    pub fn eval(&'i mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
         let mut code = Bytecode::new();
 
         self.env_stack.push((module_id, Env::default()));
@@ -82,7 +82,7 @@ impl<'i> InterpSess<'i> {
         Ok(result)
     }
 
-    pub(crate) fn create_vm(&'i self) -> VM<'i> {
+    pub(crate) fn create_vm(&'i mut self) -> VM<'i> {
         VM::new(self.interp)
     }
 

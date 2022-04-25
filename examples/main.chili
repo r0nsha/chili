@@ -1,7 +1,9 @@
 use c.printf
 
 let build = fn {
-    printf("hello\n\0".data)
+    let mut x = 5
+    printf("hello %d\n\0".data, x)
+    x = 420
 }
 
 @run(build())

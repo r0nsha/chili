@@ -14,6 +14,10 @@ use chili_ast::{
 use chili_infer::normalize::NormalizeTy;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 
+struct LowerContext {
+    take_ref: bool,
+}
+
 pub(crate) trait Lower {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode);
 }
@@ -23,9 +27,30 @@ impl Lower for ast::Expr {
         match &self.kind {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
-            ast::ExprKind::Binding(_) => todo!(),
+            ast::ExprKind::Binding(binding) => {
+                binding.expr.as_ref().unwrap().lower(sess, code);
+                match &binding.pattern {
+                    Pattern::Single(pat) => {
+                        sess.env_mut()
+                            .insert(pat.binding_info_id, code.len() as isize);
+                    }
+                    Pattern::StructUnpack(_) => todo!(),
+                    Pattern::TupleUnpack(_) => todo!(),
+                }
+            }
             ast::ExprKind::Defer(_) => todo!(),
-            ast::ExprKind::Assign(_) => todo!(),
+            ast::ExprKind::Assign(assign) => {
+                // if let Some(slot) = interp.env.get(name) {
+                //     code.push(Instruction::SetLocal(*slot));
+                // } else if let Some(_) = interp.globals.get(name) {
+                //     code.push(Instruction::SetGlobal(*name));
+                // } else if let Some(item) = interp.top_level_items.get(name) {
+                //     let name = interp_item(interp, item);
+                //     code.push(Instruction::SetGlobal(name));
+                // } else {
+                //     panic!("undefined symbol `{}`", name)
+                // }
+            }
             ast::ExprKind::Cast(_) => todo!(),
             ast::ExprKind::Builtin(_) => todo!(),
             ast::ExprKind::Fn(func) => func.lower(sess, code),

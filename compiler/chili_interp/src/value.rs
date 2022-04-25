@@ -11,6 +11,8 @@ pub enum Value {
     Bool(bool),
     Tuple(Vec<Value>),
     Ptr(*mut u8),
+    Local(isize),
+    Global(usize),
     Slice(Slice),
     Func(Func),
     ForeignFunc(ForeignFunc),
@@ -69,6 +71,8 @@ impl Display for Value {
                         .join(", ")
                 ),
                 Value::Ptr(p) => format!("ptr {:?}", p),
+                Value::Local(slot) => format!("local ${}", slot),
+                Value::Global(slot) => format!("global ${}", slot),
                 Value::Slice(slice) => format!("slice({}, {})", slice.ty, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) =>

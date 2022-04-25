@@ -68,19 +68,17 @@ macro_rules! logic_op {
 }
 
 pub(crate) struct VM<'vm> {
-    interp: &'vm Interp,
+    interp: &'vm mut Interp,
     stack: Stack<Value, STACK_MAX>,
     frames: Stack<CallFrame, FRAMES_MAX>,
-    // ffi: FFI,
 }
 
 impl<'vm> VM<'vm> {
-    pub(crate) fn new(interp: &'vm Interp) -> Self {
+    pub(crate) fn new(interp: &'vm mut Interp) -> Self {
         Self {
             interp,
             stack: Stack::new(),
             frames: Stack::new(),
-            // ffi: FFI::new(),
         }
     }
 
@@ -100,7 +98,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code()[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -223,25 +221,28 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::GetGlobal(slot) => {
+                    // TODO: in Assign context, i need to return the slot, not the member itself
                     match self.interp.globals.get(slot) {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
                     };
                 }
-                // Instruction::SetGlobal(name) => {
-                //     self.globals.insert(name, self.stack.pop());
-                // }
+                Instruction::SetGlobal(slot) => {
+                    self.interp.globals.insert(slot, self.stack.pop());
+                }
                 Instruction::GetLocal(slot) => {
+                    // TODO: in Assign context, i need to return the slot, not the member itself
                     let slot = self.frames.peek(0).slot as isize + slot;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
                 }
-                // Instruction::SetLocal(slot) => {
-                //     let slot = self.frames.peek(0).slot as isize + slot;
-                //     let value = self.stack.peek(0).clone();
-                //     self.stack.set(slot as usize, value);
-                // }
+                Instruction::SetLocal(slot) => {
+                    let slot = self.frames.peek(0).slot as isize + slot;
+                    let value = self.stack.peek(0).clone();
+                    self.stack.set(slot as usize, value);
+                }
                 Instruction::Access(member) => {
+                    // TODO: in Assign context, i need to return the slot, not the member itself
                     todo!("access")
                 }
                 Instruction::Index(index) => {
