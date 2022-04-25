@@ -72,7 +72,7 @@ impl Lower for ast::Expr {
                 match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
                     TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
                         let index = access.member.parse::<usize>().unwrap();
-                        code.push(Instruction::Index(index));
+                        code.push(Instruction::Index(index as u32));
                     }
                     TyKind::Struct(st) => {
                         todo!("struct access")
@@ -92,7 +92,7 @@ impl Lower for ast::Expr {
                     TyKind::Module(module_id) => {
                         let id = sess.find_symbol(*module_id, access.member);
                         let slot = find_and_lower_top_level_binding(id, sess);
-                        code.push(Instruction::GetGlobal(slot));
+                        code.push(Instruction::GetGlobal(slot as u32));
                     }
                     ty => panic!("invalid type `{}` or member `{}`", ty, access.member),
                 }
@@ -107,13 +107,13 @@ impl Lower for ast::Expr {
                     TyKind::Module(_) => (),
                     _ => {
                         if let Some(slot) = sess.env().value(id) {
-                            code.push(Instruction::GetLocal(*slot))
+                            code.push(Instruction::GetLocal(*slot as i32))
                         } else {
                             if let Some(slot) = sess.get_global(id) {
-                                code.push(Instruction::GetGlobal(slot))
+                                code.push(Instruction::GetGlobal(slot as u32))
                             } else {
                                 let slot = find_and_lower_top_level_binding(id, sess);
-                                code.push(Instruction::GetGlobal(slot))
+                                code.push(Instruction::GetGlobal(slot as u32))
                             }
                         }
                     }
@@ -241,7 +241,7 @@ impl Lower for ast::Call {
             arg.lower(sess, code);
         }
         self.callee.lower(sess, code);
-        code.push(Instruction::Call(self.args.len()));
+        code.push(Instruction::Call(self.args.len() as u32));
     }
 }
 
@@ -308,8 +308,8 @@ fn push_empty_jmp(code: &mut Bytecode) -> usize {
     code.len() - 1
 }
 
-fn patch_empty_jmp(code: &mut Bytecode, pos: usize) -> isize {
-    let target_offset = (code.len() - 1 - pos) as isize;
+fn patch_empty_jmp(code: &mut Bytecode, pos: usize) -> i32 {
+    let target_offset = (code.len() - 1 - pos) as i32;
 
     match &mut code[pos] {
         Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset) => {

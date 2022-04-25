@@ -98,7 +98,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code()[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -107,7 +107,7 @@ impl<'vm> VM<'vm> {
                 Instruction::Pop => {
                     self.stack.pop();
                 }
-                Instruction::Const(addr) => {
+                Instruction::PushConst(addr) => {
                     self.stack.push(self.get_const(addr).clone());
                 }
                 Instruction::Add => {
@@ -222,34 +222,34 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::GetGlobal(slot) => {
                     // TODO: in Assign context, i need to return the slot, not the member itself
-                    match self.interp.globals.get(slot) {
+                    match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
                     };
                 }
                 Instruction::SetGlobal(slot) => {
-                    self.interp.globals.insert(slot, self.stack.pop());
+                    self.interp.globals.insert(slot as usize, self.stack.pop());
                 }
                 Instruction::GetLocal(slot) => {
                     // TODO: in Assign context, i need to return the slot, not the member itself
-                    let slot = self.frames.peek(0).slot as isize + slot;
+                    let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
                 }
                 Instruction::SetLocal(slot) => {
-                    let slot = self.frames.peek(0).slot as isize + slot;
+                    let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.peek(0).clone();
                     self.stack.set(slot as usize, value);
                 }
-                Instruction::Access(member) => {
-                    // TODO: in Assign context, i need to return the slot, not the member itself
-                    todo!("access")
-                }
+                // Instruction::Access(member) => {
+                //     // TODO: in Assign context, i need to return the slot, not the member itself
+                //     todo!("access")
+                // }
                 Instruction::Index(index) => {
                     let value = self.stack.pop();
 
                     match value {
-                        Value::Tuple(elements) => self.stack.push(elements[index].clone()),
+                        Value::Tuple(elements) => self.stack.push(elements[index as usize].clone()),
                         Value::Slice(slice) => match index {
                             0 => self.stack.push(Value::Ptr(slice.ptr)),
                             1 => self.stack.push(Value::Int(slice.len as _)),
@@ -271,12 +271,12 @@ impl<'vm> VM<'vm> {
         &self.frames.peek(0).func
     }
 
-    fn get_const(&self, addr: usize) -> &Value {
-        self.interp.constants.get(addr).unwrap()
+    fn get_const(&self, addr: u32) -> &Value {
+        self.interp.constants.get(addr as usize).unwrap()
     }
 
-    fn jmp(&mut self, offset: isize) {
-        let new_ip = self.frames.peek_mut().ip as isize + offset;
+    fn jmp(&mut self, offset: i32) {
+        let new_ip = self.frames.peek_mut().ip as isize + offset as isize;
         self.frames.peek_mut().ip = new_ip as usize;
     }
 

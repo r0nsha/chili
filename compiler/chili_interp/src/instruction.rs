@@ -4,13 +4,12 @@ use std::{
 };
 
 use chili_ast::ast;
-use ustr::Ustr;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Instruction {
     Noop,
     Pop,
-    Const(usize),
+    PushConst(u32),
     Add,
     Sub,
     Mul,
@@ -26,29 +25,30 @@ pub enum Instruction {
     GtEq,
     And,
     Or,
-    Jmp(isize),
-    Jmpt(isize),
-    Jmpf(isize),
+    Jmp(i32),
+    Jmpt(i32),
+    Jmpf(i32),
     Return,
-    Call(usize),
-    GetGlobal(usize),
-    SetGlobal(usize),
-    GetLocal(isize),
-    SetLocal(isize),
-    Access(Ustr),
-    Index(usize),
+    Call(u32),
+    GetGlobal(u32),
+    SetGlobal(u32),
+    GetLocal(i32),
+    SetLocal(i32),
+    // Access(Ustr),
+    Index(u32),
     Halt,
 }
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        println!("{}", std::mem::size_of::<Instruction>());
         write!(
             f,
             "{}",
             match self {
                 Instruction::Noop => "noop".to_string(),
                 Instruction::Pop => "pop".to_string(),
-                Instruction::Const(addr) => format!("const %{}", addr),
+                Instruction::PushConst(addr) => format!("push_const %{}", addr),
                 Instruction::Add => "add".to_string(),
                 Instruction::Sub => "sub".to_string(),
                 Instruction::Mul => "mul".to_string(),
@@ -73,7 +73,7 @@ impl Display for Instruction {
                 Instruction::SetGlobal(slot) => format!("set_global ${}", slot),
                 Instruction::GetLocal(slot) => format!("get_local ${}", slot),
                 Instruction::SetLocal(slot) => format!("set_local ${}", slot),
-                Instruction::Access(member) => format!("access `{}`", member),
+                // Instruction::Access(member) => format!("access `{}`", member),
                 Instruction::Index(idx) => format!("index {}", idx),
                 Instruction::Halt => "halt".to_string(),
             }

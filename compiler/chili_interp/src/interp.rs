@@ -73,9 +73,9 @@ impl<'i> InterpSess<'i> {
 
         self.env_stack.pop();
 
-        // if verbose {
-        //     dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
-        // }
+        if verbose {
+            dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
+        }
 
         let result = time! { verbose, "vm", {
             let mut vm = self.create_vm();
@@ -94,7 +94,7 @@ impl<'i> InterpSess<'i> {
     pub(crate) fn push_const(&mut self, code: &mut Bytecode, value: Value) {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
-        code.push(Instruction::Const(slot));
+        code.push(Instruction::PushConst(slot as u32));
     }
 
     pub(crate) fn insert_global(&mut self, id: BindingInfoId, value: Value) -> usize {
