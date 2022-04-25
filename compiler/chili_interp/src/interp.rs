@@ -10,7 +10,7 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleId, Workspace},
 };
 use chili_infer::ty_ctx::TyCtx;
-use common::scopes::Scopes;
+use common::{scopes::Scopes, time};
 use std::collections::HashMap;
 use ustr::Ustr;
 
@@ -63,6 +63,7 @@ pub type Env = Scopes<BindingInfoId, isize>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
+        let verbose = self.workspace.build_options.verbose;
         let mut code = Bytecode::new();
 
         self.env_stack.push((module_id, Env::default()));
@@ -72,10 +73,14 @@ impl<'i> InterpSess<'i> {
 
         self.env_stack.pop();
 
-        dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
+        // if verbose {
+        //     dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
+        // }
 
-        let mut vm = self.create_vm();
-        let result = vm.run(code);
+        let result = time! { verbose, "vm", {
+            let mut vm = self.create_vm();
+            vm.run(code)
+        }};
 
         println!("result = {}", result);
 
