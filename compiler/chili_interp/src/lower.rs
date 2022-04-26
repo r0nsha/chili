@@ -29,15 +29,17 @@ impl Lower for ast::Expr {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
             ast::ExprKind::Binding(binding) => {
+                let slot = code.len() as isize + 1;
+
                 binding
                     .expr
                     .as_ref()
                     .unwrap()
                     .lower(sess, code, LowerContext { take_ptr: false });
+
                 match &binding.pattern {
                     Pattern::Single(pat) => {
-                        sess.env_mut()
-                            .insert(pat.binding_info_id, code.len() as isize);
+                        sess.env_mut().insert(pat.binding_info_id, slot);
                     }
                     Pattern::StructUnpack(_) => todo!(),
                     Pattern::TupleUnpack(_) => todo!(),
@@ -55,7 +57,7 @@ impl Lower for ast::Expr {
 
                 code.push(Instruction::Assign);
             }
-            ast::ExprKind::Cast(_) => todo!(),
+            ast::ExprKind::Cast(cast) => (),
             ast::ExprKind::Builtin(_) => todo!(),
             ast::ExprKind::Fn(func) => func.lower(sess, code, LowerContext { take_ptr: false }),
             ast::ExprKind::While(_) => todo!(),

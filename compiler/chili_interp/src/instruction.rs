@@ -17,6 +17,7 @@ pub enum Instruction {
     Rem,
     Neg,
     Not,
+    Deref,
     Eq,
     Neq,
     Lt,
@@ -57,6 +58,7 @@ impl Display for Instruction {
                 Instruction::Rem => "mod".to_string(),
                 Instruction::Neg => "neg".to_string(),
                 Instruction::Not => "not".to_string(),
+                Instruction::Deref => "deref".to_string(),
                 Instruction::Eq => "eq".to_string(),
                 Instruction::Neq => "neq".to_string(),
                 Instruction::Lt => "lt".to_string(),
@@ -114,7 +116,7 @@ impl From<ast::UnaryOp> for Instruction {
     fn from(op: ast::UnaryOp) -> Self {
         match op {
             ast::UnaryOp::Ref(_) => todo!("ref"),
-            ast::UnaryOp::Deref => todo!("deref"),
+            ast::UnaryOp::Deref => Instruction::Deref,
             ast::UnaryOp::Neg => Instruction::Neg,
             ast::UnaryOp::Plus => Instruction::Noop,
             ast::UnaryOp::Not => Instruction::Not,

@@ -30,15 +30,15 @@ where
     }
 
     pub fn get(&self, index: usize) -> &T {
-        self.0.get(index).unwrap()
+        self.0.get(index).unwrap_or_else(|| panic!("{}", index))
     }
 
     pub fn get_mut(&mut self, index: usize) -> &mut T {
-        self.0.get_mut(index).unwrap()
+        self.0.get_mut(index).unwrap_or_else(|| panic!("{}", index))
     }
 
     pub fn set(&mut self, index: usize, value: T) {
-        let mut _value = self.0.get_mut(index).unwrap();
+        let mut _value = self.0.get_mut(index).unwrap_or_else(|| panic!("{}", index));
         *_value = value;
     }
 

@@ -1,11 +1,9 @@
-use c.printf
-
-let mut x = 5
+use c.{printf, malloc}
 
 let build = fn {
-    printf("hello %d\n\0".data, x)
-    x = 420
-    printf("hello %d\n\0".data, x)
+    let x = malloc(8) as *int;
+    // printf("hello %d\n\0".data, 5)
+    printf("hello %d\n\0".data, x.*)
 }
 
 @run(build())

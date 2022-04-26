@@ -98,7 +98,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code()[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -131,7 +131,7 @@ impl<'vm> VM<'vm> {
 
                             self.stack.push(Value::Int(b / a))
                         }
-                        _ => panic!("invalid types in division"),
+                        _ => panic!("invalid values"),
                     }
                 }
                 Instruction::Rem => {
@@ -139,11 +139,23 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Neg => match self.stack.pop() {
                     Value::Int(v) => self.stack.push(Value::Int(-v)),
-                    _ => panic!("invalid type in neg"),
+                    value => panic!("invalid value {}", value),
                 },
                 Instruction::Not => {
                     let value = self.stack.pop();
                     self.stack.push(Value::Bool(!value.is_truthy()));
+                }
+                Instruction::Deref => {
+                    let value = self.stack.pop();
+
+                    match &value {
+                        Value::Ptr(ty, ptr) => {
+                            let value = unsafe { &*Value::from_ptr(ty, *ptr) };
+                            self.stack.push(value.clone());
+                        }
+                        Value::ValuePtr(ptr) => todo!(),
+                        _ => panic!("invalid value {}", value),
+                    }
                 }
                 Instruction::Eq => {
                     comp_op!(self.stack, ==);
@@ -260,7 +272,7 @@ impl<'vm> VM<'vm> {
                     match value {
                         Value::Tuple(elements) => self.stack.push(elements[index as usize].clone()),
                         Value::Slice(slice) => match index {
-                            0 => self.stack.push(Value::Ptr(slice.ptr)),
+                            0 => self.stack.push(Value::Ptr(slice.ty, slice.ptr)),
                             1 => self.stack.push(Value::Int(slice.len as _)),
                             _ => panic!("invalid index {}", index),
                         },
@@ -272,11 +284,133 @@ impl<'vm> VM<'vm> {
                     let rvalue = self.stack.pop();
 
                     match lvalue {
-                        Value::Ptr(_) => todo!(),
+                        Value::Ptr(_, _) => todo!(),
                         Value::ValuePtr(ptr) => unsafe { *ptr = rvalue },
                         _ => panic!("invalid lvalue {}", lvalue),
                     }
                 }
+                // Instruction::Cast =>{
+                //     if from_ty == target_ty {
+                //         return value;
+                //     }
+
+                //     match (from_ty, target_ty) {
+                //         (TyKind::Bool, TyKind::Infer(_, InferTy::AnyInt))
+                //         | (TyKind::Bool, TyKind::Int(_))
+                //         | (TyKind::Bool, TyKind::UInt(_)) => self
+                //             .builder
+                //             .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
+                //             .into(),
+                //         (
+                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_),
+                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_),
+                //         ) => self
+                //             .builder
+                //             .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
+                //             .into(),
+
+                //         (TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_), TyKind::Float(_)) => self
+                //             .builder
+                //             .build_signed_int_to_float(
+                //                 value.into_int_value(),
+                //                 cast_type.into_float_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+
+                //         (TyKind::UInt(_), TyKind::Float(_)) => self
+                //             .builder
+                //             .build_unsigned_int_to_float(
+                //                 value.into_int_value(),
+                //                 cast_type.into_float_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+
+                //         (TyKind::Float(_), TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_)) => self
+                //             .builder
+                //             .build_float_to_signed_int(
+                //                 value.into_float_value(),
+                //                 cast_type.into_int_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+                //         (TyKind::Float(_), TyKind::UInt(_)) => self
+                //             .builder
+                //             .build_float_to_unsigned_int(
+                //                 value.into_float_value(),
+                //                 cast_type.into_int_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+                //         (TyKind::Float(_), TyKind::Float(_)) => self
+                //             .builder
+                //             .build_float_cast(
+                //                 value.into_float_value(),
+                //                 cast_type.into_float_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+
+                //         (
+                //             TyKind::Pointer(..) | TyKind::MultiPointer(..),
+                //             TyKind::Pointer(..) | TyKind::MultiPointer(..),
+                //         ) => self
+                //             .builder
+                //             .build_pointer_cast(
+                //                 value.into_pointer_value(),
+                //                 cast_type.into_pointer_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+
+                //         // pointer <=> int | uint
+                //         (
+                //             TyKind::Pointer(..),
+                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(..) | TyKind::UInt(..),
+                //         ) => self
+                //             .builder
+                //             .build_ptr_to_int(
+                //                 value.into_pointer_value(),
+                //                 cast_type.into_int_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+
+                //         // int | uint <=> pointer
+                //         (
+                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(..) | TyKind::UInt(..),
+                //             TyKind::Pointer(..),
+                //         ) => self
+                //             .builder
+                //             .build_int_to_ptr(
+                //                 value.into_int_value(),
+                //                 cast_type.into_pointer_type(),
+                //                 INST_NAME,
+                //             )
+                //             .into(),
+
+                //         (TyKind::Pointer(t, _), TyKind::Slice(t_slice, ..)) => match t.as_ref() {
+                //             TyKind::Array(_, size) => {
+                //                 let slice_ty = self.slice_type(t_slice);
+                //                 let ptr = self.build_alloca(state, slice_ty);
+
+                //                 self.gen_slice(
+                //                     ptr,
+                //                     value,
+                //                     self.ptr_sized_int_type.const_zero(),
+                //                     self.ptr_sized_int_type.const_int(*size as u64, false),
+                //                     t_slice.as_ref(),
+                //                 );
+
+                //                 self.build_load(ptr.into())
+                //             }
+                //             _ => unreachable!(),
+                //         },
+
+                //         _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
+                //     }
+                // }
                 Instruction::Halt => break self.stack.pop(),
             }
         }

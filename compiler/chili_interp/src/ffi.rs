@@ -84,7 +84,7 @@ unsafe fn convert_result_to_value(result: *mut c_void, ret_ty: TyKind) -> Value 
         TyKind::Float(_) | TyKind::Infer(_, InferTy::AnyFloat) => {
             Value::Float(*(result as *const f64))
         }
-        TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Value::Ptr(result as *mut u8),
+        TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Value::Ptr(ret_ty, result as *mut u8),
         TyKind::Fn(_) => todo!(),
         TyKind::Array(_, _) => todo!(),
         TyKind::Slice(_, _) => todo!(),
@@ -165,7 +165,7 @@ impl AsFfiType for Value {
             Value::Float(_) => types::float,
             Value::Bool(_) => types::uint8,
             Value::Tuple(_) => todo!(),
-            Value::Ptr(_) | Value::ValuePtr(_) => types::pointer,
+            Value::Ptr(..) | Value::ValuePtr(_) => types::pointer,
             Value::Slice(_) => todo!(),
             Value::Func(_) => todo!(),
             Value::ForeignFunc(_) => todo!(),
@@ -184,7 +184,7 @@ impl AsFfiArg for Value {
             Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Float(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Tuple(_) => todo!("tuple"),
-            Value::Ptr(ptr) => *ptr as *mut c_void,
+            Value::Ptr(_, ptr) => *ptr as *mut c_void,
             Value::ValuePtr(v) => *v as *mut c_void,
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
