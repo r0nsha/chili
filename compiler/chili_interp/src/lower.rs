@@ -14,21 +14,26 @@ use chili_ast::{
 use chili_infer::normalize::NormalizeTy;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 
-struct LowerContext {
-    take_ref: bool,
+#[derive(Clone, Copy)]
+pub(crate) struct LowerContext {
+    pub(crate) take_ptr: bool,
 }
 
 pub(crate) trait Lower {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode);
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext);
 }
 
 impl Lower for ast::Expr {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match &self.kind {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
             ast::ExprKind::Binding(binding) => {
-                binding.expr.as_ref().unwrap().lower(sess, code);
+                binding
+                    .expr
+                    .as_ref()
+                    .unwrap()
+                    .lower(sess, code, LowerContext { take_ptr: false });
                 match &binding.pattern {
                     Pattern::Single(pat) => {
                         sess.env_mut()
@@ -40,39 +45,45 @@ impl Lower for ast::Expr {
             }
             ast::ExprKind::Defer(_) => todo!(),
             ast::ExprKind::Assign(assign) => {
-                // if let Some(slot) = interp.env.get(name) {
-                //     code.push(Instruction::SetLocal(*slot));
-                // } else if let Some(_) = interp.globals.get(name) {
-                //     code.push(Instruction::SetGlobal(*name));
-                // } else if let Some(item) = interp.top_level_items.get(name) {
-                //     let name = interp_item(interp, item);
-                //     code.push(Instruction::SetGlobal(name));
-                // } else {
-                //     panic!("undefined symbol `{}`", name)
-                // }
+                assign
+                    .rvalue
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                assign
+                    .lvalue
+                    .lower(sess, code, LowerContext { take_ptr: true });
+
+                code.push(Instruction::Assign);
             }
             ast::ExprKind::Cast(_) => todo!(),
             ast::ExprKind::Builtin(_) => todo!(),
-            ast::ExprKind::Fn(func) => func.lower(sess, code),
+            ast::ExprKind::Fn(func) => func.lower(sess, code, LowerContext { take_ptr: false }),
             ast::ExprKind::While(_) => todo!(),
             ast::ExprKind::For(_) => todo!(),
             ast::ExprKind::Break(_) => todo!(),
             ast::ExprKind::Continue(_) => todo!(),
             ast::ExprKind::Return(_) => todo!(),
-            ast::ExprKind::If(if_) => if_.lower(sess, code),
-            ast::ExprKind::Block(block) => block.lower(sess, code),
-            ast::ExprKind::Binary(binary) => binary.lower(sess, code),
-            ast::ExprKind::Unary(unary) => unary.lower(sess, code),
+            ast::ExprKind::If(if_) => if_.lower(sess, code, LowerContext { take_ptr: false }),
+            ast::ExprKind::Block(block) => {
+                block.lower(sess, code, LowerContext { take_ptr: false })
+            }
+            ast::ExprKind::Binary(binary) => {
+                binary.lower(sess, code, LowerContext { take_ptr: false })
+            }
+            ast::ExprKind::Unary(unary) => {
+                unary.lower(sess, code, LowerContext { take_ptr: false })
+            }
             ast::ExprKind::Subscript(_) => todo!(),
             ast::ExprKind::Slice(_) => todo!(),
-            ast::ExprKind::Call(call) => call.lower(sess, code),
+            ast::ExprKind::Call(call) => call.lower(sess, code, LowerContext { take_ptr: false }),
             ast::ExprKind::MemberAccess(access) => {
-                access.expr.lower(sess, code);
+                access.expr.lower(sess, code, ctx);
 
                 match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
                     TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
                         let index = access.member.parse::<usize>().unwrap();
-                        code.push(Instruction::Index(index as u32));
+                        todo!()
+                        // code.push(Instruction::Index(index as u32));
                     }
                     TyKind::Struct(st) => {
                         todo!("struct access")
@@ -107,14 +118,23 @@ impl Lower for ast::Expr {
                     TyKind::Module(_) => (),
                     _ => {
                         if let Some(slot) = sess.env().value(id) {
-                            code.push(Instruction::GetLocal(*slot as i32))
-                        } else {
-                            if let Some(slot) = sess.get_global(id) {
-                                code.push(Instruction::GetGlobal(slot as u32))
+                            let slot = *slot as i32;
+                            code.push(if ctx.take_ptr {
+                                Instruction::GetLocalPtr(slot)
                             } else {
-                                let slot = find_and_lower_top_level_binding(id, sess);
-                                code.push(Instruction::GetGlobal(slot as u32))
-                            }
+                                Instruction::GetLocal(slot)
+                            })
+                        } else {
+                            let slot = sess
+                                .get_global(id)
+                                .unwrap_or_else(|| find_and_lower_top_level_binding(id, sess))
+                                as u32;
+
+                            code.push(if ctx.take_ptr {
+                                Instruction::GetGlobalPtr(slot)
+                            } else {
+                                Instruction::GetGlobal(slot)
+                            })
                         }
                     }
                 }
@@ -148,7 +168,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::ArrayType(_) => todo!(),
             ast::ExprKind::SliceType(_) => todo!(),
             ast::ExprKind::StructType(_) => todo!(),
-            ast::ExprKind::FnType(sig) => sig.lower(sess, code),
+            ast::ExprKind::FnType(sig) => sig.lower(sess, code, LowerContext { take_ptr: false }),
             ast::ExprKind::SelfType => todo!(),
             ast::ExprKind::NeverType => todo!(),
             ast::ExprKind::UnitType => todo!(),
@@ -159,7 +179,7 @@ impl Lower for ast::Expr {
 }
 
 impl Lower for ast::Fn {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         if let Some(id) = self.binding_info_id {
             let binding_info = sess.workspace.get_binding_info(id).unwrap();
             if binding_info.scope_level.is_global() {
@@ -187,7 +207,8 @@ impl Lower for ast::Fn {
 
         let mut func_code = Bytecode::new();
 
-        self.body.lower(sess, &mut func_code);
+        self.body
+            .lower(sess, &mut func_code, LowerContext { take_ptr: false });
 
         if !code.ends_with(&[Instruction::Return]) {
             func_code.push(Instruction::Return)
@@ -206,7 +227,7 @@ impl Lower for ast::Fn {
 }
 
 impl Lower for ast::FnSig {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         if let Some(lib_name) = self.lib_name {
             let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
@@ -236,30 +257,33 @@ impl Lower for ast::FnSig {
 }
 
 impl Lower for ast::Call {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         for arg in self.args.iter() {
-            arg.lower(sess, code);
+            arg.lower(sess, code, LowerContext { take_ptr: false });
         }
-        self.callee.lower(sess, code);
+        self.callee
+            .lower(sess, code, LowerContext { take_ptr: false });
         code.push(Instruction::Call(self.args.len() as u32));
     }
 }
 
 impl Lower for ast::If {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
-        self.cond.lower(sess, code);
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+        self.cond
+            .lower(sess, code, LowerContext { take_ptr: false });
 
         let then_jmp = push_empty_jmpf(code);
         code.push(Instruction::Pop);
 
-        self.then.lower(sess, code);
+        self.then
+            .lower(sess, code, LowerContext { take_ptr: false });
 
         let else_jmp = push_empty_jmp(code);
         patch_empty_jmp(code, then_jmp);
         code.push(Instruction::Pop);
 
         if let Some(otherwise) = &self.otherwise {
-            otherwise.lower(sess, code);
+            otherwise.lower(sess, code, LowerContext { take_ptr: false });
         }
 
         patch_empty_jmp(code, else_jmp);
@@ -267,16 +291,26 @@ impl Lower for ast::If {
 }
 
 impl Lower for ast::Block {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         sess.env_mut().push_scope();
 
-        for expr in self.exprs.iter() {
-            expr.lower(sess, code);
+        for (index, expr) in self.exprs.iter().enumerate() {
+            let is_last = index != self.exprs.len() - 1;
+
+            expr.lower(
+                sess,
+                code,
+                if is_last {
+                    ctx
+                } else {
+                    LowerContext { take_ptr: false }
+                },
+            );
         }
 
-        // TODO: interpret defers. Note: this complicates block's value yielding
         // for expr in self.deferred.iter() {
-        //     expr.lower(sess, code);
+        //     expr.lower(sess, code, LowerContext { take_ptr: false });
+        //     code.push(Instruction::Pop);
         // }
 
         sess.env_mut().pop_scope();
@@ -284,16 +318,16 @@ impl Lower for ast::Block {
 }
 
 impl Lower for ast::Binary {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
-        self.lhs.lower(sess, code);
-        self.rhs.lower(sess, code);
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+        self.lhs.lower(sess, code, LowerContext { take_ptr: false });
+        self.rhs.lower(sess, code, LowerContext { take_ptr: false });
         code.push(self.op.into())
     }
 }
 
 impl Lower for ast::Unary {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode) {
-        self.lhs.lower(sess, code);
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+        self.lhs.lower(sess, code, LowerContext { take_ptr: false });
         code.push(self.op.into())
     }
 }
@@ -339,11 +373,11 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
 
     sess.env_stack.push((binding.module_id, Env::default()));
 
-    binding
-        .expr
-        .as_ref()
-        .unwrap()
-        .lower(sess, &mut Bytecode::new());
+    binding.expr.as_ref().unwrap().lower(
+        sess,
+        &mut Bytecode::new(),
+        LowerContext { take_ptr: false },
+    );
 
     sess.env_stack.pop();
 

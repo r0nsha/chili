@@ -33,6 +33,10 @@ where
         self.0.get(index).unwrap()
     }
 
+    pub fn get_mut(&mut self, index: usize) -> &mut T {
+        self.0.get_mut(index).unwrap()
+    }
+
     pub fn set(&mut self, index: usize, value: T) {
         let mut _value = self.0.get_mut(index).unwrap();
         *_value = value;

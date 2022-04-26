@@ -1,6 +1,6 @@
 use crate::{
     instruction::{Bytecode, Instruction},
-    lower::Lower,
+    lower::{Lower, LowerContext},
     pretty_print::dump_bytecode_to_file,
     value::Value,
     vm::{Constants, Globals, VM},
@@ -68,7 +68,7 @@ impl<'i> InterpSess<'i> {
 
         self.env_stack.push((module_id, Env::default()));
 
-        expr.lower(self, &mut code);
+        expr.lower(self, &mut code, LowerContext { take_ptr: false });
         code.push(Instruction::Halt);
 
         self.env_stack.pop();

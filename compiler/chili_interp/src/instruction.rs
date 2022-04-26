@@ -31,17 +31,18 @@ pub enum Instruction {
     Return,
     Call(u32),
     GetGlobal(u32),
+    GetGlobalPtr(u32),
     SetGlobal(u32),
     GetLocal(i32),
+    GetLocalPtr(i32),
     SetLocal(i32),
-    // Access(Ustr),
     Index(u32),
+    Assign,
     Halt,
 }
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        println!("{}", std::mem::size_of::<Instruction>());
         write!(
             f,
             "{}",
@@ -70,11 +71,14 @@ impl Display for Instruction {
                 Instruction::Return => "return".to_string(),
                 Instruction::Call(arg_count) => format!("call ({})", arg_count),
                 Instruction::GetGlobal(slot) => format!("get_global ${}", slot),
+                Instruction::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
                 Instruction::SetGlobal(slot) => format!("set_global ${}", slot),
                 Instruction::GetLocal(slot) => format!("get_local ${}", slot),
+                Instruction::GetLocalPtr(slot) => format!("get_local_ptr ${}", slot),
                 Instruction::SetLocal(slot) => format!("set_local ${}", slot),
                 // Instruction::Access(member) => format!("access `{}`", member),
                 Instruction::Index(idx) => format!("index {}", idx),
+                Instruction::Assign => "assign".to_string(),
                 Instruction::Halt => "halt".to_string(),
             }
         )

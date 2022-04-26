@@ -98,7 +98,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code()[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -221,9 +221,14 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::GetGlobal(slot) => {
-                    // TODO: in Assign context, i need to return the slot, not the member itself
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
+                        None => panic!("undefined global `{}`", slot),
+                    };
+                }
+                Instruction::GetGlobalPtr(slot) => {
+                    match self.interp.globals.get_mut(slot as usize) {
+                        Some(value) => self.stack.push(Value::ValuePtr(value as *mut Value)),
                         None => panic!("undefined global `{}`", slot),
                     };
                 }
@@ -231,10 +236,14 @@ impl<'vm> VM<'vm> {
                     self.interp.globals.insert(slot as usize, self.stack.pop());
                 }
                 Instruction::GetLocal(slot) => {
-                    // TODO: in Assign context, i need to return the slot, not the member itself
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
+                }
+                Instruction::GetLocalPtr(slot) => {
+                    let slot = self.frames.peek(0).slot as isize + slot as isize;
+                    let value = self.stack.get_mut(slot as usize) as *mut Value;
+                    self.stack.push(Value::ValuePtr(value));
                 }
                 Instruction::SetLocal(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
@@ -256,6 +265,16 @@ impl<'vm> VM<'vm> {
                             _ => panic!("invalid index {}", index),
                         },
                         _ => panic!("invalid value {}", value),
+                    }
+                }
+                Instruction::Assign => {
+                    let lvalue = self.stack.pop();
+                    let rvalue = self.stack.pop();
+
+                    match lvalue {
+                        Value::Ptr(_) => todo!(),
+                        Value::ValuePtr(ptr) => unsafe { *ptr = rvalue },
+                        _ => panic!("invalid lvalue {}", lvalue),
                     }
                 }
                 Instruction::Halt => break self.stack.pop(),
