@@ -1,4 +1,4 @@
-use crate::value::{ForeignFunc, Value};
+use crate::value::{ForeignFunc, Value, ValuePtr};
 use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
@@ -71,29 +71,10 @@ pub unsafe fn call_foreign_func(func: ForeignFunc, args: Vec<Value>) -> Value {
 
     let call_result = result.assume_init_mut();
 
-    convert_result_to_value(call_result, func.ret_ty)
-}
-
-unsafe fn convert_result_to_value(result: *mut c_void, ret_ty: TyKind) -> Value {
-    match ret_ty {
-        TyKind::Never | TyKind::Unit => Value::unit(),
-        TyKind::Bool => Value::Bool(*(result as *const bool)),
-        TyKind::Int(_) | TyKind::UInt(_) | TyKind::Infer(_, InferTy::AnyInt) => {
-            Value::Int(*(result as *const i64))
-        }
-        TyKind::Float(_) | TyKind::Infer(_, InferTy::AnyFloat) => {
-            Value::F64(*(result as *const f64))
-        }
-        TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Value::Ptr(ret_ty, result as *mut u8),
-        TyKind::Fn(_) => todo!(),
-        TyKind::Array(_, _) => todo!(),
-        TyKind::Slice(_, _) => todo!(),
-        TyKind::Tuple(_) => todo!(),
-        TyKind::Struct(_) => todo!(),
-        TyKind::Infer(_, InferTy::PartialTuple(_)) => todo!(),
-        TyKind::Infer(_, InferTy::PartialStruct(_)) => todo!(),
-        _ => panic!("invalid type {}", ret_ty),
-    }
+    Value::Ptr(ValuePtr::from_ptr(
+        &func.ret_ty,
+        call_result as *mut c_void as *mut u8,
+    ))
 }
 
 trait AsFfiType {
@@ -152,9 +133,11 @@ impl AsFfiType for TyKind {
 
 impl AsFfiType for Value {
     unsafe fn as_ffi_type(&self) -> ffi_type {
-        const IS_64BIT: bool = mem::size_of::<usize>() == 8;
-
         match self {
+            Value::I8(_) => types::sint8,
+            Value::I16(_) => types::sint16,
+            Value::I32(_) => types::sint32,
+            Value::I64(_) => types::sint64,
             Value::Int(_) => {
                 if IS_64BIT {
                     types::sint64
@@ -162,10 +145,21 @@ impl AsFfiType for Value {
                     types::sint32
                 }
             }
-            Value::F64(_) => types::float,
+            Value::U8(_) => types::uint8,
+            Value::U16(_) => types::uint16,
+            Value::U32(_) => types::uint32,
+            Value::U64(_) => types::uint64,
+            Value::UInt(_) => {
+                if IS_64BIT {
+                    types::uint64
+                } else {
+                    types::uint32
+                }
+            }
+            Value::F32(_) | Value::F64(_) => types::float,
             Value::Bool(_) => types::uint8,
             Value::Tuple(_) => todo!(),
-            Value::Ptr(..) | Value::ValuePtr(_) => types::pointer,
+            Value::Ptr(..) => types::pointer,
             Value::Slice(_) => todo!(),
             Value::Func(_) => todo!(),
             Value::ForeignFunc(_) => todo!(),
@@ -180,12 +174,21 @@ trait AsFfiArg {
 impl AsFfiArg for Value {
     unsafe fn as_ffi_arg(&self) -> *mut c_void {
         match self {
+            Value::I8(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::I16(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::I32(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::I64(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Int(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::U8(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::U16(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::U32(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::U64(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::UInt(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::F32(mut v) => &mut v as *mut _ as *mut c_void,
             Value::F64(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Tuple(_) => todo!("tuple"),
-            Value::Ptr(_, ptr) => *ptr as *mut c_void,
-            Value::ValuePtr(v) => *v as *mut c_void,
+            Value::Ptr(ptr) => ptr.as_raw() as *mut c_void,
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),

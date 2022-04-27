@@ -17,6 +17,35 @@ macro_rules! impl_value {
                 $variant(*mut $ty)
             ),+
         }
+
+        impl From<&mut Value> for ValuePtr {
+            fn from(value: &mut Value) -> Self {
+                match value {
+                    $(
+                        Value::$variant(v) => ValuePtr::$variant(v as _)
+                    ),+
+                }
+            }
+        }
+
+        impl ValuePtr {
+            pub fn as_raw(&self) -> *mut u8 {
+                match self {
+                    $(
+                        ValuePtr::$variant(v) => *v as _
+                    ),+
+                }
+            }
+
+            pub fn set(&self, value: Value) {
+                match (self, value) {
+                    $(
+                        (ValuePtr::$variant(ptr), Value::$variant(value)) => unsafe { **ptr = value }
+                    ),+,
+                    (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value)
+                }
+            }
+        }
     };
 }
 
@@ -81,8 +110,9 @@ impl ValuePtr {
     pub fn unit() -> Self {
         // Note (Ron): Leak
         let mut elements = Vec::<Value>::new();
+        let ptr = ValuePtr::Tuple(&mut elements as _);
         mem::forget(elements);
-        ValuePtr::Tuple(&mut elements as _)
+        ptr
     }
 
     pub fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {

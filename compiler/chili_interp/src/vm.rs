@@ -3,8 +3,9 @@ use crate::{
     instruction::{Bytecode, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{Func, Value},
+    value::{Func, Value, ValuePtr},
 };
+use chili_ast::ty::TyKind;
 use colored::Colorize;
 use std::fmt::Display;
 
@@ -147,15 +148,14 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Deref => {
                     let value = self.stack.pop();
-
-                    match &value {
-                        Value::Ptr(ty, ptr) => {
-                            let value = unsafe { &*Value::from_ptr(ty, *ptr) };
-                            self.stack.push(value.clone());
-                        }
-                        Value::ValuePtr(ptr) => todo!(),
-                        _ => panic!("invalid value {}", value),
-                    }
+                    todo!()
+                    // match &value {
+                    //     Value::Ptr(ty, ptr) => {
+                    //         let value = unsafe { &*Value::from_ptr(ty, *ptr) };
+                    //         self.stack.push(value.clone());
+                    //     }
+                    //     _ => panic!("invalid value {}", value),
+                    // }
                 }
                 Instruction::Eq => {
                     comp_op!(self.stack, ==);
@@ -240,7 +240,7 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::GetGlobalPtr(slot) => {
                     match self.interp.globals.get_mut(slot as usize) {
-                        Some(value) => self.stack.push(Value::ValuePtr(value as *mut Value)),
+                        Some(value) => self.stack.push(Value::Ptr(value.into())),
                         None => panic!("undefined global `{}`", slot),
                     };
                 }
@@ -254,8 +254,9 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::GetLocalPtr(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
-                    let value = self.stack.get_mut(slot as usize) as *mut Value;
-                    self.stack.push(Value::ValuePtr(value));
+                    let value = self.stack.get_mut(slot as usize);
+                    let value = Value::Ptr(value.into());
+                    self.stack.push(value);
                 }
                 Instruction::SetLocal(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
@@ -272,7 +273,13 @@ impl<'vm> VM<'vm> {
                     match value {
                         Value::Tuple(elements) => self.stack.push(elements[index as usize].clone()),
                         Value::Slice(slice) => match index {
-                            0 => self.stack.push(Value::Ptr(slice.ty, slice.ptr)),
+                            0 => match &slice.ty {
+                                TyKind::Slice(inner, _) => {
+                                    let value = Value::Ptr(ValuePtr::from_ptr(inner, slice.ptr));
+                                    self.stack.push(value)
+                                }
+                                _ => panic!(),
+                            },
                             1 => self.stack.push(Value::Int(slice.len as _)),
                             _ => panic!("invalid index {}", index),
                         },
@@ -284,8 +291,7 @@ impl<'vm> VM<'vm> {
                     let rvalue = self.stack.pop();
 
                     match lvalue {
-                        Value::Ptr(_, _) => todo!(),
-                        Value::ValuePtr(ptr) => unsafe { *ptr = rvalue },
+                        Value::Ptr(ptr) => ptr.set(rvalue),
                         _ => panic!("invalid lvalue {}", lvalue),
                     }
                 }
