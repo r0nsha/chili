@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{Bytecode, Instruction},
+    instruction::{Bytecode, CastInstruction, Instruction},
     interp::{Env, InterpSess},
     value::{ForeignFunc, Func, Slice, Value},
 };
@@ -58,27 +58,21 @@ impl Lower for ast::Expr {
 
                 code.push(Instruction::Assign);
             }
-            ast::ExprKind::Cast(cast) => (),
+            ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(_) => todo!(),
-            ast::ExprKind::Fn(func) => func.lower(sess, code, LowerContext { take_ptr: false }),
+            ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
             ast::ExprKind::While(_) => todo!(),
             ast::ExprKind::For(_) => todo!(),
             ast::ExprKind::Break(_) => todo!(),
             ast::ExprKind::Continue(_) => todo!(),
             ast::ExprKind::Return(_) => todo!(),
-            ast::ExprKind::If(if_) => if_.lower(sess, code, LowerContext { take_ptr: false }),
-            ast::ExprKind::Block(block) => {
-                block.lower(sess, code, LowerContext { take_ptr: false })
-            }
-            ast::ExprKind::Binary(binary) => {
-                binary.lower(sess, code, LowerContext { take_ptr: false })
-            }
-            ast::ExprKind::Unary(unary) => {
-                unary.lower(sess, code, LowerContext { take_ptr: false })
-            }
+            ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
+            ast::ExprKind::Block(block) => block.lower(sess, code, ctx),
+            ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
+            ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
             ast::ExprKind::Subscript(_) => todo!(),
             ast::ExprKind::Slice(_) => todo!(),
-            ast::ExprKind::Call(call) => call.lower(sess, code, LowerContext { take_ptr: false }),
+            ast::ExprKind::Call(call) => call.lower(sess, code, ctx),
             ast::ExprKind::MemberAccess(access) => {
                 access.expr.lower(sess, code, ctx);
 
@@ -238,6 +232,50 @@ impl Lower for ast::Expr {
     }
 }
 
+impl Lower for ast::Cast {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+        self.expr
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        match self.target_ty.normalize(sess.tycx) {
+            TyKind::Never | TyKind::Unit => (),
+            TyKind::Bool => code.push(Instruction::Cast(CastInstruction::Bool)),
+            TyKind::Int(ty) => code.push(match ty {
+                IntTy::I8 => Instruction::Cast(CastInstruction::I8),
+                IntTy::I16 => Instruction::Cast(CastInstruction::I16),
+                IntTy::I32 => Instruction::Cast(CastInstruction::I32),
+                IntTy::I64 => Instruction::Cast(CastInstruction::I64),
+                IntTy::Int => Instruction::Cast(CastInstruction::Int),
+            }),
+            TyKind::UInt(ty) => code.push(match ty {
+                UIntTy::U8 => Instruction::Cast(CastInstruction::U8),
+                UIntTy::U16 => Instruction::Cast(CastInstruction::U16),
+                UIntTy::U32 => Instruction::Cast(CastInstruction::U32),
+                UIntTy::U64 => Instruction::Cast(CastInstruction::U64),
+                UIntTy::UInt => Instruction::Cast(CastInstruction::UInt),
+            }),
+            TyKind::Float(ty) => code.push(match ty {
+                FloatTy::F16 | FloatTy::F32 => Instruction::Cast(CastInstruction::F32),
+                FloatTy::F64 => Instruction::Cast(CastInstruction::F64),
+                FloatTy::Float => Instruction::Cast(if IS_64BIT {
+                    CastInstruction::F64
+                } else {
+                    CastInstruction::F32
+                }),
+            }),
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
+                code.push(Instruction::Cast(CastInstruction::Ptr))
+            }
+            TyKind::Slice(_, _) => todo!(), // TODO: cast pointer to array to a slice (slice coercion)
+            TyKind::Infer(_, InferTy::AnyInt) => code.push(Instruction::Cast(CastInstruction::I32)),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                code.push(Instruction::Cast(CastInstruction::F32))
+            }
+            ty => panic!("invalid ty {}", ty),
+        }
+    }
+}
+
 impl Lower for ast::Fn {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         if let Some(id) = self.binding_info_id {
@@ -270,7 +308,7 @@ impl Lower for ast::Fn {
         self.body
             .lower(sess, &mut func_code, LowerContext { take_ptr: false });
 
-        if !code.ends_with(&[Instruction::Return]) {
+        if !func_code.ends_with(&[Instruction::Return]) {
             func_code.push(Instruction::Return)
         }
 

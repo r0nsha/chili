@@ -1,6 +1,6 @@
 use crate::{
     ffi::call_foreign_func,
-    instruction::{Bytecode, Instruction},
+    instruction::{Bytecode, CastInstruction, Instruction},
     interp::Interp,
     stack::Stack,
     value::{Func, Value, ValuePtr},
@@ -417,6 +417,22 @@ impl<'vm> VM<'vm> {
                 //         _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
                 //     }
                 // }
+                Instruction::Cast(cast) => match cast {
+                    CastInstruction::Bool => todo!(),
+                    CastInstruction::I8 => todo!(),
+                    CastInstruction::I16 => todo!(),
+                    CastInstruction::I32 => todo!(),
+                    CastInstruction::I64 => todo!(),
+                    CastInstruction::Int => todo!(),
+                    CastInstruction::U8 => todo!(),
+                    CastInstruction::U16 => todo!(),
+                    CastInstruction::U32 => todo!(),
+                    CastInstruction::U64 => todo!(),
+                    CastInstruction::UInt => todo!(),
+                    CastInstruction::F32 => todo!(),
+                    CastInstruction::F64 => todo!(),
+                    CastInstruction::Ptr => todo!(),
+                },
                 Instruction::Halt => break self.stack.pop(),
             }
         }

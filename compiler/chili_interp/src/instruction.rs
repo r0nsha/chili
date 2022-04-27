@@ -39,7 +39,26 @@ pub enum Instruction {
     SetLocal(i32),
     Index(u32),
     Assign,
+    Cast(CastInstruction),
     Halt,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum CastInstruction {
+    Bool,
+    I8,
+    I16,
+    I32,
+    I64,
+    Int,
+    U8,
+    U16,
+    U32,
+    U64,
+    UInt,
+    F32,
+    F64,
+    Ptr,
 }
 
 impl Display for Instruction {
