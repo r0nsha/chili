@@ -5,6 +5,13 @@ use std::{fmt::Display, mem};
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
         #[derive(Debug, Clone)]
+        pub enum ValueKind {
+            $(
+                $variant
+            ),+
+        }
+
+        #[derive(Debug, Clone)]
         pub enum Value {
             $(
                 $variant($ty)
@@ -117,7 +124,7 @@ impl ValuePtr {
 
     pub fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
         match ty {
-            TyKind::Never | TyKind::Unit => ValuePtr::unit(),
+            TyKind::Never | TyKind::Unit => ValuePtr::U8(ptr as _),
             TyKind::Bool => ValuePtr::Bool(ptr as _),
             TyKind::Int(ty) => match ty {
                 IntTy::I8 => ValuePtr::I8(ptr as _),
@@ -174,7 +181,7 @@ impl Display for Value {
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
-                Value::Ptr(p) => format!("ptr {:?}", p),
+                Value::Ptr(p) => format!("ptr {:?}", p.as_raw()),
                 Value::Slice(slice) => format!("slice({}, {})", slice.ty, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) =>
