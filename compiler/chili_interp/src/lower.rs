@@ -1,5 +1,3 @@
-use std::mem::ManuallyDrop;
-
 use crate::{
     instruction::{Bytecode, Instruction},
     interp::{Env, InterpSess},
@@ -8,11 +6,14 @@ use crate::{
 use chili_ast::{
     ast,
     pattern::Pattern,
-    ty::{InferTy, TyKind},
+    ty::{FloatTy, InferTy, IntTy, TyKind, UIntTy},
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
+use std::mem::{self, ManuallyDrop};
+
+const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
 #[derive(Clone, Copy)]
 pub(crate) struct LowerContext {
@@ -94,7 +95,7 @@ impl Lower for ast::Expr {
                         todo!("partial struct access")
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        sess.push_const(code, Value::Int(*size as i64))
+                        sess.push_const(code, Value::UInt(*size as usize))
                     }
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::Index(1));
@@ -144,27 +145,84 @@ impl Lower for ast::Expr {
             ast::ExprKind::ArrayLiteral(_) => todo!(),
             ast::ExprKind::TupleLiteral(_) => todo!(),
             ast::ExprKind::StructLiteral(_) => todo!(),
-            ast::ExprKind::Literal(lit) => sess.push_const(
-                code,
-                match &lit.kind {
-                    ast::LiteralKind::Unit => Value::Tuple(vec![]),
-                    ast::LiteralKind::Nil => todo!("nil"),
-                    ast::LiteralKind::Bool(v) => Value::Bool(*v),
-                    ast::LiteralKind::Int(v) => Value::Int(*v),
-                    ast::LiteralKind::Float(v) => Value::Float(*v),
-                    ast::LiteralKind::Str(v) => {
-                        let ty = self.ty.normalize(&sess.tycx);
-                        // Note (Ron): We leak here...
-                        let ptr = ManuallyDrop::new(v.to_string()).as_mut_ptr();
-                        Value::Slice(Slice {
-                            ty,
-                            ptr,
-                            len: v.len(),
-                        })
-                    }
-                    ast::LiteralKind::Char(v) => Value::Int((*v) as i64),
-                },
-            ),
+            ast::ExprKind::Literal(lit) => {
+                let ty = self.ty.normalize(&sess.tycx);
+                sess.push_const(
+                    code,
+                    match &lit.kind {
+                        ast::LiteralKind::Unit => Value::Tuple(vec![]),
+                        ast::LiteralKind::Nil => todo!("nil"),
+                        ast::LiteralKind::Bool(v) => Value::Bool(*v),
+                        ast::LiteralKind::Int(v) => match ty {
+                            TyKind::Int(ty) => match ty {
+                                IntTy::I8 => Value::I8(*v as _),
+                                IntTy::I16 => Value::I16(*v as _),
+                                IntTy::I32 => Value::I32(*v as _),
+                                IntTy::I64 => Value::I64(*v as _),
+                                IntTy::Int => Value::Int(*v as _),
+                            },
+                            TyKind::UInt(ty) => match ty {
+                                UIntTy::U8 => Value::U8(*v as _),
+                                UIntTy::U16 => Value::U16(*v as _),
+                                UIntTy::U32 => Value::U32(*v as _),
+                                UIntTy::U64 => Value::U64(*v as _),
+                                UIntTy::UInt => Value::UInt(*v as _),
+                            },
+                            TyKind::Float(ty) => match ty {
+                                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                                FloatTy::F64 => Value::F64(*v as _),
+                                FloatTy::Float => {
+                                    if IS_64BIT {
+                                        Value::F64(*v as _)
+                                    } else {
+                                        Value::F32(*v as _)
+                                    }
+                                }
+                            },
+                            TyKind::Infer(_, InferTy::AnyInt) => Value::I32(*v as _),
+                            TyKind::Infer(_, InferTy::AnyFloat) => {
+                                if IS_64BIT {
+                                    Value::F64(*v as _)
+                                } else {
+                                    Value::F32(*v as _)
+                                }
+                            }
+                            _ => panic!("invalid ty {}", ty),
+                        },
+                        ast::LiteralKind::Float(v) => match ty {
+                            TyKind::Float(ty) => match ty {
+                                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                                FloatTy::F64 => Value::F64(*v as _),
+                                FloatTy::Float => {
+                                    if IS_64BIT {
+                                        Value::F64(*v as _)
+                                    } else {
+                                        Value::F32(*v as _)
+                                    }
+                                }
+                            },
+                            TyKind::Infer(_, InferTy::AnyFloat) => {
+                                if IS_64BIT {
+                                    Value::F64(*v as _)
+                                } else {
+                                    Value::F32(*v as _)
+                                }
+                            }
+                            _ => panic!("invalid ty {}", ty),
+                        },
+                        ast::LiteralKind::Str(v) => {
+                            // Note (Ron): Leak
+                            let ptr = ManuallyDrop::new(v.to_string()).as_mut_ptr();
+                            Value::Slice(Slice {
+                                ty,
+                                ptr,
+                                len: v.len(),
+                            })
+                        }
+                        ast::LiteralKind::Char(v) => Value::U8(*v as u8),
+                    },
+                )
+            }
             ast::ExprKind::PointerType(_) => todo!(),
             ast::ExprKind::MultiPointerType(_) => todo!(),
             ast::ExprKind::ArrayType(_) => todo!(),

@@ -1,17 +1,41 @@
 use crate::instruction::Bytecode;
-use chili_ast::ty::{InferTy, TyKind};
-use std::fmt::Display;
+use chili_ast::ty::{InferTy, IntTy, TyKind, UIntTy};
+use std::{fmt::Display, mem};
 
-#[derive(Debug, Clone)]
-pub enum Value {
-    // TODO: Have all int values instead of only `Int`
-    Int(i64),
-    // TODO: Have all float values instead of only `Float`
-    Float(f64),
+macro_rules! impl_value {
+    ($($variant:ident($ty:ty)) , + $(,)?) => {
+        #[derive(Debug, Clone)]
+        pub enum Value {
+            $(
+                $variant($ty)
+            ),+
+        }
+
+        #[derive(Debug, Clone)]
+        pub enum ValuePtr {
+            $(
+                $variant(*mut $ty)
+            ),+
+        }
+    };
+}
+
+impl_value! {
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    Int(isize),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    UInt(usize),
+    F32(f32),
+    F64(f64),
     Bool(bool),
     Tuple(Vec<Value>),
-    Ptr(TyKind, *mut u8),
-    ValuePtr(*mut Value),
+    Ptr(ValuePtr),
     Slice(Slice),
     Func(Func),
     ForeignFunc(ForeignFunc),
@@ -45,32 +69,51 @@ impl Value {
         Value::Tuple(vec![])
     }
 
-    pub unsafe fn from_ptr(ty: &TyKind, ptr: *mut u8) -> *mut Self {
-        &mut match ty {
-            TyKind::Never => todo!(),
-            TyKind::Unit => Value::unit(),
-            TyKind::Bool => Value::Bool(*(ptr as *mut bool)),
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
-                Value::Int(*(ptr as *mut i64))
-            }
-            TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => {
-                Value::Float(*(ptr as *mut f64))
-            }
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Value::Ptr(ty.clone(), ptr),
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Bool(v) => *v,
+            _ => false,
+        }
+    }
+}
+
+impl ValuePtr {
+    pub fn unit() -> Self {
+        // Note (Ron): Leak
+        let mut elements = Vec::<Value>::new();
+        mem::forget(elements);
+        ValuePtr::Tuple(&mut elements as _)
+    }
+
+    pub fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
+        match ty {
+            TyKind::Never | TyKind::Unit => ValuePtr::unit(),
+            TyKind::Bool => ValuePtr::Bool(ptr as _),
+            TyKind::Int(ty) => match ty {
+                IntTy::I8 => ValuePtr::I8(ptr as _),
+                IntTy::I16 => ValuePtr::I16(ptr as _),
+                IntTy::I32 => ValuePtr::I32(ptr as _),
+                IntTy::I64 => ValuePtr::I64(ptr as _),
+                IntTy::Int => ValuePtr::Int(ptr as _),
+            },
+            TyKind::UInt(ty) => match ty {
+                UIntTy::U8 => ValuePtr::U8(ptr as _),
+                UIntTy::U16 => ValuePtr::U16(ptr as _),
+                UIntTy::U32 => ValuePtr::U32(ptr as _),
+                UIntTy::U64 => ValuePtr::U64(ptr as _),
+                UIntTy::UInt => ValuePtr::UInt(ptr as _),
+            },
+            TyKind::Float(_) => ValuePtr::F64(ptr as _),
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => ValuePtr::Ptr(ptr as _),
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
+            TyKind::Infer(_, InferTy::AnyInt) => ValuePtr::Int(ptr as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => ValuePtr::F64(ptr as _),
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
-        }
-    }
-
-    pub fn is_truthy(&self) -> bool {
-        match self {
-            Value::Bool(v) => *v,
-            _ => false,
         }
     }
 }
@@ -81,8 +124,18 @@ impl Display for Value {
             f,
             "{}",
             match self {
+                Value::I8(v) => format!("i8 {}", v),
+                Value::I16(v) => format!("i16 {}", v),
+                Value::I32(v) => format!("i32 {}", v),
+                Value::I64(v) => format!("i64 {}", v),
                 Value::Int(v) => format!("int {}", v),
-                Value::Float(v) => format!("float {}", v),
+                Value::U8(v) => format!("u8 {}", v),
+                Value::U16(v) => format!("u16 {}", v),
+                Value::U32(v) => format!("u32 {}", v),
+                Value::U64(v) => format!("u64 {}", v),
+                Value::UInt(v) => format!("uint {}", v),
+                Value::F32(v) => format!("f32 {}", v),
+                Value::F64(v) => format!("f64 {}", v),
                 Value::Bool(v) => format!("bool {}", v),
                 Value::Tuple(v) => format!(
                     "({})",
@@ -91,8 +144,7 @@ impl Display for Value {
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
-                Value::Ptr(t, p) => format!("ptr({}) {:?}", t, p),
-                Value::ValuePtr(v) => format!("value ptr {}", unsafe { &**v }),
+                Value::Ptr(p) => format!("ptr {:?}", p),
                 Value::Slice(slice) => format!("slice({}, {})", slice.ty, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) =>

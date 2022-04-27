@@ -82,7 +82,7 @@ unsafe fn convert_result_to_value(result: *mut c_void, ret_ty: TyKind) -> Value 
             Value::Int(*(result as *const i64))
         }
         TyKind::Float(_) | TyKind::Infer(_, InferTy::AnyFloat) => {
-            Value::Float(*(result as *const f64))
+            Value::F64(*(result as *const f64))
         }
         TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Value::Ptr(ret_ty, result as *mut u8),
         TyKind::Fn(_) => todo!(),
@@ -162,7 +162,7 @@ impl AsFfiType for Value {
                     types::sint32
                 }
             }
-            Value::Float(_) => types::float,
+            Value::F64(_) => types::float,
             Value::Bool(_) => types::uint8,
             Value::Tuple(_) => todo!(),
             Value::Ptr(..) | Value::ValuePtr(_) => types::pointer,
@@ -182,7 +182,7 @@ impl AsFfiArg for Value {
         match self {
             Value::Int(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::Float(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::F64(mut v) => &mut v as *mut _ as *mut c_void,
             Value::Tuple(_) => todo!("tuple"),
             Value::Ptr(_, ptr) => *ptr as *mut c_void,
             Value::ValuePtr(v) => *v as *mut c_void,

@@ -1,7 +1,7 @@
 use crate::{
+    display::dump_bytecode_to_file,
     instruction::{Bytecode, Instruction},
     lower::{Lower, LowerContext},
-    pretty_print::dump_bytecode_to_file,
     value::Value,
     vm::{Constants, Globals, VM},
 };
