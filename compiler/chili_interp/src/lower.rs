@@ -12,6 +12,7 @@ use chili_ast::{
 use chili_infer::normalize::NormalizeTy;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use std::mem::{self, ManuallyDrop};
+use ustr::ustr;
 
 const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
@@ -314,7 +315,7 @@ impl Lower for ast::Fn {
         sess.env_mut().pop_scope();
 
         let func = Value::Func(Func {
-            name: self.sig.name.to_string(),
+            name: self.sig.name,
             param_count: self.sig.params.len(),
             code: func_code,
         });
@@ -340,8 +341,8 @@ impl Lower for ast::FnSig {
             let lib_path = lib_path.trim_end_matches(".lib");
 
             let foreign_func = ForeignFunc {
-                lib_path: lib_path.to_string(),
-                name: self.name.to_string(),
+                lib_path: ustr(lib_path),
+                name: self.name,
                 param_tys: func_ty.params,
                 ret_ty: *func_ty.ret,
                 variadic: self.variadic,

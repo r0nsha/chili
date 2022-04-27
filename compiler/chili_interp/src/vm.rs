@@ -3,11 +3,11 @@ use crate::{
     instruction::{Bytecode, CastInstruction, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{Func, Value, ValuePtr},
+    value::{Func, Value},
 };
-use chili_ast::ty::TyKind;
 use colored::Colorize;
 use std::fmt::Display;
+use ustr::ustr;
 
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
@@ -85,12 +85,15 @@ impl<'vm> VM<'vm> {
 
     pub(crate) fn run(&'vm mut self, code: Bytecode) -> Value {
         let function = Func {
-            name: "root".to_string(),
+            name: ustr("vm_root"),
             param_count: 0,
             code,
         };
 
         self.frames.push(CallFrame::new(function, 0));
+        println!("ustr: {}", std::mem::size_of::<ustr::Ustr>());
+        println!("string: {}", std::mem::size_of::<String>());
+        println!("value: {}", std::mem::size_of::<Value>());
 
         self.run_loop()
     }
@@ -289,128 +292,6 @@ impl<'vm> VM<'vm> {
                         _ => panic!("invalid lvalue {}", lvalue),
                     }
                 }
-                // Instruction::Cast =>{
-                //     if from_ty == target_ty {
-                //         return value;
-                //     }
-
-                //     match (from_ty, target_ty) {
-                //         (TyKind::Bool, TyKind::Infer(_, InferTy::AnyInt))
-                //         | (TyKind::Bool, TyKind::Int(_))
-                //         | (TyKind::Bool, TyKind::UInt(_)) => self
-                //             .builder
-                //             .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
-                //             .into(),
-                //         (
-                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_),
-                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_),
-                //         ) => self
-                //             .builder
-                //             .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
-                //             .into(),
-
-                //         (TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_), TyKind::Float(_)) => self
-                //             .builder
-                //             .build_signed_int_to_float(
-                //                 value.into_int_value(),
-                //                 cast_type.into_float_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-
-                //         (TyKind::UInt(_), TyKind::Float(_)) => self
-                //             .builder
-                //             .build_unsigned_int_to_float(
-                //                 value.into_int_value(),
-                //                 cast_type.into_float_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-
-                //         (TyKind::Float(_), TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_)) => self
-                //             .builder
-                //             .build_float_to_signed_int(
-                //                 value.into_float_value(),
-                //                 cast_type.into_int_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-                //         (TyKind::Float(_), TyKind::UInt(_)) => self
-                //             .builder
-                //             .build_float_to_unsigned_int(
-                //                 value.into_float_value(),
-                //                 cast_type.into_int_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-                //         (TyKind::Float(_), TyKind::Float(_)) => self
-                //             .builder
-                //             .build_float_cast(
-                //                 value.into_float_value(),
-                //                 cast_type.into_float_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-
-                //         (
-                //             TyKind::Pointer(..) | TyKind::MultiPointer(..),
-                //             TyKind::Pointer(..) | TyKind::MultiPointer(..),
-                //         ) => self
-                //             .builder
-                //             .build_pointer_cast(
-                //                 value.into_pointer_value(),
-                //                 cast_type.into_pointer_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-
-                //         // pointer <=> int | uint
-                //         (
-                //             TyKind::Pointer(..),
-                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(..) | TyKind::UInt(..),
-                //         ) => self
-                //             .builder
-                //             .build_ptr_to_int(
-                //                 value.into_pointer_value(),
-                //                 cast_type.into_int_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-
-                //         // int | uint <=> pointer
-                //         (
-                //             TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(..) | TyKind::UInt(..),
-                //             TyKind::Pointer(..),
-                //         ) => self
-                //             .builder
-                //             .build_int_to_ptr(
-                //                 value.into_int_value(),
-                //                 cast_type.into_pointer_type(),
-                //                 INST_NAME,
-                //             )
-                //             .into(),
-
-                //         (TyKind::Pointer(t, _), TyKind::Slice(t_slice, ..)) => match t.as_ref() {
-                //             TyKind::Array(_, size) => {
-                //                 let slice_ty = self.slice_type(t_slice);
-                //                 let ptr = self.build_alloca(state, slice_ty);
-
-                //                 self.gen_slice(
-                //                     ptr,
-                //                     value,
-                //                     self.ptr_sized_int_type.const_zero(),
-                //                     self.ptr_sized_int_type.const_int(*size as u64, false),
-                //                     t_slice.as_ref(),
-                //                 );
-
-                //                 self.build_load(ptr.into())
-                //             }
-                //             _ => unreachable!(),
-                //         },
-
-                //         _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
-                //     }
-                // }
                 Instruction::Cast(cast) => self.cast_inst(cast),
                 Instruction::Halt => break self.stack.pop(),
             }

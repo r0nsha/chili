@@ -1,6 +1,7 @@
 use crate::instruction::Bytecode;
 use chili_ast::ty::{InferTy, IntTy, TyKind, UIntTy};
 use std::{fmt::Display, mem};
+use ustr::Ustr;
 
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
@@ -86,15 +87,15 @@ pub struct Slice {
 
 #[derive(Debug, Clone)]
 pub struct Func {
-    pub name: String,
+    pub name: Ustr,
     pub param_count: usize,
     pub code: Bytecode,
 }
 
 #[derive(Debug, Clone)]
 pub struct ForeignFunc {
-    pub lib_path: String,
-    pub name: String,
+    pub lib_path: Ustr,
+    pub name: Ustr,
     pub param_tys: Vec<TyKind>,
     pub ret_ty: TyKind,
     pub variadic: bool,

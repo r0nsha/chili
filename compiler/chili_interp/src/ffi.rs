@@ -9,8 +9,8 @@ const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
 pub unsafe fn call_foreign_func(func: ForeignFunc, args: Vec<Value>) -> Value {
     let lib_name = match func.lib_path.as_str() {
-        "c" | "C" | "libucrt" => "msvcrt".to_string(), // TODO: this depends on the platform,
-        _ => func.lib_path,
+        "c" | "C" | "libucrt" => "msvcrt", // TODO: this depends on the platform,
+        _ => &func.lib_path,
     };
 
     let lib = libloading::Library::new(format!("{}.dll", lib_name)).unwrap();
