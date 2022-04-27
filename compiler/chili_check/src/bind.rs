@@ -6,9 +6,9 @@ use crate::{
 };
 use chili_ast::{
     ast,
+    const_value::ConstValue,
     pattern::{Pattern, SymbolPattern},
     ty::{PartialStructTy, Ty, TyKind},
-    value::ConstValue,
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};

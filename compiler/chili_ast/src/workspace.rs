@@ -1,7 +1,7 @@
 use crate::{
     ast::{BindingKind, ForeignLibrary, Visibility},
+    const_value::ConstValue,
     ty::Ty,
-    value::ConstValue,
 };
 use bitflags::bitflags;
 use chili_error::Diagnostics;

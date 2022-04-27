@@ -79,8 +79,8 @@ impl_value! {
 
 #[derive(Debug, Clone)]
 pub struct Slice {
-    pub ty: TyKind,
-    pub ptr: *mut u8,
+    // pub ty: TyKind,
+    pub ptr: ValuePtr,
     pub len: usize,
 }
 
@@ -182,7 +182,7 @@ impl Display for Value {
                         .join(", ")
                 ),
                 Value::Ptr(p) => format!("ptr {:?}", p.as_raw()),
-                Value::Slice(slice) => format!("slice({}, {})", slice.ty, slice.len),
+                Value::Slice(slice) => format!("slice({:?}, {})", slice.ptr, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) =>
                     format!("foreign(\"{}\") fn {}", func.lib_path, func.name),

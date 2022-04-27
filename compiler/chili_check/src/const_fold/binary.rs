@@ -1,4 +1,4 @@
-use chili_ast::{ast, value::ConstValue};
+use chili_ast::{ast, const_value::ConstValue};
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::Span;
 

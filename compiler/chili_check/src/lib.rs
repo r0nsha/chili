@@ -6,9 +6,9 @@ mod top_level;
 
 use chili_ast::{
     ast::{self, Expr, ForeignLibrary},
+    const_value::ConstValue,
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
-    value::ConstValue,
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
     },

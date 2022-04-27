@@ -273,13 +273,7 @@ impl<'vm> VM<'vm> {
                     match value {
                         Value::Tuple(elements) => self.stack.push(elements[index as usize].clone()),
                         Value::Slice(slice) => match index {
-                            0 => match &slice.ty {
-                                TyKind::Slice(inner, _) => {
-                                    let value = Value::Ptr(ValuePtr::from_ptr(inner, slice.ptr));
-                                    self.stack.push(value)
-                                }
-                                _ => panic!(),
-                            },
+                            0 => self.stack.push(Value::Ptr(slice.ptr)),
                             1 => self.stack.push(Value::Int(slice.len as _)),
                             _ => panic!("invalid index {}", index),
                         },

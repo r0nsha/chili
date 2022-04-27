@@ -1,7 +1,7 @@
 use crate::{
     instruction::{Bytecode, CastInstruction, Instruction},
     interp::{Env, InterpSess},
-    value::{ForeignFunc, Func, Slice, Value},
+    value::{ForeignFunc, Func, Slice, Value, ValuePtr},
 };
 use chili_ast::{
     ast,
@@ -208,8 +208,7 @@ impl Lower for ast::Expr {
                             // Note (Ron): Leak
                             let ptr = ManuallyDrop::new(v.to_string()).as_mut_ptr();
                             Value::Slice(Slice {
-                                ty,
-                                ptr,
+                                ptr: ValuePtr::U8(ptr),
                                 len: v.len(),
                             })
                         }
