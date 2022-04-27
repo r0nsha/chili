@@ -1,5 +1,4 @@
 use crate::{
-    ffi::call_foreign_func,
     instruction::{Bytecode, CastInstruction, Instruction},
     interp::Interp,
     stack::Stack,
@@ -91,9 +90,6 @@ impl<'vm> VM<'vm> {
         };
 
         self.frames.push(CallFrame::new(function, 0));
-        println!("ustr: {}", std::mem::size_of::<ustr::Ustr>());
-        println!("string: {}", std::mem::size_of::<String>());
-        println!("value: {}", std::mem::size_of::<Value>());
 
         self.run_loop()
     }
@@ -229,7 +225,7 @@ impl<'vm> VM<'vm> {
                             values.reverse();
 
                             // TODO: call_foreign_func should return a `Value`
-                            let result = unsafe { call_foreign_func(func, values) };
+                            let result = unsafe { self.interp.ffi.call_foreign_func(func, values) };
                             self.stack.push(result);
                         }
                         _ => panic!("tried to call an uncallable value `{}`", value),

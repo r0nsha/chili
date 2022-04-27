@@ -347,7 +347,8 @@ impl Lower for ast::FnSig {
                 ret_ty: *func_ty.ret,
                 variadic: self.variadic,
             };
-            sess.push_const(code, Value::ForeignFunc(foreign_func));
+
+            sess.push_foreign_function(code, foreign_func);
         } else {
             // lower a non-foreign function signature is a no-op
         }

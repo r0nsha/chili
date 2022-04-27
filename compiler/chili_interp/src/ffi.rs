@@ -1,80 +1,128 @@
-use crate::value::{ForeignFunc, Value, ValuePtr};
+use crate::value::{ForeignFunc, ForeignFuncKey, Value, ValuePtr};
 use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
 };
-use std::{ffi::c_void, mem};
+use std::{collections::HashMap, ffi::c_void, mem};
+use ustr::{ustr, Ustr};
 
 const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
-pub unsafe fn call_foreign_func(func: ForeignFunc, args: Vec<Value>) -> Value {
-    let lib_name = match func.lib_path.as_str() {
-        "c" | "C" | "libucrt" => "msvcrt", // TODO: this depends on the platform,
-        _ => &func.lib_path,
-    };
+pub(crate) struct Ffi {
+    libs: HashMap<Ustr, libloading::Library>,
+    cifs: HashMap<ForeignFuncKey, ffi_cif>,
+}
 
-    let lib = libloading::Library::new(format!("{}.dll", lib_name)).unwrap();
-
-    let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
-
-    let mut cif = ffi_cif::default();
-    let abi = ffi_abi_FFI_DEFAULT_ABI;
-
-    let ret_ty: *mut ffi_type = &mut func.ret_ty.as_ffi_type();
-
-    let mut param_tys = func
-        .param_tys
-        .iter()
-        .map(|param| &mut param.as_ffi_type() as *mut _)
-        .collect::<Vec<*mut ffi_type>>();
-
-    for arg in args.iter().skip(param_tys.len()) {
-        param_tys.push(&mut arg.as_ffi_type() as *mut _);
+impl Ffi {
+    pub(crate) fn new() -> Self {
+        Self {
+            libs: HashMap::new(),
+            cifs: HashMap::new(),
+        }
     }
 
-    if func.variadic {
-        prep_cif_var(
-            &mut cif,
-            abi,
-            param_tys.len(),
-            args.len(),
-            ret_ty,
-            param_tys.as_mut_ptr(),
-        )
-        .unwrap()
-    } else {
-        prep_cif(
-            &mut cif,
-            abi,
-            param_tys.len(),
-            ret_ty,
-            param_tys.as_mut_ptr(),
-        )
-        .unwrap()
+    pub(crate) unsafe fn get_or_load_lib(&mut self, lib_path: Ustr) -> ffi_cif {
+        let lib_name = match lib_path.as_str() {
+            // TODO: this should depend on the current platform
+            "c" | "C" | "libucrt" => ustr("msvcrt"),
+            _ => lib_path,
+        };
+
+        match self.libs.get(lib_name) {
+            Some(lib) => lib,
+            None => libloading::Library::new(format!("{}.dll", lib_name)).unwrap(),
+        }
     }
 
-    let code_ptr = CodePtr::from_ptr(*symbol);
-    let args = args
-        .iter()
-        .map(|arg| unsafe { arg.as_ffi_arg() })
-        .collect::<Vec<*mut c_void>>()
-        .as_mut_ptr();
+    pub(crate) unsafe fn get_or_create_cif(
+        &mut self,
+        func: ForeignFuncKey,
+        args: Vec<Value>,
+    ) -> ffi_cif {
+        let lib_name = match func.lib_path.as_str() {
+            "c" | "C" | "libucrt" => "msvcrt", // TODO: this depends on the platform,
+            _ => &func.lib_path,
+        };
 
-    let mut result = mem::MaybeUninit::<c_void>::uninit();
+        match self.libs.get(lib_name) {
+            Some(lib) => lib,
+            None => libloading::Library::new(format!("{}.dll", lib_name)).unwrap(),
+        }
+    }
 
-    libffi::raw::ffi_call(
-        &mut cif as *mut _,
-        Some(*code_ptr.as_safe_fun()),
-        result.as_mut_ptr() as *mut c_void,
-        args,
-    );
+    pub(crate) unsafe fn call_foreign_func(
+        &mut self,
+        func: ForeignFuncKey,
+        args: Vec<Value>,
+    ) -> Value {
+        let lib_name = match func.lib_path.as_str() {
+            "c" | "C" | "libucrt" => "msvcrt", // TODO: this depends on the platform,
+            _ => &func.lib_path,
+        };
 
-    let call_result = result.assume_init_mut();
+        let lib = libloading::Library::new(format!("{}.dll", lib_name)).unwrap();
 
-    Value::Ptr(ValuePtr::from_ptr(
-        &func.ret_ty,
-        call_result as *mut c_void as *mut u8,
-    ))
+        let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
+
+        let mut cif = ffi_cif::default();
+        let abi = ffi_abi_FFI_DEFAULT_ABI;
+
+        let ret_ty: *mut ffi_type = &mut func.ret_ty.as_ffi_type();
+
+        let mut param_tys = func
+            .param_tys
+            .iter()
+            .map(|param| &mut param.as_ffi_type() as *mut _)
+            .collect::<Vec<*mut ffi_type>>();
+
+        for arg in args.iter().skip(param_tys.len()) {
+            param_tys.push(&mut arg.as_ffi_type() as *mut _);
+        }
+
+        if func.variadic {
+            prep_cif_var(
+                &mut cif,
+                abi,
+                param_tys.len(),
+                args.len(),
+                ret_ty,
+                param_tys.as_mut_ptr(),
+            )
+            .unwrap()
+        } else {
+            prep_cif(
+                &mut cif,
+                abi,
+                param_tys.len(),
+                ret_ty,
+                param_tys.as_mut_ptr(),
+            )
+            .unwrap()
+        }
+
+        let code_ptr = CodePtr::from_ptr(*symbol);
+        let args = args
+            .iter()
+            .map(|arg| unsafe { arg.as_ffi_arg() })
+            .collect::<Vec<*mut c_void>>()
+            .as_mut_ptr();
+
+        let mut result = mem::MaybeUninit::<c_void>::uninit();
+
+        libffi::raw::ffi_call(
+            &mut cif as *mut _,
+            Some(*code_ptr.as_safe_fun()),
+            result.as_mut_ptr() as *mut c_void,
+            args,
+        );
+
+        let call_result = result.assume_init_mut();
+
+        Value::Ptr(ValuePtr::from_ptr(
+            &func.ret_ty,
+            call_result as *mut c_void as *mut u8,
+        ))
+    }
 }
 
 trait AsFfiType {
