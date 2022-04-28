@@ -1,5 +1,5 @@
 use crate::{
-    instruction::Bytecode,
+    instruction::CompiledCode,
     value::Value,
     vm::{Constants, Globals},
 };
@@ -13,7 +13,7 @@ pub(crate) trait PrettyPrint {
     fn pretty_print(&self) -> String;
 }
 
-pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Bytecode) {
+pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &CompiledCode) {
     if let Ok(file) = &OpenOptions::new()
         .read(false)
         .write(true)
@@ -24,7 +24,7 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &By
     {
         let mut writer = BufWriter::new(file);
 
-        for (index, inst) in code.iter().enumerate() {
+        for (index, inst) in code.instructions.iter().enumerate() {
             writer
                 .write(format!("{:06}\t{}\n", index, inst).as_bytes())
                 .unwrap();
@@ -59,6 +59,7 @@ impl PrettyPrint for Value {
                     &func.name
                 },
                 func.code
+                    .instructions
                     .iter()
                     .enumerate()
                     .map(|(index, inst)| format!("{:06}\t{}", index, inst))

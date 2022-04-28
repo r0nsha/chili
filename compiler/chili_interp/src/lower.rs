@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{Bytecode, CastInstruction, Instruction},
+    instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
     value::{ForeignFunc, Func, Slice, Value, ValuePtr},
 };
@@ -11,7 +11,7 @@ use chili_ast::{
 };
 use chili_infer::normalize::NormalizeTy;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use std::mem::{self, ManuallyDrop};
+use std::mem;
 use ustr::ustr;
 
 const IS_64BIT: bool = mem::size_of::<usize>() == 8;
@@ -22,26 +22,26 @@ pub(crate) struct LowerContext {
 }
 
 pub(crate) trait Lower {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext);
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext);
 }
 
 impl Lower for ast::Expr {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match &self.kind {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
             ast::ExprKind::Binding(binding) => {
-                let slot = code.len() as isize + 1;
-
-                binding
-                    .expr
-                    .as_ref()
-                    .unwrap()
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                if let Some(expr) = &binding.expr {
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::SetLocal(code.locals as i32));
+                }
 
                 match &binding.pattern {
                     Pattern::Single(pat) => {
-                        sess.env_mut().insert(pat.binding_info_id, slot);
+                        sess.env_mut()
+                            .insert(pat.binding_info_id, code.locals as i16);
+
+                        code.locals += 1;
                     }
                     Pattern::StructUnpack(_) => todo!(),
                     Pattern::TupleUnpack(_) => todo!(),
@@ -121,7 +121,7 @@ impl Lower for ast::Expr {
                                 Instruction::GetLocalPtr(slot)
                             } else {
                                 Instruction::GetLocal(slot)
-                            })
+                            });
                         } else {
                             let slot = sess
                                 .get_global(id)
@@ -132,7 +132,7 @@ impl Lower for ast::Expr {
                                 Instruction::GetGlobalPtr(slot)
                             } else {
                                 Instruction::GetGlobal(slot)
-                            })
+                            });
                         }
                     }
                 }
@@ -205,14 +205,10 @@ impl Lower for ast::Expr {
                             }
                             _ => panic!("invalid ty {}", ty),
                         },
-                        ast::LiteralKind::Str(v) => {
-                            // Note (Ron): Leak
-                            let ptr = ManuallyDrop::new(v.to_string()).as_mut_ptr();
-                            Value::Slice(Slice {
-                                ptr: ValuePtr::U8(ptr),
-                                len: v.len(),
-                            })
-                        }
+                        ast::LiteralKind::Str(v) => Value::Slice(Slice {
+                            ptr: ValuePtr::U8(v.as_ptr() as *mut u8),
+                            len: v.len(),
+                        }),
                         ast::LiteralKind::Char(v) => Value::U8(*v as u8),
                     },
                 )
@@ -233,42 +229,50 @@ impl Lower for ast::Expr {
 }
 
 impl Lower for ast::Cast {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.expr
             .lower(sess, code, LowerContext { take_ptr: false });
 
         match self.target_ty.normalize(sess.tycx) {
             TyKind::Never | TyKind::Unit | TyKind::Bool => (),
-            TyKind::Int(ty) => code.push(match ty {
-                IntTy::I8 => Instruction::Cast(CastInstruction::I8),
-                IntTy::I16 => Instruction::Cast(CastInstruction::I16),
-                IntTy::I32 => Instruction::Cast(CastInstruction::I32),
-                IntTy::I64 => Instruction::Cast(CastInstruction::I64),
-                IntTy::Int => Instruction::Cast(CastInstruction::Int),
-            }),
-            TyKind::UInt(ty) => code.push(match ty {
-                UIntTy::U8 => Instruction::Cast(CastInstruction::U8),
-                UIntTy::U16 => Instruction::Cast(CastInstruction::U16),
-                UIntTy::U32 => Instruction::Cast(CastInstruction::U32),
-                UIntTy::U64 => Instruction::Cast(CastInstruction::U64),
-                UIntTy::UInt => Instruction::Cast(CastInstruction::UInt),
-            }),
-            TyKind::Float(ty) => code.push(match ty {
-                FloatTy::F16 | FloatTy::F32 => Instruction::Cast(CastInstruction::F32),
-                FloatTy::F64 => Instruction::Cast(CastInstruction::F64),
-                FloatTy::Float => Instruction::Cast(if IS_64BIT {
-                    CastInstruction::F64
-                } else {
-                    CastInstruction::F32
-                }),
-            }),
+            TyKind::Int(ty) => {
+                code.push(match ty {
+                    IntTy::I8 => Instruction::Cast(CastInstruction::I8),
+                    IntTy::I16 => Instruction::Cast(CastInstruction::I16),
+                    IntTy::I32 => Instruction::Cast(CastInstruction::I32),
+                    IntTy::I64 => Instruction::Cast(CastInstruction::I64),
+                    IntTy::Int => Instruction::Cast(CastInstruction::Int),
+                });
+            }
+            TyKind::UInt(ty) => {
+                code.push(match ty {
+                    UIntTy::U8 => Instruction::Cast(CastInstruction::U8),
+                    UIntTy::U16 => Instruction::Cast(CastInstruction::U16),
+                    UIntTy::U32 => Instruction::Cast(CastInstruction::U32),
+                    UIntTy::U64 => Instruction::Cast(CastInstruction::U64),
+                    UIntTy::UInt => Instruction::Cast(CastInstruction::UInt),
+                });
+            }
+            TyKind::Float(ty) => {
+                code.push(match ty {
+                    FloatTy::F16 | FloatTy::F32 => Instruction::Cast(CastInstruction::F32),
+                    FloatTy::F64 => Instruction::Cast(CastInstruction::F64),
+                    FloatTy::Float => Instruction::Cast(if IS_64BIT {
+                        CastInstruction::F64
+                    } else {
+                        CastInstruction::F32
+                    }),
+                });
+            }
             TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
-                code.push(Instruction::Cast(CastInstruction::Ptr))
+                code.push(Instruction::Cast(CastInstruction::Ptr));
             }
             TyKind::Slice(_, _) => todo!(), // TODO: cast pointer to array to a slice (slice coercion)
-            TyKind::Infer(_, InferTy::AnyInt) => code.push(Instruction::Cast(CastInstruction::I32)),
+            TyKind::Infer(_, InferTy::AnyInt) => {
+                code.push(Instruction::Cast(CastInstruction::I32));
+            }
             TyKind::Infer(_, InferTy::AnyFloat) => {
-                code.push(Instruction::Cast(CastInstruction::F32))
+                code.push(Instruction::Cast(CastInstruction::F32));
             }
             ty => panic!("invalid ty {}", ty),
         }
@@ -276,7 +280,7 @@ impl Lower for ast::Cast {
 }
 
 impl Lower for ast::Fn {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         if let Some(id) = self.binding_info_id {
             let binding_info = sess.workspace.get_binding_info(id).unwrap();
             if binding_info.scope_level.is_global() {
@@ -286,7 +290,7 @@ impl Lower for ast::Fn {
 
         sess.env_mut().push_scope();
 
-        let mut offset: isize = -1;
+        let mut offset: i16 = -1;
         for param in self.sig.params.iter() {
             match &param.pattern {
                 Pattern::Single(pat) => {
@@ -302,13 +306,13 @@ impl Lower for ast::Fn {
             }
         }
 
-        let mut func_code = Bytecode::new();
+        let mut func_code = CompiledCode::new();
 
         self.body
             .lower(sess, &mut func_code, LowerContext { take_ptr: false });
 
-        if !func_code.ends_with(&[Instruction::Return]) {
-            func_code.push(Instruction::Return)
+        if !func_code.instructions.ends_with(&[Instruction::Return]) {
+            func_code.push(Instruction::Return);
         }
 
         sess.env_mut().pop_scope();
@@ -324,7 +328,7 @@ impl Lower for ast::Fn {
 }
 
 impl Lower for ast::FnSig {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         if let Some(lib_name) = self.lib_name {
             let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
@@ -355,7 +359,7 @@ impl Lower for ast::FnSig {
 }
 
 impl Lower for ast::Call {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         for arg in self.args.iter() {
             arg.lower(sess, code, LowerContext { take_ptr: false });
         }
@@ -366,7 +370,7 @@ impl Lower for ast::Call {
 }
 
 impl Lower for ast::If {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
 
@@ -389,7 +393,7 @@ impl Lower for ast::If {
 }
 
 impl Lower for ast::Block {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         sess.env_mut().push_scope();
 
         for (index, expr) in self.exprs.iter().enumerate() {
@@ -416,34 +420,32 @@ impl Lower for ast::Block {
 }
 
 impl Lower for ast::Binary {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.lhs.lower(sess, code, LowerContext { take_ptr: false });
         self.rhs.lower(sess, code, LowerContext { take_ptr: false });
-        code.push(self.op.into())
+        code.push(self.op.into());
     }
 }
 
 impl Lower for ast::Unary {
-    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.lhs.lower(sess, code, LowerContext { take_ptr: false });
-        code.push(self.op.into())
+        code.push(self.op.into());
     }
 }
 
-fn push_empty_jmpf(code: &mut Bytecode) -> usize {
-    code.push(Instruction::Jmpf(0xffff));
-    code.len() - 1
+fn push_empty_jmpf(code: &mut CompiledCode) -> usize {
+    code.push(Instruction::Jmpf(0xffff))
 }
 
-fn push_empty_jmp(code: &mut Bytecode) -> usize {
-    code.push(Instruction::Jmp(0xffff));
-    code.len() - 1
+fn push_empty_jmp(code: &mut CompiledCode) -> usize {
+    code.push(Instruction::Jmp(0xffff))
 }
 
-fn patch_empty_jmp(code: &mut Bytecode, pos: usize) -> i32 {
-    let target_offset = (code.len() - 1 - pos) as i32;
+fn patch_empty_jmp(code: &mut CompiledCode, pos: usize) -> i32 {
+    let target_offset = (code.instructions.len() - 1 - pos) as i32;
 
-    match &mut code[pos] {
+    match &mut code.instructions[pos] {
         Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset) => {
             *offset = target_offset
         }
@@ -473,7 +475,7 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
 
     binding.expr.as_ref().unwrap().lower(
         sess,
-        &mut Bytecode::new(),
+        &mut CompiledCode::new(),
         LowerContext { take_ptr: false },
     );
 

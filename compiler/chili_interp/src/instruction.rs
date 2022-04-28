@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    ops::{Deref, DerefMut},
-};
+use std::fmt::Display;
 
 use chili_ast::ast;
 
@@ -144,24 +141,21 @@ impl From<ast::UnaryOp> for Instruction {
 }
 
 #[derive(Debug, Clone)]
-pub struct Bytecode(Vec<Instruction>);
-
-impl Deref for Bytecode {
-    type Target = Vec<Instruction>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub struct CompiledCode {
+    pub instructions: Vec<Instruction>,
+    pub locals: u16,
 }
 
-impl DerefMut for Bytecode {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Bytecode {
+impl CompiledCode {
     pub fn new() -> Self {
-        Self(vec![])
+        Self {
+            instructions: vec![],
+            locals: 0,
+        }
+    }
+
+    pub fn push(&mut self, inst: Instruction) -> usize {
+        self.instructions.push(inst);
+        self.instructions.len() - 1
     }
 }

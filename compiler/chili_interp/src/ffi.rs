@@ -1,7 +1,7 @@
 use crate::value::{ForeignFunc, Value};
 use chili_ast::ty::*;
 use libffi::low::{
-    ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
+    ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
 };
 use std::{collections::HashMap, ffi::c_void, mem};
 use ustr::{ustr, Ustr};
@@ -53,7 +53,7 @@ impl Ffi {
 
             prep_cif_var(
                 &mut cif,
-                ffi_abi_FFI_DEFAULT_ABI,
+                ABI,
                 func.param_tys.len(),
                 arg_types.len(),
                 return_type,
@@ -63,7 +63,7 @@ impl Ffi {
         } else {
             prep_cif(
                 &mut cif,
-                ffi_abi_FFI_DEFAULT_ABI,
+                ABI,
                 arg_types.len(),
                 return_type,
                 arg_types.as_mut_ptr(),
@@ -73,22 +73,16 @@ impl Ffi {
 
         let code_ptr = CodePtr::from_ptr(*symbol);
 
-        println!("{:?}", args);
-
-        let mut args = args
-            .iter_mut()
-            .map(|arg| arg.as_ffi_arg())
-            .collect::<Vec<*mut c_void>>();
+        let mut args: Vec<*mut c_void> = args.iter_mut().map(|arg| arg.as_ffi_arg()).collect();
 
         let mut result = mem::MaybeUninit::<c_void>::uninit();
-        println!("1");
+
         libffi::raw::ffi_call(
             &mut cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
             result.as_mut_ptr(),
             args.as_mut_ptr(),
         );
-        println!("2");
 
         let call_result = result.assume_init_mut();
 
@@ -223,7 +217,7 @@ impl AsFfiArg for Value {
             Value::F32(ref mut v) => raw_ptr!(v),
             Value::F64(ref mut v) => raw_ptr!(v),
             Value::Tuple(_) => todo!("tuple"),
-            Value::Ptr(ptr) => raw_ptr!(ptr.as_raw()),
+            Value::Ptr(ref mut ptr) => raw_ptr!(ptr.as_raw()),
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),

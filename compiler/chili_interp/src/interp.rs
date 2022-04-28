@@ -1,7 +1,7 @@
 use crate::{
     display::dump_bytecode_to_file,
     ffi::Ffi,
-    instruction::{Bytecode, Instruction},
+    instruction::{CompiledCode, Instruction},
     lower::{Lower, LowerContext},
     value::Value,
     vm::{Constants, Globals, VM},
@@ -62,12 +62,12 @@ pub struct InterpSess<'i> {
     pub(crate) env_stack: Vec<(ModuleId, Env)>,
 }
 
-pub type Env = Scopes<BindingInfoId, isize>;
+pub type Env = Scopes<BindingInfoId, i16>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
         let verbose = self.workspace.build_options.verbose;
-        let mut code = Bytecode::new();
+        let mut code = CompiledCode::new();
 
         self.env_stack.push((module_id, Env::default()));
 
@@ -94,7 +94,7 @@ impl<'i> InterpSess<'i> {
         VM::new(self.interp)
     }
 
-    pub(crate) fn push_const(&mut self, code: &mut Bytecode, value: Value) {
+    pub(crate) fn push_const(&mut self, code: &mut CompiledCode, value: Value) {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
         code.push(Instruction::PushConst(slot as u32));

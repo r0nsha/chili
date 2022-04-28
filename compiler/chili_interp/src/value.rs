@@ -1,4 +1,4 @@
-use crate::instruction::Bytecode;
+use crate::instruction::CompiledCode;
 use chili_ast::ty::{InferTy, IntTy, TyKind, UIntTy};
 use std::{fmt::Display, mem};
 use ustr::Ustr;
@@ -96,7 +96,7 @@ pub struct Slice {
 pub struct Func {
     pub name: Ustr,
     pub param_count: usize,
-    pub code: Bytecode,
+    pub code: CompiledCode,
 }
 
 #[derive(Debug, Clone)]

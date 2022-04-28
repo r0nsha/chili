@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{Bytecode, CastInstruction, Instruction},
+    instruction::{CompiledCode, Instruction},
     interp::Interp,
     stack::Stack,
     value::{Func, Value},
@@ -84,7 +84,7 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    pub(crate) fn run(&'vm mut self, code: Bytecode) -> Value {
+    pub(crate) fn run(&'vm mut self, code: CompiledCode) -> Value {
         let function = Func {
             name: ustr("vm_root"),
             param_count: 0,
@@ -98,9 +98,9 @@ impl<'vm> VM<'vm> {
 
     fn run_loop(&'vm mut self) -> Value {
         loop {
-            let inst = self.code()[self.frames.peek(0).ip];
+            let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -214,6 +214,9 @@ impl<'vm> VM<'vm> {
                         Value::Func(func) => {
                             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
                             self.frames.push(frame);
+                            for _ in 0..func.code.locals - 1 {
+                                self.stack.push(Value::Tuple(vec![]));
+                            }
                         }
                         Value::ForeignFunc(func) => {
                             let func = func.clone();
@@ -246,7 +249,8 @@ impl<'vm> VM<'vm> {
                     };
                 }
                 Instruction::SetGlobal(slot) => {
-                    self.interp.globals.insert(slot as usize, self.stack.pop());
+                    let value = self.stack.pop();
+                    self.interp.globals.insert(slot as usize, value);
                 }
                 Instruction::GetLocal(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
@@ -261,7 +265,7 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::SetLocal(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
-                    let value = self.stack.peek(0).clone();
+                    let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                 }
                 // Instruction::Access(member) => {
@@ -296,7 +300,7 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    fn code(&self) -> &Bytecode {
+    fn code(&self) -> &CompiledCode {
         &self.func().code
     }
 

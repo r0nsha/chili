@@ -1,9 +1,25 @@
 use c.{printf, malloc}
 
+let foo = fn {
+    let x = 32
+    printf("hello answer: %d\n".data, x + 10)
+    let y = 69
+    printf("hello favorite: %d\n".data, y)
+}
+
 let build = fn {
+    foo()
     // let x = malloc(8) as *int
-    printf("hello %d %d\n\0".data, 5, 10)
+    let x = 5
+    printf("hello sum: %d + %d = %d\n".data, x, 10, x + 10)
+    let string = "Hello!\0".data;
+    printf("hello string: %p\n".data, string)
     // printf("hello %d\n\0".data, x.*)
 }
+
+// let build = fn {
+//     let x = malloc(8) as *int
+//     printf("hello %d\n\0".data, x.*)
+// }
 
 @run(build())
