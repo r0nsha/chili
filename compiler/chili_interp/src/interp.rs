@@ -3,7 +3,7 @@ use crate::{
     ffi::Ffi,
     instruction::{Bytecode, Instruction},
     lower::{Lower, LowerContext},
-    value::{ForeignFunc, ForeignFuncKey, Value},
+    value::Value,
     vm::{Constants, Globals, VM},
 };
 use chili_ast::{
@@ -23,7 +23,6 @@ pub enum InterpErr {}
 pub struct Interp {
     pub(crate) globals: Globals,
     pub(crate) constants: Constants,
-    pub(crate) foreign_functions: HashMap<ForeignFuncKey, ForeignFunc>,
     pub(crate) ffi: Ffi,
 
     bindings_to_globals: HashMap<BindingInfoId, usize>,
@@ -34,7 +33,6 @@ impl Interp {
         Self {
             globals: vec![],
             constants: vec![],
-            foreign_functions: HashMap::new(),
             ffi: Ffi::new(),
             bindings_to_globals: HashMap::new(),
         }
@@ -100,12 +98,6 @@ impl<'i> InterpSess<'i> {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
         code.push(Instruction::PushConst(slot as u32));
-    }
-
-    pub(crate) fn push_foreign_function(&mut self, code: &mut Bytecode, func: ForeignFunc) {
-        let key = func.as_key();
-        self.interp.foreign_functions.insert(key, func);
-        self.push_const(code, Value::ForeignFunc(key));
     }
 
     pub(crate) fn insert_global(&mut self, id: BindingInfoId, value: Value) -> usize {

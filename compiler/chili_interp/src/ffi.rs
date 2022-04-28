@@ -1,4 +1,4 @@
-use crate::value::{ForeignFunc, ForeignFuncKey, Value, ValuePtr};
+use crate::value::{ForeignFunc, Value, ValuePtr};
 use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
@@ -8,81 +8,56 @@ use ustr::{ustr, Ustr};
 
 const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
+struct Function {
+    ptr: *mut c_void,
+}
+
 pub(crate) struct Ffi {
     libs: HashMap<Ustr, libloading::Library>,
-    cifs: HashMap<ForeignFuncKey, ffi_cif>,
 }
 
 impl Ffi {
     pub(crate) fn new() -> Self {
         Self {
             libs: HashMap::new(),
-            cifs: HashMap::new(),
         }
     }
 
-    pub(crate) unsafe fn get_or_load_lib(&mut self, lib_path: Ustr) -> ffi_cif {
+    pub(crate) unsafe fn get_or_load_lib(&mut self, lib_path: Ustr) -> &libloading::Library {
+        // TODO: default libc and file extension should depend on the current platform
         let lib_name = match lib_path.as_str() {
-            // TODO: this should depend on the current platform
             "c" | "C" | "libucrt" => ustr("msvcrt"),
             _ => lib_path,
         };
 
-        match self.libs.get(lib_name) {
-            Some(lib) => lib,
-            None => libloading::Library::new(format!("{}.dll", lib_name)).unwrap(),
-        }
+        self.libs
+            .entry(lib_name)
+            .or_insert_with(|| libloading::Library::new(format!("{}.dll", lib_name)).unwrap())
     }
 
-    pub(crate) unsafe fn get_or_create_cif(
-        &mut self,
-        func: ForeignFuncKey,
-        args: Vec<Value>,
-    ) -> ffi_cif {
-        let lib_name = match func.lib_path.as_str() {
-            "c" | "C" | "libucrt" => "msvcrt", // TODO: this depends on the platform,
-            _ => &func.lib_path,
-        };
-
-        match self.libs.get(lib_name) {
-            Some(lib) => lib,
-            None => libloading::Library::new(format!("{}.dll", lib_name)).unwrap(),
-        }
-    }
-
-    pub(crate) unsafe fn call_foreign_func(
-        &mut self,
-        func: ForeignFuncKey,
-        args: Vec<Value>,
-    ) -> Value {
-        let lib_name = match func.lib_path.as_str() {
-            "c" | "C" | "libucrt" => "msvcrt", // TODO: this depends on the platform,
-            _ => &func.lib_path,
-        };
-
-        let lib = libloading::Library::new(format!("{}.dll", lib_name)).unwrap();
+    pub(crate) unsafe fn call(&mut self, func: ForeignFunc, args: Vec<Value>) -> Value {
+        let lib = self.get_or_load_lib(func.lib_path);
 
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
 
         let mut cif = ffi_cif::default();
-        let abi = ffi_abi_FFI_DEFAULT_ABI;
 
         let ret_ty: *mut ffi_type = &mut func.ret_ty.as_ffi_type();
 
-        let mut param_tys = func
+        let mut param_tys: Vec<*mut ffi_type> = func
             .param_tys
             .iter()
             .map(|param| &mut param.as_ffi_type() as *mut _)
-            .collect::<Vec<*mut ffi_type>>();
-
-        for arg in args.iter().skip(param_tys.len()) {
-            param_tys.push(&mut arg.as_ffi_type() as *mut _);
-        }
+            .collect();
 
         if func.variadic {
+            for arg in args.iter().skip(param_tys.len()) {
+                param_tys.push(&mut arg.as_ffi_type() as *mut _);
+            }
+
             prep_cif_var(
                 &mut cif,
-                abi,
+                ffi_abi_FFI_DEFAULT_ABI,
                 param_tys.len(),
                 args.len(),
                 ret_ty,
@@ -92,7 +67,7 @@ impl Ffi {
         } else {
             prep_cif(
                 &mut cif,
-                abi,
+                ffi_abi_FFI_DEFAULT_ABI,
                 param_tys.len(),
                 ret_ty,
                 param_tys.as_mut_ptr(),

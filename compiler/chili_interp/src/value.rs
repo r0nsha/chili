@@ -75,7 +75,7 @@ impl_value! {
     Ptr(ValuePtr),
     Slice(Slice),
     Func(Func),
-    ForeignFunc(ForeignFuncKey),
+    ForeignFunc(ForeignFunc),
 }
 
 #[derive(Debug, Clone)]
@@ -92,12 +92,6 @@ pub struct Func {
     pub code: Bytecode,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct ForeignFuncKey {
-    pub lib_path: Ustr,
-    pub name: Ustr,
-}
-
 #[derive(Debug, Clone)]
 pub struct ForeignFunc {
     pub lib_path: Ustr,
@@ -105,15 +99,6 @@ pub struct ForeignFunc {
     pub param_tys: Vec<TyKind>,
     pub ret_ty: TyKind,
     pub variadic: bool,
-}
-
-impl ForeignFunc {
-    pub fn as_key(&self) -> ForeignFuncKey {
-        ForeignFuncKey {
-            lib_path: self.lib_path,
-            name: self.name,
-        }
-    }
 }
 
 impl Value {

@@ -225,7 +225,7 @@ impl<'vm> VM<'vm> {
                             values.reverse();
 
                             // TODO: call_foreign_func should return a `Value`
-                            let result = unsafe { self.interp.ffi.call_foreign_func(func, values) };
+                            let result = unsafe { self.interp.ffi.call(func, values) };
                             self.stack.push(result);
                         }
                         _ => panic!("tried to call an uncallable value `{}`", value),
