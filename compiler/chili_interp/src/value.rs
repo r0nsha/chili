@@ -94,7 +94,7 @@ macro_rules! impl_value {
                 }
             }
 
-            pub unsafe fn deref(&mut self) -> Value {
+            pub unsafe fn deref(&self) -> Value {
                 match self {
                     $(
                         ValuePointer::$variant(v) => Value::$variant((**v).clone())

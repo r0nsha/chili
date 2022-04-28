@@ -148,7 +148,12 @@ impl<'vm> VM<'vm> {
                     self.stack.push(Value::Bool(!value.is_truthy()));
                 }
                 Instruction::Deref => match self.stack.pop() {
-                    Value::Pointer(ref mut ptr) => {
+                    Value::Pointer(ref ptr) => {
+                        // if let ValuePointer::Int(v) = ptr {
+                        //     unsafe {
+                        //         println!("{:?}", **v);
+                        //     }
+                        // }
                         let value = unsafe { ptr.deref() };
                         self.stack.push(value);
                     }

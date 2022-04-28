@@ -430,12 +430,13 @@ impl Lower for ast::Binary {
 }
 
 impl Lower for ast::Unary {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.lhs.lower(
             sess,
             code,
             match self.op {
-                ast::UnaryOp::Ref(_) | ast::UnaryOp::Deref => LowerContext { take_ptr: true },
+                ast::UnaryOp::Ref(_) => LowerContext { take_ptr: true },
+                ast::UnaryOp::Deref => ctx,
                 ast::UnaryOp::Neg | ast::UnaryOp::Plus | ast::UnaryOp::Not => {
                     LowerContext { take_ptr: false }
                 }
