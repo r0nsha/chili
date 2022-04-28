@@ -63,7 +63,7 @@ impl<'vm> VM<'vm> {
             CastInstruction::Ptr => match value {
                 // TODO: think how to pass the ptr's value (maybe as a type constant?)
                 Value::Ptr(ptr) => {
-                    let raw = ptr.as_raw();
+                    let raw = ptr.as_inner_raw();
                     todo!()
                     // self.stack.push(Value)
                 }

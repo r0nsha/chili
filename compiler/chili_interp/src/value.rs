@@ -37,10 +37,18 @@ macro_rules! impl_value {
         }
 
         impl ValuePtr {
-            pub fn as_raw(&self) -> *mut u8 {
+            pub unsafe fn as_raw(&mut self) -> *mut *mut u8 {
                 match self {
                     $(
-                        ValuePtr::$variant(v) => *v as _
+                        ValuePtr::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut *mut u8>(v)
+                    ),+
+                }
+            }
+
+            pub fn as_inner_raw(&self) -> *mut u8 {
+                match self {
+                    $(
+                        ValuePtr::$variant(v) => *v as *mut u8
                     ),+
                 }
             }
@@ -223,7 +231,7 @@ impl Display for Value {
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
-                Value::Ptr(p) => format!("ptr {:?}", p.as_raw()),
+                Value::Ptr(p) => format!("ptr {:?}", p.as_inner_raw()),
                 Value::Slice(slice) => format!("slice({:?}, {})", slice.ptr, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) => format!("foreign fn {}", func.name),

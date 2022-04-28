@@ -9,12 +9,10 @@ let foo = fn {
 
 let build = fn {
     foo()
-    // let x = malloc(8) as *int
     let x = 5
     printf("hello sum: %d + %d = %d\n".data, x, 10, x + 10)
     let string = "Hello!\0".data;
     printf("hello string: %s\n".data, string)
-    // printf("hello %d\n\0".data, x.*)
 }
 
 // let build = fn {

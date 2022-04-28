@@ -73,7 +73,11 @@ impl Ffi {
 
         let code_ptr = CodePtr::from_ptr(*symbol);
 
-        let mut args: Vec<*mut c_void> = args.iter_mut().map(|arg| arg.as_ffi_arg()).collect();
+        let mut args: Vec<*mut c_void> = args
+            .iter_mut()
+            .enumerate()
+            .map(|(index, arg)| arg.as_ffi_arg(index > func.param_tys.len() - 1))
+            .collect();
 
         let mut result = mem::MaybeUninit::<c_void>::uninit();
 
@@ -197,11 +201,11 @@ macro_rules! raw_ptr {
 }
 
 trait AsFfiArg {
-    unsafe fn as_ffi_arg(&mut self) -> *mut c_void;
+    unsafe fn as_ffi_arg(&mut self, is_variadic: bool) -> *mut c_void;
 }
 
 impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&mut self) -> *mut c_void {
+    unsafe fn as_ffi_arg(&mut self, is_variadic: bool) -> *mut c_void {
         match self {
             Value::I8(ref mut v) => raw_ptr!(v),
             Value::I16(ref mut v) => raw_ptr!(v),
@@ -217,7 +221,17 @@ impl AsFfiArg for Value {
             Value::F32(ref mut v) => raw_ptr!(v),
             Value::F64(ref mut v) => raw_ptr!(v),
             Value::Tuple(_) => todo!("tuple"),
-            Value::Ptr(ref mut ptr) => raw_ptr!(ptr.as_raw()),
+            Value::Ptr(ref mut ptr) => {
+                // Note (Ron): I'm not sure why, but for some reason we have to pass variadic pointers by reference.
+                // I'm guessing this is caused by libffi dereferencing variadic arguments? Although this would be pretty dumb.
+                // This is probably not the case, and either I just missed something,
+                // or more unlikely, Rust's codegen does something stupid with the value I'm passing.
+                if is_variadic {
+                    raw_ptr!(ptr.as_raw())
+                } else {
+                    raw_ptr!(ptr.as_inner_raw())
+                }
+            }
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
