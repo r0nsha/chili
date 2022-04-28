@@ -31,15 +31,15 @@ impl Lower for ast::Expr {
             ast::ExprKind::Binding(binding) => {
                 if let Some(expr) = &binding.expr {
                     expr.lower(sess, code, LowerContext { take_ptr: false });
-                    code.push(Instruction::SetLocal(code.locals as i32));
+                    code.push(Instruction::SetLocal((code.locals + 1) as i32));
                 }
 
                 match &binding.pattern {
                     Pattern::Single(pat) => {
+                        code.locals += 1;
+
                         sess.env_mut()
                             .insert(pat.binding_info_id, code.locals as i16);
-
-                        code.locals += 1;
                     }
                     Pattern::StructUnpack(_) => todo!(),
                     Pattern::TupleUnpack(_) => todo!(),
@@ -428,7 +428,17 @@ impl Lower for ast::Binary {
 
 impl Lower for ast::Unary {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        self.lhs.lower(sess, code, ctx);
+        self.lhs.lower(
+            sess,
+            code,
+            match self.op {
+                ast::UnaryOp::Ref(_) => LowerContext { take_ptr: true },
+                ast::UnaryOp::Deref => ctx,
+                ast::UnaryOp::Neg | ast::UnaryOp::Plus | ast::UnaryOp::Not => {
+                    LowerContext { take_ptr: false }
+                }
+            },
+        );
         code.push(self.op.into());
     }
 }

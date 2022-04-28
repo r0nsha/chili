@@ -8,7 +8,7 @@ foreign("system:libucrt") {
 	pub let strcpy = fn(dest: [*]u8, src: [*]u8) -> [*]u8;
 	pub let wcscpy = fn(dest: [*]u16, src: [*]u16) -> int;
 
-	pub let malloc = fn(size: uint) -> *c_void;
+	pub let malloc = fn(size: uint) -> *int;
     pub let calloc = fn(nitems: uint, size: uint) -> *c_void;
 	pub let free = fn(memblock: *c_void);
 

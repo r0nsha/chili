@@ -20,9 +20,10 @@ let build = fn {
     // y = 5
     // printf("hello %d\n\0".data, y)
 
-    let x = malloc(8) as *int
+    let x = malloc(8)// as *int
     x.* = 5
-    printf("hello %p\n\0".data, x)
+    let deref = x.*;
+    printf("hello %d : %p\n\0".data, deref, x)
     // printf("hello %d %d\n\0".data, x.*, x.* + 1)
 }
 

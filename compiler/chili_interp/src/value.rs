@@ -85,7 +85,7 @@ macro_rules! impl_value {
                 }
             }
 
-            pub fn write(&mut self, value: Value) {
+            pub fn write_value(&mut self, value: Value) {
                 match (self, value) {
                     $(
                         (ValuePtr::$variant(ptr), Value::$variant(value)) => unsafe { **ptr = value }
@@ -296,7 +296,11 @@ impl ValuePtr {
                 UintTy::Uint => Self::Uint(ptr as _),
             },
             TyKind::Float(_) => Self::F64(ptr as _),
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer(ptr as _),
+            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+                // Self::Pointer(&mut Self::from_type_and_ptr(ty, ptr) as _)
+                Self::from_type_and_ptr(ty, ptr)
+                // Self::Pointer(ptr as _)
+            }
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
@@ -306,6 +310,13 @@ impl ValuePtr {
             TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(ptr as _),
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
+        }
+    }
+
+    pub fn inner_ptr(&self) -> &*mut Self {
+        match self {
+            ValuePtr::Pointer(p) => p,
+            _ => panic!("expected ValuePtr::Pointer, got {:?}", self),
         }
     }
 }

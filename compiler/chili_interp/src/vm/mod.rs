@@ -285,7 +285,12 @@ impl<'vm> VM<'vm> {
 
                     // println!("{:?}", lvalue);
                     match &mut lvalue {
-                        Value::Pointer(ptr) => ptr.write(rvalue),
+                        Value::Pointer(ptr) => {
+                            // let ptr = unsafe { ptr.inner_ptr() };
+                            // unsafe {
+                            // ptr.write_value(rvalue);
+                            // }
+                        }
                         _ => panic!("invalid lvalue {}", lvalue),
                     }
                 }
