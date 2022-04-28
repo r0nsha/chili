@@ -31,12 +31,15 @@ impl Lower for ast::Expr {
             ast::ExprKind::Binding(binding) => {
                 if let Some(expr) = &binding.expr {
                     expr.lower(sess, code, LowerContext { take_ptr: false });
-                    code.push(Instruction::SetLocal((code.locals + 1) as i32));
                 }
 
                 match &binding.pattern {
                     Pattern::Single(pat) => {
                         code.locals += 1;
+
+                        if binding.expr.is_some() {
+                            code.push(Instruction::SetLocal(code.locals as i32));
+                        }
 
                         sess.env_mut()
                             .insert(pat.binding_info_id, code.locals as i16);

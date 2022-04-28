@@ -210,7 +210,7 @@ impl<'vm> VM<'vm> {
                         Value::Func(func) => {
                             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
                             self.frames.push(frame);
-                            for _ in 0..func.code.locals - 1 {
+                            for _ in 0..func.code.locals {
                                 self.stack.push(Value::Aggregate(vec![]));
                             }
                         }
