@@ -91,6 +91,20 @@ impl Ffi {
 
         let call_result = result.assume_init_mut();
 
+        println!(
+            "{:?} {:?}",
+            call_result as *mut _ as *mut c_void,
+            *(call_result as *mut _ as *mut usize)
+        );
+
+        *(call_result as *mut _ as *mut usize) = 5;
+
+        println!(
+            "{:?} {:?}",
+            call_result as *mut _ as *mut c_void,
+            *(call_result as *mut _ as *mut usize)
+        );
+
         Value::from_type_and_ptr(&func.ret_ty, call_result as *mut _ as *mut u8)
     }
 }

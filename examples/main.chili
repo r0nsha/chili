@@ -21,7 +21,7 @@ let build = fn {
     // printf("hello %d\n\0".data, y)
 
     let x = malloc(8)// as *int
-    x.* = 5
+    // x.* = 5
     printf("hello %d : %p\n\0".data, x.*, x)
     // printf("hello %d %d\n\0".data, x.*, x.* + 1)
 }
