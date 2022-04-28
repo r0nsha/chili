@@ -38,54 +38,57 @@ impl Ffi {
 
         let mut cif = ffi_cif::default();
 
-        let ret_ty: *mut ffi_type = &mut func.ret_ty.as_ffi_type();
+        let return_type = &mut func.ret_ty.as_ffi_type() as *mut ffi_type;
 
-        let mut param_tys: Vec<*mut ffi_type> = func
+        let mut arg_types: Vec<*mut ffi_type> = func
             .param_tys
             .iter()
             .map(|param| &mut param.as_ffi_type() as *mut _)
             .collect();
 
         if func.variadic {
-            for arg in args.iter().skip(param_tys.len()) {
-                param_tys.push(&mut arg.as_ffi_type() as *mut _);
+            for arg in args.iter().skip(arg_types.len()) {
+                arg_types.push(&mut arg.as_ffi_type() as *mut _);
             }
 
             prep_cif_var(
                 &mut cif,
                 ffi_abi_FFI_DEFAULT_ABI,
-                param_tys.len(),
-                args.len(),
-                ret_ty,
-                param_tys.as_mut_ptr(),
+                func.param_tys.len(),
+                arg_types.len(),
+                return_type,
+                arg_types.as_mut_ptr(),
             )
             .unwrap()
         } else {
             prep_cif(
                 &mut cif,
                 ffi_abi_FFI_DEFAULT_ABI,
-                param_tys.len(),
-                ret_ty,
-                param_tys.as_mut_ptr(),
+                arg_types.len(),
+                return_type,
+                arg_types.as_mut_ptr(),
             )
             .unwrap()
         }
 
         let code_ptr = CodePtr::from_ptr(*symbol);
 
+        println!("{:?}", args);
+
         let mut args = args
             .iter_mut()
-            .map(|arg| unsafe { arg.as_ffi_arg() })
+            .map(|arg| arg.as_ffi_arg())
             .collect::<Vec<*mut c_void>>();
 
         let mut result = mem::MaybeUninit::<c_void>::uninit();
-
+        println!("1");
         libffi::raw::ffi_call(
             &mut cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
             result.as_mut_ptr(),
             args.as_mut_ptr(),
         );
+        println!("2");
 
         let call_result = result.assume_init_mut();
 
@@ -138,8 +141,7 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::Unit => todo!(),
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => types::pointer,
+            TyKind::Unit | TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => types::pointer,
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
