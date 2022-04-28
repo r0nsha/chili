@@ -37,12 +37,12 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
                 IntTy::I64 => cg.context.i64_type().into(),
                 IntTy::Int => cg.ptr_sized_int_type.into(),
             },
-            TyKind::UInt(inner) => match inner {
-                UIntTy::U8 => cg.context.i8_type().into(),
-                UIntTy::U16 => cg.context.i16_type().into(),
-                UIntTy::U32 => cg.context.i32_type().into(),
-                UIntTy::U64 => cg.context.i64_type().into(),
-                UIntTy::UInt => cg.ptr_sized_int_type.into(),
+            TyKind::Uint(inner) => match inner {
+                UintTy::U8 => cg.context.i8_type().into(),
+                UintTy::U16 => cg.context.i16_type().into(),
+                UintTy::U32 => cg.context.i32_type().into(),
+                UintTy::U64 => cg.context.i64_type().into(),
+                UintTy::Uint => cg.ptr_sized_int_type.into(),
             },
             TyKind::Float(inner) => match inner {
                 FloatTy::F16 => cg.context.f16_type().into(),

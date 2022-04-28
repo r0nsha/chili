@@ -44,7 +44,7 @@ impl Coerce for TyKind {
             }
 
             // * int -> same or bigger uint
-            (TyKind::Int(left), TyKind::UInt(right)) => {
+            (TyKind::Int(left), TyKind::Uint(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -53,7 +53,7 @@ impl Coerce for TyKind {
             }
 
             // * uint -> same or bigger uint
-            (TyKind::UInt(left), TyKind::UInt(right)) => {
+            (TyKind::Uint(left), TyKind::Uint(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -62,7 +62,7 @@ impl Coerce for TyKind {
             }
 
             // * uint -> same or bigger int
-            (TyKind::UInt(left), TyKind::Int(right)) => {
+            (TyKind::Uint(left), TyKind::Int(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {

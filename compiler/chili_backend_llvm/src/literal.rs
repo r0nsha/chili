@@ -101,7 +101,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             ast::LiteralKind::Int(v) => match ty {
-                TyKind::Int(_) | TyKind::UInt(_) => ty
+                TyKind::Int(_) | TyKind::Uint(_) => ty
                     .llvm_type(self)
                     .into_int_type()
                     .const_int(*v as u64, ty.is_int())

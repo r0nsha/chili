@@ -42,7 +42,7 @@ pub enum TyKind {
     Unit,
     Bool,
     Int(IntTy),
-    UInt(UIntTy),
+    Uint(UintTy),
     Float(FloatTy),
     Pointer(Box<TyKind>, bool),
     MultiPointer(Box<TyKind>, bool),
@@ -82,17 +82,17 @@ impl Default for IntTy {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum UIntTy {
+pub enum UintTy {
     U8,
     U16,
     U32,
     U64,
-    UInt,
+    Uint,
 }
 
-impl Default for UIntTy {
+impl Default for UintTy {
     fn default() -> Self {
-        UIntTy::U32
+        UintTy::U32
     }
 }
 
@@ -265,7 +265,7 @@ impl TyKind {
     }
 
     pub fn is_uint(&self) -> bool {
-        matches!(self, TyKind::UInt(_))
+        matches!(self, TyKind::Uint(_))
     }
 
     pub fn is_float(&self) -> bool {
@@ -352,7 +352,7 @@ impl TyKind {
     }
 
     pub fn char() -> TyKind {
-        TyKind::UInt(UIntTy::U8)
+        TyKind::Uint(UintTy::U8)
     }
 
     pub fn create_type(self) -> TyKind {

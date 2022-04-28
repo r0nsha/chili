@@ -23,12 +23,12 @@ impl Display for TyKind {
                     IntTy::Int => "int",
                 }
                 .to_string(),
-                TyKind::UInt(inner) => match inner {
-                    UIntTy::U8 => "u8",
-                    UIntTy::U16 => "u16",
-                    UIntTy::U32 => "u32",
-                    UIntTy::U64 => "u64",
-                    UIntTy::UInt => "uint",
+                TyKind::Uint(inner) => match inner {
+                    UintTy::U8 => "u8",
+                    UintTy::U16 => "u16",
+                    UintTy::U32 => "u32",
+                    UintTy::U64 => "u64",
+                    UintTy::Uint => "uint",
                 }
                 .to_string(),
                 TyKind::Float(inner) => match inner {

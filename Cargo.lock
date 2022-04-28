@@ -183,6 +183,7 @@ dependencies = [
  "common",
  "libffi",
  "libloading",
+ "paste",
  "strum_macros",
  "ustr",
 ]
@@ -833,6 +834,12 @@ dependencies = [
  "smallvec",
  "windows-sys",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
 
 [[package]]
 name = "path-absolutize"

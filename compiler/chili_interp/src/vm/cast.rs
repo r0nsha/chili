@@ -1,4 +1,8 @@
-use crate::{instruction::CastInstruction, value::Value, vm::VM};
+use crate::{
+    instruction::CastInstruction,
+    value::{Value, ValuePtr},
+    vm::VM,
+};
 
 macro_rules! cast_to_int {
     ($value:expr => $name:ident, $to:ty) => {
@@ -12,7 +16,7 @@ macro_rules! cast_to_int {
             Value::U16(v) => Value::$name(v as $to),
             Value::U32(v) => Value::$name(v as $to),
             Value::U64(v) => Value::$name(v as $to),
-            Value::UInt(v) => Value::$name(v as $to),
+            Value::Uint(v) => Value::$name(v as $to),
             Value::F32(v) => Value::$name(v as $to),
             Value::F64(v) => Value::$name(v as $to),
             Value::Bool(v) => Value::$name(v as $to),
@@ -34,7 +38,7 @@ macro_rules! cast_to_float {
             Value::U16(v) => Value::$name(v as $to),
             Value::U32(v) => Value::$name(v as $to),
             Value::U64(v) => Value::$name(v as $to),
-            Value::UInt(v) => Value::$name(v as $to),
+            Value::Uint(v) => Value::$name(v as $to),
             Value::F32(v) => Value::$name(v as $to),
             Value::F64(v) => Value::$name(v as $to),
             _ => panic!("invalid value {}", $value),
@@ -57,15 +61,15 @@ impl<'vm> VM<'vm> {
             CastInstruction::U16 => cast_to_int!(value => U16, u16),
             CastInstruction::U32 => cast_to_int!(value => U32, u32),
             CastInstruction::U64 => cast_to_int!(value => U64, u64),
-            CastInstruction::UInt => cast_to_int!(value => UInt, usize),
+            CastInstruction::Uint => cast_to_int!(value => Uint, usize),
             CastInstruction::F32 => cast_to_float!(value => F32, f32),
             CastInstruction::F64 => cast_to_float!(value => F64, f64),
-            CastInstruction::Ptr => match value {
+            CastInstruction::Ptr(kind) => match value {
                 // TODO: think how to pass the ptr's value (maybe as a type constant?)
-                Value::Ptr(ptr) => {
+                Value::Pointer(ptr) => {
                     let raw = ptr.as_inner_raw();
-                    todo!()
-                    // self.stack.push(Value)
+                    let new_ptr = ValuePtr::from_kind_and_ptr(kind, raw);
+                    Value::Pointer(new_ptr)
                 }
                 _ => panic!("invalid value {}", value),
             },

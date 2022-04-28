@@ -1,11 +1,12 @@
-use crate::instruction::CompiledCode;
-use chili_ast::ty::{InferTy, IntTy, TyKind, UIntTy};
+use crate::{instruction::CompiledCode, IS_64BIT};
+use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
+use paste::paste;
 use std::{fmt::Display, mem};
 use ustr::Ustr;
 
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
-        #[derive(Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone, Copy)]
         pub enum ValueKind {
             $(
                 $variant
@@ -17,6 +18,37 @@ macro_rules! impl_value {
             $(
                 $variant($ty)
             ),+
+        }
+
+        impl Value {
+            paste! {
+                $(
+                    pub fn [<into_ $variant:snake>](self) -> $ty {
+                        match self {
+                            Value::$variant(v) => v,
+                            _ => panic!("got {}", self)
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<as_ $variant:snake>](&self) -> &$ty {
+                        match self {
+                            Value::$variant(v) => v,
+                            _ => panic!("got {}", self)
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
+                        match self {
+                            Value::$variant(v) => v,
+                            _ => panic!("got {}", self)
+                        }
+                    }
+                )+
+            }
         }
 
         #[derive(Debug, Clone)]
@@ -53,7 +85,7 @@ macro_rules! impl_value {
                 }
             }
 
-            pub fn set(&self, value: Value) {
+            pub fn write(&mut self, value: Value) {
                 match (self, value) {
                     $(
                         (ValuePtr::$variant(ptr), Value::$variant(value)) => unsafe { **ptr = value }
@@ -66,6 +98,22 @@ macro_rules! impl_value {
                 match self {
                     $(
                         ValuePtr::$variant(v) => Value::$variant((**v).clone())
+                    ),+
+                }
+            }
+
+            pub fn from_kind_and_ptr(kind: ValueKind, ptr: *mut u8) -> Self {
+                match kind {
+                    $(
+                        ValueKind::$variant => ValuePtr::$variant(ptr as _)
+                    ),+
+                }
+            }
+
+            pub unsafe fn print(&self) {
+                match self {
+                    $(
+                        ValuePtr::$variant(v) => println!("{:?}", **v)
                     ),+
                 }
             }
@@ -83,15 +131,16 @@ impl_value! {
     U16(u16),
     U32(u32),
     U64(u64),
-    UInt(usize),
+    Uint(usize),
     F32(f32),
     F64(f64),
     Bool(bool),
-    Tuple(Vec<Value>),
-    Ptr(ValuePtr),
+    Aggregate(Vec<Value>),
+    Pointer(ValuePtr),
     Slice(Slice),
     Func(Func),
     ForeignFunc(ForeignFunc),
+    Type(TyKind)
 }
 
 #[derive(Debug, Clone)]
@@ -116,9 +165,55 @@ pub struct ForeignFunc {
     pub variadic: bool,
 }
 
+impl From<TyKind> for ValueKind {
+    fn from(ty: TyKind) -> Self {
+        match ty {
+            TyKind::Never | TyKind::Unit => ValueKind::Aggregate,
+            TyKind::Bool => ValueKind::Bool,
+            TyKind::Int(ty) => match ty {
+                IntTy::I8 => Self::I8,
+                IntTy::I16 => Self::I16,
+                IntTy::I32 => Self::I32,
+                IntTy::I64 => Self::I64,
+                IntTy::Int => Self::Int,
+            },
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Self::U8,
+                UintTy::U16 => Self::U16,
+                UintTy::U32 => Self::U32,
+                UintTy::U64 => Self::U64,
+                UintTy::Uint => Self::Uint,
+            },
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Self::F32,
+                FloatTy::F64 => Self::F64,
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Self::F64
+                    } else {
+                        Self::F32
+                    }
+                }
+            },
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer,
+            TyKind::Fn(_) => todo!(),
+            TyKind::Array(_, _) => todo!(),
+            TyKind::Slice(_, _) => todo!(),
+            TyKind::Tuple(_) => todo!(),
+            TyKind::Struct(_) => todo!(),
+            TyKind::Module(_) => todo!(),
+            TyKind::Type(_) => todo!(),
+            TyKind::Infer(_, InferTy::AnyInt) => Self::I32,
+            TyKind::Infer(_, InferTy::AnyFloat) => Self::F64,
+            TyKind::Infer(_, _) => todo!(),
+            _ => panic!("invalid type {}", ty),
+        }
+    }
+}
+
 impl Value {
     pub fn unit() -> Self {
-        Value::Tuple(vec![])
+        Value::Aggregate(vec![])
     }
 
     pub fn is_truthy(&self) -> bool {
@@ -128,7 +223,7 @@ impl Value {
         }
     }
 
-    pub unsafe fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
+    pub unsafe fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
         match ty {
             TyKind::Never | TyKind::Unit => Self::U8(*ptr),
             TyKind::Bool => Self::Bool(*ptr != 0),
@@ -139,16 +234,26 @@ impl Value {
                 IntTy::I64 => Self::I64(*(ptr as *mut i64)),
                 IntTy::Int => Self::Int(*(ptr as *mut isize)),
             },
-            TyKind::UInt(ty) => match ty {
-                UIntTy::U8 => Self::U8(*ptr),
-                UIntTy::U16 => Self::U16(*(ptr as *mut u16)),
-                UIntTy::U32 => Self::U32(*(ptr as *mut u32)),
-                UIntTy::U64 => Self::U64(*(ptr as *mut u64)),
-                UIntTy::UInt => Self::UInt(*(ptr as *mut usize)),
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Self::U8(*ptr),
+                UintTy::U16 => Self::U16(*(ptr as *mut u16)),
+                UintTy::U32 => Self::U32(*(ptr as *mut u32)),
+                UintTy::U64 => Self::U64(*(ptr as *mut u64)),
+                UintTy::Uint => Self::Uint(*(ptr as *mut usize)),
             },
-            TyKind::Float(_) => Self::F64(*(ptr as *mut f64)),
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Self::F32(*(ptr as *mut f32)),
+                FloatTy::F64 => Self::F64(*(ptr as *mut f64)),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Self::F64(*(ptr as *mut f64))
+                    } else {
+                        Self::F32(*(ptr as *mut f32))
+                    }
+                }
+            },
             TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
-                Self::Ptr(ValuePtr::from_ptr(ty, ptr))
+                Self::Pointer(ValuePtr::from_type_and_ptr(ty, ptr))
             }
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
@@ -167,12 +272,12 @@ impl ValuePtr {
     pub fn unit() -> Self {
         // Note (Ron): Leak
         let mut elements = Vec::<Value>::new();
-        let ptr = ValuePtr::Tuple(&mut elements as _);
+        let ptr = ValuePtr::Aggregate(&mut elements as _);
         mem::forget(elements);
         ptr
     }
 
-    pub fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
+    pub fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
         match ty {
             TyKind::Never | TyKind::Unit => Self::U8(ptr as _),
             TyKind::Bool => Self::Bool(ptr as _),
@@ -183,15 +288,15 @@ impl ValuePtr {
                 IntTy::I64 => Self::I64(ptr as _),
                 IntTy::Int => Self::Int(ptr as _),
             },
-            TyKind::UInt(ty) => match ty {
-                UIntTy::U8 => Self::U8(ptr as _),
-                UIntTy::U16 => Self::U16(ptr as _),
-                UIntTy::U32 => Self::U32(ptr as _),
-                UIntTy::U64 => Self::U64(ptr as _),
-                UIntTy::UInt => Self::UInt(ptr as _),
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Self::U8(ptr as _),
+                UintTy::U16 => Self::U16(ptr as _),
+                UintTy::U32 => Self::U32(ptr as _),
+                UintTy::U64 => Self::U64(ptr as _),
+                UintTy::Uint => Self::Uint(ptr as _),
             },
             TyKind::Float(_) => Self::F64(ptr as _),
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Ptr(ptr as _),
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer(ptr as _),
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
@@ -220,21 +325,22 @@ impl Display for Value {
                 Value::U16(v) => format!("u16 {}", v),
                 Value::U32(v) => format!("u32 {}", v),
                 Value::U64(v) => format!("u64 {}", v),
-                Value::UInt(v) => format!("uint {}", v),
+                Value::Uint(v) => format!("uint {}", v),
                 Value::F32(v) => format!("f32 {}", v),
                 Value::F64(v) => format!("f64 {}", v),
                 Value::Bool(v) => format!("bool {}", v),
-                Value::Tuple(v) => format!(
+                Value::Aggregate(v) => format!(
                     "({})",
                     v.iter()
                         .map(|v| v.to_string())
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
-                Value::Ptr(p) => format!("ptr {:?}", p.as_inner_raw()),
+                Value::Pointer(p) => format!("ptr {:?}", p),
                 Value::Slice(slice) => format!("slice({:?}, {})", slice.ptr, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
+                Value::Type(ty) => format!("type {}", ty),
             }
         )
     }

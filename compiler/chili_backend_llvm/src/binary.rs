@@ -82,7 +82,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
+            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_) => {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
@@ -112,7 +112,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
+            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_) => {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
@@ -142,7 +142,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::UInt(_) => {
+            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_) => {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
@@ -178,7 +178,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "idiv")
                     .into()
             }
-            TyKind::UInt(_) => {
+            TyKind::Uint(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_unsigned_div(lhs.into_int_value(), rhs.into_int_value(), "udiv")
@@ -207,7 +207,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "irem")
                     .into()
             }
-            TyKind::UInt(_) => {
+            TyKind::Uint(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_unsigned_rem(lhs.into_int_value(), rhs.into_int_value(), "urem")

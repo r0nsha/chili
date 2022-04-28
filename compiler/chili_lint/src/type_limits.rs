@@ -1,6 +1,6 @@
 use chili_ast::{
     ast,
-    ty::{IntTy, Ty, TyKind, UIntTy},
+    ty::{IntTy, Ty, TyKind, UintTy},
 };
 use chili_error::diagnostic::{Diagnostic, Label};
 use chili_infer::normalize::NormalizeTy;
@@ -23,7 +23,7 @@ impl<'s> LintSess<'s> {
                                 .push(overflow_err(value, &e.ty, min, max, e.span))
                         }
                     }
-                    TyKind::UInt(uint_ty) => {
+                    TyKind::Uint(uint_ty) => {
                         let (min, max) = uint_ty_range(*uint_ty);
 
                         if value.is_negative() {
@@ -64,13 +64,13 @@ fn int_ty_range(int_ty: IntTy) -> (i64, i64) {
     }
 }
 
-fn uint_ty_range(uint_ty: UIntTy) -> (u64, u64) {
+fn uint_ty_range(uint_ty: UintTy) -> (u64, u64) {
     match uint_ty {
-        UIntTy::U8 => (u8::MIN as u64, u8::MAX as u64),
-        UIntTy::U16 => (u16::MIN as u64, u16::MAX as u64),
-        UIntTy::U32 => (u32::MIN as u64, u32::MAX as u64),
-        UIntTy::U64 => (u64::MIN, u64::MAX),
-        UIntTy::UInt => (usize::MIN as u64, usize::MAX as u64),
+        UintTy::U8 => (u8::MIN as u64, u8::MAX as u64),
+        UintTy::U16 => (u16::MIN as u64, u16::MAX as u64),
+        UintTy::U32 => (u32::MIN as u64, u32::MAX as u64),
+        UintTy::U64 => (u64::MIN, u64::MAX),
+        UintTy::Uint => (usize::MIN as u64, usize::MAX as u64),
     }
 }
 

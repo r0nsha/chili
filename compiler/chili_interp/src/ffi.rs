@@ -1,12 +1,13 @@
-use crate::value::{ForeignFunc, Value};
+use crate::{
+    value::{ForeignFunc, Value},
+    IS_64BIT,
+};
 use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
 };
 use std::{ffi::c_void, mem};
 use ustr::{ustr, Ustr, UstrMap};
-
-const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
@@ -90,7 +91,7 @@ impl Ffi {
 
         let call_result = result.assume_init_mut();
 
-        Value::from_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
+        Value::from_type_and_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
     }
 }
 
@@ -115,12 +116,12 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::UInt(ty) => match ty {
-                UIntTy::U8 => types::uint8,
-                UIntTy::U16 => types::uint16,
-                UIntTy::U32 => types::uint32,
-                UIntTy::U64 => types::uint64,
-                UIntTy::UInt => {
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => types::uint8,
+                UintTy::U16 => types::uint16,
+                UintTy::U32 => types::uint32,
+                UintTy::U64 => types::uint64,
+                UintTy::Uint => {
                     if IS_64BIT {
                         types::uint64
                     } else {
@@ -175,7 +176,7 @@ impl AsFfiType for Value {
             Value::U16(_) => types::uint16,
             Value::U32(_) => types::uint32,
             Value::U64(_) => types::uint64,
-            Value::UInt(_) => {
+            Value::Uint(_) => {
                 if IS_64BIT {
                     types::uint64
                 } else {
@@ -185,11 +186,12 @@ impl AsFfiType for Value {
             Value::F32(_) => types::float,
             Value::F64(_) => types::double,
             Value::Bool(_) => types::uint8,
-            Value::Tuple(_) => todo!(),
-            Value::Ptr(..) => types::pointer,
+            Value::Aggregate(_) => todo!(),
+            Value::Pointer(..) => types::pointer,
             Value::Slice(_) => todo!(),
             Value::Func(_) => todo!(),
             Value::ForeignFunc(_) => todo!(),
+            Value::Type(_) => todo!(),
         }
     }
 }
@@ -216,12 +218,12 @@ impl AsFfiArg for Value {
             Value::U16(ref mut v) => raw_ptr!(v),
             Value::U32(ref mut v) => raw_ptr!(v),
             Value::U64(ref mut v) => raw_ptr!(v),
-            Value::UInt(ref mut v) => raw_ptr!(v),
+            Value::Uint(ref mut v) => raw_ptr!(v),
             Value::Bool(ref mut v) => raw_ptr!(v),
             Value::F32(ref mut v) => raw_ptr!(v),
             Value::F64(ref mut v) => raw_ptr!(v),
-            Value::Tuple(_) => todo!("tuple"),
-            Value::Ptr(ref mut ptr) => {
+            Value::Aggregate(_) => todo!("tuple"),
+            Value::Pointer(ref mut ptr) => {
                 // Note (Ron): I'm not sure why, but for some reason we have to pass variadic pointers by reference.
                 // I'm guessing this is caused by libffi dereferencing variadic arguments? Although this would be pretty dumb.
                 // This is probably not the case, and either I just missed something,
@@ -235,6 +237,7 @@ impl AsFfiArg for Value {
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
+            Value::Type(_) => todo!(),
         }
     }
 }

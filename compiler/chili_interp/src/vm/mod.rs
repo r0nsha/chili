@@ -100,7 +100,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -147,17 +147,13 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     self.stack.push(Value::Bool(!value.is_truthy()));
                 }
-                Instruction::Deref => {
-                    let value = self.stack.pop();
-                    todo!()
-                    // match &value {
-                    //     Value::Ptr(ty, ptr) => {
-                    //         let value = unsafe { &*Value::from_ptr(ty, *ptr) };
-                    //         self.stack.push(value.clone());
-                    //     }
-                    //     _ => panic!("invalid value {}", value),
-                    // }
-                }
+                Instruction::Deref => match self.stack.pop() {
+                    Value::Pointer(ref mut ptr) => {
+                        let value = unsafe { ptr.deref() };
+                        self.stack.push(value);
+                    }
+                    value => panic!("invalid value {}", value),
+                },
                 Instruction::Eq => {
                     comp_op!(self.stack, ==);
                 }
@@ -215,7 +211,7 @@ impl<'vm> VM<'vm> {
                             let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
                             self.frames.push(frame);
                             for _ in 0..func.code.locals - 1 {
-                                self.stack.push(Value::Tuple(vec![]));
+                                self.stack.push(Value::Aggregate(vec![]));
                             }
                         }
                         Value::ForeignFunc(func) => {
@@ -244,7 +240,7 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::GetGlobalPtr(slot) => {
                     match self.interp.globals.get_mut(slot as usize) {
-                        Some(value) => self.stack.push(Value::Ptr(value.into())),
+                        Some(value) => self.stack.push(Value::Pointer(value.into())),
                         None => panic!("undefined global `{}`", slot),
                     };
                 }
@@ -260,7 +256,7 @@ impl<'vm> VM<'vm> {
                 Instruction::GetLocalPtr(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
-                    let value = Value::Ptr(value.into());
+                    let value = Value::Pointer(value.into());
                     self.stack.push(value);
                 }
                 Instruction::SetLocal(slot) => {
@@ -268,17 +264,15 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                 }
-                // Instruction::Access(member) => {
-                //     // TODO: in Assign context, i need to return the slot, not the member itself
-                //     todo!("access")
-                // }
                 Instruction::Index(index) => {
                     let value = self.stack.pop();
 
                     match value {
-                        Value::Tuple(elements) => self.stack.push(elements[index as usize].clone()),
+                        Value::Aggregate(elements) => {
+                            self.stack.push(elements[index as usize].clone())
+                        }
                         Value::Slice(slice) => match index {
-                            0 => self.stack.push(Value::Ptr(slice.ptr)),
+                            0 => self.stack.push(Value::Pointer(slice.ptr)),
                             1 => self.stack.push(Value::Int(slice.len as _)),
                             _ => panic!("invalid index {}", index),
                         },
@@ -286,11 +280,12 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::Assign => {
-                    let lvalue = self.stack.pop();
+                    let mut lvalue = self.stack.pop();
                     let rvalue = self.stack.pop();
 
-                    match lvalue {
-                        Value::Ptr(ptr) => ptr.set(rvalue),
+                    // println!("{:?}", lvalue);
+                    match &mut lvalue {
+                        Value::Pointer(ptr) => ptr.write(rvalue),
                         _ => panic!("invalid lvalue {}", lvalue),
                     }
                 }

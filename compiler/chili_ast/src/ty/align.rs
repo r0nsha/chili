@@ -10,14 +10,14 @@ impl AlignOf for TyKind {
             TyKind::Unit => 0,
             TyKind::Bool => 1,
             TyKind::Int(ty) => ty.align_of(word_size),
-            TyKind::UInt(ty) => ty.align_of(word_size),
+            TyKind::Uint(ty) => ty.align_of(word_size),
             TyKind::Float(ty) => ty.align_of(word_size),
             TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Fn(..) => word_size,
             TyKind::Array(ty, ..) => ty.align_of(word_size),
             TyKind::Slice(..) => StructTy::temp(
                 vec![
                     StructTyField::temp(TyKind::raw_pointer(false)),
-                    StructTyField::temp(TyKind::UInt(UIntTy::UInt)),
+                    StructTyField::temp(TyKind::Uint(UintTy::Uint)),
                 ],
                 StructTyKind::Struct,
             )
@@ -45,14 +45,14 @@ impl AlignOf for IntTy {
     }
 }
 
-impl AlignOf for UIntTy {
+impl AlignOf for UintTy {
     fn align_of(&self, word_size: usize) -> usize {
         match self {
-            UIntTy::U8 => 1,
-            UIntTy::U16 => 2,
-            UIntTy::U32 => 4,
-            UIntTy::U64 => 8,
-            UIntTy::UInt => word_size as _,
+            UintTy::U8 => 1,
+            UintTy::U16 => 2,
+            UintTy::U32 => 4,
+            UintTy::U64 => 8,
+            UintTy::Uint => word_size as _,
         }
     }
 }

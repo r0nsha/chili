@@ -45,7 +45,7 @@ impl UnifyTy<TyKind> for TyKind {
             ) => Ok(()),
 
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
-            (TyKind::UInt(t1), TyKind::UInt(t2)) if t1 == t2 => Ok(()),
+            (TyKind::Uint(t1), TyKind::Uint(t2)) if t1 == t2 => Ok(()),
             (TyKind::Float(t1), TyKind::Float(t2)) if t1 == t2 => Ok(()),
 
             (TyKind::Pointer(t1, a1), TyKind::Pointer(t2, a2))
@@ -146,7 +146,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
         InferenceValue::AnyInt => {
             let other_kind = other.normalize(&tycx);
             match other_kind {
-                TyKind::Int(_) | TyKind::UInt(_) | TyKind::Float(_) => {
+                TyKind::Int(_) | TyKind::Uint(_) | TyKind::Float(_) => {
                     tycx.bind_ty(var, other_kind);
                     Ok(())
                 }

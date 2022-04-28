@@ -9,40 +9,40 @@ impl CanCast<TyKind> for TyKind {
     fn can_cast(&self, to: &TyKind) -> bool {
         self == to
             || match (self, to) {
-                (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::UInt(_)) => true,
+                (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::Uint(_)) => true,
 
                 (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyInt))
                 | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Int(_))
-                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::UInt(_))
+                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Uint(_))
                 | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat))
                 | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Float(_)) => true,
 
                 (TyKind::Int(_), TyKind::Int(_))
-                | (TyKind::Int(_), TyKind::UInt(_))
+                | (TyKind::Int(_), TyKind::Uint(_))
                 | (TyKind::Int(_), TyKind::Infer(_, InferTy::AnyFloat))
                 | (TyKind::Int(_), TyKind::Float(_)) => true,
 
-                (TyKind::UInt(_), TyKind::Int(_))
-                | (TyKind::UInt(_), TyKind::UInt(_))
-                | (TyKind::UInt(_), TyKind::Float(_)) => true,
+                (TyKind::Uint(_), TyKind::Int(_))
+                | (TyKind::Uint(_), TyKind::Uint(_))
+                | (TyKind::Uint(_), TyKind::Float(_)) => true,
 
                 (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt))
                 | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Int(_))
-                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::UInt(_))
+                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Uint(_))
                 | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyFloat))
                 | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Float(_)) => true,
 
                 (TyKind::Float(_), TyKind::Int(_))
-                | (TyKind::Float(_), TyKind::UInt(_))
+                | (TyKind::Float(_), TyKind::Uint(_))
                 | (TyKind::Float(_), TyKind::Float(_)) => true,
 
                 (TyKind::Pointer(..), TyKind::Pointer(..)) => true,
 
                 (TyKind::Pointer(..), TyKind::Int(..))
-                | (TyKind::Pointer(..), TyKind::UInt(..)) => true,
+                | (TyKind::Pointer(..), TyKind::Uint(..)) => true,
 
                 (TyKind::Int(..), TyKind::Pointer(..))
-                | (TyKind::UInt(..), TyKind::Pointer(..)) => true,
+                | (TyKind::Uint(..), TyKind::Pointer(..)) => true,
 
                 (TyKind::Pointer(t1, from_mutable), TyKind::MultiPointer(t2, to_mutable))
                 | (TyKind::MultiPointer(t1, to_mutable), TyKind::Pointer(t2, from_mutable))

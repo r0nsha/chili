@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use chili_ast::ast;
 
+use crate::value::ValueKind;
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Instruction {
     Noop,
@@ -51,10 +53,10 @@ pub enum CastInstruction {
     U16,
     U32,
     U64,
-    UInt,
+    Uint,
     F32,
     F64,
-    Ptr,
+    Ptr(ValueKind),
 }
 
 impl Display for Instruction {
@@ -93,7 +95,6 @@ impl Display for Instruction {
                 Instruction::GetLocal(slot) => format!("get_local ${}", slot),
                 Instruction::GetLocalPtr(slot) => format!("get_local_ptr ${}", slot),
                 Instruction::SetLocal(slot) => format!("set_local ${}", slot),
-                // Instruction::Access(member) => format!("access_`{}`", member),
                 Instruction::Index(idx) => format!("index_{}", idx),
                 Instruction::Assign => "assign".to_string(),
                 Instruction::Cast(cast) => format!("cast_{:?}", cast),

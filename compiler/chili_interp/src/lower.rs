@@ -1,20 +1,18 @@
 use crate::{
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
-    value::{ForeignFunc, Func, Slice, Value, ValuePtr},
+    value::{ForeignFunc, Func, Slice, Value, ValueKind, ValuePtr},
+    IS_64BIT,
 };
 use chili_ast::{
     ast,
     pattern::Pattern,
-    ty::{FloatTy, InferTy, IntTy, TyKind, UIntTy},
+    ty::{FloatTy, InferTy, IntTy, TyKind, UintTy},
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use std::mem;
 use ustr::ustr;
-
-const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
 #[derive(Clone, Copy)]
 pub(crate) struct LowerContext {
@@ -90,7 +88,7 @@ impl Lower for ast::Expr {
                         todo!("partial struct access")
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        sess.push_const(code, Value::UInt(*size as usize))
+                        sess.push_const(code, Value::Uint(*size as usize))
                     }
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::Index(1));
@@ -145,7 +143,7 @@ impl Lower for ast::Expr {
                 sess.push_const(
                     code,
                     match &lit.kind {
-                        ast::LiteralKind::Unit => Value::Tuple(vec![]),
+                        ast::LiteralKind::Unit => Value::Aggregate(vec![]),
                         ast::LiteralKind::Nil => todo!("nil"),
                         ast::LiteralKind::Bool(v) => Value::Bool(*v),
                         ast::LiteralKind::Int(v) => match ty {
@@ -156,12 +154,12 @@ impl Lower for ast::Expr {
                                 IntTy::I64 => Value::I64(*v as _),
                                 IntTy::Int => Value::Int(*v as _),
                             },
-                            TyKind::UInt(ty) => match ty {
-                                UIntTy::U8 => Value::U8(*v as _),
-                                UIntTy::U16 => Value::U16(*v as _),
-                                UIntTy::U32 => Value::U32(*v as _),
-                                UIntTy::U64 => Value::U64(*v as _),
-                                UIntTy::UInt => Value::UInt(*v as _),
+                            TyKind::Uint(ty) => match ty {
+                                UintTy::U8 => Value::U8(*v as _),
+                                UintTy::U16 => Value::U16(*v as _),
+                                UintTy::U32 => Value::U32(*v as _),
+                                UintTy::U64 => Value::U64(*v as _),
+                                UintTy::Uint => Value::Uint(*v as _),
                             },
                             TyKind::Float(ty) => match ty {
                                 FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
@@ -229,7 +227,7 @@ impl Lower for ast::Expr {
 }
 
 impl Lower for ast::Cast {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         self.expr
             .lower(sess, code, LowerContext { take_ptr: false });
 
@@ -244,13 +242,13 @@ impl Lower for ast::Cast {
                     IntTy::Int => Instruction::Cast(CastInstruction::Int),
                 });
             }
-            TyKind::UInt(ty) => {
+            TyKind::Uint(ty) => {
                 code.push(match ty {
-                    UIntTy::U8 => Instruction::Cast(CastInstruction::U8),
-                    UIntTy::U16 => Instruction::Cast(CastInstruction::U16),
-                    UIntTy::U32 => Instruction::Cast(CastInstruction::U32),
-                    UIntTy::U64 => Instruction::Cast(CastInstruction::U64),
-                    UIntTy::UInt => Instruction::Cast(CastInstruction::UInt),
+                    UintTy::U8 => Instruction::Cast(CastInstruction::U8),
+                    UintTy::U16 => Instruction::Cast(CastInstruction::U16),
+                    UintTy::U32 => Instruction::Cast(CastInstruction::U32),
+                    UintTy::U64 => Instruction::Cast(CastInstruction::U64),
+                    UintTy::Uint => Instruction::Cast(CastInstruction::Uint),
                 });
             }
             TyKind::Float(ty) => {
@@ -264,8 +262,9 @@ impl Lower for ast::Cast {
                     }),
                 });
             }
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
-                code.push(Instruction::Cast(CastInstruction::Ptr));
+            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+                let cast_inst = CastInstruction::Ptr(ValueKind::from(*ty));
+                code.push(Instruction::Cast(cast_inst));
             }
             TyKind::Slice(_, _) => todo!(), // TODO: cast pointer to array to a slice (slice coercion)
             TyKind::Infer(_, InferTy::AnyInt) => {
@@ -280,7 +279,7 @@ impl Lower for ast::Cast {
 }
 
 impl Lower for ast::Fn {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         if let Some(id) = self.binding_info_id {
             let binding_info = sess.workspace.get_binding_info(id).unwrap();
             if binding_info.scope_level.is_global() {
@@ -328,7 +327,7 @@ impl Lower for ast::Fn {
 }
 
 impl Lower for ast::FnSig {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         if let Some(lib_name) = self.lib_name {
             let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
@@ -359,7 +358,7 @@ impl Lower for ast::FnSig {
 }
 
 impl Lower for ast::Call {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         for arg in self.args.iter() {
             arg.lower(sess, code, LowerContext { take_ptr: false });
         }
@@ -370,7 +369,7 @@ impl Lower for ast::Call {
 }
 
 impl Lower for ast::If {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
 
@@ -420,7 +419,7 @@ impl Lower for ast::Block {
 }
 
 impl Lower for ast::Binary {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         self.lhs.lower(sess, code, LowerContext { take_ptr: false });
         self.rhs.lower(sess, code, LowerContext { take_ptr: false });
         code.push(self.op.into());
@@ -429,7 +428,7 @@ impl Lower for ast::Binary {
 
 impl Lower for ast::Unary {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        self.lhs.lower(sess, code, LowerContext { take_ptr: false });
+        self.lhs.lower(sess, code, ctx);
         code.push(self.op.into());
     }
 }
