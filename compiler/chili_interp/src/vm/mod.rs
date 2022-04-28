@@ -2,7 +2,7 @@ use crate::{
     instruction::{CompiledCode, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{Func, Value, ValuePtr},
+    value::{Func, Value, ValuePointer},
 };
 use colored::Colorize;
 use std::fmt::Display;
@@ -289,13 +289,13 @@ impl<'vm> VM<'vm> {
                             // let ptr = unsafe { ptr.inner_ptr() };
                             println!("{:?}", ptr);
                             // let ptr = match ptr {
-                            //     ValuePtr::Pointer(ptr) => *ptr,
+                            //     ValuePointer::Pointer(ptr) => *ptr,
                             //     _ => ptr,
                             // };
                             ptr.write_value(rvalue);
                             unsafe {
                                 match ptr {
-                                    ValuePtr::Int(p) => **p = 1000,
+                                    ValuePointer::Int(p) => **p = 1000,
                                     _ => (),
                                 }
                                 println!("{:?}", *ptr.as_inner_raw());

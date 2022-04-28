@@ -1,6 +1,6 @@
 use crate::{
     instruction::CastInstruction,
-    value::{Value, ValuePtr},
+    value::{Value, ValuePointer},
     vm::VM,
 };
 
@@ -67,7 +67,7 @@ impl<'vm> VM<'vm> {
             CastInstruction::Ptr(kind) => match value {
                 Value::Pointer(ptr) => {
                     let raw = ptr.as_inner_raw();
-                    let new_ptr = ValuePtr::from_kind_and_ptr(kind, raw);
+                    let new_ptr = ValuePointer::from_kind_and_ptr(kind, raw);
                     Value::Pointer(new_ptr)
                 }
                 _ => panic!("invalid value {}", value),

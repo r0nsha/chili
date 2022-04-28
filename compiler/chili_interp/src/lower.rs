@@ -1,7 +1,7 @@
 use crate::{
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
-    value::{ForeignFunc, Func, Slice, Value, ValueKind, ValuePtr},
+    value::{ForeignFunc, Func, Slice, Value, ValueKind, ValuePointer},
     IS_64BIT,
 };
 use chili_ast::{
@@ -207,7 +207,7 @@ impl Lower for ast::Expr {
                             _ => panic!("invalid ty {}", ty),
                         },
                         ast::LiteralKind::Str(v) => Value::Slice(Slice {
-                            ptr: ValuePtr::U8(v.as_char_ptr() as *mut u8),
+                            ptr: ValuePointer::U8(v.as_char_ptr() as *mut u8),
                             len: v.len(),
                         }),
                         ast::LiteralKind::Char(v) => Value::U8(*v as u8),

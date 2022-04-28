@@ -52,27 +52,27 @@ macro_rules! impl_value {
         }
 
         #[derive(Debug, Clone)]
-        pub enum ValuePtr {
+        pub enum ValuePointer {
             $(
                 $variant(*mut $ty)
             ),+
         }
 
-        impl From<&mut Value> for ValuePtr {
+        impl From<&mut Value> for ValuePointer {
             fn from(value: &mut Value) -> Self {
                 match value {
                     $(
-                        Value::$variant(v) => ValuePtr::$variant(v as _)
+                        Value::$variant(v) => ValuePointer::$variant(v as _)
                     ),+
                 }
             }
         }
 
-        impl ValuePtr {
+        impl ValuePointer {
             pub unsafe fn as_raw(&mut self) -> *mut *mut u8 {
                 match self {
                     $(
-                        ValuePtr::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut *mut u8>(v)
+                        ValuePointer::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut *mut u8>(v)
                     ),+
                 }
             }
@@ -80,7 +80,7 @@ macro_rules! impl_value {
             pub fn as_inner_raw(&self) -> *mut u8 {
                 match self {
                     $(
-                        ValuePtr::$variant(v) => *v as *mut u8
+                        ValuePointer::$variant(v) => *v as *mut u8
                     ),+
                 }
             }
@@ -88,7 +88,7 @@ macro_rules! impl_value {
             pub fn write_value(&mut self, value: Value) {
                 match (self, value) {
                     $(
-                        (ValuePtr::$variant(ptr), Value::$variant(value)) => unsafe { **ptr = value }
+                        (ValuePointer::$variant(ptr), Value::$variant(value)) => unsafe { **ptr = value }
                     ),+,
                     (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value)
                 }
@@ -97,7 +97,7 @@ macro_rules! impl_value {
             pub unsafe fn deref(&mut self) -> Value {
                 match self {
                     $(
-                        ValuePtr::$variant(v) => Value::$variant((**v).clone())
+                        ValuePointer::$variant(v) => Value::$variant((**v).clone())
                     ),+
                 }
             }
@@ -105,7 +105,7 @@ macro_rules! impl_value {
             pub fn from_kind_and_ptr(kind: ValueKind, ptr: *mut u8) -> Self {
                 match kind {
                     $(
-                        ValueKind::$variant => ValuePtr::$variant(ptr as _)
+                        ValueKind::$variant => ValuePointer::$variant(ptr as _)
                     ),+
                 }
             }
@@ -113,7 +113,7 @@ macro_rules! impl_value {
             pub unsafe fn print(&self) {
                 match self {
                     $(
-                        ValuePtr::$variant(v) => println!("{:?}", **v)
+                        ValuePointer::$variant(v) => println!("{:?}", **v)
                     ),+
                 }
             }
@@ -136,7 +136,7 @@ impl_value! {
     F64(f64),
     Bool(bool),
     Aggregate(Vec<Value>),
-    Pointer(ValuePtr),
+    Pointer(ValuePointer),
     Slice(Slice),
     Func(Func),
     ForeignFunc(ForeignFunc),
@@ -145,7 +145,7 @@ impl_value! {
 
 #[derive(Debug, Clone)]
 pub struct Slice {
-    pub ptr: ValuePtr,
+    pub ptr: ValuePointer,
     pub len: usize,
 }
 
@@ -252,8 +252,8 @@ impl Value {
                     }
                 }
             },
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
-                Self::Pointer(ValuePtr::from_type_and_ptr(ty, ptr))
+            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+                Self::Pointer(ValuePointer::from_type_and_ptr(ty, ptr))
             }
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
@@ -268,11 +268,11 @@ impl Value {
     }
 }
 
-impl ValuePtr {
+impl ValuePointer {
     pub fn unit() -> Self {
         // Note (Ron): Leak
         let mut elements = Vec::<Value>::new();
-        let ptr = ValuePtr::Aggregate(&mut elements as _);
+        let ptr = ValuePointer::Aggregate(&mut elements as _);
         mem::forget(elements);
         ptr
     }
@@ -297,9 +297,7 @@ impl ValuePtr {
             },
             TyKind::Float(_) => Self::F64(ptr as _),
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-                // Self::Pointer(&mut Self::from_type_and_ptr(ty, ptr) as _)
                 Self::from_type_and_ptr(ty, ptr)
-                // Self::Pointer(ptr as _)
             }
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
