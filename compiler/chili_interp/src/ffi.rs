@@ -3,19 +3,19 @@ use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
 };
-use std::{collections::HashMap, ffi::c_void, mem};
-use ustr::{ustr, Ustr};
+use std::{ffi::c_void, mem};
+use ustr::{ustr, Ustr, UstrMap};
 
 const IS_64BIT: bool = mem::size_of::<usize>() == 8;
 
 pub(crate) struct Ffi {
-    libs: HashMap<Ustr, libloading::Library>,
+    libs: UstrMap<libloading::Library>,
 }
 
 impl Ffi {
     pub(crate) fn new() -> Self {
         Self {
-            libs: HashMap::new(),
+            libs: UstrMap::default(),
         }
     }
 

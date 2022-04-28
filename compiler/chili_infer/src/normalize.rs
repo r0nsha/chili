@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
-use ustr::Ustr;
+use ustr::{Ustr, UstrMap};
 
 pub trait NormalizeTy {
     fn normalize(&self, tycx: &TyCtx) -> TyKind;
@@ -112,7 +112,7 @@ impl Normalize {
                     partial
                         .iter()
                         .map(|(symbol, ty)| (*symbol, ty.normalize(tycx)))
-                        .collect::<HashMap<Ustr, TyKind>>(),
+                        .collect::<UstrMap<TyKind>>(),
                 ))),
             ),
             TyKind::Infer(ty, InferTy::PartialTuple(elements)) => TyKind::Infer(

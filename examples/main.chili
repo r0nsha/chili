@@ -13,7 +13,7 @@ let build = fn {
     let x = 5
     printf("hello sum: %d + %d = %d\n".data, x, 10, x + 10)
     let string = "Hello!\0".data;
-    printf("hello string: %p\n".data, string)
+    printf("hello string: %s\n".data, string)
     // printf("hello %d\n\0".data, x.*)
 }
 
