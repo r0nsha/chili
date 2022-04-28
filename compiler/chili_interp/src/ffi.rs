@@ -1,4 +1,4 @@
-use crate::value::{ForeignFunc, Value, ValuePtr};
+use crate::value::{ForeignFunc, Value};
 use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
@@ -7,10 +7,6 @@ use std::{collections::HashMap, ffi::c_void, mem};
 use ustr::{ustr, Ustr};
 
 const IS_64BIT: bool = mem::size_of::<usize>() == 8;
-
-struct Function {
-    ptr: *mut c_void,
-}
 
 pub(crate) struct Ffi {
     libs: HashMap<Ustr, libloading::Library>,
@@ -35,7 +31,7 @@ impl Ffi {
             .or_insert_with(|| libloading::Library::new(format!("{}.dll", lib_name)).unwrap())
     }
 
-    pub(crate) unsafe fn call(&mut self, func: ForeignFunc, args: Vec<Value>) -> Value {
+    pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
         let lib = self.get_or_load_lib(func.lib_path);
 
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
@@ -76,27 +72,24 @@ impl Ffi {
         }
 
         let code_ptr = CodePtr::from_ptr(*symbol);
-        let args = args
-            .iter()
+
+        let mut args = args
+            .iter_mut()
             .map(|arg| unsafe { arg.as_ffi_arg() })
-            .collect::<Vec<*mut c_void>>()
-            .as_mut_ptr();
+            .collect::<Vec<*mut c_void>>();
 
         let mut result = mem::MaybeUninit::<c_void>::uninit();
 
         libffi::raw::ffi_call(
             &mut cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
-            result.as_mut_ptr() as *mut c_void,
-            args,
+            result.as_mut_ptr(),
+            args.as_mut_ptr(),
         );
 
         let call_result = result.assume_init_mut();
 
-        Value::Ptr(ValuePtr::from_ptr(
-            &func.ret_ty,
-            call_result as *mut c_void as *mut u8,
-        ))
+        Value::from_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
     }
 }
 
@@ -134,7 +127,17 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::Float(_) => types::float,
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => types::float,
+                FloatTy::F64 => types::double,
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        types::double
+                    } else {
+                        types::float
+                    }
+                }
+            },
             TyKind::Unit => todo!(),
             TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => types::pointer,
             TyKind::Fn(_) => todo!(),
@@ -179,7 +182,8 @@ impl AsFfiType for Value {
                     types::uint32
                 }
             }
-            Value::F32(_) | Value::F64(_) => types::float,
+            Value::F32(_) => types::float,
+            Value::F64(_) => types::double,
             Value::Bool(_) => types::uint8,
             Value::Tuple(_) => todo!(),
             Value::Ptr(..) => types::pointer,
@@ -190,28 +194,34 @@ impl AsFfiType for Value {
     }
 }
 
+macro_rules! raw_ptr {
+    ($value: expr) => {
+        $value as *mut _ as *mut c_void
+    };
+}
+
 trait AsFfiArg {
-    unsafe fn as_ffi_arg(&self) -> *mut c_void;
+    unsafe fn as_ffi_arg(&mut self) -> *mut c_void;
 }
 
 impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&self) -> *mut c_void {
+    unsafe fn as_ffi_arg(&mut self) -> *mut c_void {
         match self {
-            Value::I8(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::I16(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::I32(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::I64(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::Int(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::U8(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::U16(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::U32(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::U64(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::UInt(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::Bool(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::F32(mut v) => &mut v as *mut _ as *mut c_void,
-            Value::F64(mut v) => &mut v as *mut _ as *mut c_void,
+            Value::I8(ref mut v) => raw_ptr!(v),
+            Value::I16(ref mut v) => raw_ptr!(v),
+            Value::I32(ref mut v) => raw_ptr!(v),
+            Value::I64(ref mut v) => raw_ptr!(v),
+            Value::Int(ref mut v) => raw_ptr!(v),
+            Value::U8(ref mut v) => raw_ptr!(v),
+            Value::U16(ref mut v) => raw_ptr!(v),
+            Value::U32(ref mut v) => raw_ptr!(v),
+            Value::U64(ref mut v) => raw_ptr!(v),
+            Value::UInt(ref mut v) => raw_ptr!(v),
+            Value::Bool(ref mut v) => raw_ptr!(v),
+            Value::F32(ref mut v) => raw_ptr!(v),
+            Value::F64(ref mut v) => raw_ptr!(v),
             Value::Tuple(_) => todo!("tuple"),
-            Value::Ptr(ptr) => ptr.as_raw() as *mut c_void,
+            Value::Ptr(ptr) => raw_ptr!(ptr.as_raw()),
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),

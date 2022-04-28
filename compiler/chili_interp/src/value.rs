@@ -53,6 +53,14 @@ macro_rules! impl_value {
                     (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value)
                 }
             }
+
+            pub unsafe fn deref(&mut self) -> Value {
+                match self {
+                    $(
+                        ValuePtr::$variant(v) => Value::$variant((**v).clone())
+                    ),+
+                }
+            }
         }
     };
 }
@@ -80,7 +88,6 @@ impl_value! {
 
 #[derive(Debug, Clone)]
 pub struct Slice {
-    // pub ty: TyKind,
     pub ptr: ValuePtr,
     pub len: usize,
 }
@@ -112,6 +119,40 @@ impl Value {
             _ => false,
         }
     }
+
+    pub unsafe fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
+        match ty {
+            TyKind::Never | TyKind::Unit => Self::U8(*ptr),
+            TyKind::Bool => Self::Bool(*ptr != 0),
+            TyKind::Int(ty) => match ty {
+                IntTy::I8 => Self::I8(*(ptr as *mut i8)),
+                IntTy::I16 => Self::I16(*(ptr as *mut i16)),
+                IntTy::I32 => Self::I32(*(ptr as *mut i32)),
+                IntTy::I64 => Self::I64(*(ptr as *mut i64)),
+                IntTy::Int => Self::Int(*(ptr as *mut isize)),
+            },
+            TyKind::UInt(ty) => match ty {
+                UIntTy::U8 => Self::U8(*ptr),
+                UIntTy::U16 => Self::U16(*(ptr as *mut u16)),
+                UIntTy::U32 => Self::U32(*(ptr as *mut u32)),
+                UIntTy::U64 => Self::U64(*(ptr as *mut u64)),
+                UIntTy::UInt => Self::UInt(*(ptr as *mut usize)),
+            },
+            TyKind::Float(_) => Self::F64(*(ptr as *mut f64)),
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
+                Self::Ptr(ValuePtr::from_ptr(ty, ptr))
+            }
+            TyKind::Fn(_) => todo!(),
+            TyKind::Array(_, _) => todo!(),
+            TyKind::Slice(_, _) => todo!(),
+            TyKind::Tuple(_) => todo!(),
+            TyKind::Struct(_) => todo!(),
+            TyKind::Infer(_, InferTy::AnyInt) => Self::I32(*(ptr as *mut i32)),
+            TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(*(ptr as *mut f64)),
+            TyKind::Infer(_, _) => todo!(),
+            _ => panic!("invalid type {}", ty),
+        }
+    }
 }
 
 impl ValuePtr {
@@ -125,31 +166,31 @@ impl ValuePtr {
 
     pub fn from_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
         match ty {
-            TyKind::Never | TyKind::Unit => ValuePtr::U8(ptr as _),
-            TyKind::Bool => ValuePtr::Bool(ptr as _),
+            TyKind::Never | TyKind::Unit => Self::U8(ptr as _),
+            TyKind::Bool => Self::Bool(ptr as _),
             TyKind::Int(ty) => match ty {
-                IntTy::I8 => ValuePtr::I8(ptr as _),
-                IntTy::I16 => ValuePtr::I16(ptr as _),
-                IntTy::I32 => ValuePtr::I32(ptr as _),
-                IntTy::I64 => ValuePtr::I64(ptr as _),
-                IntTy::Int => ValuePtr::Int(ptr as _),
+                IntTy::I8 => Self::I8(ptr as _),
+                IntTy::I16 => Self::I16(ptr as _),
+                IntTy::I32 => Self::I32(ptr as _),
+                IntTy::I64 => Self::I64(ptr as _),
+                IntTy::Int => Self::Int(ptr as _),
             },
             TyKind::UInt(ty) => match ty {
-                UIntTy::U8 => ValuePtr::U8(ptr as _),
-                UIntTy::U16 => ValuePtr::U16(ptr as _),
-                UIntTy::U32 => ValuePtr::U32(ptr as _),
-                UIntTy::U64 => ValuePtr::U64(ptr as _),
-                UIntTy::UInt => ValuePtr::UInt(ptr as _),
+                UIntTy::U8 => Self::U8(ptr as _),
+                UIntTy::U16 => Self::U16(ptr as _),
+                UIntTy::U32 => Self::U32(ptr as _),
+                UIntTy::U64 => Self::U64(ptr as _),
+                UIntTy::UInt => Self::UInt(ptr as _),
             },
-            TyKind::Float(_) => ValuePtr::F64(ptr as _),
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => ValuePtr::Ptr(ptr as _),
+            TyKind::Float(_) => Self::F64(ptr as _),
+            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Ptr(ptr as _),
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
-            TyKind::Infer(_, InferTy::AnyInt) => ValuePtr::Int(ptr as _),
-            TyKind::Infer(_, InferTy::AnyFloat) => ValuePtr::F64(ptr as _),
+            TyKind::Infer(_, InferTy::AnyInt) => Self::I32(ptr as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(ptr as _),
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
         }
@@ -185,7 +226,7 @@ impl Display for Value {
                 Value::Ptr(p) => format!("ptr {:?}", p.as_raw()),
                 Value::Slice(slice) => format!("slice({:?}, {})", slice.ptr, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
-                Value::ForeignFunc(id) => format!("foreign fn {:?}", id),
+                Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
             }
         )
     }

@@ -52,11 +52,11 @@ impl PrettyPrint for Value {
     fn pretty_print(&self) -> String {
         match self {
             Value::Func(func) => format!(
-                "fn:{}\n{}",
+                "fn {}\n{}",
                 if func.name.is_empty() {
-                    "".to_string()
+                    "<anon>"
                 } else {
-                    format!(" {}", func.name)
+                    &func.name
                 },
                 func.code
                     .iter()

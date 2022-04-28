@@ -45,7 +45,6 @@ pub enum Instruction {
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum CastInstruction {
-    Bool,
     I8,
     I16,
     I32,

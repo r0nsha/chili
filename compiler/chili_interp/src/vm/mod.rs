@@ -8,6 +8,8 @@ use colored::Colorize;
 use std::fmt::Display;
 use ustr::ustr;
 
+mod cast;
+
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
 
@@ -320,33 +322,5 @@ impl<'vm> VM<'vm> {
             inst.to_string().bold(),
             stack_trace.blue()
         );
-    }
-
-    #[inline]
-    fn cast_inst(&mut self, cast: CastInstruction) {
-        let value = self.stack.pop();
-        match cast {
-            CastInstruction::Bool => todo!(),
-            CastInstruction::I8 => todo!(),
-            CastInstruction::I16 => todo!(),
-            CastInstruction::I32 => todo!(),
-            CastInstruction::I64 => todo!(),
-            CastInstruction::Int => todo!(),
-            CastInstruction::U8 => todo!(),
-            CastInstruction::U16 => todo!(),
-            CastInstruction::U32 => todo!(),
-            CastInstruction::U64 => todo!(),
-            CastInstruction::UInt => todo!(),
-            CastInstruction::F32 => todo!(),
-            CastInstruction::F64 => todo!(),
-            CastInstruction::Ptr => match value {
-                Value::Ptr(ptr) => {
-                    let raw = ptr.as_raw();
-                    todo!()
-                    // self.stack.push(Value)
-                }
-                _ => panic!("invalid value {}", value),
-            },
-        }
     }
 }

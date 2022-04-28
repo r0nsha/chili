@@ -238,8 +238,7 @@ impl Lower for ast::Cast {
             .lower(sess, code, LowerContext { take_ptr: false });
 
         match self.target_ty.normalize(sess.tycx) {
-            TyKind::Never | TyKind::Unit => (),
-            TyKind::Bool => code.push(Instruction::Cast(CastInstruction::Bool)),
+            TyKind::Never | TyKind::Unit | TyKind::Bool => (),
             TyKind::Int(ty) => code.push(match ty {
                 IntTy::I8 => Instruction::Cast(CastInstruction::I8),
                 IntTy::I16 => Instruction::Cast(CastInstruction::I16),
