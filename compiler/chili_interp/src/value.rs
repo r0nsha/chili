@@ -312,13 +312,6 @@ impl ValuePtr {
             _ => panic!("invalid type {}", ty),
         }
     }
-
-    pub fn inner_ptr(&self) -> &*mut Self {
-        match self {
-            ValuePtr::Pointer(p) => p,
-            _ => panic!("expected ValuePtr::Pointer, got {:?}", self),
-        }
-    }
 }
 
 impl Display for Value {

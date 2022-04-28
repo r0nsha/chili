@@ -65,7 +65,6 @@ impl<'vm> VM<'vm> {
             CastInstruction::F32 => cast_to_float!(value => F32, f32),
             CastInstruction::F64 => cast_to_float!(value => F64, f64),
             CastInstruction::Ptr(kind) => match value {
-                // TODO: think how to pass the ptr's value (maybe as a type constant?)
                 Value::Pointer(ptr) => {
                     let raw = ptr.as_inner_raw();
                     let new_ptr = ValuePtr::from_kind_and_ptr(kind, raw);

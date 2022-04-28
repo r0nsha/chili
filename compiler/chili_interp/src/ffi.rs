@@ -91,7 +91,7 @@ impl Ffi {
 
         let call_result = result.assume_init_mut();
 
-        Value::from_type_and_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
+        Value::from_type_and_ptr(&func.ret_ty, call_result as *mut _ as *mut u8)
     }
 }
 
