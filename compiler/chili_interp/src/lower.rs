@@ -2,12 +2,12 @@ use crate::{
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
     value::{ForeignFunc, Func, Pointer, Slice, Value, ValueKind},
-    IS_64BIT,
+    IS_64BIT, WORD_SIZE,
 };
 use chili_ast::{
     ast,
     pattern::Pattern,
-    ty::{FloatTy, InferTy, IntTy, TyKind, UintTy},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
@@ -61,7 +61,18 @@ impl Lower for ast::Expr {
                 code.push(Instruction::Assign);
             }
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
-            ast::ExprKind::Builtin(_) => todo!(),
+            ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
+                    TyKind::Type(ty) => sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE))),
+                    ty => unreachable!("got {}", ty),
+                },
+                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
+                    TyKind::Type(ty) => sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE))),
+                    ty => unreachable!("got {}", ty),
+                },
+                ast::Builtin::Panic(_) => todo!(),
+                ast::Builtin::Run(expr) => expr.lower(sess, code, ctx),
+            },
             ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
             ast::ExprKind::While(_) => todo!(),
             ast::ExprKind::For(_) => todo!(),

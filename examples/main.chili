@@ -22,9 +22,9 @@ let build = fn {
 
     printf("Hello World, Again!\n".data)
     
-    let x = malloc(8) as *int
-    // x.* = 42
-    // printf("hello %d\n".data, x.*)
+    let x = malloc(@size_of(int)) as *int
+    x.* = 42
+    printf("hello %d\n".data, x.*)
 
     // printf("hello %d : %p\n".data, x.*, x)
     // x.*

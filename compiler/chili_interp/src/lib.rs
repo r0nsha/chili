@@ -7,4 +7,5 @@ mod stack;
 pub mod value;
 pub mod vm;
 
-const IS_64BIT: bool = std::mem::size_of::<usize>() == 8;
+const WORD_SIZE: usize = std::mem::size_of::<usize>();
+const IS_64BIT: bool = WORD_SIZE == 8;
