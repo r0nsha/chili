@@ -85,10 +85,10 @@ macro_rules! impl_value {
                 }
             }
 
-            pub fn write_value(&mut self, value: Value) {
+            pub fn write_value(&self, value: Value) {
                 match (self, value) {
                     $(
-                        (ValuePointer::$variant(ptr), Value::$variant(value)) => unsafe { **ptr = value }
+                        (ValuePointer::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
                     ),+,
                     (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value)
                 }

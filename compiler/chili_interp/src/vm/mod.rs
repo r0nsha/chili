@@ -100,7 +100,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -148,12 +148,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(Value::Bool(!value.is_truthy()));
                 }
                 Instruction::Deref => match self.stack.pop() {
-                    Value::Pointer(ref ptr) => {
-                        // if let ValuePointer::Int(v) = ptr {
-                        //     unsafe {
-                        //         println!("{:?}", **v);
-                        //     }
-                        // }
+                    Value::Pointer(ptr) => {
                         let value = unsafe { ptr.deref() };
                         self.stack.push(value);
                     }
@@ -285,29 +280,9 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::Assign => {
-                    let mut lvalue = self.stack.pop();
+                    let lvalue = self.stack.pop().into_pointer();
                     let rvalue = self.stack.pop();
-
-                    // println!("{:?}", lvalue);
-                    match &mut lvalue {
-                        Value::Pointer(ptr) => {
-                            // let ptr = unsafe { ptr.inner_ptr() };
-                            println!("{:?}", ptr);
-                            // let ptr = match ptr {
-                            //     ValuePointer::Pointer(ptr) => *ptr,
-                            //     _ => ptr,
-                            // };
-                            ptr.write_value(rvalue);
-                            unsafe {
-                                match ptr {
-                                    ValuePointer::Int(p) => **p = 1000,
-                                    _ => (),
-                                }
-                                println!("{:?}", *ptr.as_inner_raw());
-                            }
-                        }
-                        _ => panic!("invalid lvalue {}", lvalue),
-                    }
+                    lvalue.write_value(rvalue);
                 }
                 Instruction::Cast(cast) => self.cast_inst(cast),
                 Instruction::Halt => break self.stack.pop(),

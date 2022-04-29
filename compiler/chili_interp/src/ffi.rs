@@ -21,7 +21,7 @@ impl Ffi {
     }
 
     pub(crate) unsafe fn get_or_load_lib(&mut self, lib_path: Ustr) -> &libloading::Library {
-        // TODO: default libc and file extension should depend on the current platform
+        // TODO: default libc should depend on the current platform
         let lib_name = match lib_path.as_str() {
             "c" | "C" | "libucrt" => ustr("msvcrt"),
             _ => lib_path,
@@ -29,12 +29,11 @@ impl Ffi {
 
         self.libs
             .entry(lib_name)
-            .or_insert_with(|| libloading::Library::new(format!("{}.dll", lib_name)).unwrap())
+            .or_insert_with(|| libloading::Library::new(lib_name.as_str()).unwrap())
     }
 
     pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
         let lib = self.get_or_load_lib(func.lib_path);
-
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
 
         let mut cif = ffi_cif::default();
@@ -91,22 +90,34 @@ impl Ffi {
 
         let call_result = result.assume_init_mut();
 
-        println!(
-            "{:?} {:?}",
-            call_result as *mut _ as *mut c_void,
-            *(call_result as *mut _ as *mut usize)
-        );
+        // TODO: remove when fixed
+        let call_result = if func.name == "malloc" {
+            println!(
+                "{:?} {:?}",
+                call_result as *mut _ as *mut c_void,
+                *(call_result as *mut _ as *mut isize)
+            );
 
-        *(call_result as *mut _ as *mut usize) = 5;
+            // (call_result as *mut _ as *mut isize).write(5);
 
-        println!(
-            "{:?} {:?}",
-            call_result as *mut _ as *mut c_void,
-            *(call_result as *mut _ as *mut usize)
-        );
+            println!(
+                "{:?} {:?}",
+                call_result as *mut _ as *mut c_void,
+                *(call_result as *mut _ as *mut isize)
+            );
+
+            call_result
+            // malloc(8)
+        } else {
+            call_result
+        };
 
         Value::from_type_and_ptr(&func.ret_ty, call_result as *mut _ as *mut u8)
     }
+}
+
+extern "C" {
+    fn malloc(size: usize) -> *mut c_void;
 }
 
 trait AsFfiType {

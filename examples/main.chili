@@ -18,12 +18,15 @@ use c.{printf, malloc}
 let build = fn {
     // let y = 10
     // y = 5
-    // printf("hello %d\n\0".data, y)
+    // printf("hello %d\n".data, y)
 
     let x = malloc(8)// as *int
+    x.* = 42
     // x.* = 5
-    printf("hello %d : %p\n\0".data, x.*, x)
-    // printf("hello %d %d\n\0".data, x.*, x.* + 1)
+    // printf("hello %d\n".data, x.*)
+    printf("hello %d : %p\n".data, x.*, x)
+    x.*
+    // printf("hello %d %d\n".data, x.*, x.* + 1)
 }
 
 @run(build())
