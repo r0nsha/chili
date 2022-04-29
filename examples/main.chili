@@ -1,4 +1,4 @@
-use c.{printf, malloc}
+use c.{puts, printf, malloc}
 
 // let foo = fn {
 //     let x = 32
@@ -20,11 +20,12 @@ let build = fn {
     // y = 5
     // printf("hello %d\n".data, y)
 
+    printf("Hello World, Again!\n".data)
+    
     let x = malloc(8) as *int
-    x.* = 42
-    x.*
-    // x.* = 5
+    // x.* = 42
     // printf("hello %d\n".data, x.*)
+
     // printf("hello %d : %p\n".data, x.*, x)
     // x.*
     // printf("hello %d %d\n".data, x.*, x.* + 1)

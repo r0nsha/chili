@@ -15,7 +15,7 @@ macro_rules! raw_ptr {
     };
 }
 
-macro_rules! type_ptr {
+macro_rules! ffi_type {
     ($value: expr) => {
         &mut $value as *mut ffi_type
     };
@@ -32,7 +32,7 @@ impl Ffi {
         }
     }
 
-    pub(crate) unsafe fn get_or_load_lib(&mut self, lib_path: Ustr) -> &libloading::Library {
+    pub(crate) unsafe fn load_lib(&mut self, lib_path: Ustr) -> &libloading::Library {
         // TODO: default libc should depend on the current platform
         let lib_name = match lib_path.as_str() {
             "c" | "C" | "libucrt" => ustr("msvcrt"),
@@ -45,22 +45,29 @@ impl Ffi {
     }
 
     pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
-        let lib = self.get_or_load_lib(func.lib_path);
+        let lib = self.load_lib(func.lib_path);
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
 
         let mut cif = ffi_cif::default();
 
-        let return_type = type_ptr!(func.ret_ty.as_ffi_type());
+        let return_type = ffi_type!(func.ret_ty.as_ffi_type());
 
         let mut arg_types: Vec<*mut ffi_type> = vec![];
 
         for param in func.param_tys.iter() {
-            arg_types.push(type_ptr!(param.as_ffi_type()));
+            arg_types.push(ffi_type!(param.as_ffi_type()));
         }
 
+        // println!(
+        //     "{:?} {:?} {:?}",
+        //     args[0],
+        //     args[0].as_pointer().as_inner_raw(),
+        //     *args[0].as_pointer().as_inner_raw()
+        // );
+
         if func.variadic {
-            for arg in args.iter().skip(arg_types.len()) {
-                arg_types.push(type_ptr!(arg.as_ffi_type()));
+            for arg in args.iter().skip(func.param_tys.len()) {
+                arg_types.push(ffi_type!(arg.as_ffi_type()));
             }
 
             prep_cif_var(
@@ -87,8 +94,8 @@ impl Ffi {
 
         let mut call_args: Vec<*mut c_void> = vec![];
 
-        for (index, arg) in args.iter_mut().enumerate() {
-            call_args.push(arg.as_ffi_arg(index > func.param_tys.len() - 1));
+        for arg in args.iter_mut() {
+            call_args.push(arg.as_ffi_arg());
         }
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
@@ -208,11 +215,11 @@ impl AsFfiType for Value {
 }
 
 trait AsFfiArg {
-    unsafe fn as_ffi_arg(&mut self, is_variadic: bool) -> *mut c_void;
+    unsafe fn as_ffi_arg(&mut self) -> *mut c_void;
 }
 
 impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&mut self, is_variadic: bool) -> *mut c_void {
+    unsafe fn as_ffi_arg(&mut self) -> *mut c_void {
         match self {
             Value::I8(ref mut v) => raw_ptr!(v),
             Value::I16(ref mut v) => raw_ptr!(v),
@@ -229,15 +236,7 @@ impl AsFfiArg for Value {
             Value::F64(ref mut v) => raw_ptr!(v),
             Value::Aggregate(_) => todo!("tuple"),
             Value::Pointer(ref mut ptr) => {
-                // Note (Ron): I'm not sure why, but for some reason we have to pass variadic pointers by reference.
-                // I'm guessing this is caused by libffi dereferencing variadic arguments? Although this would be pretty dumb.
-                // This is probably not the case, and either I just missed something,
-                // or more unlikely, Rust's codegen does something stupid with the value I'm passing.
-                if is_variadic {
-                    raw_ptr!(ptr.as_raw())
-                } else {
-                    raw_ptr!(ptr.as_inner_raw())
-                }
+                raw_ptr!(ptr.as_raw())
             }
             Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),

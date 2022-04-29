@@ -2,6 +2,7 @@ foreign("system:libucrt") {
 	pub let putchar = fn(char: int) -> int;
 	pub let getchar = fn() -> int;
 
+	pub let puts = fn(buffer: [*]u8) -> int;
 	pub let printf = fn(input: [*]u8, ..) -> int;
 	pub let sprintf_s = fn(buffer: [*]u8, sizeOfBuffer: uint, format: [*]u8, ..) -> int;
 
