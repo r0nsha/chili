@@ -2,7 +2,7 @@ use crate::{
     instruction::{CompiledCode, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{Func, Value, ValuePointer},
+    value::{Func, Value},
 };
 use colored::Colorize;
 use std::fmt::Display;
@@ -36,26 +36,49 @@ impl Display for CallFrame {
 }
 
 macro_rules! binary_op {
-    ($stack: expr, $op: tt) => {
+    ($stack:expr, $op:tt) => {
         let b = $stack.pop();
         let a = $stack.pop();
 
+
         match (&a, &b) {
+            (Value::I8(a), Value::I8(b)) => $stack.push(Value::I8(a $op b)),
+            (Value::I16(a), Value::I16(b)) => $stack.push(Value::I16(a $op b)),
+            (Value::I32(a), Value::I32(b)) => $stack.push(Value::I32(a $op b)),
+            (Value::I64(a), Value::I64(b)) => $stack.push(Value::I64(a $op b)),
             (Value::Int(a), Value::Int(b)) => $stack.push(Value::Int(a $op b)),
+            (Value::U8(a), Value::U8(b)) => $stack.push(Value::U8(a $op b)),
+            (Value::U16(a), Value::U16(b)) => $stack.push(Value::U16(a $op b)),
+            (Value::U32(a), Value::U32(b)) => $stack.push(Value::U32(a $op b)),
+            (Value::U64(a), Value::U64(b)) => $stack.push(Value::U64(a $op b)),
+            (Value::Uint(a), Value::Uint(b)) => $stack.push(Value::Uint(a $op b)),
+            (Value::F32(a), Value::F32(b)) => $stack.push(Value::F32(a $op b)),
+            (Value::F64(a), Value::F64(b)) => $stack.push(Value::F64(a $op b)),
             _=> panic!("invalid types in binary operation `{}` and`{}`", a ,b)
         }
     };
 }
 
 macro_rules! comp_op {
-    ($stack: expr, $op: tt) => {
+    ($stack:expr, $op:tt) => {
         let b = $stack.pop();
         let a = $stack.pop();
 
         match (&a, &b) {
-            (Value::Int(a), Value::Int(b)) => $stack.push(Value::Bool(a $op b)),
             (Value::Bool(a), Value::Bool(b)) => $stack.push(Value::Bool(a $op b)),
-            _ => panic!("invalid types incompare operation `{}` and `{}`", a ,b)
+            (Value::I8(a), Value::I8(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::I16(a), Value::I16(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::I32(a), Value::I32(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::I64(a), Value::I64(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::Int(a), Value::Int(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::U8(a), Value::U8(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::U16(a), Value::U16(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::U32(a), Value::U32(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::U64(a), Value::U64(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::Uint(a), Value::Uint(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::F32(a), Value::F32(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::F64(a), Value::F64(b)) => $stack.push(Value::Bool(a $op b)),
+            _ => panic!("invalid types in compare operation `{}` and `{}`", a ,b)
         }
     };
 }

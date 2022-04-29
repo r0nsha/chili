@@ -52,27 +52,27 @@ macro_rules! impl_value {
         }
 
         #[derive(Debug, Clone)]
-        pub enum ValuePointer {
+        pub enum Pointer {
             $(
                 $variant(*mut $ty)
             ),+
         }
 
-        impl From<&mut Value> for ValuePointer {
+        impl From<&mut Value> for Pointer {
             fn from(value: &mut Value) -> Self {
                 match value {
                     $(
-                        Value::$variant(v) => ValuePointer::$variant(v as _)
+                        Value::$variant(v) => Pointer::$variant(v as _)
                     ),+
                 }
             }
         }
 
-        impl ValuePointer {
+        impl Pointer {
             pub unsafe fn as_raw(&mut self) -> *mut *mut u8 {
                 match self {
                     $(
-                        ValuePointer::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut *mut u8>(v)
+                        Pointer::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut *mut u8>(v)
                     ),+
                 }
             }
@@ -80,7 +80,7 @@ macro_rules! impl_value {
             pub fn as_inner_raw(&self) -> *mut u8 {
                 match self {
                     $(
-                        ValuePointer::$variant(v) => *v as *mut u8
+                        Pointer::$variant(v) => *v as *mut u8
                     ),+
                 }
             }
@@ -88,7 +88,7 @@ macro_rules! impl_value {
             pub fn write_value(&self, value: Value) {
                 match (self, value) {
                     $(
-                        (ValuePointer::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
+                        (Pointer::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
                     ),+,
                     (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value)
                 }
@@ -97,7 +97,7 @@ macro_rules! impl_value {
             pub unsafe fn deref(&self) -> Value {
                 match self {
                     $(
-                        ValuePointer::$variant(v) => Value::$variant((**v).clone())
+                        Pointer::$variant(v) => Value::$variant((**v).clone())
                     ),+
                 }
             }
@@ -105,7 +105,7 @@ macro_rules! impl_value {
             pub fn from_kind_and_ptr(kind: ValueKind, ptr: *mut u8) -> Self {
                 match kind {
                     $(
-                        ValueKind::$variant => ValuePointer::$variant(ptr as _)
+                        ValueKind::$variant => Pointer::$variant(ptr as _)
                     ),+
                 }
             }
@@ -113,7 +113,7 @@ macro_rules! impl_value {
             pub unsafe fn print(&self) {
                 match self {
                     $(
-                        ValuePointer::$variant(v) => println!("{:?}", **v)
+                        Pointer::$variant(v) => println!("{:?}", **v)
                     ),+
                 }
             }
@@ -136,7 +136,7 @@ impl_value! {
     F64(f64),
     Bool(bool),
     Aggregate(Vec<Value>),
-    Pointer(ValuePointer),
+    Pointer(Pointer),
     Slice(Slice),
     Func(Func),
     ForeignFunc(ForeignFunc),
@@ -145,7 +145,7 @@ impl_value! {
 
 #[derive(Debug, Clone)]
 pub struct Slice {
-    pub ptr: ValuePointer,
+    pub ptr: Pointer,
     pub len: usize,
 }
 
@@ -253,7 +253,7 @@ impl Value {
                 }
             },
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-                Self::Pointer(ValuePointer::from_type_and_ptr(ty, ptr))
+                Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut *mut u8)))
             }
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
@@ -268,11 +268,11 @@ impl Value {
     }
 }
 
-impl ValuePointer {
+impl Pointer {
     pub fn unit() -> Self {
         // Note (Ron): Leak
         let mut elements = Vec::<Value>::new();
-        let ptr = ValuePointer::Aggregate(&mut elements as _);
+        let ptr = Pointer::Aggregate(&mut elements as _);
         mem::forget(elements);
         ptr
     }

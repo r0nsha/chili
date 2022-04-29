@@ -6,8 +6,20 @@ use chili_ast::ty::*;
 use libffi::low::{
     ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
 };
-use std::{ffi::c_void, mem};
+use std::ffi::c_void;
 use ustr::{ustr, Ustr, UstrMap};
+
+macro_rules! raw_ptr {
+    ($value: expr) => {
+        $value as *mut _ as *mut c_void
+    };
+}
+
+macro_rules! type_ptr {
+    ($value: expr) => {
+        &mut $value as *mut ffi_type
+    };
+}
 
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
@@ -38,17 +50,17 @@ impl Ffi {
 
         let mut cif = ffi_cif::default();
 
-        let return_type = &mut func.ret_ty.as_ffi_type() as *mut ffi_type;
+        let return_type = type_ptr!(func.ret_ty.as_ffi_type());
 
-        let mut arg_types: Vec<*mut ffi_type> = func
-            .param_tys
-            .iter()
-            .map(|param| &mut param.as_ffi_type() as *mut _)
-            .collect();
+        let mut arg_types: Vec<*mut ffi_type> = vec![];
+
+        for param in func.param_tys.iter() {
+            arg_types.push(type_ptr!(param.as_ffi_type()));
+        }
 
         if func.variadic {
             for arg in args.iter().skip(arg_types.len()) {
-                arg_types.push(&mut arg.as_ffi_type() as *mut _);
+                arg_types.push(type_ptr!(arg.as_ffi_type()));
             }
 
             prep_cif_var(
@@ -59,7 +71,7 @@ impl Ffi {
                 return_type,
                 arg_types.as_mut_ptr(),
             )
-            .unwrap()
+            .unwrap();
         } else {
             prep_cif(
                 &mut cif,
@@ -68,56 +80,30 @@ impl Ffi {
                 return_type,
                 arg_types.as_mut_ptr(),
             )
-            .unwrap()
+            .unwrap();
         }
 
         let code_ptr = CodePtr::from_ptr(*symbol);
 
-        let mut args: Vec<*mut c_void> = args
-            .iter_mut()
-            .enumerate()
-            .map(|(index, arg)| arg.as_ffi_arg(index > func.param_tys.len() - 1))
-            .collect();
+        let mut call_args: Vec<*mut c_void> = vec![];
 
-        let mut result = mem::MaybeUninit::<c_void>::uninit();
+        for (index, arg) in args.iter_mut().enumerate() {
+            call_args.push(arg.as_ffi_arg(index > func.param_tys.len() - 1));
+        }
+
+        let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
         libffi::raw::ffi_call(
             &mut cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
-            result.as_mut_ptr(),
-            args.as_mut_ptr(),
+            call_result.as_mut_ptr(),
+            call_args.as_mut_ptr(),
         );
 
-        let call_result = result.assume_init_mut();
+        let call_result = call_result.assume_init_mut();
 
-        // TODO: remove when fixed
-        let call_result = if func.name == "malloc" {
-            println!(
-                "{:?} {:?}",
-                call_result as *mut _ as *mut c_void,
-                *(call_result as *mut _ as *mut isize)
-            );
-
-            // (call_result as *mut _ as *mut isize).write(5);
-
-            println!(
-                "{:?} {:?}",
-                call_result as *mut _ as *mut c_void,
-                *(call_result as *mut _ as *mut isize)
-            );
-
-            call_result
-            // malloc(8)
-        } else {
-            call_result
-        };
-
-        Value::from_type_and_ptr(&func.ret_ty, call_result as *mut _ as *mut u8)
+        Value::from_type_and_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
     }
-}
-
-extern "C" {
-    fn malloc(size: usize) -> *mut c_void;
 }
 
 trait AsFfiType {
@@ -219,12 +205,6 @@ impl AsFfiType for Value {
             Value::Type(_) => todo!(),
         }
     }
-}
-
-macro_rules! raw_ptr {
-    ($value: expr) => {
-        $value as *mut _ as *mut c_void
-    };
 }
 
 trait AsFfiArg {
