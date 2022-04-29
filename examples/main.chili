@@ -1,4 +1,4 @@
-use c.{puts, printf, malloc}
+use c.?
 
 // let foo = fn {
 //     let x = 32
@@ -26,9 +26,8 @@ let build = fn {
     x.* = 42
     printf("hello %d\n".data, x.*)
 
-    // printf("hello %d : %p\n".data, x.*, x)
-    // x.*
-    // printf("hello %d %d\n".data, x.*, x.* + 1)
+    printf("hello %d : %p\n".data, x.*, x)
+    printf("hello %d %d\n".data, x.*, x.* + 1)
 }
 
 @run(build())
