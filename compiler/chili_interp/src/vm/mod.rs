@@ -108,13 +108,17 @@ impl<'vm> VM<'vm> {
     }
 
     pub(crate) fn run(&'vm mut self, code: CompiledCode) -> Value {
-        let function = Func {
-            name: ustr("vm_root"),
+        let func = Func {
+            name: ustr("_vm_root"),
             param_count: 0,
             code,
         };
 
-        self.frames.push(CallFrame::new(function, 0));
+        self.push_frame(func);
+        // self.frames.push(CallFrame::new(func, 0));
+        // for _ in 0..func.code.locals {
+        //     self.stack.push(Value::Aggregate(vec![]));
+        // }
 
         self.run_loop()
     }
@@ -123,7 +127,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -223,23 +227,15 @@ impl<'vm> VM<'vm> {
                     if self.frames.is_empty() {
                         break return_value;
                     } else {
-                        self.stack.truncate(frame.slot - frame.func.param_count);
+                        self.stack.truncate(frame.slot - frame.func.param_count - 1);
                         self.stack.push(return_value);
                     }
                 }
                 Instruction::Call(arg_count) => {
-                    let value = self.stack.peek(0);
+                    let value = self.stack.peek(0).clone();
                     match value {
-                        Value::Func(func) => {
-                            let frame = CallFrame::new(func.clone(), self.stack.len() - 1);
-                            self.frames.push(frame);
-                            for _ in 0..func.code.locals {
-                                self.stack.push(Value::Aggregate(vec![]));
-                            }
-                        }
+                        Value::Func(func) => self.push_frame(func),
                         Value::ForeignFunc(func) => {
-                            let func = func.clone();
-
                             self.stack.pop(); // this pops the actual foreign function
 
                             let mut values = (0..arg_count)
@@ -311,6 +307,15 @@ impl<'vm> VM<'vm> {
                 Instruction::Halt => break self.stack.pop(),
             }
         }
+    }
+
+    fn push_frame(&mut self, func: Func) {
+        let func_slot = self.stack.len();
+        for _ in 0..func.code.locals {
+            self.stack.push(Value::Aggregate(vec![]));
+        }
+        let frame = CallFrame::new(func, func_slot);
+        self.frames.push(frame);
     }
 
     fn code(&self) -> &CompiledCode {
