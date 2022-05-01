@@ -74,7 +74,7 @@ impl Lower for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::Defer(_) => todo!(),
+            ast::ExprKind::Defer(_) => (),
             ast::ExprKind::Assign(assign) => {
                 assign
                     .rvalue
