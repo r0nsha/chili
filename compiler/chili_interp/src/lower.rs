@@ -92,6 +92,7 @@ impl Lower for ast::Expr {
                 match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
                     TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
                         let index = access.member.parse::<usize>().unwrap();
+
                         code.push(if ctx.take_ptr {
                             Instruction::IndexPtr(index as u32)
                         } else {
@@ -100,6 +101,7 @@ impl Lower for ast::Expr {
                     }
                     TyKind::Struct(st) => {
                         let index = st.field_index(access.member).unwrap();
+
                         code.push(if ctx.take_ptr {
                             Instruction::IndexPtr(index as u32)
                         } else {

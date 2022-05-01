@@ -1,16 +1,23 @@
 use c.?
 
 let test = fn {
-    // printf("Hello, Vm!\n".data)
-    
-    // let x = malloc(@size_of(int)) as *int
-    // x.* = 42
-    // printf("The answer is %d\n".data, x.*)
-    // printf("My name is %s and I'm %d years old\n".data, "Ron".data, 26 as i64)
+    printf("Hello, Vm!\n".data)
 
-    let person = .{ name: "Ron", age: 26 as i64 }
-    let age = person.age
-    printf("My name is %s and I'm %d years old\n".data, person.name.data, age)
+    // Alloc ptr
+    let ptr = malloc(@size_of(int)) as *int
+    ptr.* = 42
+
+    // Create struct containing ptr
+    let data = .{ ptr }
+    
+    // Print value
+    printf("Value = %d\n".data, data.ptr.*)
+
+    // Assign ptr to new value
+    data.ptr.* = 50
+
+    // Print value again
+    printf("Value = %d\n".data, data.ptr.*)
 }
 
 @run(test())

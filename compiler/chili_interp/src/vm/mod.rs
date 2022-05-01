@@ -303,7 +303,6 @@ impl<'vm> VM<'vm> {
                             Pointer::Aggregate(elements) => {
                                 let elements = unsafe { &mut *elements };
                                 let element = elements.get_mut(index as usize).unwrap();
-                                println!("{:?}", element);
                                 self.stack.push(Value::Pointer(element.into()))
                             }
                             _ => panic!("invalid pointer {:?}", ptr),
