@@ -35,14 +35,14 @@ impl Lower for ast::Expr {
 
                 match &binding.pattern {
                     Pattern::Single(pat) => {
-                        code.locals += 1;
-
                         if binding.expr.is_some() {
                             code.push(Instruction::Set(code.locals as i32));
                         }
 
                         sess.env_mut()
                             .insert(pat.binding_info_id, code.locals as i16);
+
+                        code.locals += 1;
                     }
                     Pattern::StructUnpack(_) => todo!(),
                     Pattern::TupleUnpack(_) => todo!(),
@@ -92,8 +92,11 @@ impl Lower for ast::Expr {
                 match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
                     TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
                         let index = access.member.parse::<usize>().unwrap();
-                        todo!()
-                        // code.push(Instruction::Index(index as u32));
+                        code.push(if ctx.take_ptr {
+                            Instruction::IndexPtr(index as u32)
+                        } else {
+                            Instruction::Index(index as u32)
+                        });
                     }
                     TyKind::Struct(st) => {
                         todo!("struct access")
@@ -462,7 +465,14 @@ impl Lower for ast::Unary {
                 }
             },
         );
-        code.push(self.op.into());
+
+        // Note (Ron): Ref isn't a real instruction, so we don't push it
+        match self.op {
+            ast::UnaryOp::Ref(_) => (),
+            _ => {
+                code.push(self.op.into());
+            }
+        }
     }
 }
 

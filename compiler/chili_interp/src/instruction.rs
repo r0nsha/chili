@@ -138,7 +138,7 @@ impl From<ast::BinaryOp> for Instruction {
 impl From<ast::UnaryOp> for Instruction {
     fn from(op: ast::UnaryOp) -> Self {
         match op {
-            ast::UnaryOp::Ref(_) => todo!("ref"),
+            ast::UnaryOp::Ref(_) => unimplemented!(),
             ast::UnaryOp::Deref => Instruction::Deref,
             ast::UnaryOp::Neg => Instruction::Neg,
             ast::UnaryOp::Plus => Instruction::Noop,
