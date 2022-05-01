@@ -206,7 +206,6 @@ impl AsFfiType for Value {
             Value::Bool(_) => types::uint8,
             Value::Aggregate(_) => todo!(),
             Value::Pointer(..) => types::pointer,
-            Value::Slice(_) => todo!(),
             Value::Func(_) => todo!(),
             Value::ForeignFunc(_) => todo!(),
             Value::Type(_) => todo!(),
@@ -238,7 +237,6 @@ impl AsFfiArg for Value {
             Value::Pointer(ref mut ptr) => {
                 raw_ptr!(ptr.as_raw())
             }
-            Value::Slice(_) => todo!("slice"),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
             Value::Type(_) => todo!(),

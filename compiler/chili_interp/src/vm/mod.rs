@@ -280,38 +280,18 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
 
                     match value {
-                        Value::Pointer(ptr) => {
-                            match ptr {
-                                Pointer::Aggregate(elements) => {
-                                    let elements = unsafe { &mut *elements };
-                                    let element = elements.get(index as usize).unwrap();
-                                    self.stack.push(element.clone())
-                                }
-                                Pointer::Slice(slice) => {
-                                    let slice = unsafe { &mut *slice };
-
-                                    match index {
-                                        // TODO: maybe make slices into Value::Aggregate
-                                        // TODO: then we can just take their index
-                                        0 => self.stack.push(Value::Pointer(slice.ptr.clone())),
-                                        1 => self.stack.push(Value::Uint(slice.len)),
-                                        _ => panic!("invalid index {}", index),
-                                    }
-                                }
-                                _ => panic!("invalid pointer {:?}", ptr),
+                        Value::Pointer(ptr) => match ptr {
+                            Pointer::Aggregate(elements) => {
+                                let elements = unsafe { &mut *elements };
+                                let element = elements.get(index as usize).unwrap();
+                                self.stack.push(element.clone())
                             }
-                        }
+                            _ => panic!("invalid pointer {:?}", ptr),
+                        },
                         Value::Aggregate(elements) => {
                             self.stack
                                 .push(elements.get(index as usize).unwrap().clone());
                         }
-                        Value::Slice(slice) => match index {
-                            // TODO: maybe make slices into Value::Aggregate
-                            // TODO: then we can just take their index
-                            0 => self.stack.push(Value::Pointer(slice.ptr)),
-                            1 => self.stack.push(Value::Uint(slice.len as _)),
-                            _ => panic!("invalid index {}", index),
-                        },
                         _ => panic!("invalid value {}", value),
                     }
                 }
@@ -319,45 +299,19 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
 
                     match value {
-                        Value::Pointer(ptr) => {
-                            match ptr {
-                                Pointer::Aggregate(elements) => {
-                                    let elements = unsafe { &mut *elements };
-                                    let element = elements.get_mut(index as usize).unwrap();
-                                    println!("{:?}", element);
-                                    self.stack.push(Value::Pointer(element.into()))
-                                }
-                                Pointer::Slice(slice) => {
-                                    let slice = unsafe { &mut *slice };
-
-                                    match index {
-                                        // TODO: maybe make slices into Value::Aggregate
-                                        // TODO: then we can just take their index
-                                        0 => self.stack.push(Value::Pointer(Pointer::Pointer(
-                                            (&mut slice.ptr) as _,
-                                        ))),
-                                        1 => self.stack.push(Value::Pointer(Pointer::Uint(
-                                            &mut slice.len as *mut usize,
-                                        ))),
-                                        _ => panic!("invalid index {}", index),
-                                    }
-                                }
-                                _ => panic!("invalid pointer {:?}", ptr),
+                        Value::Pointer(ptr) => match ptr {
+                            Pointer::Aggregate(elements) => {
+                                let elements = unsafe { &mut *elements };
+                                let element = elements.get_mut(index as usize).unwrap();
+                                println!("{:?}", element);
+                                self.stack.push(Value::Pointer(element.into()))
                             }
-                        }
+                            _ => panic!("invalid pointer {:?}", ptr),
+                        },
                         Value::Aggregate(mut elements) => {
                             let element = elements.get_mut(index as usize).unwrap();
                             self.stack.push(Value::Pointer(element.into()))
                         }
-                        Value::Slice(mut slice) => match index {
-                            // TODO: maybe make slices into Value::Aggregate
-                            // TODO: then we can just take their index
-                            0 => self.stack.push(Value::Pointer(slice.ptr)),
-                            1 => self
-                                .stack
-                                .push(Value::Pointer(Pointer::Uint(&mut slice.len as *mut usize))),
-                            _ => panic!("invalid index {}", index),
-                        },
                         _ => panic!("invalid value {}", value),
                     }
                 }

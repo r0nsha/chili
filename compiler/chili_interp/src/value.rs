@@ -147,7 +147,6 @@ impl_value! {
     Bool(bool),
     Aggregate(Vec<Value>),
     Pointer(Pointer),
-    Slice(Slice),
     Func(Func),
     ForeignFunc(ForeignFunc),
     Type(TyKind)
@@ -345,7 +344,6 @@ impl Display for Value {
                         .join(", ")
                 ),
                 Value::Pointer(p) => format!("ptr {:?}", p),
-                Value::Slice(slice) => format!("slice({:?}, {})", slice.ptr, slice.len),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
                 Value::Type(ty) => format!("type {}", ty),
