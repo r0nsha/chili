@@ -100,7 +100,9 @@ impl Lower for ast::Expr {
                 ast::Builtin::Run(expr) => expr.lower(sess, code, ctx),
             },
             ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
-            ast::ExprKind::While(_) => todo!(),
+            ast::ExprKind::While(while_) => {
+                while_.lower(sess, code, LowerContext { take_ptr: false })
+            }
             ast::ExprKind::For(_) => todo!(),
             ast::ExprKind::Break(_) => todo!(),
             ast::ExprKind::Continue(_) => todo!(),
@@ -456,6 +458,29 @@ impl Lower for ast::Call {
     }
 }
 
+impl Lower for ast::While {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        let loop_start = code.instructions.len() - 1;
+
+        self.cond
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        let exit_jmp = push_empty_jmpf(code);
+        code.push(Instruction::Pop);
+
+        self.block
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        let offset = code.instructions.len() - loop_start;
+        code.push(Instruction::Jmp(-(offset as i32)));
+
+        let loop_exit = patch_empty_jmp(code, exit_jmp);
+        code.push(Instruction::Pop);
+
+        sess.loop_exits.push(loop_exit);
+    }
+}
+
 impl Lower for ast::If {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         self.cond
@@ -484,7 +509,7 @@ impl Lower for ast::Block {
         sess.env_mut().push_scope();
 
         for (index, expr) in self.exprs.iter().enumerate() {
-            let is_last = index != self.exprs.len() - 1;
+            let is_last = index == self.exprs.len() - 1;
 
             expr.lower(
                 sess,
@@ -497,7 +522,6 @@ impl Lower for ast::Block {
             );
         }
 
-        println!("{}", self.deferred.len());
         for expr in self.deferred.iter() {
             expr.lower(sess, code, LowerContext { take_ptr: false });
             code.push(Instruction::Pop);

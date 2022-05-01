@@ -54,7 +54,7 @@ macro_rules! binary_op {
             (Value::Uint(a), Value::Uint(b)) => $stack.push(Value::Uint(a $op b)),
             (Value::F32(a), Value::F32(b)) => $stack.push(Value::F32(a $op b)),
             (Value::F64(a), Value::F64(b)) => $stack.push(Value::F64(a $op b)),
-            _=> panic!("invalid types in binary operation `{}` and`{}`", a ,b)
+            _=> panic!("invalid types in binary operation `{}` and `{}`", a ,b)
         }
     };
 }
