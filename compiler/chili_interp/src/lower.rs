@@ -497,10 +497,11 @@ impl Lower for ast::Block {
             );
         }
 
-        // for expr in self.deferred.iter() {
-        //     expr.lower(sess, code, LowerContext { take_ptr: false });
-        //     code.push(Instruction::Pop);
-        // }
+        println!("{}", self.deferred.len());
+        for expr in self.deferred.iter() {
+            expr.lower(sess, code, LowerContext { take_ptr: false });
+            code.push(Instruction::Pop);
+        }
 
         sess.env_mut().pop_scope();
     }

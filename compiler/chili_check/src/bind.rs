@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    env::{Env, Scope},
+    env::{Env, Scope, ScopeKind},
     CheckSess,
 };
 use chili_ast::{
@@ -38,6 +38,7 @@ impl<'s> CheckSess<'s> {
             .entry(module_id)
             .or_insert(Scope::new(
                 self.workspace.get_module_info(module_id).unwrap().name,
+                ScopeKind::Global,
             ))
             .symbols
             .insert(symbol, id);

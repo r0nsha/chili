@@ -1,11 +1,6 @@
 use chili_ast::ast;
 
-pub fn solve_defers(ast: &mut ast::TypedAst) {
-    let mut sess = DeferSess { stacks: vec![] };
-    for binding in ast.bindings.values_mut() {
-        binding.solve_defer(&mut sess);
-    }
-}
+use crate::env::ScopeKind;
 
 #[derive(Clone)]
 struct DeferSess {
@@ -17,8 +12,8 @@ impl DeferSess {
         &self.stacks
     }
 
-    fn push_stack(&mut self, kind: DeferStackKind) {
-        self.stacks.push(DeferStack::new(kind));
+    fn push_stack(&mut self) {
+        self.stacks.push(DeferStack::new());
     }
 
     fn pop_stack(&mut self) {
@@ -32,34 +27,16 @@ impl DeferSess {
     fn current_stack_mut(&mut self) -> &mut DeferStack {
         self.stacks.last_mut().unwrap()
     }
-
-    fn collect_deferred(&self) -> Vec<ast::Expr> {
-        self.current_stack()
-            .deferred
-            .iter()
-            .rev()
-            .cloned()
-            .collect()
-    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum DeferStackKind {
-    Loop,
-    Block,
-}
 #[derive(Debug, Clone)]
-struct DeferStack {
-    deferred: Vec<ast::Expr>,
-    kind: DeferStackKind,
+pub(crate) struct DeferStack {
+    pub(crate) deferred: Vec<ast::Expr>,
 }
 
 impl DeferStack {
-    fn new(kind: DeferStackKind) -> Self {
-        Self {
-            deferred: vec![],
-            kind,
-        }
+    pub(crate) fn new() -> Self {
+        Self { deferred: vec![] }
     }
 }
 
@@ -96,10 +73,16 @@ impl SolveDefer for ast::Fn {
 
 impl SolveDefer for ast::Block {
     fn solve_defer(&mut self, sess: &mut DeferSess) {
-        sess.push_stack(DeferStackKind::Block);
+        // sess.push_stack(ScopeKind::Block);
 
         self.exprs.solve_defer(sess);
-        self.deferred = sess.collect_deferred();
+        self.deferred = sess
+            .current_stack()
+            .deferred
+            .iter()
+            .rev()
+            .cloned()
+            .collect();
 
         sess.pop_stack();
     }
@@ -139,7 +122,7 @@ impl SolveDefer for ast::Expr {
                 while_.block.solve_defer(sess);
             }
             ast::ExprKind::For(for_) => {
-                sess.push_stack(DeferStackKind::Loop);
+                // sess.push_stack(ScopeKind::Loop);
 
                 match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
@@ -154,15 +137,15 @@ impl SolveDefer for ast::Expr {
                 sess.pop_stack();
             }
             ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
-                for stack in sess.stacks().iter().rev() {
-                    if let DeferStackKind::Loop = stack.kind {
-                        break;
-                    }
+                // for stack in sess.stacks().iter().rev() {
+                //     if let ScopeKind::Loop = stack.kind {
+                //         break;
+                //     }
 
-                    for expr in stack.deferred.iter().rev() {
-                        term.deferred.push(expr.clone())
-                    }
-                }
+                //     for expr in stack.deferred.iter().rev() {
+                //         term.deferred.push(expr.clone())
+                //     }
+                // }
             }
             ast::ExprKind::Return(ret) => {
                 for stack in sess.stacks().iter().rev() {

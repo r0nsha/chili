@@ -1,6 +1,7 @@
 mod bind;
 mod builtin;
 mod const_fold;
+mod defer;
 mod env;
 mod top_level;
 
@@ -33,7 +34,7 @@ use common::{
     target::TargetMetrics,
 };
 use const_fold::binary::const_fold_binary;
-use env::{Env, Scope};
+use env::{Env, Scope, ScopeKind};
 use std::{
     collections::{BTreeMap, HashMap},
     iter::repeat_with,
@@ -544,7 +545,7 @@ impl Check for ast::Fn {
             )?);
         }
 
-        env.push_scope();
+        env.push_scope(ScopeKind::Fn);
 
         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
             let ty = sess.tycx.bound(
@@ -712,6 +713,13 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Defer(defer) => {
                 defer.expr.check(sess, env, None)?;
+
+                // Add the expression to this scope's defer stack
+                env.scope_mut()
+                    .defer_stack
+                    .deferred
+                    .push(defer.expr.as_ref().clone());
+
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
             ast::ExprKind::Assign(assign) => {
@@ -770,9 +778,13 @@ impl Check for ast::Expr {
                     )
                     .or_report_err(&sess.tycx, cond_ty, None, cond_res.ty, while_.cond.span)?;
 
+                env.push_scope(ScopeKind::Loop);
                 sess.loop_depth += 1;
+
                 while_.block.check(sess, env, None)?;
+
                 sess.loop_depth -= 1;
+                env.pop_scope();
 
                 if let Some(cond) = cond_res.const_value {
                     if cond.into_bool() {
@@ -836,7 +848,8 @@ impl Check for ast::Expr {
                     }
                 };
 
-                env.push_scope();
+                env.push_scope(ScopeKind::Loop);
+                sess.loop_depth += 1;
 
                 for_.iter_id = sess.bind_symbol(
                     env,
@@ -860,32 +873,28 @@ impl Check for ast::Expr {
                     self.span, // TODO: use iter_index's actual span
                 )?;
 
-                sess.loop_depth += 1;
                 for_.block.check(sess, env, None)?;
-                sess.loop_depth -= 1;
 
+                sess.loop_depth -= 1;
                 env.pop_scope();
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Break(term) => {
-                if sess.loop_depth == 0 {
-                    return Err(SyntaxError::outside_of_loop(self.span, "break"));
-                }
-
-                for expr in term.deferred.iter_mut() {
-                    expr.check(sess, env, None)?;
-                }
-
-                Ok(Res::new(sess.tycx.common_types.never))
+            ast::ExprKind::Break(_) if sess.loop_depth == 0 => {
+                return Err(SyntaxError::outside_of_loop(self.span, "break"));
             }
-            ast::ExprKind::Continue(term) => {
-                if sess.loop_depth == 0 {
-                    return Err(SyntaxError::outside_of_loop(self.span, "continue"));
-                }
+            ast::ExprKind::Continue(_) if sess.loop_depth == 0 => {
+                return Err(SyntaxError::outside_of_loop(self.span, "continue"));
+            }
+            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
+                for scope in env.scopes().iter().rev() {
+                    if let ScopeKind::Loop = scope.kind {
+                        break;
+                    }
 
-                for expr in term.deferred.iter_mut() {
-                    expr.check(sess, env, None)?;
+                    for expr in scope.defer_stack.deferred.iter().rev() {
+                        term.deferred.push(expr.clone())
+                    }
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
@@ -898,6 +907,7 @@ impl Check for ast::Expr {
                 if let Some(expr) = &mut ret.expr {
                     let expected = function_frame.return_ty;
                     let res = expr.check(sess, env, Some(expected))?;
+
                     res.ty
                         .unify(&expected, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
@@ -915,6 +925,7 @@ impl Check for ast::Expr {
                         )?;
                 } else {
                     let expected = sess.tycx.common_types.unit;
+
                     function_frame
                         .return_ty
                         .unify(&expected, &mut sess.tycx)
@@ -927,8 +938,11 @@ impl Check for ast::Expr {
                         )?;
                 }
 
-                for expr in ret.deferred.iter_mut() {
-                    expr.check(sess, env, None)?;
+                // Recursively add all defers in the stack, in reverse
+                for scope in env.scopes().iter().rev() {
+                    for expr in scope.defer_stack.deferred.iter().rev() {
+                        ret.deferred.push(expr.clone())
+                    }
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
@@ -1617,7 +1631,7 @@ impl Check for ast::Expr {
                     .unwrap();
 
                 sess.self_types.push(inferred_ty);
-                env.push_scope();
+                env.push_scope(ScopeKind::Block);
 
                 let opaque_struct_ty = sess.tycx.bound(opaque_struct, self.span);
                 st.binding_info_id = sess.bind_symbol(
@@ -1850,7 +1864,7 @@ impl Check for ast::Block {
     ) -> CheckResult {
         let mut res = Res::new(sess.tycx.common_types.unit);
 
-        env.push_scope();
+        env.push_scope(ScopeKind::Block);
 
         if !self.exprs.is_empty() {
             let last_index = self.exprs.len() - 1;
@@ -1868,9 +1882,15 @@ impl Check for ast::Block {
             }
         }
 
-        for expr in self.deferred.iter_mut() {
-            expr.check(sess, env, None)?;
-        }
+        // Add all defers in the current scope
+        self.deferred = env
+            .scope()
+            .defer_stack
+            .deferred
+            .iter()
+            .rev()
+            .cloned()
+            .collect();
 
         env.pop_scope();
 

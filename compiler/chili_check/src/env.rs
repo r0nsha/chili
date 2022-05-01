@@ -1,6 +1,8 @@
 use chili_ast::workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel};
 use ustr::{ustr, Ustr, UstrMap};
 
+use crate::defer::DeferStack;
+
 pub(crate) struct Env {
     module_id: ModuleId,
     module_info: ModuleInfo,
@@ -24,6 +26,10 @@ impl Env {
 
     pub(crate) fn module_info(&self) -> ModuleInfo {
         self.module_info
+    }
+
+    pub(crate) fn scopes(&self) -> &[Scope] {
+        &self.scopes
     }
 
     #[allow(unused)]
@@ -56,12 +62,12 @@ impl Env {
         ustr(&str)
     }
 
-    pub(crate) fn push_scope(&mut self) {
-        self.push_named_scope("_");
+    pub(crate) fn push_scope(&mut self, kind: ScopeKind) {
+        self.push_named_scope("_", kind);
     }
 
-    pub(crate) fn push_named_scope(&mut self, name: impl ToString) {
-        self.scopes.push(Scope::new(name));
+    pub(crate) fn push_named_scope(&mut self, name: impl ToString, kind: ScopeKind) {
+        self.scopes.push(Scope::new(name, kind));
         self.scope_level = self.scope_level.next();
     }
 
@@ -87,19 +93,31 @@ impl Env {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Scope {
+    pub(crate) kind: ScopeKind,
     pub(crate) name: String,
     pub(crate) symbols: UstrMap<BindingInfoId>,
+    pub(crate) defer_stack: DeferStack,
 }
 
 impl Scope {
-    pub(crate) fn new(name: impl ToString) -> Self {
+    pub(crate) fn new(name: impl ToString, kind: ScopeKind) -> Self {
         Self {
+            kind,
             name: name.to_string(),
             symbols: Default::default(),
+            defer_stack: DeferStack::new(),
         }
     }
 
     pub(crate) fn insert(&mut self, symbol: Ustr, id: BindingInfoId) {
         self.symbols.insert(symbol, id);
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub(crate) enum ScopeKind {
+    Global,
+    Fn,
+    Block,
+    Loop,
 }

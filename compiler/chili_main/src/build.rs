@@ -81,11 +81,6 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         return workspace;
     }
 
-    // Defer - resolve all `defer` statements
-    time! { workspace.build_options.verbose, "defer",
-        chili_defer::solve_defers(&mut typed_ast)
-    }
-
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 
     // Code generation
