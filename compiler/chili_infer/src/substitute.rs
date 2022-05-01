@@ -218,7 +218,7 @@ impl<'a> Substitute<'a> for ast::Expr {
             ast::ExprKind::StructLiteral(lit) => {
                 lit.type_expr.substitute(sess);
                 for f in lit.fields.iter() {
-                    f.value.substitute(sess);
+                    f.expr.substitute(sess);
                 }
             }
             ast::ExprKind::PointerType(expr)

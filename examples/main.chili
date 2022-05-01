@@ -8,9 +8,9 @@ let test = fn {
     // printf("The answer is %d\n".data, x.*)
     // printf("My name is %s and I'm %d years old\n".data, "Ron".data, 26 as i64)
 
-    let tup = ("Ron".data, 26)
-    tup.1 = 50
-    printf("My name is %s and I'm %d years old\n".data, tup.0, tup.1 as i64)
+    let person = .{ name: "Ron", age: 26 as i64 }
+    let age = person.age
+    printf("My name is %s and I'm %d years old\n".data, person.name.data, age)
 }
 
 @run(test())

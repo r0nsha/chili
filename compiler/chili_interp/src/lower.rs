@@ -99,10 +99,24 @@ impl Lower for ast::Expr {
                         });
                     }
                     TyKind::Struct(st) => {
-                        todo!("struct access")
+                        let index = st.field_index(access.member).unwrap();
+                        code.push(if ctx.take_ptr {
+                            Instruction::IndexPtr(index as u32)
+                        } else {
+                            Instruction::Index(index as u32)
+                        });
                     }
                     TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
-                        todo!("partial struct access")
+                        let index = partial
+                            .iter()
+                            .position(|(field, _)| *field == access.member)
+                            .unwrap();
+
+                        code.push(if ctx.take_ptr {
+                            Instruction::IndexPtr(index as u32)
+                        } else {
+                            Instruction::Index(index as u32)
+                        });
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         sess.push_const(code, Value::Uint(*size as usize))
@@ -163,7 +177,27 @@ impl Lower for ast::Expr {
                     code.push(Instruction::AggregatePush);
                 }
             }
-            ast::ExprKind::StructLiteral(_) => todo!(),
+            ast::ExprKind::StructLiteral(lit) => {
+                code.push(Instruction::AggregateAlloc);
+
+                let ty = self.ty.normalize(sess.tycx);
+                let ty = ty.as_struct();
+
+                let mut ordered_fields = lit.fields.clone();
+
+                ordered_fields.sort_by(|f1, f2| {
+                    let index_1 = ty.field_index(f1.symbol).unwrap();
+                    let index_2 = ty.field_index(f2.symbol).unwrap();
+                    index_1.cmp(&index_2)
+                });
+
+                for field in ordered_fields.iter() {
+                    field
+                        .expr
+                        .lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::AggregatePush);
+                }
+            }
             ast::ExprKind::Literal(lit) => {
                 let ty = self.ty.normalize(&sess.tycx);
                 sess.push_const(

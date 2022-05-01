@@ -37,11 +37,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             let struct_ptr = self.build_alloca(state, struct_llvm_type);
 
             for field in fields {
-                let field_index = struct_ty
-                    .fields
-                    .iter()
-                    .position(|f| f.symbol == field.symbol)
-                    .unwrap();
+                let field_index = struct_ty.field_index(field.symbol);
 
                 let field_ptr = self
                     .builder

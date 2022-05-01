@@ -225,7 +225,7 @@ pub struct StructTypeField {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructLiteralField {
     pub symbol: Ustr,
-    pub value: Expr,
+    pub expr: Expr,
     pub span: Span,
 }
 

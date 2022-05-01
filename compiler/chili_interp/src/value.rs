@@ -337,7 +337,7 @@ impl Display for Value {
                 Value::F64(v) => format!("f64 {}", v),
                 Value::Bool(v) => format!("bool {}", v),
                 Value::Aggregate(v) => format!(
-                    "({})",
+                    "{{{}}}",
                     v.iter()
                         .map(|v| v.to_string())
                         .collect::<Vec<String>>()

@@ -103,7 +103,7 @@ impl<'p> Parser<'p> {
                     break;
                 };
 
-                let value = if eat!(self, Colon) {
+                let expr = if eat!(self, Colon) {
                     self.parse_expr()?
                 } else {
                     Expr::new(
@@ -115,12 +115,12 @@ impl<'p> Parser<'p> {
                     )
                 };
 
-                let value_span = value.span;
+                let span = expr.span;
 
                 StructLiteralField {
                     symbol: id_token.symbol(),
-                    value,
-                    span: id_token.span.to(value_span),
+                    expr,
+                    span: id_token.span.to(span),
                 }
             },
             ", or }"

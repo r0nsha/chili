@@ -459,7 +459,7 @@ impl PrintTree for ast::Expr {
                 lit.type_expr.print_tree(b, workspace, tycx);
                 for f in &lit.fields {
                     b.begin_child(f.symbol.to_string());
-                    f.value.print_tree(b, workspace, tycx);
+                    f.expr.print_tree(b, workspace, tycx);
                     b.end_child();
                 }
                 b.end_child();

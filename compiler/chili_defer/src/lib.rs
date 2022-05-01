@@ -211,7 +211,7 @@ impl SolveDefer for ast::Expr {
             ast::ExprKind::StructLiteral(lit) => {
                 lit.type_expr.solve_defer(sess);
                 for field in lit.fields.iter_mut() {
-                    field.value.solve_defer(sess);
+                    field.expr.solve_defer(sess);
                 }
             }
             ast::ExprKind::PointerType(e)

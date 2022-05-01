@@ -1919,13 +1919,13 @@ fn check_named_struct_literal(
                 uninit_fields.remove(&field.symbol);
 
                 let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
-                let field_res = field.value.check(sess, env, Some(expected_ty))?;
+                let field_res = field.expr.check(sess, env, Some(expected_ty))?;
 
                 field_res
                     .ty
                     .unify(&expected_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
-                        &mut field.value,
+                        &mut field.expr,
                         expected_ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
@@ -1935,7 +1935,7 @@ fn check_named_struct_literal(
                         expected_ty,
                         Some(ty_field.span),
                         field_res.ty,
-                        field.value.span,
+                        field.expr.span,
                     )?;
             }
             None => {
@@ -1995,7 +1995,7 @@ fn check_anonymous_struct_literal(
             ));
         }
 
-        let res = field.value.check(sess, env, None)?;
+        let res = field.expr.check(sess, env, None)?;
 
         struct_ty.fields.push(StructTyField {
             symbol: field.symbol,

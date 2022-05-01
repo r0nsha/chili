@@ -126,6 +126,12 @@ pub struct StructTy {
     pub kind: StructTyKind,
 }
 
+impl StructTy {
+    pub fn field_index(&self, field: Ustr) -> Option<usize> {
+        self.fields.iter().position(|f| f.symbol == field)
+    }
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct PartialStructTy(pub BTreeMap<Ustr, TyKind>);
 
@@ -320,7 +326,7 @@ impl TyKind {
         self.is_array() || self.is_struct()
     }
 
-    pub fn into_struct(&self) -> &StructTy {
+    pub fn as_struct(&self) -> &StructTy {
         match self {
             TyKind::Struct(ty) => ty,
             _ => panic!("expected struct, got {:?}", self),

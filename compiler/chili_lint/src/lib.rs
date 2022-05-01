@@ -270,7 +270,7 @@ impl Lint for ast::Expr {
             ast::ExprKind::StructLiteral(lit) => {
                 lit.type_expr.lint(sess);
                 for field in &lit.fields {
-                    field.value.lint(sess);
+                    field.expr.lint(sess);
                 }
             }
             ast::ExprKind::PointerType(e)

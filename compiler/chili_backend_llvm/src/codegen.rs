@@ -297,11 +297,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         continue;
                     }
 
-                    let field_index = struct_ty
-                        .fields
-                        .iter()
-                        .position(|f| f.symbol == *symbol)
-                        .unwrap();
+                    let field_index = struct_ty.field_index(*symbol);
 
                     let llvm_type = Some(ty.llvm_type(self));
                     let value = self.gen_struct_access(ptr.into(), field_index as u32, llvm_type);
@@ -378,11 +374,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         continue;
                     }
 
-                    let field_index = struct_ty
-                        .fields
-                        .iter()
-                        .position(|f| f.symbol == symbol)
-                        .unwrap();
+                    let field_index = struct_ty.field_index(symbol);
 
                     let llvm_type = Some(ty.llvm_type(self));
                     let value = self.gen_struct_access(value, field_index as u32, llvm_type);
@@ -898,11 +890,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             );
                             casted_ptr.into()
                         } else {
-                            let index = struct_ty
-                                .fields
-                                .iter()
-                                .position(|f| f.symbol == access.member)
-                                .unwrap();
+                            let index = struct_ty.field_index(access.member);
                             self.gen_struct_access(value, index as u32, struct_llvm_ty)
                         }
                     }
