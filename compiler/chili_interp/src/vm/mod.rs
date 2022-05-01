@@ -120,7 +120,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -271,7 +271,7 @@ impl<'vm> VM<'vm> {
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
                 }
-                Instruction::Set(slot) => {
+                Instruction::SetLocal(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);

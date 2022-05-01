@@ -18,6 +18,10 @@ let test = fn {
 
     // Print value again
     printf("Value = %d\n".data, data.ptr.*)
+    
+    let (a, b) = (1, 2)
+
+    printf("Sum = %d\n".data, a + b)
 }
 
 @run(test())

@@ -14,12 +14,13 @@ impl<'s> LintSess<'s> {
                     "use of possibly uninitialized value `{}`",
                     binding_info.symbol
                 );
+                let binding_span = binding_info.span;
 
                 self.workspace.diagnostics.push(
                     Diagnostic::error()
                         .with_message(msg.clone())
                         .with_label(Label::primary(span, msg))
-                        .with_label(Label::secondary(binding_info.span, "defined here")),
+                        .with_label(Label::secondary(binding_span, "defined here")),
                 );
             }
         }
@@ -38,11 +39,13 @@ impl<'s> LintSess<'s> {
                 "cannot assign twice to immutable variable `{}`",
                 binding_info.symbol
             );
+            let binding_span = binding_info.span;
+
             self.workspace.diagnostics.push(
                 Diagnostic::error()
                     .with_message(msg.clone())
                     .with_label(Label::primary(lvalue.span, msg))
-                    .with_label(Label::secondary(binding_info.span, "defined here")),
+                    .with_label(Label::secondary(binding_span, "defined here")),
             );
         }
 

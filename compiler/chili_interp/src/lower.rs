@@ -29,14 +29,17 @@ impl Lower for ast::Expr {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
             ast::ExprKind::Binding(binding) => {
-                if let Some(expr) = &binding.expr {
+                let expr_slot = if let Some(expr) = &binding.expr {
                     expr.lower(sess, code, LowerContext { take_ptr: false });
-                }
+                    Some(code.stack_offset())
+                } else {
+                    None
+                };
 
                 match &binding.pattern {
                     Pattern::Single(pat) => {
                         if binding.expr.is_some() {
-                            code.push(Instruction::Set(code.locals as i32));
+                            code.push(Instruction::SetLocal(code.locals as i32));
                         }
 
                         sess.env_mut()
@@ -45,7 +48,10 @@ impl Lower for ast::Expr {
                         code.locals += 1;
                     }
                     Pattern::StructUnpack(_) => todo!(),
-                    Pattern::TupleUnpack(_) => todo!(),
+                    Pattern::TupleUnpack(pat) => {
+                        let slot = code.stack_offset();
+                        for symbol in pat.symbols.iter() {}
+                    }
                 }
             }
             ast::ExprKind::Defer(_) => todo!(),
