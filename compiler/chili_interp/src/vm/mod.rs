@@ -2,7 +2,7 @@ use crate::{
     instruction::{CompiledCode, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{Func, Value},
+    value::{Func, Pointer, Value},
 };
 use colored::Colorize;
 use std::fmt::Display;
@@ -108,18 +108,11 @@ impl<'vm> VM<'vm> {
     }
 
     pub(crate) fn run(&'vm mut self, code: CompiledCode) -> Value {
-        let func = Func {
+        self.push_frame(Func {
             name: ustr("_vm_root"),
             param_count: 0,
             code,
-        };
-
-        self.push_frame(func);
-        // self.frames.push(CallFrame::new(func, 0));
-        // for _ in 0..func.code.locals {
-        //     self.stack.push(Value::Aggregate(vec![]));
-        // }
-
+        });
         self.run_loop()
     }
 
@@ -127,7 +120,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -267,18 +260,18 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     self.interp.globals.insert(slot as usize, value);
                 }
-                Instruction::GetLocal(slot) => {
+                Instruction::Peek(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
                 }
-                Instruction::GetLocalPtr(slot) => {
+                Instruction::PeekPtr(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
                 }
-                Instruction::SetLocal(slot) => {
+                Instruction::Set(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
@@ -287,12 +280,82 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
 
                     match value {
+                        Value::Pointer(ptr) => {
+                            match ptr {
+                                Pointer::Aggregate(elements) => {
+                                    let elements = unsafe { &mut *elements };
+                                    let element = elements.get(index as usize).unwrap();
+                                    self.stack.push(element.clone())
+                                }
+                                Pointer::Slice(slice) => {
+                                    let slice = unsafe { &mut *slice };
+
+                                    match index {
+                                        // TODO: maybe make slices into Value::Aggregate
+                                        // TODO: then we can just take their index
+                                        0 => self.stack.push(Value::Pointer(slice.ptr.clone())),
+                                        1 => self.stack.push(Value::Uint(slice.len)),
+                                        _ => panic!("invalid index {}", index),
+                                    }
+                                }
+                                _ => panic!("invalid pointer {:?}", ptr),
+                            }
+                        }
                         Value::Aggregate(elements) => {
-                            self.stack.push(elements[index as usize].clone())
+                            self.stack
+                                .push(elements.get(index as usize).unwrap().clone());
                         }
                         Value::Slice(slice) => match index {
+                            // TODO: maybe make slices into Value::Aggregate
+                            // TODO: then we can just take their index
                             0 => self.stack.push(Value::Pointer(slice.ptr)),
-                            1 => self.stack.push(Value::Int(slice.len as _)),
+                            1 => self.stack.push(Value::Uint(slice.len as _)),
+                            _ => panic!("invalid index {}", index),
+                        },
+                        _ => panic!("invalid value {}", value),
+                    }
+                }
+                Instruction::IndexPtr(index) => {
+                    let value = self.stack.pop();
+
+                    match value {
+                        Value::Pointer(ptr) => {
+                            match ptr {
+                                Pointer::Aggregate(elements) => {
+                                    let elements = unsafe { &mut *elements };
+                                    let element = elements.get_mut(index as usize).unwrap();
+                                    println!("{:?}", element);
+                                    self.stack.push(Value::Pointer(element.into()))
+                                }
+                                Pointer::Slice(slice) => {
+                                    let slice = unsafe { &mut *slice };
+
+                                    match index {
+                                        // TODO: maybe make slices into Value::Aggregate
+                                        // TODO: then we can just take their index
+                                        0 => self.stack.push(Value::Pointer(Pointer::Pointer(
+                                            (&mut slice.ptr) as _,
+                                        ))),
+                                        1 => self.stack.push(Value::Pointer(Pointer::Uint(
+                                            &mut slice.len as *mut usize,
+                                        ))),
+                                        _ => panic!("invalid index {}", index),
+                                    }
+                                }
+                                _ => panic!("invalid pointer {:?}", ptr),
+                            }
+                        }
+                        Value::Aggregate(mut elements) => {
+                            let element = elements.get_mut(index as usize).unwrap();
+                            self.stack.push(Value::Pointer(element.into()))
+                        }
+                        Value::Slice(mut slice) => match index {
+                            // TODO: maybe make slices into Value::Aggregate
+                            // TODO: then we can just take their index
+                            0 => self.stack.push(Value::Pointer(slice.ptr)),
+                            1 => self
+                                .stack
+                                .push(Value::Pointer(Pointer::Uint(&mut slice.len as *mut usize))),
                             _ => panic!("invalid index {}", index),
                         },
                         _ => panic!("invalid value {}", value),
@@ -304,6 +367,12 @@ impl<'vm> VM<'vm> {
                     lvalue.write_value(rvalue);
                 }
                 Instruction::Cast(cast) => self.cast_inst(cast),
+                Instruction::AggregateAlloc => self.stack.push(Value::Aggregate(vec![])),
+                Instruction::AggregatePush => {
+                    let value = self.stack.pop();
+                    let aggregate = self.stack.peek_mut().as_aggregate_mut();
+                    aggregate.push(value);
+                }
                 Instruction::Halt => break self.stack.pop(),
             }
         }
@@ -312,7 +381,7 @@ impl<'vm> VM<'vm> {
     fn push_frame(&mut self, func: Func) {
         let func_slot = self.stack.len();
         for _ in 0..func.code.locals {
-            self.stack.push(Value::Aggregate(vec![]));
+            self.stack.push(Value::unit());
         }
         let frame = CallFrame::new(func, func_slot);
         self.frames.push(frame);

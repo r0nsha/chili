@@ -28,6 +28,8 @@ impl AlignOf for TyKind {
             )
             .align_of(word_size),
             TyKind::Struct(s) => s.align_of(word_size),
+            TyKind::Infer(_, InferTy::AnyInt) => IntTy::I32.align_of(word_size),
+            TyKind::Infer(_, InferTy::AnyFloat) => FloatTy::F32.align_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }

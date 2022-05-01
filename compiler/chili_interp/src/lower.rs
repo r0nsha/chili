@@ -38,7 +38,7 @@ impl Lower for ast::Expr {
                         code.locals += 1;
 
                         if binding.expr.is_some() {
-                            code.push(Instruction::SetLocal(code.locals as i32));
+                            code.push(Instruction::Set(code.locals as i32));
                         }
 
                         sess.env_mut()
@@ -104,10 +104,12 @@ impl Lower for ast::Expr {
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         sess.push_const(code, Value::Uint(*size as usize))
                     }
-                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                    TyKind::Slice(ty, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                        // TODO: put real offset when i switch to aggregates
                         code.push(Instruction::Index(1));
                     }
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
+                        // TODO: put real offset when i switch to aggregates
                         code.push(Instruction::Index(0));
                     }
                     TyKind::Module(module_id) => {
@@ -130,9 +132,9 @@ impl Lower for ast::Expr {
                         if let Some(slot) = sess.env().value(id) {
                             let slot = *slot as i32;
                             code.push(if ctx.take_ptr {
-                                Instruction::GetLocalPtr(slot)
+                                Instruction::PeekPtr(slot)
                             } else {
-                                Instruction::GetLocal(slot)
+                                Instruction::Peek(slot)
                             });
                         } else {
                             let slot = sess
@@ -150,14 +152,21 @@ impl Lower for ast::Expr {
                 }
             }
             ast::ExprKind::ArrayLiteral(_) => todo!(),
-            ast::ExprKind::TupleLiteral(_) => todo!(),
+            ast::ExprKind::TupleLiteral(lit) => {
+                code.push(Instruction::AggregateAlloc);
+
+                for element in lit.elements.iter() {
+                    element.lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::AggregatePush);
+                }
+            }
             ast::ExprKind::StructLiteral(_) => todo!(),
             ast::ExprKind::Literal(lit) => {
                 let ty = self.ty.normalize(&sess.tycx);
                 sess.push_const(
                     code,
                     match &lit.kind {
-                        ast::LiteralKind::Unit => Value::Aggregate(vec![]),
+                        ast::LiteralKind::Unit => Value::unit(),
                         ast::LiteralKind::Nil => todo!("nil"),
                         ast::LiteralKind::Bool(v) => Value::Bool(*v),
                         ast::LiteralKind::Int(v) => match ty {
@@ -277,7 +286,7 @@ impl Lower for ast::Cast {
                 });
             }
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-                let cast_inst = CastInstruction::Ptr(ValueKind::from(*ty));
+                let cast_inst = CastInstruction::Ptr(ValueKind::from(ty.as_ref()));
                 code.push(Instruction::Cast(cast_inst));
             }
             TyKind::Slice(_, _) => todo!(), // TODO: cast pointer to array to a slice (slice coercion)

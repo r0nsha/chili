@@ -33,12 +33,15 @@ pub enum Instruction {
     GetGlobal(u32),
     GetGlobalPtr(u32),
     SetGlobal(u32),
-    GetLocal(i32),
-    GetLocalPtr(i32),
-    SetLocal(i32),
+    Peek(i32),
+    PeekPtr(i32),
+    Set(i32),
     Index(u32),
+    IndexPtr(u32),
     Assign,
     Cast(CastInstruction),
+    AggregateAlloc,
+    AggregatePush,
     Halt,
 }
 
@@ -92,12 +95,15 @@ impl Display for Instruction {
                 Instruction::GetGlobal(slot) => format!("get_global ${}", slot),
                 Instruction::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
                 Instruction::SetGlobal(slot) => format!("set_global ${}", slot),
-                Instruction::GetLocal(slot) => format!("get_local ${}", slot),
-                Instruction::GetLocalPtr(slot) => format!("get_local_ptr ${}", slot),
-                Instruction::SetLocal(slot) => format!("set_local ${}", slot),
-                Instruction::Index(idx) => format!("index_{}", idx),
+                Instruction::Peek(slot) => format!("peek ${}", slot),
+                Instruction::PeekPtr(slot) => format!("peek_ptr ${}", slot),
+                Instruction::Set(slot) => format!("set ${}", slot),
+                Instruction::Index(offset) => format!("index {}", offset),
+                Instruction::IndexPtr(offset) => format!("index_ptr {}", offset),
                 Instruction::Assign => "assign".to_string(),
-                Instruction::Cast(cast) => format!("cast_{:?}", cast),
+                Instruction::Cast(cast) => format!("cast {:?}", cast),
+                Instruction::AggregateAlloc => "aggregate_alloc".to_string(),
+                Instruction::AggregatePush => "aggregate_push".to_string(),
                 Instruction::Halt => "halt".to_string(),
             }
         )
@@ -155,8 +161,14 @@ impl CompiledCode {
         }
     }
 
+    #[inline]
     pub fn push(&mut self, inst: Instruction) -> usize {
         self.instructions.push(inst);
         self.instructions.len() - 1
+    }
+
+    #[inline]
+    pub fn stack_offset(&self) -> usize {
+        self.locals as usize + self.instructions.len()
     }
 }

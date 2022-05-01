@@ -13,6 +13,16 @@ macro_rules! impl_value {
             ),+
         }
 
+        impl Display for ValueKind {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", match self {
+                    $(
+                        ValueKind::$variant => String::from(stringify!($variant))
+                    ),+
+                })
+            }
+        }
+
         #[derive(Debug, Clone)]
         pub enum Value {
             $(
@@ -165,8 +175,8 @@ pub struct ForeignFunc {
     pub variadic: bool,
 }
 
-impl From<TyKind> for ValueKind {
-    fn from(ty: TyKind) -> Self {
+impl From<&TyKind> for ValueKind {
+    fn from(ty: &TyKind) -> Self {
         match ty {
             TyKind::Never | TyKind::Unit => ValueKind::Aggregate,
             TyKind::Bool => ValueKind::Bool,
@@ -213,7 +223,7 @@ impl From<TyKind> for ValueKind {
 
 impl Value {
     pub fn unit() -> Self {
-        Value::Aggregate(vec![])
+        Value::Aggregate(Vec::with_capacity(0))
     }
 
     pub fn is_truthy(&self) -> bool {
@@ -270,11 +280,7 @@ impl Value {
 
 impl Pointer {
     pub fn unit() -> Self {
-        // Note (Ron): Leak
-        let mut elements = Vec::<Value>::new();
-        let ptr = Pointer::Aggregate(&mut elements as _);
-        mem::forget(elements);
-        ptr
+        Pointer::Aggregate(&mut Vec::with_capacity(0))
     }
 
     pub fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {

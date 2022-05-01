@@ -1,33 +1,14 @@
 use c.?
 
-// let foo = fn {
-//     let x = 32
-//     printf("hello answer: %d\n".data, x + 10)
-//     let y = 69
-//     printf("hello favorite: %d\n".data, y)
-// }
-
-// let build = fn {
-//     foo()
-//     let x = 5
-//     printf("hello sum: %d + %d = %d\n".data, x, 10, x + 10)
-//     let string = "Hello!\0".data;
-//     printf("hello string: %s\n".data, string)
-// }
-
-let build = fn {
-    // let y = 10
-    // y = 5
-    // printf("hello %d\n".data, y)
-
-    printf("Hello World, Again!\n".data)
+let test = fn {
+    // printf("Hello, Vm!\n".data)
     
-    let x = malloc(@size_of(int)) as *int
-    x.* = 42
-    printf("hello %d\n".data, x.*)
+    // let x = malloc(@size_of(int)) as *int
+    // x.* = 42
+    // printf("The answer is %d\n".data, x.*)
+    // printf("My name is %s and I'm %d years old\n".data, "Ron".data, 26 as i64)
 
-    printf("hello %d : %p\n".data, x.*, x)
-    printf("hello %d %d\n".data, x.*, x.* + 1)
+    let tup = (1, 2, 3)
 }
 
-@run(build())
+@run(test())
