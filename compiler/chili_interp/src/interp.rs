@@ -143,4 +143,9 @@ impl<'i> InterpSess<'i> {
                 }),
         )
     }
+
+    pub(crate) fn add_local(&mut self, code: &mut CompiledCode, id: BindingInfoId) {
+        self.env_mut().insert(id, code.locals as i16);
+        code.locals += 1;
+    }
 }

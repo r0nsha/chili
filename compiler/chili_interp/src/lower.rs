@@ -29,12 +29,9 @@ impl Lower for ast::Expr {
             ast::ExprKind::Import(_) => todo!(),
             ast::ExprKind::Foreign(_) => todo!(),
             ast::ExprKind::Binding(binding) => {
-                let expr_slot = if let Some(expr) = &binding.expr {
+                if let Some(expr) = &binding.expr {
                     expr.lower(sess, code, LowerContext { take_ptr: false });
-                    Some(code.stack_offset())
-                } else {
-                    None
-                };
+                }
 
                 match &binding.pattern {
                     Pattern::Single(pat) => {
@@ -42,15 +39,38 @@ impl Lower for ast::Expr {
                             code.push(Instruction::SetLocal(code.locals as i32));
                         }
 
-                        sess.env_mut()
-                            .insert(pat.binding_info_id, code.locals as i16);
-
-                        code.locals += 1;
+                        sess.add_local(code, pat.binding_info_id);
                     }
-                    Pattern::StructUnpack(_) => todo!(),
+                    Pattern::StructUnpack(pat) => {
+                        let ty = binding.ty.normalize(sess.tycx);
+                        let ty = ty.as_struct();
+
+                        let last_index = pat.symbols.len() - 1;
+
+                        for (index, pat) in pat.symbols.iter().enumerate() {
+                            if index < last_index {
+                                code.push(Instruction::Copy);
+                            }
+
+                            let field_index = ty.field_index(pat.symbol).unwrap();
+
+                            code.push(Instruction::Index(field_index as u32));
+                            code.push(Instruction::SetLocal(code.locals as i32));
+                            sess.add_local(code, pat.binding_info_id);
+                        }
+                    }
                     Pattern::TupleUnpack(pat) => {
-                        let slot = code.stack_offset();
-                        for symbol in pat.symbols.iter() {}
+                        let last_index = pat.symbols.len() - 1;
+
+                        for (index, pat) in pat.symbols.iter().enumerate() {
+                            if index < last_index {
+                                code.push(Instruction::Copy);
+                            }
+
+                            code.push(Instruction::Index(index as u32));
+                            code.push(Instruction::SetLocal(code.locals as i32));
+                            sess.add_local(code, pat.binding_info_id);
+                        }
                     }
                 }
             }

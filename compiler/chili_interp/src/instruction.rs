@@ -42,6 +42,7 @@ pub enum Instruction {
     Cast(CastInstruction),
     AggregateAlloc,
     AggregatePush,
+    Copy,
     Halt,
 }
 
@@ -104,6 +105,7 @@ impl Display for Instruction {
                 Instruction::Cast(cast) => format!("cast {:?}", cast),
                 Instruction::AggregateAlloc => "aggregate_alloc".to_string(),
                 Instruction::AggregatePush => "aggregate_push".to_string(),
+                Instruction::Copy => "copy".to_string(),
                 Instruction::Halt => "halt".to_string(),
             }
         )
@@ -165,10 +167,5 @@ impl CompiledCode {
     pub fn push(&mut self, inst: Instruction) -> usize {
         self.instructions.push(inst);
         self.instructions.len() - 1
-    }
-
-    #[inline]
-    pub fn stack_offset(&self) -> usize {
-        self.locals as usize + self.instructions.len()
     }
 }

@@ -120,7 +120,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -325,6 +325,10 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     let aggregate = self.stack.peek_mut().as_aggregate_mut();
                     aggregate.push(value);
+                }
+                Instruction::Copy => {
+                    let value = self.stack.peek(0).clone();
+                    self.stack.push(value);
                 }
                 Instruction::Halt => break self.stack.pop(),
             }

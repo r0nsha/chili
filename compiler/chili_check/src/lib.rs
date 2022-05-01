@@ -428,6 +428,15 @@ impl Check for ast::Binding {
 
             res.const_value
         } else {
+            match &self.pattern {
+                Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => {
+                    return Err(Diagnostic::error()
+                        .with_message("unpack pattern requires a value to unpack")
+                        .with_label(Label::primary(pat.span, "illegal pattern use")));
+                }
+                Pattern::Single(_) => (),
+            }
+
             None
         };
 
