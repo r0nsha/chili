@@ -34,7 +34,7 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Co
 
         for (slot, value) in globals.iter().enumerate() {
             writer
-                .write(format!("${} = {}\n", slot, value.pretty_print(),).as_bytes())
+                .write(format!("${} = {}\n", slot, value.pretty_print()).as_bytes())
                 .unwrap();
         }
 
@@ -42,7 +42,7 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Co
 
         for (index, constant) in constants.iter().enumerate() {
             writer
-                .write(format!("%{}\t{}\n", index, constant,).as_bytes())
+                .write(format!("%{}\t{}\n", index, constant.pretty_print()).as_bytes())
                 .unwrap();
         }
     }

@@ -93,7 +93,7 @@ impl Display for Instruction {
                 Instruction::Jmpt(offset) => format!("jmpt &{:06}", offset),
                 Instruction::Jmpf(offset) => format!("jmpf &{:06}", offset),
                 Instruction::Return => "return".to_string(),
-                Instruction::Call(arg_count) => format!("call_{}", arg_count),
+                Instruction::Call(arg_count) => format!("call {}", arg_count),
                 Instruction::GetGlobal(slot) => format!("get_global ${}", slot),
                 Instruction::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
                 Instruction::SetGlobal(slot) => format!("set_global ${}", slot),

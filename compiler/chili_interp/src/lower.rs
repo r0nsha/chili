@@ -750,24 +750,32 @@ fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) ->
 
 #[inline]
 fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
-    // TODO: this function is incomplete
-    // TODO: it implies that only global bindings resulting in a constant value works
-
     sess.env_stack.push((binding.module_id, Env::default()));
 
-    binding.expr.as_ref().unwrap().lower(
-        sess,
-        &mut CompiledCode::new(),
-        LowerContext { take_ptr: false },
-    );
+    let mut code = CompiledCode::new();
+
+    binding
+        .expr
+        .as_ref()
+        .unwrap()
+        .lower(sess, &mut code, LowerContext { take_ptr: false });
 
     sess.env_stack.pop();
 
     let id = binding.pattern.as_single_ref().binding_info_id;
     assert!(id != BindingInfoId::unknown());
 
-    match sess.interp.constants.pop() {
-        Some(value) => sess.insert_global(id, value),
-        None => panic!("top level binding doesn't have a defined constant value"),
+    match binding.ty.normalize(sess.tycx) {
+        TyKind::Fn(_) => match sess.interp.constants.pop() {
+            Some(value) => sess.insert_global(id, value),
+            None => panic!("top level function doesn't have a defined constant value"),
+        },
+        // insert a temporary value, since the global will be computed at the start of the vm execution
+        _ => {
+            let slot = sess.insert_global(id, Value::unit());
+            code.push(Instruction::Return);
+            sess.evaluated_globals.push((slot, code));
+            slot
+        }
     }
 }

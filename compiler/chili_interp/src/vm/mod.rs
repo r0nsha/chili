@@ -109,10 +109,11 @@ impl<'vm> VM<'vm> {
 
     pub(crate) fn run(&'vm mut self, code: CompiledCode) -> Value {
         self.push_frame(Func {
-            name: ustr("_vm_root"),
+            name: ustr("__vm_start"),
             param_count: 0,
             code,
         });
+
         self.run_loop()
     }
 
@@ -120,7 +121,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst);
+            // self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -258,7 +259,7 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::SetGlobal(slot) => {
                     let value = self.stack.pop();
-                    self.interp.globals.insert(slot as usize, value);
+                    self.interp.globals[slot as usize] = value;
                 }
                 Instruction::Peek(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;

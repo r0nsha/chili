@@ -228,8 +228,7 @@ impl AsFfiType for Value {
             Value::Aggregate(_) => todo!(),
             Value::Pointer(..) => types::pointer,
             Value::Func(_) => todo!(),
-            Value::ForeignFunc(_) => todo!(),
-            Value::Type(_) => todo!(),
+            _ => panic!("can't pass `{}` through ffi", self),
         }
     }
 }
@@ -240,7 +239,6 @@ trait AsFfiArg {
 
 impl AsFfiArg for Value {
     unsafe fn as_ffi_arg(&mut self) -> *mut c_void {
-        println!("{self}");
         match self {
             Value::I8(ref mut v) => raw_ptr!(v),
             Value::I16(ref mut v) => raw_ptr!(v),
@@ -255,13 +253,27 @@ impl AsFfiArg for Value {
             Value::Bool(ref mut v) => raw_ptr!(v),
             Value::F32(ref mut v) => raw_ptr!(v),
             Value::F64(ref mut v) => raw_ptr!(v),
-            Value::Aggregate(_) => todo!("tuple"),
+            Value::Aggregate(ref mut v) => {
+                // TODO: support packed struct
+                // TODO: Leak
+                let mut bytes: Vec<u8> = vec![];
+
+                // TODO: calculate the alignment of the struct
+                // TODO: for each value, add it to `bytes`
+                // TODO: calculate the current value's size
+                // TODO: if the value's size is less then `alignment` add the appropriate difference as padding
+                let ptr = bytes.as_mut_ptr() as *mut c_void;
+
+                std::mem::forget(bytes);
+
+                ptr
+            }
             Value::Pointer(ref mut ptr) => {
                 raw_ptr!(ptr.as_raw())
             }
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
-            Value::Type(_) => todo!(),
+            _ => panic!("can't pass `{}` through ffi", self),
         }
     }
 }

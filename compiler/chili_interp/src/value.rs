@@ -149,7 +149,8 @@ impl_value! {
     Pointer(Pointer),
     Func(Func),
     ForeignFunc(ForeignFunc),
-    Type(TyKind)
+    Type(TyKind),
+    LazyCompute(CompiledCode)
 }
 
 #[derive(Debug, Clone)]
@@ -347,6 +348,7 @@ impl Display for Value {
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
                 Value::Type(ty) => format!("type {}", ty),
+                Value::LazyCompute(_) => "lazy compute".to_string(),
             }
         )
     }

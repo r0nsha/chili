@@ -3,7 +3,7 @@ use crate::{
     ffi::Ffi,
     instruction::{CompiledCode, Instruction},
     lower::{Lower, LowerContext},
-    value::Value,
+    value::{Func, Value},
     vm::{Constants, Globals, VM},
 };
 use chili_ast::{
@@ -13,7 +13,7 @@ use chili_ast::{
 use chili_infer::ty_ctx::TyCtx;
 use common::{scopes::Scopes, time};
 use std::collections::HashMap;
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 pub type InterpResult = Result<Value, InterpErr>;
 
@@ -50,6 +50,7 @@ impl Interp {
             tycx,
             typed_ast,
             env_stack: vec![],
+            evaluated_globals: vec![],
         }
     }
 }
@@ -60,6 +61,9 @@ pub struct InterpSess<'i> {
     pub(crate) tycx: &'i TyCtx,
     pub(crate) typed_ast: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<(ModuleId, Env)>,
+
+    // globals to be evaluated when the VM starts
+    pub(crate) evaluated_globals: Vec<(usize, CompiledCode)>,
 }
 
 pub type Env = Scopes<BindingInfoId, i16>;
@@ -71,8 +75,30 @@ impl<'i> InterpSess<'i> {
 
         self.env_stack.push((module_id, Env::default()));
 
+        // lower expression tree into instructions
         expr.lower(self, &mut code, LowerContext { take_ptr: false });
         code.push(Instruction::Halt);
+
+        let mut init_instructions: Vec<Instruction> = vec![];
+
+        // push evaluated globals to the start of the instruction tree
+        for (global_index, global_code) in self.evaluated_globals.clone() {
+            let const_slot = self.interp.constants.len();
+            self.interp.constants.push(Value::Func(Func {
+                name: ustr(&format!("global_init_{}", global_index)),
+                param_count: 0,
+                code: global_code,
+            }));
+            init_instructions.push(Instruction::PushConst(const_slot as u32));
+
+            init_instructions.push(Instruction::Call(0));
+            init_instructions.push(Instruction::SetGlobal(global_index as u32));
+        }
+
+        code.instructions = init_instructions
+            .into_iter()
+            .chain(code.instructions)
+            .collect();
 
         self.env_stack.pop();
 
