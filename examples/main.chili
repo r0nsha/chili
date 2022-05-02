@@ -27,4 +27,6 @@ let test = fn {
     printf("My name is %s and I'm %d years old\n".data, name.data, age)
 }
 
-@run(test())
+use raylib_bubble_sort_visualization.main as raylib_test
+// @run(test())
+@run(raylib_test())

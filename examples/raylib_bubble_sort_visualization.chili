@@ -5,8 +5,8 @@ let width: i32 = 2000
 let height: i32 = 400
 let max_droplet_interval: i32 = 1
 
-let main = fn() {
-	srand(time(nil))
+pub let main = fn() {
+	srand(time(0 as uint as _))
 
 	let mut values: [width]i32 = [0; width]
 	let mut sorted_indices: [width]bool = [false; width]

@@ -465,6 +465,7 @@ impl Check for ast::Binding {
                 .unwrap();
 
             binding_info.visibility = self.visibility;
+            binding_info.span = self.pattern.span();
 
             match &mut self.pattern {
                 Pattern::Single(pat) => {
