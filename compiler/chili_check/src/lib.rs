@@ -1292,32 +1292,40 @@ impl Check for ast::Expr {
             ast::ExprKind::MemberAccess(access) => {
                 let res = access.expr.check(sess, env, None)?;
 
-                // if this parsing operation succeeds, this is a tuple member access - `tup.0`
-                // otherwise, this is a struct field access - `strct.field`
                 let member_tuple_index = access.member.as_str().parse::<usize>();
 
-                let member_ty = sess.tycx.var(self.span);
-                let partial_ty = match member_tuple_index {
-                    Ok(index) => {
-                        let elements = repeat_with(|| sess.tycx.var(self.span))
-                            .take(index + 1)
-                            .map(TyKind::Var)
-                            .collect::<Vec<TyKind>>();
-                        sess.tycx.partial_tuple(elements, self.span)
-                    }
-                    Err(_) => {
-                        let fields = BTreeMap::from([(access.member, TyKind::Var(member_ty))]);
-                        sess.tycx.partial_struct(PartialStructTy(fields), self.span)
-                    }
-                };
+                // if the accessed expression's type is not resolved yet - try unifying it with a partial type
+                match res.ty.normalize(&sess.tycx) {
+                    TyKind::Var(_) => {
+                        // if this parsing operation succeeds, this is a tuple member access - `tup.0`
+                        // otherwise, this is a struct field access - `strct.field`
 
-                res.ty.unify(&partial_ty, &mut sess.tycx).or_report_err(
-                    &sess.tycx,
-                    partial_ty,
-                    None,
-                    res.ty,
-                    access.expr.span,
-                )?;
+                        let member_ty = sess.tycx.var(self.span);
+                        let partial_ty = match member_tuple_index {
+                            Ok(index) => {
+                                let elements = repeat_with(|| sess.tycx.var(self.span))
+                                    .take(index + 1)
+                                    .map(TyKind::Var)
+                                    .collect::<Vec<TyKind>>();
+                                sess.tycx.partial_tuple(elements, self.span)
+                            }
+                            Err(_) => {
+                                let fields =
+                                    BTreeMap::from([(access.member, TyKind::Var(member_ty))]);
+                                sess.tycx.partial_struct(PartialStructTy(fields), self.span)
+                            }
+                        };
+
+                        res.ty.unify(&partial_ty, &mut sess.tycx).or_report_err(
+                            &sess.tycx,
+                            partial_ty,
+                            None,
+                            res.ty,
+                            access.expr.span,
+                        )?;
+                    }
+                    _ => (),
+                }
 
                 let kind = res.ty.normalize(&sess.tycx);
 

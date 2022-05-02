@@ -1,49 +1,50 @@
-use raylib.?;
-use c.?;
+use raylib.?
+use c.?
 
-let width: uint = 2000;
-let height: uint = 400;
-let max_droplet_interval: i32 = 1;
+let width: i32 = 2000
+let height: i32 = 400
+let max_droplet_interval: i32 = 1
 
 let main = fn() {
-	srand(time(nil));
+	srand(time(nil))
 
-	let mut values: [width]int;
-	let mut sorted_indices: [width]bool;
+	let mut values: [width]i32 = [0; width]
+	let mut sorted_indices: [width]bool = [false; width]
 
 	for 0..values.len - 1 {
-		values[it] = rand() % width;
+		values[it] = rand() as i32 % width
 	}
 
 	InitWindow(width, height, "chili language - test - water ripples\0".data);
-	SetTargetFPS(300);
+	SetTargetFPS(300)
 
-	let mut n = 0;
-	let mut len = values.len - 1;
+	let mut n = 0
+	let mut len = values.len - 1
 
 	while !WindowShouldClose() {
 		if n < len {
 			for i in 0..len - n - 1 {
-				let a = values[i];
-				let b = values[i + 1];
+				let a = values[i]
+				let b = values[i + 1]
 
 				if a > b {
-					let temp = values[i + 1];
-					values[i + 1] = values[i];
-					values [i] = temp;
+					let temp = values[i + 1]
+					values[i + 1] = values[i]
+					values [i] = temp
 
-					sorted_indices[i] = true;
+					sorted_indices[i] = true
 				}
 			}
-			n += 1;
+			n += 1
 		}
 
-		BeginDrawing();
-		ClearBackground(black);
+		BeginDrawing()
+		ClearBackground(black)
 
 		for values {
-			let x = width - it_index;
-			let line_height = map(it, 0, width, 0, height);
+			let x = width - it_index as i32
+			let line_height = map(it, 0, width, 0, height)
+
 			DrawLine(
 				x, 
 				line_height, 
@@ -54,21 +55,19 @@ let main = fn() {
 				} else {
 					white
 				}
-			);
+			)
 		}
 
-		DrawFPS(10, 10);
-
-		sorted_indices = [false; width];
-
-		EndDrawing();
+		DrawFPS(10, 10)
+		sorted_indices = [false; width]
+		EndDrawing()
 	}
 
 	CloseWindow();
 }
 
-let map = fn(x: int, a: int, b: int, c: int, d: int) -> int {
+let map = fn(x: i32, a: i32, b: i32, c: i32, d: i32) -> i32 {
 	let div = (x - a) as f64 / (b - a) as f64;
 	let res = div * ((d - c) + c) as f64;
-	res as int
+	res as i32
 }

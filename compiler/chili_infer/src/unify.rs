@@ -178,7 +178,11 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
         InferenceValue::PartialStruct(mut partial_struct) => {
             let other_kind = other.normalize(&tycx);
             match other_kind.maybe_deref_once() {
-                TyKind::Slice(..) | TyKind::Array(..)
+                TyKind::Array(..) if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN)) => {
+                    tycx.bind_ty(var, other_kind);
+                    Ok(())
+                }
+                TyKind::Slice(..)
                     if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN))
                         || partial_struct.contains_key(&ustr(BUILTIN_FIELD_DATA)) =>
                 {

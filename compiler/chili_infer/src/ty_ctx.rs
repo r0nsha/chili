@@ -103,7 +103,7 @@ impl TyCtx {
     }
 
     pub fn print_ty(&self, ty: Ty) {
-        println!("{} :: {}", ty, self.bindings[ty.0]);
+        println!("'{} :: {}", ty.0, self.bindings[ty.0]);
     }
 }
 

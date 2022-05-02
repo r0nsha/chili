@@ -34,7 +34,7 @@ impl<'p> Parser<'p> {
                         kind,
                         pattern,
                         ty: Ty::unknown(),
-                        ty_expr: None,
+                        ty_expr,
                         expr: None,
                         lib_name: None,
                         span: start_span.to(self.previous_span()),

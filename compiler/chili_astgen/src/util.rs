@@ -2,7 +2,7 @@ use chili_ast::{ast, compiler_info, workspace::ModuleInfo};
 use chili_span::Span;
 use std::collections::HashSet;
 
-pub(crate) fn insert_std_import(ast: &mut ast::Ast, imports: &mut HashSet<ModuleInfo>) {
+pub(crate) fn add_std_import(ast: &mut ast::Ast, imports: &mut HashSet<ModuleInfo>) {
     let module_info = compiler_info::std_module_info();
     add_intrinsic_module(ast, imports, module_info)
 }
