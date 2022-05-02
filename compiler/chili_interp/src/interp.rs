@@ -50,7 +50,6 @@ impl Interp {
             tycx,
             typed_ast,
             env_stack: vec![],
-            loop_exits: vec![],
         }
     }
 }
@@ -61,7 +60,6 @@ pub struct InterpSess<'i> {
     pub(crate) tycx: &'i TyCtx,
     pub(crate) typed_ast: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<(ModuleId, Env)>,
-    pub(crate) loop_exits: Vec<i32>,
 }
 
 pub type Env = Scopes<BindingInfoId, i16>;

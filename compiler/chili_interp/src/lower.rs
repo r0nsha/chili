@@ -104,8 +104,18 @@ impl Lower for ast::Expr {
                 while_.lower(sess, code, LowerContext { take_ptr: false })
             }
             ast::ExprKind::For(_) => todo!(),
-            ast::ExprKind::Break(_) => todo!(),
-            ast::ExprKind::Continue(_) => todo!(),
+            ast::ExprKind::Break(term) => {
+                for expr in term.deferred.iter() {
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                }
+                code.push(Instruction::Jmp(INVALID_BREAK_JMP_OFFSET));
+            }
+            ast::ExprKind::Continue(term) => {
+                for expr in term.deferred.iter() {
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                }
+                code.push(Instruction::Jmp(INVALID_CONTINUE_JMP_OFFSET));
+            }
             ast::ExprKind::Return(_) => todo!(),
             ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
             ast::ExprKind::Block(block) => block.lower(sess, code, ctx),
@@ -465,8 +475,10 @@ impl Lower for ast::While {
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let exit_jmp = push_empty_jmpf(code);
+        let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
         code.push(Instruction::Pop);
+
+        let start_inst_pos = code.instructions.len();
 
         self.block
             .lower(sess, code, LowerContext { take_ptr: false });
@@ -474,10 +486,25 @@ impl Lower for ast::While {
         let offset = code.instructions.len() - loop_start;
         code.push(Instruction::Jmp(-(offset as i32)));
 
-        let loop_exit = patch_empty_jmp(code, exit_jmp);
+        patch_jmp(code, exit_jmp);
         code.push(Instruction::Pop);
 
-        sess.loop_exits.push(loop_exit);
+        let len = code.instructions.len();
+
+        // patch all break/continue jmp instructions
+        for inst_pos in start_inst_pos..len {
+            match &mut code.instructions[inst_pos] {
+                Instruction::Jmp(offset) => {
+                    if *offset == INVALID_BREAK_JMP_OFFSET {
+                        *offset = (len - 1 - inst_pos) as i32;
+                    }
+                    if *offset == INVALID_CONTINUE_JMP_OFFSET {
+                        *offset = loop_start as i32 - inst_pos as i32;
+                    }
+                }
+                _ => (),
+            };
+        }
     }
 }
 
@@ -486,21 +513,21 @@ impl Lower for ast::If {
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let then_jmp = push_empty_jmpf(code);
+        let then_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
         code.push(Instruction::Pop);
 
         self.then
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let else_jmp = push_empty_jmp(code);
-        patch_empty_jmp(code, then_jmp);
+        let else_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
+        patch_jmp(code, then_jmp);
         code.push(Instruction::Pop);
 
         if let Some(otherwise) = &self.otherwise {
             otherwise.lower(sess, code, LowerContext { take_ptr: false });
         }
 
-        patch_empty_jmp(code, else_jmp);
+        patch_jmp(code, else_jmp);
     }
 }
 
@@ -553,7 +580,7 @@ impl Lower for ast::Unary {
             },
         );
 
-        // Note (Ron): Ref isn't a real instruction, so we don't push it
+        // Note (Ron): Ref isn't a real instruction in the VM's context, so we don't push it
         match self.op {
             ast::UnaryOp::Ref(_) => (),
             _ => {
@@ -563,25 +590,21 @@ impl Lower for ast::Unary {
     }
 }
 
-fn push_empty_jmpf(code: &mut CompiledCode) -> usize {
-    code.push(Instruction::Jmpf(0xffff))
-}
+const INVALID_JMP_OFFSET: i32 = i32::MAX;
+const INVALID_BREAK_JMP_OFFSET: i32 = i32::MAX - 1;
+const INVALID_CONTINUE_JMP_OFFSET: i32 = i32::MAX - 2;
 
-fn push_empty_jmp(code: &mut CompiledCode) -> usize {
-    code.push(Instruction::Jmp(0xffff))
-}
+fn patch_jmp(code: &mut CompiledCode, inst_pos: usize) {
+    let target_offset = (code.instructions.len() - 1 - inst_pos) as i32;
 
-fn patch_empty_jmp(code: &mut CompiledCode, pos: usize) -> i32 {
-    let target_offset = (code.instructions.len() - 1 - pos) as i32;
-
-    match &mut code.instructions[pos] {
-        Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset) => {
+    match &mut code.instructions[inst_pos] {
+        Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset)
+            if *offset == INVALID_JMP_OFFSET =>
+        {
             *offset = target_offset
         }
-        _ => panic!("instruction at address {} is not a jump", pos),
+        _ => panic!("instruction at address {} is not a jmp", inst_pos),
     };
-
-    target_offset
 }
 
 #[inline]
