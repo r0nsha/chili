@@ -1,15 +1,15 @@
-use raylib.*;
-use c.*;
+use raylib.?;
+use c.?;
 
-let width uint = 2000;
-let height uint = 400;
-let max_droplet_interval i32 = 1;
+let width: uint = 2000;
+let height: uint = 400;
+let max_droplet_interval: i32 = 1;
 
 let main = fn() {
 	srand(time(nil));
 
-	let mut values [width]int;
-	let mut sorted_indices [width]bool;
+	let mut values: [width]int;
+	let mut sorted_indices: [width]bool;
 
 	for 0..values.len - 1 {
 		values[it] = rand() % width;
@@ -67,7 +67,7 @@ let main = fn() {
 	CloseWindow();
 }
 
-let map = fn(x int, a int, b int, c int, d int) -> int {
+let map = fn(x: int, a: int, b: int, c: int, d: int) -> int {
 	let div = (x - a) as f64 / (b - a) as f64;
 	let res = div * ((d - c) + c) as f64;
 	res as int

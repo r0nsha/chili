@@ -1219,10 +1219,12 @@ impl Check for ast::Expr {
                         let ty = sess.tycx.bound(*inner, self.span);
                         Ok(Res::new(ty))
                     }
-                    _ => Err(TypeError::invalid_expr_in_subscript(
-                        sub.expr.span,
-                        kind.display(&sess.tycx),
-                    )),
+                    _ => Err(Diagnostic::error()
+                        .with_message(format!("cannot index type `{}`", kind.display(&sess.tycx)))
+                        .with_label(Label::primary(sub.expr.span, "cannot index"))
+                        .with_note(
+                            "this error will be fixed when ad-hoc polymorphism is implemented",
+                        )),
                 }
             }
             ast::ExprKind::Slice(slice) => {
@@ -1271,10 +1273,12 @@ impl Check for ast::Expr {
                         (inner, is_mutable)
                     }
                     _ => {
-                        return Err(TypeError::invalid_expr_in_slice(
-                            slice.expr.span,
-                            expr_ty.display(&sess.tycx),
-                        ))
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "cannot slice type `{}`",
+                                expr_ty.display(&sess.tycx)
+                            ))
+                            .with_label(Label::primary(slice.expr.span, "cannot slice")))
                     }
                 };
 

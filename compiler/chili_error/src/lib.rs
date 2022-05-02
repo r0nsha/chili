@@ -354,17 +354,4 @@ impl TypeError {
             .with_message(format!("expected {}, found {}", expectation, ty))
             .with_label(Label::primary(span, format!("expected {}", expectation)))
     }
-
-    pub fn invalid_expr_in_slice(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot slice type `{}`", ty))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn invalid_expr_in_subscript(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot index type `{}`", ty))
-            .with_label(Label::primary(span, ""))
-            .with_note("this error will be fixed when some king of behavioral polymorphism (i.e traits/interfaces) is implemented")
-    }
 }

@@ -130,10 +130,17 @@ impl<'p> Parser<'p> {
         let mut ast = Ast::new(self.module_info);
 
         while !self.is_end() {
-            let _ = self.parse_top_level(&mut ast);
+            if let Err(diag) = self.parse_top_level(&mut ast) {
+                self.diagnostics.push(diag);
+                return self.make_result(ast);
+            }
             self.skip_trailing_semicolons();
         }
 
+        return self.make_result(ast);
+    }
+
+    fn make_result(&self, ast: Ast) -> ParserResult {
         ParserResult {
             ast,
             imports: self.used_modules.clone(),
