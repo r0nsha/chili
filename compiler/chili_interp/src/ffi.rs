@@ -38,7 +38,7 @@ impl Ffi {
             "c" | "C" | "libucrt" => ustr("msvcrt"),
             _ => lib_path,
         };
-
+        println!("{lib_name}");
         self.libs
             .entry(lib_name)
             .or_insert_with(|| libloading::Library::new(lib_name.as_str()).unwrap())

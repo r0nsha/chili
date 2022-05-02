@@ -73,8 +73,12 @@ impl Lower for ast::Expr {
                         }
                     }
                 }
+
+                sess.push_const(code, Value::unit());
             }
-            ast::ExprKind::Defer(_) => (),
+            ast::ExprKind::Defer(_) => {
+                sess.push_const(code, Value::unit());
+            }
             ast::ExprKind::Assign(assign) => {
                 assign
                     .rvalue
@@ -85,6 +89,8 @@ impl Lower for ast::Expr {
                     .lower(sess, code, LowerContext { take_ptr: true });
 
                 code.push(Instruction::Assign);
+
+                sess.push_const(code, Value::unit());
             }
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(builtin) => match builtin {
@@ -243,13 +249,10 @@ impl Lower for ast::Expr {
 
                     code.push(Instruction::AggregateAlloc);
 
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
-                    let expr_slot = code.instructions.len() - 1;
-
-                    for i in 0..len {
-                        if i < len - 1 {
-                            code.push(Instruction::Peek(expr_slot as i32));
-                        }
+                    // TODO: This is very inefficient.
+                    // TODO: We should precalculate the expression, and just push its result to the array
+                    for _ in 0..len {
+                        expr.lower(sess, code, LowerContext { take_ptr: false });
                         code.push(Instruction::AggregatePush);
                     }
                 }
@@ -485,6 +488,7 @@ impl Lower for ast::FnSig {
             let lib_path = ast::ForeignLibrary::from_str(&lib_name.to_string(), &module_path)
                 .unwrap()
                 .path();
+
             let lib_path = lib_path.trim_end_matches(".lib");
 
             let foreign_func = ForeignFunc {
@@ -575,6 +579,8 @@ impl Lower for ast::For {
         code.push(Instruction::Pop);
 
         patch_loop_terminators(code, start_inst_pos, loop_start);
+
+        sess.push_const(code, Value::unit());
     }
 }
 
@@ -600,6 +606,8 @@ impl Lower for ast::While {
         code.push(Instruction::Pop);
 
         patch_loop_terminators(code, start_inst_pos, loop_start);
+
+        sess.push_const(code, Value::unit());
     }
 }
 
@@ -661,6 +669,10 @@ impl Lower for ast::Block {
                     LowerContext { take_ptr: false }
                 },
             );
+
+            if !is_last {
+                code.push(Instruction::Pop);
+            }
         }
 
         for expr in self.deferred.iter() {

@@ -6,7 +6,7 @@ mod env;
 mod top_level;
 
 use chili_ast::{
-    ast::{self, Expr, ForeignLibrary},
+    ast,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
@@ -394,7 +394,7 @@ impl Check for ast::Binding {
         if let Some(lib) = self.lib_name {
             sess.workspace
                 .foreign_libraries
-                .insert(ForeignLibrary::try_from_str(
+                .insert(ast::ForeignLibrary::try_from_str(
                     &lib,
                     &env.module_info().file_path,
                     self.pattern.span(),
@@ -2053,7 +2053,7 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
     ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
 }
 
-fn interp_expr(expr: &Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
+fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
     let mut interp_sess = sess
         .interp
         .create_session(sess.workspace, &sess.tycx, &sess.new_ast);
