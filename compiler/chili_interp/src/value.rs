@@ -36,7 +36,7 @@ macro_rules! impl_value {
                     pub fn [<into_ $variant:snake>](self) -> $ty {
                         match self {
                             Value::$variant(v) => v,
-                            _ => panic!("got {}", self)
+                            _ => panic!("got {}, expected {}", self, stringify!($variant))
                         }
                     }
                 )+
@@ -45,7 +45,7 @@ macro_rules! impl_value {
                     pub fn [<as_ $variant:snake>](&self) -> &$ty {
                         match self {
                             Value::$variant(v) => v,
-                            _ => panic!("got {}", self)
+                            _ => panic!("got {}, expected {}", self, stringify!($variant))
                         }
                     }
                 )+
@@ -54,7 +54,7 @@ macro_rules! impl_value {
                     pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
                         match self {
                             Value::$variant(v) => v,
-                            _ => panic!("got {}", self)
+                            _ => panic!("got {}, expected {}", self, stringify!($variant))
                         }
                     }
                 )+

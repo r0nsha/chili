@@ -4,7 +4,7 @@ let test = fn {
     printf("Hello, Vm!\n".data)
 
     // Alloc ptr
-    let ptr = malloc(@size_of(int)) as *int
+    let ptr = malloc(@size_of(int)) as *mut int
     ptr.* = 42
     defer free(ptr as _)
 

@@ -30,16 +30,15 @@ where
     }
 
     pub fn get(&self, index: usize) -> &T {
-        self.0.get(index).unwrap_or_else(|| panic!("{}", index))
+        &self.0[index]
     }
 
     pub fn get_mut(&mut self, index: usize) -> &mut T {
-        self.0.get_mut(index).unwrap_or_else(|| panic!("{}", index))
+        &mut self.0[index]
     }
 
     pub fn set(&mut self, index: usize, value: T) {
-        let mut _value = self.0.get_mut(index).unwrap_or_else(|| panic!("{}", index));
-        *_value = value;
+        self.0[index] = value;
     }
 
     pub fn truncate(&mut self, len: usize) {
