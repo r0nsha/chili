@@ -1,10 +1,13 @@
 use crate::{
     value::{ForeignFunc, Value},
-    IS_64BIT,
+    IS_64BIT, WORD_SIZE,
 };
-use chili_ast::ty::*;
-use libffi::low::{
-    ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
+use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
+use libffi::{
+    low::{
+        ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
+    },
+    raw::FFI_TYPE_STRUCT,
 };
 use std::ffi::c_void;
 use ustr::{ustr, Ustr, UstrMap};
@@ -38,7 +41,7 @@ impl Ffi {
             "c" | "C" | "libucrt" => ustr("msvcrt"),
             _ => lib_path,
         };
-        println!("{lib_name}");
+
         self.libs
             .entry(lib_name)
             .or_insert_with(|| libloading::Library::new(lib_name.as_str()).unwrap())
@@ -163,7 +166,25 @@ impl AsFfiType for TyKind {
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
-            TyKind::Struct(_) => todo!(),
+            TyKind::Struct(st) => {
+                let size = st.size_of(WORD_SIZE);
+                let align = st.align_of(WORD_SIZE);
+
+                // TODO: Leak
+                let mut elements: Vec<*mut ffi_type> = vec![];
+                for field in st.fields.iter() {
+                    elements.push(ffi_type!(field.ty.as_ffi_type()));
+                }
+                let elements_ptr = elements.as_mut_ptr();
+                std::mem::forget(elements);
+
+                ffi_type {
+                    size,
+                    alignment: align as u16,
+                    type_: FFI_TYPE_STRUCT as u16,
+                    elements: elements_ptr,
+                }
+            }
             TyKind::Infer(_, ty) => match ty {
                 InferTy::AnyInt => types::sint64,
                 InferTy::AnyFloat => types::float,
@@ -219,6 +240,7 @@ trait AsFfiArg {
 
 impl AsFfiArg for Value {
     unsafe fn as_ffi_arg(&mut self) -> *mut c_void {
+        println!("{self}");
         match self {
             Value::I8(ref mut v) => raw_ptr!(v),
             Value::I16(ref mut v) => raw_ptr!(v),

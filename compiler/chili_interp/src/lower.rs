@@ -572,6 +572,8 @@ impl Lower for ast::For {
         code.push(Instruction::PeekPtr(iter_index_slot));
         code.push(Instruction::Increment);
 
+        code.push(Instruction::Pop);
+
         let offset = code.instructions.len() - loop_start;
         code.push(Instruction::Jmp(-(offset as i32)));
 
@@ -598,6 +600,8 @@ impl Lower for ast::While {
 
         self.block
             .lower(sess, code, LowerContext { take_ptr: false });
+
+        code.push(Instruction::Pop);
 
         let offset = code.instructions.len() - loop_start;
         code.push(Instruction::Jmp(-(offset as i32)));
