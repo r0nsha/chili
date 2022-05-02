@@ -103,7 +103,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::While(while_) => {
                 while_.lower(sess, code, LowerContext { take_ptr: false })
             }
-            ast::ExprKind::For(_) => todo!(),
+            ast::ExprKind::For(for_) => for_.lower(sess, code, ctx),
             ast::ExprKind::Break(term) => {
                 for expr in term.deferred.iter() {
                     expr.lower(sess, code, LowerContext { take_ptr: false });
@@ -113,15 +113,30 @@ impl Lower for ast::Expr {
             ast::ExprKind::Continue(term) => {
                 for expr in term.deferred.iter() {
                     expr.lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::Pop);
                 }
                 code.push(Instruction::Jmp(INVALID_CONTINUE_JMP_OFFSET));
             }
-            ast::ExprKind::Return(_) => todo!(),
+            ast::ExprKind::Return(ret) => {
+                for expr in ret.deferred.iter() {
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::Pop);
+                }
+
+                if let Some(expr) = &ret.expr {
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                }
+
+                code.push(Instruction::Return);
+            }
             ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
             ast::ExprKind::Block(block) => block.lower(sess, code, ctx),
             ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
             ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
-            ast::ExprKind::Subscript(_) => todo!(),
+            ast::ExprKind::Subscript(sub) => {
+                // println!("{}", self.span.start.index);
+                todo!()
+            }
             ast::ExprKind::Slice(_) => todo!(),
             ast::ExprKind::Call(call) => call.lower(sess, code, ctx),
             ast::ExprKind::MemberAccess(access) => {
@@ -208,7 +223,37 @@ impl Lower for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::ArrayLiteral(_) => todo!(),
+            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
+                ast::ArrayLiteralKind::List(elements) => {
+                    code.push(Instruction::AggregateAlloc);
+
+                    for element in elements.iter() {
+                        element.lower(sess, code, LowerContext { take_ptr: false });
+                        code.push(Instruction::AggregatePush);
+                    }
+                }
+                ast::ArrayLiteralKind::Fill { len: _, expr } => {
+                    let ty = self.ty.normalize(sess.tycx);
+
+                    let len = if let TyKind::Array(_, len) = ty {
+                        len
+                    } else {
+                        panic!()
+                    };
+
+                    code.push(Instruction::AggregateAlloc);
+
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                    let expr_slot = code.instructions.len() - 1;
+
+                    for i in 0..len {
+                        if i < len - 1 {
+                            code.push(Instruction::Peek(expr_slot as i32));
+                        }
+                        code.push(Instruction::AggregatePush);
+                    }
+                }
+            },
             ast::ExprKind::TupleLiteral(lit) => {
                 code.push(Instruction::AggregateAlloc);
 
@@ -468,6 +513,71 @@ impl Lower for ast::Call {
     }
 }
 
+impl Lower for ast::For {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        let (iter_slot, iter_index_slot, end_slot) = match &self.iterator {
+            ast::ForIter::Range(start, end) => {
+                start.lower(sess, code, ctx);
+
+                let iter_slot = code.locals as i32;
+                code.push(Instruction::SetLocal(code.locals as i32));
+
+                sess.add_local(code, self.iter_id);
+
+                let iter_index_slot = code.locals as i32;
+                code.push(Instruction::SetLocal(code.locals as i32));
+
+                sess.add_local(code, self.iter_index_id);
+
+                end.lower(sess, code, ctx);
+                let end_slot = code.instructions.len() as i32 - 1;
+
+                (iter_slot, iter_index_slot, end_slot)
+            }
+            ast::ForIter::Value(value) => {
+                todo!()
+            }
+        };
+
+        let loop_start = code.instructions.len() - 1;
+
+        code.push(Instruction::Peek(iter_index_slot));
+        code.push(Instruction::Peek(end_slot));
+        code.push(Instruction::LtEq);
+
+        let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+        code.push(Instruction::Pop);
+
+        let start_inst_pos = code.instructions.len();
+
+        self.block
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        // set the iterated value
+        match &self.iterator {
+            ast::ForIter::Range(start, end) => {
+                code.push(Instruction::PeekPtr(iter_slot));
+                code.push(Instruction::Increment);
+            }
+            ast::ForIter::Value(value) => {
+                todo!()
+            }
+        }
+
+        // increment the index
+        code.push(Instruction::PeekPtr(iter_index_slot));
+        code.push(Instruction::Increment);
+
+        let offset = code.instructions.len() - loop_start;
+        code.push(Instruction::Jmp(-(offset as i32)));
+
+        patch_jmp(code, exit_jmp);
+        code.push(Instruction::Pop);
+
+        patch_loop_terminators(code, start_inst_pos, loop_start);
+    }
+}
+
 impl Lower for ast::While {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         let loop_start = code.instructions.len() - 1;
@@ -489,22 +599,26 @@ impl Lower for ast::While {
         patch_jmp(code, exit_jmp);
         code.push(Instruction::Pop);
 
-        let len = code.instructions.len();
+        patch_loop_terminators(code, start_inst_pos, loop_start);
+    }
+}
 
-        // patch all break/continue jmp instructions
-        for inst_pos in start_inst_pos..len {
-            match &mut code.instructions[inst_pos] {
-                Instruction::Jmp(offset) => {
-                    if *offset == INVALID_BREAK_JMP_OFFSET {
-                        *offset = (len - 1 - inst_pos) as i32;
-                    }
-                    if *offset == INVALID_CONTINUE_JMP_OFFSET {
-                        *offset = loop_start as i32 - inst_pos as i32;
-                    }
+// patch all break/continue jmp instructions
+fn patch_loop_terminators(code: &mut CompiledCode, start_inst_pos: usize, loop_start: usize) {
+    let len = code.instructions.len();
+
+    for inst_pos in start_inst_pos..len {
+        match &mut code.instructions[inst_pos] {
+            Instruction::Jmp(offset) => {
+                if *offset == INVALID_BREAK_JMP_OFFSET {
+                    *offset = (len - 1 - inst_pos) as i32;
                 }
-                _ => (),
-            };
-        }
+                if *offset == INVALID_CONTINUE_JMP_OFFSET {
+                    *offset = loop_start as i32 - inst_pos as i32;
+                }
+            }
+            _ => (),
+        };
     }
 }
 

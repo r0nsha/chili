@@ -64,14 +64,17 @@ impl<'vm> VM<'vm> {
             CastInstruction::Uint => cast_to_int!(value => Uint, usize),
             CastInstruction::F32 => cast_to_float!(value => F32, f32),
             CastInstruction::F64 => cast_to_float!(value => F64, f64),
-            CastInstruction::Ptr(kind) => match value {
-                Value::Pointer(ptr) => {
-                    let raw = ptr.as_inner_raw();
-                    let new_ptr = Pointer::from_kind_and_ptr(kind, raw);
-                    Value::Pointer(new_ptr)
-                }
-                _ => panic!("invalid value {}", value),
-            },
+            CastInstruction::Ptr(kind) => {
+                let raw_ptr = match value {
+                    Value::Int(value) => value as *mut u8,
+                    Value::Uint(value) => value as *mut u8,
+                    Value::Pointer(ptr) => ptr.as_inner_raw(),
+                    _ => panic!("invalid value {}", value),
+                };
+
+                let new_ptr = Pointer::from_kind_and_ptr(kind, raw_ptr);
+                Value::Pointer(new_ptr)
+            }
         };
 
         self.stack.push(new_value);

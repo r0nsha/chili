@@ -43,6 +43,7 @@ pub enum Instruction {
     AggregateAlloc,
     AggregatePush,
     Copy,
+    Increment,
     Halt,
 }
 
@@ -106,6 +107,7 @@ impl Display for Instruction {
                 Instruction::AggregateAlloc => "aggregate_alloc".to_string(),
                 Instruction::AggregatePush => "aggregate_push".to_string(),
                 Instruction::Copy => "copy".to_string(),
+                Instruction::Increment => "increment".to_string(),
                 Instruction::Halt => "halt".to_string(),
             }
         )

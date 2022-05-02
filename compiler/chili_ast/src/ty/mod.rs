@@ -346,9 +346,7 @@ impl TyKind {
             _ => panic!("expected fn, got {:?}", self),
         }
     }
-}
 
-impl TyKind {
     pub fn raw_pointer(is_mutable: bool) -> TyKind {
         TyKind::Pointer(Box::new(TyKind::Int(IntTy::I8)), is_mutable)
     }

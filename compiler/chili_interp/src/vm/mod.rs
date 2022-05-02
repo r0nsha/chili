@@ -120,7 +120,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -329,6 +329,24 @@ impl<'vm> VM<'vm> {
                 Instruction::Copy => {
                     let value = self.stack.peek(0).clone();
                     self.stack.push(value);
+                }
+                Instruction::Increment => {
+                    let ptr = self.stack.pop().into_pointer();
+                    unsafe {
+                        match ptr {
+                            Pointer::I8(v) => *v += 1,
+                            Pointer::I16(v) => *v += 1,
+                            Pointer::I32(v) => *v += 1,
+                            Pointer::I64(v) => *v += 1,
+                            Pointer::Int(v) => *v += 1,
+                            Pointer::U8(v) => *v += 1,
+                            Pointer::U16(v) => *v += 1,
+                            Pointer::U32(v) => *v += 1,
+                            Pointer::U64(v) => *v += 1,
+                            Pointer::Uint(v) => *v += 1,
+                            _ => panic!("invalid pointer in increment {:?}", ptr),
+                        }
+                    }
                 }
                 Instruction::Halt => break self.stack.pop(),
             }

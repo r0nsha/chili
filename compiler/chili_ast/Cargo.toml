@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+paste = "1.0.7"
 strum_macros = "0.23.1"
 ptree = "0.4.0"
 ustr = "0.8.1"

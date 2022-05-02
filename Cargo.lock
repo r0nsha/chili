@@ -102,6 +102,7 @@ dependencies = [
  "chili_span",
  "chili_token",
  "common",
+ "paste",
  "path-absolutize",
  "ptree",
  "strum_macros",
