@@ -460,7 +460,7 @@ impl<'p> Parser<'p> {
         };
 
         expect!(self, OpenCurly, "{")?;
-        let block = self.parse_block_expr()?;
+        let block = self.parse_block()?;
 
         Ok(Expr::new(
             ExprKind::For(ast::For {
@@ -469,7 +469,7 @@ impl<'p> Parser<'p> {
                 iter_index_name,
                 iter_index_id: Default::default(),
                 iterator,
-                block: Box::new(block),
+                block,
             }),
             start_span.to(self.previous_span()),
         ))

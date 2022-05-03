@@ -562,10 +562,13 @@ impl Lower for ast::For {
 
         let start_inst_pos = code.instructions.len();
 
-        self.block
-            .lower(sess, code, LowerContext { take_ptr: false });
-
-        code.push(Instruction::Pop);
+        lower_block(
+            &self.block,
+            sess,
+            code,
+            LowerContext { take_ptr: false },
+            true,
+        );
 
         // set the iterated value
         match &self.iterator {
@@ -613,8 +616,6 @@ impl Lower for ast::While {
             LowerContext { take_ptr: false },
             true,
         );
-
-        code.push(Instruction::Pop);
 
         let offset = code.instructions.len() - loop_start;
         code.push(Instruction::Jmp(-(offset as i32)));

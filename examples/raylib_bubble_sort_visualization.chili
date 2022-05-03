@@ -8,15 +8,13 @@ let max_droplet_interval: i32 = 1
 pub let main = fn() {
 	srand(time(0 as uint as _))
 
-	// let mut values: [width]i32 = [0; width]
+	let mut values: [width]i32 = [0; width]
 	// let mut sorted_indices: [width]bool = [false; width]
 
-	printf("Start\n".data)
-	// for 0..values.len - 1 {
-	// 	values[it] = rand() as i32 % width
-	// 	printf("%d = %d\n".data, it_index, values[it])
-	// }
-	// printf("End\n".data)
+	for 0..values.len - 1 {
+		// values[it] = rand() as i32 % width
+		printf("%d = %d\n".data, it_index, values[it])
+	}
 
 	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
 	SetTargetFPS(120)
