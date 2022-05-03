@@ -2,6 +2,7 @@ use crate::{
     value::{ForeignFunc, Value},
     IS_64BIT, WORD_SIZE,
 };
+use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
 use libffi::{
     low::{
@@ -97,8 +98,8 @@ impl Ffi {
 
         let mut call_args: Vec<*mut c_void> = vec![];
 
-        for arg in args.iter_mut() {
-            call_args.push(arg.as_ffi_arg());
+        for (index, arg) in args.iter_mut().enumerate() {
+            call_args.push(arg.as_ffi_arg(arg_types[index]));
         }
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
@@ -234,11 +235,14 @@ impl AsFfiType for Value {
 }
 
 trait AsFfiArg {
-    unsafe fn as_ffi_arg(&mut self) -> *mut c_void;
+    unsafe fn as_ffi_arg(&mut self, ft: *mut ffi_type) -> *mut c_void;
 }
 
 impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&mut self) -> *mut c_void {
+    unsafe fn as_ffi_arg(&mut self, ft: *mut ffi_type) -> *mut c_void {
+        let alignment = (*ft).alignment as usize;
+        let size = (*ft).size;
+
         match self {
             Value::I8(ref mut v) => raw_ptr!(v),
             Value::I16(ref mut v) => raw_ptr!(v),
@@ -254,19 +258,50 @@ impl AsFfiArg for Value {
             Value::F32(ref mut v) => raw_ptr!(v),
             Value::F64(ref mut v) => raw_ptr!(v),
             Value::Aggregate(ref mut v) => {
-                // TODO: support packed struct
-                // TODO: Leak
-                let mut bytes: Vec<u8> = vec![];
+                let mut bytes = BytesMut::with_capacity(size);
 
-                // TODO: calculate the alignment of the struct
-                // TODO: for each value, add it to `bytes`
-                // TODO: calculate the current value's size
-                // TODO: if the value's size is less then `alignment` add the appropriate difference as padding
-                let ptr = bytes.as_mut_ptr() as *mut c_void;
+                for value in v.iter() {
+                    match value {
+                        Value::I8(v) => bytes.put_i8(*v),
+                        Value::I16(v) => bytes.put_i16(*v),
+                        Value::I32(v) => bytes.put_i32(*v),
+                        Value::I64(v) => bytes.put_i64(*v),
+                        Value::Int(v) => {
+                            if IS_64BIT {
+                                bytes.put_i64(*v as i64)
+                            } else {
+                                bytes.put_i32(*v as i32)
+                            }
+                        }
+                        Value::U8(v) => bytes.put_u8(*v),
+                        Value::U16(v) => bytes.put_u16(*v),
+                        Value::U32(v) => bytes.put_u32(*v),
+                        Value::U64(v) => bytes.put_u64(*v),
+                        Value::Uint(v) => {
+                            if IS_64BIT {
+                                bytes.put_u64(*v as u64)
+                            } else {
+                                bytes.put_u32(*v as u32)
+                            }
+                        }
+                        Value::F32(v) => bytes.put_f32(*v),
+                        Value::F64(v) => bytes.put_f64(*v),
+                        Value::Bool(v) => bytes.put_u8(*v as u8),
+                        Value::Aggregate(v) => todo!(),
+                        Value::Pointer(v) => todo!(),
+                        Value::Func(v) => todo!(),
+                        _ => panic!("can't convert `{}` to raw bytes", self),
+                    }
 
-                std::mem::forget(bytes);
+                    // TODO: this could be more efficient
+                    let value_size = value.as_ffi_type().size;
+                    if value_size < alignment {
+                        let padding = alignment - value.as_ffi_type().size;
+                        bytes.put_bytes(0, padding);
+                    }
+                }
 
-                ptr
+                bytes.as_mut_ptr() as *mut c_void
             }
             Value::Pointer(ref mut ptr) => {
                 raw_ptr!(ptr.as_raw())

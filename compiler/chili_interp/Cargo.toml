@@ -10,6 +10,7 @@ strum_macros = "0.23.1"
 ustr = "0.8.1"
 libffi = "3.0.0"
 libloading = "0.7.1"
+bytes = "1.1.0"
 
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }

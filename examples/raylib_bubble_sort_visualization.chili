@@ -39,7 +39,7 @@ pub let main = fn() {
 	// 	}
 
 		BeginDrawing()
-		ClearBackground(black)
+		ClearBackground(red)
 
 	// 	// for values {
 	// 	// 	let x = width - it_index as i32
