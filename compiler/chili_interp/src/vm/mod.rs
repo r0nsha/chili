@@ -122,7 +122,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst, TraceLevel::All);
+            self.trace(&self.frames.peek(0).ip, &inst, TraceLevel::Minimal);
 
             self.frames.peek_mut().ip += 1;
 

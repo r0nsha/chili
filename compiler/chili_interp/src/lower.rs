@@ -604,6 +604,7 @@ impl Lower for ast::For {
                 let iter_slot = code.locals as i32;
                 code.push(Instruction::PeekPtr(value_slot));
                 code.push(Instruction::Peek(iter_index_slot));
+                code.push(Instruction::Index);
                 code.push(Instruction::SetLocal(iter_slot));
                 sess.add_local(code, self.iter_id);
 
@@ -617,7 +618,6 @@ impl Lower for ast::For {
                     true,
                 );
 
-                // set the iterated value
                 let continue_pos = code.instructions.len() - 1;
 
                 // increment the index
