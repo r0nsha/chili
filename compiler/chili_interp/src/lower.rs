@@ -540,7 +540,6 @@ impl Lower for ast::For {
                 code.push(Instruction::Gt);
 
                 let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
-                code.push(Instruction::Pop);
 
                 let block_start_pos = code.instructions.len();
 
@@ -564,7 +563,6 @@ impl Lower for ast::For {
                 code.push(Instruction::Jmp(-(offset as i32)));
 
                 patch_jmp(code, exit_jmp);
-                code.push(Instruction::Pop);
 
                 patch_loop_terminators(code, block_start_pos, continue_pos);
 
@@ -591,7 +589,6 @@ impl Lower for ast::For {
                 code.push(Instruction::Gt);
 
                 let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
-                code.push(Instruction::Pop);
 
                 // move the iterator to the current index
                 let iter_slot = code.locals as i32;
@@ -621,7 +618,6 @@ impl Lower for ast::For {
                 code.push(Instruction::Jmp(-(offset as i32)));
 
                 patch_jmp(code, exit_jmp);
-                code.push(Instruction::Pop);
 
                 patch_loop_terminators(code, block_start_pos, continue_pos);
 
@@ -639,7 +635,6 @@ impl Lower for ast::While {
             .lower(sess, code, LowerContext { take_ptr: false });
 
         let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
-        code.push(Instruction::Pop);
 
         let block_start_pos = code.instructions.len();
 
@@ -655,7 +650,6 @@ impl Lower for ast::While {
         code.push(Instruction::Jmp(-(offset as i32)));
 
         patch_jmp(code, exit_jmp);
-        code.push(Instruction::Pop);
 
         patch_loop_terminators(code, block_start_pos, loop_start);
 
@@ -688,14 +682,12 @@ impl Lower for ast::If {
             .lower(sess, code, LowerContext { take_ptr: false });
 
         let then_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
-        code.push(Instruction::Pop);
 
         self.then
             .lower(sess, code, LowerContext { take_ptr: false });
 
         let else_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
         patch_jmp(code, then_jmp);
-        code.push(Instruction::Pop);
 
         if let Some(otherwise) = &self.otherwise {
             otherwise.lower(sess, code, LowerContext { take_ptr: false });
@@ -756,7 +748,7 @@ const INVALID_BREAK_JMP_OFFSET: i32 = i32::MAX - 1;
 const INVALID_CONTINUE_JMP_OFFSET: i32 = i32::MAX - 2;
 
 fn patch_jmp(code: &mut CompiledCode, inst_pos: usize) {
-    let target_offset = (code.instructions.len() - 1 - inst_pos) as i32;
+    let target_offset = (code.instructions.len() - inst_pos) as i32;
 
     match &mut code.instructions[inst_pos] {
         Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset)

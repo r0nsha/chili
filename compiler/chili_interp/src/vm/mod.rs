@@ -32,63 +32,69 @@ impl CallFrame {
 
 impl Display for CallFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<{:06}\t{}>", self.ip, self.func.name,)
+        write!(f, "<{:06}\t{}>", self.ip, self.func.name)
     }
 }
 
 macro_rules! binary_op {
-    ($stack:expr, $op:tt) => {
-        let b = $stack.pop();
-        let a = $stack.pop();
+    ($vm:expr, $op:tt) => {
+        let b = $vm.stack.pop();
+        let a = $vm.stack.pop();
 
         match (&a, &b) {
-            (Value::I8(a), Value::I8(b)) => $stack.push(Value::I8(a $op b)),
-            (Value::I16(a), Value::I16(b)) => $stack.push(Value::I16(a $op b)),
-            (Value::I32(a), Value::I32(b)) => $stack.push(Value::I32(a $op b)),
-            (Value::I64(a), Value::I64(b)) => $stack.push(Value::I64(a $op b)),
-            (Value::Int(a), Value::Int(b)) => $stack.push(Value::Int(a $op b)),
-            (Value::U8(a), Value::U8(b)) => $stack.push(Value::U8(a $op b)),
-            (Value::U16(a), Value::U16(b)) => $stack.push(Value::U16(a $op b)),
-            (Value::U32(a), Value::U32(b)) => $stack.push(Value::U32(a $op b)),
-            (Value::U64(a), Value::U64(b)) => $stack.push(Value::U64(a $op b)),
-            (Value::Uint(a), Value::Uint(b)) => $stack.push(Value::Uint(a $op b)),
-            (Value::F32(a), Value::F32(b)) => $stack.push(Value::F32(a $op b)),
-            (Value::F64(a), Value::F64(b)) => $stack.push(Value::F64(a $op b)),
+            (Value::I8(a), Value::I8(b)) => $vm.stack.push(Value::I8(a $op b)),
+            (Value::I16(a), Value::I16(b)) => $vm.stack.push(Value::I16(a $op b)),
+            (Value::I32(a), Value::I32(b)) => $vm.stack.push(Value::I32(a $op b)),
+            (Value::I64(a), Value::I64(b)) => $vm.stack.push(Value::I64(a $op b)),
+            (Value::Int(a), Value::Int(b)) => $vm.stack.push(Value::Int(a $op b)),
+            (Value::U8(a), Value::U8(b)) => $vm.stack.push(Value::U8(a $op b)),
+            (Value::U16(a), Value::U16(b)) => $vm.stack.push(Value::U16(a $op b)),
+            (Value::U32(a), Value::U32(b)) => $vm.stack.push(Value::U32(a $op b)),
+            (Value::U64(a), Value::U64(b)) => $vm.stack.push(Value::U64(a $op b)),
+            (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Uint(a $op b)),
+            (Value::F32(a), Value::F32(b)) => $vm.stack.push(Value::F32(a $op b)),
+            (Value::F64(a), Value::F64(b)) => $vm.stack.push(Value::F64(a $op b)),
             _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a ,b)
         }
+
+        $vm.next_inst();
     };
 }
 
 macro_rules! comp_op {
-    ($stack:expr, $op:tt) => {
-        let b = $stack.pop();
-        let a = $stack.pop();
+    ($vm:expr, $op:tt) => {
+        let b = $vm.stack.pop();
+        let a = $vm.stack.pop();
 
         match (&a, &b) {
-            (Value::Bool(a), Value::Bool(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::I8(a), Value::I8(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::I16(a), Value::I16(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::I32(a), Value::I32(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::I64(a), Value::I64(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::Int(a), Value::Int(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::U8(a), Value::U8(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::U16(a), Value::U16(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::U32(a), Value::U32(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::U64(a), Value::U64(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::Uint(a), Value::Uint(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::F32(a), Value::F32(b)) => $stack.push(Value::Bool(a $op b)),
-            (Value::F64(a), Value::F64(b)) => $stack.push(Value::Bool(a $op b)),
+            (Value::Bool(a), Value::Bool(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::I8(a), Value::I8(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::I16(a), Value::I16(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::I32(a), Value::I32(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::I64(a), Value::I64(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::Int(a), Value::Int(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::U8(a), Value::U8(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::U16(a), Value::U16(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::U32(a), Value::U32(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::U64(a), Value::U64(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::F32(a), Value::F32(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::F64(a), Value::F64(b)) => $vm.stack.push(Value::Bool(a $op b)),
             _ => panic!("invalid types in compare operation `{}` and `{}`", a ,b)
         }
+
+        $vm.next_inst();
     };
 }
 
 macro_rules! logic_op {
-    ($stack: expr, $op: tt) => {
-        let b = $stack.pop();
-        let a = $stack.pop();
+    ($vm:expr, $op:tt) => {
+        let b = $vm.stack.pop();
+        let a = $vm.stack.pop();
 
-        $stack.push(Value::Bool(a.is_truthy() $op b.is_truthy()));
+        $vm.stack.push(Value::Bool(a.into_bool() $op b.into_bool()));
+
+        $vm.next_inst();
     };
 }
 
@@ -119,85 +125,111 @@ impl<'vm> VM<'vm> {
 
     fn run_loop(&'vm mut self) -> Value {
         loop {
-            let inst = self.current_instruction();
+            let inst = self.inst();
 
             self.trace(&inst, TraceLevel::All);
 
             match inst {
-                Instruction::Noop => (),
+                Instruction::Noop => {
+                    self.next_inst();
+                }
                 Instruction::Pop => {
                     self.stack.pop();
+                    self.next_inst();
                 }
                 Instruction::PushConst(addr) => {
                     self.stack.push(self.get_const(addr).clone());
+                    self.next_inst();
                 }
                 Instruction::Add => {
-                    binary_op!(self.stack, +);
+                    binary_op!(self, +);
                 }
                 Instruction::Sub => {
-                    binary_op!(self.stack, -);
+                    binary_op!(self, -);
                 }
                 Instruction::Mul => {
-                    binary_op!(self.stack, *);
+                    binary_op!(self, *);
                 }
                 Instruction::Div => {
-                    binary_op!(self.stack, /);
+                    binary_op!(self, /);
                 }
                 Instruction::Rem => {
-                    binary_op!(self.stack, %);
+                    binary_op!(self, %);
                 }
-                Instruction::Neg => match self.stack.pop() {
-                    Value::Int(v) => self.stack.push(Value::Int(-v)),
-                    value => panic!("invalid value {}", value),
-                },
-                Instruction::Not => {
-                    let value = self.stack.pop();
-                    self.stack.push(Value::Bool(!value.is_truthy()));
-                }
-                Instruction::Deref => match self.stack.pop() {
-                    Value::Pointer(ptr) => {
-                        let value = unsafe { ptr.deref() };
-                        self.stack.push(value);
+                Instruction::Neg => {
+                    match self.stack.pop() {
+                        Value::Int(v) => self.stack.push(Value::Int(-v)),
+                        value => panic!("invalid value {}", value),
                     }
-                    value => panic!("invalid value {}", value),
-                },
+                    self.next_inst();
+                }
+                Instruction::Not => {
+                    let result = match self.stack.pop() {
+                        Value::I8(v) => Value::I8(!v),
+                        Value::I16(v) => Value::I16(!v),
+                        Value::I32(v) => Value::I32(!v),
+                        Value::I64(v) => Value::I64(!v),
+                        Value::Int(v) => Value::Int(!v),
+                        Value::U8(v) => Value::U8(!v),
+                        Value::U16(v) => Value::U16(!v),
+                        Value::U32(v) => Value::U32(!v),
+                        Value::U64(v) => Value::U64(!v),
+                        Value::Uint(v) => Value::Uint(!v),
+                        Value::Bool(v) => Value::Bool(!v),
+                        v => panic!("invalid value {}", v),
+                    };
+                    self.stack.push(result);
+                    self.next_inst();
+                }
+                Instruction::Deref => {
+                    match self.stack.pop() {
+                        Value::Pointer(ptr) => {
+                            let value = unsafe { ptr.deref() };
+                            self.stack.push(value);
+                        }
+                        value => panic!("invalid value {}", value),
+                    }
+                    self.next_inst();
+                }
                 Instruction::Eq => {
-                    comp_op!(self.stack, ==);
+                    comp_op!(self, ==);
                 }
                 Instruction::Neq => {
-                    comp_op!(self.stack, !=);
+                    comp_op!(self, !=);
                 }
                 Instruction::Lt => {
-                    comp_op!(self.stack, <);
+                    comp_op!(self, <);
                 }
                 Instruction::LtEq => {
-                    comp_op!(self.stack, <=);
+                    comp_op!(self, <=);
                 }
                 Instruction::Gt => {
-                    comp_op!(self.stack, >);
+                    comp_op!(self, >);
                 }
                 Instruction::GtEq => {
-                    comp_op!(self.stack, >=);
+                    comp_op!(self, >=);
                 }
                 Instruction::And => {
-                    logic_op!(self.stack, &&);
+                    logic_op!(self, &&);
                 }
                 Instruction::Or => {
-                    logic_op!(self.stack, ||);
+                    logic_op!(self, ||);
                 }
-                Instruction::Jmp(addr) => {
-                    self.jmp(addr);
+                Instruction::Jmp(offset) => {
+                    self.jmp(offset);
                 }
-                Instruction::Jmpt(addr) => {
-                    let value = self.stack.peek(0);
-                    if value.is_truthy() {
-                        self.jmp(addr);
+                Instruction::Jmpt(offset) => {
+                    if self.stack.pop().into_bool() {
+                        self.jmp(offset);
+                    } else {
+                        self.next_inst();
                     }
                 }
-                Instruction::Jmpf(addr) => {
-                    let value = self.stack.peek(0);
-                    if !value.is_truthy() {
-                        self.jmp(addr);
+                Instruction::Jmpf(offset) => {
+                    if !self.stack.pop().into_bool() {
+                        self.jmp(offset);
+                    } else {
+                        self.next_inst();
                     }
                 }
                 Instruction::Return => {
@@ -209,6 +241,7 @@ impl<'vm> VM<'vm> {
                     } else {
                         self.stack.truncate(frame.slot - frame.func.param_count);
                         self.stack.push(return_value);
+                        self.next_inst();
                     }
                 }
                 Instruction::Call(arg_count) => {
@@ -224,9 +257,10 @@ impl<'vm> VM<'vm> {
                                 .collect::<Vec<Value>>();
                             values.reverse();
 
-                            // TODO: call_foreign_func should return a `Value`
                             let result = unsafe { self.interp.ffi.call(func, values) };
                             self.stack.push(result);
+
+                            self.next_inst();
                         }
                         _ => panic!("tried to call an uncallable value `{}`", value),
                     }
@@ -235,66 +269,85 @@ impl<'vm> VM<'vm> {
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
-                    };
+                    }
+                    self.next_inst();
                 }
                 Instruction::GetGlobalPtr(slot) => {
                     match self.interp.globals.get_mut(slot as usize) {
                         Some(value) => self.stack.push(Value::Pointer(value.into())),
                         None => panic!("undefined global `{}`", slot),
-                    };
+                    }
+                    self.next_inst();
                 }
                 Instruction::SetGlobal(slot) => {
                     self.interp.globals[slot as usize] = self.stack.pop();
+                    self.next_inst();
                 }
                 Instruction::Peek(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
+                    self.next_inst();
                 }
                 Instruction::PeekPtr(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
+                    self.next_inst();
                 }
                 Instruction::SetLocal(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
+                    self.next_inst();
                 }
                 Instruction::Index => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index(value, index);
+                    self.next_inst();
                 }
                 Instruction::IndexPtr => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index_ptr(value, index);
+                    self.next_inst();
                 }
                 Instruction::ConstIndex(index) => {
                     let value = self.stack.pop();
                     self.index(value, index as usize);
+                    self.next_inst();
                 }
                 Instruction::ConstIndexPtr(index) => {
                     let value = self.stack.pop();
                     self.index_ptr(value, index as usize);
+                    self.next_inst();
                 }
                 Instruction::Assign => {
                     let lvalue = self.stack.pop().into_pointer();
                     let rvalue = self.stack.pop();
                     lvalue.write_value(rvalue);
+                    self.next_inst();
                 }
-                Instruction::Cast(cast) => self.cast_inst(cast),
-                Instruction::AggregateAlloc => self.stack.push(Value::Aggregate(vec![])),
+                Instruction::Cast(cast) => {
+                    self.cast_inst(cast);
+                    self.next_inst();
+                }
+                Instruction::AggregateAlloc => {
+                    self.stack.push(Value::unit());
+                    self.next_inst();
+                }
                 Instruction::AggregatePush => {
                     let value = self.stack.pop();
                     let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
                     aggregate.push(value);
+                    self.next_inst();
                 }
                 Instruction::Copy => {
                     let value = self.stack.peek(0).clone();
                     self.stack.push(value);
+                    self.next_inst();
                 }
                 Instruction::Increment => {
                     let ptr = self.stack.pop().into_pointer();
@@ -313,21 +366,11 @@ impl<'vm> VM<'vm> {
                             _ => panic!("invalid pointer in increment {:?}", ptr),
                         }
                     }
+                    self.next_inst();
                 }
                 Instruction::Halt => break self.stack.pop(),
             }
-
-            // Note (Ron): We don't want to move the instruction pointer after a jump, since it breaks behaviour
-            match inst {
-                Instruction::Jmp(_) | Instruction::Jmpt(_) | Instruction::Jmpf(_) => (),
-                _ => self.next_inst(),
-            }
         }
-    }
-
-    #[inline]
-    fn next_inst(&mut self) {
-        self.frame_mut().ip += 1;
     }
 
     #[inline]
@@ -341,19 +384,8 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    fn code(&self) -> &CompiledCode {
-        &self.func().code
-    }
-
-    #[inline]
     fn frame(&self) -> &CallFrame {
         self.frames.peek(0)
-    }
-
-    #[inline]
-    fn current_instruction(&self) -> Instruction {
-        let frame = self.frame();
-        frame.func.code.instructions[frame.ip]
     }
 
     #[inline]
@@ -362,8 +394,14 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    fn func(&self) -> &Func {
-        &self.frame().func
+    fn inst(&self) -> Instruction {
+        let frame = self.frame();
+        frame.func.code.instructions[frame.ip]
+    }
+
+    #[inline]
+    fn next_inst(&mut self) {
+        self.frame_mut().ip += 1;
     }
 
     #[inline]

@@ -226,13 +226,6 @@ impl Value {
         Value::Aggregate(Vec::with_capacity(0))
     }
 
-    pub fn is_truthy(&self) -> bool {
-        match self {
-            Value::Bool(v) => *v,
-            _ => false,
-        }
-    }
-
     pub unsafe fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
         match ty {
             TyKind::Never | TyKind::Unit => Self::unit(),
