@@ -533,8 +533,10 @@ impl Lower for ast::For {
                 code.push(Instruction::SetLocal(iter_slot));
                 sess.add_local(code, self.iter_id);
 
+                // calculate the end index
                 end.lower(sess, code, ctx);
 
+                // lower the condition
                 let loop_start = code.push(Instruction::Copy);
                 code.push(Instruction::Peek(iter_slot));
                 code.push(Instruction::Gt);
@@ -564,6 +566,7 @@ impl Lower for ast::For {
                 code.push(Instruction::SetLocal(value_slot));
                 code.locals += 1;
 
+                // calculate the end index
                 match value.ty.normalize(sess.tycx).maybe_deref_once() {
                     TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
                     TyKind::Slice(..) => {
@@ -573,6 +576,7 @@ impl Lower for ast::For {
                     ty => unreachable!("unexpected type `{}`", ty),
                 };
 
+                // lower the condition
                 let loop_start = code.push(Instruction::Copy);
                 code.push(Instruction::Peek(iter_index_slot));
                 code.push(Instruction::Gt);
@@ -614,6 +618,7 @@ impl Lower for ast::For {
         patch_loop_terminators(code, block_start_pos, continue_pos);
 
         // pop the end index
+        code.push(Instruction::Pop);
         code.push(Instruction::Pop);
 
         sess.push_const(code, Value::unit());

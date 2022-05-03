@@ -20,13 +20,17 @@ pub type Globals = Vec<Value>;
 #[derive(Debug, Clone)]
 struct CallFrame {
     func: Func,
-    slot: usize,
+    stack_slot: usize,
     ip: usize,
 }
 
 impl CallFrame {
     fn new(func: Func, slot: usize) -> Self {
-        Self { func, slot, ip: 0 }
+        Self {
+            func,
+            stack_slot: slot,
+            ip: 0,
+        }
     }
 }
 
@@ -128,7 +132,7 @@ impl<'vm> VM<'vm> {
             let inst = self.inst();
 
             self.trace(&inst, TraceLevel::All);
-            // std::thread::sleep(std::time::Duration::from_millis(100));
+            // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {
                 Instruction::Noop => {
@@ -240,7 +244,9 @@ impl<'vm> VM<'vm> {
                     if self.frames.is_empty() {
                         break return_value;
                     } else {
-                        self.stack.truncate(frame.slot - frame.func.param_count);
+                        println!("return_slot={}", frame.stack_slot - frame.func.param_count);
+                        self.stack
+                            .truncate(frame.stack_slot - frame.func.param_count);
                         self.stack.push(return_value);
                         self.next_inst();
                     }
@@ -285,20 +291,20 @@ impl<'vm> VM<'vm> {
                     self.next_inst();
                 }
                 Instruction::Peek(slot) => {
-                    let slot = self.frame().slot as isize + slot as isize;
+                    let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
                     self.next_inst();
                 }
                 Instruction::PeekPtr(slot) => {
-                    let slot = self.frame().slot as isize + slot as isize;
+                    let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
                     self.next_inst();
                 }
                 Instruction::SetLocal(slot) => {
-                    let slot = self.frame().slot as isize + slot as isize;
+                    let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                     self.next_inst();
