@@ -9,18 +9,17 @@ pub let main = fn() {
 	srand(time(0 as uint as _))
 
 	let mut values: [width]i32 = [0; width]
-	// let mut sorted_indices: [width]bool = [false; width]
+	let mut sorted_indices: [width]bool = [false; width]
 
 	for 0..values.len - 1 {
-		// values[it] = rand() as i32 % width
-		printf("%d = %d\n".data, it_index, values[it])
+		values[it] = rand() as i32 % width
 	}
 
 	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
-	SetTargetFPS(120)
+	SetTargetFPS(30)
 
-	// let mut n = 0
-	// let mut len = values.len - 1
+	let mut n = 0
+	let mut len = values.len - 1
 
 	while !WindowShouldClose() {
 	// 	if n < len {
@@ -42,33 +41,34 @@ pub let main = fn() {
 		BeginDrawing()
 		ClearBackground(red)
 
-	// 	// for values {
-	// 	// 	let x = width - it_index as i32
-	// 	// 	let line_height = map(it, 0, width, 0, height)
+		for values {
+			let x = width - it_index as i32
+			let line_height = map(it, 0, width, 0, height)
 
-	// 	// 	DrawLine(
-	// 	// 		x, 
-	// 	// 		line_height, 
-	// 	// 		x, 
-	// 	// 		height,
-	// 	// 		if sorted_indices[it_index] { 
-	// 	// 			red
-	// 	// 		} else {
-	// 	// 			white
-	// 	// 		}
-	// 	// 	)
-	// 	// }
+			DrawLine(
+				x, 
+				line_height, 
+				x, 
+				height,
+				if sorted_indices[it_index] { 
+					red
+				} else {
+					white
+				}
+			)
+		}
 
 		DrawFPS(10, 10)
-	// 	// sorted_indices = [false; width]
+		sorted_indices = [false; width]
 		EndDrawing()
 	}
 
-	// CloseWindow();
+	CloseWindow()
 }
 
 let map = fn(x: i32, a: i32, b: i32, c: i32, d: i32) -> i32 {
-	let div = (x - a) as f64 / (b - a) as f64;
-	let res = div * ((d - c) + c) as f64;
-	res as i32
+	// let div = (x - a) as f64 / (b - a) as f64;
+	// let res = div * ((d - c) + c) as f64;
+	// res as i32
+	30
 }

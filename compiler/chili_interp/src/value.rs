@@ -235,7 +235,7 @@ impl Value {
 
     pub unsafe fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
         match ty {
-            TyKind::Never | TyKind::Unit => Self::U8(*ptr),
+            TyKind::Never | TyKind::Unit => Self::unit(),
             TyKind::Bool => Self::Bool(*ptr != 0),
             TyKind::Int(ty) => match ty {
                 IntTy::I8 => Self::I8(*(ptr as *mut i8)),

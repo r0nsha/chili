@@ -55,7 +55,7 @@ macro_rules! binary_op {
             (Value::Uint(a), Value::Uint(b)) => $stack.push(Value::Uint(a $op b)),
             (Value::F32(a), Value::F32(b)) => $stack.push(Value::F32(a $op b)),
             (Value::F64(a), Value::F64(b)) => $stack.push(Value::F64(a $op b)),
-            _=> panic!("invalid types in binary operation `{}` and `{}`", a ,b)
+            _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a ,b)
         }
     };
 }
@@ -122,7 +122,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst, TraceLevel::Minimal);
 
             self.frames.peek_mut().ip += 1;
 
@@ -144,19 +144,7 @@ impl<'vm> VM<'vm> {
                     binary_op!(self.stack, *);
                 }
                 Instruction::Div => {
-                    let b = self.stack.pop();
-                    let a = self.stack.pop();
-
-                    match (b, a) {
-                        (Value::Int(b), Value::Int(a)) => {
-                            if a == 0 {
-                                panic!("divide by zero")
-                            }
-
-                            self.stack.push(Value::Int(b / a))
-                        }
-                        _ => panic!("invalid values"),
-                    }
+                    binary_op!(self.stack, /);
                 }
                 Instruction::Rem => {
                     binary_op!(self.stack, %);
@@ -222,7 +210,7 @@ impl<'vm> VM<'vm> {
                     if self.frames.is_empty() {
                         break return_value;
                     } else {
-                        self.stack.truncate(frame.slot - frame.func.param_count - 1);
+                        self.stack.truncate(frame.slot - frame.func.param_count);
                         self.stack.push(return_value);
                     }
                 }
@@ -336,12 +324,12 @@ impl<'vm> VM<'vm> {
     }
 
     fn push_frame(&mut self, func: Func) {
-        let func_slot = self.stack.len();
+        // let slot = self.stack.len().checked_sub(1).unwrap_or(0);
+        let slot = self.stack.len();
         for _ in 0..func.code.locals {
             self.stack.push(Value::unit());
         }
-        let frame = CallFrame::new(func, func_slot);
-        self.frames.push(frame);
+        self.frames.push(CallFrame::new(func, slot));
     }
 
     fn code(&self) -> &CompiledCode {
@@ -361,8 +349,11 @@ impl<'vm> VM<'vm> {
         self.frames.peek_mut().ip = new_ip as usize;
     }
 
-    fn trace(&self, ip: &usize, inst: &Instruction) {
-        let stack_trace = self.stack.trace();
+    fn trace(&self, ip: &usize, inst: &Instruction, level: TraceLevel) {
+        let stack_trace = match level {
+            TraceLevel::Minimal => self.stack.len().to_string(),
+            TraceLevel::All => self.stack.trace(),
+        };
 
         println!(
             "{:06}\t{}\n\t{}",
@@ -371,4 +362,9 @@ impl<'vm> VM<'vm> {
             stack_trace.blue()
         );
     }
+}
+
+enum TraceLevel {
+    Minimal,
+    All,
 }

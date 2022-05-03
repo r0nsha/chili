@@ -652,6 +652,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.gen_local_with_alloca(state, for_.iter_id, start.into())
                     }
                     ast::ForIter::Value(value) => {
+                        // TODO: remove by_ref?
                         let by_ref = value.ty.normalize(self.tycx).is_pointer();
 
                         let agg = self.gen_expr(state, value, false).into_pointer_value();

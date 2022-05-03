@@ -62,13 +62,6 @@ impl Ffi {
             arg_types.push(ffi_type!(param.as_ffi_type()));
         }
 
-        // println!(
-        //     "{:?} {:?} {:?}",
-        //     args[0],
-        //     args[0].as_pointer().as_inner_raw(),
-        //     *args[0].as_pointer().as_inner_raw()
-        // );
-
         if func.variadic {
             for arg in args.iter().skip(func.param_tys.len()) {
                 arg_types.push(ffi_type!(arg.as_ffi_type()));
