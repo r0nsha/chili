@@ -1,25 +1,25 @@
 use raylib.?
 use c.?
 
-let width: i32 = 50
+let width: i32 = 100
 let height: i32 = 50
 let max_droplet_interval: i32 = 1
 
 pub let main = fn() {
 	srand(time(0 as uint as _))
 
-	let mut values: [width]i32 = [0; width]
-	let mut sorted_indices: [width]bool = [false; width]
+	// let mut values: [width]i32 = [0; width]
+	// let mut sorted_indices: [width]bool = [false; width]
 
-	for 0..values.len - 1 {
-		values[it] = rand() as i32 % width
-	}
+	// for 0..values.len - 1 {
+	// 	values[it] = rand() as i32 % width
+	// }
 
 	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
-	SetTargetFPS(30)
+	SetTargetFPS(60)
 
-	let mut n = 0
-	let mut len = values.len - 1
+	// let mut n = 0
+	// let mut len = values.len - 1
 
 	while !WindowShouldClose() {
 	// 	if n < len {
@@ -39,11 +39,13 @@ pub let main = fn() {
 	// 	}
 
 		BeginDrawing()
-		ClearBackground(red)
+		ClearBackground(black)
 
-		for values {
-			let x = width - it_index as i32
-			let line_height = map(it, 0, width, 0, height)
+		for 0..50 {
+			// let x = width - it_index as i32
+			// let line_height = map(it, 0, width, 0, height)
+			map(it, 0, width, 0, height)
+		    // printf("Hello, Vm!\n".data)
 
 			// DrawLine(
 			// 	x, 
@@ -59,7 +61,7 @@ pub let main = fn() {
 		}
 
 		DrawFPS(10, 10)
-		sorted_indices = [false; width]
+		// sorted_indices = [false; width]
 		EndDrawing()
 	}
 

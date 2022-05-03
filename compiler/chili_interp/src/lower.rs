@@ -525,7 +525,7 @@ impl Lower for ast::For {
         };
 
         // lower iterator
-        match &self.iterator {
+        let (loop_start, exit_jmp, block_start_pos, continue_pos) = match &self.iterator {
             ast::ForIter::Range(start, end) => {
                 start.lower(sess, code, ctx);
 
@@ -555,17 +555,7 @@ impl Lower for ast::For {
                 let continue_pos = code.push(Instruction::PeekPtr(iter_slot));
                 code.push(Instruction::Increment);
 
-                // increment the index
-                code.push(Instruction::PeekPtr(iter_index_slot));
-                code.push(Instruction::Increment);
-
-                let offset = code.instructions.len() - loop_start;
-                code.push(Instruction::Jmp(-(offset as i32)));
-
-                patch_jmp(code, exit_jmp);
-                patch_loop_terminators(code, block_start_pos, continue_pos);
-
-                sess.push_const(code, Value::unit());
+                (loop_start, exit_jmp, block_start_pos, continue_pos)
             }
             ast::ForIter::Value(value) => {
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
@@ -609,22 +599,24 @@ impl Lower for ast::For {
 
                 let continue_pos = code.instructions.len() - 1;
 
-                // increment the index
-                code.push(Instruction::PeekPtr(iter_index_slot));
-                code.push(Instruction::Increment);
-
-                let offset = code.instructions.len() - loop_start;
-                code.push(Instruction::Jmp(-(offset as i32)));
-
-                patch_jmp(code, exit_jmp);
-                patch_loop_terminators(code, block_start_pos, continue_pos);
-
-                // pop the end index
-                code.push(Instruction::Pop);
-
-                sess.push_const(code, Value::unit());
+                (loop_start, exit_jmp, block_start_pos, continue_pos)
             }
-        }
+        };
+
+        // increment the index
+        code.push(Instruction::PeekPtr(iter_index_slot));
+        code.push(Instruction::Increment);
+
+        let offset = code.instructions.len() - loop_start;
+        code.push(Instruction::Jmp(-(offset as i32)));
+
+        patch_jmp(code, exit_jmp);
+        patch_loop_terminators(code, block_start_pos, continue_pos);
+
+        // pop the end index
+        code.push(Instruction::Pop);
+
+        sess.push_const(code, Value::unit());
     }
 }
 
@@ -654,25 +646,6 @@ impl Lower for ast::While {
         patch_loop_terminators(code, block_start_pos, loop_start);
 
         sess.push_const(code, Value::unit());
-    }
-}
-
-// patch all break/continue jmp instructions
-fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, continue_pos: usize) {
-    let len = code.instructions.len();
-
-    for inst_pos in block_start_pos..len {
-        match &mut code.instructions[inst_pos] {
-            Instruction::Jmp(offset) => {
-                if *offset == INVALID_BREAK_JMP_OFFSET {
-                    *offset = (len - 1 - inst_pos) as i32;
-                }
-                if *offset == INVALID_CONTINUE_JMP_OFFSET {
-                    *offset = continue_pos as i32 - inst_pos as i32;
-                }
-            }
-            _ => (),
-        };
     }
 }
 
@@ -758,6 +731,25 @@ fn patch_jmp(code: &mut CompiledCode, inst_pos: usize) {
         }
         _ => panic!("instruction at address {} is not a jmp", inst_pos),
     };
+}
+
+// patch all break/continue jmp instructions
+fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, continue_pos: usize) {
+    let len = code.instructions.len();
+
+    for inst_pos in block_start_pos..len {
+        match &mut code.instructions[inst_pos] {
+            Instruction::Jmp(offset) => {
+                if *offset == INVALID_BREAK_JMP_OFFSET {
+                    *offset = (len - inst_pos) as i32;
+                }
+                if *offset == INVALID_CONTINUE_JMP_OFFSET {
+                    *offset = continue_pos as i32 - inst_pos as i32;
+                }
+            }
+            _ => (),
+        };
+    }
 }
 
 #[inline]
