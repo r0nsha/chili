@@ -337,13 +337,24 @@ impl Display for Value {
                 Value::F32(v) => format!("f32 {}", v),
                 Value::F64(v) => format!("f64 {}", v),
                 Value::Bool(v) => format!("bool {}", v),
-                Value::Aggregate(v) => format!(
-                    "{{{}}}",
-                    v.iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                ),
+                Value::Aggregate(v) => {
+                    const MAX_VALUES: isize = 4;
+                    let extra_values = v.len() as isize - MAX_VALUES;
+
+                    format!(
+                        "{{{}{}}}",
+                        v.iter()
+                            .take(MAX_VALUES as usize)
+                            .map(|v| v.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                        if extra_values > 0 {
+                            format!(", +{} more", extra_values)
+                        } else {
+                            "".to_string()
+                        }
+                    )
+                }
                 Value::Pointer(p) => format!("ptr {:?}", p),
                 Value::Func(func) => format!("fn {}", func.name),
                 Value::ForeignFunc(func) => format!("foreign fn {}", func.name),

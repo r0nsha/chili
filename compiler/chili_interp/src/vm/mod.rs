@@ -9,6 +9,7 @@ use std::fmt::Display;
 use ustr::ustr;
 
 mod cast;
+mod index;
 
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
@@ -121,7 +122,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            // self.trace(&self.frames.peek(0).ip, &inst);
+            self.trace(&self.frames.peek(0).ip, &inst);
 
             self.frames.peek_mut().ip += 1;
 
@@ -277,43 +278,23 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                 }
-                Instruction::Index(index) => {
+                Instruction::Index => {
+                    let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
-
-                    match value {
-                        Value::Pointer(ptr) => match ptr {
-                            Pointer::Aggregate(elements) => {
-                                let elements = unsafe { &mut *elements };
-                                let element = elements.get(index as usize).unwrap();
-                                self.stack.push(element.clone())
-                            }
-                            _ => panic!("invalid pointer {:?}", ptr),
-                        },
-                        Value::Aggregate(elements) => {
-                            self.stack
-                                .push(elements.get(index as usize).unwrap().clone());
-                        }
-                        _ => panic!("invalid value {}", value),
-                    }
+                    self.index(value, index);
                 }
-                Instruction::IndexPtr(index) => {
+                Instruction::IndexPtr => {
+                    let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
-
-                    match value {
-                        Value::Pointer(ptr) => match ptr {
-                            Pointer::Aggregate(elements) => {
-                                let elements = unsafe { &mut *elements };
-                                let element = elements.get_mut(index as usize).unwrap();
-                                self.stack.push(Value::Pointer(element.into()))
-                            }
-                            _ => panic!("invalid pointer {:?}", ptr),
-                        },
-                        Value::Aggregate(mut elements) => {
-                            let element = elements.get_mut(index as usize).unwrap();
-                            self.stack.push(Value::Pointer(element.into()))
-                        }
-                        _ => panic!("invalid value {}", value),
-                    }
+                    self.index_ptr(value, index);
+                }
+                Instruction::ConstIndex(index) => {
+                    let value = self.stack.pop();
+                    self.index(value, index as usize);
+                }
+                Instruction::ConstIndexPtr(index) => {
+                    let value = self.stack.pop();
+                    self.index_ptr(value, index as usize);
                 }
                 Instruction::Assign => {
                     let lvalue = self.stack.pop().into_pointer();

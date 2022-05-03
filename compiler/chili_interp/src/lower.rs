@@ -54,7 +54,7 @@ impl Lower for ast::Expr {
 
                             let field_index = ty.field_index(pat.symbol).unwrap();
 
-                            code.push(Instruction::Index(field_index as u32));
+                            code.push(Instruction::ConstIndex(field_index as u32));
                             code.push(Instruction::SetLocal(code.locals as i32));
                             sess.add_local(code, pat.binding_info_id);
                         }
@@ -67,7 +67,7 @@ impl Lower for ast::Expr {
                                 code.push(Instruction::Copy);
                             }
 
-                            code.push(Instruction::Index(index as u32));
+                            code.push(Instruction::ConstIndex(index as u32));
                             code.push(Instruction::SetLocal(code.locals as i32));
                             sess.add_local(code, pat.binding_info_id);
                         }
@@ -139,10 +139,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::Block(block) => block.lower(sess, code, ctx),
             ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
             ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
-            ast::ExprKind::Subscript(sub) => {
-                // println!("{}", self.span.start.index);
-                todo!()
-            }
+            ast::ExprKind::Subscript(sub) => sub.lower(sess, code, ctx),
             ast::ExprKind::Slice(_) => todo!(),
             ast::ExprKind::Call(call) => call.lower(sess, code, ctx),
             ast::ExprKind::MemberAccess(access) => {
@@ -153,18 +150,18 @@ impl Lower for ast::Expr {
                         let index = access.member.parse::<usize>().unwrap();
 
                         code.push(if ctx.take_ptr {
-                            Instruction::IndexPtr(index as u32)
+                            Instruction::ConstIndexPtr(index as u32)
                         } else {
-                            Instruction::Index(index as u32)
+                            Instruction::ConstIndex(index as u32)
                         });
                     }
                     TyKind::Struct(st) => {
                         let index = st.field_index(access.member).unwrap();
 
                         code.push(if ctx.take_ptr {
-                            Instruction::IndexPtr(index as u32)
+                            Instruction::ConstIndexPtr(index as u32)
                         } else {
-                            Instruction::Index(index as u32)
+                            Instruction::ConstIndex(index as u32)
                         });
                     }
                     TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
@@ -174,9 +171,9 @@ impl Lower for ast::Expr {
                             .unwrap();
 
                         code.push(if ctx.take_ptr {
-                            Instruction::IndexPtr(index as u32)
+                            Instruction::ConstIndexPtr(index as u32)
                         } else {
-                            Instruction::Index(index as u32)
+                            Instruction::ConstIndex(index as u32)
                         });
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
@@ -184,11 +181,11 @@ impl Lower for ast::Expr {
                     }
                     TyKind::Slice(ty, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         // TODO: put real offset when i switch to aggregates
-                        code.push(Instruction::Index(1));
+                        code.push(Instruction::ConstIndex(1));
                     }
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
                         // TODO: put real offset when i switch to aggregates
-                        code.push(Instruction::Index(0));
+                        code.push(Instruction::ConstIndex(0));
                     }
                     TyKind::Module(module_id) => {
                         let id = sess.find_symbol(*module_id, access.member);
@@ -717,6 +714,19 @@ impl Lower for ast::Unary {
                 code.push(self.op.into());
             }
         }
+    }
+}
+
+impl Lower for ast::Subscript {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        self.expr.lower(sess, code, ctx);
+        self.index.lower(sess, code, ctx);
+
+        code.push(if ctx.take_ptr {
+            Instruction::IndexPtr
+        } else {
+            Instruction::Index
+        });
     }
 }
 

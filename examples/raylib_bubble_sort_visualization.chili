@@ -1,21 +1,21 @@
 use raylib.?
 use c.?
 
-let width: i32 = 800
-let height: i32 = 600
+let width: i32 = 50
+let height: i32 = 50
 let max_droplet_interval: i32 = 1
 
 pub let main = fn() {
 	srand(time(0 as uint as _))
 
-	// let mut values: [width]i32 = [0; width]
-	// let mut sorted_indices: [width]bool = [false; width]
+	let mut values: [width]i32 = [0; width]
+	let mut sorted_indices: [width]bool = [false; width]
 
-	// for 0..values.len - 1 {
-	// 	values[it] = rand() as i32 % width
-	// }
+	for 0..values.len - 1 {
+		values[it] = rand() as i32 % width
+	}
 
-	InitWindow(width, height, "chili language - test - water ripples\0".data);
+	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
 	SetTargetFPS(120)
 
 	// let mut n = 0
