@@ -524,8 +524,7 @@ impl Lower for ast::For {
             slot
         };
 
-        // lower iterator
-        let (loop_start, exit_jmp, block_start_pos, continue_pos) = match &self.iterator {
+        match &self.iterator {
             ast::ForIter::Range(start, end) => {
                 start.lower(sess, code, ctx);
 
@@ -557,7 +556,19 @@ impl Lower for ast::For {
                 let continue_pos = code.push(Instruction::PeekPtr(iter_slot));
                 code.push(Instruction::Increment);
 
-                (loop_start, exit_jmp, block_start_pos, continue_pos)
+                // increment the index
+                code.push(Instruction::PeekPtr(iter_index_slot));
+                code.push(Instruction::Increment);
+
+                let offset = code.instructions.len() - loop_start;
+                code.push(Instruction::Jmp(-(offset as i32)));
+
+                patch_jmp(code, exit_jmp);
+                patch_loop_terminators(code, block_start_pos, continue_pos);
+
+                // pop the end index
+                code.push(Instruction::Pop);
+                code.push(Instruction::Pop);
             }
             ast::ForIter::Value(value) => {
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
@@ -603,23 +614,21 @@ impl Lower for ast::For {
 
                 let continue_pos = code.instructions.len() - 1;
 
-                (loop_start, exit_jmp, block_start_pos, continue_pos)
+                // increment the index
+                code.push(Instruction::PeekPtr(iter_index_slot));
+                code.push(Instruction::Increment);
+
+                let offset = code.instructions.len() - loop_start;
+                code.push(Instruction::Jmp(-(offset as i32)));
+
+                patch_jmp(code, exit_jmp);
+                patch_loop_terminators(code, block_start_pos, continue_pos);
+
+                // pop the end index
+                code.push(Instruction::Pop);
+                code.push(Instruction::Pop);
             }
-        };
-
-        // increment the index
-        code.push(Instruction::PeekPtr(iter_index_slot));
-        code.push(Instruction::Increment);
-
-        let offset = code.instructions.len() - loop_start;
-        code.push(Instruction::Jmp(-(offset as i32)));
-
-        patch_jmp(code, exit_jmp);
-        patch_loop_terminators(code, block_start_pos, continue_pos);
-
-        // pop the end index
-        code.push(Instruction::Pop);
-        code.push(Instruction::Pop);
+        }
 
         sess.push_const(code, Value::unit());
     }
