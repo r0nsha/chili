@@ -42,8 +42,8 @@ pub let main = fn() {
 		ClearBackground(red)
 
 		for values {
-			// let x = width - it_index as i32
-			// let line_height = map(it, 0, width, 0, height)
+			let x = width - it_index as i32
+			let line_height = map(it, 0, width, 0, height)
 
 			// DrawLine(
 			// 	x, 

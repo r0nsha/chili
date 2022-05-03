@@ -128,6 +128,7 @@ impl<'vm> VM<'vm> {
             let inst = self.inst();
 
             self.trace(&inst, TraceLevel::All);
+            // std::thread::sleep(std::time::Duration::from_millis(100));
 
             match inst {
                 Instruction::Noop => {
@@ -284,20 +285,20 @@ impl<'vm> VM<'vm> {
                     self.next_inst();
                 }
                 Instruction::Peek(slot) => {
-                    let slot = self.frames.peek(0).slot as isize + slot as isize;
+                    let slot = self.frame().slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
                     self.next_inst();
                 }
                 Instruction::PeekPtr(slot) => {
-                    let slot = self.frames.peek(0).slot as isize + slot as isize;
+                    let slot = self.frame().slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
                     self.next_inst();
                 }
                 Instruction::SetLocal(slot) => {
-                    let slot = self.frames.peek(0).slot as isize + slot as isize;
+                    let slot = self.frame().slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                     self.next_inst();

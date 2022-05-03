@@ -563,7 +563,6 @@ impl Lower for ast::For {
                 code.push(Instruction::Jmp(-(offset as i32)));
 
                 patch_jmp(code, exit_jmp);
-
                 patch_loop_terminators(code, block_start_pos, continue_pos);
 
                 sess.push_const(code, Value::unit());
@@ -618,8 +617,10 @@ impl Lower for ast::For {
                 code.push(Instruction::Jmp(-(offset as i32)));
 
                 patch_jmp(code, exit_jmp);
-
                 patch_loop_terminators(code, block_start_pos, continue_pos);
+
+                // pop the end index
+                code.push(Instruction::Pop);
 
                 sess.push_const(code, Value::unit());
             }
@@ -650,7 +651,6 @@ impl Lower for ast::While {
         code.push(Instruction::Jmp(-(offset as i32)));
 
         patch_jmp(code, exit_jmp);
-
         patch_loop_terminators(code, block_start_pos, loop_start);
 
         sess.push_const(code, Value::unit());
