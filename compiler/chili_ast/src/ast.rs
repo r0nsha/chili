@@ -321,7 +321,7 @@ pub struct For {
     pub iter_index_name: Ustr,
     pub iter_index_id: BindingInfoId,
     pub iterator: ForIter,
-    pub block: Box<Expr>,
+    pub block: Box<Block>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

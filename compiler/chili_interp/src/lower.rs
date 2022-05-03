@@ -111,32 +111,26 @@ impl Lower for ast::Expr {
             }
             ast::ExprKind::For(for_) => for_.lower(sess, code, ctx),
             ast::ExprKind::Break(term) => {
-                for expr in term.deferred.iter() {
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
-                }
+                lower_deferred(&term.deferred, sess, code);
                 code.push(Instruction::Jmp(INVALID_BREAK_JMP_OFFSET));
             }
             ast::ExprKind::Continue(term) => {
-                for expr in term.deferred.iter() {
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
-                    code.push(Instruction::Pop);
-                }
+                lower_deferred(&term.deferred, sess, code);
                 code.push(Instruction::Jmp(INVALID_CONTINUE_JMP_OFFSET));
             }
             ast::ExprKind::Return(ret) => {
-                for expr in ret.deferred.iter() {
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
-                    code.push(Instruction::Pop);
-                }
+                lower_deferred(&ret.deferred, sess, code);
 
                 if let Some(expr) = &ret.expr {
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                    expr.lower(sess, code, ctx);
+                } else {
+                    sess.push_const(code, Value::unit());
                 }
 
                 code.push(Instruction::Return);
             }
             ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
-            ast::ExprKind::Block(block) => block.lower(sess, code, ctx),
+            ast::ExprKind::Block(block) => lower_block(block, sess, code, ctx, false),
             ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
             ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
             ast::ExprKind::Subscript(sub) => sub.lower(sess, code, ctx),
@@ -452,10 +446,18 @@ impl Lower for ast::Fn {
 
         let mut func_code = CompiledCode::new();
 
-        self.body
-            .lower(sess, &mut func_code, LowerContext { take_ptr: false });
+        lower_block(
+            &self.body,
+            sess,
+            &mut func_code,
+            LowerContext { take_ptr: false },
+            false,
+        );
 
         if !func_code.instructions.ends_with(&[Instruction::Return]) {
+            if self.sig.ty.normalize(sess.tycx).is_unit() {
+                sess.push_const(&mut func_code, Value::unit());
+            }
             func_code.push(Instruction::Return);
         }
 
@@ -516,35 +518,44 @@ impl Lower for ast::Call {
 
 impl Lower for ast::For {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        let (iter_slot, iter_index_slot, end_slot) = match &self.iterator {
+        // lower the local iterator & iterator index
+        let (iter_slot, iter_index_slot) = match &self.iterator {
             ast::ForIter::Range(start, end) => {
+                // lower iterator
                 start.lower(sess, code, ctx);
 
                 let iter_slot = code.locals as i32;
-                code.push(Instruction::SetLocal(code.locals as i32));
-
+                code.push(Instruction::SetLocal(iter_slot));
                 sess.add_local(code, self.iter_id);
 
+                // lower iterator index
+                sess.push_const(code, Value::Uint(0));
                 let iter_index_slot = code.locals as i32;
-                code.push(Instruction::SetLocal(code.locals as i32));
-
+                code.push(Instruction::SetLocal(iter_index_slot));
                 sess.add_local(code, self.iter_index_id);
 
                 end.lower(sess, code, ctx);
-                let end_slot = code.instructions.len() as i32 - 1;
 
-                (iter_slot, iter_index_slot, end_slot)
+                (iter_slot, iter_index_slot)
             }
             ast::ForIter::Value(value) => {
                 todo!()
             }
         };
 
-        let loop_start = code.instructions.len() - 1;
+        let loop_start = code.instructions.len();
 
-        code.push(Instruction::Peek(iter_index_slot));
-        code.push(Instruction::Peek(end_slot));
-        code.push(Instruction::LtEq);
+        // lower the exit condition
+        match &self.iterator {
+            ast::ForIter::Range(start, end) => {
+                code.push(Instruction::Copy); // copies the end value, since we'll also need it for the next iteration
+                code.push(Instruction::Peek(iter_slot));
+                code.push(Instruction::Gt);
+            }
+            ast::ForIter::Value(value) => {
+                todo!()
+            }
+        }
 
         let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
         code.push(Instruction::Pop);
@@ -553,6 +564,8 @@ impl Lower for ast::For {
 
         self.block
             .lower(sess, code, LowerContext { take_ptr: false });
+
+        code.push(Instruction::Pop);
 
         // set the iterated value
         match &self.iterator {
@@ -569,8 +582,6 @@ impl Lower for ast::For {
         code.push(Instruction::PeekPtr(iter_index_slot));
         code.push(Instruction::Increment);
 
-        code.push(Instruction::Pop);
-
         let offset = code.instructions.len() - loop_start;
         code.push(Instruction::Jmp(-(offset as i32)));
 
@@ -585,7 +596,7 @@ impl Lower for ast::For {
 
 impl Lower for ast::While {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let loop_start = code.instructions.len() - 1;
+        let loop_start = code.instructions.len();
 
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
@@ -595,8 +606,13 @@ impl Lower for ast::While {
 
         let start_inst_pos = code.instructions.len();
 
-        self.block
-            .lower(sess, code, LowerContext { take_ptr: false });
+        lower_block(
+            &self.block,
+            sess,
+            code,
+            LowerContext { take_ptr: false },
+            true,
+        );
 
         code.push(Instruction::Pop);
 
@@ -651,37 +667,6 @@ impl Lower for ast::If {
         }
 
         patch_jmp(code, else_jmp);
-    }
-}
-
-impl Lower for ast::Block {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        sess.env_mut().push_scope();
-
-        for (index, expr) in self.exprs.iter().enumerate() {
-            let is_last = index == self.exprs.len() - 1;
-
-            expr.lower(
-                sess,
-                code,
-                if is_last {
-                    ctx
-                } else {
-                    LowerContext { take_ptr: false }
-                },
-            );
-
-            if !is_last {
-                code.push(Instruction::Pop);
-            }
-        }
-
-        for expr in self.deferred.iter() {
-            expr.lower(sess, code, LowerContext { take_ptr: false });
-            code.push(Instruction::Pop);
-        }
-
-        sess.env_mut().pop_scope();
     }
 }
 
@@ -787,5 +772,44 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
             sess.evaluated_globals.push((slot, code));
             slot
         }
+    }
+}
+
+fn lower_block(
+    block: &ast::Block,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+    ctx: LowerContext,
+    throw_value: bool,
+) {
+    sess.env_mut().push_scope();
+
+    for (index, expr) in block.exprs.iter().enumerate() {
+        let is_last = index == block.exprs.len() - 1;
+
+        expr.lower(
+            sess,
+            code,
+            if is_last {
+                ctx
+            } else {
+                LowerContext { take_ptr: false }
+            },
+        );
+
+        if !is_last || throw_value {
+            code.push(Instruction::Pop);
+        }
+    }
+
+    lower_deferred(&block.deferred, sess, code);
+
+    sess.env_mut().pop_scope();
+}
+
+fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut CompiledCode) {
+    for expr in deferred.iter() {
+        expr.lower(sess, code, LowerContext { take_ptr: false });
+        code.push(Instruction::Pop);
     }
 }
