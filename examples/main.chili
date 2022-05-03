@@ -2,14 +2,14 @@ use c.?
 use raylib_bubble_sort_visualization.main as raylib_test
 
 let test = fn {
-	let values = [0; 2]
+	// let values = [0; 2]
 
-    while true {
-        for values {
-        }
-    }
+    // while true {
+    //     for values {
+    //     }
+    // }
 
-    // raylib_test()
+    raylib_test()
 
     // printf("Hello, Vm!\n".data)
 

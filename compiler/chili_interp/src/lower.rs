@@ -535,9 +535,7 @@ impl Lower for ast::For {
 
                 end.lower(sess, code, ctx);
 
-                let loop_start = code.instructions.len() - 1;
-
-                code.push(Instruction::Copy);
+                let loop_start = code.push(Instruction::Copy);
                 code.push(Instruction::Peek(iter_slot));
                 code.push(Instruction::Gt);
 
@@ -554,11 +552,8 @@ impl Lower for ast::For {
                     true,
                 );
 
-                // set the iterated value
-                let continue_pos = code.instructions.len() - 1;
-
                 // increment the iterator
-                code.push(Instruction::PeekPtr(iter_slot));
+                let continue_pos = code.push(Instruction::PeekPtr(iter_slot));
                 code.push(Instruction::Increment);
 
                 // increment the index
@@ -591,9 +586,7 @@ impl Lower for ast::For {
                     ty => unreachable!("unexpected type `{}`", ty),
                 };
 
-                let loop_start = code.instructions.len() - 1;
-
-                code.push(Instruction::Copy);
+                let loop_start = code.push(Instruction::Copy);
                 code.push(Instruction::Peek(iter_index_slot));
                 code.push(Instruction::Gt);
 
@@ -640,7 +633,7 @@ impl Lower for ast::For {
 
 impl Lower for ast::While {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let loop_start = code.instructions.len() - 1;
+        let loop_start = code.instructions.len();
 
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
@@ -648,7 +641,7 @@ impl Lower for ast::While {
         let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
         code.push(Instruction::Pop);
 
-        let start_inst_pos = code.instructions.len();
+        let block_start_pos = code.instructions.len();
 
         lower_block(
             &self.block,
@@ -664,7 +657,7 @@ impl Lower for ast::While {
         patch_jmp(code, exit_jmp);
         code.push(Instruction::Pop);
 
-        patch_loop_terminators(code, start_inst_pos, loop_start);
+        patch_loop_terminators(code, block_start_pos, loop_start);
 
         sess.push_const(code, Value::unit());
     }

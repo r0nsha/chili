@@ -21,12 +21,12 @@ where
     }
 
     pub fn peek(&self, offset: usize) -> &T {
-        let size = self.len();
-        &self.0[size - 1 - offset]
+        &self.0[self.len() - 1 - offset]
     }
 
-    pub fn peek_mut(&mut self) -> &mut T {
-        self.0.last_mut().unwrap()
+    pub fn peek_mut(&mut self, offset: usize) -> &mut T {
+        let len = self.len();
+        &mut self.0[len - 1 - offset]
     }
 
     pub fn get(&self, index: usize) -> &T {

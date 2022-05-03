@@ -20,13 +20,13 @@ pub type Globals = Vec<Value>;
 #[derive(Debug, Clone)]
 struct CallFrame {
     func: Func,
-    ip: usize,
     slot: usize,
+    ip: usize,
 }
 
 impl CallFrame {
     fn new(func: Func, slot: usize) -> Self {
-        Self { func, ip: 0, slot }
+        Self { func, slot, ip: 0 }
     }
 }
 
@@ -40,7 +40,6 @@ macro_rules! binary_op {
     ($stack:expr, $op:tt) => {
         let b = $stack.pop();
         let a = $stack.pop();
-
 
         match (&a, &b) {
             (Value::I8(a), Value::I8(b)) => $stack.push(Value::I8(a $op b)),
@@ -120,11 +119,9 @@ impl<'vm> VM<'vm> {
 
     fn run_loop(&'vm mut self) -> Value {
         loop {
-            let inst = self.code().instructions[self.frames.peek(0).ip];
+            let inst = self.current_instruction();
 
-            self.trace(&self.frames.peek(0).ip, &inst, TraceLevel::Minimal);
-
-            self.frames.peek_mut().ip += 1;
+            self.trace(&inst, TraceLevel::All);
 
             match inst {
                 Instruction::Noop => (),
@@ -247,8 +244,7 @@ impl<'vm> VM<'vm> {
                     };
                 }
                 Instruction::SetGlobal(slot) => {
-                    let value = self.stack.pop();
-                    self.interp.globals[slot as usize] = value;
+                    self.interp.globals[slot as usize] = self.stack.pop();
                 }
                 Instruction::Peek(slot) => {
                     let slot = self.frames.peek(0).slot as isize + slot as isize;
@@ -293,7 +289,7 @@ impl<'vm> VM<'vm> {
                 Instruction::AggregateAlloc => self.stack.push(Value::Aggregate(vec![])),
                 Instruction::AggregatePush => {
                     let value = self.stack.pop();
-                    let aggregate = self.stack.peek_mut().as_aggregate_mut();
+                    let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
                     aggregate.push(value);
                 }
                 Instruction::Copy => {
@@ -320,9 +316,21 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Halt => break self.stack.pop(),
             }
+
+            // Note (Ron): We don't want to move the instruction pointer after a jump, since it breaks behaviour
+            match inst {
+                Instruction::Jmp(_) | Instruction::Jmpt(_) | Instruction::Jmpf(_) => (),
+                _ => self.next_inst(),
+            }
         }
     }
 
+    #[inline]
+    fn next_inst(&mut self) {
+        self.frame_mut().ip += 1;
+    }
+
+    #[inline]
     fn push_frame(&mut self, func: Func) {
         // let slot = self.stack.len().checked_sub(1).unwrap_or(0);
         let slot = self.stack.len();
@@ -332,24 +340,44 @@ impl<'vm> VM<'vm> {
         self.frames.push(CallFrame::new(func, slot));
     }
 
+    #[inline]
     fn code(&self) -> &CompiledCode {
         &self.func().code
     }
 
-    fn func(&self) -> &Func {
-        &self.frames.peek(0).func
+    #[inline]
+    fn frame(&self) -> &CallFrame {
+        self.frames.peek(0)
     }
 
+    #[inline]
+    fn current_instruction(&self) -> Instruction {
+        let frame = self.frame();
+        frame.func.code.instructions[frame.ip]
+    }
+
+    #[inline]
+    fn frame_mut(&mut self) -> &mut CallFrame {
+        self.frames.peek_mut(0)
+    }
+
+    #[inline]
+    fn func(&self) -> &Func {
+        &self.frame().func
+    }
+
+    #[inline]
     fn get_const(&self, addr: u32) -> &Value {
         self.interp.constants.get(addr as usize).unwrap()
     }
 
+    #[inline]
     fn jmp(&mut self, offset: i32) {
-        let new_ip = self.frames.peek_mut().ip as isize + offset as isize;
-        self.frames.peek_mut().ip = new_ip as usize;
+        let new_ip = self.frame().ip as isize + offset as isize;
+        self.frame_mut().ip = new_ip as usize;
     }
 
-    fn trace(&self, ip: &usize, inst: &Instruction, level: TraceLevel) {
+    fn trace(&self, inst: &Instruction, level: TraceLevel) {
         let stack_trace = match level {
             TraceLevel::Minimal => format!("Stack count: {}", self.stack.len()),
             TraceLevel::All => self.stack.trace(),
@@ -357,7 +385,7 @@ impl<'vm> VM<'vm> {
 
         println!(
             "{:06}\t{}\n\t{}",
-            ip,
+            self.frame().ip,
             inst.to_string().bold(),
             stack_trace.blue()
         );
