@@ -122,7 +122,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.code().instructions[self.frames.peek(0).ip];
 
-            self.trace(&self.frames.peek(0).ip, &inst, TraceLevel::Minimal);
+            self.trace(&self.frames.peek(0).ip, &inst, TraceLevel::All);
 
             self.frames.peek_mut().ip += 1;
 
@@ -351,7 +351,7 @@ impl<'vm> VM<'vm> {
 
     fn trace(&self, ip: &usize, inst: &Instruction, level: TraceLevel) {
         let stack_trace = match level {
-            TraceLevel::Minimal => self.stack.len().to_string(),
+            TraceLevel::Minimal => format!("Stack count: {}", self.stack.len()),
             TraceLevel::All => self.stack.trace(),
         };
 
@@ -364,6 +364,7 @@ impl<'vm> VM<'vm> {
     }
 }
 
+#[allow(dead_code)]
 enum TraceLevel {
     Minimal,
     All,

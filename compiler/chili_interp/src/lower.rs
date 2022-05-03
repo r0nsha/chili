@@ -600,6 +600,7 @@ impl Lower for ast::For {
                 let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
                 code.push(Instruction::Pop);
 
+                // move the iterator to the current index
                 let iter_slot = code.locals as i32;
                 code.push(Instruction::PeekPtr(value_slot));
                 code.push(Instruction::Peek(iter_index_slot));
@@ -618,11 +619,6 @@ impl Lower for ast::For {
 
                 // set the iterated value
                 let continue_pos = code.instructions.len() - 1;
-
-                // move the iterator to the next value
-                // code.push(Instruction::PeekPtr(value_slot));
-                // code.push(Instruction::Peek(iter_index_slot));
-                // code.push(Instruction::SetLocal(iter_slot));
 
                 // increment the index
                 code.push(Instruction::PeekPtr(iter_index_slot));

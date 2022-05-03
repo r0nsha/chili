@@ -61,6 +61,6 @@ where
             .collect::<Vec<String>>()
             .join(" , ");
 
-        format!("[{}]", values)
+        format!("[{}] ({})", values, self.0.len())
     }
 }
