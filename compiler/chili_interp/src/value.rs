@@ -400,7 +400,7 @@ impl ToString for Value {
                     }
                 )
             }
-            Value::Pointer(p) => format!("ptr {}", p.to_string()),
+            Value::Pointer(p) => p.to_string(),
             Value::Func(func) => format!("fn {}", func.name),
             Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
             Value::Type(ty) => format!("type {}", ty),
@@ -411,7 +411,7 @@ impl ToString for Value {
 
 impl ToString for Pointer {
     fn to_string(&self) -> String {
-        if self.as_inner_raw() == std::ptr::null_mut() {
+        let value = if self.as_inner_raw() == std::ptr::null_mut() {
             "null".to_string()
         } else {
             unsafe {
@@ -448,13 +448,15 @@ impl ToString for Pointer {
                             }
                         )
                     }
-                    Pointer::Pointer(p) => format!("ptr {}", (**p).to_string()),
+                    Pointer::Pointer(p) => (**p).to_string(),
                     Pointer::Func(func) => format!("fn {}", (**func).name),
                     Pointer::ForeignFunc(func) => format!("foreign fn {}", (**func).name),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                     Pointer::LazyCompute(_) => "lazy compute".to_string(),
                 }
             }
-        }
+        };
+
+        format!("ptr {}", value)
     }
 }

@@ -1,3 +1,5 @@
+use std::mem::ManuallyDrop;
+
 use crate::{
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
@@ -715,7 +717,6 @@ impl Lower for ast::Unary {
 impl Lower for ast::Subscript {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.expr.lower(sess, code, LowerContext { take_ptr: true });
-        // self.expr.lower(sess, code, ctx);
 
         self.index
             .lower(sess, code, LowerContext { take_ptr: false });

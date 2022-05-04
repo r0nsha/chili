@@ -4,6 +4,7 @@ use crate::{
 };
 use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
+use common::debug;
 use libffi::{
     low::{
         ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
@@ -108,6 +109,27 @@ impl Ffi {
 
         Value::from_type_and_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
     }
+
+    // pub(crate) unsafe fn test(&mut self) -> Value {
+    //     let lib = self.load_lib(ustr("msvcrt"));
+    //     let symbol = lib.get::<&mut c_void>(b"printf").unwrap();
+    //     let mut cif = ffi_cif::default();
+    //     let return_type = ffi_type!(types::sint64);
+    //     let mut arg_types = vec![ffi_type!(types::pointer)];
+    //     prep_cif_var(&mut cif, ABI, 1, 1, return_type, arg_types.as_mut_ptr()).unwrap();
+    //     let code_ptr = CodePtr::from_ptr(*symbol);
+    //     let s = "hello\n\0".to_string();
+    //     // std::mem::forget(&s);
+    //     let mut call_args = vec![raw_ptr!(&mut s.as_ptr())];
+    //     let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
+    //     libffi::raw::ffi_call(
+    //         &mut cif as *mut _,
+    //         Some(*code_ptr.as_safe_fun()),
+    //         call_result.as_mut_ptr(),
+    //         call_args.as_mut_ptr(),
+    //     );
+    //     Value::Uint(0)
+    // }
 }
 
 trait AsFfiType {
@@ -237,20 +259,20 @@ impl AsFfiArg for Value {
         let size = (*ft).size;
 
         match self {
-            Value::I8(ref mut v) => raw_ptr!(v),
-            Value::I16(ref mut v) => raw_ptr!(v),
-            Value::I32(ref mut v) => raw_ptr!(v),
-            Value::I64(ref mut v) => raw_ptr!(v),
-            Value::Int(ref mut v) => raw_ptr!(v),
-            Value::U8(ref mut v) => raw_ptr!(v),
-            Value::U16(ref mut v) => raw_ptr!(v),
-            Value::U32(ref mut v) => raw_ptr!(v),
-            Value::U64(ref mut v) => raw_ptr!(v),
-            Value::Uint(ref mut v) => raw_ptr!(v),
-            Value::Bool(ref mut v) => raw_ptr!(v),
-            Value::F32(ref mut v) => raw_ptr!(v),
-            Value::F64(ref mut v) => raw_ptr!(v),
-            Value::Aggregate(ref mut v) => {
+            Value::I8(v) => raw_ptr!(v),
+            Value::I16(v) => raw_ptr!(v),
+            Value::I32(v) => raw_ptr!(v),
+            Value::I64(v) => raw_ptr!(v),
+            Value::Int(v) => raw_ptr!(v),
+            Value::U8(v) => raw_ptr!(v),
+            Value::U16(v) => raw_ptr!(v),
+            Value::U32(v) => raw_ptr!(v),
+            Value::U64(v) => raw_ptr!(v),
+            Value::Uint(v) => raw_ptr!(v),
+            Value::Bool(v) => raw_ptr!(v),
+            Value::F32(v) => raw_ptr!(v),
+            Value::F64(v) => raw_ptr!(v),
+            Value::Aggregate(v) => {
                 let mut bytes = BytesMut::with_capacity(size);
 
                 for value in v.iter() {
@@ -296,8 +318,10 @@ impl AsFfiArg for Value {
 
                 bytes.as_mut_ptr() as *mut c_void
             }
-            Value::Pointer(ref mut ptr) => {
-                raw_ptr!(ptr.as_raw())
+            Value::Pointer(ptr) => {
+                // raw_ptr!(ptr.as_raw())
+                raw_ptr!(ptr.as_inner_raw())
+                // raw_ptr!("hallo\n\0".as_ptr() as *mut u8)
             }
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
