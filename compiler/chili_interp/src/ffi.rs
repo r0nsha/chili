@@ -60,21 +60,26 @@ impl Ffi {
 
         let return_type = func.ret_ty.as_ffi_type();
 
-        // let mut arg_types: Vec<TypePointer> = Vec::with_capacity(args.len());
+        let mut arg_types: Vec<TypePointer> = Vec::with_capacity(args.len());
 
-        // for param in func.param_tys.iter() {
-        //     arg_types.push(param.as_ffi_type());
-        // }
-
-        // let return_type = ffi_type!(types::sint64);
-        let mut arg_types = vec![ffi_type!(types::pointer), ffi_type!(types::sint64)];
+        for param in func.param_tys.iter() {
+            arg_types.push(param.as_ffi_type());
+        }
 
         if func.variadic {
             for arg in args.iter().skip(func.param_tys.len()) {
                 arg_types.push(arg.as_ffi_type());
             }
 
-            prep_cif_var(&mut cif, ABI, 1, 2, return_type, arg_types.as_mut_ptr()).unwrap();
+            prep_cif_var(
+                &mut cif,
+                ABI,
+                func.param_tys.len(),
+                arg_types.len(),
+                return_type,
+                arg_types.as_mut_ptr(),
+            )
+            .unwrap();
         } else {
             prep_cif(
                 &mut cif,
@@ -104,8 +109,6 @@ impl Ffi {
             call_result.as_mut_ptr(),
             call_args.as_mut_ptr(),
         );
-
-        let _ = arg_types;
 
         let call_result = call_result.assume_init_mut();
 
@@ -202,15 +205,12 @@ impl AsFfiType for TyKind {
                 }
                 let elements_ptr = elements.as_mut_ptr();
 
-                // TODO: Leak
-                std::mem::forget(elements);
-
-                ffi_type!(ffi_type {
+                ffi_type!(*Box::new(ffi_type {
                     size,
                     alignment: align as u16,
                     type_: FFI_TYPE_STRUCT as u16,
                     elements: elements_ptr,
-                })
+                }))
             }
             TyKind::Infer(_, ty) => match ty {
                 InferTy::AnyInt => ffi_type!(types::sint64),
