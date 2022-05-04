@@ -1,8 +1,6 @@
 use c.?
-use raylib_bubble_sort_visualization.main as raylib_test
 
 let test = fn {
-    raylib_test()
 }
 
 @run(test())

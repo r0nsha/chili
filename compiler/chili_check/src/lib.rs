@@ -471,9 +471,15 @@ impl Check for ast::Binding {
                 Pattern::Single(pat) => {
                     pat.binding_info_id = fn_expr.binding_info_id.unwrap();
 
-                    // If this binding matches the entry point function's requirements
+                    // If this binding matches the entry point function's requirements,
                     // Tag it as the entry function
-                    if sess.workspace.entry_point_function_id.is_none() && pat.symbol == "main" {
+                    // Requirements:
+                    // - Is declared in the root module
+                    // - Its name is "main"
+                    if sess.workspace.entry_point_function_id.is_none()
+                        && self.module_id == sess.workspace.root_module_id
+                        && pat.symbol == "main"
+                    {
                         sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
                         fn_expr.is_entry_point = true;
                     }
@@ -494,23 +500,6 @@ impl Check for ast::Binding {
                     .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
                     .unwrap_or(self.span),
             )?;
-        }
-
-        if let Some(expr) = &mut self.expr {
-            // If this expressions matches the entry point function's requirements
-            // Tag it as the entry function
-            match &self.pattern {
-                Pattern::Single(pat) => {
-                    if sess.workspace.entry_point_function_id.is_none()
-                        && pat.symbol == "main"
-                        && expr.is_fn()
-                    {
-                        sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
-                        expr.as_fn_mut().is_entry_point = true;
-                    }
-                }
-                _ => (),
-            }
         }
 
         Ok(Res::new_maybe_const(self.ty, const_value))

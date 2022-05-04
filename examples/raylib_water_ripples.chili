@@ -14,7 +14,7 @@ let main = fn() {
 	InitWindow(width as _, height  as _, "chili language - test - water ripples\0".data)
 	SetTargetFPS(120)
 
-	srand(time(nil))
+	srand(time(0 as uint as _))
 	let mut frames = rand() % max_droplet_interval
 
 	while !WindowShouldClose() {
@@ -86,3 +86,5 @@ let frand = fn(min: f64, max: f64) -> f64 {
 }
 
 let RAND_MAX: uint = 32767
+
+@run(main())
