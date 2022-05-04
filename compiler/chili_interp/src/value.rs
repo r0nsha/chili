@@ -1,4 +1,5 @@
 use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT};
+use bytes::BytesMut;
 use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
 use paste::paste;
 use std::{fmt::Display, mem};
@@ -317,7 +318,17 @@ impl Value {
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
-            TyKind::Struct(_) => todo!(),
+            TyKind::Struct(ty) => {
+                // TODO: let aggregate = Vec::with_capacity(ty.fields.len())
+                // TODO: calculate struct alignment
+                // TODO: let curr_offset = 0
+                // TODO: for each field
+                // TODO:    calculate size of field ty
+                // TODO:    raw = offset(ptr, curr_offset)
+                // TODO:    value = value::from_raw(field_ty, raw)
+                // TODO:    curr_offset += alignment
+                // TODO: Self::Aggregate(aggregate)
+            }
             TyKind::Infer(_, InferTy::AnyInt) => Self::I32(*(ptr as *mut i32)),
             TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(*(ptr as *mut f64)),
             TyKind::Infer(_, _) => todo!(),

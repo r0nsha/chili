@@ -284,56 +284,61 @@ impl AsFfiArg for Value {
                 let mut bytes = BytesMut::with_capacity(size);
 
                 for value in v.iter() {
-                    match value {
-                        Value::I8(v) => bytes.put_i8(*v),
-                        Value::I16(v) => bytes.put_i16(*v),
-                        Value::I32(v) => bytes.put_i32(*v),
-                        Value::I64(v) => bytes.put_i64(*v),
-                        Value::Int(v) => {
-                            if IS_64BIT {
-                                bytes.put_i64(*v as i64)
-                            } else {
-                                bytes.put_i32(*v as i32)
-                            }
-                        }
-                        Value::U8(v) => bytes.put_u8(*v),
-                        Value::U16(v) => bytes.put_u16(*v),
-                        Value::U32(v) => bytes.put_u32(*v),
-                        Value::U64(v) => bytes.put_u64(*v),
-                        Value::Uint(v) => {
-                            if IS_64BIT {
-                                bytes.put_u64(*v as u64)
-                            } else {
-                                bytes.put_u32(*v as u32)
-                            }
-                        }
-                        Value::F32(v) => bytes.put_f32(*v),
-                        Value::F64(v) => bytes.put_f64(*v),
-                        Value::Bool(v) => bytes.put_u8(*v as u8),
-                        Value::Aggregate(v) => todo!(),
-                        Value::Pointer(v) => todo!(),
-                        Value::Func(v) => todo!(),
-                        _ => panic!("can't convert `{}` to raw bytes", self.to_string()),
-                    }
+                    put_value(&mut bytes, value);
 
                     // TODO: this could be more efficient
-                    let value_size = (*value.as_ffi_type()).size;
-                    if value_size < alignment {
-                        let padding = alignment - value_size;
-                        bytes.put_bytes(0, padding);
-                    }
+                    // let value_size = (*value.as_ffi_type()).size;
+                    // if value_size < alignment {
+                    //     let padding = alignment - value_size;
+                    //     bytes.put_bytes(0, padding);
+                    // }
                 }
 
                 bytes.as_mut_ptr() as RawPointer
             }
-            Value::Pointer(ptr) => {
-                raw_ptr!(ptr.as_raw())
-                // raw_ptr!(ptr.as_inner_raw())
-                // raw_ptr!("hallo\n\0".as_ptr() as RawPointer)
-            }
+            Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
             _ => panic!("can't pass `{}` through ffi", self.to_string()),
         }
+    }
+}
+
+fn put_value(bytes: &mut BytesMut, value: &Value) {
+    match value {
+        Value::I8(v) => bytes.put_i8(*v),
+        Value::I16(v) => bytes.put_i16(*v),
+        Value::I32(v) => bytes.put_i32(*v),
+        Value::I64(v) => bytes.put_i64(*v),
+        Value::Int(v) => {
+            if IS_64BIT {
+                bytes.put_i64(*v as i64)
+            } else {
+                bytes.put_i32(*v as i32)
+            }
+        }
+        Value::U8(v) => bytes.put_u8(*v),
+        Value::U16(v) => bytes.put_u16(*v),
+        Value::U32(v) => bytes.put_u32(*v),
+        Value::U64(v) => bytes.put_u64(*v),
+        Value::Uint(v) => {
+            if IS_64BIT {
+                bytes.put_u64(*v as u64)
+            } else {
+                bytes.put_u32(*v as u32)
+            }
+        }
+        Value::F32(v) => bytes.put_f32(*v),
+        Value::F64(v) => bytes.put_f64(*v),
+        Value::Bool(v) => bytes.put_u8(*v as u8),
+        Value::Aggregate(v) => {
+            // TODO: need to include struct padding here
+            for value in v {
+                put_value(bytes, value)
+            }
+        }
+        Value::Pointer(v) => todo!(),
+        Value::Func(v) => todo!(),
+        _ => panic!("can't convert `{}` to raw bytes", value.to_string()),
     }
 }

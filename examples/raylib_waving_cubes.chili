@@ -69,3 +69,5 @@ let main = fn {
 
 	CloseWindow()
 }
+
+@run(main())

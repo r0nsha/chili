@@ -1,8 +1,8 @@
 use raylib.?
 use c.?
 
-let width: i32 = 200
-let height: i32 = 100
+let width: i32 = 300
+let height: i32 = 200
 let max_droplet_interval: i32 = 1
 let bg_color = blue
 
@@ -14,7 +14,7 @@ let main = fn() {
 	let mut curr = calloc(width * height, @size_of(f64)) as *mut f64 as [*mut]f64
     defer free(curr as *f64 as _)
 
-	let mut frames = rand() % max_droplet_interval
+	// let mut frames = rand() % max_droplet_interval
 
 	InitWindow(width, height, "chili language - test - water ripples\0".data)
 	SetTargetFPS(60)
@@ -24,16 +24,16 @@ let main = fn() {
 
 		ClearBackground(bg_color)
 
-		if frames == 0 {
-			droplet(prev, (rand() % width) as _, (rand() % height) as _)
-			frames = rand() % max_droplet_interval
-		} else {
-			frames -= 1
-		}
-
-		// if IsMouseButtonDown(0) {
-        //     droplet(prev, GetMouseX(), GetMouseY())
+		// if frames == 0 {
+		// 	droplet(prev, (rand() % width) as _, (rand() % height) as _)
+		// 	frames = rand() % max_droplet_interval
+		// } else {
+		// 	frames -= 1
 		// }
+
+		if IsMouseButtonDown(0) {
+            droplet(prev, GetMouseX(), GetMouseY())
+		}
 
 		for x in 1..width - 2 {
 			for y in 1..height - 2 {
@@ -45,22 +45,22 @@ let main = fn() {
 					curr[x + y * width]
 				)
 				
+				value *= frand(0.75, 0.99)
+
 				let color = if value == 0 {
 					bg_color
 				} else {
-					value *= frand(0.75, 0.99)
-
 					let value_u8 = value as u8
-					white
-					// Color {
-					// 	r: value_u8,
-					// 	g: value_u8,
-					// 	b: value_u8,
-					// 	a: (value_u8 as f64 * 0.75) as _,
-					// }
+					Color {
+						r: value_u8,
+						g: value_u8,
+						b: value_u8,
+						a: value_u8//(value_u8 as f64 * 0.75) as u8,
+					}
 				}
 
-				// DrawPixel(x as _, y as _, color)
+				// DrawRectangle(x, y, 1, 1, color)
+				DrawPixel(x, y, color)
 
                 curr[x + y * width] = value
 			}
