@@ -1,6 +1,21 @@
+use raylib.?
 use c.?
 
-let test = fn {
+let width: i32 = 400
+let height: i32 = 300
+
+pub let main = fn() {
+	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
+	SetTargetFPS(60)
+
+	while !WindowShouldClose() {
+		BeginDrawing()
+		ClearBackground(black)
+        DrawFPS(10, 10)
+		EndDrawing()
+	}
+
+	CloseWindow()
 }
 
-@run(test())
+@run(main())

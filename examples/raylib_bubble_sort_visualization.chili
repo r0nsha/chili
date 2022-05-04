@@ -5,22 +5,22 @@ let width: i32 = 400
 let height: i32 = 300
 
 pub let main = fn() {
-	// srand(time(0 as uint as _))
+	srand(time(0 as uint as _))
 
-	// let mut values: [width]i32 = [0; width]
-	// let mut sorted_indices: [width]bool = [false; width]
+	let mut values = [0 as i32; width]
+	let mut sorted_indices = [false; width]
 
-	// for 0..values.len - 1 {
-	// 	values[it] = rand() as i32 % width
-	// }
+	for 0..values.len - 1 {
+		values[it] = rand() as i32 % width
+	}
 
-	// InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
+	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
 	// SetTargetFPS(60)
 
 	// let mut n = 0
 	// let mut len = values.len - 1
 
-	// while !WindowShouldClose() {
+	while !WindowShouldClose() {
 	// 	if n < len {
 	// 		for i in 0..len - n - 1 {
 	// 			let a = values[i]
@@ -37,8 +37,8 @@ pub let main = fn() {
 	// 		n += 1
 	// 	}
 
-	// 	BeginDrawing()
-	// 	ClearBackground(black)
+		BeginDrawing()
+		ClearBackground(black)
 
 	// 	for values {
 	// 		let x = width - it_index as i32
@@ -59,10 +59,10 @@ pub let main = fn() {
 
 	// 	DrawFPS(10, 10)
 	// 	sorted_indices = [false; width]
-	// 	EndDrawing()
-	// }
+		EndDrawing()
+	}
 
-	// CloseWindow()
+	CloseWindow()
 }
 
 let map = fn(x: i32, a: i32, b: i32, c: i32, d: i32) -> i32 {

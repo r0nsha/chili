@@ -16,6 +16,3 @@ members = [
     # "compiler/chili_backend_llvm",
     "compiler/chili_main",
 ]
-
-[profile.release]
-opt-level = 2
