@@ -55,7 +55,7 @@ let main = fn {
 
 					let cube_size = (2.4 - scale) * block_scale
 
-					DrawCube(cube_pos, cube_size as _, cube_size as _, cube_size as _, cube_color)
+		// 			DrawCube(cube_pos, cube_size as _, cube_size as _, cube_size as _, cube_color)
 				}
 			}	
 		}

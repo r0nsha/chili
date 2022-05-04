@@ -68,7 +68,8 @@ impl Ffi {
 
         if func.variadic {
             for arg in args.iter().skip(func.param_tys.len()) {
-                arg_types.push(arg.as_ffi_type());
+                // arg_types.push(arg.as_ffi_type());
+                arg_types.push(arg.get_ty_kind().as_ffi_type());
             }
 
             prep_cif_var(
@@ -220,42 +221,6 @@ impl AsFfiType for TyKind {
             },
             TyKind::Never => ffi_type!(types::void),
             _ => panic!("invalid type {}", self),
-        }
-    }
-}
-
-impl AsFfiType for Value {
-    unsafe fn as_ffi_type(&self) -> TypePointer {
-        match self {
-            Value::I8(_) => ffi_type!(types::sint8),
-            Value::I16(_) => ffi_type!(types::sint16),
-            Value::I32(_) => ffi_type!(types::sint32),
-            Value::I64(_) => ffi_type!(types::sint64),
-            Value::Int(_) => {
-                if IS_64BIT {
-                    ffi_type!(types::sint64)
-                } else {
-                    ffi_type!(types::sint32)
-                }
-            }
-            Value::U8(_) => ffi_type!(types::uint8),
-            Value::U16(_) => ffi_type!(types::uint16),
-            Value::U32(_) => ffi_type!(types::uint32),
-            Value::U64(_) => ffi_type!(types::uint64),
-            Value::Uint(_) => {
-                if IS_64BIT {
-                    ffi_type!(types::uint64)
-                } else {
-                    ffi_type!(types::uint32)
-                }
-            }
-            Value::F32(_) => ffi_type!(types::float),
-            Value::F64(_) => ffi_type!(types::double),
-            Value::Bool(_) => ffi_type!(types::uint8),
-            Value::Aggregate(_) => todo!(),
-            Value::Pointer(..) => ffi_type!(types::pointer),
-            Value::Func(_) => todo!(),
-            _ => panic!("can't pass `{}` through ffi", self.to_string()),
         }
     }
 }

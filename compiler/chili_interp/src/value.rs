@@ -1,6 +1,5 @@
-use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT};
-use bytes::BytesMut;
-use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
+use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT, WORD_SIZE};
+use chili_ast::ty::{align::AlignOf, FloatTy, InferTy, IntTy, TyKind, UintTy};
 use paste::paste;
 use std::{fmt::Display, mem};
 use ustr::Ustr;
@@ -206,7 +205,6 @@ impl_value! {
     Func(Func),
     ForeignFunc(ForeignFunc),
     Type(TyKind),
-    LazyCompute(CompiledCode)
 }
 
 #[derive(Debug, Clone)]
@@ -319,20 +317,42 @@ impl Value {
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(ty) => {
-                // TODO: let aggregate = Vec::with_capacity(ty.fields.len())
-                // TODO: calculate struct alignment
-                // TODO: let curr_offset = 0
-                // TODO: for each field
-                // TODO:    calculate size of field ty
-                // TODO:    raw = offset(ptr, curr_offset)
-                // TODO:    value = value::from_raw(field_ty, raw)
-                // TODO:    curr_offset += alignment
-                // TODO: Self::Aggregate(aggregate)
+                let mut aggregate = Vec::with_capacity(ty.fields.len());
+                let align = ty.align_of(WORD_SIZE);
+                for (index, field) in ty.fields.iter().enumerate() {
+                    // let field_size = field.ty.size_of(WORD_SIZE);
+                    let field_ptr = ptr.offset((align * index) as isize);
+                    let value = Value::from_type_and_ptr(&field.ty, field_ptr);
+                    aggregate.push(value);
+                }
+                Self::Aggregate(aggregate)
             }
             TyKind::Infer(_, InferTy::AnyInt) => Self::I32(*(ptr as *mut i32)),
             TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(*(ptr as *mut f64)),
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
+        }
+    }
+
+    pub fn get_ty_kind(&self) -> TyKind {
+        match self {
+            Self::I8(_) => TyKind::Int(IntTy::I8),
+            Self::I16(_) => TyKind::Int(IntTy::I16),
+            Self::I32(_) => TyKind::Int(IntTy::I32),
+            Self::I64(_) => TyKind::Int(IntTy::I64),
+            Self::Int(_) => TyKind::Int(IntTy::Int),
+            Self::U8(_) => TyKind::Uint(UintTy::U8),
+            Self::U16(_) => TyKind::Uint(UintTy::U16),
+            Self::U32(_) => TyKind::Uint(UintTy::U32),
+            Self::U64(_) => TyKind::Uint(UintTy::U64),
+            Self::Uint(_) => TyKind::Uint(UintTy::Uint),
+            Self::F32(_) => TyKind::Float(FloatTy::F32),
+            Self::F64(_) => TyKind::Float(FloatTy::F64),
+            Self::Bool(_) => TyKind::Bool,
+            Self::Aggregate(_) => todo!(),
+            Self::Pointer(p) => TyKind::Pointer(Box::new(p.get_ty_kind()), true),
+            Self::Func(_) => todo!(),
+            _ => panic!(),
         }
     }
 }
@@ -375,6 +395,35 @@ impl Pointer {
             _ => panic!("invalid type {}", ty),
         }
     }
+
+    pub fn get_ty_kind(&self) -> TyKind {
+        match self {
+            Self::I8(_) => TyKind::Int(IntTy::I8),
+            Self::I16(_) => TyKind::Int(IntTy::I16),
+            Self::I32(_) => TyKind::Int(IntTy::I32),
+            Self::I64(_) => TyKind::Int(IntTy::I64),
+            Self::Int(_) => TyKind::Int(IntTy::Int),
+            Self::U8(_) => TyKind::Uint(UintTy::U8),
+            Self::U16(_) => TyKind::Uint(UintTy::U16),
+            Self::U32(_) => TyKind::Uint(UintTy::U32),
+            Self::U64(_) => TyKind::Uint(UintTy::U64),
+            Self::Uint(_) => TyKind::Uint(UintTy::Uint),
+            Self::F32(_) => TyKind::Float(FloatTy::F32),
+            Self::F64(_) => TyKind::Float(FloatTy::F64),
+            Self::Bool(_) => TyKind::Bool,
+            Self::Aggregate(_) => todo!(),
+            Self::Pointer(p) => TyKind::Pointer(
+                if p.is_null() {
+                    Box::new(TyKind::Uint(UintTy::U8))
+                } else {
+                    Box::new(unsafe { &**p }.get_ty_kind())
+                },
+                true,
+            ),
+            Self::Func(_) => todo!(),
+            _ => panic!(),
+        }
+    }
 }
 
 impl ToString for Value {
@@ -415,14 +464,13 @@ impl ToString for Value {
             Value::Func(func) => format!("fn {}", func.name),
             Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
             Value::Type(ty) => format!("type {}", ty),
-            Value::LazyCompute(_) => "lazy compute".to_string(),
         }
     }
 }
 
 impl ToString for Pointer {
     fn to_string(&self) -> String {
-        let value = if self.as_inner_raw() == std::ptr::null_mut() {
+        let value = if self.as_inner_raw().is_null() {
             "null".to_string()
         } else {
             unsafe {
@@ -463,7 +511,6 @@ impl ToString for Pointer {
                     Pointer::Func(func) => format!("fn {}", (**func).name),
                     Pointer::ForeignFunc(func) => format!("foreign fn {}", (**func).name),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
-                    Pointer::LazyCompute(_) => "lazy compute".to_string(),
                 }
             }
         };
