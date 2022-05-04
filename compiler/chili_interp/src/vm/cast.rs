@@ -1,4 +1,5 @@
 use crate::{
+    ffi::RawPointer,
     instruction::CastInstruction,
     value::{Pointer, Value},
     vm::VM,
@@ -66,8 +67,8 @@ impl<'vm> VM<'vm> {
             CastInstruction::F64 => cast_to_float!(value => F64, f64),
             CastInstruction::Ptr(kind) => {
                 let raw_ptr = match value {
-                    Value::Int(value) => value as *mut u8,
-                    Value::Uint(value) => value as *mut u8,
+                    Value::Int(value) => value as RawPointer,
+                    Value::Uint(value) => value as RawPointer,
                     Value::Pointer(ptr) => ptr.as_inner_raw(),
                     _ => panic!("invalid value {}", value.to_string()),
                 };

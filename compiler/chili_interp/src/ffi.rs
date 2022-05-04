@@ -4,7 +4,6 @@ use crate::{
 };
 use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
-use common::debug;
 use libffi::{
     low::{
         ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
@@ -16,7 +15,7 @@ use ustr::{ustr, Ustr, UstrMap};
 
 macro_rules! raw_ptr {
     ($value: expr) => {
-        $value as *mut _ as *mut c_void
+        $value as *mut _ as RawPointer
     };
 }
 
@@ -25,6 +24,8 @@ macro_rules! ffi_type {
         &mut $value as *mut ffi_type
     };
 }
+
+pub type RawPointer = *mut c_void;
 
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
@@ -50,6 +51,7 @@ impl Ffi {
     }
 
     pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
+        // return self.test();
         let lib = self.load_lib(func.lib_path);
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
 
@@ -57,7 +59,7 @@ impl Ffi {
 
         let return_type = ffi_type!(func.ret_ty.as_ffi_type());
 
-        let mut arg_types: Vec<*mut ffi_type> = vec![];
+        let mut arg_types: Vec<*mut ffi_type> = Vec::with_capacity(args.len());
 
         for param in func.param_tys.iter() {
             arg_types.push(ffi_type!(param.as_ffi_type()));
@@ -90,11 +92,19 @@ impl Ffi {
 
         let code_ptr = CodePtr::from_ptr(*symbol);
 
-        let mut call_args: Vec<*mut c_void> = vec![];
+        let mut args: Vec<Argument> = args.iter().map(|a| Argument::wrap(a.clone())).collect();
+        let mut call_args: Vec<RawPointer> = Vec::with_capacity(args.len());
 
         for (index, arg) in args.iter_mut().enumerate() {
-            call_args.push(arg.as_ffi_arg(arg_types[index]));
+            let ffi_type = *arg_types[index];
+            let ptr = arg
+                .inner
+                .as_ffi_arg(ffi_type.size, ffi_type.alignment.into());
+            call_args.push(ptr);
         }
+
+        // let mut d: i64 = 42;
+        // call_args[2] = raw_ptr!(&mut d);
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
@@ -107,20 +117,25 @@ impl Ffi {
 
         let call_result = call_result.assume_init_mut();
 
-        Value::from_type_and_ptr(&func.ret_ty, call_result as *mut c_void as *mut u8)
+        Value::from_type_and_ptr(&func.ret_ty, call_result as RawPointer as RawPointer)
     }
 
     // pub(crate) unsafe fn test(&mut self) -> Value {
     //     let lib = self.load_lib(ustr("msvcrt"));
     //     let symbol = lib.get::<&mut c_void>(b"printf").unwrap();
+
     //     let mut cif = ffi_cif::default();
     //     let return_type = ffi_type!(types::sint64);
-    //     let mut arg_types = vec![ffi_type!(types::pointer)];
-    //     prep_cif_var(&mut cif, ABI, 1, 1, return_type, arg_types.as_mut_ptr()).unwrap();
+    //     let mut arg_types = vec![ffi_type!(types::pointer), ffi_type!(types::sint64)];
+    //     prep_cif_var(&mut cif, ABI, 1, 2, return_type, arg_types.as_mut_ptr()).unwrap();
+
     //     let code_ptr = CodePtr::from_ptr(*symbol);
-    //     let s = "hello\n\0".to_string();
-    //     // std::mem::forget(&s);
-    //     let mut call_args = vec![raw_ptr!(&mut s.as_ptr())];
+
+    //     let s = ustr("hello %d\n");
+    //     let mut p = s.as_char_ptr() as RawPointer;
+    //     let mut d: i64 = 42;
+    //     let mut call_args = vec![raw_ptr!(&mut p), raw_ptr!(&mut d)];
+
     //     let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
     //     libffi::raw::ffi_call(
     //         &mut cif as *mut _,
@@ -128,8 +143,19 @@ impl Ffi {
     //         call_result.as_mut_ptr(),
     //         call_args.as_mut_ptr(),
     //     );
+
     //     Value::Uint(0)
     // }
+}
+
+struct Argument {
+    inner: Value,
+}
+
+impl Argument {
+    fn wrap(value: Value) -> Self {
+        Self { inner: value }
+    }
 }
 
 trait AsFfiType {
@@ -250,14 +276,11 @@ impl AsFfiType for Value {
 }
 
 trait AsFfiArg {
-    unsafe fn as_ffi_arg(&mut self, ft: *mut ffi_type) -> *mut c_void;
+    unsafe fn as_ffi_arg(&mut self, size: usize, alignement: usize) -> RawPointer;
 }
 
 impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&mut self, ft: *mut ffi_type) -> *mut c_void {
-        let alignment = (*ft).alignment as usize;
-        let size = (*ft).size;
-
+    unsafe fn as_ffi_arg(&mut self, size: usize, alignment: usize) -> RawPointer {
         match self {
             Value::I8(v) => raw_ptr!(v),
             Value::I16(v) => raw_ptr!(v),
@@ -316,12 +339,12 @@ impl AsFfiArg for Value {
                     }
                 }
 
-                bytes.as_mut_ptr() as *mut c_void
+                bytes.as_mut_ptr() as RawPointer
             }
             Value::Pointer(ptr) => {
                 // raw_ptr!(ptr.as_raw())
                 raw_ptr!(ptr.as_inner_raw())
-                // raw_ptr!("hallo\n\0".as_ptr() as *mut u8)
+                // raw_ptr!("hallo\n\0".as_ptr() as RawPointer)
             }
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),

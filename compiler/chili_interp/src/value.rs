@@ -1,7 +1,7 @@
-use crate::{instruction::CompiledCode, IS_64BIT};
+use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT};
 use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
 use paste::paste;
-use std::{fmt::Display, mem, ops::Deref};
+use std::{fmt::Display, mem};
 use ustr::Ustr;
 
 macro_rules! impl_value {
@@ -40,7 +40,7 @@ macro_rules! impl_value {
                 }
             }
 
-            pub unsafe fn from_kind_and_ptr(kind: ValueKind, ptr: *mut u8) -> Self {
+            pub unsafe fn from_kind_and_ptr(kind: ValueKind, ptr: RawPointer) -> Self {
                 match kind {
                     $(
                         ValueKind::$variant => Self::$variant((*(ptr as *mut $ty)).clone())
@@ -105,18 +105,18 @@ macro_rules! impl_value {
                 }
             }
 
-            pub unsafe fn as_raw(&mut self) -> *mut *mut u8 {
+            pub unsafe fn as_raw(&mut self) -> *mut RawPointer {
                 match self {
                     $(
-                        Pointer::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut *mut u8>(v)
+                        Pointer::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut RawPointer>(v)
                     ),+
                 }
             }
 
-            pub fn as_inner_raw(&self) -> *mut u8 {
+            pub fn as_inner_raw(&self) -> RawPointer {
                 match self {
                     $(
-                        Pointer::$variant(v) => *v as *mut u8
+                        Pointer::$variant(v) => *v as RawPointer
                     ),+
                 }
             }
@@ -138,7 +138,7 @@ macro_rules! impl_value {
                 }
             }
 
-            pub fn from_kind_and_ptr(kind: ValueKind, ptr: *mut u8) -> Self {
+            pub fn from_kind_and_ptr(kind: ValueKind, ptr: RawPointer) -> Self {
                 match kind {
                     $(
                         ValueKind::$variant => Pointer::$variant(ptr as _)
@@ -281,10 +281,10 @@ impl Value {
         Value::Aggregate(Vec::with_capacity(0))
     }
 
-    pub unsafe fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
+    pub unsafe fn from_type_and_ptr(ty: &TyKind, ptr: RawPointer) -> Self {
         match ty {
             TyKind::Never | TyKind::Unit => Self::unit(),
-            TyKind::Bool => Self::Bool(*ptr != 0),
+            TyKind::Bool => Self::Bool(*(ptr as *mut bool)),
             TyKind::Int(ty) => match ty {
                 IntTy::I8 => Self::I8(*(ptr as *mut i8)),
                 IntTy::I16 => Self::I16(*(ptr as *mut i16)),
@@ -293,7 +293,7 @@ impl Value {
                 IntTy::Int => Self::Int(*(ptr as *mut isize)),
             },
             TyKind::Uint(ty) => match ty {
-                UintTy::U8 => Self::U8(*ptr),
+                UintTy::U8 => Self::U8(*(ptr as *mut u8)),
                 UintTy::U16 => Self::U16(*(ptr as *mut u16)),
                 UintTy::U32 => Self::U32(*(ptr as *mut u32)),
                 UintTy::U64 => Self::U64(*(ptr as *mut u64)),
@@ -311,7 +311,7 @@ impl Value {
                 }
             },
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-                Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut *mut u8)))
+                Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
             }
             TyKind::Fn(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
@@ -331,7 +331,7 @@ impl Pointer {
         Pointer::Aggregate(&mut Vec::with_capacity(0))
     }
 
-    pub fn from_type_and_ptr(ty: &TyKind, ptr: *mut u8) -> Self {
+    pub fn from_type_and_ptr(ty: &TyKind, ptr: RawPointer) -> Self {
         match ty {
             TyKind::Never | TyKind::Unit => Self::U8(ptr as _),
             TyKind::Bool => Self::Bool(ptr as _),

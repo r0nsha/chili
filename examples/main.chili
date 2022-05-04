@@ -41,7 +41,6 @@ pub let main = fn() {
 
     let { age, name } = .{ name: "Ron", age: 26 as i64 }
     printf("My name is %s and I'm %d years old\n\0".data, name.data, age)
-    printf("My name is %d years old\n\0".data, age)
 }
 
 @run(main())

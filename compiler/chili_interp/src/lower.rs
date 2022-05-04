@@ -1,6 +1,7 @@
 use std::mem::ManuallyDrop;
 
 use crate::{
+    ffi::RawPointer,
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
     value::{ForeignFunc, Func, Pointer, Value, ValueKind},
