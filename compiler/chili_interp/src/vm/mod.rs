@@ -131,7 +131,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.inst();
 
-            self.trace(&inst, TraceLevel::None);
+            self.trace(&inst, TraceLevel::Full);
             // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {
@@ -441,12 +441,12 @@ impl<'vm> VM<'vm> {
                     format!("[stack items: {}]", self.stack.len()).blue()
                 );
             }
-            TraceLevel::All => {
+            TraceLevel::Full => {
                 println!("{:06}\t{}", frame.ip, inst.to_string().bold());
 
                 print!("\t[");
 
-                let frame_slot = frame.stack_slot;
+                let frame_slot = frame.stack_slot.checked_sub(1).unwrap_or_default();
 
                 for (index, value) in self.stack.iter().enumerate() {
                     print!(
@@ -473,5 +473,5 @@ impl<'vm> VM<'vm> {
 enum TraceLevel {
     None,
     Minimal,
-    All,
+    Full,
 }
