@@ -1,9 +1,10 @@
 use raylib.?
 use c.?
 
-let width: i32 = 100
-let height: i32 = 50
+let width: i32 = 200
+let height: i32 = 100
 let max_droplet_interval: i32 = 1
+let bg_color = blue
 
 let main = fn() {
 	srand(time(0 as uint as _))
@@ -16,53 +17,58 @@ let main = fn() {
 	let mut frames = rand() % max_droplet_interval
 
 	InitWindow(width, height, "chili language - test - water ripples\0".data)
-	SetTargetFPS(30)
+	SetTargetFPS(60)
 
 	while !WindowShouldClose() {
 		BeginDrawing()
 
-		ClearBackground(black)
+		ClearBackground(bg_color)
 
-		// if frames == 0 {
-		// 	droplet(prev, (rand() % width) as _, (rand() % height) as _)
-		// 	frames = rand() % max_droplet_interval
-		// } else {
-		// 	frames -= 1
+		if frames == 0 {
+			droplet(prev, (rand() % width) as _, (rand() % height) as _)
+			frames = rand() % max_droplet_interval
+		} else {
+			frames -= 1
+		}
+
+		// if IsMouseButtonDown(0) {
+        //     droplet(prev, GetMouseX(), GetMouseY())
 		// }
 
-		// // if IsMouseButtonDown(0) {
-        // //     droplet(prev, GetMouseX(), GetMouseY())
-		// // }
-
-		// for x in 1..width - 2 {
-		// 	for y in 1..height - 2 {
-		// 		let mut value = (
-		// 			(prev[(x - 1) + y * width] +
-		// 			prev[(x + 1) + y * width] +
-		// 			prev[x + (y - 1) * width] +
-		// 			prev[x + (y + 1) * width]) / 2 - 
-		// 			curr[x + y * width]
-		// 		)
+		for x in 1..width - 2 {
+			for y in 1..height - 2 {
+				let mut value = (
+					(prev[(x - 1) + y * width] +
+					prev[(x + 1) + y * width] +
+					prev[x + (y - 1) * width] +
+					prev[x + (y + 1) * width]) / 2 - 
+					curr[x + y * width]
+				)
 				
-		// 		// value *= frand(0.75, 0.99)
+				let color = if value == 0 {
+					bg_color
+				} else {
+					value *= frand(0.75, 0.99)
 
-        //         // let value_u8 = value as u8
-		// 		// let color = Color {
-		// 		// 	r: value_u8,
-		// 		// 	g: value_u8,
-		// 		// 	b: value_u8,
-		// 		// 	a: (value_u8 as f64 * 0.75) as _,
-		// 		// }
+					let value_u8 = value as u8
+					white
+					// Color {
+					// 	r: value_u8,
+					// 	g: value_u8,
+					// 	b: value_u8,
+					// 	a: (value_u8 as f64 * 0.75) as _,
+					// }
+				}
 
-		// 		// DrawPixel(x as _, y as _, color)
+				// DrawPixel(x as _, y as _, color)
 
-        //         // curr[x + y * width] = value
-		// 	}
-		// }
+                curr[x + y * width] = value
+			}
+		}
 
-		// let temp = prev
-		// prev = curr
-		// curr = temp
+		let temp = prev
+		prev = curr
+		curr = temp
 
 		DrawFPS(10, 10)
 
@@ -72,20 +78,20 @@ let main = fn() {
 	CloseWindow()
 }
 
-// let droplet = fn(buf: [*mut]f64, x: i32, y: i32) {
-// 	if  x >= 1 &&
-// 		x <= width - 1 &&
-// 		y >= 1 &&
-// 		y <= height - 1 {
-// 		buf[x + y * width] = 255
-// 	}
-// }
+let droplet = fn(buf: [*mut]f64, x: i32, y: i32) {
+	if  x >= 1 &&
+		x <= width - 1 &&
+		y >= 1 &&
+		y <= height - 1 {
+		buf[x + y * width] = 255
+	}
+}
 
-// let frand = fn(min: f64, max: f64) -> f64 {
-//     let scale = (rand() as f64) / (RAND_MAX as f64)
-//     min + scale * (max - min)
-// }
+let frand = fn(min: f64, max: f64) -> f64 {
+    let scale = (rand() as f64) / (RAND_MAX as f64)
+    min + scale * (max - min)
+}
 
-// let RAND_MAX: uint = 32767
+let RAND_MAX: uint = 32767
 
 @run(main())
