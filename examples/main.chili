@@ -40,7 +40,7 @@ pub let main = fn() {
     // printf("Sum = %d\n".data, a + b)
 
     let { age, name } = .{ name: "Ron", age: 26 as i64 }
-    printf("My name is %s and I'm %d years old\n\0".data, name.data, age)
+    printf("My name is %s and I'm %d %d %d %d years old\n\0".data, "Ron".data, 26, 2, 1, 1)
 }
 
 @run(main())
