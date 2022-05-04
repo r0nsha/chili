@@ -6,7 +6,8 @@ use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
 use libffi::{
     low::{
-        ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, types, CodePtr,
+        ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, type_tag, types,
+        CodePtr,
     },
     raw::FFI_TYPE_STRUCT,
 };
@@ -209,7 +210,7 @@ impl AsFfiType for TyKind {
                 ffi_type!(*Box::new(ffi_type {
                     size,
                     alignment: align as u16,
-                    type_: FFI_TYPE_STRUCT as u16,
+                    type_: type_tag::STRUCT,
                     elements: elements_ptr,
                 }))
             }

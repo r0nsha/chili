@@ -1,63 +1,64 @@
-use raylib.*;
-use c.*;
+use raylib.?
+use c.?
 
 let main = fn() {
 	let width = 1920;
 	let height = 1080;
 
 	InitWindow(width, height, "chili language example - following eyes\0".data);
-	HideCursor();
+	SetTargetFPS(60)
+	HideCursor()
 
-	let sclera_left_pos = Vector2 { x = width as f32 / 2 - 100, y = height as f32 / 2 };
-	let sclera_right_pos = Vector2 { x = width as f32 / 2 + 100, y = height as f32 / 2 };
-	let sclera_radius = 80;
+	let sclera_left_pos = Vector2 { x: width as f32 / 2 - 100, y: height as f32 / 2 }
+	let sclera_right_pos = Vector2 { x: width as f32 / 2 + 100, y: height as f32 / 2 }
+	let sclera_radius = 80
 
-	let iris_radius = 24;
+	let iris_radius = 24
 
 	while !WindowShouldClose() {
 		let iris_left_pos = GetMousePosition();
 		let iris_left_pos = coerce_circle_in_circle(iris_left_pos, iris_radius, sclera_left_pos, sclera_radius);
 
-		let iris_right_pos = GetMousePosition();
-		let iris_right_pos = coerce_circle_in_circle(iris_right_pos, iris_radius, sclera_right_pos, sclera_radius);
+		// let iris_right_pos = GetMousePosition();
+		// let iris_right_pos = coerce_circle_in_circle(iris_right_pos, iris_radius, sclera_right_pos, sclera_radius);
 
-		BeginDrawing();
+		BeginDrawing()
 
-		ClearBackground(ray_white);
+		ClearBackground(ray_white)
 
-		DrawFPS(10, 10);
-		
-		draw_eye(
-			sclera_left_pos,
-			sclera_radius,
-			light_gray,
-			iris_left_pos,
-			iris_radius,
-			brown
-		);
+		// draw_eye(
+		// 	sclera_left_pos,
+		// 	sclera_radius,
+		// 	light_gray,
+		// 	iris_left_pos,
+		// 	iris_radius,
+		// 	brown
+		// );
 
-		draw_eye(
-			sclera_right_pos,
-			sclera_radius,
-			light_gray,
-			iris_right_pos,
-			iris_radius,
-			dark_green
-		);
+		// draw_eye(
+		// 	sclera_right_pos,
+		// 	sclera_radius,
+		// 	light_gray,
+		// 	iris_right_pos,
+		// 	iris_radius,
+		// 	dark_green
+		// );
 
-		DrawCircleV(GetMousePosition(), 4, red);
+		// DrawCircleV(GetMousePosition(), 4, red);
 
-		EndDrawing();
+		DrawFPS(10, 10)
+
+		EndDrawing()
 	}
 
-	CloseWindow();
+	CloseWindow()
 }
 
 let coerce_circle_in_circle = fn(
-	position Vector2,
-	radius f32,
-	coerce_in_position Vector2,
-	coerce_in_radius f32,
+	position: Vector2,
+	radius: f32,
+	coerce_in_position: Vector2,
+	coerce_in_radius: f32,
 ) -> Vector2 {
 	if CheckCollisionPointCircle(position, coerce_in_position, coerce_in_radius - (radius / 4) * 3) {
 		position
@@ -67,21 +68,23 @@ let coerce_circle_in_circle = fn(
 			position.x - coerce_in_position.x
 		);
 		Vector2 {
-			x = coerce_in_position.x + (coerce_in_radius - radius) * cosf(angle),
-			y = coerce_in_position.y + (coerce_in_radius - radius) * sinf(angle),
+			x: coerce_in_position.x + (coerce_in_radius - radius) * cosf(angle),
+			y: coerce_in_position.y + (coerce_in_radius - radius) * sinf(angle),
 		}
 	}
 }
 
 let draw_eye = fn(
-	sclera_pos Vector2, 
-	sclera_radius f32, 
-	sclera_color Color,
-	iris_pos Vector2, 
-	iris_radius f32,
-	iris_color Color,
+	sclera_pos: Vector2, 
+	sclera_radius: f32, 
+	sclera_color: Color,
+	iris_pos: Vector2, 
+	iris_radius: f32,
+	iris_color: Color,
 ) {
-	DrawCircleV(sclera_pos, sclera_radius, sclera_color);
-	DrawCircleV(iris_pos, iris_radius, iris_color);
-	DrawCircleV(iris_pos, iris_radius / 2, black);
+	DrawCircleV(sclera_pos, sclera_radius, sclera_color)
+	DrawCircleV(iris_pos, iris_radius, iris_color)
+	DrawCircleV(iris_pos, iris_radius / 2, black)
 }
+
+@run(main())
