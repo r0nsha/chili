@@ -5,6 +5,7 @@ use crate::{
     value::{Func, Pointer, Value},
 };
 use colored::Colorize;
+use common::time;
 use std::fmt::Display;
 use ustr::ustr;
 
@@ -58,7 +59,7 @@ macro_rules! binary_op {
             (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Uint(a $op b)),
             (Value::F32(a), Value::F32(b)) => $vm.stack.push(Value::F32(a $op b)),
             (Value::F64(a), Value::F64(b)) => $vm.stack.push(Value::F64(a $op b)),
-            _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a ,b)
+            _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a.to_string() ,b.to_string())
         }
 
         $vm.next_inst();
@@ -84,7 +85,7 @@ macro_rules! comp_op {
             (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Bool(a $op b)),
             (Value::F32(a), Value::F32(b)) => $vm.stack.push(Value::Bool(a $op b)),
             (Value::F64(a), Value::F64(b)) => $vm.stack.push(Value::Bool(a $op b)),
-            _ => panic!("invalid types in compare operation `{}` and `{}`", a ,b)
+            _ => panic!("invalid types in compare operation `{}` and `{}`", a.to_string() ,b.to_string())
         }
 
         $vm.next_inst();
@@ -164,7 +165,7 @@ impl<'vm> VM<'vm> {
                 Instruction::Neg => {
                     match self.stack.pop() {
                         Value::Int(v) => self.stack.push(Value::Int(-v)),
-                        value => panic!("invalid value {}", value),
+                        value => panic!("invalid value {}", value.to_string()),
                     }
                     self.next_inst();
                 }
@@ -181,7 +182,7 @@ impl<'vm> VM<'vm> {
                         Value::U64(v) => Value::U64(!v),
                         Value::Uint(v) => Value::Uint(!v),
                         Value::Bool(v) => Value::Bool(!v),
-                        v => panic!("invalid value {}", v),
+                        v => panic!("invalid value {}", v.to_string()),
                     };
                     self.stack.push(result);
                     self.next_inst();
@@ -189,10 +190,10 @@ impl<'vm> VM<'vm> {
                 Instruction::Deref => {
                     match self.stack.pop() {
                         Value::Pointer(ptr) => {
-                            let value = unsafe { ptr.deref() };
+                            let value = unsafe { ptr.deref_value() };
                             self.stack.push(value);
                         }
-                        value => panic!("invalid value {}", value),
+                        value => panic!("invalid value {}", value.to_string()),
                     }
                     self.next_inst();
                 }
@@ -245,7 +246,7 @@ impl<'vm> VM<'vm> {
                         break return_value;
                     } else {
                         self.stack
-                            .truncate(frame.stack_slot - frame.func.param_count);
+                            .truncate(frame.stack_slot - frame.func.param_count as usize);
                         self.stack.push(return_value);
                         self.next_inst();
                     }
@@ -268,7 +269,7 @@ impl<'vm> VM<'vm> {
 
                             self.next_inst();
                         }
-                        _ => panic!("tried to call an uncallable value `{}`", value),
+                        _ => panic!("tried to call an uncallable value `{}`", value.to_string()),
                     }
                 }
                 Instruction::GetGlobal(slot) => {
@@ -454,7 +455,7 @@ impl<'vm> VM<'vm> {
                         if index == frame_slot {
                             // frame slot
                             value.to_string().bright_yellow()
-                        } else if index > frame_slot
+                        } else if index > frame_slot - frame.func.param_count as usize
                             && index <= frame_slot + frame.func.code.locals as usize
                         {
                             // local value

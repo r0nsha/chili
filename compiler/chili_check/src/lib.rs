@@ -2046,5 +2046,7 @@ fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> I
     let mut interp_sess = sess
         .interp
         .create_session(sess.workspace, &sess.tycx, &sess.new_ast);
-    interp_sess.eval(expr, module_id)
+    let result = interp_sess.eval(expr, module_id)?;
+    println!("result = {}", result.to_string());
+    Ok(result)
 }

@@ -423,12 +423,12 @@ impl Lower for ast::Fn {
 
         sess.env_mut().push_scope();
 
-        let mut offset: i16 = -1;
+        let mut offset: i16 = -(self.sig.params.len() as i16);
         for param in self.sig.params.iter() {
             match &param.pattern {
                 Pattern::Single(pat) => {
                     sess.env_mut().insert(pat.binding_info_id, offset);
-                    offset -= 1;
+                    offset += 1;
                 }
                 Pattern::StructUnpack(_) => {
                     todo!("struct unpack")
@@ -457,7 +457,7 @@ impl Lower for ast::Fn {
 
         let func = Value::Func(Func {
             name: self.sig.name,
-            param_count: self.sig.params.len(),
+            param_count: self.sig.params.len() as u16,
             code: func_code,
         });
 
@@ -714,9 +714,20 @@ impl Lower for ast::Unary {
 
 impl Lower for ast::Subscript {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        self.expr.lower(sess, code, ctx);
+        self.expr.lower(sess, code, LowerContext { take_ptr: true });
+        // self.expr.lower(sess, code, ctx);
+
         self.index
             .lower(sess, code, LowerContext { take_ptr: false });
+
+        match self.expr.ty.normalize(sess.tycx) {
+            TyKind::Pointer(inner, _) | TyKind::MultiPointer(inner, _) => {
+                // if this is a pointer offset, we need to multiply the index by the pointer size
+                sess.push_const(code, Value::Uint(inner.size_of(WORD_SIZE)));
+                code.push(Instruction::Mul);
+            }
+            _ => (),
+        }
 
         code.push(if ctx.take_ptr {
             Instruction::IndexPtr
@@ -810,7 +821,7 @@ fn lower_block(
     sess: &mut InterpSess,
     code: &mut CompiledCode,
     ctx: LowerContext,
-    throw_value: bool,
+    throw_yielded_value: bool,
 ) {
     sess.env_mut().push_scope();
 
@@ -827,14 +838,14 @@ fn lower_block(
             },
         );
 
-        if !is_last || throw_value {
+        if !is_last || throw_yielded_value {
             code.push(Instruction::Pop);
         }
     }
 
     lower_deferred(&block.deferred, sess, code);
 
-    if block.exprs.is_empty() {
+    if block.exprs.is_empty() && !throw_yielded_value {
         sess.push_const_unit(code);
     }
 

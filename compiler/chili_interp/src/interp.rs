@@ -110,8 +110,6 @@ impl<'i> InterpSess<'i> {
             vm.run(code)
         }};
 
-        println!("result = {}", result);
-
         Ok(result)
     }
 

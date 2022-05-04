@@ -20,7 +20,7 @@ macro_rules! cast_to_int {
             Value::F32(v) => Value::$name(v as $to),
             Value::F64(v) => Value::$name(v as $to),
             Value::Bool(v) => Value::$name(v as $to),
-            _ => panic!("invalid value {}", $value),
+            _ => panic!("invalid value {}", $value.to_string()),
         }
     };
 }
@@ -41,7 +41,7 @@ macro_rules! cast_to_float {
             Value::Uint(v) => Value::$name(v as $to),
             Value::F32(v) => Value::$name(v as $to),
             Value::F64(v) => Value::$name(v as $to),
-            _ => panic!("invalid value {}", $value),
+            _ => panic!("invalid value {}", $value.to_string()),
         }
     };
 }
@@ -69,7 +69,7 @@ impl<'vm> VM<'vm> {
                     Value::Int(value) => value as *mut u8,
                     Value::Uint(value) => value as *mut u8,
                     Value::Pointer(ptr) => ptr.as_inner_raw(),
-                    _ => panic!("invalid value {}", value),
+                    _ => panic!("invalid value {}", value.to_string()),
                 };
 
                 let new_ptr = Pointer::from_kind_and_ptr(kind, raw_ptr);

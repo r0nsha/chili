@@ -53,7 +53,17 @@ impl<'s> Stopwatch<'s> {
 
 #[macro_export]
 macro_rules! time {
-    ($enabled: expr, $label: literal, $body: expr) => {{
+    ($enabled:expr, $label:literal, $body:expr) => {{
+        if $enabled {
+            let sw = common::Stopwatch::start_new($label);
+            let res = $body;
+            sw.print();
+            res
+        } else {
+            $body
+        }
+    }};
+    ($enabled:expr, $label:expr, $body:expr) => {{
         if $enabled {
             let sw = common::Stopwatch::start_new($label);
             let res = $body;

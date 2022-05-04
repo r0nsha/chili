@@ -222,7 +222,7 @@ impl AsFfiType for Value {
             Value::Aggregate(_) => todo!(),
             Value::Pointer(..) => types::pointer,
             Value::Func(_) => todo!(),
-            _ => panic!("can't pass `{}` through ffi", self),
+            _ => panic!("can't pass `{}` through ffi", self.to_string()),
         }
     }
 }
@@ -283,7 +283,7 @@ impl AsFfiArg for Value {
                         Value::Aggregate(v) => todo!(),
                         Value::Pointer(v) => todo!(),
                         Value::Func(v) => todo!(),
-                        _ => panic!("can't convert `{}` to raw bytes", self),
+                        _ => panic!("can't convert `{}` to raw bytes", self.to_string()),
                     }
 
                     // TODO: this could be more efficient
@@ -301,7 +301,7 @@ impl AsFfiArg for Value {
             }
             Value::Func(_) => todo!("func"),
             Value::ForeignFunc(_) => todo!("foreign func"),
-            _ => panic!("can't pass `{}` through ffi", self),
+            _ => panic!("can't pass `{}` through ffi", self.to_string()),
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::{instruction::CompiledCode, IS_64BIT};
 use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
 use paste::paste;
-use std::{fmt::Display, mem};
+use std::{fmt::Display, mem, ops::Deref};
 use ustr::Ustr;
 
 macro_rules! impl_value {
@@ -31,12 +31,29 @@ macro_rules! impl_value {
         }
 
         impl Value {
+            #[allow(dead_code)]
+            pub fn kind(&self) -> ValueKind {
+                match self {
+                    $(
+                        Value::$variant(_) => ValueKind::$variant
+                    ),+
+                }
+            }
+
+            pub unsafe fn from_kind_and_ptr(kind: ValueKind, ptr: *mut u8) -> Self {
+                match kind {
+                    $(
+                        ValueKind::$variant => Self::$variant((*(ptr as *mut $ty)).clone())
+                    ),+
+                }
+            }
+
             paste! {
                 $(
                     pub fn [<into_ $variant:snake>](self) -> $ty {
                         match self {
                             Value::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self, stringify!($variant))
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
                 )+
@@ -45,7 +62,7 @@ macro_rules! impl_value {
                     pub fn [<as_ $variant:snake>](&self) -> &$ty {
                         match self {
                             Value::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self, stringify!($variant))
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
                 )+
@@ -54,7 +71,7 @@ macro_rules! impl_value {
                     pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
                         match self {
                             Value::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self, stringify!($variant))
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
                 )+
@@ -79,6 +96,15 @@ macro_rules! impl_value {
         }
 
         impl Pointer {
+            #[allow(dead_code)]
+            pub fn kind(&self) -> ValueKind {
+                match self {
+                    $(
+                        Pointer::$variant(_) => ValueKind::$variant
+                    ),+
+                }
+            }
+
             pub unsafe fn as_raw(&mut self) -> *mut *mut u8 {
                 match self {
                     $(
@@ -100,11 +126,11 @@ macro_rules! impl_value {
                     $(
                         (Pointer::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
                     ),+,
-                    (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value)
+                    (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value.to_string())
                 }
             }
 
-            pub unsafe fn deref(&self) -> Value {
+            pub unsafe fn deref_value(&self) -> Value {
                 match self {
                     $(
                         Pointer::$variant(v) => Value::$variant((**v).clone())
@@ -126,6 +152,35 @@ macro_rules! impl_value {
                         Pointer::$variant(v) => println!("{:?}", **v)
                     ),+
                 }
+            }
+
+            paste! {
+                $(
+                    pub fn [<into_ $variant:snake>](self) -> *mut $ty {
+                        match self {
+                            Pointer::$variant(v) => v,
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<as_ $variant:snake>](&self) -> &*mut $ty {
+                        match self {
+                            Pointer::$variant(v) => v,
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut *mut $ty {
+                        match self {
+                            Pointer::$variant(v) => v,
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
+                        }
+                    }
+                )+
             }
         }
     };
@@ -162,7 +217,7 @@ pub struct Slice {
 #[derive(Debug, Clone)]
 pub struct Func {
     pub name: Ustr,
-    pub param_count: usize,
+    pub param_count: u16,
     pub code: CompiledCode,
 }
 
@@ -212,7 +267,7 @@ impl From<&TyKind> for ValueKind {
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
             TyKind::Module(_) => todo!(),
-            TyKind::Type(_) => todo!(),
+            TyKind::Type(t) => Self::Type,
             TyKind::Infer(_, InferTy::AnyInt) => Self::I32,
             TyKind::Infer(_, InferTy::AnyFloat) => Self::F64,
             TyKind::Infer(_, _) => todo!(),
@@ -311,49 +366,95 @@ impl Pointer {
     }
 }
 
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Value::I8(v) => format!("i8 {}", v),
-                Value::I16(v) => format!("i16 {}", v),
-                Value::I32(v) => format!("i32 {}", v),
-                Value::I64(v) => format!("i64 {}", v),
-                Value::Int(v) => format!("int {}", v),
-                Value::U8(v) => format!("u8 {}", v),
-                Value::U16(v) => format!("u16 {}", v),
-                Value::U32(v) => format!("u32 {}", v),
-                Value::U64(v) => format!("u64 {}", v),
-                Value::Uint(v) => format!("uint {}", v),
-                Value::F32(v) => format!("f32 {}", v),
-                Value::F64(v) => format!("f64 {}", v),
-                Value::Bool(v) => format!("bool {}", v),
-                Value::Aggregate(v) => {
-                    const MAX_VALUES: isize = 4;
-                    let extra_values = v.len() as isize - MAX_VALUES;
+impl ToString for Value {
+    fn to_string(&self) -> String {
+        match self {
+            Value::I8(v) => format!("i8 {}", v),
+            Value::I16(v) => format!("i16 {}", v),
+            Value::I32(v) => format!("i32 {}", v),
+            Value::I64(v) => format!("i64 {}", v),
+            Value::Int(v) => format!("int {}", v),
+            Value::U8(v) => format!("u8 {}", v),
+            Value::U16(v) => format!("u16 {}", v),
+            Value::U32(v) => format!("u32 {}", v),
+            Value::U64(v) => format!("u64 {}", v),
+            Value::Uint(v) => format!("uint {}", v),
+            Value::F32(v) => format!("f32 {}", v),
+            Value::F64(v) => format!("f64 {}", v),
+            Value::Bool(v) => format!("bool {}", v),
+            Value::Aggregate(v) => {
+                const MAX_VALUES: isize = 4;
+                let extra_values = v.len() as isize - MAX_VALUES;
 
-                    format!(
-                        "{{{}{}}}",
-                        v.iter()
-                            .take(MAX_VALUES as usize)
-                            .map(|v| v.to_string())
-                            .collect::<Vec<String>>()
-                            .join(", "),
-                        if extra_values > 0 {
-                            format!(", +{} more", extra_values)
-                        } else {
-                            "".to_string()
-                        }
-                    )
-                }
-                Value::Pointer(p) => format!("ptr {:?}", p),
-                Value::Func(func) => format!("fn {}", func.name),
-                Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
-                Value::Type(ty) => format!("type {}", ty),
-                Value::LazyCompute(_) => "lazy compute".to_string(),
+                format!(
+                    "{{{}{}}}",
+                    v.iter()
+                        .take(MAX_VALUES as usize)
+                        .map(|v| v.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    if extra_values > 0 {
+                        format!(", +{} more", extra_values)
+                    } else {
+                        "".to_string()
+                    }
+                )
             }
-        )
+            Value::Pointer(p) => format!("ptr {}", p.to_string()),
+            Value::Func(func) => format!("fn {}", func.name),
+            Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
+            Value::Type(ty) => format!("type {}", ty),
+            Value::LazyCompute(_) => "lazy compute".to_string(),
+        }
+    }
+}
+
+impl ToString for Pointer {
+    fn to_string(&self) -> String {
+        if self.as_inner_raw() == std::ptr::null_mut() {
+            "null".to_string()
+        } else {
+            unsafe {
+                match self {
+                    Pointer::I8(v) => format!("i8 {}", **v),
+                    Pointer::I16(v) => format!("i16 {}", **v),
+                    Pointer::I32(v) => format!("i32 {}", **v),
+                    Pointer::I64(v) => format!("i64 {}", **v),
+                    Pointer::Int(v) => format!("int {}", **v),
+                    Pointer::U8(v) => format!("u8 {}", **v),
+                    Pointer::U16(v) => format!("u16 {}", **v),
+                    Pointer::U32(v) => format!("u32 {}", **v),
+                    Pointer::U64(v) => format!("u64 {}", **v),
+                    Pointer::Uint(v) => format!("uint {}", **v),
+                    Pointer::F32(v) => format!("f32 {}", **v),
+                    Pointer::F64(v) => format!("f64 {}", **v),
+                    Pointer::Bool(v) => format!("bool {}", **v),
+                    Pointer::Aggregate(v) => {
+                        const MAX_VALUES: isize = 4;
+                        let extra_values = (**v).len() as isize - MAX_VALUES;
+
+                        format!(
+                            "{{{}{}}}",
+                            (**v)
+                                .iter()
+                                .take(MAX_VALUES as usize)
+                                .map(|v| v.to_string())
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                            if extra_values > 0 {
+                                format!(", +{} more", extra_values)
+                            } else {
+                                "".to_string()
+                            }
+                        )
+                    }
+                    Pointer::Pointer(p) => format!("ptr {}", (**p).to_string()),
+                    Pointer::Func(func) => format!("fn {}", (**func).name),
+                    Pointer::ForeignFunc(func) => format!("foreign fn {}", (**func).name),
+                    Pointer::Type(ty) => format!("type {}", (**ty)),
+                    Pointer::LazyCompute(_) => "lazy compute".to_string(),
+                }
+            }
+        }
     }
 }

@@ -3,67 +3,66 @@ use c.?
 
 let width: i32 = 400
 let height: i32 = 300
-let max_droplet_interval: i32 = 1
 
 pub let main = fn() {
-	srand(time(0 as uint as _))
+	// srand(time(0 as uint as _))
 
-	let mut values: [width]i32 = [0; width]
-	let mut sorted_indices: [width]bool = [false; width]
+	// let mut values: [width]i32 = [0; width]
+	// let mut sorted_indices: [width]bool = [false; width]
 
-	for 0..values.len - 1 {
-		values[it] = rand() as i32 % width
-	}
+	// for 0..values.len - 1 {
+	// 	values[it] = rand() as i32 % width
+	// }
 
-	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
-	SetTargetFPS(60)
+	// InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
+	// SetTargetFPS(60)
 
-	let mut n = 0
-	let mut len = values.len - 1
+	// let mut n = 0
+	// let mut len = values.len - 1
 
-	while !WindowShouldClose() {
-		if n < len {
-			for i in 0..len - n - 1 {
-				let a = values[i]
-				let b = values[i + 1]
+	// while !WindowShouldClose() {
+	// 	if n < len {
+	// 		for i in 0..len - n - 1 {
+	// 			let a = values[i]
+	// 			let b = values[i + 1]
 
-				if a > b {
-					let temp = values[i + 1]
-					values[i + 1] = values[i]
-					values[i] = temp
+	// 			if a > b {
+	// 				let temp = values[i + 1]
+	// 				values[i + 1] = values[i]
+	// 				values[i] = temp
 
-					sorted_indices[i] = true
-				}
-			}
-			n += 1
-		}
+	// 				sorted_indices[i] = true
+	// 			}
+	// 		}
+	// 		n += 1
+	// 	}
 
-		BeginDrawing()
-		ClearBackground(black)
+	// 	BeginDrawing()
+	// 	ClearBackground(black)
 
-		for values {
-			let x = width - it_index as i32
-			let line_height = map(it, 0, width, 0, height)
+	// 	for values {
+	// 		let x = width - it_index as i32
+	// 		let line_height = map(it, 0, width, 0, height)
 
-			DrawLine(
-				x, 
-				line_height, 
-				x, 
-				height,
-				if sorted_indices[it_index] { 
-					red
-				} else {
-					white
-				}
-			)
-		}
+	// 		DrawLine(
+	// 			x, 
+	// 			line_height, 
+	// 			x, 
+	// 			height,
+	// 			if sorted_indices[it_index] { 
+	// 				red
+	// 			} else {
+	// 				white
+	// 			}
+	// 		)
+	// 	}
 
-		DrawFPS(10, 10)
-		sorted_indices = [false; width]
-		EndDrawing()
-	}
+	// 	DrawFPS(10, 10)
+	// 	sorted_indices = [false; width]
+	// 	EndDrawing()
+	// }
 
-	CloseWindow()
+	// CloseWindow()
 }
 
 let map = fn(x: i32, a: i32, b: i32, c: i32, d: i32) -> i32 {
@@ -71,3 +70,5 @@ let map = fn(x: i32, a: i32, b: i32, c: i32, d: i32) -> i32 {
 	let res = div * ((d - c) + c) as f64;
 	res as i32
 }
+
+@run(main())
