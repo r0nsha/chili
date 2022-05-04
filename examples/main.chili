@@ -3,31 +3,6 @@ use raylib_bubble_sort_visualization.main as raylib_test
 
 let test = fn {
     raylib_test()
-
-    // printf("Hello, Vm!\n".data)
-
-    // // Alloc ptr
-    // let ptr = malloc(@size_of(int)) as *mut int
-    // ptr.* = 42
-    // defer free(ptr as _)
-
-    // // Create struct containing ptr
-    // let data = .{ ptr }
-    
-    // // Print value
-    // defer printf("(Should be last) Value = %d\n".data, data.ptr.*)
-
-    // // Assign ptr to new value
-    // data.ptr.* = 50
-
-    // // Print value again
-    // printf("Value = %d\n".data, data.ptr.*)
-    
-    // let (a, b) = (1, 2)
-    // printf("Sum = %d\n".data, a + b)
-
-    // let { age, name } = .{ name: "Ron", age: 26 as i64 }
-    // printf("My name is %s and I'm %d years old\n".data, name.data, age)
 }
 
 @run(test())

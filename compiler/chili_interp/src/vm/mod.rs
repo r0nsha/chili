@@ -118,12 +118,12 @@ impl<'vm> VM<'vm> {
     }
 
     pub(crate) fn run(&'vm mut self, code: CompiledCode) -> Value {
-        self.push_frame(Func {
+        self.stack.push(Value::Func(Func {
             name: ustr("__vm_start"),
             param_count: 0,
             code,
-        });
-
+        }));
+        self.push_frame(self.stack.peek(0).clone().into_func());
         self.run_loop()
     }
 
@@ -131,7 +131,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.inst();
 
-            // self.trace(&inst, TraceLevel::All);
+            self.trace(&inst, TraceLevel::None);
             // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {
@@ -245,7 +245,7 @@ impl<'vm> VM<'vm> {
                         break return_value;
                     } else {
                         self.stack
-                            .truncate(frame.stack_slot - frame.func.param_count - 1);
+                            .truncate(frame.stack_slot - frame.func.param_count);
                         self.stack.push(return_value);
                         self.next_inst();
                     }
@@ -389,7 +389,7 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     fn push_frame(&mut self, func: Func) {
-        let stack_slot = self.stack.len();
+        let stack_slot = self.stack.len() - 1;
         for _ in 0..func.code.locals {
             self.stack.push(Value::unit());
         }
@@ -429,22 +429,49 @@ impl<'vm> VM<'vm> {
     }
 
     fn trace(&self, inst: &Instruction, level: TraceLevel) {
-        let stack_trace = match level {
-            TraceLevel::Minimal => format!("Stack count: {}", self.stack.len()),
-            TraceLevel::All => self.stack.trace(),
-        };
+        let frame = self.frame();
 
-        println!(
-            "{:06}\t{}\n\t{}",
-            self.frame().ip,
-            inst.to_string().bold(),
-            stack_trace.blue()
-        );
+        match level {
+            TraceLevel::None => (),
+            TraceLevel::Minimal => {
+                println!(
+                    "{:06}\t{:<20}{}",
+                    frame.ip,
+                    inst.to_string().bold(),
+                    format!("[stack items: {}]", self.stack.len()).blue()
+                );
+            }
+            TraceLevel::All => {
+                println!("{:06}\t{}", frame.ip, inst.to_string().bold());
+
+                print!("\t[");
+
+                let frame_slot = frame.stack_slot;
+
+                for (index, value) in self.stack.iter().enumerate() {
+                    print!(
+                        "{}",
+                        if index == frame_slot {
+                            value.to_string().yellow()
+                        } else {
+                            value.to_string().blue()
+                        }
+                    );
+
+                    if index < self.stack.len() - 1 {
+                        print!(", ");
+                    }
+                }
+
+                println!("] ({})\n", self.stack.len());
+            }
+        }
     }
 }
 
 #[allow(dead_code)]
 enum TraceLevel {
+    None,
     Minimal,
     All,
 }

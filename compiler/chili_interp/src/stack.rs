@@ -1,3 +1,5 @@
+use colored::{ColoredString, Colorize};
+
 pub struct Stack<T, const CAPACITY: usize>(Vec<T>);
 
 impl<T, const CAPACITY: usize> Stack<T, CAPACITY>
@@ -53,14 +55,7 @@ where
         self.0.is_empty()
     }
 
-    pub fn trace(&self) -> String {
-        let values = self
-            .0
-            .iter()
-            .map(|v| v.to_string())
-            .collect::<Vec<String>>()
-            .join(" , ");
-
-        format!("[{}] ({})", values, self.0.len())
+    pub fn iter(&self) -> std::slice::Iter<T> {
+        self.0.iter()
     }
 }
