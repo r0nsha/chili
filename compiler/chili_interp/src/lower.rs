@@ -239,13 +239,8 @@ impl Lower for ast::Expr {
                     };
 
                     code.push(Instruction::AggregateAlloc);
-
-                    // TODO: This is very inefficient.
-                    // TODO: We should precalculate the expression, and just push its result to the array
-                    for _ in 0..len {
-                        expr.lower(sess, code, LowerContext { take_ptr: false });
-                        code.push(Instruction::AggregatePush);
-                    }
+                    expr.lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::AggregateFill(len as u32));
                 }
             },
             ast::ExprKind::TupleLiteral(lit) => {
@@ -568,7 +563,6 @@ impl Lower for ast::For {
 
                 // pop the end index
                 code.push(Instruction::Pop);
-                code.push(Instruction::Pop);
             }
             ast::ForIter::Value(value) => {
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
@@ -625,7 +619,6 @@ impl Lower for ast::For {
                 patch_loop_terminators(code, block_start_pos, continue_pos);
 
                 // pop the end index
-                code.push(Instruction::Pop);
                 code.push(Instruction::Pop);
             }
         }

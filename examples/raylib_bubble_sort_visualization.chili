@@ -11,9 +11,9 @@ pub let main = fn() {
 	let mut values: [width]i32 = [0; width]
 	let mut sorted_indices: [width]bool = [false; width]
 
-	for 0..values.len - 1 {
-		values[it] = rand() as i32 % width
-	}
+	// for 0..values.len - 1 {
+		// values[it] = rand() as i32 % width
+	// }
 
 	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
 	SetTargetFPS(60)
@@ -22,21 +22,21 @@ pub let main = fn() {
 	let mut len = values.len - 1
 
 	while !WindowShouldClose() {
-		// if n < len {
-		// 	for i in 0..len - n - 1 {
-		// 		// let a = values[i]
-		// 		// let b = values[i + 1]
+		if n < len {
+			for i in 0..len - n - 1 {
+				// let a = values[i]
+				// let b = values[i + 1]
 
-		// 		// if a > b {
-		// 		// 	let temp = values[i + 1]
-		// 		// 	values[i + 1] = values[i]
-		// 		// 	values [i] = temp
+				// if a > b {
+				// 	let temp = values[i + 1]
+				// 	values[i + 1] = values[i]
+				// 	values [i] = temp
 
-		// 		// 	sorted_indices[i] = true
-		// 		// }
-		// 	}
-		// 	n += 1
-		// }
+				// 	sorted_indices[i] = true
+				// }
+			}
+			n += 1
+		}
 
 		BeginDrawing()
 		ClearBackground(black)
@@ -67,8 +67,7 @@ pub let main = fn() {
 }
 
 let map = fn(x: i32, a: i32, b: i32, c: i32, d: i32) -> i32 {
-	// let div = (x - a) as f64 / (b - a) as f64;
-	// let res = div * ((d - c) + c) as f64;
-	// res as i32
-	30
+	let div = (x - a) as f64 / (b - a) as f64;
+	let res = div * ((d - c) + c) as f64;
+	res as i32
 }

@@ -131,7 +131,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.inst();
 
-            self.trace(&inst, TraceLevel::All);
+            // self.trace(&inst, TraceLevel::All);
             // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {
@@ -244,9 +244,8 @@ impl<'vm> VM<'vm> {
                     if self.frames.is_empty() {
                         break return_value;
                     } else {
-                        println!("return_slot={}", frame.stack_slot - frame.func.param_count);
                         self.stack
-                            .truncate(frame.stack_slot - frame.func.param_count);
+                            .truncate(frame.stack_slot - frame.func.param_count - 1);
                         self.stack.push(return_value);
                         self.next_inst();
                     }
@@ -351,6 +350,14 @@ impl<'vm> VM<'vm> {
                     aggregate.push(value);
                     self.next_inst();
                 }
+                Instruction::AggregateFill(size) => {
+                    let value = self.stack.pop();
+                    let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
+                    for _ in 0..size {
+                        aggregate.push(value.clone());
+                    }
+                    self.next_inst();
+                }
                 Instruction::Copy => {
                     let value = self.stack.peek(0).clone();
                     self.stack.push(value);
@@ -382,12 +389,11 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     fn push_frame(&mut self, func: Func) {
-        // let slot = self.stack.len().checked_sub(1).unwrap_or(0);
-        let slot = self.stack.len();
+        let stack_slot = self.stack.len();
         for _ in 0..func.code.locals {
             self.stack.push(Value::unit());
         }
-        self.frames.push(CallFrame::new(func, slot));
+        self.frames.push(CallFrame::new(func, stack_slot));
     }
 
     #[inline]
