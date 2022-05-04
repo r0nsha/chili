@@ -672,6 +672,8 @@ impl Lower for ast::If {
 
         if let Some(otherwise) = &self.otherwise {
             otherwise.lower(sess, code, LowerContext { take_ptr: false });
+        } else {
+            sess.push_const_unit(code);
         }
 
         patch_jmp(code, exit_jmp);
