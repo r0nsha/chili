@@ -74,10 +74,10 @@ impl Lower for ast::Expr {
                     }
                 }
 
-                sess.push_const(code, Value::unit());
+                sess.push_const_unit(code);
             }
             ast::ExprKind::Defer(_) => {
-                sess.push_const(code, Value::unit());
+                sess.push_const_unit(code);
             }
             ast::ExprKind::Assign(assign) => {
                 assign
@@ -90,7 +90,7 @@ impl Lower for ast::Expr {
 
                 code.push(Instruction::Assign);
 
-                sess.push_const(code, Value::unit());
+                sess.push_const_unit(code);
             }
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(builtin) => match builtin {
@@ -124,7 +124,7 @@ impl Lower for ast::Expr {
                 if let Some(expr) = &ret.expr {
                     expr.lower(sess, code, ctx);
                 } else {
-                    sess.push_const(code, Value::unit());
+                    sess.push_const_unit(code);
                 }
 
                 code.push(Instruction::Return);
@@ -623,7 +623,7 @@ impl Lower for ast::For {
             }
         }
 
-        sess.push_const(code, Value::unit());
+        sess.push_const_unit(code);
     }
 }
 
@@ -652,7 +652,7 @@ impl Lower for ast::While {
         patch_jmp(code, exit_jmp);
         patch_loop_terminators(code, block_start_pos, loop_start);
 
-        sess.push_const(code, Value::unit());
+        sess.push_const_unit(code);
     }
 }
 
@@ -661,19 +661,20 @@ impl Lower for ast::If {
         self.cond
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let then_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+        let else_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
 
         self.then
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let else_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
-        patch_jmp(code, then_jmp);
+        let exit_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
+
+        patch_jmp(code, else_jmp);
 
         if let Some(otherwise) = &self.otherwise {
             otherwise.lower(sess, code, LowerContext { take_ptr: false });
         }
 
-        patch_jmp(code, else_jmp);
+        patch_jmp(code, exit_jmp);
     }
 }
 
@@ -830,6 +831,10 @@ fn lower_block(
     }
 
     lower_deferred(&block.deferred, sess, code);
+
+    if block.exprs.is_empty() {
+        sess.push_const_unit(code);
+    }
 
     sess.env_mut().pop_scope();
 }

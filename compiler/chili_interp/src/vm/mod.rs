@@ -438,7 +438,7 @@ impl<'vm> VM<'vm> {
                     "{:06}\t{:<20}{}",
                     frame.ip,
                     inst.to_string().bold(),
-                    format!("[stack items: {}]", self.stack.len()).blue()
+                    format!("[stack items: {}]", self.stack.len()).bright_cyan()
                 );
             }
             TraceLevel::Full => {
@@ -452,9 +452,16 @@ impl<'vm> VM<'vm> {
                     print!(
                         "{}",
                         if index == frame_slot {
-                            value.to_string().yellow()
+                            // frame slot
+                            value.to_string().bright_yellow()
+                        } else if index > frame_slot
+                            && index <= frame_slot + frame.func.code.locals as usize
+                        {
+                            // local value
+                            value.to_string().bright_magenta()
                         } else {
-                            value.to_string().blue()
+                            // any other value
+                            value.to_string().bright_cyan()
                         }
                     );
 

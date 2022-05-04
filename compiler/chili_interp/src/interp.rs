@@ -32,7 +32,7 @@ impl Interp {
     pub fn new() -> Self {
         Self {
             globals: vec![],
-            constants: vec![],
+            constants: vec![Value::unit()],
             ffi: Ffi::new(),
             bindings_to_globals: HashMap::new(),
         }
@@ -123,6 +123,12 @@ impl<'i> InterpSess<'i> {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
         code.push(Instruction::PushConst(slot as u32));
+    }
+
+    pub(crate) fn push_const_unit(&mut self, code: &mut CompiledCode) {
+        // to avoid redundancy, when pushing a unit value,
+        // we just use the first value in the constants vec
+        code.push(Instruction::PushConst(0));
     }
 
     pub(crate) fn insert_global(&mut self, id: BindingInfoId, value: Value) -> usize {
