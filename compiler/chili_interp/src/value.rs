@@ -1,5 +1,10 @@
 use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT, WORD_SIZE};
-use chili_ast::ty::{align::AlignOf, FloatTy, InferTy, IntTy, TyKind, UintTy};
+use chili_ast::{
+    const_value::ConstValue,
+    ty::{align::AlignOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
+};
+use chili_infer::ty_ctx::TyCtx;
+use chili_span::Span;
 use paste::paste;
 use std::{fmt::Display, mem};
 use ustr::Ustr;
@@ -50,9 +55,18 @@ macro_rules! impl_value {
 
             paste! {
                 $(
+                    pub fn [<is_ $variant:snake>](&self) -> bool {
+                        match self {
+                            Self::$variant(_) => true,
+                            _ => false
+                        }
+                    }
+                )+
+
+                $(
                     pub fn [<into_ $variant:snake>](self) -> $ty {
                         match self {
-                            Value::$variant(v) => v,
+                            Self::$variant(v) => v,
                             _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
@@ -61,7 +75,7 @@ macro_rules! impl_value {
                 $(
                     pub fn [<as_ $variant:snake>](&self) -> &$ty {
                         match self {
-                            Value::$variant(v) => v,
+                            Self::$variant(v) => v,
                             _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
@@ -70,7 +84,7 @@ macro_rules! impl_value {
                 $(
                     pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
                         match self {
-                            Value::$variant(v) => v,
+                            Self::$variant(v) => v,
                             _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
@@ -100,7 +114,7 @@ macro_rules! impl_value {
             pub fn kind(&self) -> ValueKind {
                 match self {
                     $(
-                        Pointer::$variant(_) => ValueKind::$variant
+                        Self::$variant(_) => ValueKind::$variant
                     ),+
                 }
             }
@@ -108,7 +122,7 @@ macro_rules! impl_value {
             pub unsafe fn as_raw(&mut self) -> *mut RawPointer {
                 match self {
                     $(
-                        Pointer::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut RawPointer>(v)
+                        Self::$variant(ref mut v) => mem::transmute::<&mut *mut _, *mut RawPointer>(v)
                     ),+
                 }
             }
@@ -116,7 +130,7 @@ macro_rules! impl_value {
             pub fn as_inner_raw(&self) -> RawPointer {
                 match self {
                     $(
-                        Pointer::$variant(v) => *v as RawPointer
+                        Self::$variant(v) => *v as RawPointer
                     ),+
                 }
             }
@@ -124,7 +138,7 @@ macro_rules! impl_value {
             pub fn is_null(&self) -> bool {
                 match self {
                     $(
-                        Pointer::$variant(v) => v.is_null()
+                        Self::$variant(v) => v.is_null()
                     ),+
                 }
             }
@@ -132,7 +146,7 @@ macro_rules! impl_value {
             pub fn write_value(&self, value: Value) {
                 match (self, value) {
                     $(
-                        (Pointer::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
+                        (Self::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
                     ),+,
                     (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value.to_string())
                 }
@@ -141,7 +155,7 @@ macro_rules! impl_value {
             pub unsafe fn deref_value(&self) -> Value {
                 match self {
                     $(
-                        Pointer::$variant(v) => Value::$variant((**v).clone())
+                        Self::$variant(v) => Value::$variant((**v).clone())
                     ),+
                 }
             }
@@ -157,16 +171,25 @@ macro_rules! impl_value {
             pub unsafe fn print(&self) {
                 match self {
                     $(
-                        Pointer::$variant(v) => println!("{:?}", **v)
+                        Self::$variant(v) => println!("{:?}", **v)
                     ),+
                 }
             }
 
             paste! {
                 $(
+                    pub fn [<is_ $variant:snake>](&self) -> bool {
+                        match self {
+                            Self::$variant(_) => true,
+                            _ => false
+                        }
+                    }
+                )+
+
+                $(
                     pub fn [<into_ $variant:snake>](self) -> *mut $ty {
                         match self {
-                            Pointer::$variant(v) => v,
+                            Self::$variant(v) => v,
                             _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
@@ -175,7 +198,7 @@ macro_rules! impl_value {
                 $(
                     pub fn [<as_ $variant:snake>](&self) -> &*mut $ty {
                         match self {
-                            Pointer::$variant(v) => v,
+                            Self::$variant(v) => v,
                             _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
@@ -184,7 +207,7 @@ macro_rules! impl_value {
                 $(
                     pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut *mut $ty {
                         match self {
-                            Pointer::$variant(v) => v,
+                            Self::$variant(v) => v,
                             _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
@@ -361,6 +384,34 @@ impl Value {
             Self::Pointer(p) => TyKind::Pointer(Box::new(p.get_ty_kind()), true),
             Self::Func(_) => todo!(),
             _ => panic!(),
+        }
+    }
+
+    // TODO: Merge Value with ConstValue
+    pub fn try_into_const_value(
+        self,
+        tycx: &mut TyCtx,
+        eval_span: Span,
+    ) -> Result<ConstValue, &'static str> {
+        match self {
+            Self::I8(v) => Ok(ConstValue::Int(v as _)),
+            Self::I16(v) => Ok(ConstValue::Int(v as _)),
+            Self::I32(v) => Ok(ConstValue::Int(v as _)),
+            Self::I64(v) => Ok(ConstValue::Int(v)),
+            Self::Int(v) => Ok(ConstValue::Int(v as _)),
+            Self::U8(v) => Ok(ConstValue::Int(v as _)),
+            Self::U16(v) => Ok(ConstValue::Int(v as _)),
+            Self::U32(v) => Ok(ConstValue::Int(v as _)),
+            Self::U64(v) => Ok(ConstValue::Int(v as _)),
+            Self::Uint(v) => Ok(ConstValue::Int(v as _)),
+            Self::F32(v) => Ok(ConstValue::Float(v as _)),
+            Self::F64(v) => Ok(ConstValue::Float(v)),
+            Self::Bool(v) => Ok(ConstValue::Bool(v)),
+            Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
+            Self::Aggregate(_) => todo!(),
+            Self::Pointer(_) => Err("pointer"),
+            Self::Func(_) => Err("function"),
+            Self::ForeignFunc(_) => Err("function"),
         }
     }
 }

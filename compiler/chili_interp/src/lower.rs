@@ -568,14 +568,10 @@ impl Lower for ast::For {
             ast::ForIter::Value(value) => {
                 let value_ty = value.ty.normalize(sess.tycx).maybe_deref_once();
 
-                // set the iterated value to a hidden local, in order to avoid unnecessary copies
                 value.lower(sess, code, ctx);
+
+                // set the iterated value to a hidden local, in order to avoid unnecessary copies
                 let value_slot = code.locals as i32;
-
-                if value_ty.is_slice() {
-                    code.push(Instruction::ConstIndex(0));
-                }
-
                 code.push(Instruction::SetLocal(value_slot));
                 code.locals += 1;
 
@@ -589,6 +585,12 @@ impl Lower for ast::For {
                     ty => unreachable!("unexpected type `{}`", ty),
                 };
 
+                if value_ty.is_slice() {
+                    code.push(Instruction::PeekPtr(value_slot));
+                    code.push(Instruction::ConstIndex(0));
+                    code.push(Instruction::SetLocal(value_slot));
+                }
+
                 // lower the condition
                 let loop_start = code.push(Instruction::Copy);
                 code.push(Instruction::Peek(iter_index_slot));
@@ -600,7 +602,7 @@ impl Lower for ast::For {
                 let iter_slot = code.locals as i32;
 
                 if value_ty.is_slice() {
-                    code.push(Instruction::Peek(value_slot));
+                    code.push(Instruction::PeekPtr(value_slot));
                     code.push(Instruction::Peek(iter_index_slot));
                     sess.push_const(code, Value::Uint(value_ty.inner().size_of(WORD_SIZE)));
                     code.push(Instruction::Mul);

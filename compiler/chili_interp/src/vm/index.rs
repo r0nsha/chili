@@ -16,7 +16,12 @@ impl<'vm> VM<'vm> {
                 ptr => {
                     // this is a pointer offset
 
-                    let ptr = unsafe { &*ptr.into_pointer() };
+                    let ptr = if ptr.is_pointer() {
+                        unsafe { &*ptr.into_pointer() }
+                    } else {
+                        &ptr
+                    };
+
                     let raw = ptr.as_inner_raw();
 
                     let offset = unsafe { raw.offset(index as isize) };
@@ -47,8 +52,12 @@ impl<'vm> VM<'vm> {
                 ptr => {
                     // this is a pointer offset
 
-                    // Note (Ron): I'm not sure if this first line is correct for all cases
-                    let ptr = unsafe { &*ptr.into_pointer() };
+                    let ptr = if ptr.is_pointer() {
+                        unsafe { &*ptr.into_pointer() }
+                    } else {
+                        &ptr
+                    };
+
                     let raw = ptr.as_inner_raw();
                     let offset = unsafe { raw.offset(index as isize) };
 

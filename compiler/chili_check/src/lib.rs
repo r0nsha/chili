@@ -741,9 +741,22 @@ impl Check for ast::Expr {
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::Builtin::Run(_) => {
-                    todo!("interpret expression, return a constant");
-                    // expr.check(sess, env, None)
+                ast::Builtin::Run(expr) => {
+                    let res = expr.check(sess, env, None)?;
+                    // TODO (Ron): unwrap into a diagnostic on failure
+                    let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
+
+                    interp_value
+                        .try_into_const_value(&mut sess.tycx, self.span)
+                        .map(|const_value| Res::new_const(res.ty, const_value))
+                        .map_err(|value_str| {
+                            Diagnostic::error()
+                                .with_message(format!(
+                                    "compile-time evaluation cannot result in `{}`",
+                                    value_str,
+                                ))
+                                .with_label(Label::primary(self.span, "evaluated here"))
+                        })
                 }
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
@@ -2046,7 +2059,5 @@ fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> I
     let mut interp_sess = sess
         .interp
         .create_session(sess.workspace, &sess.tycx, &sess.new_ast);
-    let result = interp_sess.eval(expr, module_id)?;
-    println!("result = {}", result.to_string());
-    Ok(result)
+    interp_sess.eval(expr, module_id)
 }

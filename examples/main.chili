@@ -1,19 +1,10 @@
-// use c.?
-use raylib.?
+use c.printf
+use raylib_game_of_life.main as game_of_life
 
-type Color = {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
+let main = fn() {
+    printf("cells alive = %d\n".data, @run(game_of_life()))
+    // @run({
+    //     let count = game_of_life()
+    //     printf("cells alive = %d\n".data, count)
+    // })
 }
-
-foreign("./test_dll/test") {
-    let print_color = fn(color: Color)
-}
-
-pub let main = fn() {
-    print_color(red)
-}
-
-@run(main())
