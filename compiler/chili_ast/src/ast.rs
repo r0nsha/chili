@@ -1,4 +1,5 @@
 use crate::{
+    const_value::ConstValue,
     path::try_resolve_relative_path,
     pattern::Pattern,
     ty::*,
@@ -292,7 +293,7 @@ pub enum Builtin {
     SizeOf(Box<Expr>),
     AlignOf(Box<Expr>),
     Panic(Option<Box<Expr>>),
-    Run(Box<Expr>),
+    Run(Box<Expr>, Option<ConstValue>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -365,7 +366,11 @@ impl ToString for FnParam {
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
 pub enum ForeignLibrary {
     System(String),
-    Path { lib_path: String, lib_name: String },
+    Path {
+        lib_dir: String,
+        lib_path: String,
+        lib_name: String,
+    },
 }
 
 impl ForeignLibrary {
@@ -380,10 +385,12 @@ impl ForeignLibrary {
 
             let path_string =
                 try_resolve_relative_path(Path::new(string), relative_to, Some(span))?;
+
             let path = Path::new(&path_string);
 
             Ok(ForeignLibrary::Path {
-                lib_path: path_string.clone(), //.parent().unwrap().to_str().unwrap().to_string(),
+                lib_dir: path.parent().unwrap().to_str().unwrap().to_string(),
+                lib_path: path_string.clone(),
                 lib_name: path.file_name().unwrap().to_str().unwrap().to_string(),
             })
         }

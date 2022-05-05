@@ -1,7 +1,4 @@
-use std::mem::ManuallyDrop;
-
 use crate::{
-    ffi::RawPointer,
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
     value::{ForeignFunc, Func, Pointer, Value, ValueKind},
@@ -106,7 +103,7 @@ impl Lower for ast::Expr {
                     ty => unreachable!("got {}", ty),
                 },
                 ast::Builtin::Panic(_) => todo!(),
-                ast::Builtin::Run(expr) => expr.lower(sess, code, ctx),
+                ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
             },
             ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
             ast::ExprKind::While(while_) => {

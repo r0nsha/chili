@@ -71,7 +71,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         return workspace;
     }
 
-    // Lint - does auxillary checks which are not required for type inference
+    // Lint - does auxillary checks which are not required for compilation
     time! { workspace.build_options.verbose, "lint",
         chili_lint::lint(&mut workspace, &tycx, &typed_ast)
     }
@@ -85,7 +85,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     // Code generation
     if !workspace.build_options.no_codegen {
-        // chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
+        chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
     }
 
     if workspace.build_options.verbose {

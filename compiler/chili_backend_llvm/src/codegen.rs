@@ -6,6 +6,7 @@ use super::{
 };
 use chili_ast::{
     ast,
+    const_value::ConstValue,
     pattern::{Pattern, SymbolPattern},
     workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
 };
@@ -284,7 +285,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
 
                 let ty = ty.normalize(self.tycx);
-                let struct_ty = ty.maybe_deref_once().into_struct().clone();
+                let struct_ty = ty.maybe_deref_once().as_struct().clone();
 
                 for SymbolPattern {
                     binding_info_id,
@@ -297,7 +298,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         continue;
                     }
 
-                    let field_index = struct_ty.field_index(*symbol);
+                    let field_index = struct_ty.field_index(*symbol).unwrap();
 
                     let llvm_type = Some(ty.llvm_type(self));
                     let value = self.gen_struct_access(ptr.into(), field_index as u32, llvm_type);
@@ -360,7 +361,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_local_with_alloca(state, symbol.binding_info_id, value);
             }
             Pattern::StructUnpack(pattern) => {
-                let struct_ty = ty.maybe_deref_once().into_struct().clone();
+                let struct_ty = ty.maybe_deref_once().as_struct().clone();
 
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern {
@@ -374,7 +375,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         continue;
                     }
 
-                    let field_index = struct_ty.field_index(symbol);
+                    let field_index = struct_ty.field_index(symbol).unwrap();
 
                     let llvm_type = Some(ty.llvm_type(self));
                     let value = self.gen_struct_access(value, field_index as u32, llvm_type);
@@ -577,6 +578,28 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_panic(state, message, expr.span);
                     self.gen_unit()
                 }
+                ast::Builtin::Run(_, result) => {
+                    let ty = expr.ty.normalize(self.tycx);
+
+                    match result.unwrap() {
+                        ConstValue::Type(_) => self.gen_unit(),
+                        ConstValue::Bool(v) => self
+                            .context
+                            .bool_type()
+                            .const_int(if v { 1 } else { 0 }, false)
+                            .into(),
+                        ConstValue::Int(v) => ty
+                            .llvm_type(self)
+                            .into_int_type()
+                            .const_int(v as u64, ty.is_int())
+                            .into(),
+                        ConstValue::Float(v) => ty
+                            .llvm_type(self)
+                            .into_float_type()
+                            .const_float(v as f64)
+                            .into(),
+                    }
+                }
             },
             ast::ExprKind::Fn(func) => {
                 let function = self.gen_fn(state.module_info, func, Some(state.clone()));
@@ -605,7 +628,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     exit: loop_exit,
                 });
 
-                self.gen_block(state, &while_.block);
+                self.gen_block(state, &while_.block, false);
 
                 state.loop_blocks.pop();
 
@@ -696,7 +719,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     exit: loop_exit,
                 });
 
-                self.gen_expr(state, &for_.block, true);
+                self.gen_block(state, &for_.block, false);
 
                 if self.current_block().get_terminator().is_none() {
                     let step = start.get_type().const_int(1, true);
@@ -766,7 +789,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_return(state, value, &ret.deferred)
             }
             ast::ExprKind::If(if_) => self.gen_if_expr(state, if_),
-            ast::ExprKind::Block(block) => self.gen_block(state, block),
+            ast::ExprKind::Block(block) => self.gen_block(state, block, deref),
             ast::ExprKind::Binary(binary) => self.gen_binary(state, binary, expr.span),
             ast::ExprKind::Unary(unary) => self.gen_unary(state, unary, expr.span, deref),
             ast::ExprKind::Subscript(sub) => {
@@ -856,7 +879,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     slice_ptr.into()
                 }
             }
-            ast::ExprKind::FnCall(call) => self.gen_fn_call_expr(state, call, expr.ty),
+            ast::ExprKind::Call(call) => self.gen_fn_call_expr(state, call, expr.ty),
             ast::ExprKind::MemberAccess(access) => {
                 let value = self.gen_expr(state, &access.expr, false);
                 let accessed_ty = access.expr.ty.normalize(self.tycx);
@@ -891,8 +914,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             );
                             casted_ptr.into()
                         } else {
-                            let index = struct_ty.field_index(access.member);
-                            self.gen_struct_access(value, index as u32, struct_llvm_ty)
+                            let field_index = struct_ty.field_index(access.member).unwrap();
+                            self.gen_struct_access(value, field_index as u32, struct_llvm_ty)
                         }
                     }
                     TyKind::Array(_, len) => match access.member.as_str() {
@@ -1152,12 +1175,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         block: &ast::Block,
+        deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let mut value = self.gen_unit();
 
         state.push_scope();
 
-        for expr in &block.exprs {
+        for expr in block.exprs.iter() {
             value = self.gen_expr(state, expr, true);
         }
 
@@ -1165,7 +1189,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         state.pop_scope();
 
-        value
+        if deref && !block.exprs.is_empty() {
+            self.build_load(value)
+        } else {
+            value
+        }
     }
 
     pub(super) fn gen_expr_list(

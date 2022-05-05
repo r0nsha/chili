@@ -741,22 +741,24 @@ impl Check for ast::Expr {
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::Builtin::Run(expr) => {
+                ast::Builtin::Run(expr, run_result) => {
                     let res = expr.check(sess, env, None)?;
-                    // TODO (Ron): unwrap into a diagnostic on failure
+
+                    // TODO (Ron): unwrap interp result into a diagnostic
                     let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
 
-                    interp_value
-                        .try_into_const_value(&mut sess.tycx, self.span)
-                        .map(|const_value| Res::new_const(res.ty, const_value))
-                        .map_err(|value_str| {
-                            Diagnostic::error()
-                                .with_message(format!(
-                                    "compile-time evaluation cannot result in `{}`",
-                                    value_str,
-                                ))
-                                .with_label(Label::primary(self.span, "evaluated here"))
-                        })
+                    match interp_value.try_into_const_value(&mut sess.tycx, self.span) {
+                        Ok(const_value) => {
+                            *run_result = Some(const_value);
+                            Ok(Res::new_const(res.ty, const_value))
+                        }
+                        Err(value_str) => Err(Diagnostic::error()
+                            .with_message(format!(
+                                "compile-time evaluation cannot result in `{}`",
+                                value_str,
+                            ))
+                            .with_label(Label::primary(self.span, "evaluated here"))),
+                    }
                 }
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {

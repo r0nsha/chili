@@ -40,7 +40,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, span),
             ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, span),
             ast::BinaryOp::Eq
-            | ast::BinaryOp::NEq
+            | ast::BinaryOp::Neq
             | ast::BinaryOp::Lt
             | ast::BinaryOp::LtEq
             | ast::BinaryOp::Gt
@@ -342,7 +342,7 @@ impl IntoIntPredicate for ast::BinaryOp {
     fn into_int_predicate(self, is_signed: bool) -> IntPredicate {
         match self {
             ast::BinaryOp::Eq => IntPredicate::EQ,
-            ast::BinaryOp::NEq => IntPredicate::NE,
+            ast::BinaryOp::Neq => IntPredicate::NE,
             ast::BinaryOp::Lt => {
                 if is_signed {
                     IntPredicate::SLT
@@ -384,7 +384,7 @@ impl IntoFloatPredicate for ast::BinaryOp {
     fn into_float_predicate(self) -> FloatPredicate {
         match self {
             ast::BinaryOp::Eq => FloatPredicate::OEQ,
-            ast::BinaryOp::NEq => FloatPredicate::ONE,
+            ast::BinaryOp::Neq => FloatPredicate::ONE,
             ast::BinaryOp::Lt => FloatPredicate::OLT,
             ast::BinaryOp::LtEq => FloatPredicate::OLE,
             ast::BinaryOp::Gt => FloatPredicate::OGT,

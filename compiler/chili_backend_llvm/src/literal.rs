@@ -17,11 +17,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         fields: &Vec<ast::StructLiteralField>,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
-        let struct_ty = ty.into_struct();
+        let struct_ty = ty.as_struct();
         let struct_llvm_type = ty.llvm_type(self);
 
         let struct_ptr = if struct_ty.is_union() {
-            let value = self.gen_expr(state, &fields[0].value, true);
+            let value = self.gen_expr(state, &fields[0].expr, true);
             let field_ptr = self.build_alloca(state, value.get_type());
 
             self.build_store(field_ptr, value);
@@ -37,7 +37,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             let struct_ptr = self.build_alloca(state, struct_llvm_type);
 
             for field in fields {
-                let field_index = struct_ty.field_index(field.symbol);
+                let field_index = struct_ty.field_index(field.symbol).unwrap();
 
                 let field_ptr = self
                     .builder
@@ -48,7 +48,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     )
                     .unwrap();
 
-                let value = self.gen_expr(state, &field.value, true);
+                let value = self.gen_expr(state, &field.expr, true);
 
                 self.build_store(field_ptr, value);
             }

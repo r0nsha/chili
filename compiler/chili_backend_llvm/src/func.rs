@@ -339,7 +339,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_fn_call_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        call: &ast::FnCall,
+        call: &ast::Call,
         result_ty: Ty,
     ) -> BasicValueEnum<'ctx> {
         let fn_ty = call.callee.ty.normalize(self.tycx).into_fn();

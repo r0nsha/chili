@@ -151,7 +151,7 @@ impl<'a> Substitute<'a> for ast::Expr {
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr)
                 | ast::Builtin::AlignOf(expr)
-                | ast::Builtin::Run(expr) => expr.substitute(sess),
+                | ast::Builtin::Run(expr, _) => expr.substitute(sess),
                 ast::Builtin::Panic(expr) => expr.substitute(sess),
             },
             ast::ExprKind::Fn(func) => func.substitute(sess),

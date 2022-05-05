@@ -367,7 +367,7 @@ impl<'p> Parser<'p> {
             } else {
                 Some(Box::new(self.parse_expr()?))
             }),
-            "run" => Builtin::Run(Box::new(self.parse_expr()?)),
+            "run" => Builtin::Run(Box::new(self.parse_expr()?), None),
             name => {
                 return Err(SyntaxError::unknown_builtin_function(
                     start_span.to(id_token.span),
