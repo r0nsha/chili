@@ -242,6 +242,17 @@ impl From<TyKind> for String {
 }
 
 impl TyKind {
+    pub fn inner(&self) -> &TyKind {
+        match self {
+            TyKind::Pointer(inner, _)
+            | TyKind::MultiPointer(inner, _)
+            | TyKind::Array(inner, _)
+            | TyKind::Slice(inner, _)
+            | TyKind::Type(inner) => inner,
+            _ => panic!("type {} doesn't have an inner type", self),
+        }
+    }
+
     pub fn is_type(&self) -> bool {
         matches!(self, TyKind::Type(_))
     }

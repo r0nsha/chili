@@ -13,7 +13,7 @@ foreign("./test_dll/test") {
 }
 
 pub let main = fn() {
-    print_color(white)
+    print_color(red)
 }
 
 @run(main())

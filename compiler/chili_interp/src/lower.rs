@@ -176,12 +176,10 @@ impl Lower for ast::Expr {
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         sess.push_const(code, Value::Uint(*size as usize))
                     }
-                    TyKind::Slice(ty, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        // TODO: put real offset when i switch to aggregates
+                    TyKind::Slice(_, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::ConstIndex(1));
                     }
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
-                        // TODO: put real offset when i switch to aggregates
                         code.push(Instruction::ConstIndex(0));
                     }
                     TyKind::Module(module_id) => {
@@ -568,14 +566,21 @@ impl Lower for ast::For {
                 code.push(Instruction::Pop);
             }
             ast::ForIter::Value(value) => {
+                let value_ty = value.ty.normalize(sess.tycx).maybe_deref_once();
+
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
                 value.lower(sess, code, ctx);
                 let value_slot = code.locals as i32;
+
+                if value_ty.is_slice() {
+                    code.push(Instruction::ConstIndex(0));
+                }
+
                 code.push(Instruction::SetLocal(value_slot));
                 code.locals += 1;
 
                 // calculate the end index
-                match value.ty.normalize(sess.tycx).maybe_deref_once() {
+                match value_ty {
                     TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
                     TyKind::Slice(..) => {
                         code.push(Instruction::PeekPtr(value_slot));
@@ -593,8 +598,17 @@ impl Lower for ast::For {
 
                 // move the iterator to the current index
                 let iter_slot = code.locals as i32;
-                code.push(Instruction::PeekPtr(value_slot));
-                code.push(Instruction::Peek(iter_index_slot));
+
+                if value_ty.is_slice() {
+                    code.push(Instruction::Peek(value_slot));
+                    code.push(Instruction::Peek(iter_index_slot));
+                    sess.push_const(code, Value::Uint(value_ty.inner().size_of(WORD_SIZE)));
+                    code.push(Instruction::Mul);
+                } else {
+                    code.push(Instruction::PeekPtr(value_slot));
+                    code.push(Instruction::Peek(iter_index_slot));
+                }
+
                 code.push(Instruction::Index);
                 code.push(Instruction::SetLocal(iter_slot));
                 sess.add_local(code, self.iter_id);

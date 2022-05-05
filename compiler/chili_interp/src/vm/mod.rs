@@ -132,7 +132,7 @@ impl<'vm> VM<'vm> {
         loop {
             let inst = self.inst();
 
-            self.trace(&inst, TraceLevel::None);
+            self.trace(&inst, TraceLevel::Full);
             // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {
