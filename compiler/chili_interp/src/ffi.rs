@@ -270,40 +270,42 @@ impl AsFfiArg for Value {
     }
 }
 
+// Note (Ron): Important - This function WILL fail in Big Endian systems!!
+// Note (Ron): This isn't very crucial, since the most common systems are little endian - but this needs to be fixed anyway.
 fn put_value(bytes: &mut BytesMut, value: &Value) {
     match value {
         Value::I8(v) => bytes.put_i8(*v),
-        Value::I16(v) => bytes.put_i16(*v),
-        Value::I32(v) => bytes.put_i32(*v),
+        Value::I16(v) => bytes.put_i16_le(*v),
+        Value::I32(v) => bytes.put_i32_le(*v),
         Value::I64(v) => bytes.put_i64(*v),
         Value::Int(v) => {
             if IS_64BIT {
-                bytes.put_i64(*v as i64)
+                bytes.put_i64_le(*v as i64)
             } else {
-                bytes.put_i32(*v as i32)
+                bytes.put_i32_le(*v as i32)
             }
         }
         Value::U8(v) => bytes.put_u8(*v),
-        Value::U16(v) => bytes.put_u16(*v),
-        Value::U32(v) => bytes.put_u32(*v),
-        Value::U64(v) => bytes.put_u64(*v),
+        Value::U16(v) => bytes.put_u16_le(*v),
+        Value::U32(v) => bytes.put_u32_le(*v),
+        Value::U64(v) => bytes.put_u64_le(*v),
         Value::Uint(v) => {
             if IS_64BIT {
-                bytes.put_u64(*v as u64)
+                bytes.put_u64_le(*v as u64)
             } else {
-                bytes.put_u32(*v as u32)
+                bytes.put_u32_le(*v as u32)
             }
         }
-        Value::F32(v) => bytes.put_f32(*v),
-        Value::F64(v) => bytes.put_f64(*v),
-        Value::Bool(v) => bytes.put_u8(*v as u8),
+        Value::F32(v) => bytes.put_f32_le(*v),
+        Value::F64(v) => bytes.put_f64_le(*v),
+        Value::Bool(v) => bytes.put_uint_le(*v as u64, 1),
         Value::Aggregate(v) => {
             // TODO: need to include struct padding here
             for value in v {
                 put_value(bytes, value)
             }
         }
-        Value::Pointer(v) => todo!(),
+        Value::Pointer(v) => bytes.put_u64_le(v.as_inner_raw() as u64),
         Value::Func(v) => todo!(),
         _ => panic!("can't convert `{}` to raw bytes", value.to_string()),
     }

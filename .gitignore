@@ -21,3 +21,5 @@ example/main.c
 *.lib
 vendor
 vm.out
+examples/**/*
+!examples/*.chili

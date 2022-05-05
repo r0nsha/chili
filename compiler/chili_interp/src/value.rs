@@ -121,6 +121,14 @@ macro_rules! impl_value {
                 }
             }
 
+            pub fn is_null(&self) -> bool {
+                match self {
+                    $(
+                        Pointer::$variant(v) => v.is_null()
+                    ),+
+                }
+            }
+
             pub fn write_value(&self, value: Value) {
                 match (self, value) {
                     $(

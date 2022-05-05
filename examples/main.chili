@@ -1,9 +1,19 @@
+// use c.?
 use raylib.?
-use c.?
 
+type Color = {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
+
+foreign("./test_dll/test") {
+    let print_color = fn(color: Color)
+}
 
 pub let main = fn() {
-
+    print_color(white)
 }
 
 @run(main())
