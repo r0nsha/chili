@@ -484,7 +484,7 @@ impl Lower for ast::FnSig {
                 lib_path: ustr(lib_path),
                 name: self.name,
                 param_tys: func_ty.params,
-                ret_ty: *func_ty.ret,
+                return_ty: *func_ty.ret,
                 variadic: self.variadic,
             };
 

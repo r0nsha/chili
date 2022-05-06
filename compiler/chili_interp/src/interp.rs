@@ -11,7 +11,7 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleId, Workspace},
 };
 use chili_infer::ty_ctx::TyCtx;
-use common::{scopes::Scopes, time};
+use common::scopes::Scopes;
 use std::collections::HashMap;
 use ustr::{ustr, Ustr};
 

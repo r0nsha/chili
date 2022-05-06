@@ -256,7 +256,7 @@ pub struct ForeignFunc {
     pub lib_path: Ustr,
     pub name: Ustr,
     pub param_tys: Vec<TyKind>,
-    pub ret_ty: TyKind,
+    pub return_ty: TyKind,
     pub variadic: bool,
 }
 

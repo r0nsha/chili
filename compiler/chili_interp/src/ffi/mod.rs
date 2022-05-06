@@ -53,48 +53,88 @@ impl Ffi {
         let lib = self.load_lib(func.lib_path);
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
 
+        let mut function = if func.variadic {
+            let variadic_arg_types: Vec<TyKind> = args
+                .iter()
+                .skip(func.param_tys.len())
+                .map(Value::get_ty_kind)
+                .collect();
+
+            Function::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
+        } else {
+            Function::new(&func.param_tys, &func.return_ty)
+        };
+
+        let result = function.call(*symbol, &mut args);
+
+        Value::from_type_and_ptr(&func.return_ty, result as RawPointer)
+    }
+}
+
+struct Function {
+    cif: ffi_cif,
+    arg_types: Vec<TypePointer>,
+}
+
+impl Function {
+    unsafe fn new(arg_types: &[TyKind], return_type: &TyKind) -> Self {
         let mut cif = ffi_cif::default();
 
-        let return_type = func.ret_ty.as_ffi_type();
+        let return_type = return_type.as_ffi_type();
 
-        let mut arg_types: Vec<TypePointer> = Vec::with_capacity(args.len());
+        let mut arg_types: Vec<TypePointer> =
+            arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
 
-        for param in func.param_tys.iter() {
-            arg_types.push(param.as_ffi_type());
+        prep_cif(
+            &mut cif,
+            ABI,
+            arg_types.len(),
+            return_type,
+            arg_types.as_mut_ptr(),
+        )
+        .unwrap();
+
+        Self { cif, arg_types }
+    }
+
+    unsafe fn new_variadic(
+        arg_types: &[TyKind],
+        variadic_arg_types: &[TyKind],
+        return_type: &TyKind,
+    ) -> Self {
+        let mut cif = ffi_cif::default();
+
+        let return_type = return_type.as_ffi_type();
+
+        let mut cif_arg_types: Vec<TypePointer> = arg_types
+            .iter()
+            .chain(variadic_arg_types.iter())
+            .map(|arg| arg.as_ffi_type())
+            .collect();
+
+        prep_cif_var(
+            &mut cif,
+            ABI,
+            arg_types.len(),
+            cif_arg_types.len(),
+            return_type,
+            cif_arg_types.as_mut_ptr(),
+        )
+        .unwrap();
+
+        Self {
+            cif,
+            arg_types: cif_arg_types,
         }
+    }
 
-        if func.variadic {
-            for arg in args.iter().skip(func.param_tys.len()) {
-                // arg_types.push(arg.as_ffi_type());
-                arg_types.push(arg.get_ty_kind().as_ffi_type());
-            }
-
-            prep_cif_var(
-                &mut cif,
-                ABI,
-                func.param_tys.len(),
-                arg_types.len(),
-                return_type,
-                arg_types.as_mut_ptr(),
-            )
-            .unwrap();
-        } else {
-            prep_cif(
-                &mut cif,
-                ABI,
-                arg_types.len(),
-                return_type,
-                arg_types.as_mut_ptr(),
-            )
-            .unwrap();
-        }
-
-        let code_ptr = CodePtr::from_ptr(*symbol);
+    unsafe fn call(&mut self, func_ptr: *const c_void, args: &mut [Value]) -> RawPointer {
+        let code_ptr = CodePtr::from_ptr(func_ptr);
 
         let mut call_args: Vec<RawPointer> = Vec::with_capacity(args.len());
 
-        for (arg, arg_type) in args.iter_mut().zip(arg_types) {
-            let arg_type = *arg_type;
+        for (arg, arg_type) in args.iter_mut().zip(self.arg_types.iter()) {
+            let arg_type = **arg_type;
             let ptr = arg.as_ffi_arg(arg_type.size, arg_type.alignment.into());
             call_args.push(ptr);
         }
@@ -102,15 +142,13 @@ impl Ffi {
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
         libffi::raw::ffi_call(
-            &mut cif as *mut _,
+            &mut self.cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
             call_result.as_mut_ptr(),
             call_args.as_mut_ptr(),
         );
 
-        let call_result = call_result.assume_init_mut();
-
-        Value::from_type_and_ptr(&func.ret_ty, call_result as RawPointer as RawPointer)
+        call_result.assume_init_mut()
     }
 }
 
