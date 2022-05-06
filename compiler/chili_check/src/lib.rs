@@ -1024,8 +1024,8 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
             ast::ExprKind::Binary(binary) => {
-                let lhs_res = binary.lhs.check(sess, env, expected_ty)?;
-                let rhs_res = binary.rhs.check(sess, env, expected_ty)?;
+                let lhs_res = binary.lhs.check(sess, env, None)?;
+                let rhs_res = binary.rhs.check(sess, env, Some(lhs_res.ty))?;
 
                 let expected_ty = match &binary.op {
                     ast::BinaryOp::Add

@@ -109,12 +109,12 @@ let read_file = fn(path str) -> str {
 		ExitProcess(1);
 	}
 
-	let file_size = GetFileSize(file, nil);
+	let file_size = GetFileSize(file, 0 as uint as _);
 
 	let buffer [&]u8 = malloc((@as(uint, file_size)) * @size_of(u8));
 	let bytes_read = 0;
 	
-	if !ReadFile(file, @as(_, buffer), @as(_, file_size), &bytes_read, nil) {
+	if !ReadFile(file, @as(_, buffer), @as(_, file_size), &bytes_read, 0 as uint as _) {
 		let err = GetLastError();
 		printf("failed reading file. err = %d\n".data, err);
 		ExitProcess(1);

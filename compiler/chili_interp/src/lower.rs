@@ -26,55 +26,12 @@ pub(crate) trait Lower {
 impl Lower for ast::Expr {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match &self.kind {
-            ast::ExprKind::Import(_) => todo!(),
-            ast::ExprKind::Foreign(_) => todo!(),
+            ast::ExprKind::Import(_) => sess.push_const_unit(code),
+            ast::ExprKind::Foreign(bindings) => bindings
+                .iter()
+                .for_each(|binding| lower_local_binding(binding, sess, code)),
             ast::ExprKind::Binding(binding) => {
-                if let Some(expr) = &binding.expr {
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
-                }
-
-                match &binding.pattern {
-                    Pattern::Single(pat) => {
-                        if binding.expr.is_some() {
-                            code.push(Instruction::SetLocal(code.locals as i32));
-                        }
-
-                        sess.add_local(code, pat.binding_info_id);
-                    }
-                    Pattern::StructUnpack(pat) => {
-                        let ty = binding.ty.normalize(sess.tycx);
-                        let ty = ty.as_struct();
-
-                        let last_index = pat.symbols.len() - 1;
-
-                        for (index, pat) in pat.symbols.iter().enumerate() {
-                            if index < last_index {
-                                code.push(Instruction::Copy);
-                            }
-
-                            let field_index = ty.field_index(pat.symbol).unwrap();
-
-                            code.push(Instruction::ConstIndex(field_index as u32));
-                            code.push(Instruction::SetLocal(code.locals as i32));
-                            sess.add_local(code, pat.binding_info_id);
-                        }
-                    }
-                    Pattern::TupleUnpack(pat) => {
-                        let last_index = pat.symbols.len() - 1;
-
-                        for (index, pat) in pat.symbols.iter().enumerate() {
-                            if index < last_index {
-                                code.push(Instruction::Copy);
-                            }
-
-                            code.push(Instruction::ConstIndex(index as u32));
-                            code.push(Instruction::SetLocal(code.locals as i32));
-                            sess.add_local(code, pat.binding_info_id);
-                        }
-                    }
-                }
-
-                sess.push_const_unit(code);
+                lower_local_binding(binding, sess, code);
             }
             ast::ExprKind::Defer(_) => {
                 sess.push_const_unit(code);
@@ -276,7 +233,7 @@ impl Lower for ast::Expr {
                     code,
                     match &lit.kind {
                         ast::LiteralKind::Unit => Value::unit(),
-                        ast::LiteralKind::Nil => todo!("nil"),
+                        ast::LiteralKind::Nil => panic!("nil will soon be deprecated"),
                         ast::LiteralKind::Bool(v) => Value::Bool(*v),
                         ast::LiteralKind::Int(v) => match ty {
                             TyKind::Int(ty) => match ty {
@@ -353,9 +310,58 @@ impl Lower for ast::Expr {
             ast::ExprKind::NeverType => todo!(),
             ast::ExprKind::UnitType => todo!(),
             ast::ExprKind::PlaceholderType => todo!(),
-            ast::ExprKind::Error => todo!(),
+            ast::ExprKind::Error => panic!("got an Error expression"),
         }
     }
+}
+
+fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut CompiledCode) {
+    if let Some(expr) = &binding.expr {
+        expr.lower(sess, code, LowerContext { take_ptr: false });
+    }
+
+    match &binding.pattern {
+        Pattern::Single(pat) => {
+            if binding.expr.is_some() {
+                code.push(Instruction::SetLocal(code.locals as i32));
+            }
+
+            sess.add_local(code, pat.binding_info_id);
+        }
+        Pattern::StructUnpack(pat) => {
+            let ty = binding.ty.normalize(sess.tycx);
+            let ty = ty.as_struct();
+
+            let last_index = pat.symbols.len() - 1;
+
+            for (index, pat) in pat.symbols.iter().enumerate() {
+                if index < last_index {
+                    code.push(Instruction::Copy);
+                }
+
+                let field_index = ty.field_index(pat.symbol).unwrap();
+
+                code.push(Instruction::ConstIndex(field_index as u32));
+                code.push(Instruction::SetLocal(code.locals as i32));
+                sess.add_local(code, pat.binding_info_id);
+            }
+        }
+        Pattern::TupleUnpack(pat) => {
+            let last_index = pat.symbols.len() - 1;
+
+            for (index, pat) in pat.symbols.iter().enumerate() {
+                if index < last_index {
+                    code.push(Instruction::Copy);
+                }
+
+                code.push(Instruction::ConstIndex(index as u32));
+                code.push(Instruction::SetLocal(code.locals as i32));
+                sess.add_local(code, pat.binding_info_id);
+            }
+        }
+    }
+
+    sess.push_const_unit(code);
 }
 
 impl Lower for ast::Cast {
@@ -398,7 +404,10 @@ impl Lower for ast::Cast {
                 let cast_inst = CastInstruction::Ptr(ValueKind::from(ty.as_ref()));
                 code.push(Instruction::Cast(cast_inst));
             }
-            TyKind::Slice(_, _) => todo!(), // TODO: cast pointer to array to a slice (slice coercion)
+            TyKind::Slice(_, _) => {
+                // TODO: cast pointer to array to a slice (slice coercion)
+                todo!()
+            }
             TyKind::Infer(_, InferTy::AnyInt) => {
                 code.push(Instruction::Cast(CastInstruction::I32));
             }
@@ -421,18 +430,46 @@ impl Lower for ast::Fn {
 
         sess.env_mut().push_scope();
 
-        let mut offset: i16 = -(self.sig.params.len() as i16);
+        let mut param_offset: i16 = -1;
+
         for param in self.sig.params.iter() {
             match &param.pattern {
                 Pattern::Single(pat) => {
-                    sess.env_mut().insert(pat.binding_info_id, offset);
-                    offset += 1;
+                    sess.env_mut().insert(pat.binding_info_id, param_offset);
+                    param_offset -= 1;
                 }
                 Pattern::StructUnpack(_) => {
-                    todo!("struct unpack")
+                    todo!()
+                    // let ty = binding.ty.normalize(sess.tycx);
+                    // let ty = ty.as_struct();
+
+                    // let last_index = pat.symbols.len() - 1;
+
+                    // for (index, pat) in pat.symbols.iter().enumerate() {
+                    //     if index < last_index {
+                    //         code.push(Instruction::Copy);
+                    //     }
+
+                    //     let field_index = ty.field_index(pat.symbol).unwrap();
+
+                    //     code.push(Instruction::ConstIndex(field_index as u32));
+                    //     code.push(Instruction::SetLocal(code.locals as i32));
+                    //     sess.add_local(code, pat.binding_info_id);
+                    // }
                 }
                 Pattern::TupleUnpack(_) => {
-                    todo!("tuple unpack")
+                    todo!()
+                    // let last_index = pat.symbols.len() - 1;
+
+                    // for (index, pat) in pat.symbols.iter().enumerate() {
+                    //     if index < last_index {
+                    //         code.push(Instruction::Copy);
+                    //     }
+
+                    //     code.push(Instruction::ConstIndex(index as u32));
+                    //     code.push(Instruction::SetLocal(code.locals as i32));
+                    //     sess.add_local(code, pat.binding_info_id);
+                    // }
                 }
             }
         }

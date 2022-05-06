@@ -16,7 +16,7 @@ pub type String = {
 
 pub let String_new = fn() -> String {
     String {
-        data: nil, 
+        data: 0 as uint as *mut u8 as _, 
         cap: 0, 
         len: 0
     }
@@ -45,7 +45,7 @@ let String_grow = fn(string: *mut String) {
         realloc(string.data as *u8 as _, new_cap * @size_of(u8))
     };
 
-    string.data = if new_data != nil {
+    string.data = if new_data != 0 as uint as _ {
         new_data as *u8 as [*mut]u8
     } else {
         // TODO: return Result here instead of just panicking...

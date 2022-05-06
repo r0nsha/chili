@@ -7,7 +7,7 @@ foreign("system:libucrt") {
 }
 
 let main = fn() {
-    srand(time(nil));
+    srand(time(0 as uint as _));
 
     let random_number = rand() % 50;
     let input_num uint;

@@ -20,5 +20,5 @@ let main = fn() {
 
 	let msg = "Hello, World!\n"
 	let bytes_written: i32
-	WriteFile(std_out, msg.data, msg.len, &mut bytes_written, nil)
+	WriteFile(std_out, msg.data, msg.len, &mut bytes_written, 0 as uint as _)
 }

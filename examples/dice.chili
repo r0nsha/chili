@@ -9,7 +9,7 @@ let foreign("system:libucrt") {
 }
 
 let main = fn() {
-	srand(time(nil));
+	srand(time(0 as uint as _));
 
 	let roll1 = 0;
 	let roll2 = 0;
