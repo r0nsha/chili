@@ -7,6 +7,8 @@ let cell_size: i32 = 8;
 let width: i32 = (cols - 1) * cell_size;
 let height: i32 = (rows - 1) * cell_size;
 
+@run(main())
+
 pub let main = fn() {
 	let mut prev = calloc(cols * rows, @size_of(bool)) as *bool as [*mut]bool;
 	defer free(prev as *bool as _);
@@ -14,7 +16,7 @@ pub let main = fn() {
 	defer free(curr as *bool as _);
 
 	InitWindow(width, height, "chili language example - game of life\0".data);
-	SetTargetFPS(120);
+	SetTargetFPS(60);
 
 	// map_cells(prev, 30, 50, "..##");
 	// map_cells(prev, 30, 51, ".##.");
@@ -30,7 +32,7 @@ pub let main = fn() {
 	map_cells(prev, 30, 52, "...........#...#.....................");
 	map_cells(prev, 30, 53, "............##.......................");
 
-	let mut simulate = false;
+	let mut simulate = true;
 
 	while !WindowShouldClose() {
 		if IsKeyPressed(KEY_SPACE) {

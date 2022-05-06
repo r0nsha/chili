@@ -13,6 +13,6 @@ members = [
     "compiler/chili_interp",
     "compiler/chili_check",
     "compiler/chili_lint",
-    "compiler/chili_backend_llvm",
+    # "compiler/chili_backend_llvm",
     "compiler/chili_main",
 ]

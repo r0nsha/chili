@@ -4,12 +4,9 @@ use crate::{
 };
 use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
-use libffi::{
-    low::{
-        ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, type_tag, types,
-        CodePtr,
-    },
-    raw::FFI_TYPE_STRUCT,
+use libffi::low::{
+    ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, type_tag, types,
+    CodePtr,
 };
 use std::ffi::c_void;
 use ustr::{ustr, Ustr, UstrMap};
@@ -53,7 +50,6 @@ impl Ffi {
     }
 
     pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
-        // return self.test();
         let lib = self.load_lib(func.lib_path);
         let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
 
@@ -116,33 +112,6 @@ impl Ffi {
 
         Value::from_type_and_ptr(&func.ret_ty, call_result as RawPointer as RawPointer)
     }
-
-    // pub(crate) unsafe fn test(&mut self) -> Value {
-    //     let lib = self.load_lib(ustr("msvcrt"));
-    //     let symbol = lib.get::<&mut c_void>(b"printf").unwrap();
-
-    //     let mut cif = ffi_cif::default();
-    //     let return_type = ffi_type!(types::sint64);
-    //     let mut arg_types = vec![ffi_type!(types::pointer), ffi_type!(types::sint64)];
-    //     prep_cif_var(&mut cif, ABI, 1, 2, return_type, arg_types.as_mut_ptr()).unwrap();
-
-    //     let code_ptr = CodePtr::from_ptr(*symbol);
-
-    //     let s = ustr("hello %d\n");
-    //     let mut p = s.as_char_ptr() as RawPointer;
-    //     let mut d: i64 = 42;
-    //     let mut call_args = vec![raw_ptr!(&mut p), raw_ptr!(&mut d)];
-
-    //     let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
-    //     libffi::raw::ffi_call(
-    //         &mut cif as *mut _,
-    //         Some(*code_ptr.as_safe_fun()),
-    //         call_result.as_mut_ptr(),
-    //         call_args.as_mut_ptr(),
-    //     );
-
-    //     Value::Uint(0)
-    // }
 }
 
 trait AsFfiType {
@@ -253,11 +222,11 @@ impl AsFfiArg for Value {
                     put_value(&mut bytes, value);
 
                     // TODO: this could be more efficient
-                    // let value_size = (*value.as_ffi_type()).size;
-                    // if value_size < alignment {
-                    //     let padding = alignment - value_size;
-                    //     bytes.put_bytes(0, padding);
-                    // }
+                    let value_size = (*value.get_ty_kind().as_ffi_type()).size;
+                    if value_size < alignment {
+                        let padding = alignment - value_size;
+                        bytes.put_bytes(0, padding);
+                    }
                 }
 
                 bytes.as_mut_ptr() as RawPointer

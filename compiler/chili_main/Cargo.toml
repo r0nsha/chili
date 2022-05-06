@@ -23,4 +23,4 @@ chili_astgen = { path = "../chili_astgen" }
 chili_resolve = { path = "../chili_resolve" }
 chili_check = { path = "../chili_check" }
 chili_lint = { path = "../chili_lint" }
-chili_backend_llvm = { path = "../chili_backend_llvm" }
+# chili_backend_llvm = { path = "../chili_backend_llvm" }
