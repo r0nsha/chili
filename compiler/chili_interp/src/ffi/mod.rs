@@ -1,5 +1,6 @@
 use crate::{
     value::{ForeignFunc, Func, Value},
+    vm::VM,
     IS_64BIT, WORD_SIZE,
 };
 use bytes::{BufMut, BytesMut};
@@ -32,16 +33,12 @@ pub type TypePointer = *mut ffi_type;
 
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
-
-    // call specific parameters, cleaned up after function call returns
-    closures: Vec<Function>,
 }
 
 impl Ffi {
     pub(crate) fn new() -> Self {
         Self {
             libs: UstrMap::default(),
-            closures: vec![],
         }
     }
 
@@ -62,7 +59,12 @@ impl Ffi {
         lib.get(name.as_bytes()).unwrap()
     }
 
-    pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
+    pub(crate) unsafe fn call<'vm>(
+        &mut self,
+        vm: *mut VM<'vm>,
+        func: ForeignFunc,
+        mut args: Vec<Value>,
+    ) -> Value {
         let symbol = self.load_symbol(func.lib_path, func.name);
 
         let mut function = if func.variadic {
@@ -77,7 +79,7 @@ impl Ffi {
             Function::new(&func.param_tys, &func.return_ty)
         };
 
-        let result = function.call(*symbol, &mut args, self);
+        let result = function.call(*symbol, &mut args, self, vm);
 
         // TODO: free used closures
         // TODO: clear closures vec
@@ -144,11 +146,12 @@ impl Function {
         }
     }
 
-    unsafe fn call(
+    unsafe fn call<'vm>(
         &mut self,
         fun: *const c_void,
         arg_values: &mut [Value],
         ffi: &mut Ffi,
+        vm: *mut VM<'vm>,
     ) -> RawPointer {
         let code_ptr = CodePtr::from_ptr(fun);
 
@@ -192,15 +195,6 @@ impl Function {
                 }
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
-                    unsafe extern "C" fn closure_callback(
-                        cif: &ffi_cif,
-                        result: &mut i32,
-                        args: *const *const c_void,
-                        userdata: &i32,
-                    ) {
-                        *result = 42;
-                    }
-
                     let (closure, code_ptr) = closure_alloc();
 
                     closures.push(closure);
@@ -209,11 +203,13 @@ impl Function {
                     // TODO: use func's param types
                     let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
 
+                    let user_data = ClosureUserData { vm, func };
+
                     prep_closure(
                         closure,
                         &mut function.cif as _,
                         closure_callback,
-                        std::ptr::null(),
+                        &user_data,
                         code_ptr,
                     )
                     .unwrap();
@@ -246,6 +242,24 @@ impl Function {
 
         call_result.assume_init_mut()
     }
+}
+
+struct ClosureUserData<'vm> {
+    vm: *mut VM<'vm>,
+    func: *const Func,
+}
+
+unsafe extern "C" fn closure_callback(
+    cif: &ffi_cif,
+    result: &mut i32,
+    args: *const *const c_void,
+    userdata: &ClosureUserData,
+) {
+    // need an instance of the VM here
+    println!("{:?}", *userdata.func);
+    let vm = userdata.vm;
+    let func = userdata.func;
+    *result = 42;
 }
 
 trait AsFfiType {

@@ -264,7 +264,8 @@ impl<'vm> VM<'vm> {
                                 .collect::<Vec<Value>>();
                             values.reverse();
 
-                            let result = unsafe { self.interp.ffi.call(func, values) };
+                            let vm_ptr = self as *mut VM;
+                            let result = unsafe { self.interp.ffi.call(vm_ptr, func, values) };
                             self.stack.push(result);
 
                             self.next_inst();

@@ -2,6 +2,7 @@ use c.{ puts, printf }
 
 foreign("./test_dll/test.lib") {
     let print_number = fn(cb: fn -> i32)
+    // let print_number_2 = fn(cb: fn(i32) -> i32)
     let call_puts = fn(cb: fn(s: [*]u8) -> int)
 }
 
