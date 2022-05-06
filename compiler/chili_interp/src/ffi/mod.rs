@@ -166,15 +166,6 @@ impl Function {
             args.push(arg);
         }
 
-        unsafe extern "C" fn callback(
-            cif: &ffi_cif,
-            result: &mut i32,
-            args: *const *const c_void,
-            userdata: &i32,
-        ) {
-            *result = 42;
-        }
-
         let (closure, closure_code_ptr) = closure_alloc();
 
         // TODO: use func's return type
@@ -187,7 +178,7 @@ impl Function {
         prep_closure(
             closure,
             &mut function.cif as _,
-            callback,
+            closure_callback,
             std::ptr::null(),
             closure_code_ptr,
         )
@@ -213,6 +204,15 @@ impl Function {
 
         call_result.assume_init_mut()
     }
+}
+
+unsafe extern "C" fn closure_callback(
+    cif: &ffi_cif,
+    result: &mut i32,
+    args: *const *const c_void,
+    userdata: &i32,
+) {
+    *result = 42;
 }
 
 trait AsFfiType {
@@ -354,15 +354,6 @@ impl AsFfiArg for Value {
             }
             Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
             Value::Func(func) => {
-                unsafe extern "C" fn callback(
-                    cif: &ffi_cif,
-                    result: &mut i32,
-                    args: *const *const c_void,
-                    userdata: &i32,
-                ) {
-                    *result = 42;
-                }
-
                 let (closure, code_ptr) = closure_alloc();
 
                 // ffi.closures.push(Closure {
@@ -379,7 +370,7 @@ impl AsFfiArg for Value {
                 prep_closure(
                     closure,
                     &mut function.cif as _,
-                    callback,
+                    closure_callback,
                     std::ptr::null(),
                     code_ptr,
                 )
