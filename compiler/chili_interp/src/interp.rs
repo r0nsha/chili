@@ -79,9 +79,25 @@ impl<'i> InterpSess<'i> {
         expr.lower(self, &mut code, LowerContext { take_ptr: false });
         code.push(Instruction::Halt);
 
+        let code = self.insert_init_instructions(code);
+
+        self.env_stack.pop();
+
+        if verbose {
+            dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
+        }
+
+        let mut vm = self.create_vm();
+
+        let result = vm.run(code);
+
+        Ok(result)
+    }
+
+    // pushes initialization instructions such as global evaluation to the start
+    fn insert_init_instructions(&mut self, mut code: CompiledCode) -> CompiledCode {
         let mut init_instructions: Vec<Instruction> = vec![];
 
-        // push evaluated globals to the start of the instruction tree
         for (global_index, global_code) in self.evaluated_globals.clone() {
             let const_slot = self.interp.constants.len();
             self.interp.constants.push(Value::Func(Func {
@@ -99,18 +115,7 @@ impl<'i> InterpSess<'i> {
             .chain(code.instructions)
             .collect();
 
-        self.env_stack.pop();
-
-        if verbose {
-            dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
-        }
-
-        let result = time! { verbose, "vm", {
-            let mut vm = self.create_vm();
-            vm.run(code)
-        }};
-
-        Ok(result)
+        code
     }
 
     pub(crate) fn create_vm(&'i mut self) -> VM<'i> {

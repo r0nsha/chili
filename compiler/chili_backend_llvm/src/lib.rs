@@ -166,8 +166,12 @@ fn build_executable(
     for lib in foreign_libraries.iter() {
         match lib {
             ast::ForeignLibrary::System(lib_name) => libs.push(lib_name),
-            ast::ForeignLibrary::Path { lib_path, lib_name } => {
-                lib_paths.push(lib_path);
+            ast::ForeignLibrary::Path {
+                lib_dir,
+                lib_path: _,
+                lib_name,
+            } => {
+                lib_paths.push(lib_dir);
                 libs.push(lib_name);
             }
         }
@@ -183,12 +187,6 @@ fn build_executable(
             .write_to_file(&module, FileType::Object, &object_file)
             .unwrap()
     };
-
-    // sw!("write asm", {
-    //     target_machine
-    //         .write_to_file(&module, FileType::Assembly,
-    // &file_path.with_extension("s"))         .unwrap();
-    // });
 
     time! { build_options.verbose, "link",
         Command::new("lld-link")

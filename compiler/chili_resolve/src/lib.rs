@@ -7,6 +7,11 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);
+
+        // the root module should always have an empty name
+        if ast.module_info.name.is_empty() {
+            workspace.root_module_id = ast.module_id;
+        }
     }
 
     collect_module_exports(&asts, &mut workspace.exports);
@@ -20,7 +25,7 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
         }
     }
 
-    // Declare all global definitions
+    // Resolve all imports and apply module ids to top level expressions
     for ast in asts.iter_mut() {
         resolve_imports(&mut ast.imports, &workspace.exports);
 

@@ -123,6 +123,5 @@ let get_living_cells = fn(state: [*]bool) -> uint {
 			count += 1
 		}
 	}
-	printf("count = %d\n".data, count)
 	count
 }

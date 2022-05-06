@@ -1,10 +1,14 @@
 use c.printf
 use raylib_game_of_life.main as game_of_life
 
-let main = fn() {
-    printf("cells alive = %d\n".data, @run(game_of_life()))
-    // @run({
-    //     let count = game_of_life()
-    //     printf("cells alive = %d\n".data, count)
-    // })
+let foo = {
+    let x = 5
+    x + 10
 }
+
+let main = fn() {
+    // game_of_life returns the amounts of cells that were alive :)
+    printf("foo = %d\n".data, foo)
+}
+
+@run(main())
