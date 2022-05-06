@@ -288,7 +288,7 @@ unsafe extern "C" fn closure_callback(
         }
     }
 
-    (&mut *userdata.vm).prev_inst();
+    (&mut *userdata.vm).frames.pop();
 
     match value {
         Value::I8(v) => *(result as *mut _ as *mut _) = v,

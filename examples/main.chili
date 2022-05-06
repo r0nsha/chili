@@ -6,10 +6,10 @@ foreign("./test_dll/test.lib") {
 }
 
 let main = fn() {
-    // printf("Hello\n".data)
+    printf("Hello\n".data)
     print_number(fn { it * 2 })
-    // call_puts(puts)
-    // printf("Goodbye\n".data)
+    call_puts(puts)
+    printf("Goodbye\n".data)
 }
 
 @run(main())
