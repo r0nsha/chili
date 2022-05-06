@@ -1,11 +1,13 @@
 use c.printf
 
 foreign("./test_dll/test.lib") {
-    let print_number = fn(cb: fn -> int)
+    let print_number = fn(cb: fn -> i32)
 }
 
 let main = fn() {
+    // printf("Hello\n".data)
     print_number(fn { 5 })
+    // printf("Goodbye\n".data)
 }
 
 @run(main())

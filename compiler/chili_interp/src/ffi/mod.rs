@@ -4,10 +4,14 @@ use crate::{
 };
 use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
-use libffi::low::{
-    ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var, type_tag, types,
-    CodePtr,
+use libffi::{
+    low::{
+        closure_alloc, ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var,
+        prep_closure, type_tag, types, CodePtr,
+    },
+    raw::ffi_closure,
 };
+use libloading::Symbol;
 use std::ffi::c_void;
 use ustr::{ustr, Ustr, UstrMap};
 
@@ -28,12 +32,16 @@ pub type TypePointer = *mut ffi_type;
 
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
+
+    // call specific parameters, cleaned up after function call returns
+    closures: Vec<Function>,
 }
 
 impl Ffi {
     pub(crate) fn new() -> Self {
         Self {
             libs: UstrMap::default(),
+            closures: vec![],
         }
     }
 
@@ -49,9 +57,13 @@ impl Ffi {
             .or_insert_with(|| libloading::Library::new(lib_name.as_str()).unwrap())
     }
 
+    pub(crate) unsafe fn load_symbol(&mut self, lib_path: Ustr, name: Ustr) -> Symbol<*mut c_void> {
+        let lib = self.load_lib(lib_path);
+        lib.get(name.as_bytes()).unwrap()
+    }
+
     pub(crate) unsafe fn call(&mut self, func: ForeignFunc, mut args: Vec<Value>) -> Value {
-        let lib = self.load_lib(func.lib_path);
-        let symbol = lib.get::<&mut c_void>(func.name.as_bytes()).unwrap();
+        let symbol = self.load_symbol(func.lib_path, func.name);
 
         let mut function = if func.variadic {
             let variadic_arg_types: Vec<TyKind> = args
@@ -65,15 +77,20 @@ impl Ffi {
             Function::new(&func.param_tys, &func.return_ty)
         };
 
-        let result = function.call(*symbol, &mut args);
+        let result = function.call(*symbol, &mut args, self);
+
+        // TODO: free used closures
+        // TODO: clear closures vec
 
         Value::from_type_and_ptr(&func.return_ty, result as RawPointer)
     }
 }
 
+#[derive(Debug)]
 struct Function {
     cif: ffi_cif,
     arg_types: Vec<TypePointer>,
+    closure: Option<*mut ffi_closure>,
 }
 
 impl Function {
@@ -94,7 +111,11 @@ impl Function {
         )
         .unwrap();
 
-        Self { cif, arg_types }
+        Self {
+            cif,
+            arg_types,
+            closure: None,
+        }
     }
 
     unsafe fn new_variadic(
@@ -125,19 +146,57 @@ impl Function {
         Self {
             cif,
             arg_types: cif_arg_types,
+            closure: None,
         }
     }
 
-    unsafe fn call(&mut self, fun: *const c_void, args: &mut [Value]) -> RawPointer {
+    unsafe fn call(
+        &mut self,
+        fun: *const c_void,
+        arg_values: &mut [Value],
+        ffi: &mut Ffi,
+    ) -> RawPointer {
         let code_ptr = CodePtr::from_ptr(fun);
 
-        let mut call_args: Vec<RawPointer> = Vec::with_capacity(args.len());
+        // let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
 
-        for (arg, arg_type) in args.iter_mut().zip(self.arg_types.iter()) {
-            let arg_type = **arg_type;
-            let ptr = arg.as_ffi_arg(arg_type.size, arg_type.alignment.into());
-            call_args.push(ptr);
+        // for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
+        //     let arg_type = **arg_type;
+        //     let arg = arg.as_ffi_arg(arg_type.size, arg_type.alignment.into(), ffi);
+        //     args.push(arg);
+        // }
+
+        unsafe extern "C" fn callback(
+            cif: &ffi_cif,
+            result: &mut i32,
+            args: *const *const c_void,
+            userdata: &i32,
+        ) {
+            *result = 42;
         }
+
+        let (closure, closure_code_ptr) = closure_alloc();
+
+        // TODO: use func's return type
+        // TODO: use func's param types
+        ffi.closures
+            .push(Function::new(&[], &TyKind::Int(IntTy::I32)));
+
+        let function = ffi.closures.last_mut().unwrap();
+        function.closure = Some(closure);
+
+        prep_closure(
+            closure,
+            &mut function.cif as _,
+            callback,
+            std::ptr::null(),
+            closure_code_ptr,
+        )
+        .unwrap();
+
+        let mut ptr = closure_code_ptr.as_mut_ptr();
+
+        let mut args: Vec<RawPointer> = vec![raw_ptr!(&mut ptr)];
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
@@ -145,7 +204,7 @@ impl Function {
             &mut self.cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
             call_result.as_mut_ptr(),
-            call_args.as_mut_ptr(),
+            args.as_mut_ptr(),
         );
 
         call_result.assume_init_mut()
@@ -254,11 +313,11 @@ impl AsFfiType for TyKind {
 }
 
 trait AsFfiArg {
-    unsafe fn as_ffi_arg(&mut self, size: usize, alignement: usize) -> RawPointer;
+    unsafe fn as_ffi_arg(&mut self, size: usize, alignement: usize, ffi: &mut Ffi) -> RawPointer;
 }
 
 impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&mut self, size: usize, alignment: usize) -> RawPointer {
+    unsafe fn as_ffi_arg(&mut self, size: usize, alignment: usize, ffi: &mut Ffi) -> RawPointer {
         match self {
             Value::I8(v) => raw_ptr!(v),
             Value::I16(v) => raw_ptr!(v),
@@ -290,8 +349,42 @@ impl AsFfiArg for Value {
                 bytes.as_mut_ptr() as RawPointer
             }
             Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
-            Value::Func(_) => todo!("func"),
-            Value::ForeignFunc(_) => todo!("foreign func"),
+            Value::Func(func) => {
+                unsafe extern "C" fn callback(
+                    cif: &ffi_cif,
+                    result: &mut i32,
+                    args: *const *const c_void,
+                    userdata: &i32,
+                ) {
+                    *result = 42;
+                }
+
+                let (closure, code_ptr) = closure_alloc();
+
+                // TODO: use func's return type
+                // TODO: use func's param types
+                ffi.closures
+                    .push(Function::new(&[], &TyKind::Int(IntTy::I32)));
+
+                let function = ffi.closures.last_mut().unwrap();
+                function.closure = Some(closure);
+
+                prep_closure(
+                    closure,
+                    &mut function.cif as _,
+                    callback,
+                    std::ptr::null(),
+                    code_ptr,
+                )
+                .unwrap();
+
+                code_ptr.as_mut_ptr()
+            }
+            Value::ForeignFunc(func) => {
+                todo!()
+                // let symbol = ffi.load_symbol(func.lib_path, func.name);
+                // raw_ptr!(*symbol)
+            }
             _ => panic!("can't pass `{}` through ffi", self.to_string()),
         }
     }
@@ -333,7 +426,6 @@ fn put_value(bytes: &mut BytesMut, value: &Value) {
             }
         }
         Value::Pointer(v) => bytes.put_u64_le(v.as_inner_raw() as u64),
-        Value::Func(v) => todo!(),
         _ => panic!("can't convert `{}` to raw bytes", value.to_string()),
     }
 }
