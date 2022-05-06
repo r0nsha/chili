@@ -200,9 +200,7 @@ impl Function {
 
                     closures.push(closure);
 
-                    // TODO: use func's return type
-                    // TODO: use func's param types
-                    let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
+                    let mut function = Box::new(Function::new(&func.arg_types, &func.return_type));
 
                     let user_data = ClosureUserData {
                         vm,
@@ -257,20 +255,39 @@ struct ClosureUserData<'vm> {
     return_type: TyKind,
 }
 
+// TODO: closures don't work in multithreaded code right now.
+// TODO: this isn't a big issue as compile-time code isn't meant to be very complex.
+// TODO: but, this should be fixed.
 unsafe extern "C" fn closure_callback(
     _cif: &ffi_cif,
     result: &mut c_void,
     args: *const *const c_void,
     userdata: &ClosureUserData,
 ) {
-    // TODO: support args
-
     let mut func = (&*userdata.func).clone();
+    let arg_count = func.arg_types.len();
 
-    // Note (Ron): We need the VM to Halt instead of Return
+    // set up function args
+    if arg_count > 0 {
+        let args = std::slice::from_raw_parts(args, arg_count);
+        for (arg_type, arg) in func.arg_types.iter().zip(args) {
+            let value = Value::from_type_and_ptr(arg_type, *arg as RawPointer);
+            (&mut *userdata.vm).stack.push(value);
+        }
+    }
+
+    // we need the VM to Halt instead of Return
     *func.code.instructions.last_mut().unwrap() = Instruction::Halt;
 
     let value = (&mut *userdata.vm).run_func(func);
+
+    // pop the function args manually
+    if arg_count > 0 {
+        for _ in 0..arg_count {
+            (&mut *userdata.vm).stack.pop();
+        }
+    }
+
     (&mut *userdata.vm).prev_inst();
 
     match value {
