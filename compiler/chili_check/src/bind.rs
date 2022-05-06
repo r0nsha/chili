@@ -12,7 +12,7 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_infer::{display::OrReportErr, unify::UnifyTy};
+use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -136,7 +136,6 @@ impl<'s> CheckSess<'s> {
             Pattern::Single(pat) => {
                 self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
             }
-            // TODO: Need InferenceValue::PartialStruct(Vec<(Ustr, Ty)>)
             Pattern::StructUnpack(pat) => {
                 let partial_struct = PartialStructTy(FromIterator::from_iter(
                     pat.symbols

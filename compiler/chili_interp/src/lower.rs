@@ -430,32 +430,27 @@ impl Lower for ast::Fn {
 
         sess.env_mut().push_scope();
 
+        let mut func_code = CompiledCode::new();
+
+        // set up function parameters
         let mut param_offset: i16 = -1;
 
         for param in self.sig.params.iter() {
             match &param.pattern {
                 Pattern::Single(pat) => {
                     sess.env_mut().insert(pat.binding_info_id, param_offset);
-                    param_offset -= 1;
                 }
-                Pattern::StructUnpack(_) => {
-                    todo!()
-                    // let ty = binding.ty.normalize(sess.tycx);
-                    // let ty = ty.as_struct();
+                Pattern::StructUnpack(pat) => {
+                    let ty = param.ty.normalize(sess.tycx);
+                    let ty = ty.as_struct();
 
-                    // let last_index = pat.symbols.len() - 1;
-
-                    // for (index, pat) in pat.symbols.iter().enumerate() {
-                    //     if index < last_index {
-                    //         code.push(Instruction::Copy);
-                    //     }
-
-                    //     let field_index = ty.field_index(pat.symbol).unwrap();
-
-                    //     code.push(Instruction::ConstIndex(field_index as u32));
-                    //     code.push(Instruction::SetLocal(code.locals as i32));
-                    //     sess.add_local(code, pat.binding_info_id);
-                    // }
+                    for pat in pat.symbols.iter() {
+                        let field_index = ty.field_index(pat.symbol).unwrap();
+                        func_code.push(Instruction::PeekPtr(param_offset as i32));
+                        func_code.push(Instruction::ConstIndex(field_index as u32));
+                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                        sess.add_local(&mut func_code, pat.binding_info_id);
+                    }
                 }
                 Pattern::TupleUnpack(_) => {
                     todo!()
@@ -472,9 +467,8 @@ impl Lower for ast::Fn {
                     // }
                 }
             }
+            param_offset -= 1;
         }
-
-        let mut func_code = CompiledCode::new();
 
         lower_block(
             &self.body,

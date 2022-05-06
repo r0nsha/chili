@@ -5,11 +5,28 @@ foreign("./test_dll/test.lib") {
     let call_puts = fn(cb: fn(s: [*]u8) -> int)
 }
 
+type Person = { name: str, age: i64 }
+type PersonTuple = (str, i64)
+
 let main = fn() {
-    printf("Hello\n".data)
-    print_number(fn { it * 2 })
-    call_puts(puts)
-    printf("Goodbye\n".data)
+    // printf("Hello\n".data)
+    // print_number(fn { it * 2 })
+    // call_puts(puts)
+    foo(.{ name: "Ron\0", age: 26 })
+    bar(("Ron\0", 26))
+    // printf("Goodbye\n".data)
+}
+
+// let foo = fn({ age }: Person) {
+//     printf("age = %d\n".data, age)
+// }
+
+let foo = fn({ name, age }: Person) {
+    printf("name = %s, age = %d\n".data, name.data, age)
+}
+
+let bar = fn((name, age): PersonTuple) {
+    printf("name = %s, age = %d\n".data, name.data, age)
 }
 
 @run(main())

@@ -547,6 +547,7 @@ impl Check for ast::Fn {
             );
 
             let span = param.pattern.span();
+
             sess.bind_pattern(
                 env,
                 &mut param.pattern,
@@ -1404,10 +1405,13 @@ impl Check for ast::Expr {
                         sess.workspace.increment_binding_use(id);
                         Ok(res)
                     }
-                    ty => Err(TypeError::member_access_on_invalid_type(
-                        access.expr.span,
-                        ty.display(&sess.tycx),
-                    )),
+                    ty => Err(Diagnostic::error()
+                        .with_message(format!(
+                            "type `{}` has no member `{}`",
+                            ty.display(&sess.tycx),
+                            access.member
+                        ))
+                        .with_label(Label::primary(access.expr.span, ""))),
                 }
             }
             ast::ExprKind::Ident(ident) => match sess.get_symbol(env, ident.symbol) {
@@ -1520,17 +1524,35 @@ impl Check for ast::Expr {
                     .iter()
                     .all(|res| res.const_value.as_ref().map_or(false, |v| v.is_type()));
 
-                let element_tys: Vec<TyKind> =
-                    lit.elements.iter().map(|e| e.ty.as_kind()).collect();
-                let kind = TyKind::Tuple(element_tys);
-                let ty = sess.tycx.bound(kind.clone(), self.span);
-
                 if is_tuple_type {
+                    // unwrap element type constants
+                    let element_tys: Vec<TyKind> = elements_res
+                        .iter()
+                        .map(|res| {
+                            res.const_value
+                                .unwrap()
+                                .into_type()
+                                .normalize(&sess.tycx)
+                                .clone()
+                        })
+                        .collect();
+
+                    let kind = TyKind::Tuple(element_tys);
+
+                    let ty = sess.tycx.bound(kind.clone(), self.span);
+
                     Ok(Res::new_const(
                         sess.tycx.bound(kind.create_type(), self.span),
                         ConstValue::Type(ty),
                     ))
                 } else {
+                    let element_tys: Vec<TyKind> =
+                        lit.elements.iter().map(|e| e.ty.as_kind()).collect();
+
+                    let kind = TyKind::Tuple(element_tys);
+
+                    let ty = sess.tycx.bound(kind.clone(), self.span);
+
                     Ok(Res::new(ty))
                 }
             }
