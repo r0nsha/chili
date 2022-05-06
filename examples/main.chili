@@ -1,12 +1,14 @@
-use c.printf
+use c.{ puts, printf }
 
 foreign("./test_dll/test.lib") {
     let print_number = fn(cb: fn -> i32)
+    let call_puts = fn(cb: fn(s: [*]u8) -> int)
 }
 
 let main = fn() {
     // printf("Hello\n".data)
     print_number(fn { 5 })
+    call_puts(puts)
     // printf("Goodbye\n".data)
 }
 

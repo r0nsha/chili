@@ -192,6 +192,15 @@ impl Function {
                 }
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
+                    unsafe extern "C" fn closure_callback(
+                        cif: &ffi_cif,
+                        result: &mut i32,
+                        args: *const *const c_void,
+                        userdata: &i32,
+                    ) {
+                        *result = 42;
+                    }
+
                     let (closure, code_ptr) = closure_alloc();
 
                     closures.push(closure);
@@ -212,9 +221,9 @@ impl Function {
                     raw_ptr!(&mut code_ptr.as_mut_ptr())
                 }
                 Value::ForeignFunc(func) => {
-                    todo!()
-                    // let symbol = ffi.load_symbol(func.lib_path, func.name);
-                    // raw_ptr!(*symbol)
+                    let symbol = ffi.load_symbol(func.lib_path, func.name);
+                    let mut ptr = *symbol;
+                    raw_ptr!(&mut ptr)
                 }
                 _ => panic!("can't pass `{}` through ffi", arg.to_string()),
             };
@@ -237,15 +246,6 @@ impl Function {
 
         call_result.assume_init_mut()
     }
-}
-
-unsafe extern "C" fn closure_callback(
-    cif: &ffi_cif,
-    result: &mut i32,
-    args: *const *const c_void,
-    userdata: &i32,
-) {
-    *result = 42;
 }
 
 trait AsFfiType {
@@ -457,6 +457,8 @@ fn put_value(bytes: &mut BytesMut, value: &Value) {
             }
         }
         Value::Pointer(v) => bytes.put_u64_le(v.as_inner_raw() as u64),
+        Value::Func(_) => todo!(),
+        Value::ForeignFunc(_) => todo!(),
         _ => panic!("can't convert `{}` to raw bytes", value.to_string()),
     }
 }
