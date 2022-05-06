@@ -6,8 +6,8 @@ use bytes::{BufMut, BytesMut};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
 use libffi::{
     low::{
-        closure_alloc, ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif, prep_cif_var,
-        prep_closure, type_tag, types, CodePtr,
+        closure_alloc, closure_free, ffi_abi_FFI_DEFAULT_ABI as ABI, ffi_cif, ffi_type, prep_cif,
+        prep_cif_var, prep_closure, type_tag, types, CodePtr,
     },
     raw::ffi_closure,
 };
@@ -90,7 +90,6 @@ impl Ffi {
 struct Function {
     cif: ffi_cif,
     arg_types: Vec<TypePointer>,
-    closure: Option<(*mut ffi_closure, CodePtr)>,
 }
 
 impl Function {
@@ -111,11 +110,7 @@ impl Function {
         )
         .unwrap();
 
-        Self {
-            cif,
-            arg_types,
-            closure: None,
-        }
+        Self { cif, arg_types }
     }
 
     unsafe fn new_variadic(
@@ -146,7 +141,6 @@ impl Function {
         Self {
             cif,
             arg_types: cif_arg_types,
-            closure: None,
         }
     }
 
@@ -159,39 +153,74 @@ impl Function {
         let code_ptr = CodePtr::from_ptr(fun);
 
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
+        let mut closures: Vec<*mut ffi_closure> = vec![];
 
         for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
             let arg_type = **arg_type;
-            let arg = arg.as_ffi_arg(arg_type.size, arg_type.alignment.into(), ffi);
-            args.push(arg);
+            let size = arg_type.size;
+            let alignment = arg_type.alignment as usize;
+
+            let arg_ptr = match arg {
+                Value::I8(v) => raw_ptr!(v),
+                Value::I16(v) => raw_ptr!(v),
+                Value::I32(v) => raw_ptr!(v),
+                Value::I64(v) => raw_ptr!(v),
+                Value::Int(v) => raw_ptr!(v),
+                Value::U8(v) => raw_ptr!(v),
+                Value::U16(v) => raw_ptr!(v),
+                Value::U32(v) => raw_ptr!(v),
+                Value::U64(v) => raw_ptr!(v),
+                Value::Uint(v) => raw_ptr!(v),
+                Value::Bool(v) => raw_ptr!(v),
+                Value::F32(v) => raw_ptr!(v),
+                Value::F64(v) => raw_ptr!(v),
+                Value::Aggregate(v) => {
+                    let mut bytes = BytesMut::with_capacity(size);
+
+                    for value in v.iter() {
+                        put_value(&mut bytes, value);
+
+                        // TODO: this could be more efficient
+                        let value_size = (*value.get_ty_kind().as_ffi_type()).size;
+                        if value_size < alignment {
+                            let padding = alignment - value_size;
+                            bytes.put_bytes(0, padding);
+                        }
+                    }
+
+                    bytes.as_mut_ptr() as RawPointer
+                }
+                Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
+                Value::Func(func) => {
+                    let (closure, code_ptr) = closure_alloc();
+
+                    closures.push(closure);
+
+                    // TODO: use func's return type
+                    // TODO: use func's param types
+                    let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
+
+                    prep_closure(
+                        closure,
+                        &mut function.cif as _,
+                        closure_callback,
+                        std::ptr::null(),
+                        code_ptr,
+                    )
+                    .unwrap();
+
+                    raw_ptr!(&mut code_ptr.as_mut_ptr())
+                }
+                Value::ForeignFunc(func) => {
+                    todo!()
+                    // let symbol = ffi.load_symbol(func.lib_path, func.name);
+                    // raw_ptr!(*symbol)
+                }
+                _ => panic!("can't pass `{}` through ffi", arg.to_string()),
+            };
+
+            args.push(arg_ptr);
         }
-
-        let (closure, closure_code_ptr) = closure_alloc();
-
-        // TODO: use func's return type
-        // TODO: use func's param types
-        ffi.closures
-            .push(Function::new(&[], &TyKind::Int(IntTy::I32)));
-
-        let function = ffi.closures.last_mut().unwrap();
-
-        prep_closure(
-            closure,
-            &mut function.cif as _,
-            closure_callback,
-            std::ptr::null(),
-            closure_code_ptr,
-        )
-        .unwrap();
-
-        let mut ptr = closure_code_ptr.as_mut_ptr();
-
-        let mut args: Vec<RawPointer> = vec![raw_ptr!(&mut ptr)];
-
-        // println!(
-        //     "{}",
-        //     std::mem::transmute::<RawPointer, extern "C" fn() -> i32>(args[0])()
-        // );
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
@@ -201,6 +230,10 @@ impl Function {
             call_result.as_mut_ptr(),
             args.as_mut_ptr(),
         );
+
+        for closure in closures {
+            closure_free(closure);
+        }
 
         call_result.assume_init_mut()
     }
@@ -316,78 +349,77 @@ impl AsFfiType for TyKind {
     }
 }
 
-trait AsFfiArg {
-    unsafe fn as_ffi_arg(&mut self, size: usize, alignement: usize, ffi: &mut Ffi) -> RawPointer;
-}
+// trait AsFfiArg {
+//     unsafe fn as_ffi_arg(&mut self, size: usize, alignement: usize, ffi: &mut Ffi) -> RawPointer;
+// }
 
-impl AsFfiArg for Value {
-    unsafe fn as_ffi_arg(&mut self, size: usize, alignment: usize, ffi: &mut Ffi) -> RawPointer {
-        match self {
-            Value::I8(v) => raw_ptr!(v),
-            Value::I16(v) => raw_ptr!(v),
-            Value::I32(v) => raw_ptr!(v),
-            Value::I64(v) => raw_ptr!(v),
-            Value::Int(v) => raw_ptr!(v),
-            Value::U8(v) => raw_ptr!(v),
-            Value::U16(v) => raw_ptr!(v),
-            Value::U32(v) => raw_ptr!(v),
-            Value::U64(v) => raw_ptr!(v),
-            Value::Uint(v) => raw_ptr!(v),
-            Value::Bool(v) => raw_ptr!(v),
-            Value::F32(v) => raw_ptr!(v),
-            Value::F64(v) => raw_ptr!(v),
-            Value::Aggregate(v) => {
-                let mut bytes = BytesMut::with_capacity(size);
+// impl AsFfiArg for Value {
+//     unsafe fn as_ffi_arg(&mut self, size: usize, alignment: usize, ffi: &mut Ffi) -> RawPointer {
+//         match self {
+//             Value::I8(v) => raw_ptr!(v),
+//             Value::I16(v) => raw_ptr!(v),
+//             Value::I32(v) => raw_ptr!(v),
+//             Value::I64(v) => raw_ptr!(v),
+//             Value::Int(v) => raw_ptr!(v),
+//             Value::U8(v) => raw_ptr!(v),
+//             Value::U16(v) => raw_ptr!(v),
+//             Value::U32(v) => raw_ptr!(v),
+//             Value::U64(v) => raw_ptr!(v),
+//             Value::Uint(v) => raw_ptr!(v),
+//             Value::Bool(v) => raw_ptr!(v),
+//             Value::F32(v) => raw_ptr!(v),
+//             Value::F64(v) => raw_ptr!(v),
+//             Value::Aggregate(v) => {
+//                 let mut bytes = BytesMut::with_capacity(size);
 
-                for value in v.iter() {
-                    put_value(&mut bytes, value);
+//                 for value in v.iter() {
+//                     put_value(&mut bytes, value);
 
-                    // TODO: this could be more efficient
-                    let value_size = (*value.get_ty_kind().as_ffi_type()).size;
-                    if value_size < alignment {
-                        let padding = alignment - value_size;
-                        bytes.put_bytes(0, padding);
-                    }
-                }
+//                     // TODO: this could be more efficient
+//                     let value_size = (*value.get_ty_kind().as_ffi_type()).size;
+//                     if value_size < alignment {
+//                         let padding = alignment - value_size;
+//                         bytes.put_bytes(0, padding);
+//                     }
+//                 }
 
-                bytes.as_mut_ptr() as RawPointer
-            }
-            Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
-            Value::Func(func) => {
-                let (closure, code_ptr) = closure_alloc();
+//                 bytes.as_mut_ptr() as RawPointer
+//             }
+//             Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
+//             Value::Func(func) => {
+//                 let (closure, code_ptr) = closure_alloc();
 
-                // ffi.closures.push(Closure {
-                //     func: func as _,
-                //     closure,
-                //     code_ptr,
-                // });
+//                 // ffi.closures.push(Closure {
+//                 //     func: func as _,
+//                 //     closure,
+//                 //     code_ptr,
+//                 // });
 
-                // TODO: use func's return type
-                // TODO: use func's param types
-                let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
-                function.closure = Some((closure, code_ptr));
+//                 // TODO: use func's return type
+//                 // TODO: use func's param types
+//                 let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
 
-                prep_closure(
-                    closure,
-                    &mut function.cif as _,
-                    closure_callback,
-                    std::ptr::null(),
-                    code_ptr,
-                )
-                .unwrap();
+//                 prep_closure(
+//                     closure,
+//                     &mut function.cif as _,
+//                     closure_callback,
+//                     std::ptr::null(),
+//                     code_ptr,
+//                 )
+//                 .unwrap();
 
-                raw_ptr!(function.closure.unwrap().1.as_mut_ptr())
-                // code_ptr.as_mut_ptr()
-            }
-            Value::ForeignFunc(func) => {
-                todo!()
-                // let symbol = ffi.load_symbol(func.lib_path, func.name);
-                // raw_ptr!(*symbol)
-            }
-            _ => panic!("can't pass `{}` through ffi", self.to_string()),
-        }
-    }
-}
+//                 raw_ptr!(function.closure.unwrap().1.as_mut_ptr())
+//                 // code_ptr.as_mut_ptr()
+//             }
+//             Value::ForeignFunc(func) => {
+//                 todo!()
+//                 // let symbol = ffi.load_symbol(func.lib_path, func.name);
+//                 // raw_ptr!(*symbol)
+//             }
+//             _ => panic!("can't pass `{}` through ffi", self.to_string()),
+//         }
+//     }
+// }
 
 // Note (Ron): Important - This function WILL fail in Big Endian systems!!
 // Note (Ron): This isn't very crucial, since the most common systems are little endian - but this needs to be fixed anyway.
