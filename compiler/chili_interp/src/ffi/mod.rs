@@ -128,8 +128,8 @@ impl Function {
         }
     }
 
-    unsafe fn call(&mut self, func_ptr: *const c_void, args: &mut [Value]) -> RawPointer {
-        let code_ptr = CodePtr::from_ptr(func_ptr);
+    unsafe fn call(&mut self, fun: *const c_void, args: &mut [Value]) -> RawPointer {
+        let code_ptr = CodePtr::from_ptr(fun);
 
         let mut call_args: Vec<RawPointer> = Vec::with_capacity(args.len());
 
@@ -197,13 +197,32 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::Unit | TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => {
+            TyKind::Unit
+            | TyKind::Pointer(_, _)
+            | TyKind::MultiPointer(_, _)
+            | TyKind::Fn(_)
+            | TyKind::Array(_, _) => {
                 ffi_type!(types::pointer)
             }
-            TyKind::Fn(_) => todo!(),
-            TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
-            TyKind::Tuple(_) => todo!(),
+            TyKind::Tuple(tuple_elements) => {
+                let size = self.size_of(WORD_SIZE);
+                let align = self.align_of(WORD_SIZE);
+
+                let mut elements: Vec<TypePointer> = vec![];
+                for el in tuple_elements.iter() {
+                    elements.push(el.as_ffi_type());
+                }
+
+                let elements_ptr = elements.as_mut_ptr();
+
+                ffi_type!(*Box::new(ffi_type {
+                    size,
+                    alignment: align as u16,
+                    type_: type_tag::STRUCT,
+                    elements: elements_ptr,
+                }))
+            }
             TyKind::Struct(st) => {
                 let size = st.size_of(WORD_SIZE);
                 let align = st.align_of(WORD_SIZE);
@@ -212,6 +231,7 @@ impl AsFfiType for TyKind {
                 for field in st.fields.iter() {
                     elements.push(field.ty.as_ffi_type());
                 }
+
                 let elements_ptr = elements.as_mut_ptr();
 
                 ffi_type!(*Box::new(ffi_type {
