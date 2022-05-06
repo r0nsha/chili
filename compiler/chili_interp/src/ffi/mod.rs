@@ -1,5 +1,5 @@
 use crate::{
-    value::{ForeignFunc, Value},
+    value::{ForeignFunc, Func, Value},
     IS_64BIT, WORD_SIZE,
 };
 use bytes::{BufMut, BytesMut};
@@ -90,7 +90,7 @@ impl Ffi {
 struct Function {
     cif: ffi_cif,
     arg_types: Vec<TypePointer>,
-    closure: Option<*mut ffi_closure>,
+    closure: Option<(*mut ffi_closure, CodePtr)>,
 }
 
 impl Function {
@@ -158,13 +158,13 @@ impl Function {
     ) -> RawPointer {
         let code_ptr = CodePtr::from_ptr(fun);
 
-        // let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
+        let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
 
-        // for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
-        //     let arg_type = **arg_type;
-        //     let arg = arg.as_ffi_arg(arg_type.size, arg_type.alignment.into(), ffi);
-        //     args.push(arg);
-        // }
+        for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
+            let arg_type = **arg_type;
+            let arg = arg.as_ffi_arg(arg_type.size, arg_type.alignment.into(), ffi);
+            args.push(arg);
+        }
 
         unsafe extern "C" fn callback(
             cif: &ffi_cif,
@@ -183,7 +183,6 @@ impl Function {
             .push(Function::new(&[], &TyKind::Int(IntTy::I32)));
 
         let function = ffi.closures.last_mut().unwrap();
-        function.closure = Some(closure);
 
         prep_closure(
             closure,
@@ -197,6 +196,11 @@ impl Function {
         let mut ptr = closure_code_ptr.as_mut_ptr();
 
         let mut args: Vec<RawPointer> = vec![raw_ptr!(&mut ptr)];
+
+        // println!(
+        //     "{}",
+        //     std::mem::transmute::<RawPointer, extern "C" fn() -> i32>(args[0])()
+        // );
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
@@ -361,13 +365,16 @@ impl AsFfiArg for Value {
 
                 let (closure, code_ptr) = closure_alloc();
 
+                // ffi.closures.push(Closure {
+                //     func: func as _,
+                //     closure,
+                //     code_ptr,
+                // });
+
                 // TODO: use func's return type
                 // TODO: use func's param types
-                ffi.closures
-                    .push(Function::new(&[], &TyKind::Int(IntTy::I32)));
-
-                let function = ffi.closures.last_mut().unwrap();
-                function.closure = Some(closure);
+                let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
+                function.closure = Some((closure, code_ptr));
 
                 prep_closure(
                     closure,
@@ -378,7 +385,8 @@ impl AsFfiArg for Value {
                 )
                 .unwrap();
 
-                code_ptr.as_mut_ptr()
+                raw_ptr!(function.closure.unwrap().1.as_mut_ptr())
+                // code_ptr.as_mut_ptr()
             }
             Value::ForeignFunc(func) => {
                 todo!()
