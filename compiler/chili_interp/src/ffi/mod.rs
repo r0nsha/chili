@@ -1,4 +1,5 @@
 use crate::{
+    instruction::Instruction,
     value::{ForeignFunc, Func, Value},
     vm::VM,
     IS_64BIT, WORD_SIZE,
@@ -203,7 +204,12 @@ impl Function {
                     // TODO: use func's param types
                     let mut function = Box::new(Function::new(&[], &TyKind::Int(IntTy::I32)));
 
-                    let user_data = ClosureUserData { vm, func };
+                    let user_data = ClosureUserData {
+                        vm,
+                        func,
+                        arg_types: func.arg_types.clone(),
+                        return_type: func.return_type.clone(),
+                    };
 
                     prep_closure(
                         closure,
@@ -247,19 +253,44 @@ impl Function {
 struct ClosureUserData<'vm> {
     vm: *mut VM<'vm>,
     func: *const Func,
+    arg_types: Vec<TyKind>,
+    return_type: TyKind,
 }
 
 unsafe extern "C" fn closure_callback(
-    cif: &ffi_cif,
-    result: &mut i32,
+    _cif: &ffi_cif,
+    result: &mut c_void,
     args: *const *const c_void,
     userdata: &ClosureUserData,
 ) {
-    // need an instance of the VM here
-    println!("{:?}", *userdata.func);
-    let vm = userdata.vm;
-    let func = userdata.func;
-    *result = 42;
+    // TODO: support args
+
+    let mut func = (&*userdata.func).clone();
+
+    // Note (Ron): We need the VM to Halt instead of Return
+    *func.code.instructions.last_mut().unwrap() = Instruction::Halt;
+
+    let value = (&mut *userdata.vm).run_func(func);
+    (&mut *userdata.vm).prev_inst();
+
+    match value {
+        Value::I8(v) => *(result as *mut _ as *mut _) = v,
+        Value::I16(v) => *(result as *mut _ as *mut _) = v,
+        Value::I32(v) => *(result as *mut _ as *mut _) = v,
+        Value::I64(v) => *(result as *mut _ as *mut _) = v,
+        Value::Int(v) => *(result as *mut _ as *mut _) = v,
+        Value::U8(v) => *(result as *mut _ as *mut _) = v,
+        Value::U16(v) => *(result as *mut _ as *mut _) = v,
+        Value::U32(v) => *(result as *mut _ as *mut _) = v,
+        Value::U64(v) => *(result as *mut _ as *mut _) = v,
+        Value::Uint(v) => *(result as *mut _ as *mut _) = v,
+        Value::F32(v) => *(result as *mut _ as *mut _) = v,
+        Value::F64(v) => *(result as *mut _ as *mut _) = v,
+        Value::Bool(v) => *(result as *mut _ as *mut _) = v,
+        Value::Aggregate(v) => todo!(),
+        Value::Pointer(v) => *(result as *mut _ as *mut _) = v.as_inner_raw(),
+        _ => panic!("unexpected value `{}`", value.to_string()),
+    }
 }
 
 trait AsFfiType {

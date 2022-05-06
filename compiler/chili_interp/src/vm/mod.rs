@@ -4,8 +4,8 @@ use crate::{
     stack::Stack,
     value::{Func, Pointer, Value},
 };
+use chili_ast::ty::TyKind;
 use colored::Colorize;
-use common::time;
 use std::fmt::Display;
 use ustr::ustr;
 
@@ -19,14 +19,14 @@ pub type Constants = Vec<Value>;
 pub type Globals = Vec<Value>;
 
 #[derive(Debug, Clone)]
-struct CallFrame {
+pub(crate) struct CallFrame {
     func: Func,
     stack_slot: usize,
     ip: usize,
 }
 
 impl CallFrame {
-    fn new(func: Func, slot: usize) -> Self {
+    pub(crate) fn new(func: Func, slot: usize) -> Self {
         Self {
             func,
             stack_slot: slot,
@@ -104,9 +104,9 @@ macro_rules! logic_op {
 }
 
 pub(crate) struct VM<'vm> {
-    interp: &'vm mut Interp,
-    stack: Stack<Value, STACK_MAX>,
-    frames: Stack<CallFrame, FRAMES_MAX>,
+    pub(crate) interp: &'vm mut Interp,
+    pub(crate) stack: Stack<Value, STACK_MAX>,
+    pub(crate) frames: Stack<CallFrame, FRAMES_MAX>,
 }
 
 impl<'vm> VM<'vm> {
@@ -118,17 +118,22 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    pub(crate) fn run(&'vm mut self, code: CompiledCode) -> Value {
-        self.stack.push(Value::Func(Func {
+    pub(crate) fn run_code(&'vm mut self, code: CompiledCode) -> Value {
+        self.run_func(Func {
             name: ustr("__vm_start"),
-            param_count: 0,
+            arg_types: vec![],
+            return_type: TyKind::Unit,
             code,
-        }));
-        self.push_frame(self.stack.peek(0).clone().into_func());
-        self.run_loop()
+        })
     }
 
-    fn run_loop(&'vm mut self) -> Value {
+    pub(crate) fn run_func(&'vm mut self, func: Func) -> Value {
+        self.stack.push(Value::Func(func.clone()));
+        self.push_frame(func);
+        self.run_inner()
+    }
+
+    fn run_inner(&'vm mut self) -> Value {
         loop {
             let inst = self.inst();
 
@@ -246,7 +251,7 @@ impl<'vm> VM<'vm> {
                         break return_value;
                     } else {
                         self.stack
-                            .truncate(frame.stack_slot - frame.func.param_count as usize);
+                            .truncate(frame.stack_slot - frame.func.arg_types.len());
                         self.stack.push(return_value);
                         self.next_inst();
                     }
@@ -384,13 +389,17 @@ impl<'vm> VM<'vm> {
                     }
                     self.next_inst();
                 }
-                Instruction::Halt => break self.stack.pop(),
+                Instruction::Halt => {
+                    let result = self.stack.pop();
+                    self.stack.pop(); // pop the current function
+                    break result;
+                }
             }
         }
     }
 
     #[inline]
-    fn push_frame(&mut self, func: Func) {
+    pub(crate) fn push_frame(&mut self, func: Func) {
         let stack_slot = self.stack.len() - 1;
         for _ in 0..func.code.locals {
             self.stack.push(Value::unit());
@@ -399,38 +408,43 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    fn frame(&self) -> &CallFrame {
+    pub(crate) fn frame(&self) -> &CallFrame {
         self.frames.peek(0)
     }
 
     #[inline]
-    fn frame_mut(&mut self) -> &mut CallFrame {
+    pub(crate) fn frame_mut(&mut self) -> &mut CallFrame {
         self.frames.peek_mut(0)
     }
 
     #[inline]
-    fn inst(&self) -> Instruction {
+    pub(crate) fn inst(&self) -> Instruction {
         let frame = self.frame();
         frame.func.code.instructions[frame.ip]
     }
 
     #[inline]
-    fn next_inst(&mut self) {
+    pub(crate) fn prev_inst(&mut self) {
+        self.frame_mut().ip -= 1;
+    }
+
+    #[inline]
+    pub(crate) fn next_inst(&mut self) {
         self.frame_mut().ip += 1;
     }
 
     #[inline]
-    fn get_const(&self, addr: u32) -> &Value {
+    pub(crate) fn get_const(&self, addr: u32) -> &Value {
         self.interp.constants.get(addr as usize).unwrap()
     }
 
     #[inline]
-    fn jmp(&mut self, offset: i32) {
+    pub(crate) fn jmp(&mut self, offset: i32) {
         let new_ip = self.frame().ip as isize + offset as isize;
         self.frame_mut().ip = new_ip as usize;
     }
 
-    fn trace(&self, inst: &Instruction, level: TraceLevel) {
+    pub(crate) fn trace(&self, inst: &Instruction, level: TraceLevel) {
         let frame = self.frame();
 
         match level {
@@ -456,7 +470,7 @@ impl<'vm> VM<'vm> {
                         if index == frame_slot {
                             // frame slot
                             value.to_string().bright_yellow()
-                        } else if index > frame_slot - frame.func.param_count as usize
+                        } else if index > frame_slot - frame.func.arg_types.len()
                             && index <= frame_slot + frame.func.code.locals as usize
                         {
                             // local value
@@ -479,7 +493,7 @@ impl<'vm> VM<'vm> {
 }
 
 #[allow(dead_code)]
-enum TraceLevel {
+pub(crate) enum TraceLevel {
     None,
     Minimal,
     Full,

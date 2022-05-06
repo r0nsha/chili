@@ -6,7 +6,7 @@ use chili_ast::{
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
 use paste::paste;
-use std::{fmt::Display, mem};
+use std::{ffi::c_void, fmt::Display, mem};
 use ustr::Ustr;
 
 macro_rules! impl_value {
@@ -41,6 +41,14 @@ macro_rules! impl_value {
                 match self {
                     $(
                         Value::$variant(_) => ValueKind::$variant
+                    ),+
+                }
+            }
+
+            pub fn as_c_ref(&mut self) -> *mut c_void {
+                match self {
+                    $(
+                        Self::$variant(v) => v as *mut _ as *mut c_void
                     ),+
                 }
             }
@@ -247,7 +255,8 @@ pub struct Slice {
 #[derive(Debug, Clone)]
 pub struct Func {
     pub name: Ustr,
-    pub param_count: u16,
+    pub arg_types: Vec<TyKind>,
+    pub return_type: TyKind,
     pub code: CompiledCode,
 }
 
@@ -297,7 +306,7 @@ impl From<&TyKind> for ValueKind {
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
             TyKind::Module(_) => todo!(),
-            TyKind::Type(t) => Self::Type,
+            TyKind::Type(_) => Self::Type,
             TyKind::Infer(_, InferTy::AnyInt) => Self::I32,
             TyKind::Infer(_, InferTy::AnyFloat) => Self::F64,
             TyKind::Infer(_, _) => todo!(),

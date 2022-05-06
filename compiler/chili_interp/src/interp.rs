@@ -8,6 +8,7 @@ use crate::{
 };
 use chili_ast::{
     ast,
+    ty::TyKind,
     workspace::{BindingInfoId, ModuleId, Workspace},
 };
 use chili_infer::ty_ctx::TyCtx;
@@ -89,7 +90,7 @@ impl<'i> InterpSess<'i> {
 
         let mut vm = self.create_vm();
 
-        let result = vm.run(code);
+        let result = vm.run_code(code);
 
         Ok(result)
     }
@@ -102,7 +103,8 @@ impl<'i> InterpSess<'i> {
             let const_slot = self.interp.constants.len();
             self.interp.constants.push(Value::Func(Func {
                 name: ustr(&format!("global_init_{}", global_index)),
-                param_count: 0,
+                arg_types: vec![],
+                return_type: TyKind::Unit,
                 code: global_code,
             }));
             init_instructions.push(Instruction::PushConst(const_slot as u32));

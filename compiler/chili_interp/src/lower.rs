@@ -453,9 +453,12 @@ impl Lower for ast::Fn {
 
         sess.env_mut().pop_scope();
 
+        let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
+
         let func = Value::Func(Func {
             name: self.sig.name,
-            param_count: self.sig.params.len() as u16,
+            arg_types: sig_ty.params,
+            return_type: *sig_ty.ret,
             code: func_code,
         });
 
