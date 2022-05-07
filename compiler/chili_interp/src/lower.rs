@@ -551,13 +551,10 @@ impl Lower for ast::Call {
 impl Lower for ast::For {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         // lower iterator index
-        let iter_index_slot = {
-            sess.push_const(code, Value::Uint(0));
-            sess.add_local(code, self.iter_index_id);
-            let slot = code.locals as i32;
-            code.push(Instruction::SetLocal(slot));
-            slot
-        };
+        sess.push_const(code, Value::Uint(0));
+        sess.add_local(code, self.iter_index_id);
+        let iter_index_slot = code.locals as i32;
+        code.push(Instruction::SetLocal(iter_index_slot));
 
         match &self.iterator {
             ast::ForIter::Range(start, end) => {
@@ -625,33 +622,33 @@ impl Lower for ast::For {
                 };
 
                 if value_ty.is_slice() {
-                    code.push(Instruction::PeekPtr(value_slot));
+                    code.push(Instruction::Peek(value_slot));
                     code.push(Instruction::ConstIndex(0));
                     code.push(Instruction::SetLocal(value_slot));
                 }
 
                 // lower the condition
-                let loop_start = code.push(Instruction::Peek(iter_index_slot));
-                code.push(Instruction::Copy(1));
-                code.push(Instruction::LtEq);
+                let loop_start = code.push(Instruction::Copy(0));
+                code.push(Instruction::Peek(iter_index_slot));
+                code.push(Instruction::Gt);
 
                 let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
 
                 // move the iterator to the current index
-                let iter_slot = code.locals as i32;
 
-                if value_ty.is_slice() {
-                    code.push(Instruction::PeekPtr(value_slot));
-                    code.push(Instruction::Peek(iter_index_slot));
-                    sess.push_const(code, Value::Uint(value_ty.inner().size_of(WORD_SIZE)));
-                    code.push(Instruction::Mul);
+                code.push(if value_ty.is_slice() {
+                    Instruction::Peek(value_slot)
                 } else {
-                    code.push(Instruction::PeekPtr(value_slot));
-                    code.push(Instruction::Peek(iter_index_slot));
-                }
+                    Instruction::PeekPtr(value_slot)
+                });
 
+                code.push(Instruction::Peek(iter_index_slot));
+                sess.push_const(code, Value::Uint(value_ty.inner().size_of(WORD_SIZE)));
+                code.push(Instruction::Mul);
                 code.push(Instruction::Index);
+
                 sess.add_local(code, self.iter_id);
+                let iter_slot = code.locals as i32;
                 code.push(Instruction::SetLocal(iter_slot));
 
                 let block_start_pos = code.instructions.len();
