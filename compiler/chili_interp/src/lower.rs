@@ -780,7 +780,9 @@ impl Lower for ast::Subscript {
             .lower(sess, code, LowerContext { take_ptr: false });
 
         match expr_ty {
-            TyKind::Pointer(inner, _) | TyKind::MultiPointer(inner, _) => {
+            TyKind::Array(inner, _)
+            | TyKind::Pointer(inner, _)
+            | TyKind::MultiPointer(inner, _) => {
                 // if this is a pointer offset, we need to multiply the index by the pointer size
                 sess.push_const(code, Value::Uint(inner.size_of(WORD_SIZE)));
                 code.push(Instruction::Mul);
