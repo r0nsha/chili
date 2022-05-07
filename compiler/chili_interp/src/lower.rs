@@ -98,7 +98,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
             ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
             ast::ExprKind::Subscript(sub) => sub.lower(sess, code, ctx),
-            ast::ExprKind::Slice(_) => todo!(),
+            ast::ExprKind::Slice(slice) => slice.lower(sess, code, ctx),
             ast::ExprKind::Call(call) => call.lower(sess, code, ctx),
             ast::ExprKind::MemberAccess(access) => {
                 access.expr.lower(sess, code, ctx);
@@ -326,11 +326,11 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
 
     match &binding.pattern {
         Pattern::Single(pat) => {
+            sess.add_local(code, pat.binding_info_id);
+
             if binding.expr.is_some() {
                 code.push(Instruction::SetLocal(code.locals as i32));
             }
-
-            sess.add_local(code, pat.binding_info_id);
         }
         Pattern::StructUnpack(pat) => {
             let ty = binding.ty.normalize(sess.tycx);
@@ -346,8 +346,8 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                 let field_index = ty.field_index(pat.symbol).unwrap();
 
                 code.push(Instruction::ConstIndex(field_index as u32));
-                code.push(Instruction::SetLocal(code.locals as i32));
                 sess.add_local(code, pat.binding_info_id);
+                code.push(Instruction::SetLocal(code.locals as i32));
             }
         }
         Pattern::TupleUnpack(pat) => {
@@ -359,8 +359,8 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                 }
 
                 code.push(Instruction::ConstIndex(index as u32));
-                code.push(Instruction::SetLocal(code.locals as i32));
                 sess.add_local(code, pat.binding_info_id);
+                code.push(Instruction::SetLocal(code.locals as i32));
             }
         }
     }
@@ -452,16 +452,16 @@ impl Lower for ast::Fn {
                         let field_index = ty.field_index(pat.symbol).unwrap();
                         func_code.push(Instruction::PeekPtr(param_offset as i32));
                         func_code.push(Instruction::ConstIndex(field_index as u32));
-                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
                         sess.add_local(&mut func_code, pat.binding_info_id);
+                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
                     }
                 }
                 Pattern::TupleUnpack(pat) => {
                     for (index, pat) in pat.symbols.iter().enumerate() {
                         func_code.push(Instruction::PeekPtr(param_offset as i32));
                         func_code.push(Instruction::ConstIndex(index as u32));
-                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
                         sess.add_local(&mut func_code, pat.binding_info_id);
+                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
                     }
                 }
             }
@@ -544,8 +544,8 @@ impl Lower for ast::For {
         let iter_index_slot = {
             sess.push_const(code, Value::Uint(0));
             let slot = code.locals as i32;
-            code.push(Instruction::SetLocal(slot));
             sess.add_local(code, self.iter_index_id);
+            code.push(Instruction::SetLocal(slot));
             slot
         };
 
@@ -554,8 +554,8 @@ impl Lower for ast::For {
                 start.lower(sess, code, ctx);
 
                 let iter_slot = code.locals as i32;
-                code.push(Instruction::SetLocal(iter_slot));
                 sess.add_local(code, self.iter_id);
+                code.push(Instruction::SetLocal(iter_slot));
 
                 // calculate the end index
                 end.lower(sess, code, ctx);
@@ -601,8 +601,8 @@ impl Lower for ast::For {
 
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
                 let value_slot = code.locals as i32;
-                code.push(Instruction::SetLocal(value_slot));
                 code.locals += 1;
+                code.push(Instruction::SetLocal(value_slot));
 
                 // calculate the end index
                 match value_ty {
@@ -641,8 +641,8 @@ impl Lower for ast::For {
                 }
 
                 code.push(Instruction::Index);
-                code.push(Instruction::SetLocal(iter_slot));
                 sess.add_local(code, self.iter_id);
+                code.push(Instruction::SetLocal(iter_slot));
 
                 let block_start_pos = code.instructions.len();
 
@@ -764,10 +764,16 @@ impl Lower for ast::Subscript {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.expr.lower(sess, code, LowerContext { take_ptr: true });
 
+        let expr_ty = self.expr.ty.normalize(sess.tycx);
+
+        if expr_ty.is_slice() {
+            code.push(Instruction::ConstIndex(0));
+        }
+
         self.index
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        match self.expr.ty.normalize(sess.tycx) {
+        match expr_ty {
             TyKind::Pointer(inner, _) | TyKind::MultiPointer(inner, _) => {
                 // if this is a pointer offset, we need to multiply the index by the pointer size
                 sess.push_const(code, Value::Uint(inner.size_of(WORD_SIZE)));
@@ -781,6 +787,79 @@ impl Lower for ast::Subscript {
         } else {
             Instruction::Index
         });
+    }
+}
+
+impl Lower for ast::Slice {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        // get the inner element's size
+        let expr_ty = self.expr.ty.normalize(sess.tycx);
+        let inner_ty = expr_ty.inner();
+
+        // lower `low`, or push a 0
+        fn lower_low(sess: &mut InterpSess, code: &mut CompiledCode, low: &Option<Box<ast::Expr>>) {
+            if let Some(low) = low {
+                low.lower(sess, code, LowerContext { take_ptr: false });
+            } else {
+                todo!()
+                // sess.push_const(code, Value::Uint(0));
+            }
+        }
+
+        // lower `high`, or push the expression's length
+        fn lower_high(
+            sess: &mut InterpSess,
+            code: &mut CompiledCode,
+            high: &Option<Box<ast::Expr>>,
+        ) {
+            if let Some(high) = high {
+                high.lower(sess, code, LowerContext { take_ptr: false });
+            } else {
+                todo!()
+                // match value_ty {
+                //     TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
+                //     TyKind::Slice(..) => {
+                //         code.push(Instruction::PeekPtr(value_slot));
+                //         code.push(Instruction::ConstIndex(1));
+                //     }
+                //     ty => unreachable!("unexpected type `{}`", ty),
+                // }
+            }
+        }
+
+        // aggregate alloc
+        code.push(Instruction::AggregateAlloc);
+
+        // take the expression by reference
+        self.expr.lower(sess, code, LowerContext { take_ptr: true });
+
+        match expr_ty {
+            // if array -> get a pointer to the low'th element
+            TyKind::Array(..) => {
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::IndexPtr);
+            }
+            // if slice -> offset the data pointer to the (low'th element * size)
+            TyKind::Slice(..) => {
+                todo!()
+            }
+            // if multi pointer -> offset the pointer to the (low'th element * size)
+            TyKind::Pointer(..) | TyKind::MultiPointer(..) => {
+                todo!()
+            }
+            _ => panic!("unexpected type {}", expr_ty),
+        }
+
+        // aggregate push
+        code.push(Instruction::AggregatePush);
+
+        // calculate the slice length, by doing `high - low`
+        lower_high(sess, code, &self.high);
+        lower_low(sess, code, &self.low);
+        code.push(Instruction::Sub);
+
+        // aggregate push
+        code.push(Instruction::AggregatePush);
     }
 }
 
