@@ -47,6 +47,7 @@ pub enum Instruction {
     AggregateFill(u32),
     Copy,
     Increment,
+    Panic,
     Halt,
 }
 
@@ -114,6 +115,7 @@ impl Display for Instruction {
                 Instruction::AggregateFill(size) => format!("aggregate_fill {}", size),
                 Instruction::Copy => "copy".to_string(),
                 Instruction::Increment => "increment".to_string(),
+                Instruction::Panic => "panic".to_string(),
                 Instruction::Halt => "halt".to_string(),
             }
         )

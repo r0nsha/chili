@@ -389,6 +389,17 @@ impl<'vm> VM<'vm> {
                     }
                     self.next_inst();
                 }
+                Instruction::Panic => {
+                    // Note (Ron): the panic message is a slice, which is an aggregate in the VM
+                    let message = self.stack.pop().into_aggregate();
+                    let ptr = message[0].clone().into_pointer().as_inner_raw();
+                    let len = message[1].clone().into_uint();
+                    let slice = unsafe { std::slice::from_raw_parts(ptr as *mut u8, len) };
+                    let str = std::str::from_utf8(slice).unwrap();
+
+                    // TODO: instead of using Rust's panic, we should be using our own panic function
+                    panic!("{}", str);
+                }
                 Instruction::Halt => {
                     let result = self.stack.pop();
                     self.stack.pop(); // pop the current function

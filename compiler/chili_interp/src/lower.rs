@@ -1,7 +1,7 @@
 use crate::{
     instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
-    value::{ForeignFunc, Func, Pointer, Value, ValueKind},
+    value::{ForeignFunc, Func, Value, ValueKind},
     IS_64BIT, WORD_SIZE,
 };
 use chili_ast::{
@@ -59,7 +59,14 @@ impl Lower for ast::Expr {
                     TyKind::Type(ty) => sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE))),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::Panic(_) => todo!(),
+                ast::Builtin::Panic(expr) => {
+                    if let Some(expr) = expr {
+                        expr.lower(sess, code, ctx);
+                    } else {
+                        sess.push_const(code, ustr("").into())
+                    }
+                    code.push(Instruction::Panic);
+                }
                 ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
             },
             ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
@@ -292,10 +299,7 @@ impl Lower for ast::Expr {
                             }
                             _ => panic!("invalid ty {}", ty),
                         },
-                        ast::LiteralKind::Str(v) => Value::Aggregate(vec![
-                            Value::Pointer(Pointer::U8(v.as_char_ptr() as *mut u8)),
-                            Value::Uint(v.len()),
-                        ]),
+                        ast::LiteralKind::Str(v) => Value::from(*v),
                         ast::LiteralKind::Char(v) => Value::U8(*v as u8),
                     },
                 )

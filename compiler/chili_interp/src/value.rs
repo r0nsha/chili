@@ -425,6 +425,15 @@ impl Value {
     }
 }
 
+impl From<Ustr> for Value {
+    fn from(s: Ustr) -> Self {
+        Value::Aggregate(vec![
+            Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)),
+            Value::Uint(s.len()),
+        ])
+    }
+}
+
 impl Pointer {
     pub fn unit() -> Self {
         Pointer::Aggregate(&mut Vec::with_capacity(0))
