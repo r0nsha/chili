@@ -846,7 +846,7 @@ impl Lower for ast::Slice {
                 lower_low(sess, code, &self.low);
                 sess.push_const(code, Value::Uint(inner_ty_size));
                 code.push(Instruction::Mul);
-                code.push(Instruction::IndexPtr);
+                code.push(Instruction::Offset);
 
                 code.push(Instruction::AggregatePush);
 
@@ -874,7 +874,7 @@ impl Lower for ast::Slice {
                 lower_low(sess, code, &self.low);
                 sess.push_const(code, Value::Uint(inner_ty_size));
                 code.push(Instruction::Mul);
-                code.push(Instruction::IndexPtr);
+                code.push(Instruction::Offset);
 
                 code.push(Instruction::AggregatePush);
 
@@ -894,7 +894,7 @@ impl Lower for ast::Slice {
                 lower_low(sess, code, &self.low);
                 sess.push_const(code, Value::Uint(inner_ty_size));
                 code.push(Instruction::Mul);
-                code.push(Instruction::IndexPtr);
+                code.push(Instruction::Offset);
 
                 code.push(Instruction::AggregatePush);
 

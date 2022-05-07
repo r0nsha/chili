@@ -172,6 +172,7 @@ dependencies = [
 name = "chili_interp"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "bytes",
  "chili_ast",
  "chili_error",

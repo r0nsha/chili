@@ -271,6 +271,19 @@ impl<'s> CheckSess<'s> {
 
         mk(self, builtin::SYM_NEVER, self.tycx.common_types.never);
     }
+
+    pub(crate) fn is_mutable(&self, expr: &ast::ExprKind) -> bool {
+        match expr {
+            ast::ExprKind::MemberAccess(access) => self.is_mutable(&access.expr.kind),
+            ast::ExprKind::Ident(ident) => {
+                self.workspace
+                    .get_binding_info(ident.binding_info_id)
+                    .unwrap()
+                    .is_mutable
+            }
+            _ => true,
+        }
+    }
 }
 
 pub(crate) type CheckResult = DiagnosticResult<Res>;
@@ -1274,7 +1287,7 @@ impl Check for ast::Expr {
 
                 let (result_ty, is_mutable) = match expr_ty {
                     // TODO: this is immutable even if the array is mutable
-                    TyKind::Array(inner, ..) => (inner, false),
+                    TyKind::Array(inner, ..) => (inner, sess.is_mutable(&slice.expr.kind)),
                     TyKind::Slice(inner, is_mutable) | TyKind::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
                     }

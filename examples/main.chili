@@ -9,12 +9,18 @@ type Person = { name: str, age: i64 }
 type PersonTuple = (str, i64)
 
 let main = fn() {
-    let array: [3]i64 = [1, 2, 3]
-    let slice: []i64 = array[1..]
+    let mut array: [3]i64 = [1, 2, 3]
+    let slice: []mut i64 = array[1..]
     let slice2: []i64 = slice[1..]
     // let slice: []i64 = &array
 
-    printf("slice[0] = %d | len = %d\n".data, slice2[0], slice.len)
+    array[0] = 5
+    slice[0] = 10
+    slice2[0] = 15
+
+    printf("array[0] = %d\tlen = %d\n".data, array[0], array.len)
+    printf("slice[0] = %d\tlen = %d\n".data, slice[0], slice.len)
+    printf("slice2[0] = %d\tlen = %d\n".data, slice2[0], slice2.len)
 
     // for slice {
     //     foo(.{ name: "Ron\0", age: it })

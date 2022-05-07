@@ -328,6 +328,12 @@ impl<'vm> VM<'vm> {
                     self.index_ptr(value, index);
                     self.next_inst();
                 }
+                Instruction::Offset => {
+                    let index = self.stack.pop().into_uint();
+                    let value = self.stack.pop();
+                    self.offset(value, index);
+                    self.next_inst();
+                }
                 Instruction::ConstIndex(index) => {
                     let value = self.stack.pop();
                     self.index(value, index as usize);
@@ -341,7 +347,7 @@ impl<'vm> VM<'vm> {
                 Instruction::Assign => {
                     let lvalue = self.stack.pop().into_pointer();
                     let rvalue = self.stack.pop();
-                    lvalue.write_value(rvalue);
+                    unsafe { lvalue.write_value(rvalue) }
                     self.next_inst();
                 }
                 Instruction::Cast(cast) => {

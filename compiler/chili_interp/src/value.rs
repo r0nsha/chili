@@ -4,6 +4,7 @@ use crate::{
     instruction::CompiledCode,
     IS_64BIT, WORD_SIZE,
 };
+use bytes::BufMut;
 use chili_ast::{
     const_value::ConstValue,
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
@@ -11,7 +12,7 @@ use chili_ast::{
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
 use paste::paste;
-use std::{ffi::c_void, fmt::Display, mem};
+use std::{ffi::c_void, fmt::Display, mem, slice};
 use ustr::Ustr;
 
 macro_rules! impl_value {
@@ -153,15 +154,6 @@ macro_rules! impl_value {
                     $(
                         Self::$variant(v) => v.is_null()
                     ),+
-                }
-            }
-
-            pub fn write_value(&self, value: Value) {
-                match (self, value) {
-                    $(
-                        (Self::$variant(ptr), Value::$variant(value)) => unsafe { ptr.write(value) }
-                    ),+,
-                    (ptr, value) => panic!("invalid pair {:?} , {}", ptr, value.to_string())
                 }
             }
 
@@ -541,6 +533,35 @@ impl Pointer {
             ),
             Self::Func(_) => todo!(),
             _ => panic!(),
+        }
+    }
+
+    pub unsafe fn write_value(&self, value: Value) {
+        use slice::from_raw_parts_mut as slice;
+
+        match (self, value) {
+            (Self::I8(p), Value::I8(v)) => slice(*p as *mut u8, 1).put_i8(v),
+            (Self::I16(p), Value::I16(v)) => slice(*p as *mut u8, 1).put_i16(v),
+            (Self::I32(p), Value::I32(v)) => slice(*p as *mut u8, 1).put_i32(v),
+            (Self::I64(p), Value::I64(v)) => slice(*p as *mut u8, 8).put_i64(v),
+            (Self::Int(p), Value::Int(v)) => slice(*p as *mut u8, 1).put_int(v as i64, WORD_SIZE),
+            (Self::U8(p), Value::U8(v)) => slice(*p as *mut u8, 1).put_u8(v),
+            (Self::U16(p), Value::U16(v)) => slice(*p as *mut u8, 1).put_u16(v),
+            (Self::U32(p), Value::U32(v)) => slice(*p as *mut u8, 1).put_u32(v),
+            (Self::U64(p), Value::U64(v)) => slice(*p as *mut u8, 8).put_u64(v),
+            (Self::Uint(p), Value::Uint(v)) => {
+                slice(*p as *mut u8, 1).put_uint(v as u64, WORD_SIZE)
+            }
+            (Self::F32(p), Value::F32(v)) => slice(*p as *mut u8, 8).put_f32(v),
+            (Self::F64(p), Value::F64(v)) => slice(*p as *mut u8, 8).put_f64(v),
+            (Self::Bool(p), Value::Bool(v)) => slice(*p as *mut u8, 8).put_u8(v as u8),
+            (Self::Aggregate(p), Value::Aggregate(v)) => **p = v,
+            (Self::Array(p), Value::Array(v)) => **p = v,
+            (Self::Pointer(p), Value::Pointer(v)) => **p = v,
+            (Self::Func(p), Value::Func(v)) => **p = v,
+            (Self::ForeignFunc(p), Value::ForeignFunc(v)) => **p = v,
+            (Self::Type(p), Value::Type(v)) => **p = v,
+            (p, v) => panic!("invalid pair {:?} , {}", p, v.to_string()),
         }
     }
 }
