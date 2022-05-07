@@ -4,7 +4,7 @@ use crate::{
     instruction::CompiledCode,
     IS_64BIT, WORD_SIZE,
 };
-use bytes::BufMut;
+use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::{
     const_value::ConstValue,
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
@@ -542,19 +542,23 @@ impl Pointer {
         }
 
         match (self, value) {
-            (Self::I8(p), Value::I8(v)) => slice(p).put_i8(v),
-            (Self::I16(p), Value::I16(v)) => slice(p).put_i16_le(v),
-            (Self::I32(p), Value::I32(v)) => slice(p).put_i32_le(v),
-            (Self::I64(p), Value::I64(v)) => slice(p).put_i64_le(v),
-            (Self::Int(p), Value::Int(v)) => slice(p).put_int_le(v as i64, WORD_SIZE),
-            (Self::U8(p), Value::U8(v)) => slice(p).put_u8(v),
-            (Self::U16(p), Value::U16(v)) => slice(p).put_u16_le(v),
-            (Self::U32(p), Value::U32(v)) => slice(p).put_u32_le(v),
-            (Self::U64(p), Value::U64(v)) => slice(p).put_u64_le(v),
-            (Self::Uint(p), Value::Uint(v)) => slice(p).put_uint_le(v as u64, WORD_SIZE),
-            (Self::F32(p), Value::F32(v)) => slice(p).put_f32_le(v),
-            (Self::F64(p), Value::F64(v)) => slice(p).put_f64_le(v),
-            (Self::Bool(p), Value::Bool(v)) => slice(p).put_u8(v as u8),
+            (Self::I8(p), Value::I8(v)) => slice(p).write_i8(v).unwrap(),
+            (Self::I16(p), Value::I16(v)) => slice(p).write_i16::<NativeEndian>(v).unwrap(),
+            (Self::I32(p), Value::I32(v)) => slice(p).write_i32::<NativeEndian>(v).unwrap(),
+            (Self::I64(p), Value::I64(v)) => slice(p).write_i64::<NativeEndian>(v).unwrap(),
+            (Self::Int(p), Value::Int(v)) => slice(p)
+                .write_int::<NativeEndian>(v as i64, WORD_SIZE)
+                .unwrap(),
+            (Self::U8(p), Value::U8(v)) => slice(p).write_u8(v).unwrap(),
+            (Self::U16(p), Value::U16(v)) => slice(p).write_u16::<NativeEndian>(v).unwrap(),
+            (Self::U32(p), Value::U32(v)) => slice(p).write_u32::<NativeEndian>(v).unwrap(),
+            (Self::U64(p), Value::U64(v)) => slice(p).write_u64::<NativeEndian>(v).unwrap(),
+            (Self::Uint(p), Value::Uint(v)) => slice(p)
+                .write_uint::<NativeEndian>(v as u64, WORD_SIZE)
+                .unwrap(),
+            (Self::F32(p), Value::F32(v)) => slice(p).write_f32::<NativeEndian>(v).unwrap(),
+            (Self::F64(p), Value::F64(v)) => slice(p).write_f64::<NativeEndian>(v).unwrap(),
+            (Self::Bool(p), Value::Bool(v)) => slice(p).write_u8(v as u8).unwrap(),
             (Self::Aggregate(p), Value::Aggregate(v)) => **p = v,
             (Self::Array(p), Value::Array(v)) => **p = v,
             (Self::Pointer(p), Value::Pointer(v)) => **p = v,

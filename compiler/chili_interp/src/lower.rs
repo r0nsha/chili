@@ -419,8 +419,31 @@ impl Lower for ast::Cast {
                 code.push(Instruction::Cast(cast_inst));
             }
             TyKind::Slice(_, _) => {
-                // TODO: cast pointer to array to a slice (slice coercion)
-                todo!()
+                let expr_ty = self.expr.ty.normalize(sess.tycx);
+                let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
+
+                code.push(Instruction::AggregateAlloc);
+
+                self.expr.lower(sess, code, LowerContext { take_ptr: true });
+
+                // calculate the new slice's offset
+                sess.push_const(code, Value::Uint(0));
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::Offset);
+
+                code.push(Instruction::AggregatePush);
+
+                // calculate the slice length, by doing `high - low`
+                match expr_ty.maybe_deref_once() {
+                    TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
+                    ty => unreachable!("unexpected type `{}`", ty),
+                }
+
+                sess.push_const(code, Value::Uint(0));
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
             }
             TyKind::Infer(_, InferTy::AnyInt) => {
                 code.push(Instruction::Cast(CastInstruction::I32));

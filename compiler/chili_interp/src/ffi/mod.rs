@@ -5,7 +5,7 @@ use crate::{
     vm::VM,
     IS_64BIT, WORD_SIZE,
 };
-use bytes::BufMut;
+use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
 use libffi::{
     low::{
@@ -193,7 +193,10 @@ impl Function {
                         // TODO: could this be more efficient?
                         if value_size < alignment {
                             let padding = alignment - value_size;
-                            bytes.offset_mut(offset).put_bytes(0, padding);
+                            bytes
+                                .offset_mut(offset)
+                                .write_uint::<NativeEndian>(0, padding)
+                                .unwrap();
                             offset += padding;
                         }
                     }
