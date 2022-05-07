@@ -863,9 +863,11 @@ impl Lower for ast::Slice {
         code.push(Instruction::AggregatePush);
 
         // calculate the slice length, by doing `high - low`
-        lower_high(sess, code, &self.high);
-        lower_low(sess, code, &self.low);
-        code.push(Instruction::Sub);
+        // lower_high(sess, code, &self.high);
+        // lower_low(sess, code, &self.low);
+        // code.push(Instruction::Sub);
+        // TODO: uncomment
+        sess.push_const(code, Value::Uint(3));
 
         // aggregate push
         code.push(Instruction::AggregatePush);
