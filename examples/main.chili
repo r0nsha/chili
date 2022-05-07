@@ -13,7 +13,7 @@ let main = fn() {
     let slice: []i64 = array[0..3]
     // let slice: []i64 = &array
 
-    // printf("slice[0] = %d\n".data, slice[0])
+    printf("slice[0] = %d\n".data, slice[1])
     // printf("slice[0] = %d | len = %d\n".data, slice[0], slice.len)
 
     // for slice {

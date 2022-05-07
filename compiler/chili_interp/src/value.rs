@@ -1,5 +1,9 @@
-use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT, WORD_SIZE};
-use bytes::{Buf, BufMut, BytesMut};
+use crate::{
+    byte_seq::{ByteSeq, GetValue},
+    ffi::RawPointer,
+    instruction::CompiledCode,
+    IS_64BIT, WORD_SIZE,
+};
 use chili_ast::{
     const_value::ConstValue,
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
@@ -256,7 +260,7 @@ pub struct Aggregate {
 
 #[derive(Debug, Clone)]
 pub struct Array {
-    pub bytes: BytesMut,
+    pub bytes: ByteSeq,
     pub ty: TyKind,
 }
 
@@ -364,7 +368,10 @@ impl Value {
                 Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
             }
             TyKind::Fn(_) => todo!(),
-            TyKind::Array(_, _) => todo!(),
+            TyKind::Array(inner, size) => Self::Array(Array {
+                bytes: ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE)),
+                ty: ty.clone(),
+            }),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(struct_ty) => {
@@ -486,7 +493,15 @@ impl Pointer {
                 Self::from_type_and_ptr(ty, ptr)
             }
             TyKind::Fn(_) => todo!(),
-            TyKind::Array(_, _) => todo!(),
+            TyKind::Array(inner, size) => Self::Array(
+                Box::new(Array {
+                    bytes: unsafe {
+                        ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))
+                    },
+                    ty: ty.clone(),
+                })
+                .as_mut() as *mut Array,
+            ),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
@@ -564,19 +579,16 @@ impl ToString for Value {
                 )
             }
             Value::Array(v) => {
-                if v.bytes.is_empty() {
-                    return "[]".to_string();
-                }
-
-                let mut bytes = v.bytes.clone();
+                let bytes = &v.bytes;
 
                 let ty = v.ty.inner();
-                let size = (bytes.remaining() / ty.size_of(WORD_SIZE)) as isize;
+                let element_size = ty.size_of(WORD_SIZE);
+                let size = (bytes.len() / element_size) as isize;
 
                 let mut elements = vec![];
 
-                for _ in 0..size.min(MAX_CONSECUTIVE_VALUES) {
-                    let el = bytes_get_value(&mut bytes, ty);
+                for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
+                    let el = bytes.offset(element_size * (i as usize)).get_value(ty);
                     elements.push(el.to_string());
                 }
 
@@ -640,19 +652,16 @@ impl ToString for Pointer {
                         )
                     }
                     Pointer::Array(v) => {
-                        if (**v).bytes.is_empty() {
-                            return "[]".to_string();
-                        }
-
-                        let mut bytes = (**v).bytes.clone();
+                        let bytes = &(**v).bytes;
 
                         let ty = (**v).ty.inner();
-                        let size = (bytes.remaining() / ty.size_of(WORD_SIZE)) as isize;
+                        let element_size = ty.size_of(WORD_SIZE);
+                        let size = (bytes.len() / element_size) as isize;
 
                         let mut elements = vec![];
 
-                        for _ in 0..size.min(MAX_CONSECUTIVE_VALUES) {
-                            let el = bytes_get_value(&mut bytes, ty);
+                        for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
+                            let el = bytes.offset(element_size * (i as usize)).get_value(ty);
                             elements.push(el.to_string());
                         }
 
@@ -677,97 +686,5 @@ impl ToString for Pointer {
         };
 
         format!("ptr {}", value)
-    }
-}
-
-// Note (Ron): Important - This function WILL fail in Big Endian systems!!
-// Note (Ron): This isn't very crucial, since the most common systems are little endian - but this needs to be fixed anyway.
-pub(crate) fn bytes_put_value(bytes: &mut BytesMut, value: &Value) {
-    match value {
-        Value::I8(v) => bytes.put_i8(*v),
-        Value::I16(v) => bytes.put_i16_le(*v),
-        Value::I32(v) => bytes.put_i32_le(*v),
-        Value::I64(v) => bytes.put_i64(*v),
-        Value::Int(v) => {
-            if IS_64BIT {
-                bytes.put_i64_le(*v as i64)
-            } else {
-                bytes.put_i32_le(*v as i32)
-            }
-        }
-        Value::U8(v) => bytes.put_u8(*v),
-        Value::U16(v) => bytes.put_u16_le(*v),
-        Value::U32(v) => bytes.put_u32_le(*v),
-        Value::U64(v) => bytes.put_u64_le(*v),
-        Value::Uint(v) => {
-            if IS_64BIT {
-                bytes.put_u64_le(*v as u64)
-            } else {
-                bytes.put_u32_le(*v as u32)
-            }
-        }
-        Value::F32(v) => bytes.put_f32_le(*v),
-        Value::F64(v) => bytes.put_f64_le(*v),
-        Value::Bool(v) => bytes.put_uint_le(*v as u64, 1),
-        Value::Aggregate(v) => {
-            // TODO: need to include struct padding here
-            for value in v.elements.iter() {
-                bytes_put_value(bytes, value)
-            }
-        }
-        Value::Pointer(v) => bytes.put_u64_le(v.as_inner_raw() as u64),
-        Value::Func(_) => todo!(),
-        Value::ForeignFunc(_) => todo!(),
-        _ => panic!("can't convert `{}` to raw bytes", value.to_string()),
-    }
-}
-
-pub(crate) fn bytes_get_value(bytes: &mut BytesMut, ty: &TyKind) -> Value {
-    match ty {
-        TyKind::Never | TyKind::Unit => Value::unit(), // these types' sizes are zero bytes
-        TyKind::Bool => Value::Bool(bytes.get_u8() != 0),
-        TyKind::Int(ty) => match ty {
-            IntTy::I8 => Value::I8(bytes.get_i8()),
-            IntTy::I16 => Value::I16(bytes.get_i16()),
-            IntTy::I32 => Value::I32(bytes.get_i32()),
-            IntTy::I64 => Value::I64(bytes.get_i64()),
-            IntTy::Int => Value::Int(if IS_64BIT {
-                bytes.get_i64() as isize
-            } else {
-                bytes.get_i32() as isize
-            }),
-        },
-        TyKind::Uint(ty) => match ty {
-            UintTy::U8 => Value::U8(bytes.get_u8()),
-            UintTy::U16 => Value::U16(bytes.get_u16()),
-            UintTy::U32 => Value::U32(bytes.get_u32()),
-            UintTy::U64 => Value::U64(bytes.get_u64()),
-            UintTy::Uint => Value::Uint(if IS_64BIT {
-                bytes.get_u64() as usize
-            } else {
-                bytes.get_u32() as usize
-            }),
-        },
-        TyKind::Float(ty) => match ty {
-            FloatTy::F16 | FloatTy::F32 => Value::F32(bytes.get_f32()),
-            FloatTy::F64 => Value::F64(bytes.get_f64()),
-            FloatTy::Float => {
-                if IS_64BIT {
-                    Value::F64(bytes.get_f64())
-                } else {
-                    Value::F32(bytes.get_f32())
-                }
-            }
-        },
-        TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-            Value::Pointer(Pointer::from_type_and_ptr(ty, bytes.get_i64() as _))
-        }
-        TyKind::Array(_, _) => todo!(),
-        TyKind::Slice(_, _) => todo!(),
-        TyKind::Tuple(_) => todo!(),
-        TyKind::Struct(_) => todo!(),
-        TyKind::Infer(_, InferTy::AnyInt) => Value::I32(bytes.get_i32()),
-        TyKind::Infer(_, InferTy::AnyFloat) => Value::F32(bytes.get_f32()),
-        _ => panic!("can't get value of type `{}` from raw bytes", ty),
     }
 }

@@ -185,15 +185,18 @@ impl Lower for ast::Expr {
             }
             ast::ExprKind::ArrayLiteral(lit) => {
                 let ty = self.ty.normalize(sess.tycx);
+                let inner_ty_size = ty.inner().size_of(WORD_SIZE);
 
                 match &lit.kind {
                     ast::ArrayLiteralKind::List(elements) => {
                         sess.push_const(code, Value::Type(ty));
-                        code.push(Instruction::ArrayAlloc(elements.len() as u32));
+                        code.push(Instruction::ArrayAlloc(
+                            (elements.len() * inner_ty_size) as u32,
+                        ));
 
-                        for element in elements.iter() {
+                        for (index, element) in elements.iter().enumerate() {
                             element.lower(sess, code, LowerContext { take_ptr: false });
-                            code.push(Instruction::ArrayPush);
+                            code.push(Instruction::ArrayPut((index * inner_ty_size) as u32));
                         }
                     }
                     ast::ArrayLiteralKind::Fill { len: _, expr } => {
@@ -204,7 +207,7 @@ impl Lower for ast::Expr {
                         };
 
                         sess.push_const(code, Value::Type(ty));
-                        code.push(Instruction::ArrayAlloc(size as u32));
+                        code.push(Instruction::ArrayAlloc((size * inner_ty_size) as u32));
 
                         expr.lower(sess, code, LowerContext { take_ptr: false });
 

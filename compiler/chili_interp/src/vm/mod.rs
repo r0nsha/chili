@@ -1,10 +1,10 @@
 use crate::{
+    byte_seq::{ByteSeq, PutValue},
     instruction::{CompiledCode, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{bytes_put_value, Array, Func, Pointer, Value},
+    value::{Array, Func, Pointer, Value},
 };
-use bytes::BytesMut;
 use chili_ast::ty::TyKind;
 use colored::Colorize;
 use std::fmt::Display;
@@ -361,18 +361,17 @@ impl<'vm> VM<'vm> {
                 Instruction::ArrayAlloc(size) => {
                     let ty = self.stack.pop().into_type();
                     self.stack.push(Value::Array(Array {
-                        bytes: BytesMut::with_capacity(size as usize),
+                        bytes: ByteSeq::new(size as usize),
                         ty,
                     }));
                     self.next_inst();
                 }
-                Instruction::ArrayPush => {
+                Instruction::ArrayPut(pos) => {
                     let value = self.stack.pop();
                     let array = self.stack.peek_mut(0).as_array_mut();
 
-                    let mut temp_bytes = array.bytes.split_off(array.bytes.len());
-                    bytes_put_value(&mut temp_bytes, &value);
-                    array.bytes.unsplit(temp_bytes);
+                    let offset_bytes = array.bytes.offset_mut(pos as usize);
+                    offset_bytes.put_value(&value);
 
                     self.next_inst();
                 }
@@ -380,11 +379,9 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     let array = self.stack.peek_mut(0).as_array_mut();
 
-                    let mut bytes = array.bytes.split_off(0);
                     for _ in 0..size {
-                        bytes_put_value(&mut bytes, &value);
+                        array.bytes.put_value(&value);
                     }
-                    array.bytes.unsplit(bytes);
 
                     self.next_inst();
                 }

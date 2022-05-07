@@ -1,3 +1,4 @@
+mod byte_seq;
 mod display;
 pub mod ffi;
 pub mod instruction;

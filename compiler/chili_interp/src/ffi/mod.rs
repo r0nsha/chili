@@ -1,10 +1,11 @@
 use crate::{
+    byte_seq::{ByteSeq, PutValue},
     instruction::Instruction,
-    value::{bytes_put_value, ForeignFunc, Func, Value},
+    value::{ForeignFunc, Func, Value},
     vm::VM,
     IS_64BIT, WORD_SIZE,
 };
-use bytes::{BufMut, BytesMut};
+use bytes::BufMut;
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
 use libffi::{
     low::{
@@ -179,22 +180,26 @@ impl Function {
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
                 Value::Aggregate(v) => {
-                    let bytes = BytesMut::with_capacity(size);
-                    let mut bytes = bytes.clone();
+                    let mut bytes = ByteSeq::new(size);
+                    let mut offset = 0;
 
                     for value in v.elements.iter() {
-                        bytes_put_value(&mut bytes, value);
+                        bytes.offset_mut(offset).put_value(value);
 
-                        // TODO: this could be more efficient
-                        let value_size = (*value.get_ty_kind().as_ffi_type()).size;
+                        let value_size = value.get_ty_kind().size_of(WORD_SIZE);
+
+                        offset += value_size;
+
+                        // TODO: could this be more efficient?
                         if value_size < alignment {
                             let padding = alignment - value_size;
-                            bytes.put_bytes(0, padding);
+                            bytes.offset_mut(offset).put_bytes(0, padding);
+                            offset += padding;
                         }
                     }
 
                     // Note (Ron): this clone could be useless, need to test this
-                    bytes.clone().as_mut_ptr() as RawPointer
+                    bytes.as_mut_ptr() as RawPointer
                 }
                 Value::Array(v) => raw_ptr!(&mut v.bytes.clone().as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
