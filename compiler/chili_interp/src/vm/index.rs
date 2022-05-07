@@ -15,7 +15,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(element.clone())
                 }
                 Pointer::Array(array) => {
-                    let array = unsafe { &mut *array };
+                    let array = unsafe { &*array };
                     let bytes = array.bytes.offset(index);
                     let value = bytes.get_value(array.ty.inner());
                     self.stack.push(value.clone())
@@ -63,12 +63,9 @@ impl<'vm> VM<'vm> {
                 }
                 Pointer::Array(array) => {
                     let array = unsafe { &mut *array };
-                    let bytes = array.bytes.offset(index);
-                    let ptr = &bytes[0];
-                    self.stack.push(Value::Pointer(Pointer::from_type_and_ptr(
-                        &array.ty,
-                        ptr as *const u8 as *mut u8 as _,
-                    )));
+                    let ptr = array.bytes.offset_mut(index).as_mut_ptr();
+                    let value = Value::Pointer(Pointer::from_type_and_ptr(&array.ty, ptr as _));
+                    self.stack.push(value);
                 }
                 ptr => {
                     // this is a pointer offset

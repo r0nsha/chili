@@ -29,6 +29,10 @@ where
         &mut self.0[len - 1 - offset]
     }
 
+    pub fn take(&mut self, offset: usize) -> T {
+        self.0.remove(self.len() - 1 - offset)
+    }
+
     pub fn get(&self, index: usize) -> &T {
         &self.0[index]
     }

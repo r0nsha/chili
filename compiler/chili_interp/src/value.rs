@@ -493,15 +493,18 @@ impl Pointer {
                 Self::from_type_and_ptr(ty, ptr)
             }
             TyKind::Fn(_) => todo!(),
-            TyKind::Array(inner, size) => Self::Array(
-                Box::new(Array {
-                    bytes: unsafe {
-                        ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))
-                    },
+            TyKind::Array(inner, size) => {
+                let bytes = unsafe {
+                    ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))
+                };
+
+                let array = Box::new(Array {
+                    bytes,
                     ty: ty.clone(),
-                })
-                .as_mut() as *mut Array,
-            ),
+                });
+
+                Self::Array(Box::leak(array) as *mut Array)
+            }
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),

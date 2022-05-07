@@ -390,6 +390,11 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                     self.next_inst();
                 }
+                Instruction::Take(offset) => {
+                    let value = self.stack.take(offset as usize);
+                    self.stack.push(value);
+                    self.next_inst();
+                }
                 Instruction::Increment => {
                     let ptr = self.stack.pop().into_pointer();
                     unsafe {

@@ -783,16 +783,16 @@ impl Lower for ast::Subscript {
         self.index
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        match expr_ty {
-            TyKind::Array(inner, _)
-            | TyKind::Pointer(inner, _)
-            | TyKind::MultiPointer(inner, _) => {
-                // if this is a pointer offset, we need to multiply the index by the pointer size
-                sess.push_const(code, Value::Uint(inner.size_of(WORD_SIZE)));
-                code.push(Instruction::Mul);
-            }
-            _ => (),
-        }
+        // match expr_ty {
+        //     TyKind::Array(inner, _)
+        //     | TyKind::Pointer(inner, _)
+        //     | TyKind::MultiPointer(inner, _) => {
+        // if this is a pointer offset, we need to multiply the index by the pointer size
+        sess.push_const(code, Value::Uint(expr_ty.inner().size_of(WORD_SIZE)));
+        code.push(Instruction::Mul);
+        //     }
+        //     _ => (),
+        // }
 
         code.push(if ctx.take_ptr {
             Instruction::IndexPtr
@@ -804,17 +804,15 @@ impl Lower for ast::Subscript {
 
 impl Lower for ast::Slice {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        // get the inner element's size
         let expr_ty = self.expr.ty.normalize(sess.tycx);
-        let inner_ty = expr_ty.inner();
+        let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
 
         // lower `low`, or push a 0
         fn lower_low(sess: &mut InterpSess, code: &mut CompiledCode, low: &Option<Box<ast::Expr>>) {
             if let Some(low) = low {
                 low.lower(sess, code, LowerContext { take_ptr: false });
             } else {
-                todo!()
-                // sess.push_const(code, Value::Uint(0));
+                sess.push_const(code, Value::Uint(0));
             }
         }
 
@@ -823,57 +821,91 @@ impl Lower for ast::Slice {
             sess: &mut InterpSess,
             code: &mut CompiledCode,
             high: &Option<Box<ast::Expr>>,
+            expr_ty: &TyKind,
         ) {
             if let Some(high) = high {
                 high.lower(sess, code, LowerContext { take_ptr: false });
             } else {
-                todo!()
-                // match value_ty {
-                //     TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
-                //     TyKind::Slice(..) => {
-                //         code.push(Instruction::PeekPtr(value_slot));
-                //         code.push(Instruction::ConstIndex(1));
-                //     }
-                //     ty => unreachable!("unexpected type `{}`", ty),
-                // }
+                match expr_ty {
+                    TyKind::Array(_, len) => sess.push_const(code, Value::Uint(*len)),
+                    TyKind::Slice(..) => {
+                        code.push(Instruction::Take(1));
+                    }
+                    ty => unreachable!("unexpected type `{}`", ty),
+                }
             }
         }
 
-        // aggregate alloc
-        code.push(Instruction::AggregateAlloc);
-
-        // take the expression by reference
-        self.expr.lower(sess, code, LowerContext { take_ptr: true });
-
         match expr_ty {
-            // if array -> get a pointer to the low'th element
             TyKind::Array(..) => {
+                code.push(Instruction::AggregateAlloc);
+
+                self.expr.lower(sess, code, LowerContext { take_ptr: true });
+
+                // calculate the new slice's offset
                 lower_low(sess, code, &self.low);
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
                 code.push(Instruction::IndexPtr);
+
+                code.push(Instruction::AggregatePush);
+
+                // calculate the slice length, by doing `high - low`
+                lower_high(sess, code, &self.high, &expr_ty);
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
             }
-            // if slice -> offset the data pointer to the (low'th element * size)
             TyKind::Slice(..) => {
-                todo!()
+                self.expr
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                code.push(Instruction::Copy);
+                code.push(Instruction::ConstIndex(1));
+                code.push(Instruction::Take(1));
+                code.push(Instruction::ConstIndex(0));
+
+                code.push(Instruction::AggregateAlloc);
+
+                code.push(Instruction::Take(1));
+
+                // calculate the new slice's offset
+                lower_low(sess, code, &self.low);
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::IndexPtr);
+
+                code.push(Instruction::AggregatePush);
+
+                // calculate the slice length, by doing `high - low`
+                lower_high(sess, code, &self.high, &expr_ty);
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
             }
-            // if multi pointer -> offset the pointer to the (low'th element * size)
             TyKind::Pointer(..) | TyKind::MultiPointer(..) => {
-                todo!()
+                code.push(Instruction::AggregateAlloc);
+
+                self.expr
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                lower_low(sess, code, &self.low);
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::IndexPtr);
+
+                code.push(Instruction::AggregatePush);
+
+                lower_high(sess, code, &self.high, &expr_ty);
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
             }
             _ => panic!("unexpected type {}", expr_ty),
         }
-
-        // aggregate push
-        code.push(Instruction::AggregatePush);
-
-        // calculate the slice length, by doing `high - low`
-        // lower_high(sess, code, &self.high);
-        // lower_low(sess, code, &self.low);
-        // code.push(Instruction::Sub);
-        // TODO: uncomment
-        sess.push_const(code, Value::Uint(3));
-
-        // aggregate push
-        code.push(Instruction::AggregatePush);
     }
 }
 
