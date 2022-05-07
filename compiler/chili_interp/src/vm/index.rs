@@ -1,5 +1,6 @@
 use crate::{
-    value::{bytes_get_value, Pointer, Value},
+    ffi::RawPointer,
+    value::{bytes_get_value, Array, Pointer, Value},
     vm::VM,
 };
 
@@ -16,9 +17,8 @@ impl<'vm> VM<'vm> {
                 Pointer::Array(array) => {
                     let array = unsafe { &mut *array };
 
-                    let mut bytes = array.bytes.split_off(index);
+                    let mut bytes = array.bytes.clone().split_off(index);
                     let value = bytes_get_value(&mut bytes, array.ty.inner());
-                    array.bytes.unsplit(bytes);
 
                     self.stack.push(value.clone())
                 }
@@ -46,10 +46,8 @@ impl<'vm> VM<'vm> {
                     .push(aggr.elements.get(index as usize).unwrap().clone());
             }
             Value::Array(mut array) => {
-                let mut bytes = array.bytes.split_off(index);
+                let mut bytes = array.bytes.clone().split_off(index);
                 let value = bytes_get_value(&mut bytes, array.ty.inner());
-                array.bytes.unsplit(bytes);
-
                 self.stack.push(value.clone())
             }
             _ => panic!("invalid value {}", value.to_string()),
@@ -67,11 +65,8 @@ impl<'vm> VM<'vm> {
                 }
                 Pointer::Array(array) => {
                     let array = unsafe { &mut *array };
-
-                    let mut bytes = array.bytes.split_off(index);
+                    let mut bytes = array.bytes.clone().split_off(index);
                     let value = &mut bytes_get_value(&mut bytes, array.ty.inner());
-                    array.bytes.unsplit(bytes);
-
                     self.stack.push(Value::Pointer(value.into()));
                 }
                 ptr => {
@@ -96,11 +91,9 @@ impl<'vm> VM<'vm> {
                 let element = aggr.elements.get_mut(index as usize).unwrap();
                 self.stack.push(Value::Pointer(element.into()))
             }
-            Value::Array(mut array) => {
-                let mut bytes = array.bytes.split_off(index);
+            Value::Array(array) => {
+                let mut bytes = array.bytes.clone().split_off(index);
                 let value = &mut bytes_get_value(&mut bytes, array.ty.inner());
-                array.bytes.unsplit(bytes);
-
                 self.stack.push(Value::Pointer(value.into()))
             }
             _ => panic!("invalid value {}", value.to_string()),

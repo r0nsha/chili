@@ -196,7 +196,7 @@ impl Function {
                     // Note (Ron): this clone could be useless, need to test this
                     bytes.as_mut_ptr() as RawPointer
                 }
-                Value::Array(v) => v.bytes.as_mut_ptr() as RawPointer,
+                Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
                     let (closure, code_ptr) = closure_alloc();

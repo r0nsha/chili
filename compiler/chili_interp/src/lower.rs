@@ -135,6 +135,7 @@ impl Lower for ast::Expr {
                         });
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                        code.push(Instruction::Pop);
                         sess.push_const(code, Value::Uint(*size as usize))
                     }
                     TyKind::Slice(_, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
