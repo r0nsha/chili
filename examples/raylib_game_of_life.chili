@@ -15,9 +15,6 @@ pub let main = fn() {
 	let mut curr = calloc(cols * rows, @size_of(bool)) as *bool as [*mut]bool;
 	defer free(curr as *bool as _);
 
-	InitWindow(width, height, "chili language example - game of life\0".data);
-	SetTargetFPS(60);
-
 	// map_cells(prev, 30, 50, "..##");
 	// map_cells(prev, 30, 51, ".##.");
 	// map_cells(prev, 30, 52, "..#.");
@@ -31,6 +28,9 @@ pub let main = fn() {
 	map_cells(prev, 30, 51, "..........#.....#.......#............");
 	map_cells(prev, 30, 52, "...........#...#.....................");
 	map_cells(prev, 30, 53, "............##.......................");
+
+	InitWindow(width, height, "chili language example - game of life\0".data);
+	SetTargetFPS(30);
 
 	let mut simulate = true;
 

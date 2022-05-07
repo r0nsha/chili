@@ -447,7 +447,7 @@ impl Lower for ast::Fn {
         let mut func_code = CompiledCode::new();
 
         // set up function parameters
-        let mut param_offset: i16 = -1;
+        let mut param_offset = -(self.sig.params.len() as i16);
 
         for param in self.sig.params.iter() {
             match &param.pattern {
@@ -475,7 +475,7 @@ impl Lower for ast::Fn {
                     }
                 }
             }
-            param_offset -= 1;
+            param_offset += 1;
         }
 
         lower_block(

@@ -537,24 +537,24 @@ impl Pointer {
     }
 
     pub unsafe fn write_value(&self, value: Value) {
-        use slice::from_raw_parts_mut as slice;
+        unsafe fn slice<'a, T>(p: &*mut T) -> &'a mut [u8] {
+            slice::from_raw_parts_mut(*p as *mut u8, mem::size_of::<T>())
+        }
 
         match (self, value) {
-            (Self::I8(p), Value::I8(v)) => slice(*p as *mut u8, 1).put_i8(v),
-            (Self::I16(p), Value::I16(v)) => slice(*p as *mut u8, 1).put_i16(v),
-            (Self::I32(p), Value::I32(v)) => slice(*p as *mut u8, 1).put_i32(v),
-            (Self::I64(p), Value::I64(v)) => slice(*p as *mut u8, 8).put_i64(v),
-            (Self::Int(p), Value::Int(v)) => slice(*p as *mut u8, 1).put_int(v as i64, WORD_SIZE),
-            (Self::U8(p), Value::U8(v)) => slice(*p as *mut u8, 1).put_u8(v),
-            (Self::U16(p), Value::U16(v)) => slice(*p as *mut u8, 1).put_u16(v),
-            (Self::U32(p), Value::U32(v)) => slice(*p as *mut u8, 1).put_u32(v),
-            (Self::U64(p), Value::U64(v)) => slice(*p as *mut u8, 8).put_u64(v),
-            (Self::Uint(p), Value::Uint(v)) => {
-                slice(*p as *mut u8, 1).put_uint(v as u64, WORD_SIZE)
-            }
-            (Self::F32(p), Value::F32(v)) => slice(*p as *mut u8, 8).put_f32(v),
-            (Self::F64(p), Value::F64(v)) => slice(*p as *mut u8, 8).put_f64(v),
-            (Self::Bool(p), Value::Bool(v)) => slice(*p as *mut u8, 8).put_u8(v as u8),
+            (Self::I8(p), Value::I8(v)) => slice(p).put_i8(v),
+            (Self::I16(p), Value::I16(v)) => slice(p).put_i16_le(v),
+            (Self::I32(p), Value::I32(v)) => slice(p).put_i32_le(v),
+            (Self::I64(p), Value::I64(v)) => slice(p).put_i64_le(v),
+            (Self::Int(p), Value::Int(v)) => slice(p).put_int_le(v as i64, WORD_SIZE),
+            (Self::U8(p), Value::U8(v)) => slice(p).put_u8(v),
+            (Self::U16(p), Value::U16(v)) => slice(p).put_u16_le(v),
+            (Self::U32(p), Value::U32(v)) => slice(p).put_u32_le(v),
+            (Self::U64(p), Value::U64(v)) => slice(p).put_u64_le(v),
+            (Self::Uint(p), Value::Uint(v)) => slice(p).put_uint_le(v as u64, WORD_SIZE),
+            (Self::F32(p), Value::F32(v)) => slice(p).put_f32_le(v),
+            (Self::F64(p), Value::F64(v)) => slice(p).put_f64_le(v),
+            (Self::Bool(p), Value::Bool(v)) => slice(p).put_u8(v as u8),
             (Self::Aggregate(p), Value::Aggregate(v)) => **p = v,
             (Self::Array(p), Value::Array(v)) => **p = v,
             (Self::Pointer(p), Value::Pointer(v)) => **p = v,

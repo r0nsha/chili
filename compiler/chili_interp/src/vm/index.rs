@@ -11,7 +11,7 @@ impl<'vm> VM<'vm> {
             Value::Pointer(ref ptr) => match ptr {
                 Pointer::Aggregate(elements) => {
                     let aggr = unsafe { &**elements };
-                    let element = aggr.elements.get(index as usize).unwrap();
+                    let element = &aggr.elements[index as usize];
                     self.stack.push(element.clone())
                 }
                 Pointer::Array(array) => {
@@ -26,8 +26,7 @@ impl<'vm> VM<'vm> {
                 }
             },
             Value::Aggregate(aggr) => {
-                self.stack
-                    .push(aggr.elements.get(index as usize).unwrap().clone());
+                self.stack.push(aggr.elements[index as usize].clone());
             }
             Value::Array(array) => {
                 let value = array.bytes.offset(index).get_value(array.ty.inner());
@@ -43,7 +42,7 @@ impl<'vm> VM<'vm> {
             Value::Pointer(ref ptr) => match ptr {
                 Pointer::Aggregate(elements) => {
                     let aggr = unsafe { &mut **elements };
-                    let element = aggr.elements.get_mut(index as usize).unwrap();
+                    let element = &mut aggr.elements[index as usize];
                     self.stack.push(Value::Pointer(element.into()))
                 }
                 Pointer::Array(array) => {
@@ -56,7 +55,7 @@ impl<'vm> VM<'vm> {
                 _ => self.offset(value, index),
             },
             Value::Aggregate(mut aggr) => {
-                let element = aggr.elements.get_mut(index as usize).unwrap();
+                let element = &mut aggr.elements[index as usize];
                 self.stack.push(Value::Pointer(element.into()))
             }
             Value::Array(_) => self.offset(value, index),
