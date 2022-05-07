@@ -81,10 +81,9 @@ impl Ffi {
             Function::new(&func.param_tys, &func.return_ty)
         };
 
-        let result = function.call(*symbol, &mut args, self, vm);
+        println!("{} 3", func.name);
 
-        // TODO: free used closures
-        // TODO: clear closures vec
+        let result = function.call(*symbol, &mut args, self, vm);
 
         Value::from_type_and_ptr(&func.return_ty, result as RawPointer)
     }
@@ -180,7 +179,9 @@ impl Function {
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
                 Value::Aggregate(v) => {
+                    println!("size = {}", size);
                     let mut bytes = ByteSeq::new(size);
+                    println!("yay");
                     let mut offset = 0;
 
                     for value in v.elements.iter() {
@@ -190,15 +191,14 @@ impl Function {
 
                         offset += value_size;
 
-                        // TODO: could this be more efficient?
-                        if value_size < alignment {
-                            let padding = alignment - value_size;
-                            bytes
-                                .offset_mut(offset)
-                                .write_uint::<NativeEndian>(0, padding)
-                                .unwrap();
-                            offset += padding;
-                        }
+                        // if value_size < alignment {
+                        //     let padding = alignment - value_size;
+                        //     bytes
+                        //         .offset_mut(offset)
+                        //         .write_uint::<NativeEndian>(0, padding)
+                        //         .unwrap();
+                        //     offset += padding;
+                        // }
                     }
 
                     // Note (Ron): this clone could be useless, need to test this

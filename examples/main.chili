@@ -14,8 +14,8 @@ let main = fn() {
     let slice2: []mut i64 = slice[1..]
 
     array[0] = 42
-    // slice[0] = 10
-    // slice2[0] = 15
+    slice[0] = 10
+    slice2[0] = 15
 
     printf("array[0] = %d\tlen = %d\n".data, array[0], array.len)
     printf("slice[0] = %d\tlen = %d\n".data, slice[0], slice.len)

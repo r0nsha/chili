@@ -59,8 +59,8 @@ let main = fn() {
 					}
 				}
 
-				// DrawRectangle(x, y, 1, 1, color)
-				DrawPixel(x, y, color)
+				DrawRectangle(x, y, 1, 1, color)
+				// DrawPixel(x, y, color)
 
                 curr[x + y * width] = value
 			}
