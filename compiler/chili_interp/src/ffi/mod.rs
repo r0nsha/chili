@@ -202,12 +202,7 @@ impl Function {
 
                     let mut function = Box::new(Function::new(&func.arg_types, &func.return_type));
 
-                    let user_data = ClosureUserData {
-                        vm,
-                        func,
-                        arg_types: func.arg_types.clone(),
-                        return_type: func.return_type.clone(),
-                    };
+                    let user_data = ClosureUserData { vm, func };
 
                     prep_closure(
                         closure,
@@ -251,8 +246,6 @@ impl Function {
 struct ClosureUserData<'vm> {
     vm: *mut VM<'vm>,
     func: *const Func,
-    arg_types: Vec<TyKind>,
-    return_type: TyKind,
 }
 
 // TODO: closures don't work in multithreaded code right now.

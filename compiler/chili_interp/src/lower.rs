@@ -452,19 +452,13 @@ impl Lower for ast::Fn {
                         sess.add_local(&mut func_code, pat.binding_info_id);
                     }
                 }
-                Pattern::TupleUnpack(_) => {
-                    todo!()
-                    // let last_index = pat.symbols.len() - 1;
-
-                    // for (index, pat) in pat.symbols.iter().enumerate() {
-                    //     if index < last_index {
-                    //         code.push(Instruction::Copy);
-                    //     }
-
-                    //     code.push(Instruction::ConstIndex(index as u32));
-                    //     code.push(Instruction::SetLocal(code.locals as i32));
-                    //     sess.add_local(code, pat.binding_info_id);
-                    // }
+                Pattern::TupleUnpack(pat) => {
+                    for (index, pat) in pat.symbols.iter().enumerate() {
+                        func_code.push(Instruction::PeekPtr(param_offset as i32));
+                        func_code.push(Instruction::ConstIndex(index as u32));
+                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                        sess.add_local(&mut func_code, pat.binding_info_id);
+                    }
                 }
             }
             param_offset -= 1;

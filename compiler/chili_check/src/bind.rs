@@ -70,8 +70,12 @@ impl<'s> CheckSess<'s> {
         if scope_level.is_global() {
             // check if there's already a binding with this symbol
             if let Some(id) = self.get_global_symbol(module_id, symbol) {
-                let dup = self.workspace.get_binding_info(id).unwrap();
-                return Err(SyntaxError::duplicate_symbol(dup.span, span, dup.symbol));
+                let already_defined = self.workspace.get_binding_info(id).unwrap();
+                return Err(SyntaxError::duplicate_symbol(
+                    already_defined.span,
+                    span,
+                    already_defined.symbol,
+                ));
             }
         }
 

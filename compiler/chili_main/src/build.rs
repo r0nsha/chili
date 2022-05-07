@@ -54,8 +54,13 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         chili_resolve::resolve(&mut workspace, &mut asts)
     };
 
+    if workspace.diagnostics.has_errors() {
+        workspace.diagnostics.emit();
+        return workspace;
+    }
+
     // Type inference, type checking, static analysis, const folding, etc..
-    let (mut typed_ast, tycx) = time! { workspace.build_options.verbose, "check",
+    let (typed_ast, tycx) = time! { workspace.build_options.verbose, "check",
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
