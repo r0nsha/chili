@@ -380,10 +380,11 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     let array = self.stack.peek_mut(0).as_array_mut();
 
-                    let mut bytes = array.bytes.clone();
+                    let mut bytes = array.bytes.split_off(0);
                     for _ in 0..size {
                         bytes_put_value(&mut bytes, &value);
                     }
+                    array.bytes.unsplit(bytes);
 
                     self.next_inst();
                 }

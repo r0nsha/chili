@@ -10,9 +10,6 @@ type PersonTuple = (str, i64)
 
 let main = fn() {
     let array: [3]i64 = [1, 2, 3]
-    printf("array[0] = %d | len = %d\n".data, array[2], array.len)
-
-    // let array: [3]i64 = [5; 3]
     // let slice: []i64 = array[0..3]
     // let slice: []i64 = &array
 
