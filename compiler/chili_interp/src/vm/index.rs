@@ -1,5 +1,5 @@
 use crate::{
-    value::{Pointer, Value},
+    value::{bytes_get_value, Pointer, Value},
     vm::VM,
 };
 
@@ -9,9 +9,18 @@ impl<'vm> VM<'vm> {
         match value {
             Value::Pointer(ptr) => match ptr {
                 Pointer::Aggregate(elements) => {
-                    let elements = unsafe { &mut *elements };
-                    let element = elements.get(index as usize).unwrap();
+                    let aggr = unsafe { &mut *elements };
+                    let element = aggr.elements.get(index as usize).unwrap();
                     self.stack.push(element.clone())
+                }
+                Pointer::Array(array) => {
+                    let array = unsafe { &mut *array };
+
+                    let mut bytes = array.bytes.split_off(index);
+                    let value = bytes_get_value(&mut bytes, array.ty.inner());
+                    array.bytes.unsplit(bytes);
+
+                    self.stack.push(value.clone())
                 }
                 ptr => {
                     // this is a pointer offset
@@ -32,9 +41,16 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                 }
             },
-            Value::Aggregate(elements) => {
+            Value::Aggregate(aggr) => {
                 self.stack
-                    .push(elements.get(index as usize).unwrap().clone());
+                    .push(aggr.elements.get(index as usize).unwrap().clone());
+            }
+            Value::Array(mut array) => {
+                let mut bytes = array.bytes.split_off(index);
+                let value = bytes_get_value(&mut bytes, array.ty.inner());
+                array.bytes.unsplit(bytes);
+
+                self.stack.push(value.clone())
             }
             _ => panic!("invalid value {}", value.to_string()),
         }
@@ -45,9 +61,18 @@ impl<'vm> VM<'vm> {
         match value {
             Value::Pointer(ptr) => match ptr {
                 Pointer::Aggregate(elements) => {
-                    let elements = unsafe { &mut *elements };
-                    let element = elements.get_mut(index as usize).unwrap();
+                    let aggr = unsafe { &mut *elements };
+                    let element = aggr.elements.get_mut(index as usize).unwrap();
                     self.stack.push(Value::Pointer(element.into()))
+                }
+                Pointer::Array(array) => {
+                    let array = unsafe { &mut *array };
+
+                    let mut bytes = array.bytes.split_off(index);
+                    let value = &mut bytes_get_value(&mut bytes, array.ty.inner());
+                    array.bytes.unsplit(bytes);
+
+                    self.stack.push(Value::Pointer(value.into()));
                 }
                 ptr => {
                     // this is a pointer offset
@@ -67,9 +92,16 @@ impl<'vm> VM<'vm> {
                     )))
                 }
             },
-            Value::Aggregate(mut elements) => {
-                let element = elements.get_mut(index as usize).unwrap();
+            Value::Aggregate(mut aggr) => {
+                let element = aggr.elements.get_mut(index as usize).unwrap();
                 self.stack.push(Value::Pointer(element.into()))
+            }
+            Value::Array(mut array) => {
+                let mut bytes = array.bytes.split_off(index);
+                let value = &mut bytes_get_value(&mut bytes, array.ty.inner());
+                array.bytes.unsplit(bytes);
+
+                self.stack.push(Value::Pointer(value.into()))
             }
             _ => panic!("invalid value {}", value.to_string()),
         }

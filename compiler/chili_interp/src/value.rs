@@ -2,7 +2,7 @@ use crate::{ffi::RawPointer, instruction::CompiledCode, IS_64BIT, WORD_SIZE};
 use bytes::{Buf, BufMut, BytesMut};
 use chili_ast::{
     const_value::ConstValue,
-    ty::{align::AlignOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
 };
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
@@ -564,19 +564,18 @@ impl ToString for Value {
                 )
             }
             Value::Array(v) => {
-                let (ty, size) = match &v.ty {
-                    TyKind::Array(inner, size) => (inner, *size as isize),
-                    ty => panic!("{}", ty),
-                };
-
                 if v.bytes.is_empty() {
                     return "[]".to_string();
                 }
 
                 let mut bytes = v.bytes.clone();
+
+                let ty = v.ty.inner();
+                let size = (bytes.remaining() / ty.size_of(WORD_SIZE)) as isize;
+
                 let mut elements = vec![];
 
-                for _ in 0..size.max(MAX_CONSECUTIVE_VALUES) {
+                for _ in 0..size.min(MAX_CONSECUTIVE_VALUES) {
                     let el = bytes_get_value(&mut bytes, ty);
                     elements.push(el.to_string());
                 }
@@ -641,19 +640,18 @@ impl ToString for Pointer {
                         )
                     }
                     Pointer::Array(v) => {
-                        let (ty, size) = match &(**v).ty {
-                            TyKind::Array(inner, size) => (inner, *size as isize),
-                            ty => panic!("{}", ty),
-                        };
-
                         if (**v).bytes.is_empty() {
                             return "[]".to_string();
                         }
 
                         let mut bytes = (**v).bytes.clone();
+
+                        let ty = (**v).ty.inner();
+                        let size = (bytes.remaining() / ty.size_of(WORD_SIZE)) as isize;
+
                         let mut elements = vec![];
 
-                        for _ in 0..size.max(MAX_CONSECUTIVE_VALUES) {
+                        for _ in 0..size.min(MAX_CONSECUTIVE_VALUES) {
                             let el = bytes_get_value(&mut bytes, ty);
                             elements.push(el.to_string());
                         }
@@ -724,54 +722,52 @@ pub(crate) fn bytes_put_value(bytes: &mut BytesMut, value: &Value) {
     }
 }
 
-// Note (Ron): Important - This function WILL fail in Big Endian systems!!
-// Note (Ron): This isn't very crucial, since the most common systems are little endian - but this needs to be fixed anyway.
 pub(crate) fn bytes_get_value(bytes: &mut BytesMut, ty: &TyKind) -> Value {
     match ty {
         TyKind::Never | TyKind::Unit => Value::unit(), // these types' sizes are zero bytes
         TyKind::Bool => Value::Bool(bytes.get_u8() != 0),
         TyKind::Int(ty) => match ty {
             IntTy::I8 => Value::I8(bytes.get_i8()),
-            IntTy::I16 => Value::I16(bytes.get_i16_le()),
-            IntTy::I32 => Value::I32(bytes.get_i32_le()),
-            IntTy::I64 => Value::I64(bytes.get_i64_le()),
+            IntTy::I16 => Value::I16(bytes.get_i16()),
+            IntTy::I32 => Value::I32(bytes.get_i32()),
+            IntTy::I64 => Value::I64(bytes.get_i64()),
             IntTy::Int => Value::Int(if IS_64BIT {
-                bytes.get_i64_le() as isize
+                bytes.get_i64() as isize
             } else {
-                bytes.get_i32_le() as isize
+                bytes.get_i32() as isize
             }),
         },
         TyKind::Uint(ty) => match ty {
             UintTy::U8 => Value::U8(bytes.get_u8()),
-            UintTy::U16 => Value::U16(bytes.get_u16_le()),
-            UintTy::U32 => Value::U32(bytes.get_u32_le()),
-            UintTy::U64 => Value::U64(bytes.get_u64_le()),
+            UintTy::U16 => Value::U16(bytes.get_u16()),
+            UintTy::U32 => Value::U32(bytes.get_u32()),
+            UintTy::U64 => Value::U64(bytes.get_u64()),
             UintTy::Uint => Value::Uint(if IS_64BIT {
-                bytes.get_u64_le() as usize
+                bytes.get_u64() as usize
             } else {
-                bytes.get_u32_le() as usize
+                bytes.get_u32() as usize
             }),
         },
         TyKind::Float(ty) => match ty {
-            FloatTy::F16 | FloatTy::F32 => Value::F32(bytes.get_f32_le()),
-            FloatTy::F64 => Value::F64(bytes.get_f64_le()),
+            FloatTy::F16 | FloatTy::F32 => Value::F32(bytes.get_f32()),
+            FloatTy::F64 => Value::F64(bytes.get_f64()),
             FloatTy::Float => {
                 if IS_64BIT {
-                    Value::F64(bytes.get_f64_le())
+                    Value::F64(bytes.get_f64())
                 } else {
-                    Value::F32(bytes.get_f32_le())
+                    Value::F32(bytes.get_f32())
                 }
             }
         },
         TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-            Value::Pointer(Pointer::from_type_and_ptr(ty, bytes.get_i64_le() as _))
+            Value::Pointer(Pointer::from_type_and_ptr(ty, bytes.get_i64() as _))
         }
         TyKind::Array(_, _) => todo!(),
         TyKind::Slice(_, _) => todo!(),
         TyKind::Tuple(_) => todo!(),
         TyKind::Struct(_) => todo!(),
-        TyKind::Infer(_, InferTy::AnyInt) => Value::I32(bytes.get_i32_le()),
-        TyKind::Infer(_, InferTy::AnyFloat) => Value::F32(bytes.get_f32_le()),
+        TyKind::Infer(_, InferTy::AnyInt) => Value::I32(bytes.get_i32()),
+        TyKind::Infer(_, InferTy::AnyFloat) => Value::F32(bytes.get_f32()),
         _ => panic!("can't get value of type `{}` from raw bytes", ty),
     }
 }
