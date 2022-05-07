@@ -1,6 +1,6 @@
 use crate::{
     instruction::Instruction,
-    value::{ForeignFunc, Func, Value},
+    value::{bytes_put_value, ForeignFunc, Func, Value},
     vm::VM,
     IS_64BIT, WORD_SIZE,
 };
@@ -179,10 +179,11 @@ impl Function {
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
                 Value::Aggregate(v) => {
-                    let mut bytes = BytesMut::with_capacity(size);
+                    let bytes = BytesMut::with_capacity(size);
+                    let mut bytes = bytes.clone();
 
-                    for value in v.iter() {
-                        put_value(&mut bytes, value);
+                    for value in v.elements.iter() {
+                        bytes_put_value(&mut bytes, value);
 
                         // TODO: this could be more efficient
                         let value_size = (*value.get_ty_kind().as_ffi_type()).size;
@@ -192,8 +193,10 @@ impl Function {
                         }
                     }
 
+                    // Note (Ron): this clone could be useless, need to test this
                     bytes.as_mut_ptr() as RawPointer
                 }
+                Value::Array(v) => v.bytes.as_mut_ptr() as RawPointer,
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
                     let (closure, code_ptr) = closure_alloc();
@@ -297,7 +300,7 @@ unsafe extern "C" fn closure_callback(
         Value::F32(v) => *(result as *mut _ as *mut _) = v,
         Value::F64(v) => *(result as *mut _ as *mut _) = v,
         Value::Bool(v) => *(result as *mut _ as *mut _) = v,
-        Value::Aggregate(v) => todo!(),
+        Value::Aggregate(_) => todo!(),
         Value::Pointer(v) => *(result as *mut _ as *mut _) = v.as_inner_raw(),
         _ => panic!("unexpected value `{}`", value.to_string()),
     }
@@ -475,45 +478,3 @@ impl AsFfiType for TyKind {
 //         }
 //     }
 // }
-
-// Note (Ron): Important - This function WILL fail in Big Endian systems!!
-// Note (Ron): This isn't very crucial, since the most common systems are little endian - but this needs to be fixed anyway.
-fn put_value(bytes: &mut BytesMut, value: &Value) {
-    match value {
-        Value::I8(v) => bytes.put_i8(*v),
-        Value::I16(v) => bytes.put_i16_le(*v),
-        Value::I32(v) => bytes.put_i32_le(*v),
-        Value::I64(v) => bytes.put_i64(*v),
-        Value::Int(v) => {
-            if IS_64BIT {
-                bytes.put_i64_le(*v as i64)
-            } else {
-                bytes.put_i32_le(*v as i32)
-            }
-        }
-        Value::U8(v) => bytes.put_u8(*v),
-        Value::U16(v) => bytes.put_u16_le(*v),
-        Value::U32(v) => bytes.put_u32_le(*v),
-        Value::U64(v) => bytes.put_u64_le(*v),
-        Value::Uint(v) => {
-            if IS_64BIT {
-                bytes.put_u64_le(*v as u64)
-            } else {
-                bytes.put_u32_le(*v as u32)
-            }
-        }
-        Value::F32(v) => bytes.put_f32_le(*v),
-        Value::F64(v) => bytes.put_f64_le(*v),
-        Value::Bool(v) => bytes.put_uint_le(*v as u64, 1),
-        Value::Aggregate(v) => {
-            // TODO: need to include struct padding here
-            for value in v {
-                put_value(bytes, value)
-            }
-        }
-        Value::Pointer(v) => bytes.put_u64_le(v.as_inner_raw() as u64),
-        Value::Func(_) => todo!(),
-        Value::ForeignFunc(_) => todo!(),
-        _ => panic!("can't convert `{}` to raw bytes", value.to_string()),
-    }
-}

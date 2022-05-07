@@ -182,29 +182,35 @@ impl Lower for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
-                ast::ArrayLiteralKind::List(elements) => {
-                    code.push(Instruction::AggregateAlloc);
+            ast::ExprKind::ArrayLiteral(lit) => {
+                let ty = self.ty.normalize(sess.tycx);
 
-                    for element in elements.iter() {
-                        element.lower(sess, code, LowerContext { take_ptr: false });
-                        code.push(Instruction::AggregatePush);
+                match &lit.kind {
+                    ast::ArrayLiteralKind::List(elements) => {
+                        sess.push_const(code, Value::Type(ty));
+                        code.push(Instruction::ArrayAlloc(elements.len() as u32));
+
+                        for element in elements.iter() {
+                            element.lower(sess, code, LowerContext { take_ptr: false });
+                            code.push(Instruction::ArrayPush);
+                        }
+                    }
+                    ast::ArrayLiteralKind::Fill { len: _, expr } => {
+                        let size = if let TyKind::Array(_, size) = ty {
+                            size
+                        } else {
+                            panic!()
+                        };
+
+                        sess.push_const(code, Value::Type(ty));
+                        code.push(Instruction::ArrayAlloc(size as u32));
+
+                        expr.lower(sess, code, LowerContext { take_ptr: false });
+
+                        code.push(Instruction::ArrayFill(size as u32));
                     }
                 }
-                ast::ArrayLiteralKind::Fill { len: _, expr } => {
-                    let ty = self.ty.normalize(sess.tycx);
-
-                    let len = if let TyKind::Array(_, len) = ty {
-                        len
-                    } else {
-                        panic!()
-                    };
-
-                    code.push(Instruction::AggregateAlloc);
-                    expr.lower(sess, code, LowerContext { take_ptr: false });
-                    code.push(Instruction::AggregateFill(len as u32));
-                }
-            },
+            }
             ast::ExprKind::TupleLiteral(lit) => {
                 code.push(Instruction::AggregateAlloc);
 

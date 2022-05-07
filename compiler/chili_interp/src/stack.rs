@@ -1,5 +1,3 @@
-use colored::{ColoredString, Colorize};
-
 pub struct Stack<T, const CAPACITY: usize>(Vec<T>);
 
 impl<T, const CAPACITY: usize> Stack<T, CAPACITY>

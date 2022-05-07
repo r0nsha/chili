@@ -2,8 +2,9 @@ use crate::{
     instruction::{CompiledCode, Instruction},
     interp::Interp,
     stack::Stack,
-    value::{Func, Pointer, Value},
+    value::{bytes_put_value, Array, Func, Pointer, Value},
 };
+use bytes::BytesMut;
 use chili_ast::ty::TyKind;
 use colored::Colorize;
 use std::fmt::Display;
@@ -354,15 +355,36 @@ impl<'vm> VM<'vm> {
                 Instruction::AggregatePush => {
                     let value = self.stack.pop();
                     let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
-                    aggregate.push(value);
+                    aggregate.elements.push(value);
                     self.next_inst();
                 }
-                Instruction::AggregateFill(size) => {
+                Instruction::ArrayAlloc(size) => {
+                    let ty = self.stack.pop().into_type();
+                    self.stack.push(Value::Array(Array {
+                        bytes: BytesMut::with_capacity(size as usize),
+                        ty,
+                    }));
+                    self.next_inst();
+                }
+                Instruction::ArrayPush => {
                     let value = self.stack.pop();
-                    let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
+                    let array = self.stack.peek_mut(0).as_array_mut();
+
+                    let mut temp_bytes = array.bytes.split_off(array.bytes.len());
+                    bytes_put_value(&mut temp_bytes, &value);
+                    array.bytes.unsplit(temp_bytes);
+
+                    self.next_inst();
+                }
+                Instruction::ArrayFill(size) => {
+                    let value = self.stack.pop();
+                    let array = self.stack.peek_mut(0).as_array_mut();
+
+                    let mut bytes = array.bytes.clone();
                     for _ in 0..size {
-                        aggregate.push(value.clone());
+                        bytes_put_value(&mut bytes, &value);
                     }
+
                     self.next_inst();
                 }
                 Instruction::Copy => {
@@ -392,8 +414,8 @@ impl<'vm> VM<'vm> {
                 Instruction::Panic => {
                     // Note (Ron): the panic message is a slice, which is an aggregate in the VM
                     let message = self.stack.pop().into_aggregate();
-                    let ptr = message[0].clone().into_pointer().as_inner_raw();
-                    let len = message[1].clone().into_uint();
+                    let ptr = message.elements[0].clone().into_pointer().as_inner_raw();
+                    let len = message.elements[1].clone().into_uint();
                     let slice = unsafe { std::slice::from_raw_parts(ptr as *mut u8, len) };
                     let str = std::str::from_utf8(slice).unwrap();
 
@@ -432,11 +454,6 @@ impl<'vm> VM<'vm> {
     pub(crate) fn inst(&self) -> Instruction {
         let frame = self.frame();
         frame.func.code.instructions[frame.ip]
-    }
-
-    #[inline]
-    pub(crate) fn prev_inst(&mut self) {
-        self.frame_mut().ip -= 1;
     }
 
     #[inline]
