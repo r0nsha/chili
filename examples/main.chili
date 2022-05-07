@@ -9,22 +9,23 @@ type Person = { name: str, age: i64 }
 type PersonTuple = (str, i64)
 
 let main = fn() {
-    let mut array: [3]i64 = [1, 2, 3]
-    let slice: []mut i64 = array[1..]
-    let slice2: []i64 = slice[1..]
-    // let slice: []i64 = &array
+    let mut array: [3]i64 = [4, 5, 6]
+    // let slice: []mut i64 = array[1..]
+    // let slice2: []mut i64 = slice[1..]
+    // // let slice: []i64 = &array
 
-    array[0] = 5
-    slice[0] = 10
-    slice2[0] = 15
+    // array[0] = 5
+    // slice[0] = 10
+    // slice2[0] = 15
 
-    printf("array[0] = %d\tlen = %d\n".data, array[0], array.len)
-    printf("slice[0] = %d\tlen = %d\n".data, slice[0], slice.len)
-    printf("slice2[0] = %d\tlen = %d\n".data, slice2[0], slice2.len)
+    // printf("array[0] = %d\tlen = %d\n".data, array[0], array.len)
+    // printf("slice[0] = %d\tlen = %d\n".data, slice[0], slice.len)
+    // printf("slice2[0] = %d\tlen = %d\n".data, slice2[0], slice2.len)
 
-    // for slice {
-    //     foo(.{ name: "Ron\0", age: it })
-    // }
+    for it in array {
+        printf("[%d] = %d\n".data, it_index, it)
+        // foo(.{ name: "Ron\0", age: it })
+    }
 
     // printf("Hello\n".data)
     // print_number(fn { it * 2 })

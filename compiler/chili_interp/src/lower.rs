@@ -350,7 +350,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
 
             for (index, pat) in pat.symbols.iter().enumerate() {
                 if index < last_index {
-                    code.push(Instruction::Copy);
+                    code.push(Instruction::Copy(0));
                 }
 
                 let field_index = ty.field_index(pat.symbol).unwrap();
@@ -365,7 +365,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
 
             for (index, pat) in pat.symbols.iter().enumerate() {
                 if index < last_index {
-                    code.push(Instruction::Copy);
+                    code.push(Instruction::Copy(0));
                 }
 
                 code.push(Instruction::ConstIndex(index as u32));
@@ -553,8 +553,8 @@ impl Lower for ast::For {
         // lower iterator index
         let iter_index_slot = {
             sess.push_const(code, Value::Uint(0));
-            let slot = code.locals as i32;
             sess.add_local(code, self.iter_index_id);
+            let slot = code.locals as i32;
             code.push(Instruction::SetLocal(slot));
             slot
         };
@@ -563,17 +563,17 @@ impl Lower for ast::For {
             ast::ForIter::Range(start, end) => {
                 start.lower(sess, code, ctx);
 
-                let iter_slot = code.locals as i32;
                 sess.add_local(code, self.iter_id);
+                let iter_slot = code.locals as i32;
                 code.push(Instruction::SetLocal(iter_slot));
 
                 // calculate the end index
                 end.lower(sess, code, ctx);
 
                 // lower the condition
-                let loop_start = code.push(Instruction::Copy);
-                code.push(Instruction::Peek(iter_slot));
-                code.push(Instruction::Gt);
+                let loop_start = code.push(Instruction::Peek(iter_slot));
+                code.push(Instruction::Copy(1));
+                code.push(Instruction::LtEq);
 
                 let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
 
@@ -610,8 +610,8 @@ impl Lower for ast::For {
                 value.lower(sess, code, ctx);
 
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
-                let value_slot = code.locals as i32;
                 code.locals += 1;
+                let value_slot = code.locals as i32;
                 code.push(Instruction::SetLocal(value_slot));
 
                 // calculate the end index
@@ -631,9 +631,9 @@ impl Lower for ast::For {
                 }
 
                 // lower the condition
-                let loop_start = code.push(Instruction::Copy);
-                code.push(Instruction::Peek(iter_index_slot));
-                code.push(Instruction::Gt);
+                let loop_start = code.push(Instruction::Peek(iter_index_slot));
+                code.push(Instruction::Copy(1));
+                code.push(Instruction::LtEq);
 
                 let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
 
@@ -829,7 +829,7 @@ impl Lower for ast::Slice {
                 match expr_ty {
                     TyKind::Array(_, len) => sess.push_const(code, Value::Uint(*len)),
                     TyKind::Slice(..) => {
-                        code.push(Instruction::Take(1));
+                        code.push(Instruction::Roll(1));
                     }
                     ty => unreachable!("unexpected type `{}`", ty),
                 }
@@ -861,14 +861,14 @@ impl Lower for ast::Slice {
                 self.expr
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Instruction::Copy);
+                code.push(Instruction::Copy(0));
                 code.push(Instruction::ConstIndex(1));
-                code.push(Instruction::Take(1));
+                code.push(Instruction::Roll(1));
                 code.push(Instruction::ConstIndex(0));
 
                 code.push(Instruction::AggregateAlloc);
 
-                code.push(Instruction::Take(1));
+                code.push(Instruction::Roll(1));
 
                 // calculate the new slice's offset
                 lower_low(sess, code, &self.low);

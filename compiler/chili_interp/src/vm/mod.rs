@@ -391,12 +391,12 @@ impl<'vm> VM<'vm> {
 
                     self.next_inst();
                 }
-                Instruction::Copy => {
-                    let value = self.stack.peek(0).clone();
+                Instruction::Copy(offset) => {
+                    let value = self.stack.peek(offset as usize).clone();
                     self.stack.push(value);
                     self.next_inst();
                 }
-                Instruction::Take(offset) => {
+                Instruction::Roll(offset) => {
                     let value = self.stack.take(offset as usize);
                     self.stack.push(value);
                     self.next_inst();
@@ -499,7 +499,7 @@ impl<'vm> VM<'vm> {
 
                 print!("\t[");
 
-                let frame_slot = frame.stack_slot.checked_sub(1).unwrap_or_default();
+                let frame_slot = frame.stack_slot;
 
                 for (index, value) in self.stack.iter().enumerate() {
                     print!(

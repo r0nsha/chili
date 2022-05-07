@@ -22,7 +22,6 @@ impl<'vm> VM<'vm> {
                 _ => {
                     self.offset(value, index);
                     let ptr = self.stack.pop().into_pointer();
-                    println!("{}", unsafe { ptr.deref_value() }.to_string());
                     self.stack.push(unsafe { ptr.deref_value() });
                 }
             },
