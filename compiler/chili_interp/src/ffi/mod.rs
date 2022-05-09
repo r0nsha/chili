@@ -15,7 +15,7 @@ use libffi::{
     raw::ffi_closure,
 };
 use libloading::Symbol;
-use std::ffi::c_void;
+use std::{ffi::c_void, mem};
 use ustr::{ustr, Ustr, UstrMap};
 
 macro_rules! raw_ptr {
@@ -81,7 +81,7 @@ impl Ffi {
             Function::new(&func.param_tys, &func.return_ty)
         };
 
-        println!("{} 3", func.name);
+        println!("{}", func.name);
 
         let result = function.call(*symbol, &mut args, self, vm);
 
@@ -92,28 +92,37 @@ impl Ffi {
 #[derive(Debug)]
 struct Function {
     cif: ffi_cif,
-    arg_types: Vec<TypePointer>,
+    arg_types: Vec<TyKind>,
+    custom_types: Vec<ffi_type>,
 }
 
 impl Function {
     unsafe fn new(arg_types: &[TyKind], return_type: &TyKind) -> Self {
         let mut cif = ffi_cif::default();
 
-        let return_type = return_type.as_ffi_type();
+        let mut custom_types = vec![];
 
-        let mut arg_types: Vec<TypePointer> =
-            arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
+        let cif_return_type = return_type.as_ffi_type(&mut custom_types);
+
+        let mut cif_arg_types: Vec<TypePointer> = arg_types
+            .iter()
+            .map(|arg| arg.as_ffi_type(&mut custom_types))
+            .collect();
 
         prep_cif(
             &mut cif,
             ABI,
-            arg_types.len(),
-            return_type,
-            arg_types.as_mut_ptr(),
+            cif_arg_types.len(),
+            cif_return_type,
+            cif_arg_types.as_mut_ptr(),
         )
         .unwrap();
 
-        Self { cif, arg_types }
+        Self {
+            cif,
+            arg_types: arg_types.to_vec(),
+            custom_types,
+        }
     }
 
     unsafe fn new_variadic(
@@ -123,12 +132,19 @@ impl Function {
     ) -> Self {
         let mut cif = ffi_cif::default();
 
-        let return_type = return_type.as_ffi_type();
+        let mut custom_types = vec![];
+
+        let cif_return_type = return_type.as_ffi_type(&mut custom_types);
+
+        let arg_types: Vec<TyKind> = arg_types
+            .iter()
+            .chain(variadic_arg_types.iter())
+            .cloned()
+            .collect();
 
         let mut cif_arg_types: Vec<TypePointer> = arg_types
             .iter()
-            .chain(variadic_arg_types.iter())
-            .map(|arg| arg.as_ffi_type())
+            .map(|arg| arg.as_ffi_type(&mut custom_types))
             .collect();
 
         prep_cif_var(
@@ -136,14 +152,15 @@ impl Function {
             ABI,
             arg_types.len(),
             cif_arg_types.len(),
-            return_type,
+            cif_return_type,
             cif_arg_types.as_mut_ptr(),
         )
         .unwrap();
 
         Self {
             cif,
-            arg_types: cif_arg_types,
+            arg_types,
+            custom_types,
         }
     }
 
@@ -159,10 +176,28 @@ impl Function {
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
         let mut closures: Vec<*mut ffi_closure> = vec![];
 
+        #[derive(Debug)]
+        struct Color {
+            r: u8,
+            g: u8,
+            b: u8,
+            a: u8,
+        }
+
+        // let mut color = Color {
+        //     r: 230,
+        //     g: 41,
+        //     b: 55,
+        //     a: 255,
+        // };
+
         for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
-            let arg_type = **arg_type;
-            let size = arg_type.size;
-            let alignment = arg_type.alignment as usize;
+            // let arg_type = **arg_type;
+            // let size = arg_type.size;
+            // let alignment = arg_type.alignment as usize;
+
+            let size = arg_type.size_of(WORD_SIZE);
+            let alignment = arg_type.align_of(WORD_SIZE);
 
             let arg_ptr = match arg {
                 Value::I8(v) => raw_ptr!(v),
@@ -179,17 +214,18 @@ impl Function {
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
                 Value::Aggregate(v) => {
-                    println!("size = {}", size);
+                    println!("size = {}, alignment = {}", size, alignment);
                     let mut bytes = ByteSeq::new(size);
-                    println!("yay");
+
                     let mut offset = 0;
 
                     for value in v.elements.iter() {
                         bytes.offset_mut(offset).put_value(value);
+                        offset += alignment;
 
-                        let value_size = value.get_ty_kind().size_of(WORD_SIZE);
-
-                        offset += value_size;
+                        // TODO: implement sizing
+                        // let value_size = value.get_ty_kind().size_of(WORD_SIZE);
+                        // offset += value_size;
 
                         // if value_size < alignment {
                         //     let padding = alignment - value_size;
@@ -201,10 +237,13 @@ impl Function {
                         // }
                     }
 
-                    // Note (Ron): this clone could be useless, need to test this
+                    // println!("yay 2.0");
+
                     bytes.as_mut_ptr() as RawPointer
+
+                    // &mut color as *mut Color as RawPointer
                 }
-                Value::Array(v) => raw_ptr!(&mut v.bytes.clone().as_mut_ptr()),
+                Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
                     let (closure, code_ptr) = closure_alloc();
@@ -239,12 +278,22 @@ impl Function {
 
         let mut call_result = std::mem::MaybeUninit::<c_void>::uninit();
 
+        if !args.is_empty() {
+            println!("call");
+            let color = args[0] as *mut Color;
+            println!("{:?}", *color);
+        }
+
         libffi::raw::ffi_call(
             &mut self.cif as *mut _,
             Some(*code_ptr.as_safe_fun()),
             call_result.as_mut_ptr(),
             args.as_mut_ptr(),
         );
+
+        if !args.is_empty() {
+            println!("call end");
+        }
 
         for closure in closures {
             closure_free(closure);
@@ -315,11 +364,11 @@ unsafe extern "C" fn closure_callback(
 }
 
 trait AsFfiType {
-    unsafe fn as_ffi_type(&self) -> TypePointer;
+    unsafe fn as_ffi_type(&self, custom_types: &mut Vec<ffi_type>) -> TypePointer;
 }
 
 impl AsFfiType for TyKind {
-    unsafe fn as_ffi_type(&self) -> TypePointer {
+    unsafe fn as_ffi_type(&self, custom_types: &mut Vec<ffi_type>) -> TypePointer {
         match self {
             TyKind::Bool => ffi_type!(types::uint8),
             TyKind::Int(ty) => match ty {
@@ -371,9 +420,10 @@ impl AsFfiType for TyKind {
                 let size = self.size_of(WORD_SIZE);
                 let align = self.align_of(WORD_SIZE);
 
-                let mut elements: Vec<TypePointer> = vec![];
+                let mut elements: Vec<TypePointer> = Vec::with_capacity(tuple_elements.len() + 1);
+
                 for el in tuple_elements.iter() {
-                    elements.push(el.as_ffi_type());
+                    elements.push(el.as_ffi_type(custom_types));
                 }
 
                 let elements_ptr = elements.as_mut_ptr();
@@ -386,22 +436,41 @@ impl AsFfiType for TyKind {
                 }))
             }
             TyKind::Struct(st) => {
-                let size = st.size_of(WORD_SIZE);
-                let align = st.align_of(WORD_SIZE);
+                // let size = st.size_of(WORD_SIZE);
+                // let align = st.align_of(WORD_SIZE);
 
-                let mut elements: Vec<TypePointer> = vec![];
+                let mut elements: Vec<TypePointer> = Vec::with_capacity(st.fields.len() + 1);
+
                 for field in st.fields.iter() {
-                    elements.push(field.ty.as_ffi_type());
+                    elements.push(field.ty.as_ffi_type(custom_types));
                 }
 
                 let elements_ptr = elements.as_mut_ptr();
 
-                ffi_type!(*Box::new(ffi_type {
-                    size,
-                    alignment: align as u16,
-                    type_: type_tag::STRUCT,
-                    elements: elements_ptr,
-                }))
+                *elements_ptr.offset((mem::size_of::<ffi_type>() * elements.len()) as _) = 0 as _;
+
+                let mut struct_type = ffi_type::default();
+
+                struct_type.type_ = type_tag::STRUCT;
+                struct_type.elements = elements_ptr;
+
+                custom_types.push(struct_type);
+
+                // custom_types.push(ffi_type {
+                //     size,
+                //     alignment: align as u16,
+                //     type_: type_tag::STRUCT,
+                //     elements: elements_ptr,
+                // });
+
+                custom_types.last_mut().unwrap() as TypePointer
+
+                // ffi_type!(*Box::new(ffi_type {
+                //     size,
+                //     alignment: align as u16,
+                //     type_: type_tag::STRUCT,
+                //     elements: elements_ptr,
+                // }))
             }
             TyKind::Infer(_, ty) => match ty {
                 InferTy::AnyInt => ffi_type!(types::sint64),
@@ -416,7 +485,7 @@ impl AsFfiType for TyKind {
 }
 
 // trait AsFfiArg {
-//     unsafe fn as_ffi_arg(&mut self, size: usize, alignement: usize, ffi: &mut Ffi) -> RawPointer;
+//     unsafe fn as_ffi_arg(&mut self, size: usize, alignment: usize, ffi: &mut Ffi) -> RawPointer;
 // }
 
 // impl AsFfiArg for Value {

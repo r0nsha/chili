@@ -2,8 +2,8 @@ use raylib.?
 use c.?
 
 let main = fn() {
-	let width = 1920;
-	let height = 1080;
+	let width = 800;
+	let height = 600;
 
 	InitWindow(width, height, "chili language example - following eyes\0".data);
 	SetTargetFPS(60)
@@ -16,8 +16,8 @@ let main = fn() {
 	let iris_radius = 24
 
 	while !WindowShouldClose() {
-		let iris_left_pos = GetMousePosition();
-		let iris_left_pos = coerce_circle_in_circle(iris_left_pos, iris_radius, sclera_left_pos, sclera_radius);
+		// let iris_left_pos = GetMousePosition();
+		// let iris_left_pos = coerce_circle_in_circle(iris_left_pos, iris_radius, sclera_left_pos, sclera_radius);
 
 		// let iris_right_pos = GetMousePosition();
 		// let iris_right_pos = coerce_circle_in_circle(iris_right_pos, iris_radius, sclera_right_pos, sclera_radius);
@@ -46,7 +46,7 @@ let main = fn() {
 
 		// DrawCircleV(GetMousePosition(), 4, red);
 
-		DrawFPS(10, 10)
+		// DrawFPS(10, 10)
 
 		EndDrawing()
 	}

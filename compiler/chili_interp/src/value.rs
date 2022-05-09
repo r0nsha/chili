@@ -371,7 +371,6 @@ impl Value {
                 let align = struct_ty.align_of(WORD_SIZE);
 
                 for (index, field) in struct_ty.fields.iter().enumerate() {
-                    // let field_size = field.ty.size_of(WORD_SIZE);
                     let field_ptr = ptr.offset((align * index) as isize);
                     let value = Value::from_type_and_ptr(&field.ty, field_ptr);
                     elements.push(value);

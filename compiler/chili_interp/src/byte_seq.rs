@@ -8,7 +8,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct ByteSeq {
-    inner: Box<[u8]>,
+    pub inner: Box<[u8]>,
 }
 
 impl ByteSeq {
