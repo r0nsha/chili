@@ -16,37 +16,37 @@ let main = fn() {
 	let iris_radius = 24
 
 	while !WindowShouldClose() {
-		// let iris_left_pos = GetMousePosition();
-		// let iris_left_pos = coerce_circle_in_circle(iris_left_pos, iris_radius, sclera_left_pos, sclera_radius);
+		let iris_left_pos = GetMousePosition();
+		let iris_left_pos = coerce_circle_in_circle(iris_left_pos, iris_radius, sclera_left_pos, sclera_radius);
 
-		// let iris_right_pos = GetMousePosition();
-		// let iris_right_pos = coerce_circle_in_circle(iris_right_pos, iris_radius, sclera_right_pos, sclera_radius);
+		let iris_right_pos = GetMousePosition();
+		let iris_right_pos = coerce_circle_in_circle(iris_right_pos, iris_radius, sclera_right_pos, sclera_radius);
 
 		BeginDrawing()
 
 		ClearBackground(ray_white)
 
-		// draw_eye(
-		// 	sclera_left_pos,
-		// 	sclera_radius,
-		// 	light_gray,
-		// 	iris_left_pos,
-		// 	iris_radius,
-		// 	brown
-		// );
+		draw_eye(
+			sclera_left_pos,
+			sclera_radius,
+			light_gray,
+			iris_left_pos,
+			iris_radius,
+			brown
+		);
 
-		// draw_eye(
-		// 	sclera_right_pos,
-		// 	sclera_radius,
-		// 	light_gray,
-		// 	iris_right_pos,
-		// 	iris_radius,
-		// 	dark_green
-		// );
+		draw_eye(
+			sclera_right_pos,
+			sclera_radius,
+			light_gray,
+			iris_right_pos,
+			iris_radius,
+			dark_green
+		);
 
-		// DrawCircleV(GetMousePosition(), 4, red);
+		DrawCircleV(GetMousePosition(), 4, red);
 
-		// DrawFPS(10, 10)
+		DrawFPS(10, 10)
 
 		EndDrawing()
 	}

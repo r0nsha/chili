@@ -16,3 +16,4 @@ members = [
     # "compiler/chili_backend_llvm",
     "compiler/chili_main",
 ]
+exclude = ["./vendor/libffi-rs"]

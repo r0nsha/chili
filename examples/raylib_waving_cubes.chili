@@ -17,15 +17,15 @@ let main = fn {
 	}
 
 	let block_count = 15
-	let half_block_count = block_count as f64 / 2.0
+	let half_block_count = block_count as f32 / 2.0
 	
 	while !WindowShouldClose() {
 		let time = GetTime()
 		let scale = (2.0 + sin(time)) * 0.7
 
 		let camera_time = time * 0.3
-		camera.position.x = cos(camera_time) as _ * 40.0
-		camera.position.z = sin(camera_time) as _ * 40.0
+		camera.position.x = cos(camera_time) as f32 * 40.0
+		camera.position.z = sin(camera_time) as f32 * 40.0
 
 		BeginDrawing()
 		ClearBackground(ray_white)
@@ -42,9 +42,9 @@ let main = fn {
 					let scatter = sinf(block_scale * 20 + time as f32 * 4.0)
 
 					let cube_pos = Vector3 {
-						x: ((x as f64 - half_block_count) as f64 * (scale * 3.0) + scatter) as _,
-						y: ((y as f64 - half_block_count) as f64 * (scale * 2.0) + scatter) as _,
-						z: ((z as f64 - half_block_count) as f64 * (scale * 3.0) + scatter) as _,
+						x: ((x as f32 - half_block_count) as f32 * (scale * 3.0) + scatter) as _,
+						y: ((y as f32 - half_block_count) as f32 * (scale * 2.0) + scatter) as _,
+						z: ((z as f32 - half_block_count) as f32 * (scale * 3.0) + scatter) as _,
 					}
 
 					let cube_color = ColorFromHSV(Vector3 {
@@ -55,7 +55,7 @@ let main = fn {
 
 					let cube_size = (2.4 - scale) * block_scale
 
-		// 			DrawCube(cube_pos, cube_size as _, cube_size as _, cube_size as _, cube_color)
+					DrawCube(cube_pos, cube_size as _, cube_size as _, cube_size as _, cube_color)
 				}
 			}	
 		}
@@ -69,5 +69,3 @@ let main = fn {
 
 	CloseWindow()
 }
-
-@run(main())

@@ -1,5 +1,7 @@
 use raylib.?;
 
+@run(main())
+
 let main = fn {
 	let width = 1920;
 	let height = 1080;
@@ -45,7 +47,7 @@ let main = fn {
 		DrawCube(cube_pos, 2, 2, 2, red);
 		DrawCubeWires(cube_pos, 2, 2, 2, maroon);
 		EndMode3D();
-		DrawText("Welcome to the tird dimension!".data, 10, 40, 20, dark_gray);
+		DrawText("Welcome to the third dimension!".data, 10, 40, 20, dark_gray);
 		DrawFPS(10, 10);
 		EndDrawing();
 	}

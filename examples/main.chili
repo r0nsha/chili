@@ -1,4 +1,5 @@
 use c.{ puts, printf }
+use raylib_game_of_life.main as game_of_life
 
 foreign("./test_dll/test.lib") {
     let print_number = fn(cb: fn(n: i32) -> i32)
@@ -9,6 +10,9 @@ type Person = { name: str, age: i64 }
 type PersonTuple = (str, i64)
 
 let main = fn() {
+    let living_cells = game_of_life()
+    printf("living cells = %d\n".data, living_cells)
+
     let mut array: [3]i64 = [4, 5, 6]
     let slice: []mut i64 = &array
     let slice2: []mut i64 = slice[1..]
