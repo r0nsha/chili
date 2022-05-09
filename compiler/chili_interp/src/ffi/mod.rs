@@ -125,6 +125,13 @@ impl Function {
 
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
 
+        struct ClosureMetadata<'vm> {
+            user_data: ClosureUserData<'vm>,
+            closure: Closure<'vm>,
+        }
+
+        let mut closures = vec![];
+
         for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
             let size = arg_type.size_of(WORD_SIZE);
             let alignment = arg_type.align_of(WORD_SIZE);
@@ -159,10 +166,19 @@ impl Function {
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
                     let function = Box::new(Function::new(&func.arg_types, &func.return_type));
-                    let user_data = ClosureUserData { vm, func };
-                    let closure = Closure::new(function.cif, closure_callback, &user_data);
 
-                    raw_ptr!(closure.instantiate_code_ptr::<c_void>() as *const _ as *mut c_void)
+                    let user_data = Box::new(ClosureUserData { vm, func });
+                    let metadata = ClosureMetadata {
+                        user_data: ClosureUserData { vm, func },
+                        closure: Closure::new(function.cif, closure_callback, &user_data),
+                    };
+
+                    let code_ptr = metadata.closure.instantiate_code_ptr::<c_void>() as *const _
+                        as *mut c_void;
+
+                    closures.push(metadata.closure);
+
+                    raw_ptr!(code_ptr)
                 }
                 Value::ForeignFunc(func) => {
                     let symbol = ffi.load_symbol(func.lib_path, func.name);
