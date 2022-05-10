@@ -1,9 +1,9 @@
-use crate::{
-    ffi::RawPointer,
+use super::{
     instruction::CastInstruction,
     value::{Pointer, Value},
-    vm::VM,
+    VM,
 };
+use crate::ffi::RawPointer;
 
 macro_rules! cast_to_int {
     ($value:expr => $name:ident, $to:ty) => {

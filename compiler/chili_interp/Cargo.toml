@@ -11,6 +11,7 @@ ustr = "0.8.1"
 libffi = { path = "../../vendor/libffi-rs/libffi-rs" }
 libloading = "0.7.1"
 byteorder = "1.4.3"
+tinyvec = "1.6.0"
 
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }

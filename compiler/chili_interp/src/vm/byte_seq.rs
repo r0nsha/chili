@@ -1,10 +1,7 @@
+use super::value::{Pointer, Value};
+use crate::{IS_64BIT, WORD_SIZE};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
-
-use crate::{
-    value::{Pointer, Value},
-    IS_64BIT, WORD_SIZE,
-};
 
 #[derive(Debug, Clone)]
 pub struct ByteSeq {

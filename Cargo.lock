@@ -177,6 +177,7 @@ dependencies = [
  "libloading",
  "paste",
  "strum_macros",
+ "tinyvec",
  "ustr",
 ]
 
@@ -1156,6 +1157,12 @@ checksum = "7af24570664a3074673dbbf69a65bdae0ae0b72f2949b1adfbacb736ee4d6896"
 dependencies = [
  "lazy_static 0.2.11",
 ]
+
+[[package]]
+name = "tinyvec"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "toml"

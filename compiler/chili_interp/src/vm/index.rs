@@ -1,8 +1,9 @@
-use crate::{
-    byte_seq::GetValue,
+use crate::vm::{
     value::{Pointer, Value},
-    vm::VM,
+    VM,
 };
+
+use super::byte_seq::GetValue;
 
 impl<'vm> VM<'vm> {
     #[inline]

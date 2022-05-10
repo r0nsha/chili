@@ -1,17 +1,25 @@
 use crate::{
-    byte_seq::{ByteSeq, PutValue},
-    instruction::{CompiledCode, Instruction},
     interp::Interp,
-    stack::Stack,
-    value::{Array, Func, Pointer, Value},
+    vm::{
+        byte_seq::ByteSeq,
+        instruction::{CompiledCode, Instruction},
+        stack::Stack,
+        value::{Array, Func, Pointer, Value},
+    },
 };
+use byte_seq::PutValue;
 use chili_ast::ty::TyKind;
 use colored::Colorize;
 use std::fmt::Display;
 use ustr::ustr;
 
+pub(crate) mod byte_seq;
 mod cast;
+pub(crate) mod display;
 mod index;
+pub(crate) mod instruction;
+mod stack;
+pub(crate) mod value;
 
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
