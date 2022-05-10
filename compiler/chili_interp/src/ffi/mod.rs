@@ -1,10 +1,8 @@
 use crate::{
-    vm::{
-        byte_seq::{ByteSeq, PutValue},
-        instruction::Instruction,
-        value::{ForeignFunc, Func, Value},
-        VM,
-    },
+    byte_seq::{ByteSeq, PutValue},
+    instruction::Instruction,
+    value::{ForeignFunc, Func, Value},
+    vm::VM,
     IS_64BIT, WORD_SIZE,
 };
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};

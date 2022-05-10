@@ -1,6 +1,8 @@
-use super::value::ValueKind;
-use chili_ast::ast;
 use std::fmt::Display;
+
+use chili_ast::ast;
+
+use crate::value::ValueKind;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Instruction {

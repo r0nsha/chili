@@ -1,4 +1,8 @@
-use crate::vm::{instruction::CompiledCode, value::Value, Constants, Globals};
+use crate::{
+    instruction::CompiledCode,
+    value::Value,
+    vm::{Constants, Globals},
+};
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Write},

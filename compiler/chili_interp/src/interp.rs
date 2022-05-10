@@ -1,9 +1,9 @@
 use crate::{
+    display::dump_bytecode_to_file,
     ffi::Ffi,
+    instruction::{CompiledCode, Instruction},
     lower::{Lower, LowerContext},
-    vm::display::dump_bytecode_to_file,
-    vm::instruction::{CompiledCode, Instruction},
-    vm::value::{Func, Value},
+    value::{Func, Value},
     vm::{Constants, Globals, VM},
 };
 use chili_ast::{

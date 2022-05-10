@@ -1,9 +1,7 @@
 use crate::{
+    byte_seq::{ByteSeq, GetValue},
     ffi::RawPointer,
-    vm::{
-        byte_seq::{ByteSeq, GetValue},
-        instruction::CompiledCode,
-    },
+    instruction::CompiledCode,
     IS_64BIT, WORD_SIZE,
 };
 use byteorder::{NativeEndian, WriteBytesExt};
