@@ -55,6 +55,7 @@ foreign("./lib/raylib") {
     pub let ColorFromHSV = fn(hsv: Vector3) -> Color
     pub let Fade = fn(color: Color, alpha: f32) -> Color
 
+    pub let GetFrameTime = fn() -> f32
     pub let GetTime = fn() -> f64
 }
 

@@ -7,6 +7,8 @@ let cell_size: i32 = 8;
 let width: i32 = (cols - 1) * cell_size;
 let height: i32 = (rows - 1) * cell_size;
 
+@run(main())
+
 pub let main = fn() {
 	let mut prev = calloc(cols * rows, @size_of(bool)) as *bool as [*mut]bool;
 	defer free(prev as *bool as _);
@@ -28,27 +30,29 @@ pub let main = fn() {
 	map_cells(prev, 30, 53, "............##.......................");
 
 	InitWindow(width, height, "chili language example - game of life\0".data);
-	SetTargetFPS(30);
+	SetTargetFPS(120);
 
 	let mut simulate = true;
 
 	while !WindowShouldClose() {
-		if IsKeyPressed(KEY_SPACE) {
-			simulate = !simulate;
-		}
+		// if IsKeyPressed(KEY_SPACE) {
+		// 	simulate = !simulate;
+		// }
 
-		if IsMouseButtonDown(0) {
-			let mx = GetMouseX() / cell_size;
-			let my = GetMouseY() / cell_size;
-			prev[mx + my * cols] = true;
-		}
+		// if IsMouseButtonDown(0) {
+		// 	let mx = GetMouseX() / cell_size;
+		// 	let my = GetMouseY() / cell_size;
+		// 	prev[mx + my * cols] = true;
+		// }
 
 		BeginDrawing();
 
 		ClearBackground(black);
 
-		for x in 1..cols - 2 {
-			for y in 1..rows - 2 {
+		let mut x = 1
+		while x <= cols - 2 {
+			let mut y = 1
+			while y <= rows - 2 {
 				if simulate {
 					let count = get_neighbor_count(prev, x, y);
 
@@ -68,8 +72,36 @@ pub let main = fn() {
 						ray_white
 					);
 				}
+
+				y += 1
 			}
+
+			x += 1
 		}
+
+		// for x in 1..cols - 2 {
+		// 	for y in 1..rows - 2 {
+				// if simulate {
+				// 	let count = get_neighbor_count(prev, x, y);
+
+				// 	curr[x + y * cols] = if get_cell(prev, x, y) {
+				// 		count == 2 || count == 3
+				// 	} else {
+				// 		count == 3
+				// 	};
+				// }
+
+				// if get_cell(prev, x, y) {
+					// DrawRectangle(
+					// 	x * cell_size, 
+					// 	y * cell_size, 
+					// 	cell_size, 
+					// 	cell_size, 
+					// 	ray_white
+					// );
+				// }
+		// 	}
+		// }
 
 		if simulate {
 			for 0..cols * rows {
@@ -84,7 +116,7 @@ pub let main = fn() {
 
 	CloseWindow();
 
-	get_living_cells(prev)
+	// get_living_cells(prev)
 }
 
 let get_neighbor_count = fn(state: [*]bool, x: int, y: int) -> uint {
