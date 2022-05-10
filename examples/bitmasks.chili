@@ -1,4 +1,4 @@
-foreign("system:libucrt") {
+foreign("system:c") {
     let printf = fn(input [&]u8, ..) -> i64;
     let malloc = fn(size uint) -> *();
     let free = fn(memblock *());

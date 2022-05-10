@@ -10,8 +10,7 @@ use libffi::{
     low::{ffi_cif, CodePtr},
     middle::{Cif, Closure, Type},
 };
-use libloading::Symbol;
-use std::ffi::c_void;
+use std::{collections::HashMap, ffi::c_void};
 use ustr::{ustr, Ustr, UstrMap};
 
 macro_rules! raw_ptr {
@@ -24,30 +23,31 @@ pub type RawPointer = *mut c_void;
 
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
+    symbols: HashMap<(Ustr, Ustr), *mut c_void>,
 }
 
 impl Ffi {
     pub(crate) fn new() -> Self {
         Self {
-            libs: UstrMap::default(),
+            libs: Default::default(),
+            symbols: Default::default(),
         }
     }
 
-    pub(crate) unsafe fn load_lib(&mut self, lib_path: Ustr) -> &libloading::Library {
-        // TODO: default libc should depend on the current platform
-        let lib_name = match lib_path.as_str() {
-            "c" | "C" | "libucrt" => ustr("msvcrt"),
-            _ => lib_path,
-        };
+    pub(crate) unsafe fn load_symbol(&mut self, lib_path: Ustr, name: Ustr) -> &mut *mut c_void {
+        self.symbols.entry((lib_path, name)).or_insert_with(|| {
+            let lib_name = match lib_path.as_str() {
+                "c" | "C" => ustr("msvcrt"),
+                _ => lib_path,
+            };
 
-        self.libs
-            .entry(lib_name)
-            .or_insert_with(|| libloading::Library::new(lib_name.as_str()).unwrap())
-    }
+            let lib = self
+                .libs
+                .entry(lib_name)
+                .or_insert_with(|| libloading::Library::new(lib_name.as_str()).unwrap());
 
-    pub(crate) unsafe fn load_symbol(&mut self, lib_path: Ustr, name: Ustr) -> Symbol<*mut c_void> {
-        let lib = self.load_lib(lib_path);
-        lib.get(name.as_bytes()).unwrap()
+            *lib.get(name.as_bytes()).unwrap()
+        })
     }
 
     pub(crate) unsafe fn call<'vm>(
@@ -125,13 +125,6 @@ impl Function {
 
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
 
-        struct ClosureMetadata<'vm> {
-            user_data: ClosureUserData<'vm>,
-            closure: Closure<'vm>,
-        }
-
-        let mut closures = vec![];
-
         for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
             let size = arg_type.size_of(WORD_SIZE);
             let alignment = arg_type.align_of(WORD_SIZE);
@@ -165,25 +158,20 @@ impl Function {
                 Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Func(func) => {
-                    let function = Box::new(Function::new(&func.arg_types, &func.return_type));
+                    let function = Function::new(&func.arg_types, &func.return_type);
 
-                    let user_data = Box::new(ClosureUserData { vm, func });
-                    let metadata = ClosureMetadata {
-                        user_data: ClosureUserData { vm, func },
-                        closure: Closure::new(function.cif, closure_callback, &user_data),
-                    };
+                    let user_data = ClosureUserData { vm, func };
 
-                    let code_ptr = metadata.closure.instantiate_code_ptr::<c_void>() as *const _
-                        as *mut c_void;
+                    let closure = Closure::new(function.cif, closure_callback, &user_data);
 
-                    closures.push(metadata.closure);
+                    let code_ptr =
+                        closure.instantiate_code_ptr::<c_void>() as *const _ as *mut c_void;
 
                     raw_ptr!(code_ptr)
                 }
                 Value::ForeignFunc(func) => {
                     let symbol = ffi.load_symbol(func.lib_path, func.name);
-                    let mut ptr = *symbol;
-                    raw_ptr!(&mut ptr)
+                    raw_ptr!(symbol)
                 }
                 _ => panic!("can't pass `{}` through ffi", arg.to_string()),
             };

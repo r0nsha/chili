@@ -1,6 +1,6 @@
 use std.*;
 
-let foreign("system:libucrt") {
+let foreign("system:c") {
 	printf = fn(input [&]u8, ..) -> i64,
 	malloc = fn(size uint) -> *(),
 	free = fn(memblock *())

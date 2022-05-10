@@ -10,6 +10,7 @@ type Person = { name: str, age: i64 }
 type PersonTuple = (str, i64)
 
 let main = fn() {
+    print_number(fn { it * 2 })
     call_puts(puts)
 
     // let living_cells = game_of_life()

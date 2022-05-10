@@ -1,4 +1,4 @@
-foreign("system:libucrt") {
+foreign("system:c") {
     let printf = fn(format [&]u8, ..) -> int;
     let scanf = fn(format [&]u8, ..) -> i64;
     let srand = fn(seed uint);

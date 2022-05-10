@@ -1,4 +1,4 @@
-let foreign("system:libucrt") {
+let foreign("system:c") {
     printf = fn(format -> *u8, ..) -> int,
     _getch = fn() -> u8,
     srand = fn(seed -> uint),
