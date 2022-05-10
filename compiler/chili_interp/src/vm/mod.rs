@@ -20,25 +20,25 @@ pub type Constants = Vec<Value>;
 pub type Globals = Vec<Value>;
 
 #[derive(Debug, Clone)]
-pub(crate) struct CallFrame {
+pub(crate) struct StackFrame {
     func: Func,
     stack_slot: usize,
-    ip: usize,
+    inst_pointer: usize,
 }
 
-impl CallFrame {
+impl StackFrame {
     pub(crate) fn new(func: Func, slot: usize) -> Self {
         Self {
             func,
             stack_slot: slot,
-            ip: 0,
+            inst_pointer: 0,
         }
     }
 }
 
-impl Display for CallFrame {
+impl Display for StackFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<{:06}\t{}>", self.ip, self.func.name)
+        write!(f, "<{:06}\t{}>", self.inst_pointer, self.func.name)
     }
 }
 
@@ -107,7 +107,7 @@ macro_rules! logic_op {
 pub(crate) struct VM<'vm> {
     pub(crate) interp: &'vm mut Interp,
     pub(crate) stack: Stack<Value, STACK_MAX>,
-    pub(crate) frames: Stack<CallFrame, FRAMES_MAX>,
+    pub(crate) frames: Stack<StackFrame, FRAMES_MAX>,
 }
 
 impl<'vm> VM<'vm> {
@@ -446,28 +446,28 @@ impl<'vm> VM<'vm> {
         for _ in 0..func.code.locals {
             self.stack.push(Value::unit());
         }
-        self.frames.push(CallFrame::new(func, stack_slot));
+        self.frames.push(StackFrame::new(func, stack_slot));
     }
 
     #[inline]
-    pub(crate) fn frame(&self) -> &CallFrame {
+    pub(crate) fn frame(&self) -> &StackFrame {
         self.frames.peek(0)
     }
 
     #[inline]
-    pub(crate) fn frame_mut(&mut self) -> &mut CallFrame {
+    pub(crate) fn frame_mut(&mut self) -> &mut StackFrame {
         self.frames.peek_mut(0)
     }
 
     #[inline]
     pub(crate) fn inst(&self) -> Instruction {
         let frame = self.frame();
-        frame.func.code.instructions[frame.ip]
+        frame.func.code.instructions[frame.inst_pointer]
     }
 
     #[inline]
     pub(crate) fn next_inst(&mut self) {
-        self.frame_mut().ip += 1;
+        self.frame_mut().inst_pointer += 1;
     }
 
     #[inline]
@@ -477,8 +477,8 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     pub(crate) fn jmp(&mut self, offset: i32) {
-        let new_ip = self.frame().ip as isize + offset as isize;
-        self.frame_mut().ip = new_ip as usize;
+        let new_inst_pointer = self.frame().inst_pointer as isize + offset as isize;
+        self.frame_mut().inst_pointer = new_inst_pointer as usize;
     }
 
     pub(crate) fn trace(&self, inst: &Instruction, level: TraceLevel) {
@@ -489,13 +489,13 @@ impl<'vm> VM<'vm> {
             TraceLevel::Minimal => {
                 println!(
                     "{:06}\t{:<20}{}",
-                    frame.ip,
+                    frame.inst_pointer,
                     inst.to_string().bold(),
                     format!("[stack items: {}]", self.stack.len()).bright_cyan()
                 );
             }
             TraceLevel::Full => {
-                println!("{:06}\t{}", frame.ip, inst.to_string().bold());
+                println!("{:06}\t{}", frame.inst_pointer, inst.to_string().bold());
 
                 print!("\t[");
 
