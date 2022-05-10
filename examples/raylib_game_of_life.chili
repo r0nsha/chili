@@ -33,15 +33,15 @@ pub let main = fn() {
 	let mut simulate = true;
 
 	while !WindowShouldClose() {
-		// if IsKeyPressed(KEY_SPACE) {
-		// 	simulate = !simulate;
-		// }
+		if IsKeyPressed(KEY_SPACE) {
+			simulate = !simulate;
+		}
 
-		// if IsMouseButtonDown(0) {
-		// 	let mx = GetMouseX() / cell_size;
-		// 	let my = GetMouseY() / cell_size;
-		// 	prev[mx + my * cols] = true;
-		// }
+		if IsMouseButtonDown(0) {
+			let mx = GetMouseX() / cell_size;
+			let my = GetMouseY() / cell_size;
+			prev[mx + my * cols] = true;
+		}
 
 		BeginDrawing();
 
