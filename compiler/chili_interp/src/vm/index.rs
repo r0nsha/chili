@@ -1,7 +1,7 @@
-use crate::{
+use crate::vm::{
     byte_seq::GetValue,
     value::{Pointer, Value},
-    vm::VM,
+    VM,
 };
 
 impl<'vm> VM<'vm> {

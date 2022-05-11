@@ -1,8 +1,10 @@
 use crate::{
     ffi::RawPointer,
-    instruction::CastInstruction,
-    value::{Pointer, Value},
-    vm::VM,
+    vm::{
+        instruction::CastInstruction,
+        value::{Pointer, Value},
+        VM,
+    },
 };
 
 macro_rules! cast_to_int {

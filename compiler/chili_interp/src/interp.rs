@@ -1,10 +1,12 @@
 use crate::{
-    display::dump_bytecode_to_file,
     ffi::Ffi,
-    instruction::{CompiledCode, Instruction},
     lower::{Lower, LowerContext},
-    value::{Func, Value},
-    vm::{Constants, Globals, VM},
+    vm::{
+        display::dump_bytecode_to_file,
+        instruction::{CompiledCode, Instruction},
+        value::{Func, Value},
+        Constants, Globals, VM,
+    },
 };
 use chili_ast::{
     ast,
@@ -51,6 +53,7 @@ impl Interp {
             tycx,
             typed_ast,
             env_stack: vec![],
+            labels: vec![],
             evaluated_globals: vec![],
         }
     }
@@ -63,8 +66,15 @@ pub struct InterpSess<'i> {
     pub(crate) typed_ast: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<(ModuleId, Env)>,
 
+    pub(crate) labels: Vec<Label>,
+
     // globals to be evaluated when the VM starts
     pub(crate) evaluated_globals: Vec<(usize, CompiledCode)>,
+}
+
+// labels are used for patching call instruction after lowering
+pub(crate) struct Label {
+    instruction: *mut Instruction,
 }
 
 pub type Env = Scopes<BindingInfoId, i16>;

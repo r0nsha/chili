@@ -46,7 +46,7 @@
 //     printf("\n".data)
 
 //     printf("Hello\n".data)
-//     print_number(fn { it * 2 })
+//     print_number fn { it * 2 }
 //     call_puts(puts)
 //     bar(("Rewon\0", 46))
 //     printf("Goodbye\n".data)
@@ -63,8 +63,12 @@
 
 use c.{ printf }
 
+let n ={
+    let x = 5
+    5 * 10 - 1
+}
+
 let main = fn() {
-    let n = 5
     printf("Hello %d\n".data, n)
 }
 

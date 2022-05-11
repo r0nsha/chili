@@ -9,10 +9,7 @@ where
     }
 
     pub fn push(&mut self, value: T) {
-        if self.0.len() >= self.0.capacity() {
-            panic!("stack overflow")
-        }
-
+        assert!(self.0.len() <= self.0.capacity(), "stack overflow");
         self.0.push(value);
     }
 

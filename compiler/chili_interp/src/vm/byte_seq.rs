@@ -2,7 +2,7 @@ use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use chili_ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
 
 use crate::{
-    value::{Pointer, Value},
+    vm::value::{Pointer, Value},
     IS_64BIT, WORD_SIZE,
 };
 

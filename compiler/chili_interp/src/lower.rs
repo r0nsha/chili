@@ -1,7 +1,9 @@
 use crate::{
-    instruction::{CastInstruction, CompiledCode, Instruction},
     interp::{Env, InterpSess},
-    value::{ForeignFunc, Func, Value, ValueKind},
+    vm::{
+        instruction::{CastInstruction, CompiledCode, Instruction},
+        value::{ForeignFunc, Func, Value, ValueKind},
+    },
     IS_64BIT, WORD_SIZE,
 };
 use chili_ast::{

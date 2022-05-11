@@ -1,17 +1,24 @@
 use crate::{
-    byte_seq::{ByteSeq, PutValue},
-    instruction::{CompiledCode, Instruction},
     interp::Interp,
-    stack::Stack,
-    value::{Array, Func, Pointer, Value},
+    vm::{
+        byte_seq::{ByteSeq, PutValue},
+        instruction::{CompiledCode, Instruction},
+        stack::Stack,
+        value::{Array, Func, Pointer, Value},
+    },
 };
 use chili_ast::ty::TyKind;
 use colored::Colorize;
 use std::fmt::Display;
 use ustr::ustr;
 
+pub(crate) mod byte_seq;
 mod cast;
+pub mod display;
 mod index;
+pub mod instruction;
+mod stack;
+pub mod value;
 
 const FRAMES_MAX: usize = 64;
 const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
@@ -108,6 +115,7 @@ pub(crate) struct VM<'vm> {
     pub(crate) interp: &'vm mut Interp,
     pub(crate) stack: Stack<Value, STACK_MAX>,
     pub(crate) frames: Stack<StackFrame, FRAMES_MAX>,
+    // pub(crate) bytecode: Bytecode<'vm>,
 }
 
 impl<'vm> VM<'vm> {
@@ -258,16 +266,21 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::Call(arg_count) => {
-                    let value = self.stack.peek(0).clone();
+                    let value = self.stack.peek(0);
                     match value {
-                        Value::Func(func) => self.push_frame(func),
+                        Value::Func(func) => {
+                            let func = func.clone();
+                            self.push_frame(func)
+                        }
                         Value::ForeignFunc(func) => {
+                            let func = func.clone();
                             self.stack.pop(); // this pops the actual foreign function
 
                             let mut values = (0..arg_count)
                                 .into_iter()
                                 .map(|_| self.stack.pop())
                                 .collect::<Vec<Value>>();
+
                             values.reverse();
 
                             let vm_ptr = self as *mut VM;
@@ -276,7 +289,7 @@ impl<'vm> VM<'vm> {
 
                             self.next_inst();
                         }
-                        _ => panic!("tried to call an uncallable value `{}`", value.to_string()),
+                        _ => panic!("tried to call uncallable value `{}`", value.to_string()),
                     }
                 }
                 Instruction::GetGlobal(slot) => {
