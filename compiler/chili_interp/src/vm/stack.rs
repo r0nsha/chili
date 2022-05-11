@@ -30,6 +30,16 @@ where
     }
 
     #[inline]
+    pub fn last(&self) -> &T {
+        self.0.last().unwrap()
+    }
+
+    #[inline]
+    pub fn last_mut(&mut self) -> &mut T {
+        self.0.last_mut().unwrap()
+    }
+
+    #[inline]
     pub fn take(&mut self, offset: usize) -> T {
         self.0.remove(self.len() - 1 - offset)
     }

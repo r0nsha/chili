@@ -53,7 +53,7 @@ impl Interp {
             tycx,
             typed_ast,
             env_stack: vec![],
-            labels: vec![],
+            // labels: vec![],
             evaluated_globals: vec![],
         }
     }
@@ -66,41 +66,48 @@ pub struct InterpSess<'i> {
     pub(crate) typed_ast: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<(ModuleId, Env)>,
 
-    pub(crate) labels: Vec<Label>,
+    // pub(crate) labels: Vec<Label>,
 
     // globals to be evaluated when the VM starts
     pub(crate) evaluated_globals: Vec<(usize, CompiledCode)>,
 }
 
 // labels are used for patching call instruction after lowering
-pub(crate) struct Label {
-    instruction: *mut Instruction,
-}
+// pub(crate) struct Label {
+//     instruction: *mut Instruction,
+// }
 
 pub type Env = Scopes<BindingInfoId, i16>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
         let verbose = self.workspace.build_options.verbose;
-        let mut code = CompiledCode::new();
+        let mut start_code = CompiledCode::new();
 
         self.env_stack.push((module_id, Env::default()));
 
         // lower expression tree into instructions
-        expr.lower(self, &mut code, LowerContext { take_ptr: false });
-        code.push(Instruction::Halt);
+        expr.lower(self, &mut start_code, LowerContext { take_ptr: false });
+        start_code.push(Instruction::Halt);
 
-        let code = self.insert_init_instructions(code);
+        let start_code = self.insert_init_instructions(start_code);
 
         self.env_stack.pop();
 
         if verbose {
-            dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &code);
+            dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &start_code);
         }
 
         let mut vm = self.create_vm();
 
-        let result = vm.run_code(code);
+        let start_func = Func {
+            name: ustr("__vm_start"),
+            arg_types: vec![],
+            return_type: TyKind::Unit,
+            code: start_code,
+        };
+
+        let result = vm.run_func(start_func);
 
         Ok(result)
     }

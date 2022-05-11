@@ -1,75 +1,75 @@
-// use c.{ puts, printf }
-// use raylib_game_of_life.main as game_of_life
+use c.{ puts, printf }
+use raylib_game_of_life.main as game_of_life
 
-// foreign("./test_dll/test.lib") {
-//     let print_number = fn(cb: fn(n: i32) -> i32)
-//     let call_puts = fn(cb: fn(s: [*]u8) -> int)
-// }
-
-// type Person = { name: str, age: i64 }
-// type PersonTuple = (str, i64)
-
-// let main = fn() {
-//     let living_cells = game_of_life()
-//     printf("living cells = %d\n".data, living_cells)
-
-//     let mut array: [3]i64 = [4, 5, 6]
-//     let slice: []mut i64 = &array
-//     let slice2: []mut i64 = slice[1..]
-
-//     array[0] = 42
-//     slice[0] = 10
-//     slice2[0] = 15
-
-//     printf("array[0] = %d\tlen = %d\n".data, array[0], array.len)
-//     printf("slice[0] = %d\tlen = %d\n".data, slice[0], slice.len)
-//     printf("slice2[0] = %d\tlen = %d\n".data, slice2[0], slice2.len)
-
-//     printf("\n".data)
-
-//     for it in array {
-//         foo(.{ name: "Ron\0", age: it })
-//     }
-
-//     printf("\n".data)
-
-//     for it in slice {
-//         foo(.{ name: "Ron\0", age: it })
-//     }
-
-//     printf("\n".data)
-
-//     for it in slice2 {
-//         foo(.{ name: "Ron\0", age: it })
-//     }
-
-//     printf("\n".data)
-
-//     printf("Hello\n".data)
-//     print_number fn { it * 2 }
-//     call_puts(puts)
-//     bar(("Rewon\0", 46))
-//     printf("Goodbye\n".data)
-// }
-
-// let foo = fn({ name, age }: Person) {
-//     printf("name = %s, age = %d\n".data, name.data, age)
-// }
-
-// let bar = fn((name, age): PersonTuple) {
-//     printf("name = %s, age = %d\n".data, name.data, age)
-// }
-
-
-use c.{ printf }
-
-let n ={
-    let x = 5
-    5 * 10 - 1
+foreign("./test_dll/test.lib") {
+    let print_number = fn(cb: fn(n: i32) -> i32)
+    let call_puts = fn(cb: fn(s: [*]u8) -> int)
 }
+
+type Person = { name: str, age: i64 }
+type PersonTuple = (str, i64)
 
 let main = fn() {
-    printf("Hello %d\n".data, n)
+    let living_cells = game_of_life()
+    printf("living cells = %d\n".data, living_cells)
+
+    let mut array: [3]i64 = [4, 5, 6]
+    let slice: []mut i64 = &array
+    let slice2: []mut i64 = slice[1..]
+
+    array[0] = 42
+    slice[0] = 10
+    slice2[0] = 15
+
+    printf("array[0] = %d\tlen = %d\n".data, array[0], array.len)
+    printf("slice[0] = %d\tlen = %d\n".data, slice[0], slice.len)
+    printf("slice2[0] = %d\tlen = %d\n".data, slice2[0], slice2.len)
+
+    printf("\n".data)
+
+    for it in array {
+        foo(.{ name: "Ron\0", age: it })
+    }
+
+    printf("\n".data)
+
+    for it in slice {
+        foo(.{ name: "Ron\0", age: it })
+    }
+
+    printf("\n".data)
+
+    for it in slice2 {
+        foo(.{ name: "Ron\0", age: it })
+    }
+
+    printf("\n".data)
+
+    printf("Hello\n".data)
+    print_number fn { it * 2 }
+    call_puts(puts)
+    bar(("Rewon\0", 46))
+    printf("Goodbye\n".data)
 }
+
+let foo = fn({ name, age }: Person) {
+    printf("name = %s, age = %d\n".data, name.data, age)
+}
+
+let bar = fn((name, age): PersonTuple) {
+    printf("name = %s, age = %d\n".data, name.data, age)
+}
+
+
+// use c.{ printf }
+
+// let n ={
+//     let x = 5
+//     5 * 10 - 1
+// }
+
+// let main = fn() {
+//     printf("Hello %d\n".data, n)
+// }
 
 @run(main())

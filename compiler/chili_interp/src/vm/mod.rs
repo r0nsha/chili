@@ -2,15 +2,13 @@ use crate::{
     interp::Interp,
     vm::{
         byte_seq::{ByteSeq, PutValue},
-        instruction::{CompiledCode, Instruction},
+        instruction::Instruction,
         stack::Stack,
         value::{Array, Func, Pointer, Value},
     },
 };
-use chili_ast::ty::TyKind;
 use colored::Colorize;
-use std::fmt::Display;
-use ustr::ustr;
+use std::{fmt::Display, ptr};
 
 pub(crate) mod byte_seq;
 mod cast;
@@ -28,24 +26,30 @@ pub type Globals = Vec<Value>;
 
 #[derive(Debug, Clone)]
 pub(crate) struct StackFrame {
-    func: Func,
+    func: *const Func,
     stack_slot: usize,
-    inst_pointer: usize,
+    ip: usize,
 }
 
 impl StackFrame {
-    pub(crate) fn new(func: Func, slot: usize) -> Self {
+    pub(crate) fn new(func: *const Func, slot: usize) -> Self {
         Self {
             func,
             stack_slot: slot,
-            inst_pointer: 0,
+            ip: 0,
         }
+    }
+
+    #[inline]
+    pub(crate) fn func(&self) -> &Func {
+        debug_assert!(self.func != ptr::null());
+        unsafe { &*self.func }
     }
 }
 
 impl Display for StackFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<{:06}\t{}>", self.inst_pointer, self.func.name)
+        write!(f, "<{:06}\t{}>", self.ip, self.func().name)
     }
 }
 
@@ -70,7 +74,7 @@ macro_rules! binary_op {
             _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a.to_string() ,b.to_string())
         }
 
-        $vm.next_inst();
+        $vm.next();
     };
 }
 
@@ -96,7 +100,7 @@ macro_rules! comp_op {
             _ => panic!("invalid types in compare operation `{}` and `{}`", a.to_string() ,b.to_string())
         }
 
-        $vm.next_inst();
+        $vm.next();
     };
 }
 
@@ -107,7 +111,7 @@ macro_rules! logic_op {
 
         $vm.stack.push(Value::Bool(a.into_bool() $op b.into_bool()));
 
-        $vm.next_inst();
+        $vm.next();
     };
 }
 
@@ -115,6 +119,7 @@ pub(crate) struct VM<'vm> {
     pub(crate) interp: &'vm mut Interp,
     pub(crate) stack: Stack<Value, STACK_MAX>,
     pub(crate) frames: Stack<StackFrame, FRAMES_MAX>,
+    frame: *mut StackFrame,
     // pub(crate) bytecode: Bytecode<'vm>,
 }
 
@@ -124,42 +129,36 @@ impl<'vm> VM<'vm> {
             interp,
             stack: Stack::new(),
             frames: Stack::new(),
+            frame: ptr::null_mut(),
         }
     }
 
-    pub(crate) fn run_code(&'vm mut self, code: CompiledCode) -> Value {
-        self.run_func(Func {
-            name: ustr("__vm_start"),
-            arg_types: vec![],
-            return_type: TyKind::Unit,
-            code,
-        })
-    }
-
     pub(crate) fn run_func(&'vm mut self, func: Func) -> Value {
-        self.stack.push(Value::Func(func.clone()));
+        self.stack.push(Value::Func(func));
+        let func: *const Func = self.stack.last().as_func();
         self.push_frame(func);
         self.run_inner()
     }
 
     fn run_inner(&'vm mut self) -> Value {
         loop {
-            let inst = self.inst();
+            let frame = self.frame();
+            let inst = frame.func().code.instructions[frame.ip];
 
             self.trace(&inst, TraceLevel::None);
             // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {
                 Instruction::Noop => {
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Pop => {
                     self.stack.pop();
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::PushConst(addr) => {
                     self.stack.push(self.get_const(addr).clone());
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Add => {
                     binary_op!(self, +);
@@ -181,7 +180,7 @@ impl<'vm> VM<'vm> {
                         Value::Int(v) => self.stack.push(Value::Int(-v)),
                         value => panic!("invalid value {}", value.to_string()),
                     }
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Not => {
                     let result = match self.stack.pop() {
@@ -199,7 +198,7 @@ impl<'vm> VM<'vm> {
                         v => panic!("invalid value {}", v.to_string()),
                     };
                     self.stack.push(result);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Deref => {
                     match self.stack.pop() {
@@ -209,7 +208,7 @@ impl<'vm> VM<'vm> {
                         }
                         value => panic!("invalid value {}", value.to_string()),
                     }
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Eq => {
                     comp_op!(self, ==);
@@ -242,14 +241,14 @@ impl<'vm> VM<'vm> {
                     if self.stack.pop().into_bool() {
                         self.jmp(offset);
                     } else {
-                        self.next_inst();
+                        self.next();
                     }
                 }
                 Instruction::Jmpf(offset) => {
                     if !self.stack.pop().into_bool() {
                         self.jmp(offset);
                     } else {
-                        self.next_inst();
+                        self.next();
                     }
                 }
                 Instruction::Return => {
@@ -260,17 +259,18 @@ impl<'vm> VM<'vm> {
                         break return_value;
                     } else {
                         self.stack
-                            .truncate(frame.stack_slot - frame.func.arg_types.len());
+                            .truncate(frame.stack_slot - frame.func().arg_types.len());
+                        self.frame = self.frames.last_mut() as _;
                         self.stack.push(return_value);
-                        self.next_inst();
+                        self.next();
                     }
                 }
                 Instruction::Call(arg_count) => {
                     let value = self.stack.peek(0);
                     match value {
                         Value::Func(func) => {
-                            let func = func.clone();
-                            self.push_frame(func)
+                            let func: *const Func = func;
+                            self.push_frame(func);
                         }
                         Value::ForeignFunc(func) => {
                             let func = func.clone();
@@ -287,7 +287,7 @@ impl<'vm> VM<'vm> {
                             let result = unsafe { self.interp.ffi.call(vm_ptr, func, values) };
                             self.stack.push(result);
 
-                            self.next_inst();
+                            self.next();
                         }
                         _ => panic!("tried to call uncallable value `{}`", value.to_string()),
                     }
@@ -297,85 +297,85 @@ impl<'vm> VM<'vm> {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
                     }
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::GetGlobalPtr(slot) => {
                     match self.interp.globals.get_mut(slot as usize) {
                         Some(value) => self.stack.push(Value::Pointer(value.into())),
                         None => panic!("undefined global `{}`", slot),
                     }
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::SetGlobal(slot) => {
                     self.interp.globals[slot as usize] = self.stack.pop();
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Peek(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::PeekPtr(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::SetLocal(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Index => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index(value, index);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::IndexPtr => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index_ptr(value, index);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Offset => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.offset(value, index);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::ConstIndex(index) => {
                     let value = self.stack.pop();
                     self.index(value, index as usize);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::ConstIndexPtr(index) => {
                     let value = self.stack.pop();
                     self.index_ptr(value, index as usize);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Assign => {
                     let lvalue = self.stack.pop().into_pointer();
                     let rvalue = self.stack.pop();
                     unsafe { lvalue.write_value(rvalue) }
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Cast(cast) => {
                     self.cast_inst(cast);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::AggregateAlloc => {
                     self.stack.push(Value::unit());
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::AggregatePush => {
                     let value = self.stack.pop();
                     let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
                     aggregate.elements.push(value);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::ArrayAlloc(size) => {
                     let ty = self.stack.pop().into_type();
@@ -383,7 +383,7 @@ impl<'vm> VM<'vm> {
                         bytes: ByteSeq::new(size as usize),
                         ty,
                     }));
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::ArrayPut(pos) => {
                     let value = self.stack.pop();
@@ -392,7 +392,7 @@ impl<'vm> VM<'vm> {
                     let offset_bytes = array.bytes.offset_mut(pos as usize);
                     offset_bytes.put_value(&value);
 
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::ArrayFill(size) => {
                     let value = self.stack.pop();
@@ -402,17 +402,17 @@ impl<'vm> VM<'vm> {
                         array.bytes.put_value(&value);
                     }
 
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Copy(offset) => {
                     let value = self.stack.peek(offset as usize).clone();
                     self.stack.push(value);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Roll(offset) => {
                     let value = self.stack.take(offset as usize);
                     self.stack.push(value);
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Increment => {
                     let ptr = self.stack.pop().into_pointer();
@@ -431,7 +431,7 @@ impl<'vm> VM<'vm> {
                             _ => panic!("invalid pointer in increment {:?}", ptr),
                         }
                     }
-                    self.next_inst();
+                    self.next();
                 }
                 Instruction::Panic => {
                     // Note (Ron): the panic message is a slice, which is an aggregate in the VM
@@ -454,33 +454,36 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    pub(crate) fn push_frame(&mut self, func: Func) {
+    pub(crate) fn push_frame(&mut self, func: *const Func) {
+        debug_assert!(func != ptr::null());
+
         let stack_slot = self.stack.len() - 1;
-        for _ in 0..func.code.locals {
+
+        let locals = unsafe { &*func }.code.locals;
+        for _ in 0..locals {
             self.stack.push(Value::unit());
         }
+
         self.frames.push(StackFrame::new(func, stack_slot));
+
+        self.frame = self.frames.last_mut() as _;
     }
 
     #[inline]
     pub(crate) fn frame(&self) -> &StackFrame {
-        self.frames.peek(0)
+        debug_assert!(self.frame != ptr::null_mut());
+        unsafe { &*self.frame }
     }
 
     #[inline]
     pub(crate) fn frame_mut(&mut self) -> &mut StackFrame {
-        self.frames.peek_mut(0)
+        debug_assert!(self.frame != ptr::null_mut());
+        unsafe { &mut *self.frame }
     }
 
     #[inline]
-    pub(crate) fn inst(&self) -> Instruction {
-        let frame = self.frame();
-        frame.func.code.instructions[frame.inst_pointer]
-    }
-
-    #[inline]
-    pub(crate) fn next_inst(&mut self) {
-        self.frame_mut().inst_pointer += 1;
+    pub(crate) fn next(&mut self) {
+        self.frame_mut().ip += 1;
     }
 
     #[inline]
@@ -490,8 +493,8 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     pub(crate) fn jmp(&mut self, offset: i32) {
-        let new_inst_pointer = self.frame().inst_pointer as isize + offset as isize;
-        self.frame_mut().inst_pointer = new_inst_pointer as usize;
+        let new_inst_pointer = self.frame().ip as isize + offset as isize;
+        self.frame_mut().ip = new_inst_pointer as usize;
     }
 
     pub(crate) fn trace(&self, inst: &Instruction, level: TraceLevel) {
@@ -502,13 +505,13 @@ impl<'vm> VM<'vm> {
             TraceLevel::Minimal => {
                 println!(
                     "{:06}\t{:<20}{}",
-                    frame.inst_pointer,
+                    frame.ip,
                     inst.to_string().bold(),
                     format!("[stack items: {}]", self.stack.len()).bright_cyan()
                 );
             }
             TraceLevel::Full => {
-                println!("{:06}\t{}", frame.inst_pointer, inst.to_string().bold());
+                println!("{:06}\t{}", frame.ip, inst.to_string().bold());
 
                 print!("\t[");
 
@@ -520,8 +523,8 @@ impl<'vm> VM<'vm> {
                         if index == frame_slot {
                             // frame slot
                             value.to_string().bright_yellow()
-                        } else if index > frame_slot - frame.func.arg_types.len()
-                            && index <= frame_slot + frame.func.code.locals as usize
+                        } else if index > frame_slot - frame.func().arg_types.len()
+                            && index <= frame_slot + frame.func().code.locals as usize
                         {
                             // local value
                             value.to_string().bright_magenta()
