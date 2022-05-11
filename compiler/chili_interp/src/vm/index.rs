@@ -81,7 +81,7 @@ impl<'vm> VM<'vm> {
                     };
 
                     let raw = ptr.as_inner_raw();
-                    let offset = unsafe { raw.offset(index as isize) };
+                    let offset = unsafe { raw.add(index) };
 
                     self.stack.push(Value::Pointer(Pointer::from_kind_and_ptr(
                         ptr.kind(),
