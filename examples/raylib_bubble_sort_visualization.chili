@@ -15,7 +15,7 @@ pub let main = fn() {
 	}
 
 	InitWindow(width, height, "chili language - test - bubble sort visualization\0".data);
-	SetTargetFPS(60)
+	SetTargetFPS(120)
 
 	let mut n = 0
 	let mut len = values.len - 1
