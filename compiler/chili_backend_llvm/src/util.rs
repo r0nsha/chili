@@ -93,7 +93,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let data = unsafe {
             self.builder
-                .build_gep(data.into_pointer_value(), &[low], "slice_low_addr")
+                .build_in_bounds_gep(data.into_pointer_value(), &[low], "slice_low_addr")
         };
 
         let data_ptr = self.builder.build_struct_gep(ptr, 0, "slice_data").unwrap();
@@ -563,13 +563,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let access = unsafe {
             match ty {
-                TyKind::Array(..) => self.builder.build_gep(
+                TyKind::Array(..) => self.builder.build_in_bounds_gep(
                     agg,
                     &[index.get_type().const_zero(), index],
                     "array_subscript",
                 ),
                 TyKind::MultiPointer(..) | TyKind::Slice(..) => {
-                    self.builder.build_gep(agg, &[index], "subscript")
+                    self.builder.build_in_bounds_gep(agg, &[index], "subscript")
                 }
                 ty => unreachable!("{}", ty),
             }
