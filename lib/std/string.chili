@@ -3,10 +3,9 @@ use c.{
     calloc,
     realloc,
     free,
-    printf
+    printf,
+    exit
 }
-
-use process.exit
 
 pub type String = {
     data: [*mut]u8,

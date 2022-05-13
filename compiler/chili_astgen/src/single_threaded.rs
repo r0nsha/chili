@@ -60,7 +60,6 @@ impl<'a> AstGenerator<'a> {
         let source = std::fs::read_to_string(module_info.file_path.as_str())
             .unwrap_or_else(|_| panic!("failed to read `{}`", module_info.file_path));
 
-        // TODO: this should be behind a `verbose` flag
         self.total_lines += source.lines().count();
 
         let file_id = self
@@ -87,11 +86,6 @@ impl<'a> AstGenerator<'a> {
         //         .map(|t| t.kind.lexeme())
         //         .collect::<Vec<&str>>()
         // );
-
-        if tokens.is_empty() || tokens.first().unwrap().kind == TokenKind::Eof {
-            // The file is empty, we can just return
-            return;
-        }
 
         let current_dir = PathBuf::from(module_info.file_path.as_str())
             .parent()
