@@ -119,7 +119,7 @@ pub(crate) struct VM<'vm> {
     pub(crate) interp: &'vm mut Interp,
     pub(crate) stack: Stack<Value, STACK_MAX>,
     pub(crate) frames: Stack<StackFrame, FRAMES_MAX>,
-    frame: *mut StackFrame,
+    pub(crate) frame: *mut StackFrame,
     // pub(crate) bytecode: Bytecode<'vm>,
 }
 

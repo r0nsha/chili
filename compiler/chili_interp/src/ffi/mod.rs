@@ -7,6 +7,7 @@ use crate::{
     },
     IS_64BIT, WORD_SIZE,
 };
+use bumpalo::Bump;
 use chili_ast::ty::{align::AlignOf, size::SizeOf, *};
 use libffi::{
     low::{ffi_cif, CodePtr},
@@ -126,6 +127,7 @@ impl Function {
         let code_ptr = CodePtr::from_ptr(fun);
 
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
+        let bump = Bump::with_capacity(arg_values.len() * 2);
 
         for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
             let size = arg_type.size_of(WORD_SIZE);
@@ -162,12 +164,13 @@ impl Function {
                 Value::Func(func) => {
                     let function = Function::new(&func.arg_types, &func.return_type);
 
-                    let user_data = ClosureUserData { vm, func };
+                    let user_data = bump.alloc(ClosureUserData { vm, func });
 
-                    let closure = Closure::new(function.cif, closure_callback, &user_data);
+                    let closure =
+                        bump.alloc(Closure::new(function.cif, closure_callback, &user_data));
 
                     let code_ptr =
-                        closure.instantiate_code_ptr::<c_void>() as *const _ as *mut c_void;
+                        closure.instantiate_code_ptr::<c_void>() as *const c_void as *mut c_void;
 
                     raw_ptr!(code_ptr)
                 }
@@ -232,7 +235,9 @@ unsafe extern "C" fn closure_callback(
         }
     }
 
+    // emulate a return, popping the current frame, and setting the last one
     (&mut *userdata.vm).frames.pop();
+    (&mut *userdata.vm).frame = (&mut *userdata.vm).frames.last_mut() as _;
 
     match value {
         Value::I8(v) => *(result as *mut _ as *mut _) = v,

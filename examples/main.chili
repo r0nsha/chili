@@ -46,9 +46,9 @@ let main = fn() {
     printf("\n".data)
 
     printf("Hello\n".data)
-    // print_number fn { it * 2 }
-    // call_puts(puts)
-    // bar(("Rewon\0", 46))
+    print_number fn { it * 2 }
+    call_puts(puts)
+    bar(("Rewon\0", 46))
     printf("Goodbye\n".data)
 }
 
@@ -60,4 +60,4 @@ let bar = fn((name, age): PersonTuple) {
     printf("name = %s, age = %d\n".data, name.data, age)
 }
 
-// @run(main())
+@run(main())
