@@ -1,6 +1,6 @@
-[submodule "./vendor/libffi-rs"]
-path = ./vendor/libffi-rs
+[submodule "vendor/libffi-rs"]
+path = vendor/libffi-rs
 url = https://github.com/r0nsha/libffi-rs
-[submodule "./vendor/inkwell"]
-path = ./vendor/inkwell
+[submodule "vendor/inkwell"]
+path = vendor/inkwell
 url = https://github.com/r0nsha/inkwell
