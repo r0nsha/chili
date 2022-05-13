@@ -1403,7 +1403,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.gen_expr_list(state, deferred);
             self.builder.build_return(None);
         } else {
-            let value = value.unwrap_or(self.gen_unit());
+            let value = value.unwrap_or_else(|| self.gen_unit());
             let value = self.build_transmute(
                 state,
                 value,
