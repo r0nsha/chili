@@ -14,12 +14,10 @@ Cargo.lock
 *.o
 *.a
 *.log
-example/main.c
 *.ll
 *.pdb
 *.ilk
 *.lib
-vendor
 vm.out
 examples/**/*
 !examples/*.chili
