@@ -1,5 +1,5 @@
-use sys.windows.ExitProcess
+// use sys.windows.ExitProcess
 
-pub let exit = fn(exit_code: int) -> ! {
-    ExitProcess(exit_code)
-}
+// pub let exit = fn(exit_code: int) -> ! {
+//     ExitProcess(exit_code)
+// }

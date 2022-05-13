@@ -1,5 +1,4 @@
-use c.printf
-use process.exit
+use c.{ printf, exit }
 
 type PanicInfo = {
     program: str,
@@ -23,5 +22,6 @@ let default_panic_handler = fn(info: PanicInfo) -> ! {
         info.line,
         info.column
     );
+
     exit(1)
 }
