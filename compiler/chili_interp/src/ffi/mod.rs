@@ -13,7 +13,7 @@ use libffi::{
     low::{ffi_cif, CodePtr},
     middle::{Cif, Closure, Type},
 };
-use std::{collections::HashMap, ffi::c_void};
+use std::{collections::HashMap, ffi::c_void, path::Path};
 use ustr::{ustr, Ustr, UstrMap};
 
 macro_rules! raw_ptr {
@@ -27,6 +27,29 @@ pub type RawPointer = *mut c_void;
 pub(crate) struct Ffi {
     libs: UstrMap<libloading::Library>,
     symbols: HashMap<(Ustr, Ustr), *mut c_void>,
+    libc: Ustr,
+}
+
+fn find_libc() -> String {
+    let libc_file_name = match std::env::consts::OS {
+        "windows" => return "msvcrt".to_string(),
+        _ => "libc.so.6",
+    };
+
+    fn exists(path: String) -> Option<String> {
+        if Path::new(&path).exists() {
+            Some(path)
+        } else {
+            None
+        }
+    }
+
+    exists(format!("/lib/{}", libc_file_name))
+        .or_else(|| exists(format!("/usr/lib/{}", libc_file_name)))
+        .or_else(|| exists(format!("/lib/x86_64-linux-gnu/{}", libc_file_name)))
+        .unwrap_or_else(|| {
+            panic!("couldn't find libc on the current machine. this is most likely an ICE")
+        })
 }
 
 impl Ffi {
@@ -34,13 +57,14 @@ impl Ffi {
         Self {
             libs: Default::default(),
             symbols: Default::default(),
+            libc: ustr(&find_libc()),
         }
     }
 
     pub(crate) unsafe fn load_symbol(&mut self, lib_path: Ustr, name: Ustr) -> &mut *mut c_void {
         self.symbols.entry((lib_path, name)).or_insert_with(|| {
             let lib_name = match lib_path.as_str() {
-                "c" | "C" => ustr("msvcrt"),
+                "c" | "C" => self.libc,
                 _ => lib_path,
             };
 

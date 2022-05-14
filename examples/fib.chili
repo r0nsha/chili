@@ -9,7 +9,7 @@ let fib = fn(n) {
 }
 
 let main = fn() {
-    printf("result = %d\n".data, fib(24))
+    printf("result = %d\n".data, fib(10))
 }
 
 @run(main())

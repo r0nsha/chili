@@ -5,7 +5,7 @@ use common::{
     build_options::{BuildMode, BuildOptions},
     target::TargetPlatform,
 };
-use std::path::Path;
+use std::{env, path::Path};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -48,6 +48,17 @@ struct Args {
     /// Skip the code generation phase
     #[clap(long)]
     no_codegen: bool,
+
+    /// Specify the target platform. Important: This flag is a placeholder until workspace-based configuration is implemented
+    #[clap(arg_enum, default_value_t = Target::Current)]
+    target: Target,
+}
+
+#[derive(clap::ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
+enum Target {
+    Current,
+    Windows,
+    Linux,
 }
 
 pub fn start_cli() {
@@ -62,7 +73,11 @@ pub fn start_cli() {
         Ok(file) => {
             let build_options = BuildOptions {
                 source_file: file.to_string(),
-                target_platform: TargetPlatform::WindowsAmd64,
+                target_platform: match args.target {
+                    Target::Current => get_current_target_platform(),
+                    Target::Windows => TargetPlatform::WindowsAmd64,
+                    Target::Linux => TargetPlatform::LinuxAmd64,
+                },
                 build_mode: if args.release {
                     BuildMode::Release
                 } else {
@@ -77,6 +92,17 @@ pub fn start_cli() {
             start_workspace(build_options);
         }
         Err(e) => print_err(&e),
+    }
+}
+
+fn get_current_target_platform() -> TargetPlatform {
+    match env::consts::OS {
+        "linux" => TargetPlatform::LinuxAmd64,
+        "windows" => TargetPlatform::WindowsAmd64,
+        os => {
+            print_err(&format!("targeting unsupported platform: {}", os));
+            std::process::exit(1);
+        }
     }
 }
 
