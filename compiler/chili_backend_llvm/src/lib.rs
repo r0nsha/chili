@@ -13,7 +13,11 @@ mod util;
 use chili_ast::{ast, workspace::Workspace};
 use chili_infer::ty_ctx::TyCtx;
 use codegen::Codegen;
-use common::{build_options::BuildOptions, target::TargetPlatform, time};
+use common::{
+    build_options::BuildOptions,
+    target::{Arch, TargetMetrics},
+    time,
+};
 use execute::Execute;
 use inkwell::{
     context::Context,
@@ -45,7 +49,9 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
     );
     let builder = context.create_builder();
 
-    let target_machine = get_target_machine();
+    let target_metrics = workspace.build_options.target_platform.metrics();
+
+    let target_machine = get_target_machine(&target_metrics);
     module.set_data_layout(&target_machine.get_target_data().get_data_layout());
     module.set_triple(&target_machine.get_triple());
 
@@ -56,7 +62,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
         workspace,
         tycx,
         ast,
-        target_metrics: workspace.build_options.target_platform.metrics(),
+        target_metrics,
         context: &context,
         module: &module,
         fpm: &fpm,
@@ -127,12 +133,15 @@ fn init_pass_manager<'a>(fpm: &PassManager<FunctionValue<'a>>) {
     fpm.initialize();
 }
 
-fn get_target_machine() -> TargetMachine {
-    // TODO: match on target platform's `arch` field
-    Target::initialize_x86(&InitializationConfig::default());
+fn get_target_machine(target_metrics: &TargetMetrics) -> TargetMachine {
+    match &target_metrics.arch {
+        Arch::Amd64 | Arch::_386 => Target::initialize_x86(&InitializationConfig::default()),
+        Arch::Arm64 => Target::initialize_aarch64(&InitializationConfig::default()),
+        Arch::Wasm32 | Arch::Wasm64 => {
+            Target::initialize_webassembly(&InitializationConfig::default())
+        }
+    }
 
-    // TODO: get triple from build context
-    let target_metrics = TargetPlatform::WindowsAmd64.metrics();
     let triple = TargetTriple::create(target_metrics.target_triplet);
     let target = Target::from_triple(&triple).unwrap();
     let host_cpu = TargetMachine::get_host_cpu_name();
@@ -143,7 +152,7 @@ fn get_target_machine() -> TargetMachine {
             &triple,
             host_cpu.to_str().unwrap(),
             features.to_str().unwrap(),
-            OptimizationLevel::Default,
+            OptimizationLevel::Default, // TODO: get optimization level from build options
             RelocMode::Default,
             CodeModel::Default,
         )
