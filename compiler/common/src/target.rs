@@ -16,6 +16,47 @@ pub enum TargetPlatform {
 }
 
 impl TargetPlatform {
+    pub fn is_windows(&self) -> bool {
+        matches!(
+            self,
+            TargetPlatform::Windows386 | TargetPlatform::WindowsAmd64
+        )
+    }
+
+    pub fn is_linux(&self) -> bool {
+        matches!(
+            self,
+            TargetPlatform::Linux386 | TargetPlatform::LinuxAmd64 | TargetPlatform::LinuxArm64
+        )
+    }
+
+    pub fn is_darwin(&self) -> bool {
+        matches!(
+            self,
+            TargetPlatform::DarwinAmd64 | TargetPlatform::DarwinArm64
+        )
+    }
+
+    pub fn is_free_bsd(&self) -> bool {
+        matches!(
+            self,
+            TargetPlatform::FreeBSD386 | TargetPlatform::FreeBSDAmd64
+        )
+    }
+
+    pub fn is_essence(&self) -> bool {
+        matches!(self, TargetPlatform::EssenceAmd64)
+    }
+
+    pub fn is_wasm(&self) -> bool {
+        matches!(
+            self,
+            TargetPlatform::FreestandingWasm32
+                | TargetPlatform::JsWasm32
+                | TargetPlatform::WasiWasm32
+        )
+    }
+
     pub fn metrics(&self) -> TargetMetrics {
         match self {
             TargetPlatform::Windows386 => TargetMetrics {

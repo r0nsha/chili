@@ -108,12 +108,6 @@ impl<'p> Parser<'p> {
         let lib_token = expect!(self, Str(_), "str")?;
         let lib = lib_token.symbol();
 
-        let lib = if lib.ends_with(".lib") {
-            lib
-        } else {
-            ustr(&format!("{}.lib", lib))
-        };
-
         expect!(self, CloseParen, ")")?;
 
         Ok(lib)

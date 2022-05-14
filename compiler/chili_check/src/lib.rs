@@ -403,15 +403,16 @@ impl Check for ast::Binding {
     ) -> CheckResult {
         self.module_id = env.module_id();
 
-        // Collect foreign libraries to be linked later
         if let Some(lib) = self.lib_name {
-            sess.workspace
-                .foreign_libraries
-                .insert(ast::ForeignLibrary::try_from_str(
-                    &lib,
-                    &env.module_info().file_path,
-                    self.pattern.span(),
-                )?);
+            // Collect foreign library to be linked later
+            let lib = ast::ForeignLibrary::try_from_str(
+                &sess.workspace.build_options.target_platform,
+                &lib,
+                &env.module_info().file_path,
+                self.pattern.span(),
+            )?;
+
+            sess.workspace.foreign_libraries.insert(lib);
         }
 
         self.ty = if let Some(ty_expr) = &mut self.ty_expr {

@@ -8,6 +8,7 @@ use crate::{
 use chili_error::DiagnosticResult;
 use chili_span::{Span, Spanned};
 use chili_token::TokenKind;
+use common::target::TargetPlatform;
 use std::{
     collections::HashMap,
     fmt::{self, Display},
@@ -374,17 +375,34 @@ pub enum ForeignLibrary {
 }
 
 impl ForeignLibrary {
-    pub fn try_from_str(string: &str, relative_to: &str, span: Span) -> DiagnosticResult<Self> {
+    pub fn try_from_str(
+        target_platform: &TargetPlatform,
+        from: &str,
+        relative_to: &str,
+        span: Span,
+    ) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 
-        if string.starts_with(SYSTEM_PREFIX) {
-            let split: Vec<&str> = string.split(SYSTEM_PREFIX).collect();
-            Ok(ForeignLibrary::System(split[1].to_string()))
+        if from.starts_with(SYSTEM_PREFIX) {
+            let split: Vec<&str> = from.split(SYSTEM_PREFIX).collect();
+
+            let lib = split[1].to_string();
+
+            let lib = if target_platform.is_windows() {
+                if lib.ends_with(".lib") {
+                    lib
+                } else {
+                    format!("{}.lib", lib)
+                }
+            } else {
+                lib
+            };
+
+            Ok(ForeignLibrary::System(lib))
         } else {
             let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
 
-            let path_string =
-                try_resolve_relative_path(Path::new(string), relative_to, Some(span))?;
+            let path_string = try_resolve_relative_path(Path::new(from), relative_to, Some(span))?;
 
             let path = Path::new(&path_string);
 
@@ -396,8 +414,12 @@ impl ForeignLibrary {
         }
     }
 
-    pub fn from_str(string: &str, relative_to: &str) -> Option<Self> {
-        Self::try_from_str(string, relative_to, Span::unknown()).ok()
+    pub fn from_str(
+        target_platform: &TargetPlatform,
+        from: &str,
+        relative_to: &str,
+    ) -> Option<Self> {
+        Self::try_from_str(target_platform, from, relative_to, Span::unknown()).ok()
     }
 
     pub fn path(&self) -> String {

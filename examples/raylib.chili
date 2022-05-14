@@ -1,4 +1,4 @@
-foreign("./lib/raylib") {
+foreign("./lib/raylib.so") {
     pub let InitWindow = fn(width: i32, height: i32, title: [*]u8)
     pub let CloseWindow = fn()
     pub let WindowShouldClose = fn() -> bool
