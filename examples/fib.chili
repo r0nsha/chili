@@ -1,7 +1,7 @@
 use c.printf
 
-let fib = fn(n) {
-    if n < 2 {
+let fib = fn(n: u64) {
+    if n <= 1 {
         n
     } else {
         fib(n - 1) + fib(n - 2)
@@ -9,7 +9,7 @@ let fib = fn(n) {
 }
 
 let main = fn() {
-    printf("result = %d\n".data, fib(10))
+    printf("result = %lu\n".data, fib(24))
 }
 
-@run(main())
+// @run(main())
