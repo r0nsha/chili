@@ -1,3 +1,4 @@
+mod amd64_system_v;
 mod amd64_win64;
 mod i386;
 
@@ -24,9 +25,9 @@ pub fn get_abi_compliant_fn<'ctx>(
     match &target_metrics.arch {
         Arch::Amd64 => match &target_metrics.os {
             Os::Windows => amd64_win64::get_fn(info, fn_ty),
-            os => unimplemented!("got '{}'", os.name()),
+            _ => amd64_system_v::get_fn(info, fn_ty),
         },
-        arch => unimplemented!("got '{}'", arch.name()),
+        arch => unimplemented!("{}", arch.name()),
     }
 }
 
@@ -151,7 +152,7 @@ impl<'ctx> AbiTy<'ctx> {
         }
     }
 
-    pub fn indirect_byval(context: Context, ty: BasicTypeEnum<'ctx>, word_size: usize) -> Self {
+    pub fn indirect_byval(context: &Context, ty: BasicTypeEnum<'ctx>, word_size: usize) -> Self {
         Self {
             ty,
             kind: AbiTyKind::Indirect,
