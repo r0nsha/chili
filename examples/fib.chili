@@ -12,4 +12,4 @@ let main = fn() {
     printf("result = %d\n".data, fib(24))
 }
 
-@run(main())
+// @run(main())

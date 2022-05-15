@@ -97,6 +97,10 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         print_stats(stats, all_sw.unwrap().elapsed().as_millis());
     }
 
+    if !workspace.build_options.no_codegen && workspace.build_options.run {
+        Command::new(executable_path).spawn().unwrap();
+    }
+
     workspace
 }
 
