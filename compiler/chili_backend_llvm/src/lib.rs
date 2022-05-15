@@ -36,7 +36,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
+pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> String {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -89,9 +89,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
         &workspace.foreign_libraries,
     );
 
-    if workspace.build_options.run {
-        Command::new(executable_path).spawn().unwrap();
-    }
+    executable_path
 }
 
 fn init_pass_manager<'a>(fpm: &PassManager<FunctionValue<'a>>, is_release: bool) {
