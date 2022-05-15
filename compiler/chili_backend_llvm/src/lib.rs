@@ -56,7 +56,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
     module.set_triple(&target_machine.get_triple());
 
     let fpm = PassManager::create(&module);
-    init_pass_manager(&fpm);
+    init_pass_manager(&fpm, workspace.build_options.build_mode.is_release());
 
     let mut cg = Codegen {
         workspace,
@@ -94,20 +94,21 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) {
     }
 }
 
-fn init_pass_manager<'a>(fpm: &PassManager<FunctionValue<'a>>) {
-    // fpm.add_instruction_combining_pass();
-    // fpm.add_reassociate_pass();
-    // fpm.add_cfg_simplification_pass();
-    // fpm.add_basic_alias_analysis_pass();
-    // fpm.add_promote_memory_to_register_pass();
-    // fpm.add_scalar_repl_aggregates_pass_ssa();
-    // fpm.add_reassociate_pass();
-    // fpm.add_tail_call_elimination_pass();
-    // fpm.add_gvn_pass();
-    // fpm.add_loop_deletion_pass();
-    // fpm.add_loop_rotate_pass();
-    // fpm.add_loop_vectorize_pass();
-
+fn init_pass_manager<'a>(fpm: &PassManager<FunctionValue<'a>>, is_release: bool) {
+    if is_release {
+        fpm.add_instruction_combining_pass();
+        fpm.add_reassociate_pass();
+        fpm.add_cfg_simplification_pass();
+        fpm.add_basic_alias_analysis_pass();
+        fpm.add_promote_memory_to_register_pass();
+        fpm.add_scalar_repl_aggregates_pass_ssa();
+        fpm.add_reassociate_pass();
+        fpm.add_tail_call_elimination_pass();
+        fpm.add_gvn_pass();
+        fpm.add_loop_deletion_pass();
+        fpm.add_loop_rotate_pass();
+        fpm.add_loop_vectorize_pass();
+    }
     // fpm.add_promote_memory_to_register_pass();
     // fpm.add_global_dce_pass();
     // fpm.add_tail_call_elimination_pass();
