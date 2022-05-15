@@ -375,29 +375,12 @@ pub enum ForeignLibrary {
 }
 
 impl ForeignLibrary {
-    pub fn try_from_str(
-        target_platform: &TargetPlatform,
-        from: &str,
-        relative_to: &str,
-        span: Span,
-    ) -> DiagnosticResult<Self> {
+    pub fn try_from_str(from: &str, relative_to: &str, span: Span) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 
         if from.starts_with(SYSTEM_PREFIX) {
             let split: Vec<&str> = from.split(SYSTEM_PREFIX).collect();
-
             let lib = split[1].to_string();
-
-            let lib = if target_platform.is_windows() {
-                if lib.ends_with(".lib") {
-                    lib
-                } else {
-                    format!("{}.lib", lib)
-                }
-            } else {
-                lib
-            };
-
             Ok(ForeignLibrary::System(lib))
         } else {
             let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
@@ -414,12 +397,8 @@ impl ForeignLibrary {
         }
     }
 
-    pub fn from_str(
-        target_platform: &TargetPlatform,
-        from: &str,
-        relative_to: &str,
-    ) -> Option<Self> {
-        Self::try_from_str(target_platform, from, relative_to, Span::unknown()).ok()
+    pub fn from_str(from: &str, relative_to: &str) -> Option<Self> {
+        Self::try_from_str(from, relative_to, Span::unknown()).ok()
     }
 
     pub fn path(&self) -> String {

@@ -541,18 +541,12 @@ impl Lower for ast::FnSig {
                 .unwrap()
                 .file_path;
 
-            let lib_path = ast::ForeignLibrary::from_str(
-                &sess.workspace.build_options.target_platform,
-                &lib_name.to_string(),
-                &module_path,
-            )
-            .unwrap()
-            .path();
-
-            let lib_path = lib_path.trim_end_matches(".lib");
+            let lib_path = ast::ForeignLibrary::from_str(&lib_name.to_string(), &module_path)
+                .unwrap()
+                .path();
 
             let foreign_func = ForeignFunc {
-                lib_path: ustr(lib_path),
+                lib_path: ustr(&lib_path),
                 name: self.name,
                 param_tys: func_ty.params,
                 return_ty: *func_ty.ret,

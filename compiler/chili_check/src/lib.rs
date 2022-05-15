@@ -406,7 +406,6 @@ impl Check for ast::Binding {
         if let Some(lib) = self.lib_name {
             // Collect foreign library to be linked later
             let lib = ast::ForeignLibrary::try_from_str(
-                &sess.workspace.build_options.target_platform,
                 &lib,
                 &env.module_info().file_path,
                 self.pattern.span(),

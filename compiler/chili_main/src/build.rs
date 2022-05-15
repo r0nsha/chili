@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use chili_ast::workspace::Workspace;
 use chili_astgen::{AstGenerationMode, AstGenerationStats};
 use chili_error::diagnostic::Diagnostic;
@@ -89,16 +91,20 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 
     // Code generation
-    if !workspace.build_options.no_codegen {
-        chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast);
-    }
+    let executable_path = if !workspace.build_options.no_codegen {
+        Some(chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast))
+    } else {
+        None
+    };
 
     if workspace.build_options.verbose {
         print_stats(stats, all_sw.unwrap().elapsed().as_millis());
     }
 
-    if !workspace.build_options.no_codegen && workspace.build_options.run {
-        Command::new(executable_path).spawn().unwrap();
+    if workspace.build_options.run {
+        if let Some(executable_path) = executable_path {
+            Command::new(executable_path).spawn().unwrap();
+        }
     }
 
     workspace

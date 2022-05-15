@@ -167,6 +167,7 @@ impl TargetPlatform {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct TargetMetrics {
     pub os: Os,
     pub arch: Arch,
@@ -176,6 +177,7 @@ pub struct TargetMetrics {
     pub target_data_layout: &'static str,
 }
 
+#[derive(Clone, Copy)]
 pub enum Os {
     Windows,
     Darwin,
@@ -202,6 +204,7 @@ impl Os {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Arch {
     Amd64,
     _386,

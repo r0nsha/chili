@@ -15,7 +15,7 @@ use chili_infer::ty_ctx::TyCtx;
 use codegen::Codegen;
 use common::{
     build_options::BuildOptions,
-    target::{Arch, TargetMetrics},
+    target::{Arch, Os, TargetMetrics},
     time,
 };
 use execute::Execute;
@@ -31,7 +31,7 @@ use inkwell::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
 };
 use ustr::UstrMap;
@@ -62,7 +62,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> 
         workspace,
         tycx,
         ast,
-        target_metrics,
+        target_metrics: target_metrics.clone(),
         context: &context,
         module: &module,
         fpm: &fpm,
@@ -85,6 +85,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> 
     let executable_path = build_executable(
         &workspace.build_options,
         &target_machine,
+        &target_metrics,
         &module,
         &workspace.foreign_libraries,
     );
@@ -165,30 +166,10 @@ fn dump_ir(module: &Module, path: &Path) {
 fn build_executable(
     build_options: &BuildOptions,
     target_machine: &TargetMachine,
+    target_metrics: &TargetMetrics,
     module: &Module,
     foreign_libraries: &HashSet<ast::ForeignLibrary>,
 ) -> String {
-    let mut lib_paths = vec![];
-    let mut libs = vec![];
-
-    for lib in foreign_libraries.iter() {
-        match lib {
-            ast::ForeignLibrary::System(lib_name) => {
-                if lib_name != "c.lib" {
-                    libs.push(lib_name)
-                }
-            }
-            ast::ForeignLibrary::Path {
-                lib_dir,
-                lib_path: _,
-                lib_name,
-            } => {
-                lib_paths.push(lib_dir);
-                libs.push(lib_name);
-            }
-        }
-    }
-
     let source_path = build_options.source_path();
 
     let object_file = source_path.with_extension("obj");
@@ -201,30 +182,122 @@ fn build_executable(
     };
 
     time! { build_options.verbose, "link",
+        link(target_metrics, &executable_file, &object_file,&foreign_libraries,)
+    };
+
+    executable_file.to_str().unwrap().to_string()
+}
+
+fn link(
+    target_metrics: &TargetMetrics,
+    executable_file: &PathBuf,
+    object_file: &PathBuf,
+    foreign_libraries: &HashSet<ast::ForeignLibrary>,
+) {
+    let link_flags = match target_metrics.arch {
+        Arch::Amd64 => match target_metrics.os {
+            Os::Windows => vec!["/machine:x64"],
+            Os::Linux | Os::FreeBSD => vec!["-arch x86-64"],
+            _ => vec![],
+        },
+        Arch::_386 => match target_metrics.os {
+            Os::Windows => vec!["/machine:x86"],
+            Os::Darwin => panic!("unsupported architecture"), // TODO: this needs to be a proper diagnostic
+            Os::Linux | Os::FreeBSD => vec!["-arch x86"],
+            _ => vec![],
+        },
+        Arch::Arm64 => match target_metrics.os {
+            Os::Darwin => vec!["-arch arm64"],
+            Os::Linux => vec!["-arch aarch64"],
+            _ => vec![],
+        },
+        Arch::Wasm32 | Arch::Wasm64 => {
+            let mut link_flags = vec!["--allow-undefined"];
+
+            if matches!(target_metrics.arch, Arch::Wasm64) {
+                link_flags.push("-mwas64");
+            }
+
+            if matches!(target_metrics.os, Os::Freestanding) {
+                link_flags.push("--no-entry");
+            }
+
+            link_flags
+        }
+    };
+
+    if cfg!(windows) {
+        let mut lib_paths = vec![];
+        let mut libs = vec![];
+
+        for lib in foreign_libraries.iter() {
+            match lib {
+                ast::ForeignLibrary::System(lib_name) => {
+                    // TODO: redundant?
+                    // if lib_name != "c" {
+                    libs.push(lib_name)
+                    // }
+                }
+                ast::ForeignLibrary::Path {
+                    lib_dir,
+                    lib_path: _,
+                    lib_name,
+                } => {
+                    lib_paths.push(lib_dir);
+                    libs.push(lib_name);
+                }
+            }
+        }
+
         Command::new("lld-link")
             .arg(format!("/out:{}", executable_file.to_str().unwrap()))
             .arg("/entry:mainCRTStartup")
             .arg("/defaultlib:libcmt")
-            // .arg("/defaultlib:oldnames")
-            // .arg("/nodefaultlib")
             .arg("/nologo")
             .arg("/incremental:no")
             .arg("/opt:ref")
             .arg("/threads:8")
             .arg("/subsystem:CONSOLE")
-            .arg("/machine:x64")
-            .arg("/libpath:C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Tools\\Llvm\\x64\\lib\\clang\\12.0.0\\lib\\windows")
-            .arg("/libpath:C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Tools\\MSVC\\14.29.30133\\lib\\x64")
-            .arg("/libpath:C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64")
-            .arg("/libpath:C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64")
+            // TODO: these paths are hardcoded. i couldn't figure out how to find the appropriate libraries dynamically :/
+            // .arg("/libpath:C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Tools\\Llvm\\x64\\lib\\clang\\12.0.0\\lib\\windows")
+            // .arg("/libpath:C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Tools\\MSVC\\14.29.30133\\lib\\x64")
+            // .arg("/libpath:C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64")
+            // .arg("/libpath:C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64")
             .args(lib_paths.iter().map(|path| format!("/libpath:{}", path)))
             .arg(object_file.to_str().unwrap())
             .args(libs)
+            .args(link_flags)
             .execute_output()
-            .unwrap()
-    };
+            .unwrap();
+    } else {
+        let libs: Vec<String> = foreign_libraries
+            .iter()
+            .map(|lib| match lib {
+                ast::ForeignLibrary::System(lib_name) => {
+                    // TODO: redundant?
+                    // if lib_name != "c" {
+                    format!("-l{}", lib_name)
+                    // }
+                }
+                ast::ForeignLibrary::Path {
+                    lib_dir: _,
+                    lib_path,
+                    lib_name: _,
+                } => format!("-l:{}", lib_path),
+            })
+            .collect();
 
-    executable_file.to_str().unwrap().to_string()
+        Command::new("clang")
+            .arg("-Wno-unused-command-line-argument")
+            .arg(object_file.to_str().unwrap())
+            .arg(executable_file.to_str().unwrap())
+            .arg("-lc")
+            .arg("-lm")
+            .args(libs)
+            .args(link_flags)
+            .execute_output()
+            .unwrap();
+    }
 }
 
 #[allow(dead_code)]
