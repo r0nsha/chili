@@ -1,8 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
-
 use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
-use ustr::{Ustr, UstrMap};
+use std::collections::BTreeMap;
+use ustr::UstrMap;
 
 pub trait NormalizeTy {
     fn normalize(&self, tycx: &TyCtx) -> TyKind;

@@ -137,7 +137,7 @@ impl<'p> Parser<'p> {
             self.skip_trailing_semicolons();
         }
 
-        return self.make_result(ast);
+        self.make_result(ast)
     }
 
     fn make_result(&self, ast: Ast) -> ParserResult {

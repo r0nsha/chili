@@ -5,7 +5,7 @@ use chili_ast::{
     workspace::{ModuleInfo, Workspace},
 };
 use chili_parse::Parser;
-use chili_token::{lexer::Lexer, TokenKind};
+use chili_token::lexer::Lexer;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},

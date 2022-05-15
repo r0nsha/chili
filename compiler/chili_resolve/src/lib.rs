@@ -1,7 +1,7 @@
 mod import;
 
 use chili_ast::{ast::Ast, workspace::Workspace};
-use chili_error::{diagnostic::Diagnostic, SyntaxError};
+use chili_error::SyntaxError;
 use chili_span::Span;
 use import::{collect_module_exports, resolve_imports};
 use ustr::{Ustr, UstrMap};
@@ -17,7 +17,7 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
         }
     }
 
-    collect_module_exports(&asts, &mut workspace.exports);
+    collect_module_exports(asts, &mut workspace.exports);
 
     // Assign module ids to all imports
     for ast in asts.iter_mut() {

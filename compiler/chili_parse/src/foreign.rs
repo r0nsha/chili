@@ -6,7 +6,7 @@ use chili_ast::{
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
 impl<'p> Parser<'p> {
     pub(crate) fn parse_foreign_block(&mut self) -> DiagnosticResult<Vec<Binding>> {
