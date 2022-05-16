@@ -282,14 +282,19 @@ fn link(
             .iter()
             .map(|lib| match lib {
                 ast::ForeignLibrary::System(lib_name) => {
-                    format!("-l{}", lib_name)
+                    if !lib_name.eq_ignore_ascii_case("c") {
+                        Some(format!("-l{}", lib_name))
+                    } else {
+                        None
+                    }
                 }
                 ast::ForeignLibrary::Path {
                     lib_dir: _,
                     lib_path,
                     lib_name: _,
-                } => format!("-l:{}", lib_path),
+                } => Some(format!("-l:{}", lib_path)),
             })
+            .flatten()
             .collect();
 
         Command::new("clang")
