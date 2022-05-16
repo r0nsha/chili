@@ -172,8 +172,17 @@ fn build_executable(
 ) -> String {
     let source_path = build_options.source_path();
 
-    let object_file = source_path.with_extension("obj");
-    let executable_file = source_path.with_extension("exe");
+    let object_file = if target_metrics.os == Os::Windows {
+        source_path.with_extension("obj")
+    } else {
+        source_path.with_extension("o")
+    };
+
+    let executable_file = if target_metrics.os == Os::Windows {
+        source_path.with_extension("exe")
+    } else {
+        source_path.with_extension("")
+    };
 
     time! { build_options.verbose, "write obj",
         target_machine
@@ -232,12 +241,7 @@ fn link(
 
         for lib in foreign_libraries.iter() {
             match lib {
-                ast::ForeignLibrary::System(lib_name) => {
-                    // TODO: redundant?
-                    // if lib_name != "c" {
-                    libs.push(lib_name)
-                    // }
-                }
+                ast::ForeignLibrary::System(lib_name) => libs.push(lib_name),
                 ast::ForeignLibrary::Path {
                     lib_dir,
                     lib_path: _,
@@ -274,10 +278,7 @@ fn link(
             .iter()
             .map(|lib| match lib {
                 ast::ForeignLibrary::System(lib_name) => {
-                    // TODO: redundant?
-                    // if lib_name != "c" {
                     format!("-l{}", lib_name)
-                    // }
                 }
                 ast::ForeignLibrary::Path {
                     lib_dir: _,
@@ -290,7 +291,7 @@ fn link(
         Command::new("clang")
             .arg("-Wno-unused-command-line-argument")
             .arg(object_file.to_str().unwrap())
-            .arg(executable_file.to_str().unwrap())
+            .arg(format!("-o{}", executable_file.to_str().unwrap()))
             .arg("-lc")
             .arg("-lm")
             .args(libs)

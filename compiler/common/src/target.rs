@@ -167,7 +167,7 @@ impl TargetPlatform {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct TargetMetrics {
     pub os: Os,
     pub arch: Arch,
@@ -177,7 +177,7 @@ pub struct TargetMetrics {
     pub target_data_layout: &'static str,
 }
 
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Os {
     Windows,
     Darwin,
@@ -190,7 +190,7 @@ pub enum Os {
 }
 
 impl Os {
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'static str {
         match self {
             Os::Windows => "windows",
             Os::Darwin => "darwin",
@@ -204,7 +204,7 @@ impl Os {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Arch {
     Amd64,
     _386,
@@ -214,7 +214,7 @@ pub enum Arch {
 }
 
 impl Arch {
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'static str {
         match self {
             Arch::Amd64 => "amd64",
             Arch::_386 => "386",
