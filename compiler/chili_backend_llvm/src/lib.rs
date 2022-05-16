@@ -298,6 +298,7 @@ fn link(
             .arg(format!("-o{}", executable_file.to_str().unwrap()))
             .arg("-lc")
             .arg("-lm")
+            .arg("-no-pie")
             .args(libs)
             .args(link_flags)
             .execute_output()
