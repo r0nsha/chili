@@ -99,19 +99,14 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Structs
 - [x] Tuples
 - [x] Clean up examples folder
-- [ ] Compiler refactor
-  - [ ] Allow circular dependencies
-  - [ ] Whole-program type inference
-- [ ] Allow both Nominal and Structural typing
-- [ ] Improve error messages
-  - [ ] Recoverable lexer, parser and checker
-  - [ ] Friendlier errors
-- [ ] Compile time execution
-  - [ ] Bytecode interpreter (no FFI)
-  - [ ] Build options (Workspaces)
-  - [ ] (Maybe?) Support FFI for bytecode interpreter
-- [ ] Parametric polymorphism - supporting both types and constant values
+- [X] Compiler refactor
+  - [X] Allow circular dependencies
+  - [X] Whole-program type inference
+- [X] Compile time execution
+  - [X] Bytecode interpreter w/ FFI
+- [ ] Compile-time execution based build configuration
 - [ ] Attributes
+- [ ] Parametric polymorphism - supporting both types and constant values
 - [ ] Move builtin functions to `std` - remove `@` prefixed builtins
 - [ ] Remove many-item (indexable) pointers
 - [ ] Tagged unions (enums)
