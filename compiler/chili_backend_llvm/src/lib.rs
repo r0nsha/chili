@@ -241,7 +241,11 @@ fn link(
 
         for lib in foreign_libraries.iter() {
             match lib {
-                ast::ForeignLibrary::System(lib_name) => libs.push(lib_name),
+                ast::ForeignLibrary::System(lib_name) => {
+                    if !lib_name.eq_ignore_ascii_case("c") {
+                        libs.push(lib_name)
+                    }
+                }
                 ast::ForeignLibrary::Path {
                     lib_dir,
                     lib_path: _,
