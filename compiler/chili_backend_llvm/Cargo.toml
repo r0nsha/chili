@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 execute = "0.2.9"
 ustr = "0.8.1"
+path-absolutize = "3.0.11"
 
 inkwell = { path = "../../vendor/inkwell", features = ["llvm12-0"] }
 common = { path = "../common" }

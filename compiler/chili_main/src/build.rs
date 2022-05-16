@@ -103,7 +103,10 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     if workspace.build_options.run {
         if let Some(executable_path) = executable_path {
-            Command::new(executable_path).spawn().unwrap();
+            Command::new(&executable_path)
+                .spawn()
+                .ok()
+                .unwrap_or_else(|| panic!("{}", executable_path));
         }
     }
 

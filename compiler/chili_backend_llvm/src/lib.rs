@@ -29,6 +29,7 @@ use inkwell::{
     values::FunctionValue,
     OptimizationLevel,
 };
+use path_absolutize::Absolutize;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -194,7 +195,12 @@ fn build_executable(
         link(target_metrics, &executable_file, &object_file,&foreign_libraries,)
     };
 
-    executable_file.to_str().unwrap().to_string()
+    executable_file
+        .absolutize()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
 }
 
 fn link(
