@@ -1,43 +1,32 @@
 {
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'compiler'",
+      "name": "Debug executable 'chilic'",
       "cargo": {
-        "args": ["build", "--bin=compiler", "--package=compiler"],
+        "args": ["build", "--bin=chilic", "--package=chili_main"],
         "filter": {
-          "name": "compiler",
+          "name": "chilic",
           "kind": "bin"
         }
       },
-      "args": ["examples/main.ch"],
+      "args": ["run", "./examples/main.chili"],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'compiler'",
+      "name": "Debug unit tests in executable 'chilic'",
       "cargo": {
-        "args": ["test", "--no-run", "--bin=compiler", "--package=compiler"],
+        "args": ["test", "--no-run", "--bin=chilic", "--package=chili_main"],
         "filter": {
-          "name": "compiler",
+          "name": "chilic",
           "kind": "bin"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "Debug integration test 'test'",
-      "cargo": {
-        "args": ["test", "--no-run", "--test=test", "--package=compiler"],
-        "filter": {
-          "name": "test",
-          "kind": "test"
         }
       },
       "args": [],
