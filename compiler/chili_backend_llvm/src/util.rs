@@ -59,11 +59,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub(super) fn gen_nil(&mut self, ty: &TyKind) -> BasicValueEnum<'ctx> {
-        let llvm_ty = ty.llvm_type(self);
-        llvm_ty.into_pointer_type().const_null().into()
-    }
-
     pub(super) fn gen_unit(&self) -> BasicValueEnum<'ctx> {
         self.context.const_struct(&[], false).into()
     }

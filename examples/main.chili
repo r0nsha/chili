@@ -7,14 +7,13 @@ let main = fn() {
     let b = (a / 3) + 10 * 2
     printf("Binary: %d, %d\n".data, a, b)
 
-    let a = true
-    let b = !a || true
-    printf("Bool: %s, %s\n".data, bool_str(a).data, bool_str(b).data)
-
-    
     let a = 5
     let b = -a + 8 * (-13)
     printf("Neg: %d, %d\n".data, a, b)
+
+    let a = true
+    let b = !a || true
+    printf("Bool: %s, %s\n".data, bool_str(a).data, bool_str(b).data)
 
     printf("Goodbye\n\n".data)
 }
