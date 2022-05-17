@@ -290,8 +290,8 @@ impl Lint for ast::Expr {
                 sig.ret.lint(sess);
             }
             ast::ExprKind::Ident(ident) => sess.check_id_access(ident.binding_info_id, self.span),
-            ast::ExprKind::Literal(_)
-            | ast::ExprKind::SelfType
+            ast::ExprKind::Literal(_)=> panic!("Literal expression should have been lowered to a ConstValue"),
+            ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
             | ast::ExprKind::ConstValue(_) // TODO: check type limits for const values

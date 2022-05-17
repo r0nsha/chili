@@ -580,25 +580,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
                 ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
-
-                    match result.as_ref().unwrap() {
-                        ConstValue::Type(_) => self.gen_unit(),
-                        ConstValue::Bool(v) => self
-                            .context
-                            .bool_type()
-                            .const_int(if *v { 1 } else { 0 }, false)
-                            .into(),
-                        ConstValue::Int(v) => ty
-                            .llvm_type(self)
-                            .into_int_type()
-                            .const_int(*v as u64, ty.is_int())
-                            .into(),
-                        ConstValue::Float(v) => ty
-                            .llvm_type(self)
-                            .into_float_type()
-                            .const_float(*v as f64)
-                            .into(),
-                    }
+                    self.gen_const_value(state, result.as_ref().unwrap(), &ty, deref)
                 }
             },
             ast::ExprKind::Fn(func) => {
@@ -1136,8 +1118,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 deref,
             ),
 
-            ast::ExprKind::Literal(lit) => {
-                self.gen_literal_value(&lit.kind, &expr.ty.normalize(self.tycx), deref)
+            ast::ExprKind::Literal(_) => {
+                panic!("Literal expression should have been lowered to a ConstValue")
             }
 
             ast::ExprKind::PointerType(..)
@@ -1151,7 +1133,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             | ast::ExprKind::PlaceholderType => self.gen_unit(),
 
             ast::ExprKind::ConstValue(const_value) => {
-                todo!("llvm: codegen const value")
+                let ty = expr.ty.normalize(self.tycx);
+                self.gen_const_value(state, const_value, &ty, deref)
             }
 
             ast::ExprKind::FnType(sig) => {
@@ -1207,6 +1190,34 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         for expr in expr_list {
             self.gen_expr(state, expr, true);
+        }
+    }
+
+    pub(super) fn gen_const_value(
+        &mut self,
+        _state: &mut CodegenState<'ctx>,
+        const_value: &ConstValue,
+        ty: &TyKind,
+        deref: bool,
+    ) -> BasicValueEnum<'ctx> {
+        match const_value {
+            ConstValue::Unit(_) | ConstValue::Type(_) => self.gen_unit(),
+            ConstValue::Bool(v) => self
+                .context
+                .bool_type()
+                .const_int(if *v { 1 } else { 0 }, false)
+                .into(),
+            ConstValue::Int(v) => ty
+                .llvm_type(self)
+                .into_int_type()
+                .const_int(*v as u64, ty.is_int())
+                .into(),
+            ConstValue::Float(v) => ty
+                .llvm_type(self)
+                .into_float_type()
+                .const_float(*v as f64)
+                .into(),
+            ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
         }
     }
 

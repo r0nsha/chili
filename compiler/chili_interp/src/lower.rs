@@ -10,7 +10,7 @@ use chili_ast::{
     ast,
     const_value::ConstValue,
     pattern::Pattern,
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Ty, TyKind, UintTy},
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
@@ -247,75 +247,8 @@ impl Lower for ast::Expr {
                     code.push(Instruction::AggregatePush);
                 }
             }
-            ast::ExprKind::Literal(lit) => {
-                let ty = self.ty.normalize(&sess.tycx);
-                sess.push_const(
-                    code,
-                    match &lit.kind {
-                        ast::LiteralKind::Unit => Value::unit(),
-                        ast::LiteralKind::Nil => panic!("nil will soon be deprecated"),
-                        ast::LiteralKind::Bool(v) => Value::Bool(*v),
-                        ast::LiteralKind::Int(v) => match ty {
-                            TyKind::Int(ty) => match ty {
-                                IntTy::I8 => Value::I8(*v as _),
-                                IntTy::I16 => Value::I16(*v as _),
-                                IntTy::I32 => Value::I32(*v as _),
-                                IntTy::I64 => Value::I64(*v as _),
-                                IntTy::Int => Value::Int(*v as _),
-                            },
-                            TyKind::Uint(ty) => match ty {
-                                UintTy::U8 => Value::U8(*v as _),
-                                UintTy::U16 => Value::U16(*v as _),
-                                UintTy::U32 => Value::U32(*v as _),
-                                UintTy::U64 => Value::U64(*v as _),
-                                UintTy::Uint => Value::Uint(*v as _),
-                            },
-                            TyKind::Float(ty) => match ty {
-                                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
-                                FloatTy::F64 => Value::F64(*v as _),
-                                FloatTy::Float => {
-                                    if IS_64BIT {
-                                        Value::F64(*v as _)
-                                    } else {
-                                        Value::F32(*v as _)
-                                    }
-                                }
-                            },
-                            TyKind::Infer(_, InferTy::AnyInt) => Value::I32(*v as _),
-                            TyKind::Infer(_, InferTy::AnyFloat) => {
-                                if IS_64BIT {
-                                    Value::F64(*v as _)
-                                } else {
-                                    Value::F32(*v as _)
-                                }
-                            }
-                            _ => panic!("invalid ty {}", ty),
-                        },
-                        ast::LiteralKind::Float(v) => match ty {
-                            TyKind::Float(ty) => match ty {
-                                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
-                                FloatTy::F64 => Value::F64(*v as _),
-                                FloatTy::Float => {
-                                    if IS_64BIT {
-                                        Value::F64(*v as _)
-                                    } else {
-                                        Value::F32(*v as _)
-                                    }
-                                }
-                            },
-                            TyKind::Infer(_, InferTy::AnyFloat) => {
-                                if IS_64BIT {
-                                    Value::F64(*v as _)
-                                } else {
-                                    Value::F32(*v as _)
-                                }
-                            }
-                            _ => panic!("invalid ty {}", ty),
-                        },
-                        ast::LiteralKind::Str(v) => Value::from(*v),
-                        ast::LiteralKind::Char(v) => Value::U8(*v as u8),
-                    },
-                )
+            ast::ExprKind::Literal(_) => {
+                panic!("Literal expression should have been lowered to a ConstValue")
             }
             ast::ExprKind::PointerType(_) => todo!(),
             ast::ExprKind::MultiPointerType(_) => todo!(),
@@ -328,7 +261,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::UnitType => todo!(),
             ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::ConstValue(const_value) => {
-                const_value.lower(sess, code, LowerContext { take_ptr: false })
+                lower_const_value(const_value, self.ty, sess, code, ctx)
             }
             ast::ExprKind::Error => panic!("got an Error expression"),
         }
@@ -826,10 +759,83 @@ impl Lower for ast::Subscript {
     }
 }
 
-impl Lower for ConstValue {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        todo!("interp: lower const value")
-    }
+fn lower_const_value(
+    const_value: &ConstValue,
+    ty: Ty,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+    _ctx: LowerContext,
+) {
+    let ty = ty.normalize(&sess.tycx);
+
+    let value = match const_value {
+        ConstValue::Unit(_) => {
+            sess.push_const_unit(code);
+            return;
+        }
+        ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tycx)),
+        ConstValue::Bool(v) => Value::Bool(*v),
+        ConstValue::Int(v) => match ty {
+            TyKind::Int(int_ty) => match int_ty {
+                IntTy::I8 => Value::I8(*v as _),
+                IntTy::I16 => Value::I16(*v as _),
+                IntTy::I32 => Value::I32(*v as _),
+                IntTy::I64 => Value::I64(*v as _),
+                IntTy::Int => Value::Int(*v as _),
+            },
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Value::U8(*v as _),
+                UintTy::U16 => Value::U16(*v as _),
+                UintTy::U32 => Value::U32(*v as _),
+                UintTy::U64 => Value::U64(*v as _),
+                UintTy::Uint => Value::Uint(*v as _),
+            },
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                FloatTy::F64 => Value::F64(*v as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            TyKind::Infer(_, InferTy::AnyInt) => Value::I32(*v as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Float(v) => match ty {
+            TyKind::Float(float_ty) => match float_ty {
+                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                FloatTy::F64 => Value::F64(*v as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Str(v) => Value::from(*v),
+    };
+
+    sess.push_const(code, value);
 }
 
 impl Lower for ast::Slice {

@@ -1100,9 +1100,13 @@ impl Check for ast::Expr {
 
                 match (lhs_res.const_value, rhs_res.const_value) {
                     (Some(lhs), Some(rhs)) => {
-                        let value = const_fold_binary(lhs, rhs, binary.op, self.span)?;
-                        *self = value.as_literal().into_expr(result_ty, self.span);
-                        Ok(Res::new_const(result_ty, value))
+                        let const_value = const_fold_binary(lhs, rhs, binary.op, self.span)?;
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_value.clone()),
+                            result_ty,
+                            self.span,
+                        );
+                        Ok(Res::new_const(result_ty, const_value))
                     }
                     _ => Ok(Res::new(result_ty)),
                 }
@@ -1144,14 +1148,20 @@ impl Check for ast::Expr {
                             .or(res.ty.unify(&anyint, &mut sess.tycx))
                             .or_report_err(&sess.tycx, bool, None, res.ty, unary.lhs.span)?;
 
-                        if let Some(value) = res.const_value {
-                            let value = match value {
+                        if let Some(const_value) = res.const_value {
+                            let const_value = match const_value {
                                 ConstValue::Bool(v) => ConstValue::Bool(!v),
                                 ConstValue::Int(v) => ConstValue::Int(!v),
                                 _ => panic!(),
                             };
-                            *self = value.as_literal().into_expr(res.ty, self.span);
-                            Ok(Res::new_const(res.ty, value))
+
+                            *self = ast::Expr::typed(
+                                ast::ExprKind::ConstValue(const_value.clone()),
+                                res.ty,
+                                self.span,
+                            );
+
+                            Ok(Res::new_const(res.ty, const_value))
                         } else {
                             Ok(Res::new(res.ty))
                         }
@@ -1167,16 +1177,20 @@ impl Check for ast::Expr {
                             unary.lhs.span,
                         )?;
 
-                        if let Some(value) = res.const_value.as_ref() {
-                            let value = match value {
+                        if let Some(const_value) = res.const_value.as_ref() {
+                            let const_value = match const_value {
                                 ConstValue::Int(i) => ConstValue::Int(-i),
                                 ConstValue::Float(f) => ConstValue::Float(-f),
-                                _ => unreachable!("got {:?}", value),
+                                _ => unreachable!("got {:?}", const_value),
                             };
 
-                            *self = value.as_literal().into_expr(res.ty, self.span);
+                            *self = ast::Expr::typed(
+                                ast::ExprKind::ConstValue(const_value.clone()),
+                                res.ty,
+                                self.span,
+                            );
 
-                            Ok(Res::new_const(res.ty, value))
+                            Ok(Res::new_const(res.ty, const_value))
                         } else {
                             Ok(Res::new(res.ty))
                         }
@@ -1615,7 +1629,27 @@ impl Check for ast::Expr {
                     None => check_anonymous_struct_literal(sess, env, &mut lit.fields, self.span),
                 },
             },
-            ast::ExprKind::Literal(lit) => lit.check(sess, env, expected_ty),
+            ast::ExprKind::Literal(lit) => {
+                let const_value: ConstValue = lit.kind.into();
+
+                let ty = match &lit.kind {
+                    ast::LiteralKind::Unit => sess.tycx.common_types.unit,
+                    ast::LiteralKind::Nil => sess.tycx.var(self.span),
+                    ast::LiteralKind::Bool(_) => sess.tycx.common_types.bool,
+                    ast::LiteralKind::Int(_) => sess.tycx.anyint(self.span),
+                    ast::LiteralKind::Float(_) => sess.tycx.anyfloat(self.span),
+                    ast::LiteralKind::Str(_) => sess.tycx.common_types.str,
+                    ast::LiteralKind::Char(_) => sess.tycx.common_types.u8,
+                };
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    self.ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
+            }
             ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, None)?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
@@ -1952,33 +1986,8 @@ impl Check for ast::Block {
     }
 }
 
-impl Check for ast::Literal {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        _env: &mut Env,
-        _expected_ty: Option<Ty>,
-    ) -> CheckResult {
-        let res = match &self.kind {
-            ast::LiteralKind::Unit => Res::new(sess.tycx.common_types.unit),
-            ast::LiteralKind::Nil => Res::new(sess.tycx.var(self.span)),
-            ast::LiteralKind::Bool(b) => {
-                Res::new_const(sess.tycx.common_types.bool, ConstValue::Bool(*b))
-            }
-            ast::LiteralKind::Int(i) => {
-                Res::new_const(sess.tycx.anyint(self.span), ConstValue::Int(*i))
-            }
-            ast::LiteralKind::Float(f) => {
-                Res::new_const(sess.tycx.anyfloat(self.span), ConstValue::Float(*f))
-            }
-            ast::LiteralKind::Str(_) => Res::new(sess.tycx.common_types.str),
-            ast::LiteralKind::Char(_) => Res::new(sess.tycx.common_types.u8),
-        };
-        Ok(res)
-    }
-}
-
 impl Check for ConstValue {
+    #[inline]
     fn check(
         &mut self,
         sess: &mut CheckSess,

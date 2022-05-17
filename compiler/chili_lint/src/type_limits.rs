@@ -1,5 +1,6 @@
 use chili_ast::{
     ast,
+    const_value::ConstValue,
     ty::{IntTy, Ty, TyKind, UintTy},
 };
 use chili_error::diagnostic::{Diagnostic, Label};
@@ -12,18 +13,17 @@ use crate::sess::LintSess;
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, e: &ast::Expr) {
         match &e.kind {
-            ast::ExprKind::Literal(lit) => match &lit.kind {
-                &ast::LiteralKind::Int(value) => match &e.ty.normalize(self.tycx) {
-                    TyKind::Int(int_ty) => self.check_int_limits(int_ty, value, e),
-                    TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, value, e),
+            ast::ExprKind::ConstValue(const_value) => match const_value {
+                ConstValue::Int(value) => match &e.ty.normalize(self.tycx) {
+                    TyKind::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
+                    TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
                     _ => (),
                 },
-                ast::LiteralKind::Float(_)
-                | ast::LiteralKind::Unit
-                | ast::LiteralKind::Nil
-                | ast::LiteralKind::Bool(_)
-                | ast::LiteralKind::Str(_)
-                | ast::LiteralKind::Char(_) => (),
+                ConstValue::Unit(_)
+                | ConstValue::Type(_)
+                | ConstValue::Bool(_)
+                | ConstValue::Float(_)
+                | ConstValue::Str(_) => (),
             },
             _ => (),
         }

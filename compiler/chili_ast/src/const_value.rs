@@ -1,6 +1,10 @@
-use crate::{ast::LiteralKind, ty::Ty};
+use crate::{
+    ast::{self, LiteralKind},
+    ty::Ty,
+};
 use paste::paste;
 use std::fmt;
+use ustr::Ustr;
 
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
@@ -80,10 +84,12 @@ macro_rules! impl_value {
 }
 
 impl_value! {
+    Unit(()),
     Type(Ty),
     Bool(bool),
     Int(i64),
     Float(f64),
+    Str(Ustr),
     // I8(i8),
     // I16(i16),
     // I32(i32),
@@ -105,33 +111,16 @@ impl_value! {
     // Type(TyKind),
 }
 
-// I8(i8),
-// I16(i16),
-// I32(i32),
-// I64(i64),
-// Int(isize),
-// U8(u8),
-// U16(u16),
-// U32(u32),
-// U64(u64),
-// Uint(usize),
-// F32(f32),
-// F64(f64),
-// Bool(bool),
-// Aggregate(Aggregate),
-// Array(Array),
-// Pointer(Pointer),
-// Func(Func),
-// ForeignFunc(ForeignFunc),
-// Type(TyKind),
-
-impl ConstValue {
-    pub fn as_literal(&self) -> LiteralKind {
-        match self {
-            ConstValue::Type(_) => panic!("unexpected Value::Type"),
-            ConstValue::Bool(v) => LiteralKind::Bool(*v),
-            ConstValue::Int(v) => LiteralKind::Int(*v),
-            ConstValue::Float(v) => LiteralKind::Float(*v),
+impl From<LiteralKind> for ConstValue {
+    fn from(lit: LiteralKind) -> Self {
+        match lit {
+            ast::LiteralKind::Unit => ConstValue::Unit(()),
+            ast::LiteralKind::Nil => panic!("nil will soon be deprecated"),
+            ast::LiteralKind::Bool(v) => ConstValue::Bool(v),
+            ast::LiteralKind::Int(v) => ConstValue::Int(v),
+            ast::LiteralKind::Float(v) => ConstValue::Float(v),
+            ast::LiteralKind::Str(v) => ConstValue::Str(v),
+            ast::LiteralKind::Char(v) => ConstValue::Int(v as i64), // TODO: to uint const value
         }
     }
 }
@@ -139,10 +128,12 @@ impl ConstValue {
 impl ToString for ConstValue {
     fn to_string(&self) -> String {
         match self {
+            ConstValue::Unit(_) => "unit".to_string(),
             ConstValue::Type(t) => format!("ty {}", t),
             ConstValue::Bool(v) => format!("bool {}", v),
             ConstValue::Int(v) => format!("int {}", v),
             ConstValue::Float(v) => format!("float {}", v),
+            ConstValue::Str(v) => format!("str {}", v),
         }
     }
 }
