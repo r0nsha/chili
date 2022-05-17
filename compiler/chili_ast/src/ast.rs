@@ -125,6 +125,7 @@ pub enum ExprKind {
     NeverType,
     UnitType,
     PlaceholderType,
+    ConstValue(ConstValue),
     Error,
 }
 

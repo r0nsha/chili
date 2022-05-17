@@ -236,6 +236,7 @@ impl<'a> Substitute<'a> for ast::Expr {
             | ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
+            | ast::ExprKind::ConstValue(_)
             | ast::ExprKind::PlaceholderType => (),
             ast::ExprKind::Error => panic!("unexpected error node"),
         }

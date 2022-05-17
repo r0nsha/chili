@@ -1777,6 +1777,7 @@ impl Check for ast::Expr {
                     ConstValue::Type(ty),
                 ))
             }
+            ast::ExprKind::ConstValue(const_value) => const_value.check(sess, env, expected_ty),
             ast::ExprKind::Error => Ok(Res::new(sess.tycx.var(self.span))),
         }?;
 
@@ -1974,6 +1975,17 @@ impl Check for ast::Literal {
             ast::LiteralKind::Char(_) => Res::new(sess.tycx.common_types.u8),
         };
         Ok(res)
+    }
+}
+
+impl Check for ConstValue {
+    fn check(
+        &mut self,
+        sess: &mut CheckSess,
+        _env: &mut Env,
+        _expected_ty: Option<Ty>,
+    ) -> CheckResult {
+        todo!("check: const value")
     }
 }
 

@@ -294,6 +294,7 @@ impl Lint for ast::Expr {
             | ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
+            | ast::ExprKind::ConstValue(_) // TODO: check type limits for const values
             | ast::ExprKind::PlaceholderType => (),
             ast::ExprKind::Error => panic!("unexpected error node"),
         }

@@ -14,32 +14,8 @@ impl<'s> LintSess<'s> {
         match &e.kind {
             ast::ExprKind::Literal(lit) => match &lit.kind {
                 &ast::LiteralKind::Int(value) => match &e.ty.normalize(self.tycx) {
-                    TyKind::Int(int_ty) => {
-                        let (min, max) = int_ty_range(*int_ty);
-
-                        if value < min || value > max {
-                            self.workspace
-                                .diagnostics
-                                .push(overflow_err(value, &e.ty, min, max, e.span))
-                        }
-                    }
-                    TyKind::Uint(uint_ty) => {
-                        let (min, max) = uint_ty_range(*uint_ty);
-
-                        if value.is_negative() {
-                            self.workspace
-                                .diagnostics
-                                .push(overflow_err(value, &e.ty, min, max, e.span))
-                        } else {
-                            let value = value as u64;
-
-                            if value < min || value > max {
-                                self.workspace
-                                    .diagnostics
-                                    .push(overflow_err(value, &e.ty, min, max, e.span))
-                            }
-                        }
-                    }
+                    TyKind::Int(int_ty) => self.check_int_limits(int_ty, value, e),
+                    TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, value, e),
                     _ => (),
                 },
                 ast::LiteralKind::Float(_)
@@ -50,6 +26,33 @@ impl<'s> LintSess<'s> {
                 | ast::LiteralKind::Char(_) => (),
             },
             _ => (),
+        }
+    }
+
+    fn check_int_limits(&mut self, int_ty: &IntTy, value: i64, e: &ast::Expr) {
+        let (min, max) = int_ty_range(*int_ty);
+        if value < min || value > max {
+            self.workspace
+                .diagnostics
+                .push(overflow_err(value, &e.ty, min, max, e.span))
+        }
+    }
+
+    fn check_uint_limits(&mut self, uint_ty: &UintTy, value: i64, e: &ast::Expr) {
+        let (min, max) = uint_ty_range(*uint_ty);
+
+        if value.is_negative() {
+            self.workspace
+                .diagnostics
+                .push(overflow_err(value, &e.ty, min, max, e.span))
+        } else {
+            let value = value as u64;
+
+            if value < min || value > max {
+                self.workspace
+                    .diagnostics
+                    .push(overflow_err(value, &e.ty, min, max, e.span))
+            }
         }
     }
 }

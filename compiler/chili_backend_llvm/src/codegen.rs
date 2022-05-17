@@ -1150,6 +1150,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             | ast::ExprKind::NeverType
             | ast::ExprKind::PlaceholderType => self.gen_unit(),
 
+            ast::ExprKind::ConstValue(const_value) => {
+                todo!("llvm: codegen const value")
+            }
+
             ast::ExprKind::FnType(sig) => {
                 if sig.lib_name.is_some() {
                     // this is a foreign function

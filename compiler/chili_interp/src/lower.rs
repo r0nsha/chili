@@ -8,6 +8,7 @@ use crate::{
 };
 use chili_ast::{
     ast,
+    const_value::ConstValue,
     pattern::Pattern,
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
     workspace::BindingInfoId,
@@ -326,6 +327,9 @@ impl Lower for ast::Expr {
             ast::ExprKind::NeverType => todo!(),
             ast::ExprKind::UnitType => todo!(),
             ast::ExprKind::PlaceholderType => todo!(),
+            ast::ExprKind::ConstValue(const_value) => {
+                const_value.lower(sess, code, LowerContext { take_ptr: false })
+            }
             ast::ExprKind::Error => panic!("got an Error expression"),
         }
     }
@@ -819,6 +823,12 @@ impl Lower for ast::Subscript {
         } else {
             Instruction::Index
         });
+    }
+}
+
+impl Lower for ConstValue {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!("interp: lower const value")
     }
 }
 

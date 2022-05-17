@@ -52,7 +52,7 @@ macro_rules! impl_value {
                     pub fn [<into_ $variant:snake>](self) -> $ty {
                         match self {
                             Self::$variant(v) => v,
-                            _ => panic!("got {:?}, expected {}", self, stringify!($variant))
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
                 )+
@@ -61,7 +61,7 @@ macro_rules! impl_value {
                     pub fn [<as_ $variant:snake>](&self) -> &$ty {
                         match self {
                             Self::$variant(v) => v,
-                            _ => panic!("got {:?}, expected {}", self, stringify!($variant))
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
                 )+
@@ -70,7 +70,7 @@ macro_rules! impl_value {
                     pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
                         match self {
                             Self::$variant(v) => v,
-                            _ => panic!("got {:?}, expected {}", self, stringify!($variant))
+                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
                         }
                     }
                 )+
@@ -132,6 +132,17 @@ impl ConstValue {
             ConstValue::Bool(v) => LiteralKind::Bool(*v),
             ConstValue::Int(v) => LiteralKind::Int(*v),
             ConstValue::Float(v) => LiteralKind::Float(*v),
+        }
+    }
+}
+
+impl ToString for ConstValue {
+    fn to_string(&self) -> String {
+        match self {
+            ConstValue::Type(t) => format!("ty {}", t),
+            ConstValue::Bool(v) => format!("bool {}", v),
+            ConstValue::Int(v) => format!("int {}", v),
+            ConstValue::Float(v) => format!("float {}", v),
         }
     }
 }
