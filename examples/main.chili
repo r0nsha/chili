@@ -16,7 +16,7 @@ let main = fn() {
     let b = -a + 8 * (-13)
     printf("Neg: %d, %d\n".data, a, b)
 
-    printf("Goodbye\n".data)
+    printf("Goodbye\n\n".data)
 }
 
 let bool_str = fn(b) {

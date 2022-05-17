@@ -237,7 +237,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .module_infos
                 .iter()
                 .position(|m| m.name == module_name)
-                .expect(&format!("couldn't find {}", module_name)),
+                .unwrap_or_else(|| panic!("couldn't find {}", module_name)),
         );
 
         self.workspace
@@ -248,7 +248,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     && b.module_id == module_id
                     && b.symbol == symbol
             })
-            .expect(&format!("couldn't find {} in {}", symbol, module_name))
+            .unwrap_or_else(|| panic!("couldn't find {} in {}", symbol, module_name))
     }
 
     pub(super) fn find_decl_by_name(

@@ -384,7 +384,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let abi_fn = self
             .fn_types
             .get(callee_ty)
-            .expect(&format!("not found: {}", callee_ty))
+            .unwrap_or_else(|| panic!("not found: {}", callee_ty))
             .clone();
 
         let mut processed_args = vec![];

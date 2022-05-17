@@ -134,13 +134,15 @@ pub fn non_struct<'ctx>(info: AbiInfo<'ctx>, ty: BasicTypeEnum<'ctx>) -> AbiTy<'
 
 fn classify_type<'ctx>(info: AbiInfo<'ctx>, ty: BasicTypeEnum<'ctx>) -> Vec<RegClass> {
     let size = size_of(ty, info.word_size);
+    let align = align_of(ty, info.word_size);
+
     let words = (size + 7) / 8;
     let mut classes = vec![RegClass::NoClass; words];
 
     if words > 4 {
         RegClass::all_mem(&mut classes);
     } else {
-        classify_type_with_classes(info, &mut classes, ty, 0, 0);
+        classify_type_with_classes(info, &mut classes, ty, size, align, 0, 0);
         fixup_classes(&mut classes, ty);
     }
 
@@ -151,16 +153,15 @@ fn classify_type_with_classes<'ctx>(
     info: AbiInfo<'ctx>,
     classes: &mut [RegClass],
     ty: BasicTypeEnum<'ctx>,
+    ty_size: usize,
+    ty_align: usize,
     index: usize,
     offset: usize,
 ) {
-    let align = align_of(ty, info.word_size);
-    let size = size_of(ty, info.word_size);
-
-    let misalign = offset % align;
+    let misalign = offset % ty_align;
 
     if misalign > 0 {
-        let end = (offset + size + 7) / 8;
+        let end = (offset + ty_size + 7) / 8;
         for i in offset / 8..end {
             unify_classes(classes, index + i, RegClass::Memory);
         }
@@ -192,9 +193,18 @@ fn classify_type_with_classes<'ctx>(
             let len = at.len() as usize;
             let el_ty = at.get_element_type();
             let el_size = size_of(el_ty, info.word_size);
+            let el_align = size_of(el_ty, info.word_size);
 
             for i in 0..len {
-                classify_type_with_classes(info, classes, el_ty, index, offset + i * el_size);
+                classify_type_with_classes(
+                    info,
+                    classes,
+                    el_ty,
+                    el_size,
+                    el_align,
+                    index,
+                    offset + i * el_size,
+                );
             }
         }
         BasicTypeEnum::StructType(st) => {
@@ -203,15 +213,24 @@ fn classify_type_with_classes<'ctx>(
             let mut field_offset = offset;
 
             for field_ty in st.get_field_types() {
-                if packed {
-                    classify_type_with_classes(info, classes, field_ty, index, field_offset);
-                    field_offset += size_of(field_ty, info.word_size);
-                } else {
-                    field_offset = calculate_align_from_offset(
-                        field_offset,
-                        align_of(field_ty, info.word_size),
-                    );
+                let field_size = size_of(field_ty, info.word_size);
+                let field_align = align_of(field_ty, info.word_size);
+
+                if !packed {
+                    field_offset = calculate_align_from_offset(field_offset, field_align);
                 }
+
+                classify_type_with_classes(
+                    info,
+                    classes,
+                    field_ty,
+                    field_size,
+                    field_align,
+                    index,
+                    field_offset,
+                );
+
+                field_offset += field_size;
             }
         }
         t => unimplemented!("{:?}", t),
@@ -225,7 +244,7 @@ fn unify_classes(classes: &mut [RegClass], index: usize, new_class: RegClass) {
         return;
     }
 
-    // TODO: Simplify this conditional to a match expression
+    // TODO: Can I simplify this conditional to a match expression
     let class_to_write = if old_class == RegClass::NoClass {
         new_class
     } else if new_class == RegClass::NoClass {

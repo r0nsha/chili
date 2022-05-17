@@ -435,7 +435,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             if inst.get_opcode() == InstructionOpcode::Alloca {
                                 let value_inst = value_ptr
                                     .as_instruction_value()
-                                    .expect(&format!("{:#?}", value_ptr));
+                                    .unwrap_or_else(|| panic!("{:#?}", value_ptr));
 
                                 src_align =
                                     value_inst.get_alignment().unwrap().max(dst_align as _) as _;
@@ -506,10 +506,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             if el_type.is_struct_type() {
                 self.builder
                     .build_struct_gep(agg_or_ptr, index, &format!("get_struct_ptr_{}", index))
-                    .expect(&format!("{:#?}", agg_or_ptr))
+                    .unwrap_or_else(|_| panic!("{:#?}", agg_or_ptr))
                     .into()
             } else {
-                let struct_ty = struct_ty.expect(&format!("{:#?}", agg_or_ptr));
+                let struct_ty = struct_ty.unwrap_or_else(|| panic!("{:#?}", agg_or_ptr));
 
                 let ptr = self.builder.build_pointer_cast(
                     agg_or_ptr,
@@ -519,7 +519,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.builder
                     .build_struct_gep(ptr, index, &format!("get_struct_ptr_2_{}", index))
-                    .expect(&format!("{:#?}", ptr))
+                    .unwrap_or_else(|_| panic!("{:#?}", ptr))
                     .into()
             }
         } else {
@@ -529,7 +529,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     index,
                     &format!("get_struct_{}", index),
                 )
-                .expect(&format!("{:#?}", agg_or_ptr))
+                .unwrap_or_else(|| panic!("{:#?}", agg_or_ptr))
         }
     }
 
