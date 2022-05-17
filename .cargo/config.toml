@@ -9,8 +9,8 @@ rustflags = ["-C link-args=-Wl,-zstack-size=4194304"]
 
 [profile.dev]
 opt-level = 0
-debug = false
-debug-assertions = false
+# debug = false
+# debug-assertions = false
 overflow-checks = true
 lto = false
 panic = 'unwind'
