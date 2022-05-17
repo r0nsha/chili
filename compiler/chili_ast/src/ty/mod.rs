@@ -297,6 +297,10 @@ impl TyKind {
         matches!(self, TyKind::MultiPointer(..))
     }
 
+    pub fn is_any_pointer(&self) -> bool {
+        matches!(self, TyKind::Pointer(..) | TyKind::MultiPointer(..))
+    }
+
     pub fn is_bool(&self) -> bool {
         matches!(self, TyKind::Bool)
     }
