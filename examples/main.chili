@@ -9,7 +9,7 @@ let main = fn() {
 
     let a = true
     let b = !a || true
-    printf("Bool: %s, %s\n".data, bool_str(a), bool_str(b))
+    printf("Bool: %s, %s\n".data, bool_str(a).data, bool_str(b).data)
 
     
     let a = 5
@@ -20,7 +20,7 @@ let main = fn() {
 }
 
 let bool_str = fn(b) {
-    if b { "true" } else { "false" }
+    if b { "true\0" } else { "false\0" }
 }
 
 @run(main())

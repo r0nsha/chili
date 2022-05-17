@@ -333,7 +333,7 @@ impl AsFfiType for TyKind {
             | TyKind::MultiPointer(_, _)
             | TyKind::Fn(_)
             | TyKind::Array(_, _) => Type::pointer(),
-            TyKind::Slice(_, _) => todo!(),
+            TyKind::Slice(_, _) => Type::structure([Type::pointer(), Type::usize()]),
             TyKind::Tuple(tuple_elements) => {
                 Type::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
             }
