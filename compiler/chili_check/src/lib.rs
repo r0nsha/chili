@@ -384,7 +384,7 @@ impl Check for ast::Import {
             self.alias,
             self.visibility,
             ty,
-            const_value,
+            const_value.clone(),
             false,
             ast::BindingKind::Import,
             self.span,
@@ -505,7 +505,7 @@ impl Check for ast::Binding {
                 &mut self.pattern,
                 self.visibility,
                 self.ty,
-                const_value,
+                const_value.clone(),
                 self.kind,
                 self.expr
                     .as_ref()
@@ -763,7 +763,7 @@ impl Check for ast::Expr {
 
                     match interp_value.try_into_const_value(&mut sess.tycx, self.span) {
                         Ok(const_value) => {
-                            *run_result = Some(const_value);
+                            *run_result = Some(const_value.clone());
                             Ok(Res::new_const(res.ty, const_value))
                         }
                         Err(value_str) => Err(Diagnostic::error()
@@ -1101,7 +1101,7 @@ impl Check for ast::Expr {
                 match (lhs_res.const_value, rhs_res.const_value) {
                     (Some(lhs), Some(rhs)) => {
                         let value = const_fold_binary(lhs, rhs, binary.op, self.span)?;
-                        *self = value.into_literal().into_expr(result_ty, self.span);
+                        *self = value.as_literal().into_expr(result_ty, self.span);
                         Ok(Res::new_const(result_ty, value))
                     }
                     _ => Ok(Res::new(result_ty)),
@@ -1150,7 +1150,7 @@ impl Check for ast::Expr {
                                 ConstValue::Int(v) => ConstValue::Int(!v),
                                 _ => panic!(),
                             };
-                            *self = value.into_literal().into_expr(res.ty, self.span);
+                            *self = value.as_literal().into_expr(res.ty, self.span);
                             Ok(Res::new_const(res.ty, value))
                         } else {
                             Ok(Res::new(res.ty))
@@ -1167,14 +1167,14 @@ impl Check for ast::Expr {
                             unary.lhs.span,
                         )?;
 
-                        if let Some(value) = res.const_value {
+                        if let Some(value) = res.const_value.as_ref() {
                             let value = match value {
                                 ConstValue::Int(i) => ConstValue::Int(-i),
                                 ConstValue::Float(f) => ConstValue::Float(-f),
-                                _ => unreachable!("got {}", value),
+                                _ => unreachable!("got {:?}", value),
                             };
 
-                            *self = value.into_literal().into_expr(res.ty, self.span);
+                            *self = value.as_literal().into_expr(res.ty, self.span);
 
                             Ok(Res::new_const(res.ty, value))
                         } else {
@@ -1454,7 +1454,7 @@ impl Check for ast::Expr {
                         .workspace
                         .get_binding_info(id)
                         .map(|binding_info| {
-                            Res::new_maybe_const(binding_info.ty, binding_info.const_value)
+                            Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone())
                         })
                         .unwrap())
                 }
@@ -1543,8 +1543,9 @@ impl Check for ast::Expr {
                         .iter()
                         .map(|res| {
                             res.const_value
+                                .as_ref()
                                 .unwrap()
-                                .into_type()
+                                .as_type()
                                 .normalize(&sess.tycx)
                                 .clone()
                         })

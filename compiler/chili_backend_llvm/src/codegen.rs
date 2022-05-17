@@ -581,22 +581,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
 
-                    match result.unwrap() {
+                    match result.as_ref().unwrap() {
                         ConstValue::Type(_) => self.gen_unit(),
                         ConstValue::Bool(v) => self
                             .context
                             .bool_type()
-                            .const_int(if v { 1 } else { 0 }, false)
+                            .const_int(if *v { 1 } else { 0 }, false)
                             .into(),
                         ConstValue::Int(v) => ty
                             .llvm_type(self)
                             .into_int_type()
-                            .const_int(v as u64, ty.is_int())
+                            .const_int(*v as u64, ty.is_int())
                             .into(),
                         ConstValue::Float(v) => ty
                             .llvm_type(self)
                             .into_float_type()
-                            .const_float(v as f64)
+                            .const_float(*v as f64)
                             .into(),
                     }
                 }

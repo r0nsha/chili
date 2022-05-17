@@ -57,7 +57,7 @@ impl<'s> CheckSess<'s> {
             self.validate_can_access_item(binding_info, caller_info)?;
 
             return Ok((
-                Res::new_maybe_const(binding_info.ty, binding_info.const_value),
+                Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone()),
                 id,
             ));
         }
@@ -104,7 +104,9 @@ impl<'s> CheckSess<'s> {
             let res = self
                 .workspace
                 .get_binding_info(builtin_id)
-                .map(|binding_info| Res::new_maybe_const(binding_info.ty, binding_info.const_value))
+                .map(|binding_info| {
+                    Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone())
+                })
                 .unwrap();
 
             Ok((res, builtin_id))

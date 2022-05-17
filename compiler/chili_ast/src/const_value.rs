@@ -1,65 +1,137 @@
 use crate::{ast::LiteralKind, ty::Ty};
-use strum_macros::Display;
+use paste::paste;
+use std::fmt;
 
-#[derive(Debug, Display, PartialEq, Clone, Copy)]
-pub enum ConstValue {
+macro_rules! impl_value {
+    ($($variant:ident($ty:ty)) , + $(,)?) => {
+        #[derive(Debug, PartialEq, Clone, Copy)]
+        pub enum ConstValueKind {
+            $(
+                $variant
+            ),+
+        }
+
+        impl fmt::Display for ConstValueKind {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", match self {
+                    $(
+                        ConstValueKind::$variant => String::from(stringify!($variant))
+                    ),+
+                })
+            }
+        }
+
+        #[derive(Debug, PartialEq, Clone)]
+        pub enum ConstValue {
+            $(
+                $variant($ty)
+            ),+
+        }
+
+        impl ConstValue {
+            #[allow(dead_code)]
+            pub fn kind(&self) -> ConstValueKind {
+                match self {
+                    $(
+                        ConstValue::$variant(_) => ConstValueKind::$variant
+                    ),+
+                }
+            }
+
+            paste! {
+                $(
+                    pub fn [<is_ $variant:snake>](&self) -> bool {
+                        match self {
+                            Self::$variant(_) => true,
+                            _ => false
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<into_ $variant:snake>](self) -> $ty {
+                        match self {
+                            Self::$variant(v) => v,
+                            _ => panic!("got {:?}, expected {}", self, stringify!($variant))
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<as_ $variant:snake>](&self) -> &$ty {
+                        match self {
+                            Self::$variant(v) => v,
+                            _ => panic!("got {:?}, expected {}", self, stringify!($variant))
+                        }
+                    }
+                )+
+
+                $(
+                    pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
+                        match self {
+                            Self::$variant(v) => v,
+                            _ => panic!("got {:?}, expected {}", self, stringify!($variant))
+                        }
+                    }
+                )+
+            }
+        }
+    };
+}
+
+impl_value! {
     Type(Ty),
     Bool(bool),
     Int(i64),
     Float(f64),
+    // I8(i8),
+    // I16(i16),
+    // I32(i32),
+    // I64(i64),
+    // Int(isize),
+    // U8(u8),
+    // U16(u16),
+    // U32(u32),
+    // U64(u64),
+    // Uint(usize),
+    // F32(f32),
+    // F64(f64),
+    // Bool(bool),
+    // Aggregate(Aggregate),
+    // Array(Array),
+    // Pointer(Pointer),
+    // Func(Func),
+    // ForeignFunc(ForeignFunc),
+    // Type(TyKind),
 }
 
+// I8(i8),
+// I16(i16),
+// I32(i32),
+// I64(i64),
+// Int(isize),
+// U8(u8),
+// U16(u16),
+// U32(u32),
+// U64(u64),
+// Uint(usize),
+// F32(f32),
+// F64(f64),
+// Bool(bool),
+// Aggregate(Aggregate),
+// Array(Array),
+// Pointer(Pointer),
+// Func(Func),
+// ForeignFunc(ForeignFunc),
+// Type(TyKind),
+
 impl ConstValue {
-    pub fn is_type(&self) -> bool {
-        matches!(self, ConstValue::Type(_))
-    }
-
-    pub fn into_type(self) -> Ty {
-        match self {
-            ConstValue::Type(ty) => ty,
-            _ => panic!(),
-        }
-    }
-
-    pub fn is_bool(&self) -> bool {
-        matches!(self, ConstValue::Bool(_))
-    }
-
-    pub fn into_bool(self) -> bool {
-        match self {
-            ConstValue::Bool(b) => b,
-            _ => panic!(),
-        }
-    }
-
-    pub fn is_int(&self) -> bool {
-        matches!(self, ConstValue::Int(_))
-    }
-
-    pub fn into_int(self) -> i64 {
-        match self {
-            ConstValue::Int(i) => i,
-            _ => panic!(),
-        }
-    }
-
-    pub fn is_float(&self) -> bool {
-        matches!(self, ConstValue::Float(_))
-    }
-
-    pub fn into_float(self) -> f64 {
-        match self {
-            ConstValue::Float(f) => f,
-            _ => panic!(),
-        }
-    }
-
-    pub fn into_literal(self) -> LiteralKind {
+    pub fn as_literal(&self) -> LiteralKind {
         match self {
             ConstValue::Type(_) => panic!("unexpected Value::Type"),
-            ConstValue::Bool(v) => LiteralKind::Bool(v),
-            ConstValue::Int(v) => LiteralKind::Int(v),
-            ConstValue::Float(v) => LiteralKind::Float(v),
+            ConstValue::Bool(v) => LiteralKind::Bool(*v),
+            ConstValue::Int(v) => LiteralKind::Int(*v),
+            ConstValue::Float(v) => LiteralKind::Float(*v),
         }
     }
 }

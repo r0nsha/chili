@@ -162,7 +162,7 @@ impl<'s> CheckSess<'s> {
                     let ty = self
                         .tycx
                         .bound(partial_struct[&pat.symbol].clone(), pat.span);
-                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
+                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value.clone(), kind)?;
                 }
             }
             Pattern::TupleUnpack(pat) => {
@@ -184,7 +184,7 @@ impl<'s> CheckSess<'s> {
 
                 for (index, pat) in pat.symbols.iter_mut().enumerate() {
                     let ty = self.tycx.bound(elements[index].clone(), pat.span);
-                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
+                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value.clone(), kind)?;
                 }
             }
         }

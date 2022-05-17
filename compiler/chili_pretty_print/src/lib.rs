@@ -289,7 +289,7 @@ impl PrintTree for ast::Expr {
                         b.end_child();
                     }
                     ast::Builtin::Run(expr, result) => {
-                        b.begin_child(format!("@run => {}", result.unwrap()));
+                        b.begin_child(format!("@run => {:?}", result.as_ref().unwrap()));
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
