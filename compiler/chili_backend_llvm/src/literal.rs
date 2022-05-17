@@ -41,11 +41,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let field_ptr = self
                     .builder
-                    .build_struct_gep(
-                        struct_ptr,
-                        field_index as u32,
-                        &format!("set_{}", struct_ty.fields[field_index].symbol),
-                    )
+                    .build_struct_gep(struct_ptr, field_index as u32, "")
                     .unwrap();
 
                 let value = self.gen_expr(state, &field.expr, true);

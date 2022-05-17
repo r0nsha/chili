@@ -505,7 +505,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             if el_type.is_struct_type() {
                 self.builder
-                    .build_struct_gep(agg_or_ptr, index, &format!("get_struct_ptr_{}", index))
+                    .build_struct_gep(agg_or_ptr, index, "")
                     .unwrap_or_else(|_| panic!("{:#?}", agg_or_ptr))
                     .into()
             } else {
@@ -518,17 +518,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 );
 
                 self.builder
-                    .build_struct_gep(ptr, index, &format!("get_struct_ptr_2_{}", index))
+                    .build_struct_gep(ptr, index, "")
                     .unwrap_or_else(|_| panic!("{:#?}", ptr))
                     .into()
             }
         } else {
             self.builder
-                .build_extract_value(
-                    agg_or_ptr.into_struct_value(),
-                    index,
-                    &format!("get_struct_{}", index),
-                )
+                .build_extract_value(agg_or_ptr.into_struct_value(), index, "")
                 .unwrap_or_else(|| panic!("{:#?}", agg_or_ptr))
         }
     }

@@ -1098,9 +1098,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 for (i, value) in values.iter().enumerate() {
                     self.build_store(
-                        self.builder
-                            .build_struct_gep(tuple, i as u32, &format!("tuple_value_{}", i))
-                            .unwrap(),
+                        self.builder.build_struct_gep(tuple, i as u32, "").unwrap(),
                         *value,
                     );
                 }
