@@ -30,8 +30,8 @@ impl SizeOf for TyKind {
             )
             .size_of(word_size),
             TyKind::Struct(s) => s.size_of(word_size),
-            TyKind::Infer(_, InferTy::AnyInt) => IntTy::I32.size_of(word_size),
-            TyKind::Infer(_, InferTy::AnyFloat) => FloatTy::F32.size_of(word_size),
+            TyKind::Infer(_, InferTy::AnyInt) => IntTy::Int.size_of(word_size),
+            TyKind::Infer(_, InferTy::AnyFloat) => FloatTy::Float.size_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }

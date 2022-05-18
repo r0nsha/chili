@@ -385,10 +385,14 @@ impl Lower for ast::Cast {
                 code.push(Instruction::AggregatePush);
             }
             TyKind::Infer(_, InferTy::AnyInt) => {
-                code.push(Instruction::Cast(CastInstruction::I32));
+                code.push(Instruction::Cast(CastInstruction::Int));
             }
             TyKind::Infer(_, InferTy::AnyFloat) => {
-                code.push(Instruction::Cast(CastInstruction::F32));
+                code.push(Instruction::Cast(if IS_64BIT {
+                    CastInstruction::F64
+                } else {
+                    CastInstruction::F32
+                }));
             }
             ty => panic!("invalid ty {}", ty),
         }
@@ -801,7 +805,7 @@ fn lower_const_value(
                     }
                 }
             },
-            TyKind::Infer(_, InferTy::AnyInt) => Value::I32(*v as _),
+            TyKind::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
             TyKind::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)

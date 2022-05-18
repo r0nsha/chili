@@ -162,10 +162,14 @@ impl GetValue for [u8] {
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
             TyKind::Infer(_, InferTy::AnyInt) => {
-                Value::I32(self.as_ref().read_i32::<NativeEndian>().unwrap())
+                Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
             }
             TyKind::Infer(_, InferTy::AnyFloat) => {
-                Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
+                if IS_64BIT {
+                    Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap())
+                } else {
+                    Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
+                }
             }
             _ => panic!(
                 "can't get value of type `{}` from raw self.as_ref().inner",

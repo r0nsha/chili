@@ -313,8 +313,14 @@ impl From<&TyKind> for ValueKind {
             TyKind::Struct(_) => todo!(),
             TyKind::Module(_) => todo!(),
             TyKind::Type(_) => Self::Type,
-            TyKind::Infer(_, InferTy::AnyInt) => Self::I32,
-            TyKind::Infer(_, InferTy::AnyFloat) => Self::F64,
+            TyKind::Infer(_, InferTy::AnyInt) => Self::Int,
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Self::F64
+                } else {
+                    Self::F32
+                }
+            }
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
         }
@@ -383,8 +389,14 @@ impl Value {
                     ty: ty.clone(),
                 })
             }
-            TyKind::Infer(_, InferTy::AnyInt) => Self::I32(*(ptr as *mut i32)),
-            TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(*(ptr as *mut f64)),
+            TyKind::Infer(_, InferTy::AnyInt) => Self::Int(*(ptr as *mut isize)),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Self::F64(*(ptr as *mut f64))
+                } else {
+                    Self::F32(*(ptr as *mut f32))
+                }
+            }
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
         }
@@ -481,7 +493,17 @@ impl Pointer {
                 UintTy::U64 => Self::U64(ptr as _),
                 UintTy::Uint => Self::Uint(ptr as _),
             },
-            TyKind::Float(_) => Self::F64(ptr as _),
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Self::F32(ptr as _),
+                FloatTy::F64 => Self::F64(ptr as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Self::F32(ptr as _)
+                    } else {
+                        Self::F64(ptr as _)
+                    }
+                }
+            },
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
                 Self::from_type_and_ptr(ty, ptr)
             }
@@ -501,8 +523,14 @@ impl Pointer {
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
             TyKind::Struct(_) => todo!(),
-            TyKind::Infer(_, InferTy::AnyInt) => Self::I32(ptr as _),
-            TyKind::Infer(_, InferTy::AnyFloat) => Self::F64(ptr as _),
+            TyKind::Infer(_, InferTy::AnyInt) => Self::Int(ptr as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Self::F32(ptr as _)
+                } else {
+                    Self::F64(ptr as _)
+                }
+            }
             TyKind::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
         }

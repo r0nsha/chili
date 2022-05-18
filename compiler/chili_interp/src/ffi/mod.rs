@@ -339,8 +339,20 @@ impl AsFfiType for TyKind {
             }
             TyKind::Struct(st) => Type::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
             TyKind::Infer(_, ty) => match ty {
-                InferTy::AnyInt => Type::i32(),
-                InferTy::AnyFloat => Type::f32(),
+                InferTy::AnyInt => {
+                    if IS_64BIT {
+                        Type::i64()
+                    } else {
+                        Type::i32()
+                    }
+                }
+                InferTy::AnyFloat => {
+                    if IS_64BIT {
+                        Type::f64()
+                    } else {
+                        Type::f32()
+                    }
+                }
                 InferTy::PartialStruct(_) => todo!(),
                 InferTy::PartialTuple(_) => todo!(),
             },
