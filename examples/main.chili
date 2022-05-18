@@ -1,26 +1,11 @@
 use c.{ printf }
 
 let main = fn() {
-    // printf("Hello\n".data)
-
-    // let a = 6
-    // let b = (a / 3) + 10 * 2
-    // printf("Binary: %d, %d\n".data, a, b)
-
-    // let a = 5
-    // let b = -a + 8 * (-13)
-    // printf("Neg: %d, %d\n".data, a, b)
-
-    let a = true
-    let b = !a && true
-    // let f = printf("%s\n".data, "true\0".data)
-    printf("Bool: %d, %d\n".data, bool_str(a).data, bool_str(b).data)
-
-    // printf("Goodbye\n\n".data)
+    printf("Hello\n".data)
+    printf("Value = %d\n".data, @run(get_value()))
+    printf("Goodbye\n".data)
 }
 
-let bool_str = fn(b) {
-    if b { "true\0" } else { "false\0" }
+let get_value = fn() -> uint {
+    42
 }
-
-@run(main())

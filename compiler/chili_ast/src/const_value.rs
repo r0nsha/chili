@@ -88,6 +88,7 @@ impl_value! {
     Type(Ty),
     Bool(bool),
     Int(i64),
+    Uint(u64),
     Float(f64),
     Str(Ustr),
     // I8(i8),
@@ -99,7 +100,6 @@ impl_value! {
     // U16(u16),
     // U32(u32),
     // U64(u64),
-    // Uint(usize),
     // F32(f32),
     // F64(f64),
     // Bool(bool),
@@ -132,6 +132,7 @@ impl ToString for ConstValue {
             ConstValue::Type(t) => format!("ty {}", t),
             ConstValue::Bool(v) => format!("bool {}", v),
             ConstValue::Int(v) => format!("int {}", v),
+            ConstValue::Uint(v) => format!("uint {}", v),
             ConstValue::Float(v) => format!("float {}", v),
             ConstValue::Str(v) => format!("str {}", v),
         }

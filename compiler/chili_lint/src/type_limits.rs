@@ -19,6 +19,11 @@ impl<'s> LintSess<'s> {
                     TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
                     _ => (),
                 },
+                ConstValue::Uint(value) => match &e.ty.normalize(self.tycx) {
+                    TyKind::Int(int_ty) => self.check_int_limits(int_ty, *value as _, e),
+                    TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, e),
+                    _ => (),
+                },
                 ConstValue::Unit(_)
                 | ConstValue::Type(_)
                 | ConstValue::Bool(_)

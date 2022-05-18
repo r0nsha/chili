@@ -1210,6 +1210,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into_int_type()
                 .const_int(*v as u64, ty.is_int())
                 .into(),
+            ConstValue::Uint(v) => ty
+                .llvm_type(self)
+                .into_int_type()
+                .const_int(*v, ty.is_int())
+                .into(),
             ConstValue::Float(v) => ty
                 .llvm_type(self)
                 .into_float_type()

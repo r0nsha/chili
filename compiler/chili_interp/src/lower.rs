@@ -815,6 +815,42 @@ fn lower_const_value(
             }
             _ => panic!("invalid ty {}", ty),
         },
+        ConstValue::Uint(v) => match ty {
+            TyKind::Int(int_ty) => match int_ty {
+                IntTy::I8 => Value::I8(*v as _),
+                IntTy::I16 => Value::I16(*v as _),
+                IntTy::I32 => Value::I32(*v as _),
+                IntTy::I64 => Value::I64(*v as _),
+                IntTy::Int => Value::Int(*v as _),
+            },
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Value::U8(*v as _),
+                UintTy::U16 => Value::U16(*v as _),
+                UintTy::U32 => Value::U32(*v as _),
+                UintTy::U64 => Value::U64(*v as _),
+                UintTy::Uint => Value::Uint(*v as _),
+            },
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                FloatTy::F64 => Value::F64(*v as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            TyKind::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
         ConstValue::Float(v) => match ty {
             TyKind::Float(float_ty) => match float_ty {
                 FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
