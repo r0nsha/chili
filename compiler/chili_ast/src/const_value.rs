@@ -91,6 +91,7 @@ impl_value! {
     Uint(u64),
     Float(f64),
     Str(Ustr),
+    Tuple(Vec<ConstElement>),
     // I8(i8),
     // I16(i16),
     // I32(i32),
@@ -109,6 +110,12 @@ impl_value! {
     // Func(Func),
     // ForeignFunc(ForeignFunc),
     // Type(TyKind),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ConstElement {
+    pub value: ConstValue,
+    pub ty: Ty,
 }
 
 impl From<LiteralKind> for ConstValue {
@@ -135,6 +142,14 @@ impl ToString for ConstValue {
             ConstValue::Uint(v) => format!("uint {}", v),
             ConstValue::Float(v) => format!("float {}", v),
             ConstValue::Str(v) => format!("str {}", v),
+            ConstValue::Tuple(elements) => format!(
+                "({})",
+                elements
+                    .iter()
+                    .map(|el| el.value.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
         }
     }
 }

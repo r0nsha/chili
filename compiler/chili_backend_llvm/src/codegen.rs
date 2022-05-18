@@ -1221,6 +1221,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .const_float(*v as f64)
                 .into(),
             ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
+            ConstValue::Tuple(elements) => todo!(),
         }
     }
 

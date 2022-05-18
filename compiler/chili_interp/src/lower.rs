@@ -2,7 +2,7 @@ use crate::{
     interp::{Env, InterpSess},
     vm::{
         instruction::{CastInstruction, CompiledCode, Instruction},
-        value::{ForeignFunc, Func, Value, ValueKind},
+        value::{Aggregate, ForeignFunc, Func, Value, ValueKind},
     },
     IS_64BIT, WORD_SIZE,
 };
@@ -261,7 +261,8 @@ impl Lower for ast::Expr {
             ast::ExprKind::UnitType => todo!(),
             ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::ConstValue(const_value) => {
-                lower_const_value(const_value, self.ty, sess, code, ctx)
+                let value = const_value_to_value(const_value, self.ty, sess, code, ctx);
+                sess.push_const(code, value);
             }
             ast::ExprKind::Error => panic!("got an Error expression"),
         }
@@ -763,20 +764,17 @@ impl Lower for ast::Subscript {
     }
 }
 
-fn lower_const_value(
+fn const_value_to_value(
     const_value: &ConstValue,
     ty: Ty,
     sess: &mut InterpSess,
     code: &mut CompiledCode,
-    _ctx: LowerContext,
-) {
+    ctx: LowerContext,
+) -> Value {
     let ty = ty.normalize(&sess.tycx);
 
-    let value = match const_value {
-        ConstValue::Unit(_) => {
-            sess.push_const_unit(code);
-            return;
-        }
+    match const_value {
+        ConstValue::Unit(_) => Value::unit(),
         ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tycx)),
         ConstValue::Bool(v) => Value::Bool(*v),
         ConstValue::Int(v) => match ty {
@@ -873,9 +871,14 @@ fn lower_const_value(
             _ => panic!("invalid ty {}", ty),
         },
         ConstValue::Str(v) => Value::from(*v),
-    };
-
-    sess.push_const(code, value);
+        ConstValue::Tuple(elements) => Value::Aggregate(Aggregate {
+            elements: elements
+                .iter()
+                .map(|el| const_value_to_value(&el.value, el.ty, sess, code, ctx))
+                .collect(),
+            ty,
+        }),
+    }
 }
 
 impl Lower for ast::Slice {

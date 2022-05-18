@@ -24,11 +24,7 @@ impl<'s> LintSess<'s> {
                     TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, e),
                     _ => (),
                 },
-                ConstValue::Unit(_)
-                | ConstValue::Type(_)
-                | ConstValue::Bool(_)
-                | ConstValue::Float(_)
-                | ConstValue::Str(_) => (),
+                _ => (),
             },
             _ => (),
         }
