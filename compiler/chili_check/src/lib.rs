@@ -535,18 +535,18 @@ impl Check for ast::Fn {
         );
         let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
 
-        if !self.sig.name.is_empty() {
-            self.binding_info_id = Some(sess.bind_symbol(
-                env,
-                self.sig.name,
-                ast::Visibility::Private,
-                sig_res.ty,
-                None,
-                false,
-                ast::BindingKind::Value,
-                self.body.span,
-            )?);
-        }
+        // if !self.sig.name.is_empty() {
+        self.binding_info_id = Some(sess.bind_symbol(
+            env,
+            self.sig.name,
+            ast::Visibility::Private,
+            sig_res.ty,
+            None,
+            false,
+            ast::BindingKind::Value,
+            self.body.span,
+        )?);
+        // }
 
         env.push_scope(ScopeKind::Fn);
 
@@ -761,7 +761,7 @@ impl Check for ast::Expr {
                     // TODO (Ron): unwrap interp result into a diagnostic
                     let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
 
-                    match interp_value.try_into_const_value(&mut sess.tycx, self.span) {
+                    match interp_value.try_into_const_value(&mut sess.tycx, res.ty, self.span) {
                         Ok(const_value) => {
                             *run_result = Some(const_value.clone());
                             Ok(Res::new_const(res.ty, const_value))

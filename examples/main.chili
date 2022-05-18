@@ -2,10 +2,10 @@ use c.{ printf }
 
 let main = fn() {
     printf("Hello\n".data)
-    printf("Value = %d\n".data, @run(get_value()))
+    printf("Value = %s\n".data, @run(get_value()))
     printf("Goodbye\n".data)
 }
 
-let get_value = fn() -> uint {
-    42
+let get_value = fn() -> str {
+    "My value\0"
 }

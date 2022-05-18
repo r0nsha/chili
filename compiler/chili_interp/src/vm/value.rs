@@ -9,13 +9,13 @@ use crate::{
 use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::{
     const_value::ConstValue,
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Ty, TyKind, UintTy},
 };
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
 use paste::paste;
-use std::{ffi::c_void, fmt::Display, mem, slice};
-use ustr::Ustr;
+use std::{ffi::c_void, fmt::Display, mem, slice, str};
+use ustr::{ustr, Ustr};
 
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
@@ -425,10 +425,10 @@ impl Value {
         }
     }
 
-    // TODO: Merge Value with ConstValue
     pub fn try_into_const_value(
         self,
         tycx: &mut TyCtx,
+        ty: Ty,
         eval_span: Span,
     ) -> Result<ConstValue, &'static str> {
         match self {
@@ -437,19 +437,39 @@ impl Value {
             Self::I32(v) => Ok(ConstValue::Int(v as _)),
             Self::I64(v) => Ok(ConstValue::Int(v)),
             Self::Int(v) => Ok(ConstValue::Int(v as _)),
-            Self::U8(v) => Ok(ConstValue::Int(v as _)),
-            Self::U16(v) => Ok(ConstValue::Int(v as _)),
-            Self::U32(v) => Ok(ConstValue::Int(v as _)),
-            Self::U64(v) => Ok(ConstValue::Int(v as _)),
-            Self::Uint(v) => Ok(ConstValue::Int(v as _)),
+            Self::U8(v) => Ok(ConstValue::Uint(v as _)),
+            Self::U16(v) => Ok(ConstValue::Uint(v as _)),
+            Self::U32(v) => Ok(ConstValue::Uint(v as _)),
+            Self::U64(v) => Ok(ConstValue::Uint(v as _)),
+            Self::Uint(v) => Ok(ConstValue::Uint(v as _)),
             Self::F32(v) => Ok(ConstValue::Float(v as _)),
             Self::F64(v) => Ok(ConstValue::Float(v)),
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
             Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
-            Self::Aggregate(_) => todo!(),
+            Self::Aggregate(agg) => match tycx.ty_kind(ty) {
+                TyKind::Slice(inner, _) => {
+                    if matches!(inner.as_ref(), TyKind::Uint(UintTy::U8)) {
+                        let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;
+                        let len = *agg.elements[1].as_uint();
+                        let slice = unsafe { slice::from_raw_parts(data, len) };
+                        let s = str::from_utf8(slice).expect("slice is not a valid utf8 string");
+                        Ok(ConstValue::Str(ustr(s)))
+                    } else {
+                        Err("slice")
+                    }
+                }
+                TyKind::Tuple(_) => todo!(),
+                TyKind::Struct(_) => todo!(),
+                TyKind::Infer(_, InferTy::PartialTuple(elements)) => todo!(),
+                TyKind::Infer(_, InferTy::PartialStruct(struct_ty)) => todo!(),
+                ty => panic!(
+                    "value type mismatch. expected an aggregate type, got {}",
+                    ty
+                ),
+            },
             Self::Array(_) => todo!(),
+            Self::Func(_) => todo!(),
             Self::Pointer(_) => Err("pointer"),
-            Self::Func(_) => Err("function"),
             Self::ForeignFunc(_) => Err("function"),
         }
     }

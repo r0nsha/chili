@@ -120,7 +120,7 @@ impl From<LiteralKind> for ConstValue {
             ast::LiteralKind::Int(v) => ConstValue::Int(v),
             ast::LiteralKind::Float(v) => ConstValue::Float(v),
             ast::LiteralKind::Str(v) => ConstValue::Str(v),
-            ast::LiteralKind::Char(v) => ConstValue::Int(v as i64), // TODO: to uint const value
+            ast::LiteralKind::Char(v) => ConstValue::Uint(v as u64),
         }
     }
 }
