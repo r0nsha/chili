@@ -878,6 +878,13 @@ fn const_value_to_value(
                 .collect(),
             ty,
         }),
+        ConstValue::Struct(fields) => Value::Aggregate(Aggregate {
+            elements: fields
+                .values()
+                .map(|el| const_value_to_value(&el.value, el.ty, sess, code, ctx))
+                .collect(),
+            ty,
+        }),
     }
 }
 

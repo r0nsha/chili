@@ -1231,6 +1231,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.context.const_struct(&values, false).into()
             }
+            ConstValue::Struct(fields) => {
+                let values = fields
+                    .values()
+                    .map(|el| {
+                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
+                    })
+                    .collect::<Vec<BasicValueEnum>>();
+
+                self.context.const_struct(&values, false).into()
+            }
         }
     }
 

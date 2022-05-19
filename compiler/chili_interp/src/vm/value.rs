@@ -14,7 +14,7 @@ use chili_ast::{
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
 use paste::paste;
-use std::{ffi::c_void, fmt::Display, mem, slice, str};
+use std::{collections::BTreeMap, ffi::c_void, fmt::Display, mem, slice, str};
 use ustr::{ustr, Ustr};
 
 macro_rules! impl_value {
@@ -471,7 +471,24 @@ impl Value {
 
                     Ok(ConstValue::Tuple(values))
                 }
-                TyKind::Struct(_) => todo!(),
+                TyKind::Struct(struct_ty) => {
+                    let mut fields = BTreeMap::<Ustr, ConstElement>::new();
+
+                    for (value, field) in agg.elements.iter().zip(struct_ty.fields.iter()) {
+                        let value = value
+                            .clone()
+                            .try_into_const_value(tycx, &field.ty, eval_span)?;
+                        fields.insert(
+                            field.symbol,
+                            ConstElement {
+                                value,
+                                ty: tycx.bound(field.ty.clone(), field.span),
+                            },
+                        );
+                    }
+
+                    Ok(ConstValue::Struct(fields))
+                }
                 TyKind::Infer(_, InferTy::PartialTuple(elements)) => {
                     let mut values = Vec::with_capacity(agg.elements.len());
 
@@ -485,7 +502,22 @@ impl Value {
 
                     Ok(ConstValue::Tuple(values))
                 }
-                TyKind::Infer(_, InferTy::PartialStruct(struct_ty)) => todo!(),
+                TyKind::Infer(_, InferTy::PartialStruct(struct_ty)) => {
+                    let mut fields = BTreeMap::<Ustr, ConstElement>::new();
+
+                    for (value, (name, ty)) in agg.elements.iter().zip(struct_ty.iter()) {
+                        let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;
+                        fields.insert(
+                            *name,
+                            ConstElement {
+                                value,
+                                ty: tycx.bound(ty.clone(), eval_span),
+                            },
+                        );
+                    }
+
+                    Ok(ConstValue::Struct(fields))
+                }
                 ty => panic!(
                     "value type mismatch. expected an aggregate type, got {}",
                     ty

@@ -3,7 +3,7 @@ use crate::{
     ty::Ty,
 };
 use paste::paste;
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 use ustr::Ustr;
 
 macro_rules! impl_value {
@@ -92,24 +92,7 @@ impl_value! {
     Float(f64),
     Str(Ustr),
     Tuple(Vec<ConstElement>),
-    // I8(i8),
-    // I16(i16),
-    // I32(i32),
-    // I64(i64),
-    // Int(isize),
-    // U8(u8),
-    // U16(u16),
-    // U32(u32),
-    // U64(u64),
-    // F32(f32),
-    // F64(f64),
-    // Bool(bool),
-    // Aggregate(Aggregate),
-    // Array(Array),
-    // Pointer(Pointer),
-    // Func(Func),
-    // ForeignFunc(ForeignFunc),
-    // Type(TyKind),
+    Struct(BTreeMap<Ustr, ConstElement>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -147,6 +130,14 @@ impl ToString for ConstValue {
                 elements
                     .iter()
                     .map(|el| el.value.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
+            ConstValue::Struct(fields) => format!(
+                "{{{}}}",
+                fields
+                    .iter()
+                    .map(|(name, el)| format!("{}: {}", name, el.value.to_string()))
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
