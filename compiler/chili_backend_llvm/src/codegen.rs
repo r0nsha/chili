@@ -24,7 +24,9 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
+    values::{
+        AggregateValue, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue,
+    },
     AddressSpace, IntPredicate,
 };
 use std::collections::HashMap;
@@ -207,8 +209,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         ty: BasicTypeEnum<'ctx>,
         linkage: Linkage,
     ) -> GlobalValue<'ctx> {
+        let binding_info = self.workspace.get_binding_info(id).unwrap();
+
         let global_value = self.add_global_uninit(id, ty, linkage);
-        global_value.set_initializer(&ty.const_zero());
+
+        let value = if let Some(const_value) = &binding_info.const_value {
+            self.gen_const_value(const_value, &self.tycx.ty_kind(binding_info.ty), false)
+        } else {
+            ty.const_zero()
+        };
+
+        global_value.set_initializer(&value);
+
         global_value
     }
 
@@ -580,7 +592,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
                 ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
-                    self.gen_const_value(state, result.as_ref().unwrap(), &ty, deref)
+                    self.gen_const_value(result.as_ref().unwrap(), &ty, deref)
                 }
             },
             ast::ExprKind::Fn(func) => {
@@ -1097,10 +1109,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let tuple = self.build_alloca(state, llvm_ty);
 
                 for (i, value) in values.iter().enumerate() {
-                    self.build_store(
-                        self.builder.build_struct_gep(tuple, i as u32, "").unwrap(),
-                        *value,
-                    );
+                    let ptr = self.builder.build_struct_gep(tuple, i as u32, "").unwrap();
+                    self.build_store(ptr, *value);
                 }
 
                 if deref {
@@ -1132,7 +1142,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             ast::ExprKind::ConstValue(const_value) => {
                 let ty = expr.ty.normalize(self.tycx);
-                self.gen_const_value(state, const_value, &ty, deref)
+                self.gen_const_value(const_value, &ty, deref)
             }
 
             ast::ExprKind::FnType(sig) => {
@@ -1193,7 +1203,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(super) fn gen_const_value(
         &mut self,
-        state: &mut CodegenState<'ctx>,
         const_value: &ConstValue,
         ty: &TyKind,
         deref: bool,
@@ -1222,12 +1231,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
             ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
             ConstValue::Tuple(elements) => {
-                println!("CONST TUPLE");
                 let values = elements
                     .iter()
-                    .map(|el| {
-                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
-                    })
+                    .map(|el| self.gen_const_value(&el.value, &el.ty.normalize(self.tycx), false))
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.context.const_struct(&values, false).into()
@@ -1236,9 +1242,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 println!("CONST STRUCT");
                 let values = fields
                     .values()
-                    .map(|el| {
-                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
-                    })
+                    .map(|el| self.gen_const_value(&el.value, &el.ty.normalize(self.tycx), false))
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.context.const_struct(&values, false).into()

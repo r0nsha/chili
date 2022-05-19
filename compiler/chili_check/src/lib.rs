@@ -7,7 +7,7 @@ mod top_level;
 
 use chili_ast::{
     ast,
-    const_value::ConstValue,
+    const_value::{ConstElement, ConstValue},
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
@@ -1548,32 +1548,74 @@ impl Check for ast::Expr {
                     elements_res.push(res);
                 }
 
-                let is_tuple_type = elements_res
-                    .iter()
-                    .all(|res| res.const_value.as_ref().map_or(false, |v| v.is_type()));
+                let is_const_tuple = elements_res.iter().all(|res| res.const_value.is_some());
 
-                if is_tuple_type {
-                    // unwrap element type constants
-                    let element_tys: Vec<TyKind> = elements_res
+                if is_const_tuple {
+                    let const_values: Vec<&ConstValue> = elements_res
                         .iter()
-                        .map(|res| {
-                            res.const_value
-                                .as_ref()
-                                .unwrap()
-                                .as_type()
-                                .normalize(&sess.tycx)
-                                .clone()
-                        })
+                        .map(|res| res.const_value.as_ref().unwrap())
                         .collect();
 
-                    let kind = TyKind::Tuple(element_tys);
+                    let is_tuple_type = const_values.iter().all(|v| v.is_type());
 
-                    let ty = sess.tycx.bound(kind.clone(), self.span);
+                    if is_tuple_type {
+                        // unwrap element type constants
+                        let element_tys: Vec<TyKind> = elements_res
+                            .iter()
+                            .map(|res| {
+                                res.const_value
+                                    .as_ref()
+                                    .unwrap()
+                                    .as_type()
+                                    .normalize(&sess.tycx)
+                                    .clone()
+                            })
+                            .collect();
 
-                    Ok(Res::new_const(
-                        sess.tycx.bound(kind.create_type(), self.span),
-                        ConstValue::Type(ty),
-                    ))
+                        let kind = TyKind::Tuple(element_tys);
+
+                        let ty = sess.tycx.bound(kind.clone(), self.span);
+
+                        let const_value = ConstValue::Type(ty);
+
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_value.clone()),
+                            ty,
+                            self.span,
+                        );
+
+                        Ok(Res::new_const(
+                            sess.tycx.bound(kind.create_type(), self.span),
+                            const_value,
+                        ))
+                    } else {
+                        let element_tys: Vec<Ty> = lit.elements.iter().map(|e| e.ty).collect();
+
+                        let element_ty_kinds: Vec<TyKind> =
+                            element_tys.iter().map(|ty| ty.as_kind()).collect();
+
+                        let kind = TyKind::Tuple(element_ty_kinds.clone());
+
+                        let ty = sess.tycx.bound(kind.clone(), self.span);
+
+                        let const_value = ConstValue::Tuple(
+                            const_values
+                                .iter()
+                                .cloned()
+                                .cloned()
+                                .zip(element_tys)
+                                .map(|(value, ty)| ConstElement { value, ty })
+                                .collect(),
+                        );
+
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_value.clone()),
+                            ty,
+                            self.span,
+                        );
+
+                        Ok(Res::new_const(ty, const_value))
+                    }
                 } else {
                     let element_tys: Vec<TyKind> =
                         lit.elements.iter().map(|e| e.ty.as_kind()).collect();
