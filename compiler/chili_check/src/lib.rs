@@ -2113,6 +2113,8 @@ fn check_named_struct_literal(
             .with_label(Label::primary(span, "missing fields")));
     }
 
+    // TODO: const value
+
     Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
 }
 
@@ -2123,6 +2125,7 @@ fn check_anonymous_struct_literal(
     fields: &mut Vec<ast::StructLiteralField>,
     span: Span,
 ) -> CheckResult {
+    // TODO: anonymous structs should support unsafe union initialization
     let mut field_set = UstrSet::default();
 
     let name = get_anonymous_struct_name(span);
@@ -2149,6 +2152,8 @@ fn check_anonymous_struct_literal(
             span: field.span,
         });
     }
+
+    // TODO: const value
 
     Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
 }

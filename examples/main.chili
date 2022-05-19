@@ -1,6 +1,6 @@
 use c.{ printf }
 
-let mut person = ("Ron", 26)
+let person = ("Ron", 26)
 // let person = .{ name: "Ron", age: 26 }
 
 let main = fn() {

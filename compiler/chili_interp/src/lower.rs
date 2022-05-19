@@ -261,7 +261,7 @@ impl Lower for ast::Expr {
             ast::ExprKind::UnitType => todo!(),
             ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::ConstValue(const_value) => {
-                let value = const_value_to_value(const_value, self.ty, sess, code, ctx);
+                let value = const_value_to_value(const_value, self.ty, sess, code);
                 sess.push_const(code, value);
             }
             ast::ExprKind::Error => panic!("got an Error expression"),
@@ -769,7 +769,6 @@ fn const_value_to_value(
     ty: Ty,
     sess: &mut InterpSess,
     code: &mut CompiledCode,
-    ctx: LowerContext,
 ) -> Value {
     let ty = ty.normalize(&sess.tycx);
 
@@ -874,14 +873,14 @@ fn const_value_to_value(
         ConstValue::Tuple(elements) => Value::Aggregate(Aggregate {
             elements: elements
                 .iter()
-                .map(|el| const_value_to_value(&el.value, el.ty, sess, code, ctx))
+                .map(|el| const_value_to_value(&el.value, el.ty, sess, code))
                 .collect(),
             ty,
         }),
         ConstValue::Struct(fields) => Value::Aggregate(Aggregate {
             elements: fields
                 .values()
-                .map(|el| const_value_to_value(&el.value, el.ty, sess, code, ctx))
+                .map(|el| const_value_to_value(&el.value, el.ty, sess, code))
                 .collect(),
             ty,
         }),
@@ -1066,10 +1065,17 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
         },
         // insert a temporary value, since the global will be computed at the start of the vm execution
         _ => {
-            let slot = sess.insert_global(id, Value::unit());
-            code.push(Instruction::Return);
-            sess.evaluated_globals.push((slot, code));
-            slot
+            let binding_info = sess.workspace.get_binding_info(id).unwrap();
+
+            if let Some(const_value) = &binding_info.const_value {
+                let value = const_value_to_value(const_value, binding_info.ty, sess, &mut code);
+                sess.insert_global(id, value)
+            } else {
+                let slot = sess.insert_global(id, Value::unit());
+                code.push(Instruction::Return);
+                sess.evaluated_globals.push((slot, code));
+                slot
+            }
         }
     }
 }
