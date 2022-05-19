@@ -8,7 +8,7 @@ use crate::{
 };
 use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::{
-    const_value::ConstValue,
+    const_value::{ConstElement, ConstValue},
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Ty, TyKind, UintTy},
 };
 use chili_infer::ty_ctx::TyCtx;
@@ -428,7 +428,7 @@ impl Value {
     pub fn try_into_const_value(
         self,
         tycx: &mut TyCtx,
-        ty: Ty,
+        ty: &TyKind,
         eval_span: Span,
     ) -> Result<ConstValue, &'static str> {
         match self {
@@ -446,7 +446,7 @@ impl Value {
             Self::F64(v) => Ok(ConstValue::Float(v)),
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
             Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
-            Self::Aggregate(agg) => match tycx.ty_kind(ty) {
+            Self::Aggregate(agg) => match ty {
                 TyKind::Slice(inner, _) => {
                     if matches!(inner.as_ref(), TyKind::Uint(UintTy::U8)) {
                         let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;
@@ -458,9 +458,33 @@ impl Value {
                         Err("slice")
                     }
                 }
-                TyKind::Tuple(_) => todo!(),
+                TyKind::Tuple(elements) => {
+                    let mut values = Vec::with_capacity(agg.elements.len());
+
+                    for (value, ty) in agg.elements.iter().zip(elements) {
+                        let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;
+                        values.push(ConstElement {
+                            value,
+                            ty: tycx.bound(ty.clone(), eval_span),
+                        });
+                    }
+
+                    Ok(ConstValue::Tuple(values))
+                }
                 TyKind::Struct(_) => todo!(),
-                TyKind::Infer(_, InferTy::PartialTuple(elements)) => todo!(),
+                TyKind::Infer(_, InferTy::PartialTuple(elements)) => {
+                    let mut values = Vec::with_capacity(agg.elements.len());
+
+                    for (value, ty) in agg.elements.iter().zip(elements) {
+                        let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;
+                        values.push(ConstElement {
+                            value,
+                            ty: tycx.bound(ty.clone(), eval_span),
+                        });
+                    }
+
+                    Ok(ConstValue::Tuple(values))
+                }
                 TyKind::Infer(_, InferTy::PartialStruct(struct_ty)) => todo!(),
                 ty => panic!(
                     "value type mismatch. expected an aggregate type, got {}",

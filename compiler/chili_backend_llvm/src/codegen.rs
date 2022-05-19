@@ -1193,7 +1193,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(super) fn gen_const_value(
         &mut self,
-        _state: &mut CodegenState<'ctx>,
+        state: &mut CodegenState<'ctx>,
         const_value: &ConstValue,
         ty: &TyKind,
         deref: bool,
@@ -1221,7 +1221,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .const_float(*v as f64)
                 .into(),
             ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
-            ConstValue::Tuple(elements) => todo!(),
+            ConstValue::Tuple(elements) => {
+                let values = elements
+                    .iter()
+                    .map(|el| {
+                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
+                    })
+                    .collect::<Vec<BasicValueEnum>>();
+
+                self.context.const_struct(&values, false).into()
+            }
         }
     }
 
