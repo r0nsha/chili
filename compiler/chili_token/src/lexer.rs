@@ -420,7 +420,7 @@ impl<'lx> Lexer<'lx> {
             self.bump();
         }
 
-        if self.peek() == '.' && self.peek_two() != ".." {
+        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
             self.bump();
 
             while self.peek().is_ascii_digit() || self.peek() == '_' {

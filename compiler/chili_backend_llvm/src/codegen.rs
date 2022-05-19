@@ -1222,6 +1222,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
             ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
             ConstValue::Tuple(elements) => {
+                println!("CONST TUPLE");
                 let values = elements
                     .iter()
                     .map(|el| {
@@ -1232,6 +1233,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.context.const_struct(&values, false).into()
             }
             ConstValue::Struct(fields) => {
+                println!("CONST STRUCT");
                 let values = fields
                     .values()
                     .map(|el| {

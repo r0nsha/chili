@@ -207,7 +207,17 @@ impl<'p> Parser<'p> {
 
     fn parse_call(&mut self, callee: Expr) -> DiagnosticResult<Expr> {
         let start_span = callee.span;
-        let args = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
+        let args = parse_delimited_list!(
+            self,
+            CloseParen,
+            Comma,
+            {
+                let expr = self.parse_expr()?;
+                // println!("{}, {}", self.previous().lexeme, self.peek().lexeme);
+                expr
+            },
+            ", or )"
+        );
         let span = start_span.to(self.previous_span());
         Ok(Expr::new(
             ExprKind::Call(Call {
