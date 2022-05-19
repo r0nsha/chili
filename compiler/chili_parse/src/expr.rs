@@ -304,9 +304,9 @@ impl<'p> Parser<'p> {
                 ));
             }
         } else if eat!(self, At) {
-            return self.parse_builtin();
+            self.parse_builtin()?
         } else if eat!(self, Break | Continue | Return) {
-            return self.parse_terminator();
+            self.parse_terminator()?
         } else if eat!(
             self,
             Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)
