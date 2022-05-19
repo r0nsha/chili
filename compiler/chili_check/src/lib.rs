@@ -1627,32 +1627,15 @@ impl Check for ast::Expr {
                     Ok(Res::new(ty))
                 }
             }
-            ast::ExprKind::StructLiteral(lit) => match &mut lit.type_expr {
-                Some(type_expr) => {
-                    let res = type_expr.check(sess, env, None)?;
-                    let ty = sess.extract_const_type(res.const_value, res.ty, type_expr.span)?;
+            ast::ExprKind::StructLiteral(lit) => {
+                let res = match &mut lit.type_expr {
+                    Some(type_expr) => {
+                        let res = type_expr.check(sess, env, None)?;
+                        let ty =
+                            sess.extract_const_type(res.const_value, res.ty, type_expr.span)?;
 
-                    let kind = ty.normalize(&sess.tycx);
-
-                    match kind {
-                        TyKind::Struct(struct_ty) => check_named_struct_literal(
-                            sess,
-                            env,
-                            struct_ty,
-                            &mut lit.fields,
-                            self.span,
-                        ),
-                        _ => Err(Diagnostic::error()
-                            .with_message(format!(
-                                "type `{}` does not support struct initialization syntax",
-                                ty
-                            ))
-                            .with_label(Label::primary(type_expr.span, "not a struct type"))),
-                    }
-                }
-                None => match expected_ty {
-                    Some(ty) => {
                         let kind = ty.normalize(&sess.tycx);
+
                         match kind {
                             TyKind::Struct(struct_ty) => check_named_struct_literal(
                                 sess,
@@ -1660,18 +1643,55 @@ impl Check for ast::Expr {
                                 struct_ty,
                                 &mut lit.fields,
                                 self.span,
-                            ),
-                            _ => check_anonymous_struct_literal(
-                                sess,
-                                env,
-                                &mut lit.fields,
-                                self.span,
-                            ),
+                            )?,
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
+                                        "type `{}` does not support struct initialization syntax",
+                                        ty
+                                    ))
+                                    .with_label(Label::primary(
+                                        type_expr.span,
+                                        "not a struct type",
+                                    )))
+                            }
                         }
                     }
-                    None => check_anonymous_struct_literal(sess, env, &mut lit.fields, self.span),
-                },
-            },
+                    None => match expected_ty {
+                        Some(ty) => {
+                            let kind = ty.normalize(&sess.tycx);
+                            match kind {
+                                TyKind::Struct(struct_ty) => check_named_struct_literal(
+                                    sess,
+                                    env,
+                                    struct_ty,
+                                    &mut lit.fields,
+                                    self.span,
+                                )?,
+                                _ => check_anonymous_struct_literal(
+                                    sess,
+                                    env,
+                                    &mut lit.fields,
+                                    self.span,
+                                )?,
+                            }
+                        }
+                        None => {
+                            check_anonymous_struct_literal(sess, env, &mut lit.fields, self.span)?
+                        }
+                    },
+                };
+
+                if let Some(const_value) = &res.const_value {
+                    *self = ast::Expr::typed(
+                        ast::ExprKind::ConstValue(const_value.clone()),
+                        res.ty,
+                        self.span,
+                    );
+                }
+
+                Ok(res)
+            }
             ast::ExprKind::Literal(lit) => {
                 let const_value: ConstValue = lit.kind.into();
 
