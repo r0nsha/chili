@@ -141,14 +141,14 @@ impl<'p> Parser<'p> {
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        expect!(self, OpenCurly, "{")?;
+        require!(self, OpenCurly, "{")?;
         let then = self.parse_block_expr()?;
 
         let otherwise = if eat!(self, Else) {
             let expr = if eat!(self, If) {
                 self.parse_if()?
             } else {
-                expect!(self, OpenCurly, "{")?;
+                require!(self, OpenCurly, "{")?;
                 self.parse_block_expr()?
             };
 
@@ -330,7 +330,7 @@ impl<'p> Parser<'p> {
                 let expr = if eat!(self, Comma) {
                     self.parse_tuple_literal(expr, start_span)?
                 } else {
-                    expect!(self, CloseParen, ")")?;
+                    require!(self, CloseParen, ")")?;
 
                     expr.span.range().start -= 1;
                     expr.span = Span::to(&expr.span, self.previous_span());
@@ -354,10 +354,10 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous().span;
-        let id_token = expect!(self, Ident(_), "identifier")?;
+        let id_token = require!(self, Ident(_), "identifier")?;
         let symbol = id_token.symbol();
 
-        expect!(self, OpenParen, "(")?;
+        require!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
             "size_of" => Builtin::SizeOf(Box::new(self.parse_ty()?)),
@@ -376,7 +376,7 @@ impl<'p> Parser<'p> {
             }
         };
 
-        expect!(self, CloseParen, ")")?;
+        require!(self, CloseParen, ")")?;
 
         Ok(Expr::new(
             ExprKind::Builtin(builtin),
@@ -389,7 +389,7 @@ impl<'p> Parser<'p> {
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
-        expect!(self, OpenCurly, "{")?;
+        require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(Expr::new(
@@ -442,7 +442,7 @@ impl<'p> Parser<'p> {
                 has_reset_mark = true;
             }
         } else if declared_names == 2 {
-            expect!(self, In, "in")?;
+            require!(self, In, "in")?;
         }
 
         if !has_reset_mark {
@@ -459,7 +459,7 @@ impl<'p> Parser<'p> {
             ForIter::Value(Box::new(iter_start))
         };
 
-        expect!(self, OpenCurly, "{")?;
+        require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(Expr::new(

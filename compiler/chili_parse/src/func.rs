@@ -62,7 +62,7 @@ impl<'p> Parser<'p> {
             Comma,
             {
                 if eat!(self, DotDot) {
-                    expect!(self, CloseParen, ")")?;
+                    require!(self, CloseParen, ")")?;
                     variadic = true;
                     break;
                 }
@@ -89,7 +89,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Block> {
-        expect!(self, OpenCurly, "{")?;
+        require!(self, OpenCurly, "{")?;
         self.parse_block()
     }
 }

@@ -30,7 +30,7 @@ impl<'p> Parser<'p> {
                 let mut symbol_pattern = self.parse_symbol_pattern()?;
 
                 if eat!(self, Colon) {
-                    let id_token = expect!(self, Ident(_), "identifier")?;
+                    let id_token = require!(self, Ident(_), "identifier")?;
                     let symbol = id_token.symbol();
                     symbol_pattern.alias = Some(symbol);
                 }

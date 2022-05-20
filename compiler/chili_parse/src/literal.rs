@@ -38,7 +38,7 @@ impl<'p> Parser<'p> {
             if is_first_el {
                 if eat!(self, Semicolon) {
                     let len = self.parse_expr()?;
-                    expect!(self, CloseBracket, "]")?;
+                    require!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
                         ExprKind::ArrayLiteral(ast::ArrayLiteral {
@@ -58,7 +58,7 @@ impl<'p> Parser<'p> {
             if eat!(self, Comma) {
                 continue;
             } else {
-                expect!(self, CloseBracket, "]")?;
+                require!(self, CloseBracket, "]")?;
                 break;
             }
         }

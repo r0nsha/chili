@@ -75,7 +75,7 @@ impl<'p> Parser<'p> {
 
             let is_mutable = eat!(self, Mut);
 
-            expect!(self, CloseBracket, "]")?;
+            require!(self, CloseBracket, "]")?;
 
             let inner = self.parse_ty()?;
 
@@ -105,7 +105,7 @@ impl<'p> Parser<'p> {
             // array type or sized array literal
 
             let size = self.parse_expr()?;
-            expect!(self, CloseBracket, "]")?;
+            require!(self, CloseBracket, "]")?;
             let ty = self.parse_ty()?;
 
             Ok(Expr::new(
@@ -152,10 +152,10 @@ impl<'p> Parser<'p> {
             CloseCurly,
             Comma,
             {
-                let id = expect!(self, Ident(_), "identifier")?;
+                let id = require!(self, Ident(_), "identifier")?;
                 let name = id.symbol();
 
-                expect!(self, Colon, ":")?;
+                require!(self, Colon, ":")?;
 
                 let ty = self.parse_ty()?;
 
@@ -175,7 +175,7 @@ impl<'p> Parser<'p> {
         let start_span = self.previous().span;
         let name = self.get_decl_name();
 
-        expect!(self, OpenParen, "(")?;
+        require!(self, OpenParen, "(")?;
 
         let fields = self.parse_struct_ty_fields()?;
 

@@ -26,7 +26,7 @@ impl<'p> Parser<'p> {
                 };
 
                 if require_value {
-                    expect!(self, Eq, "=")?;
+                    require!(self, Eq, "=")?;
                 } else if !eat!(self, Eq) {
                     return Ok(Binding {
                         module_id: Default::default(),
@@ -61,7 +61,7 @@ impl<'p> Parser<'p> {
             }
             BindingKind::Type => {
                 let pattern = self.parse_symbol_pattern()?;
-                expect!(self, Eq, "=")?;
+                require!(self, Eq, "=")?;
                 let expr = self.parse_decl_ty(pattern.symbol)?;
 
                 Ok(Binding {

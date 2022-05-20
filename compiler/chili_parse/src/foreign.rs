@@ -12,7 +12,7 @@ impl<'p> Parser<'p> {
     pub(crate) fn parse_foreign_block(&mut self) -> DiagnosticResult<Vec<Binding>> {
         let lib_name = self.parse_lib_name()?;
 
-        expect!(self, OpenCurly, "{")?;
+        require!(self, OpenCurly, "{")?;
 
         let bindings = parse_delimited_list!(
             self,
@@ -25,7 +25,7 @@ impl<'p> Parser<'p> {
                     Visibility::Private
                 };
 
-                expect!(self, Let, "let")?;
+                require!(self, Let, "let")?;
 
                 self.parse_foreign_binding(lib_name, visibility)?
             },
@@ -51,7 +51,7 @@ impl<'p> Parser<'p> {
     ) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
-        let id = expect!(self, Ident(_), "identifier")?;
+        let id = require!(self, Ident(_), "identifier")?;
 
         let pattern = Pattern::Single(SymbolPattern {
             binding_info_id: Default::default(),
@@ -63,7 +63,7 @@ impl<'p> Parser<'p> {
         });
 
         let binding = if eat!(self, Eq) {
-            expect!(self, Fn, "fn")?;
+            require!(self, Fn, "fn")?;
 
             let fn_sig_start_span = self.previous().span;
             let mut sig = self.parse_fn_sig(id.symbol())?;
@@ -103,12 +103,12 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_lib_name(&mut self) -> DiagnosticResult<Ustr> {
-        expect!(self, OpenParen, "(")?;
+        require!(self, OpenParen, "(")?;
 
-        let lib_token = expect!(self, Str(_), "str")?;
+        let lib_token = require!(self, Str(_), "str")?;
         let lib = lib_token.symbol();
 
-        expect!(self, CloseParen, ")")?;
+        require!(self, CloseParen, ")")?;
 
         Ok(lib)
     }

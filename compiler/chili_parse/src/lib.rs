@@ -48,7 +48,7 @@ macro_rules! eat {
     };
 }
 
-macro_rules! expect {
+macro_rules! require {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:literal) => {
         if token_is!($parser, $( $pattern )|+) {
             Ok($parser.bump().clone())
@@ -79,8 +79,8 @@ macro_rules! parse_delimited_list {
 }
 
 pub(crate) use eat;
-pub(crate) use expect;
 pub(crate) use parse_delimited_list;
+pub(crate) use require;
 pub(crate) use token_is;
 
 pub struct Parser<'p> {

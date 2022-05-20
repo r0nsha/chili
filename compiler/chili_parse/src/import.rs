@@ -23,7 +23,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_import_inner(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
-        let id_token = expect!(self, Ident(_), "identifier")?;
+        let id_token = require!(self, Ident(_), "identifier")?;
         let name = id_token.symbol().as_str();
 
         match name {
@@ -128,7 +128,7 @@ impl<'p> Parser<'p> {
                 let mut imports = vec![];
 
                 while !eat!(self, CloseCurly) {
-                    let id_token = expect!(self, Ident(_), "identifier")?;
+                    let id_token = require!(self, Ident(_), "identifier")?;
                     let alias = id_token.symbol();
 
                     let mut local_import_path = import_path.clone();
@@ -147,7 +147,7 @@ impl<'p> Parser<'p> {
                     imports.extend(import);
 
                     if !eat!(self, Comma) {
-                        expect!(self, CloseCurly, "}")?;
+                        require!(self, CloseCurly, "}")?;
                         break;
                     }
                 }
@@ -171,7 +171,7 @@ impl<'p> Parser<'p> {
             }
         } else {
             let alias = if eat!(self, As) {
-                expect!(self, Ident(_), "identifier")?.symbol()
+                require!(self, Ident(_), "identifier")?.symbol()
             } else {
                 alias
             };

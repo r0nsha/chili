@@ -240,7 +240,7 @@ impl<'p> Parser<'p> {
                         Err(_) => None,
                     };
 
-                    expect!(self, CloseBracket, "]")?;
+                    require!(self, CloseBracket, "]")?;
 
                     return Ok(Expr::new(
                         ExprKind::Slice(ast::Slice {
@@ -252,7 +252,7 @@ impl<'p> Parser<'p> {
                     ));
                 }
 
-                expect!(self, CloseBracket, "]")?;
+                require!(self, CloseBracket, "]")?;
 
                 Ok(Expr::new(
                     ExprKind::Subscript(ast::Subscript {
@@ -269,7 +269,7 @@ impl<'p> Parser<'p> {
                         Err(_) => None,
                     };
 
-                    expect!(self, CloseBracket, "]")?;
+                    require!(self, CloseBracket, "]")?;
 
                     Ok(Expr::new(
                         ExprKind::Slice(ast::Slice {

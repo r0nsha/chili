@@ -29,14 +29,14 @@ impl<'p> Parser<'p> {
             let bindings = self.parse_foreign_block()?;
             ast.bindings.extend(bindings);
         } else if eat!(self, At) {
-            let token = expect!(self, Ident(_), "ident")?;
+            let token = require!(self, Ident(_), "ident")?;
             let symbol = token.symbol();
 
             if symbol == "run" {
-                expect!(self, OpenParen, "(")?;
+                require!(self, OpenParen, "(")?;
                 let expr = self.parse_expr()?;
                 ast.run_exprs.push(expr);
-                expect!(self, CloseParen, ")")?;
+                require!(self, CloseParen, ")")?;
             } else {
                 self.diagnostics
                     .push(SyntaxError::expected(self.previous_span(), "run"));
