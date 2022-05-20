@@ -1,8 +1,9 @@
 use crate::{
     interp::{Env, InterpSess},
     vm::{
+        byte_seq::{ByteSeq, PutValue},
         instruction::{CastInstruction, CompiledCode, Instruction},
-        value::{Aggregate, ForeignFunc, Func, Value, ValueKind},
+        value::{Aggregate, Array, ForeignFunc, Func, Value, ValueKind},
     },
     IS_64BIT, WORD_SIZE,
 };
@@ -14,6 +15,7 @@ use chili_ast::{
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
+use chili_span::Span;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::ustr;
 
@@ -884,6 +886,26 @@ fn const_value_to_value(
                 .collect(),
             ty,
         }),
+        ConstValue::Array(array) => {
+            let array_len = array.values.len();
+
+            let el_ty = array.element_ty;
+            let el_ty_kind = el_ty.normalize(sess.tycx);
+            let el_size = el_ty_kind.size_of(WORD_SIZE);
+
+            let mut bytes = ByteSeq::new(array_len * el_size);
+
+            for (index, const_value) in array.values.iter().enumerate() {
+                let value = const_value_to_value(const_value, el_ty, sess, code);
+
+                bytes.offset_mut(index * el_size).put_value(&value);
+            }
+
+            Value::Array(Array {
+                bytes,
+                ty: TyKind::Array(Box::new(el_ty_kind), array_len),
+            })
+        }
     }
 }
 

@@ -1,13 +1,12 @@
 use c.{ printf }
 
-type Person = { name: str, age: i64 }
-
-let person = Person { name: "Ron", age: 26 }
-// let person = .{ name: "Ron", age: 26 }
 
 let main = fn() {
+    let array = [1, 2, 3]
     printf("Hello\n".data)
-    printf("Name = %s, Age = %d\n".data, person.name.data, person.age)
+    printf("el = %d\n".data, array[0])
     printf("Goodbye\n".data)
     ()
 }
+
+@run(main())

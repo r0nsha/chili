@@ -8,8 +8,8 @@ use crate::{
 };
 use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::{
-    const_value::{ConstElement, ConstValue},
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Ty, TyKind, UintTy},
+    const_value::{ConstArray, ConstElement, ConstValue},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
 };
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
@@ -523,7 +523,27 @@ impl Value {
                     ty
                 ),
             },
-            Self::Array(_) => todo!(),
+            Self::Array(array) => {
+                let (el_ty, array_len) = if let TyKind::Array(el_ty, len) = array.ty {
+                    (el_ty, len)
+                } else {
+                    panic!()
+                };
+
+                let mut values = Vec::with_capacity(array_len);
+                let el_size = el_ty.size_of(WORD_SIZE);
+
+                for i in 0..array_len {
+                    let value = array.bytes.offset(i * el_size).get_value(&el_ty);
+                    let const_value = value.try_into_const_value(tycx, &el_ty, eval_span)?;
+                    values.push(const_value);
+                }
+
+                Ok(ConstValue::Array(ConstArray {
+                    values,
+                    element_ty: tycx.bound(*el_ty, eval_span),
+                }))
+            }
             Self::Func(_) => todo!(),
             Self::Pointer(_) => Err("pointer"),
             Self::ForeignFunc(_) => Err("function"),

@@ -25,7 +25,8 @@ use inkwell::{
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, IntType},
     values::{
-        AggregateValue, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue,
+        AggregateValue, ArrayValue, BasicValue, BasicValueEnum, FunctionValue, GlobalValue,
+        PointerValue,
     },
     AddressSpace, IntPredicate,
 };
@@ -1230,6 +1231,19 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .const_float(*v as f64)
                 .into(),
             ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
+            ConstValue::Array(array) => {
+                println!("CONST ARRAY");
+
+                let el_ty = array.element_ty.normalize(self.tycx);
+
+                let values: Vec<BasicValueEnum> = array
+                    .values
+                    .iter()
+                    .map(|v| self.gen_const_value(v, &el_ty, false))
+                    .collect();
+
+                el_ty.llvm_type(self).const_array(&values).into()
+            }
             ConstValue::Tuple(elements) => {
                 let values = elements
                     .iter()

@@ -91,6 +91,7 @@ impl_value! {
     Uint(u64),
     Float(f64),
     Str(Ustr),
+    Array(ConstArray),
     Tuple(Vec<ConstElement>),
     Struct(BTreeMap<Ustr, ConstElement>),
 }
@@ -99,6 +100,12 @@ impl_value! {
 pub struct ConstElement {
     pub value: ConstValue,
     pub ty: Ty,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ConstArray {
+    pub values: Vec<ConstValue>,
+    pub element_ty: Ty,
 }
 
 impl From<LiteralKind> for ConstValue {
@@ -125,6 +132,15 @@ impl ToString for ConstValue {
             ConstValue::Uint(v) => format!("uint {}", v),
             ConstValue::Float(v) => format!("float {}", v),
             ConstValue::Str(v) => format!("str {}", v),
+            ConstValue::Array(array) => format!(
+                "[{}]",
+                array
+                    .values
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
             ConstValue::Tuple(elements) => format!(
                 "({})",
                 elements

@@ -7,7 +7,7 @@ mod top_level;
 
 use chili_ast::{
     ast,
-    const_value::{ConstElement, ConstValue},
+    const_value::{ConstArray, ConstElement, ConstValue},
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
@@ -1495,8 +1495,11 @@ impl Check for ast::Expr {
                     let element_ty_span = elements.first().map_or(self.span, |e| e.span);
                     let element_ty = sess.tycx.var(element_ty_span);
 
+                    let mut elements_res: Vec<Res> = vec![];
+
                     for el in elements.iter_mut() {
                         let res = el.check(sess, env, Some(element_ty))?;
+
                         res.ty
                             .unify(&element_ty, &mut sess.tycx)
                             .or_coerce_expr_into_ty(
@@ -1512,6 +1515,8 @@ impl Check for ast::Expr {
                                 res.ty,
                                 el.span,
                             )?;
+
+                        elements_res.push(res);
                     }
 
                     let ty = sess.tycx.bound(
@@ -1519,25 +1524,60 @@ impl Check for ast::Expr {
                         self.span,
                     );
 
-                    Ok(Res::new(ty))
+                    let is_const_array = elements_res.iter().all(|res| res.const_value.is_some());
+
+                    if is_const_array {
+                        let const_array = ConstValue::Array(ConstArray {
+                            values: elements_res
+                                .iter()
+                                .map(|res| res.const_value.clone().unwrap())
+                                .collect(),
+                            element_ty,
+                        });
+
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_array.clone()),
+                            ty,
+                            self.span,
+                        );
+
+                        Ok(Res::new_const(ty, const_array))
+                    } else {
+                        Ok(Res::new(ty))
+                    }
                 }
                 ast::ArrayLiteralKind::Fill { len, expr } => {
                     let len_res = len.check(sess, env, None)?;
-                    let len_value =
+                    let array_len =
                         sess.extract_const_int(len_res.const_value, len_res.ty, len.span)?;
 
-                    if len_value < 0 {
-                        return Err(TypeError::negative_array_len(len.span, len_value));
+                    if array_len < 0 {
+                        return Err(TypeError::negative_array_len(len.span, array_len));
                     }
 
-                    let expr = expr.check(sess, env, None)?;
+                    let res = expr.check(sess, env, None)?;
 
                     let ty = sess.tycx.bound(
-                        TyKind::Array(Box::new(expr.ty.into()), len_value as _),
+                        TyKind::Array(Box::new(res.ty.into()), array_len as _),
                         self.span,
                     );
 
-                    Ok(Res::new(ty))
+                    if let Some(const_value) = &res.const_value {
+                        let const_array = ConstValue::Array(ConstArray {
+                            values: vec![const_value.clone(); array_len as usize],
+                            element_ty: res.ty,
+                        });
+
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_array.clone()),
+                            ty,
+                            self.span,
+                        );
+
+                        Ok(Res::new_const(ty, const_array))
+                    } else {
+                        Ok(Res::new(ty))
+                    }
                 }
             },
             ast::ExprKind::TupleLiteral(lit) => {
