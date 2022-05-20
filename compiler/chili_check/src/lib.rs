@@ -2072,6 +2072,8 @@ fn check_named_struct_literal(
     let mut field_set = UstrSet::default();
     let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
 
+    let mut fields_res: Vec<(Ustr, Res)> = vec![];
+
     for field in fields.iter_mut() {
         if !field_set.insert(field.symbol) {
             return Err(SyntaxError::struct_field_specified_more_than_once(
@@ -2085,10 +2087,9 @@ fn check_named_struct_literal(
                 uninit_fields.remove(&field.symbol);
 
                 let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
-                let field_res = field.expr.check(sess, env, Some(expected_ty))?;
+                let res = field.expr.check(sess, env, Some(expected_ty))?;
 
-                field_res
-                    .ty
+                res.ty
                     .unify(&expected_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut field.expr,
@@ -2100,9 +2101,11 @@ fn check_named_struct_literal(
                         &sess.tycx,
                         expected_ty,
                         Some(ty_field.span),
-                        field_res.ty,
+                        res.ty,
                         field.expr.span,
                     )?;
+
+                fields_res.push((field.symbol, res));
             }
             None => {
                 return Err(TypeError::invalid_struct_field(
@@ -2133,9 +2136,31 @@ fn check_named_struct_literal(
             .with_label(Label::primary(span, "missing fields")));
     }
 
-    // TODO: const value
+    // TODO: named and anonymous structs share the same logic for constant propogation, this could be unified to a shared function
+    let is_const_struct = fields_res.iter().all(|(_, res)| res.const_value.is_some());
 
-    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
+    if is_const_struct {
+        let mut const_value_fields = BTreeMap::new();
+
+        for (name, res) in fields_res.iter() {
+            const_value_fields.insert(
+                *name,
+                ConstElement {
+                    value: res.const_value.clone().unwrap(),
+                    ty: res.ty,
+                },
+            );
+        }
+
+        let const_value = ConstValue::Struct(const_value_fields);
+
+        Ok(Res::new_const(
+            sess.tycx.bound(TyKind::Struct(struct_ty), span),
+            const_value,
+        ))
+    } else {
+        Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
+    }
 }
 
 #[inline]
@@ -2149,6 +2174,9 @@ fn check_anonymous_struct_literal(
     let mut field_set = UstrSet::default();
 
     let name = get_anonymous_struct_name(span);
+
+    let mut fields_res: Vec<(Ustr, Res)> = vec![];
+
     let mut struct_ty = StructTy {
         name,
         binding_info_id: BindingInfoId::unknown(),
@@ -2171,11 +2199,35 @@ fn check_anonymous_struct_literal(
             ty: res.ty.into(),
             span: field.span,
         });
+
+        fields_res.push((field.symbol, res));
     }
 
-    // TODO: const value
+    // TODO: named and anonymous structs share the same logic for constant propogation, this could be unified to a shared function
+    let is_const_struct = fields_res.iter().all(|(_, res)| res.const_value.is_some());
 
-    Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
+    if is_const_struct {
+        let mut const_value_fields = BTreeMap::new();
+
+        for (name, res) in fields_res.iter() {
+            const_value_fields.insert(
+                *name,
+                ConstElement {
+                    value: res.const_value.clone().unwrap(),
+                    ty: res.ty,
+                },
+            );
+        }
+
+        let const_value = ConstValue::Struct(const_value_fields);
+
+        Ok(Res::new_const(
+            sess.tycx.bound(TyKind::Struct(struct_ty), span),
+            const_value,
+        ))
+    } else {
+        Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
+    }
 }
 
 fn get_anonymous_struct_name(span: Span) -> Ustr {

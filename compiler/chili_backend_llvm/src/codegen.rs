@@ -1239,7 +1239,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.context.const_struct(&values, false).into()
             }
             ConstValue::Struct(fields) => {
-                println!("CONST STRUCT");
                 let values = fields
                     .values()
                     .map(|el| self.gen_const_value(&el.value, &el.ty.normalize(self.tycx), false))
