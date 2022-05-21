@@ -181,16 +181,20 @@ impl<'p> Parser<'p> {
                 break;
             } else {
                 let span = self.previous_span();
+
                 let start_pos = Position {
                     index: span.end.index,
                     line: span.start.line,
                     column: span.start.column,
                 };
+
                 let end_pos = EndPosition {
                     index: span.end.index + 1,
                 };
+
                 let err_span = span.with_start(start_pos).with_end(end_pos);
-                return Err(SyntaxError::expected(err_span, "; or }"));
+
+                return Err(SyntaxError::expected(err_span, ";"));
             }
         }
 
@@ -202,7 +206,7 @@ impl<'p> Parser<'p> {
         //     "; or }"
         // );
 
-        let yields = self.previous().kind == Semicolon;
+        let yields = self.previous().kind != Semicolon;
 
         let span = start_span.to(self.previous_span());
 

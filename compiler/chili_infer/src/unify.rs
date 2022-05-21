@@ -39,11 +39,6 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Unit, TyKind::Unit) => Ok(()),
             (TyKind::Bool, TyKind::Bool) => Ok(()),
 
-            (
-                TyKind::Infer(_, InferTy::AnyInt | InferTy::AnyFloat),
-                TyKind::Infer(_, InferTy::AnyInt | InferTy::AnyFloat),
-            ) => Ok(()),
-
             (TyKind::Int(t1), TyKind::Int(t2)) if t1 == t2 => Ok(()),
             (TyKind::Uint(t1), TyKind::Uint(t2)) if t1 == t2 => Ok(()),
             (TyKind::Float(t1), TyKind::Float(t2)) if t1 == t2 => Ok(()),
@@ -109,29 +104,33 @@ impl UnifyTy<TyKind> for TyKind {
                 }
             }
 
-            (
-                TyKind::Infer(var, InferTy::PartialTuple(_)),
-                other @ TyKind::Tuple(_) | other @ TyKind::Infer(_, InferTy::PartialTuple(_)),
-            )
-            | (other @ TyKind::Tuple(_), TyKind::Infer(var, InferTy::PartialTuple(_))) => {
-                unify_var_ty(*var, other, tycx)
-            }
+            // (
+            //     TyKind::Infer(var, InferTy::PartialTuple(_)),
+            //     other @ TyKind::Tuple(_) | other @ TyKind::Infer(_, InferTy::PartialTuple(_)),
+            // )
+            // | (other @ TyKind::Tuple(_), TyKind::Infer(var, InferTy::PartialTuple(_))) => {
+            //     unify_var_ty(*var, other, tycx)
+            // }
 
-            (
-                TyKind::Infer(var, InferTy::PartialStruct(_)),
-                other @ TyKind::Struct(_)
-                | other @ TyKind::Module(_)
-                | other @ TyKind::Infer(_, InferTy::PartialStruct(_)),
-            )
-            | (
-                other @ TyKind::Struct(_) | other @ TyKind::Module(_),
-                TyKind::Infer(var, InferTy::PartialStruct(_)),
-            ) => unify_var_ty(*var, other, tycx),
-
+            // (
+            //     TyKind::Infer(var, InferTy::PartialStruct(_)),
+            //     other @ TyKind::Struct(_)
+            //     | other @ TyKind::Module(_)
+            //     | other @ TyKind::Infer(_, InferTy::PartialStruct(_)),
+            // )
+            // | (
+            //     other @ TyKind::Struct(_) | other @ TyKind::Module(_),
+            //     TyKind::Infer(var, InferTy::PartialStruct(_)),
+            // ) => unify_var_ty(*var, other, tycx),
             (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
 
-            (TyKind::Var(var), _) => unify_var_ty(*var, other, tycx),
-            (_, TyKind::Var(var)) => unify_var_ty(*var, self, tycx),
+            // (
+            //     TyKind::Infer(_, InferTy::AnyInt | InferTy::AnyFloat),
+            //     TyKind::Infer(_, InferTy::AnyInt | InferTy::AnyFloat),
+            // ) => Ok(()),
+            (TyKind::Var(var) | TyKind::Infer(var, _), _) => unify_var_ty(*var, other, tycx),
+
+            (_, TyKind::Var(var) | TyKind::Infer(var, _)) => unify_var_ty(*var, self, tycx),
 
             (TyKind::Never, _) | (_, TyKind::Never) => Ok(()),
 

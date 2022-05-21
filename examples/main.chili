@@ -1,9 +1,21 @@
-use c.{ printf }
+// use c.{ printf }
+
+// let main = fn() {
+//     let x: i32 = foo();
+//     printf("x = %d\n".data, x);
+//     ()
+// }
+
+// let foo = fn() {
+//     printf("Hello\n".data);
+//     printf("Goodbye\n".data);
+//     5;
+// }
 
 let main = fn() {
-    let x = 5
-    printf("Hello\n".data)
-    printf("x = %d\n".data, x)
-    printf("Goodbye\n".data)
-    ()
+    let x: i32 = foo();
+}
+
+let foo = fn() {
+    5;
 }
