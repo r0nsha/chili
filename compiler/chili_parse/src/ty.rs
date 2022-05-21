@@ -19,6 +19,8 @@ impl<'p> Parser<'p> {
     }
 
     pub(super) fn parse_ty(&mut self) -> DiagnosticResult<Expr> {
+        let start_span = self.span();
+
         if eat!(self, Ident(_)) {
             let token = self.previous();
             let symbol = token.symbol();
@@ -35,7 +37,7 @@ impl<'p> Parser<'p> {
         } else if eat!(self, Placeholder) {
             Ok(Expr::new(ExprKind::PlaceholderType, self.previous_span()))
         } else if eat!(self, Star) {
-            let start_span = self.previous().span;
+            let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
             let ty = self.parse_ty()?;
 
@@ -47,10 +49,16 @@ impl<'p> Parser<'p> {
                 start_span.to(self.previous_span()),
             ))
         } else if eat!(self, Bang) {
-            Ok(Expr::new(ExprKind::NeverType, self.previous().span))
+            Ok(Expr::new(
+                ExprKind::NeverType,
+                start_span.to(self.previous_span()),
+            ))
         } else if eat!(self, OpenParen) {
             if eat!(self, CloseParen) {
-                Ok(Expr::new(ExprKind::UnitType, self.previous().span))
+                Ok(Expr::new(
+                    ExprKind::UnitType,
+                    start_span.to(self.previous_span()),
+                ))
             } else {
                 self.parse_tuple_ty()
             }
@@ -68,7 +76,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_array_type(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         if eat!(self, Star) {
             // multi-pointer type
@@ -119,7 +127,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_tuple_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         let elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_ty()?, ", or )");
 
@@ -130,7 +138,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_struct_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
         let name = self.get_decl_name();
 
         let fields = self.parse_struct_ty_fields()?;
@@ -172,7 +180,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_struct_union_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
         let name = self.get_decl_name();
 
         require!(self, OpenParen, "(")?;
@@ -191,7 +199,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_fn_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
         let name = self.get_decl_name();
         let sig = self.parse_fn_sig(name)?;
 

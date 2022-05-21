@@ -80,7 +80,7 @@ impl<'p> Parser<'p> {
         let start_span = expr.span;
 
         let rvalue = self.parse_expr()?;
-        let end_span = self.previous().span;
+        let end_span = self.previous_span();
 
         Ok(Expr::new(
             ExprKind::Assign(ast::Assign {

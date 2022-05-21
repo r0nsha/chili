@@ -20,7 +20,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pattern> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         let symbols = parse_delimited_list!(
             self,
@@ -49,7 +49,7 @@ impl<'p> Parser<'p> {
     }
 
     fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pattern> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         let symbols = parse_delimited_list!(
             self,

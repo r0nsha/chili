@@ -69,7 +69,7 @@ impl<'p> Parser<'p> {
 
         let expr = if is_stmt {
             if eat!(self, Use) {
-                let start_span = self.previous().span;
+                let start_span = self.previous_span();
                 let imports = self.parse_import(Visibility::Private)?;
 
                 Ok(Expr::new(
@@ -86,7 +86,7 @@ impl<'p> Parser<'p> {
                     span,
                 ))
             } else if eat!(self, Type) {
-                let start_span = self.previous().span;
+                let start_span = self.previous_span();
 
                 let binding = self.parse_binding(BindingKind::Type, Visibility::Private, false)?;
 
@@ -95,7 +95,7 @@ impl<'p> Parser<'p> {
                     start_span.to(self.previous_span()),
                 ))
             } else if eat!(self, Let) {
-                let start_span = self.previous().span;
+                let start_span = self.previous_span();
 
                 if eat!(self, Foreign) {
                     let binding = self.parse_foreign_single(Visibility::Private)?;
@@ -114,7 +114,7 @@ impl<'p> Parser<'p> {
                     ))
                 }
             } else if eat!(self, Foreign) {
-                let start_span = self.previous().span;
+                let start_span = self.previous_span();
                 let bindings = self.parse_foreign_block()?;
 
                 Ok(Expr::new(
@@ -168,7 +168,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Block> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         let exprs = parse_delimited_list!(
             self,
@@ -239,7 +239,7 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
         if eat!(self, Amp | AmpAmp | Bang | Minus | Plus) {
-            let start_span = self.previous().span;
+            let start_span = self.previous_span();
             let token = self.previous().kind;
 
             let op = match token {
@@ -292,7 +292,7 @@ impl<'p> Parser<'p> {
         } else if eat!(self, OpenBracket) {
             self.parse_array_literal()?
         } else if eat!(self, Dot) {
-            let start_span = self.previous().span;
+            let start_span = self.previous_span();
 
             // anonymous struct literal
             if eat!(self, OpenCurly) {
@@ -313,7 +313,7 @@ impl<'p> Parser<'p> {
         ) {
             self.parse_literal()?
         } else if eat!(self, OpenParen) {
-            let start_span = self.previous().span;
+            let start_span = self.previous_span();
 
             if eat!(self, CloseParen) {
                 let span = start_span.to(self.previous_span());
@@ -353,7 +353,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
         let id_token = require!(self, Ident(_), "identifier")?;
         let symbol = id_token.symbol();
 
@@ -385,7 +385,7 @@ impl<'p> Parser<'p> {
     }
 
     pub(crate) fn parse_while(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
@@ -407,7 +407,7 @@ impl<'p> Parser<'p> {
 
         let mut declared_names = 0;
 
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         self.mark(0);
 

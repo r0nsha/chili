@@ -1,20 +1,8 @@
 use c.{ printf }
 
-let main = fn() {
+let main = fn() -> () {
+    let x = 5
     printf("Hello\n".data)
-    get_f()()
+    printf("x = %d\n".data, x)
     printf("Goodbye\n\n".data)
-    ()
 }
-
-let get_f = fn(first) { if first { f1 } else { f2 } }
-
-let f1 = fn() {
-    printf("f1\n".data)
-}
-
-let f2 = fn() {
-    printf("f2\n".data)
-}
-
-@run(main())

@@ -10,7 +10,7 @@ use ustr::Ustr;
 impl<'p> Parser<'p> {
     pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
         let name = self.get_decl_name();
-        let start_span = self.previous().span;
+        let start_span = self.previous_span();
 
         let sig = self.parse_fn_sig(name)?;
 

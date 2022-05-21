@@ -65,7 +65,7 @@ impl<'p> Parser<'p> {
         let binding = if eat!(self, Eq) {
             require!(self, Fn, "fn")?;
 
-            let fn_sig_start_span = self.previous().span;
+            let fn_sig_start_span = self.previous_span();
             let mut sig = self.parse_fn_sig(id.symbol())?;
             sig.lib_name = Some(lib_name);
 

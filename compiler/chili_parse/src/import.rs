@@ -154,7 +154,7 @@ impl<'p> Parser<'p> {
 
                 Ok(imports)
             } else if eat!(self, QuestionMark) {
-                import_path.push(Spanned::new(ImportPathNode::Glob, self.previous().span));
+                import_path.push(Spanned::new(ImportPathNode::Glob, self.previous_span()));
                 Ok(vec![Import {
                     module_id: Default::default(),
                     target_binding_info_id: None,
