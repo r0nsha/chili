@@ -4,6 +4,6 @@ let main = fn() {
     let x = 5
     printf("Hello\n".data)
     printf("x = %d\n".data, x)
-    printf("Goodbye\n\n".data)
+    printf("Goodbye\n".data)
     ()
 }

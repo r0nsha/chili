@@ -24,10 +24,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, IntType},
-    values::{
-        AggregateValue, ArrayValue, BasicValue, BasicValueEnum, FunctionValue, GlobalValue,
-        PointerValue,
-    },
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     AddressSpace, IntPredicate,
 };
 use std::collections::HashMap;
@@ -38,7 +35,6 @@ pub enum CodegenDecl<'ctx> {
     Function(FunctionValue<'ctx>),
     Local(PointerValue<'ctx>),
     Global(GlobalValue<'ctx>),
-    Module(ModuleInfo),
 }
 
 impl<'ctx> CodegenDecl<'ctx> {
@@ -47,9 +43,6 @@ impl<'ctx> CodegenDecl<'ctx> {
             CodegenDecl::Function(f) => f.as_global_value().as_pointer_value(),
             CodegenDecl::Local(p) => *p,
             CodegenDecl::Global(g) => g.as_pointer_value(),
-            CodegenDecl::Module(..) => {
-                panic!("can't get the pointer value of a module")
-            }
         }
     }
 
@@ -947,18 +940,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         );
 
                         let decl = self.find_or_gen_top_level_binding(id);
+                        let ptr = decl.into_pointer_value();
 
-                        match decl {
-                            CodegenDecl::Module { .. } => self.gen_unit(),
-                            _ => {
-                                let ptr = decl.into_pointer_value();
-
-                                if deref {
-                                    self.build_load(ptr.into())
-                                } else {
-                                    ptr.into()
-                                }
-                            }
+                        if deref {
+                            self.build_load(ptr.into())
+                        } else {
+                            ptr.into()
                         }
                     }
                     _ => unreachable!("invalid ty `{}`", accessed_ty),
@@ -978,16 +965,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     None => self.find_or_gen_top_level_binding(ident.binding_info_id),
                 };
 
-                match decl {
-                    CodegenDecl::Module { .. } => self.gen_unit(),
-                    _ => {
-                        let ptr = decl.into_pointer_value();
-                        if deref {
-                            self.build_load(ptr.into())
-                        } else {
-                            ptr.into()
-                        }
-                    }
+                let ptr = decl.into_pointer_value();
+
+                if deref {
+                    self.build_load(ptr.into())
+                } else {
+                    ptr.into()
                 }
             }
             ast::ExprKind::ArrayLiteral(lit) => {
