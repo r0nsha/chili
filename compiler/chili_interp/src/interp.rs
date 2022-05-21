@@ -26,6 +26,7 @@ pub enum InterpErr {}
 pub struct Interp {
     pub(crate) globals: Globals,
     pub(crate) constants: Constants,
+    pub(crate) functions: HashMap<BindingInfoId, usize>,
     pub(crate) ffi: Ffi,
 
     bindings_to_globals: HashMap<BindingInfoId, usize>,
@@ -36,6 +37,7 @@ impl Interp {
         Self {
             globals: vec![],
             constants: vec![Value::unit()],
+            functions: HashMap::new(),
             ffi: Ffi::new(),
             bindings_to_globals: HashMap::new(),
         }
@@ -101,6 +103,7 @@ impl<'i> InterpSess<'i> {
         let mut vm = self.create_vm();
 
         let start_func = Func {
+            id: BindingInfoId::unknown(),
             name: ustr("__vm_start"),
             arg_types: vec![],
             return_type: TyKind::Unit,
@@ -119,6 +122,7 @@ impl<'i> InterpSess<'i> {
         for (global_index, global_code) in self.evaluated_globals.clone() {
             let const_slot = self.interp.constants.len();
             self.interp.constants.push(Value::Func(Func {
+                id: BindingInfoId::unknown(),
                 name: ustr(&format!("global_init_{}", global_index)),
                 arg_types: vec![],
                 return_type: TyKind::Unit,
@@ -141,10 +145,11 @@ impl<'i> InterpSess<'i> {
         VM::new(self.interp)
     }
 
-    pub(crate) fn push_const(&mut self, code: &mut CompiledCode, value: Value) {
+    pub(crate) fn push_const(&mut self, code: &mut CompiledCode, value: Value) -> usize {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
         code.push(Instruction::PushConst(slot as u32));
+        slot
     }
 
     pub(crate) fn push_const_unit(&mut self, code: &mut CompiledCode) {

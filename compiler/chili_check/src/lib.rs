@@ -7,7 +7,7 @@ mod top_level;
 
 use chili_ast::{
     ast,
-    const_value::{ConstArray, ConstElement, ConstValue},
+    const_value::{ConstArray, ConstElement, ConstFn, ConstValue},
     pattern::{Pattern, SymbolPattern},
     ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
@@ -582,6 +582,7 @@ impl Check for ast::Fn {
         )?;
 
         let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
+
         if let Some(last_expr) = self.body.exprs.last_mut() {
             unify_res = unify_res.or_coerce_expr_into_ty(
                 last_expr,
@@ -590,6 +591,7 @@ impl Check for ast::Fn {
                 sess.target_metrics.word_size,
             );
         }
+
         unify_res.or_report_err(
             &sess.tycx,
             return_ty,
@@ -600,7 +602,13 @@ impl Check for ast::Fn {
 
         env.pop_scope();
 
-        Ok(Res::new(sig_res.ty))
+        Ok(Res::new_const(
+            sig_res.ty,
+            ConstValue::Fn(ConstFn {
+                id: self.binding_info_id.unwrap(),
+                name: self.sig.name,
+            }),
+        ))
     }
 }
 
@@ -1465,13 +1473,10 @@ impl Check for ast::Expr {
                             .with_label(Label::primary(self.span, "can't capture")));
                     }
 
-                    Ok(sess
-                        .workspace
-                        .get_binding_info(id)
-                        .map(|binding_info| {
-                            Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone())
-                        })
-                        .unwrap())
+                    Ok(Res::new_maybe_const(
+                        binding_info.ty,
+                        binding_info.const_value.clone(),
+                    ))
                 }
                 None => {
                     // this is either a top level binding, a builtin binding, or it doesn't exist

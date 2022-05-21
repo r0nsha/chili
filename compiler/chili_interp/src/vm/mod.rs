@@ -145,7 +145,7 @@ impl<'vm> VM<'vm> {
             let frame = self.frame();
             let inst = frame.func().code.instructions[frame.ip];
 
-            self.trace(&inst, TraceLevel::None);
+            // self.trace(&inst, TraceLevel::Full);
             // std::thread::sleep(std::time::Duration::from_millis(10));
 
             match inst {

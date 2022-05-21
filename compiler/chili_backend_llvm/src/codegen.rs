@@ -215,7 +215,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let global_value = self.add_global_uninit(id, ty, linkage);
 
         let value = if let Some(const_value) = &binding_info.const_value {
-            self.gen_const_value(const_value, &self.tycx.ty_kind(binding_info.ty), false)
+            self.gen_const_value(
+                None,
+                const_value,
+                &self.tycx.ty_kind(binding_info.ty),
+                false,
+            )
         } else {
             ty.const_zero()
         };
@@ -593,7 +598,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
                 ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
-                    self.gen_const_value(result.as_ref().unwrap(), &ty, deref)
+                    self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref)
                 }
             },
             ast::ExprKind::Fn(func) => {
@@ -1143,7 +1148,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             ast::ExprKind::ConstValue(const_value) => {
                 let ty = expr.ty.normalize(self.tycx);
-                self.gen_const_value(const_value, &ty, deref)
+                self.gen_const_value(Some(state), const_value, &ty, deref)
             }
 
             ast::ExprKind::FnType(sig) => {
@@ -1204,6 +1209,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(super) fn gen_const_value(
         &mut self,
+        state: Option<&CodegenState<'ctx>>,
         const_value: &ConstValue,
         ty: &TyKind,
         deref: bool,
@@ -1239,7 +1245,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let values: Vec<BasicValueEnum> = array
                     .values
                     .iter()
-                    .map(|v| self.gen_const_value(v, &el_ty, false))
+                    .map(|v| self.gen_const_value(state, v, &el_ty, false))
                     .collect();
 
                 el_ty.llvm_type(self).const_array(&values).into()
@@ -1247,7 +1253,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ConstValue::Tuple(elements) => {
                 let values = elements
                     .iter()
-                    .map(|el| self.gen_const_value(&el.value, &el.ty.normalize(self.tycx), false))
+                    .map(|el| {
+                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
+                    })
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.context.const_struct(&values, false).into()
@@ -1255,10 +1263,20 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ConstValue::Struct(fields) => {
                 let values = fields
                     .values()
-                    .map(|el| self.gen_const_value(&el.value, &el.ty.normalize(self.tycx), false))
+                    .map(|el| {
+                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
+                    })
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.context.const_struct(&values, false).into()
+            }
+            ConstValue::Fn(f) => {
+                let decl = match state.and_then(|s| s.scopes.get(f.id)) {
+                    Some((_, decl)) => decl.clone(),
+                    None => self.find_or_gen_top_level_binding(f.id),
+                };
+
+                decl.into_pointer_value().into()
             }
         }
     }

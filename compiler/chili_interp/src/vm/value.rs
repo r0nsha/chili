@@ -8,8 +8,9 @@ use crate::{
 };
 use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::{
-    const_value::{ConstArray, ConstElement, ConstValue},
+    const_value::{ConstArray, ConstElement, ConstFn, ConstValue},
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
+    workspace::BindingInfoId,
 };
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
@@ -260,6 +261,7 @@ pub struct Array {
 
 #[derive(Debug, Clone)]
 pub struct Func {
+    pub id: BindingInfoId,
     pub name: Ustr,
     pub arg_types: Vec<TyKind>,
     pub return_type: TyKind,
@@ -544,7 +546,10 @@ impl Value {
                     element_ty: tycx.bound(*el_ty, eval_span),
                 }))
             }
-            Self::Func(_) => todo!(),
+            Self::Func(f) => Ok(ConstValue::Fn(ConstFn {
+                id: f.id,
+                name: f.name,
+            })),
             Self::Pointer(_) => Err("pointer"),
             Self::ForeignFunc(_) => Err("function"),
         }

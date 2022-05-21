@@ -57,19 +57,24 @@ impl Lower for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::Builtin::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
-                    TyKind::Type(ty) => sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE))),
+                    TyKind::Type(ty) => {
+                        sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
+                    }
                     ty => unreachable!("got {}", ty),
                 },
                 ast::Builtin::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
-                    TyKind::Type(ty) => sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE))),
+                    TyKind::Type(ty) => {
+                        sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
+                    }
                     ty => unreachable!("got {}", ty),
                 },
                 ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.lower(sess, code, ctx);
                     } else {
-                        sess.push_const(code, ustr("").into())
+                        sess.push_const(code, ustr("").into());
                     }
+
                     code.push(Instruction::Panic);
                 }
                 ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
@@ -141,7 +146,7 @@ impl Lower for ast::Expr {
                     }
                     TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::Pop);
-                        sess.push_const(code, Value::Uint(*size as usize))
+                        sess.push_const(code, Value::Uint(*size as usize));
                     }
                     TyKind::Slice(_, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::ConstIndex(1));
@@ -378,7 +383,9 @@ impl Lower for ast::Cast {
 
                 // calculate the slice length, by doing `high - low`
                 match expr_ty.maybe_deref_once() {
-                    TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
+                    TyKind::Array(_, len) => {
+                        sess.push_const(code, Value::Uint(len));
+                    }
                     ty => unreachable!("unexpected type `{}`", ty),
                 }
 
@@ -463,14 +470,19 @@ impl Lower for ast::Fn {
 
         let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
 
-        let func = Value::Func(Func {
+        let func = Func {
+            id: self.binding_info_id.unwrap(),
             name: self.sig.name,
             arg_types: sig_ty.params,
             return_type: *sig_ty.ret,
             code: func_code,
-        });
+        };
 
-        sess.push_const(code, func);
+        let slot = sess.push_const(code, Value::Func(func));
+
+        sess.interp
+            .functions
+            .insert(self.binding_info_id.unwrap(), slot);
     }
 }
 
@@ -580,7 +592,9 @@ impl Lower for ast::For {
 
                 // calculate the end index
                 match value_ty {
-                    TyKind::Array(_, len) => sess.push_const(code, Value::Uint(len)),
+                    TyKind::Array(_, len) => {
+                        sess.push_const(code, Value::Uint(len));
+                    }
                     TyKind::Slice(..) => {
                         code.push(Instruction::PeekPtr(value_slot));
                         code.push(Instruction::ConstIndex(1));
@@ -906,6 +920,11 @@ fn const_value_to_value(
                 ty: TyKind::Array(Box::new(el_ty_kind), array_len),
             })
         }
+        ConstValue::Fn(f) => {
+            let fn_slot = sess.interp.functions.get(&f.id).unwrap();
+            let fn_value = sess.interp.constants[*fn_slot].clone();
+            fn_value
+        }
     }
 }
 
@@ -934,7 +953,9 @@ impl Lower for ast::Slice {
                 high.lower(sess, code, LowerContext { take_ptr: false });
             } else {
                 match expr_ty {
-                    TyKind::Array(_, len) => sess.push_const(code, Value::Uint(*len)),
+                    TyKind::Array(_, len) => {
+                        sess.push_const(code, Value::Uint(*len));
+                    }
                     TyKind::Slice(..) => {
                         code.push(Instruction::Roll(1));
                     }
@@ -1080,26 +1101,26 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
     let id = binding.pattern.as_single_ref().binding_info_id;
     assert!(id != BindingInfoId::unknown());
 
-    match binding.ty.normalize(sess.tycx) {
-        TyKind::Fn(_) => match sess.interp.constants.pop() {
-            Some(value) => sess.insert_global(id, value),
-            None => panic!("top level function doesn't have a defined constant value"),
-        },
-        // insert a temporary value, since the global will be computed at the start of the vm execution
-        _ => {
-            let binding_info = sess.workspace.get_binding_info(id).unwrap();
+    // match binding.ty.normalize(sess.tycx) {
+    //     TyKind::Fn(_) => match sess.interp.constants.pop() {
+    //         Some(value) => sess.insert_global(id, value),
+    //         None => panic!("top level function doesn't have a defined constant value"),
+    //     },
+    //     _ => {
+    let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
-            if let Some(const_value) = &binding_info.const_value {
-                let value = const_value_to_value(const_value, binding_info.ty, sess, &mut code);
-                sess.insert_global(id, value)
-            } else {
-                let slot = sess.insert_global(id, Value::unit());
-                code.push(Instruction::Return);
-                sess.evaluated_globals.push((slot, code));
-                slot
-            }
-        }
+    if let Some(const_value) = &binding_info.const_value {
+        let value = const_value_to_value(const_value, binding_info.ty, sess, &mut code);
+        sess.insert_global(id, value)
+    } else {
+        // insert a temporary value, since the global will be computed at the start of the vm execution
+        let slot = sess.insert_global(id, Value::unit());
+        code.push(Instruction::Return);
+        sess.evaluated_globals.push((slot, code));
+        slot
     }
+    // }
+    // }
 }
 
 fn lower_block(

@@ -1,6 +1,7 @@
 use crate::{
     ast::{self, LiteralKind},
     ty::Ty,
+    workspace::BindingInfoId,
 };
 use paste::paste;
 use std::{collections::BTreeMap, fmt};
@@ -94,6 +95,7 @@ impl_value! {
     Array(ConstArray),
     Tuple(Vec<ConstElement>),
     Struct(BTreeMap<Ustr, ConstElement>),
+    Fn(ConstFn),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -106,6 +108,12 @@ pub struct ConstElement {
 pub struct ConstArray {
     pub values: Vec<ConstValue>,
     pub element_ty: Ty,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ConstFn {
+    pub id: BindingInfoId,
+    pub name: Ustr,
 }
 
 impl From<LiteralKind> for ConstValue {
@@ -157,6 +165,7 @@ impl ToString for ConstValue {
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
+            ConstValue::Fn(f) => format!("fn '{}'", f.name),
         }
     }
 }
