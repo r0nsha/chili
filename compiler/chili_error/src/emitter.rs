@@ -6,7 +6,7 @@ use codespan_reporting::{
     term::{
         emit,
         termcolor::{ColorChoice, StandardStream, StandardStreamLock},
-        Chars, Config, DisplayStyle, Styles,
+        Chars, Config, DisplayStyle,
     },
 };
 
@@ -22,10 +22,8 @@ impl Default for DiagnosticEmitter {
             config: Config {
                 display_style: DisplayStyle::Rich,
                 tab_width: 4,
-                styles: Styles::default(),
                 chars: Chars::ascii(),
-                start_context_lines: 3,
-                end_context_lines: 1,
+                ..Default::default()
             },
         }
     }

@@ -18,19 +18,48 @@ use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 
 pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, ast: &TypedAst) {
-    let mut sess = LintSess {
-        workspace,
-        tycx,
-        init_scopes: Scopes::default(),
-    };
+    {
+        let mut sess = LintSess {
+            workspace,
+            tycx,
+            init_scopes: Scopes::default(),
+        };
 
-    sess.init_scopes.push_scope();
+        sess.init_scopes.push_scope();
 
-    for binding in ast.bindings.values() {
-        binding.lint(&mut sess);
+        for binding in ast.bindings.values() {
+            binding.lint(&mut sess);
+        }
+
+        sess.init_scopes.pop_scope();
     }
 
-    sess.init_scopes.pop_scope();
+    // Check that an entry point function exists
+    // TODO (Ron): This won't be relevant for future targets like WASM, DLLs and libraries
+    if let Some(binding_info) = workspace.entry_point_function() {
+        let ty = binding_info.ty.normalize(tycx).into_fn();
+
+        // if this is the main function, check its type matches a fn() -> [unit | never]
+        if !(ty.ret.is_unit() || ty.ret.is_never()) || !ty.params.is_empty() || ty.variadic {
+            workspace.diagnostics.push(
+                Diagnostic::error()
+                    .with_message(format!(
+                        "entry point function `main` has type `{}`, expected `fn() -> ()`",
+                        ty
+                    ))
+                    .with_label(Label::primary(
+                        binding_info.span,
+                        "invalid type of entry point function",
+                    )),
+            );
+        }
+    } else {
+        workspace.diagnostics.push(
+            Diagnostic::error()
+                .with_message("entry point function `main` is not defined")
+                .with_note("define function `let main = fn() {}` in your entry file"),
+        );
+    }
 }
 
 trait Lint {
@@ -157,34 +186,12 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::Cast(t) => t.expr.lint(sess),
             ast::ExprKind::Builtin(b) => match b {
-                // TODO: check type limits for "Run" const values
                 ast::Builtin::SizeOf(e) | ast::Builtin::AlignOf(e) | ast::Builtin::Run(e, _) => {
                     e.lint(sess)
                 }
                 ast::Builtin::Panic(e) => e.lint(sess),
             },
             ast::ExprKind::Fn(f) => {
-                let ty = f.sig.ty.normalize(&sess.tycx).into_fn();
-
-                // if this is the main function, check its type matches a fn() -> [unit | never]
-                if f.is_entry_point
-                    && (!(ty.ret.is_unit() || ty.ret.is_never())
-                        || !ty.params.is_empty()
-                        || ty.variadic)
-                {
-                    sess.workspace.diagnostics.push(
-                        Diagnostic::error()
-                            .with_message(format!(
-                                "entry point function `main` has type `{}`, expected `fn() -> ()`",
-                                ty
-                            ))
-                            .with_label(Label::primary(
-                                self.span,
-                                "invalid type of entry point function",
-                            )),
-                    );
-                }
-
                 f.body.lint(sess);
             }
             ast::ExprKind::While(while_) => {
@@ -290,11 +297,13 @@ impl Lint for ast::Expr {
                 sig.ret.lint(sess);
             }
             ast::ExprKind::Ident(ident) => sess.check_id_access(ident.binding_info_id, self.span),
-            ast::ExprKind::Literal(_)=> panic!("Literal expression should have been lowered to a ConstValue"),
+            ast::ExprKind::Literal(_) => {
+                panic!("Literal expression should have been lowered to a ConstValue")
+            }
             ast::ExprKind::SelfType
             | ast::ExprKind::NeverType
             | ast::ExprKind::UnitType
-            | ast::ExprKind::ConstValue(_) // TODO: check type limits for const values
+            | ast::ExprKind::ConstValue(_)
             | ast::ExprKind::PlaceholderType => (),
             ast::ExprKind::Error => panic!("unexpected error node"),
         }

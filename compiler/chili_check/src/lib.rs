@@ -145,14 +145,6 @@ impl<'s> CheckSess<'s> {
             }
         }
 
-        // Check that an entry point function exists
-        // Note (Ron): This won't be relevant for targets like WASM or libraries
-        if self.workspace.entry_point_function_id.is_none() {
-            return Err(Diagnostic::error()
-                .with_message("entry point function `main` is not defined")
-                .with_note("define function `let main = fn() {}` in your entry file"));
-        }
-
         Ok(())
     }
 
