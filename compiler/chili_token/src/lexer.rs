@@ -33,46 +33,7 @@ impl<'lx> Lexer<'lx> {
 
     pub fn scan(mut self) -> DiagnosticResult<Vec<Token>> {
         self.eat_all_tokens()?;
-        self.replace_terminating_newlines_with_semicolons();
         Ok(self.tokens)
-    }
-
-    fn replace_terminating_newlines_with_semicolons(&mut self) {
-        let mut last_token: Option<TokenKind> = None;
-
-        for i in 0..self.tokens.len() {
-            let token = self.tokens[i].kind;
-
-            if let Newline = token {
-                match last_token {
-                    Some(t) => {
-                        // if the previous token can end an expression,
-                        // and the next token can start an expression,
-                        // replace the newline with a semicolon
-                        if t.is_expr_end() {
-                            let next_token = match self.tokens.get(i + 1) {
-                                Some(t) => t.kind,
-                                None => Eof,
-                            };
-
-                            if next_token.is_expr_start() {
-                                self.tokens[i].kind = Semicolon;
-                            }
-                        }
-                    }
-                    None => {}
-                }
-            }
-
-            last_token = Some(token);
-        }
-
-        self.tokens = self
-            .tokens
-            .iter()
-            .filter(|t| t.kind != Newline)
-            .cloned()
-            .collect();
     }
 
     pub(crate) fn eat_all_tokens(&mut self) -> DiagnosticResult<()> {
@@ -159,17 +120,7 @@ impl<'lx> Lexer<'lx> {
                 }
                 ',' => Comma,
                 // skip this character
-                ' ' | '\r' | '\t' => self.eat_token()?,
-                '\n' => match self.tokens.last() {
-                    Some(t) => {
-                        if matches!(t.kind, Newline | Semicolon) {
-                            self.eat_token()?
-                        } else {
-                            Newline
-                        }
-                    }
-                    None => self.eat_token()?,
-                },
+                ' ' | '\r' | '\t' | '\n' => self.eat_token()?,
                 '\'' => self.eat_char()?,
                 DOUBLE_QUOTE => self.eat_str()?,
                 '^' => {

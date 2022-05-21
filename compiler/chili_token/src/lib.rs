@@ -46,7 +46,6 @@ pub enum TokenKind {
     CloseCurly,
     OpenBracket,
     CloseBracket,
-    Newline,
     Semicolon,
     Colon,
     At,
@@ -135,7 +134,6 @@ impl TokenKind {
 
         match self {
             At => "@",
-            Newline => "[newline]",
             Semicolon => ";",
             Colon => ":",
             OpenParen => "(",

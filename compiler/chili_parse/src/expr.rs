@@ -3,7 +3,7 @@ use chili_ast::ast::{
     self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, UnaryOp, Visibility,
 };
 use chili_error::*;
-use chili_span::{Span, To};
+use chili_span::{EndPosition, Position, Span, To};
 use chili_token::TokenKind::*;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
@@ -170,19 +170,46 @@ impl<'p> Parser<'p> {
     pub(crate) fn parse_block(&mut self) -> DiagnosticResult<Block> {
         let start_span = self.previous_span();
 
-        let exprs = parse_delimited_list!(
-            self,
-            CloseCurly,
-            Semicolon,
-            self.parse_expr_with_res(Restrictions::STMT_EXPR)?,
-            "; or }"
-        );
+        let mut exprs = vec![];
+
+        while !eat!(self, CloseCurly) && !self.is_end() {
+            exprs.push(self.parse_expr_with_res(Restrictions::STMT_EXPR)?);
+
+            if eat!(self, Semicolon) || self.previous().kind == CloseCurly {
+                continue;
+            } else if eat!(self, CloseCurly) {
+                break;
+            } else {
+                let span = self.previous_span();
+                let start_pos = Position {
+                    index: span.end.index,
+                    line: span.start.line,
+                    column: span.start.column,
+                };
+                let end_pos = EndPosition {
+                    index: span.end.index + 1,
+                };
+                let err_span = span.with_start(start_pos).with_end(end_pos);
+                return Err(SyntaxError::expected(err_span, "; or }"));
+            }
+        }
+
+        // let exprs = parse_delimited_list!(
+        //     self,
+        //     CloseCurly,
+        //     Semicolon,
+        //     self.parse_expr_with_res(Restrictions::STMT_EXPR)?,
+        //     "; or }"
+        // );
+
+        let yields = self.previous().kind == Semicolon;
 
         let span = start_span.to(self.previous_span());
+
         Ok(Block {
             exprs,
             deferred: vec![],
-            yields: true,
+            yields,
             span,
         })
     }
