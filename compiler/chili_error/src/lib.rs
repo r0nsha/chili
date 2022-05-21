@@ -299,26 +299,6 @@ impl TypeError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn fn_call_arity_mismatch(span: Span, expected: usize, actual: usize) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!(
-                "function expects {} argument{}, but {} {} supplied",
-                expected,
-                if expected > 1 { "s" } else { "" },
-                actual,
-                if actual > 1 { "were" } else { "was" },
-            ))
-            .with_label(Label::primary(
-                span,
-                format!(
-                    "expected {} argument{}, got {}",
-                    expected,
-                    if expected > 1 { "s" } else { "" },
-                    actual
-                ),
-            ))
-    }
-
     pub fn struct_call_arity_mismatch(
         span: Span,
         expected: usize,

@@ -1940,20 +1940,31 @@ impl Check for ast::Call {
 
         match callee_res.ty.normalize(&sess.tycx) {
             TyKind::Fn(fn_ty) => {
-                if fn_ty.variadic {
-                    if self.args.len() < fn_ty.params.len() {
-                        return Err(TypeError::fn_call_arity_mismatch(
-                            self.span,
-                            fn_ty.params.len(),
-                            self.args.len(),
-                        ));
-                    }
-                } else if self.args.len() != fn_ty.params.len() {
-                    return Err(TypeError::fn_call_arity_mismatch(
-                        self.span,
-                        fn_ty.params.len(),
-                        self.args.len(),
-                    ));
+                if (fn_ty.variadic && self.args.len() < fn_ty.params.len())
+                    || (!fn_ty.variadic && self.args.len() != fn_ty.params.len())
+                {
+                    let span = self.span;
+                    let expected = fn_ty.params.len();
+                    let actual = self.args.len();
+
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "function expects {} argument{}, but {} {} supplied",
+                            expected,
+                            if expected > 1 { "s" } else { "" },
+                            actual,
+                            if actual > 1 { "were" } else { "was" },
+                        ))
+                        .with_label(Label::primary(
+                            span,
+                            format!(
+                                "expected {} argument{}, got {}",
+                                expected,
+                                if expected > 1 { "s" } else { "" },
+                                actual
+                            ),
+                        ))
+                        .with_note(format!("function is of type `{}`", fn_ty)));
                 }
 
                 for (index, arg) in self.args.iter_mut().enumerate() {
