@@ -63,7 +63,7 @@ impl TyCtx {
     #[inline]
     pub fn bound(&mut self, kind: TyKind, span: Span) -> Ty {
         match kind {
-            TyKind::Var(ty) => ty,
+            TyKind::Var(ty) | TyKind::Infer(ty, _) => ty,
             _ => self.insert(InferenceValue::Bound(kind), Some(span)),
         }
     }
