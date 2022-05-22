@@ -49,6 +49,10 @@ struct Args {
     #[clap(long)]
     no_codegen: bool,
 
+    /// Skip the code generation phase
+    #[clap(long)]
+    no_color: bool,
+
     /// Specify the target platform. Important: This flag is a placeholder until workspace-based configuration is implemented
     #[clap(arg_enum, default_value_t = Target::Current)]
     target: Target,
@@ -87,6 +91,7 @@ pub fn start_cli() {
                 verbose: args.verbose,
                 emit_llvm_ir: args.emit_llvm,
                 no_codegen: args.no_codegen,
+                no_color: args.no_color,
             };
 
             start_workspace(build_options);

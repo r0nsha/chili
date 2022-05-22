@@ -6,6 +6,8 @@ foreign("system:c") {
 	pub let printf = fn(input: [*]u8, ..) -> int;
 	pub let sprintf_s = fn(buffer: [*]u8, sizeOfBuffer: uint, format: [*]u8, ..) -> int;
 
+	pub let scanf = fn(format: [*]u8, ..) -> int;
+
 	pub let strcpy = fn(dest: [*]u8, src: [*]u8) -> [*]u8;
 	pub let wcscpy = fn(dest: [*]u16, src: [*]u16) -> int;
 

@@ -4,7 +4,7 @@ pub mod emitter;
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
 use diagnostic::{Diagnostic, DiagnosticKind, Label};
-use emitter::DiagnosticEmitter;
+use emitter::{ColorMode, DiagnosticEmitter};
 use ustr::Ustr;
 
 pub struct Diagnostics {
@@ -13,17 +13,15 @@ pub struct Diagnostics {
     diagnostics: Vec<Diagnostic>,
 }
 
-impl Default for Diagnostics {
-    fn default() -> Self {
+impl Diagnostics {
+    pub fn new(color_mode: ColorMode) -> Self {
         Self {
             files: SimpleFiles::new(),
-            emitter: DiagnosticEmitter::default(),
+            emitter: DiagnosticEmitter::new(color_mode),
             diagnostics: vec![],
         }
     }
-}
 
-impl Diagnostics {
     pub fn add_file(&mut self, name: String, source: String) -> FileId {
         self.files.add(name, source)
     }

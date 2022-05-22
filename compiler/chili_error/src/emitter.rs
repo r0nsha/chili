@@ -15,10 +15,10 @@ pub struct DiagnosticEmitter {
     config: Config,
 }
 
-impl Default for DiagnosticEmitter {
-    fn default() -> Self {
+impl DiagnosticEmitter {
+    pub fn new(color_mode: ColorMode) -> Self {
         Self {
-            writer: StandardStream::stderr(ColorChoice::Always),
+            writer: StandardStream::stderr(color_mode.into()),
             config: Config {
                 display_style: DisplayStyle::Rich,
                 tab_width: 4,
@@ -27,9 +27,7 @@ impl Default for DiagnosticEmitter {
             },
         }
     }
-}
 
-impl DiagnosticEmitter {
     pub fn emit_one(&self, files: &SimpleFiles<String, String>, diagnostic: Diagnostic) {
         self.emit(&mut self.writer.lock(), files, diagnostic)
     }
@@ -81,6 +79,7 @@ impl From<DiagnosticKind> for Severity {
         }
     }
 }
+
 impl From<LabelKind> for LabelStyle {
     fn from(val: LabelKind) -> Self {
         match val {
@@ -88,4 +87,18 @@ impl From<LabelKind> for LabelStyle {
             LabelKind::Secondary => LabelStyle::Secondary,
         }
     }
+}
+
+impl From<ColorMode> for ColorChoice {
+    fn from(mode: ColorMode) -> Self {
+        match mode {
+            ColorMode::Always => ColorChoice::Auto,
+            ColorMode::Never => ColorChoice::Never,
+        }
+    }
+}
+
+pub enum ColorMode {
+    Always,
+    Never,
 }

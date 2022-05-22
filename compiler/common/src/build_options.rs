@@ -10,6 +10,7 @@ pub struct BuildOptions {
     pub verbose: bool,
     pub emit_llvm_ir: bool,
     pub no_codegen: bool,
+    pub no_color: bool,
 }
 
 impl BuildOptions {

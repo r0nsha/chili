@@ -4,7 +4,7 @@ use crate::{
     ty::Ty,
 };
 use bitflags::bitflags;
-use chili_error::Diagnostics;
+use chili_error::{emitter::ColorMode, Diagnostics};
 use chili_span::{FileId, Span};
 use common::build_options::BuildOptions;
 use std::{
@@ -56,6 +56,11 @@ pub struct Workspace {
 impl Workspace {
     pub fn new(build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
         Self {
+            diagnostics: Diagnostics::new(if build_options.no_color {
+                ColorMode::Never
+            } else {
+                ColorMode::Always
+            }),
             build_options,
             root_file_id: Default::default(),
             root_dir,
@@ -66,7 +71,6 @@ impl Workspace {
             exports: Default::default(),
             entry_point_function_id: None,
             foreign_libraries: Default::default(),
-            diagnostics: Default::default(),
         }
     }
 }
