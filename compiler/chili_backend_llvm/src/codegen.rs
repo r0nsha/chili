@@ -1221,8 +1221,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
             ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
             ConstValue::Array(array) => {
-                println!("CONST ARRAY");
-
                 let el_ty = array.element_ty.normalize(self.tycx);
 
                 let values: Vec<BasicValueEnum> = array
