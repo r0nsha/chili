@@ -1,4 +1,5 @@
 use c.{ printf }
+use std.fmt.println
 
 let main = fn() {
     println("Hello");
@@ -11,6 +12,6 @@ let foo = fn() {
     5
 }
 
-let println = fn(fmt: str) {
-    printf("%s\n".data, fmt.data);
-}
+// let println = fn(fmt: str) {
+//     printf("%s\n".data, fmt.data);
+// }
