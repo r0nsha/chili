@@ -12,7 +12,7 @@ mod ty;
 use bitflags::bitflags;
 use chili_ast::{ast::Ast, workspace::ModuleInfo};
 use chili_error::{DiagnosticResult, Diagnostics, SyntaxError};
-use chili_span::Span;
+use chili_span::{EndPosition, Position, Span};
 use chili_token::{Token, TokenKind::*};
 use std::{collections::HashSet, path::Path};
 use ustr::{ustr, Ustr};
@@ -70,7 +70,8 @@ macro_rules! parse_delimited_list {
             } else if eat!($parser, $close_delim) {
                 break;
             } else {
-                return Err(SyntaxError::expected($parser.span(), $msg));
+                let span = Parser::get_missing_delimiter_span($parser.previous_span());
+                return Err(SyntaxError::expected(span, $msg));
             }
         }
 
@@ -223,6 +224,21 @@ impl<'p> Parser<'p> {
         while !self.is_end() && !token_is!(self, Semicolon) {
             self.bump();
         }
+    }
+
+    #[inline]
+    pub(crate) fn get_missing_delimiter_span(after_span: Span) -> Span {
+        let start_pos = Position {
+            index: after_span.end.index,
+            line: after_span.start.line,
+            column: after_span.start.column,
+        };
+
+        let end_pos = EndPosition {
+            index: after_span.end.index + 1,
+        };
+
+        after_span.with_start(start_pos).with_end(end_pos)
     }
 }
 

@@ -185,33 +185,10 @@ impl<'p> Parser<'p> {
             } else if self.previous().kind == CloseCurly {
                 continue;
             } else {
-                let span = self.previous_span();
-
-                let start_pos = Position {
-                    index: span.end.index,
-                    line: span.start.line,
-                    column: span.start.column,
-                };
-
-                let end_pos = EndPosition {
-                    index: span.end.index + 1,
-                };
-
-                let err_span = span.with_start(start_pos).with_end(end_pos);
-
-                return Err(SyntaxError::expected(err_span, ";"));
+                let span = Parser::get_missing_delimiter_span(self.previous_span());
+                return Err(SyntaxError::expected(span, ";"));
             }
         }
-
-        // let exprs = parse_delimited_list!(
-        //     self,
-        //     CloseCurly,
-        //     Semicolon,
-        //     self.parse_expr_with_res(Restrictions::STMT_EXPR)?,
-        //     "; or }"
-        // );
-
-        // let yields = self.previous().kind != Semicolon;
 
         let span = start_span.to(self.previous_span());
 
