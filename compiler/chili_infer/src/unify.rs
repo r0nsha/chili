@@ -143,7 +143,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
     match tycx.value_of(var).clone() {
         InferenceValue::Bound(kind) => kind.unify(other, tycx),
         InferenceValue::AnyInt => {
-            let other_kind = other.normalize(&tycx);
+            let other_kind = other.normalize(tycx);
             match other_kind {
                 TyKind::Int(_) | TyKind::Uint(_) | TyKind::Float(_) => {
                     tycx.bind_ty(var, other_kind);
@@ -159,7 +159,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::AnyFloat => {
-            let other_kind = other.normalize(&tycx);
+            let other_kind = other.normalize(tycx);
             match other_kind {
                 TyKind::Float(_) => {
                     tycx.bind_ty(var, other_kind);
@@ -175,7 +175,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::PartialStruct(mut partial_struct) => {
-            let other_kind = other.normalize(&tycx);
+            let other_kind = other.normalize(tycx);
             match other_kind.maybe_deref_once() {
                 TyKind::Array(..) if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN)) => {
                     tycx.bind_ty(var, other_kind);
@@ -244,7 +244,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::PartialTuple(partial_tuple) => {
-            let other_kind = other.normalize(&tycx);
+            let other_kind = other.normalize(tycx);
             match other_kind {
                 TyKind::Tuple(ref other_tuple)
                 | TyKind::Infer(_, InferTy::PartialTuple(ref other_tuple)) => {
@@ -279,7 +279,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::Unbound => {
-            let other_kind = other.normalize(&tycx);
+            let other_kind = other.normalize(tycx);
 
             if TyKind::Var(var) != other_kind {
                 if occurs(var, &other_kind, tycx) {

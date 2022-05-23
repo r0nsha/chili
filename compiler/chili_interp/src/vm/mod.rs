@@ -42,7 +42,7 @@ impl StackFrame {
 
     #[inline]
     pub(crate) fn func(&self) -> &Func {
-        debug_assert!(self.func != ptr::null());
+        debug_assert!(!self.func.is_null());
         unsafe { &*self.func }
     }
 }
@@ -455,7 +455,7 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     pub(crate) fn push_frame(&mut self, func: *const Func) {
-        debug_assert!(func != ptr::null());
+        debug_assert!(!func.is_null());
 
         let stack_slot = self.stack.len() - 1;
 
@@ -471,13 +471,13 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     pub(crate) fn frame(&self) -> &StackFrame {
-        debug_assert!(self.frame != ptr::null_mut());
+        debug_assert!(!self.frame.is_null());
         unsafe { &*self.frame }
     }
 
     #[inline]
     pub(crate) fn frame_mut(&mut self) -> &mut StackFrame {
-        debug_assert!(self.frame != ptr::null_mut());
+        debug_assert!(!self.frame.is_null());
         unsafe { &mut *self.frame }
     }
 
@@ -497,6 +497,7 @@ impl<'vm> VM<'vm> {
         self.frame_mut().ip = new_inst_pointer as usize;
     }
 
+    #[allow(unused)]
     pub(crate) fn trace(&self, inst: &Instruction, level: TraceLevel) {
         let frame = self.frame();
 

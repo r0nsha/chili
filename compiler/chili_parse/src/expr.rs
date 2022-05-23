@@ -171,11 +171,15 @@ impl<'p> Parser<'p> {
         let start_span = self.previous_span();
 
         let mut exprs = vec![];
+        let mut yields = false;
 
         while !eat!(self, CloseCurly) && !self.is_end() {
             exprs.push(self.parse_expr_with_res(Restrictions::STMT_EXPR)?);
 
-            if eat!(self, Semicolon) || self.previous().kind == CloseCurly {
+            if eat!(self, Semicolon) {
+                yields = true;
+                continue;
+            } else if eat!(self, Semicolon) || self.previous().kind == CloseCurly {
                 continue;
             } else if eat!(self, CloseCurly) {
                 break;
@@ -206,7 +210,7 @@ impl<'p> Parser<'p> {
         //     "; or }"
         // );
 
-        let yields = self.previous().kind != Semicolon;
+        // let yields = self.previous().kind != Semicolon;
 
         let span = start_span.to(self.previous_span());
 

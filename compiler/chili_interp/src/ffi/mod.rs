@@ -77,9 +77,9 @@ impl Ffi {
         })
     }
 
-    pub(crate) unsafe fn call<'vm>(
+    pub(crate) unsafe fn call(
         &mut self,
-        vm: *mut VM<'vm>,
+        vm: *mut VM,
         func: ForeignFunc,
         mut args: Vec<Value>,
     ) -> Value {
@@ -191,7 +191,7 @@ impl Function {
                     let user_data = bump.alloc(ClosureUserData { vm, func });
 
                     let closure =
-                        bump.alloc(Closure::new(function.cif, closure_callback, &user_data));
+                        bump.alloc(Closure::new(function.cif, closure_callback, user_data));
 
                     let code_ptr =
                         closure.instantiate_code_ptr::<c_void>() as *const c_void as *mut c_void;
@@ -243,25 +243,25 @@ unsafe extern "C" fn closure_callback(
         let args = std::slice::from_raw_parts(args, arg_count);
         for (arg_type, arg) in func.arg_types.iter().zip(args) {
             let value = Value::from_type_and_ptr(arg_type, *arg as RawPointer);
-            (&mut *userdata.vm).stack.push(value);
+            (*userdata.vm).stack.push(value);
         }
     }
 
     // we need the VM to Halt instead of Return
     *func.code.instructions.last_mut().unwrap() = Instruction::Halt;
 
-    let value = (&mut *userdata.vm).run_func(func);
+    let value = (*userdata.vm).run_func(func);
 
     // pop the function args manually
     if arg_count > 0 {
         for _ in 0..arg_count {
-            (&mut *userdata.vm).stack.pop();
+            (*userdata.vm).stack.pop();
         }
     }
 
     // emulate a return, popping the current frame, and setting the last one
-    (&mut *userdata.vm).frames.pop();
-    (&mut *userdata.vm).frame = (&mut *userdata.vm).frames.last_mut() as _;
+    (*userdata.vm).frames.pop();
+    (*userdata.vm).frame = (*userdata.vm).frames.last_mut() as _;
 
     match value {
         Value::I8(v) => *(result as *mut _ as *mut _) = v,

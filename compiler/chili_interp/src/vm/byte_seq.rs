@@ -14,7 +14,7 @@ pub struct ByteSeq {
 impl ByteSeq {
     pub(crate) fn new(len: usize) -> Self {
         Self {
-            inner: vec![0u8; len.into()].into_boxed_slice(),
+            inner: vec![0u8; len].into_boxed_slice(),
         }
     }
     pub(crate) unsafe fn from_raw_parts(ptr: *mut u8, len: usize) -> Self {
@@ -24,11 +24,11 @@ impl ByteSeq {
     }
 
     pub(crate) fn offset(&self, offset: usize) -> &[u8] {
-        &self.inner[offset.into()..]
+        &self.inner[offset..]
     }
 
     pub(crate) fn offset_mut(&mut self, offset: usize) -> &mut [u8] {
-        &mut self.inner[offset.into()..]
+        &mut self.inner[offset..]
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -43,6 +43,7 @@ impl ByteSeq {
         &mut self.inner
     }
 
+    #[allow(unused)]
     pub(crate) fn as_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }

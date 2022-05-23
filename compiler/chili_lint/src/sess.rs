@@ -17,16 +17,10 @@ pub(crate) enum InitState {
 
 impl InitState {
     pub(crate) fn is_not_init(&self) -> bool {
-        match self {
-            InitState::NotInit => true,
-            _ => false,
-        }
+        matches!(self, InitState::NotInit)
     }
 
     pub(crate) fn is_init(&self) -> bool {
-        match self {
-            InitState::Init => true,
-            _ => false,
-        }
+        matches!(self, InitState::Init)
     }
 }

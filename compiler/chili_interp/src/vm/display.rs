@@ -22,23 +22,23 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Co
 
         for (index, inst) in code.instructions.iter().enumerate() {
             writer
-                .write(format!("{:06}\t{}\n", index, inst).as_bytes())
+                .write_all(format!("{:06}\t{}\n", index, inst).as_bytes())
                 .unwrap();
         }
 
-        writer.write("\nglobals:\n".as_bytes()).unwrap();
+        writer.write_all("\nglobals:\n".as_bytes()).unwrap();
 
         for (slot, value) in globals.iter().enumerate() {
             writer
-                .write(format!("${} = {}\n", slot, value.pretty_print()).as_bytes())
+                .write_all(format!("${} = {}\n", slot, value.pretty_print()).as_bytes())
                 .unwrap();
         }
 
-        writer.write("\nconstants:\n".as_bytes()).unwrap();
+        writer.write_all("\nconstants:\n".as_bytes()).unwrap();
 
         for (index, constant) in constants.iter().enumerate() {
             writer
-                .write(format!("%{}\t{}\n", index, constant.pretty_print()).as_bytes())
+                .write_all(format!("%{}\t{}\n", index, constant.pretty_print()).as_bytes())
                 .unwrap();
         }
     }

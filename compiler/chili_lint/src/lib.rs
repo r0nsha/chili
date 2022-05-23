@@ -111,7 +111,7 @@ impl Lint for ast::Binding {
         self.expr.lint(sess);
 
         if let Some(expr) = &self.expr {
-            let is_a_type = expr.ty.normalize(&sess.tycx).is_type();
+            let is_a_type = expr.ty.normalize(sess.tycx).is_type();
 
             match &self.kind {
                 ast::BindingKind::Value => {
@@ -230,13 +230,10 @@ impl Lint for ast::Expr {
             ast::ExprKind::Unary(unary) => {
                 unary.lhs.lint(sess);
 
-                match &unary.op {
-                    ast::UnaryOp::Ref(is_mutable_ref) => {
-                        if *is_mutable_ref {
-                            sess.check_expr_can_be_mutably_referenced(&unary.lhs);
-                        }
+                if let ast::UnaryOp::Ref(is_mutable_ref) = &unary.op {
+                    if *is_mutable_ref {
+                        sess.check_expr_can_be_mutably_referenced(&unary.lhs);
                     }
-                    _ => (),
                 }
             }
             ast::ExprKind::Subscript(sub) => {
@@ -248,8 +245,8 @@ impl Lint for ast::Expr {
                 slice.low.lint(sess);
                 slice.high.lint(sess);
 
-                if let None = &slice.high {
-                    if slice.expr.ty.normalize(&sess.tycx).is_multi_pointer() {
+                if slice.high.is_none() {
+                    if slice.expr.ty.normalize(sess.tycx).is_multi_pointer() {
                         sess.workspace.diagnostics.push(Diagnostic::error()
                         .with_message(
                             "multi pointer has unknown length, so you must specify the ending index",

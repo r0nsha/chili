@@ -465,11 +465,7 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::Literal(lit) => {
-                b.add_empty_child(format!(
-                    "{} <{}>",
-                    lit.kind.to_string(),
-                    tycx.ty_kind(self.ty)
-                ));
+                b.add_empty_child(format!("{} <{}>", lit.kind, tycx.ty_kind(self.ty)));
             }
             ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 b.begin_child(format!(

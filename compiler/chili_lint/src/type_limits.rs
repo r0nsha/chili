@@ -12,8 +12,8 @@ use crate::sess::LintSess;
 
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, e: &ast::Expr) {
-        match &e.kind {
-            ast::ExprKind::ConstValue(const_value) => match const_value {
+        if let ast::ExprKind::ConstValue(const_value) = &e.kind {
+            match const_value {
                 ConstValue::Int(value) => match &e.ty.normalize(self.tycx) {
                     TyKind::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
                     TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
@@ -25,8 +25,7 @@ impl<'s> LintSess<'s> {
                     _ => (),
                 },
                 _ => (),
-            },
-            _ => (),
+            }
         }
     }
 

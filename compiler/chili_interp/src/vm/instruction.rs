@@ -171,6 +171,12 @@ pub struct CompiledCode {
     pub locals: u16,
 }
 
+impl Default for CompiledCode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CompiledCode {
     pub fn new() -> Self {
         Self {

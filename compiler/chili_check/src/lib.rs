@@ -2068,16 +2068,9 @@ impl Check for ast::Block {
         if !self.exprs.is_empty() {
             let last_index = self.exprs.len() - 1;
 
-            for (index, expr) in self.exprs.iter_mut().enumerate() {
-                res = expr.check(
-                    sess,
-                    env,
-                    if index == last_index {
-                        expected_ty
-                    } else {
-                        None
-                    },
-                )?;
+            for (i, expr) in self.exprs.iter_mut().enumerate() {
+                let expected_ty = if i == last_index { expected_ty } else { None };
+                res = expr.check(sess, env, expected_ty)?;
             }
         }
 
@@ -2093,7 +2086,14 @@ impl Check for ast::Block {
 
         env.pop_scope();
 
-        Ok(res)
+        if self.yields {
+            Ok(res)
+        } else {
+            Ok(Res::new_const(
+                sess.tycx.common_types.unit,
+                ConstValue::Unit(()),
+            ))
+        }
     }
 }
 

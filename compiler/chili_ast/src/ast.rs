@@ -8,7 +8,6 @@ use crate::{
 use chili_error::DiagnosticResult;
 use chili_span::{Span, Spanned};
 use chili_token::TokenKind;
-use common::target::TargetPlatform;
 use std::{
     collections::HashMap,
     fmt::{self, Display},

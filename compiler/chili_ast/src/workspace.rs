@@ -187,8 +187,7 @@ impl Workspace {
 
     pub fn entry_point_function(&self) -> Option<&BindingInfo> {
         self.entry_point_function_id
-            .map(|id| self.get_binding_info(id))
-            .flatten()
+            .and_then(|id| self.get_binding_info(id))
     }
 }
 

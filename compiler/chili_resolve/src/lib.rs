@@ -6,7 +6,7 @@ use chili_span::Span;
 use import::{collect_module_exports, resolve_imports};
 use ustr::{Ustr, UstrMap};
 
-pub fn resolve(workspace: &mut Workspace, asts: &mut Vec<Ast>) {
+pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);

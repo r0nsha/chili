@@ -1,21 +1,17 @@
-// use c.{ printf }
-
-// let main = fn() {
-//     let x: i32 = foo();
-//     printf("x = %d\n".data, x);
-//     ()
-// }
-
-// let foo = fn() {
-//     printf("Hello\n".data);
-//     printf("Goodbye\n".data);
-//     5;
-// }
+use c.{ printf }
 
 let main = fn() {
+    println("Hello");
     let x: i32 = foo();
+    printf("x = %d\n".data, x);
+    println("Goodbye");
+    ()
 }
 
 let foo = fn() {
-    5;
+    5
+}
+
+let println = fn(fmt) {
+    printf("%s\n".data, fmt)
 }

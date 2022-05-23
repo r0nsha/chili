@@ -15,7 +15,6 @@ use chili_ast::{
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
-use chili_span::Span;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::ustr;
 
@@ -148,7 +147,7 @@ impl Lower for ast::Expr {
                         code.push(Instruction::Pop);
                         sess.push_const(code, Value::Uint(*size as usize));
                     }
-                    TyKind::Slice(_, ..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::ConstIndex(1));
                     }
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
@@ -497,7 +496,7 @@ impl Lower for ast::FnSig {
                 .unwrap()
                 .file_path;
 
-            let lib_path = ast::ForeignLibrary::from_str(&lib_name.to_string(), &module_path)
+            let lib_path = ast::ForeignLibrary::from_str(&lib_name, &module_path)
                 .unwrap()
                 .path();
 
@@ -786,7 +785,7 @@ fn const_value_to_value(
     sess: &mut InterpSess,
     code: &mut CompiledCode,
 ) -> Value {
-    let ty = ty.normalize(&sess.tycx);
+    let ty = ty.normalize(sess.tycx);
 
     match const_value {
         ConstValue::Unit(_) => Value::unit(),
@@ -922,8 +921,7 @@ fn const_value_to_value(
         }
         ConstValue::Fn(f) => {
             let fn_slot = sess.interp.functions.get(&f.id).unwrap();
-            let fn_value = sess.interp.constants[*fn_slot].clone();
-            fn_value
+            sess.interp.constants[*fn_slot].clone()
         }
     }
 }
@@ -1059,16 +1057,13 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
     let len = code.instructions.len();
 
     for inst_pos in block_start_pos..len {
-        match &mut code.instructions[inst_pos] {
-            Instruction::Jmp(offset) => {
-                if *offset == INVALID_BREAK_JMP_OFFSET {
-                    *offset = (len - inst_pos) as i32;
-                }
-                if *offset == INVALID_CONTINUE_JMP_OFFSET {
-                    *offset = continue_pos as i32 - inst_pos as i32;
-                }
+        if let Instruction::Jmp(offset) = &mut code.instructions[inst_pos] {
+            if *offset == INVALID_BREAK_JMP_OFFSET {
+                *offset = (len - inst_pos) as i32;
             }
-            _ => (),
+            if *offset == INVALID_CONTINUE_JMP_OFFSET {
+                *offset = continue_pos as i32 - inst_pos as i32;
+            }
         };
     }
 }

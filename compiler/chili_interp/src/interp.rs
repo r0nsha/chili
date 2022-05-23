@@ -32,6 +32,12 @@ pub struct Interp {
     bindings_to_globals: HashMap<BindingInfoId, usize>,
 }
 
+impl Default for Interp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Interp {
     pub fn new() -> Self {
         Self {
