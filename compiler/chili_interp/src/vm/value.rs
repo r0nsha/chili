@@ -449,6 +449,7 @@ impl Value {
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
             Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
             Self::Aggregate(agg) => match ty {
+                TyKind::Unit=> Ok(ConstValue::Unit(())),
                 TyKind::Slice(inner, _) => {
                     if matches!(inner.as_ref(), TyKind::Uint(UintTy::U8)) {
                         let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;

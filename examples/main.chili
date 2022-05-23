@@ -2,12 +2,33 @@ use c.{ printf }
 use std.fmt.println
 
 let main = fn() {
-    println("Hello");
-    let x: f64 = foo();
-    printf("x = %f\n".data, x);
-    println("Goodbye");
+    // println("Hello");
+    // let x: f64 = foo();
+    // printf("x = %f\n".data, x);
+    // println("Goodbye");
+    fizzbuzz()
 }
 
 let foo = fn() {
     5
 }
+
+let fizzbuzz = fn() {
+    @run(println("\nStart compile time"));
+
+    for i in 0..10 {
+        if i % 3 == 0 && i % 5 == 0 {
+            println("Fizzbuzz");
+        } else if i % 3 == 0 {
+            println("Fizz");
+        } else if i % 5 == 0 {
+            println("Buzz");
+        } else {
+            printf("%d\n".data, i);
+        }
+    }
+
+    @run(println("End compile time\n"));
+}
+
+@run(fizzbuzz())
