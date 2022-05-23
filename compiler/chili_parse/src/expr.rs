@@ -177,12 +177,13 @@ impl<'p> Parser<'p> {
             exprs.push(self.parse_expr_with_res(Restrictions::STMT_EXPR)?);
 
             if eat!(self, Semicolon) {
-                yields = true;
-                continue;
-            } else if eat!(self, Semicolon) || self.previous().kind == CloseCurly {
+                yields = false;
                 continue;
             } else if eat!(self, CloseCurly) {
+                yields = true;
                 break;
+            } else if self.previous().kind == CloseCurly {
+                continue;
             } else {
                 let span = self.previous_span();
 

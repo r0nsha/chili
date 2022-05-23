@@ -19,7 +19,6 @@ use inkwell::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue,
         PointerValue,
     },
-    AddressSpace,
 };
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
@@ -35,15 +34,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.builder.get_insert_block()
         };
 
-        let fn_name = func.sig.name;
-        let function = if let Some(f) = self
+        let function = self
             .module
             .get_function(&func.sig.llvm_name(module_info.name))
-        {
-            f
-        } else {
-            self.declare_fn_sig(module_info, &func.sig)
-        };
+            .unwrap_or_else(|| self.declare_fn_sig(module_info, &func.sig));
 
         let decl_block = self.context.append_basic_block(function, "decls");
         let entry_block = self.context.append_basic_block(function, "entry");
@@ -53,7 +47,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let return_ptr = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = function.get_first_param().unwrap().into_pointer_value();
-            return_ptr.set_name(&format!("{}.result", fn_name));
+            return_ptr.set_name(&format!("{}.result", func.sig.name));
             Some(return_ptr)
         } else {
             None
@@ -101,21 +95,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.gen_binding_pattern_with_value(&mut state, &param.pattern, param_ty, value);
         }
 
-        for (index, expr) in func.body.exprs.iter().enumerate() {
-            let ty = expr.ty.normalize(self.tycx);
-            let value = self.gen_expr(&mut state, expr, true);
-
-            if func.body.yields
-                && index == func.body.exprs.len() - 1
-                && !ty.is_unit()
-                && !ty.is_never()
-            {
-                self.gen_return(&mut state, Some(value), &func.body.deferred);
-            }
-        }
+        let return_value: BasicValueEnum = self.gen_block(&mut state, &func.body, true);
 
         if self.current_block().get_terminator().is_none() {
-            self.gen_return(&mut state, None, &func.body.deferred);
+            self.gen_return(&mut state, Some(return_value), &[]);
         }
 
         state.pop_scope();
@@ -124,10 +107,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.builder.build_unconditional_branch(entry_block);
 
         let function_value = self.verify_and_optimize_function(function, &func.sig.name);
-
-        // if func.is_entry_point {
-        //     self.gen_entry_point_function(function_value);
-        // }
 
         if let Some(prev_block) = prev_block {
             self.builder.position_at_end(prev_block);

@@ -103,7 +103,7 @@ impl Lower for ast::Expr {
                 code.push(Instruction::Return);
             }
             ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
-            ast::ExprKind::Block(block) => lower_block(block, sess, code, ctx, false),
+            ast::ExprKind::Block(block) => lower_block(block, sess, code, ctx),
             ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
             ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
             ast::ExprKind::Subscript(sub) => sub.lower(sess, code, ctx),
@@ -458,7 +458,6 @@ impl Lower for ast::Fn {
             sess,
             &mut func_code,
             LowerContext { take_ptr: false },
-            false,
         );
 
         if !func_code.instructions.ends_with(&[Instruction::Return]) {
@@ -554,13 +553,9 @@ impl Lower for ast::For {
 
                 let block_start_pos = code.instructions.len();
 
-                lower_block(
-                    &self.block,
-                    sess,
-                    code,
-                    LowerContext { take_ptr: false },
-                    true,
-                );
+                lower_block(&self.block, sess, code, LowerContext { take_ptr: false });
+
+                code.push(Instruction::Pop);
 
                 // increment the iterator
                 let continue_pos = code.push(Instruction::PeekPtr(iter_slot));
@@ -633,13 +628,9 @@ impl Lower for ast::For {
 
                 let block_start_pos = code.instructions.len();
 
-                lower_block(
-                    &self.block,
-                    sess,
-                    code,
-                    LowerContext { take_ptr: false },
-                    true,
-                );
+                lower_block(&self.block, sess, code, LowerContext { take_ptr: false });
+
+                code.push(Instruction::Pop);
 
                 let continue_pos = code.instructions.len() - 1;
 
@@ -673,13 +664,9 @@ impl Lower for ast::While {
 
         let block_start_pos = code.instructions.len();
 
-        lower_block(
-            &self.block,
-            sess,
-            code,
-            LowerContext { take_ptr: false },
-            true,
-        );
+        lower_block(&self.block, sess, code, LowerContext { take_ptr: false });
+
+        code.push(Instruction::Pop);
 
         let offset = code.instructions.len() - loop_start;
         code.push(Instruction::Jmp(-(offset as i32)));
@@ -1123,7 +1110,6 @@ fn lower_block(
     sess: &mut InterpSess,
     code: &mut CompiledCode,
     ctx: LowerContext,
-    throw_yielded_value: bool,
 ) {
     sess.env_mut().push_scope();
 
@@ -1140,14 +1126,14 @@ fn lower_block(
             },
         );
 
-        if !is_last || throw_yielded_value {
+        if !is_last || !block.yields {
             code.push(Instruction::Pop);
         }
     }
 
     lower_deferred(&block.deferred, sess, code);
 
-    if block.exprs.is_empty() && !throw_yielded_value {
+    if block.exprs.is_empty() || !block.yields {
         sess.push_const_unit(code);
     }
 

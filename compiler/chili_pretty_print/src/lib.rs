@@ -71,6 +71,14 @@ impl<T: PrintTree> PrintTree for Vec<T> {
     }
 }
 
+impl<T: PrintTree> PrintTree for &[T] {
+    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
+        for element in self.iter() {
+            element.print_tree(b, workspace, tycx);
+        }
+    }
+}
+
 impl<T: PrintTree> PrintTree for Option<T> {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         if let Some(e) = self {
@@ -242,7 +250,7 @@ impl PrintTree for ast::FnSig {
 
 fn build_deferred(
     b: &mut TreeBuilder,
-    deferred: &Vec<ast::Expr>,
+    deferred: &[ast::Expr],
     workspace: &Workspace,
     tycx: &TyCtx,
 ) {

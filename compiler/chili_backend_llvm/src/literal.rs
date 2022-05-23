@@ -14,7 +14,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         ty: &TyKind,
-        fields: &Vec<ast::StructLiteralField>,
+        fields: &[ast::StructLiteralField],
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         let struct_ty = ty.as_struct();

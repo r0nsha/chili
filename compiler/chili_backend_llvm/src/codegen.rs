@@ -1161,29 +1161,32 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         block: &ast::Block,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
-        let mut value = self.gen_unit();
+        let mut yielded_value = self.gen_unit();
 
         state.push_scope();
 
-        for expr in block.exprs.iter() {
-            value = self.gen_expr(state, expr, true);
+        for (i, expr) in block.exprs.iter().enumerate() {
+            let value = self.gen_expr(state, expr, true);
+            if block.yields && i == block.exprs.len() - 1 {
+                yielded_value = value;
+            }
         }
 
         self.gen_expr_list(state, &block.deferred);
 
         state.pop_scope();
 
-        if deref && !block.exprs.is_empty() {
-            self.build_load(value)
+        if deref && !block.exprs.is_empty() && block.yields {
+            self.build_load(yielded_value)
         } else {
-            value
+            yielded_value
         }
     }
 
     pub(super) fn gen_expr_list(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        expr_list: &Vec<ast::Expr>,
+        expr_list: &[ast::Expr],
     ) {
         for expr in expr_list {
             self.gen_expr(state, expr, true);
@@ -1204,16 +1207,32 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .bool_type()
                 .const_int(if *v { 1 } else { 0 }, false)
                 .into(),
-            ConstValue::Int(v) => ty
-                .llvm_type(self)
-                .into_int_type()
-                .const_int(*v as u64, ty.is_int())
-                .into(),
-            ConstValue::Uint(v) => ty
-                .llvm_type(self)
-                .into_int_type()
-                .const_int(*v, ty.is_int())
-                .into(),
+            ConstValue::Int(v) => {
+                if ty.is_any_integer() {
+                    ty.llvm_type(self)
+                        .into_int_type()
+                        .const_int(*v as u64, ty.is_int())
+                        .into()
+                } else {
+                    ty.llvm_type(self)
+                        .into_float_type()
+                        .const_float(*v as f64)
+                        .into()
+                }
+            }
+            ConstValue::Uint(v) => {
+                if ty.is_any_integer() {
+                    ty.llvm_type(self)
+                        .into_int_type()
+                        .const_int(*v, ty.is_int())
+                        .into()
+                } else {
+                    ty.llvm_type(self)
+                        .into_float_type()
+                        .const_float(*v as f64)
+                        .into()
+                }
+            }
             ConstValue::Float(v) => ty
                 .llvm_type(self)
                 .into_float_type()
@@ -1431,7 +1450,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         value: Option<BasicValueEnum<'ctx>>,
-        deferred: &Vec<ast::Expr>,
+        deferred: &[ast::Expr],
     ) -> BasicValueEnum<'ctx> {
         let abi_fn = self.fn_types.get(&state.fn_type).unwrap().clone();
 

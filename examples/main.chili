@@ -1,17 +1,17 @@
 use c.{ printf }
 
 let main = fn() {
-    println("Hello");
-    let x: i32 = foo();
-    printf("x = %d\n".data, x);
-    println("Goodbye");
-    ()
+    // println("Hello");
+    defer println("Hello");
+    let x: f64 = foo();
+    printf("x = %f\n".data, x);
+    // println("Goodbye");
 }
 
 let foo = fn() {
     5
 }
 
-let println = fn(fmt) {
-    printf("%s\n".data, fmt)
+let println = fn(fmt: str) {
+    printf("%s\n".data, fmt.data)
 }
