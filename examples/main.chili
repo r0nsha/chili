@@ -11,7 +11,3 @@ let main = fn() {
 let foo = fn() {
     5
 }
-
-// let println = fn(fmt: str) {
-//     printf("%s\n".data, fmt.data);
-// }
