@@ -1,11 +1,10 @@
 use c.{ printf }
 
 let main = fn() {
-    // println("Hello");
-    defer println("Hello");
+    println("Hello");
     let x: f64 = foo();
     printf("x = %f\n".data, x);
-    // println("Goodbye");
+    println("Goodbye");
 }
 
 let foo = fn() {
@@ -13,5 +12,5 @@ let foo = fn() {
 }
 
 let println = fn(fmt: str) {
-    printf("%s\n".data, fmt.data)
+    printf("%s\n".data, fmt.data);
 }
