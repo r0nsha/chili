@@ -1,22 +1,15 @@
-use c.{ printf }
-use std.fmt.println
-
-let main = fn() {
-    // println("Hello");
-    // let x: f64 = foo();
-    // printf("x = %f\n".data, x);
-    // println("Goodbye");
-    fizzbuzz()
+use std.{
+    c.printf,
+    fmt.println
 }
 
-let foo = fn() {
-    5
+let main = fn() {
+    fizzbuzz()
 }
 
 let fizzbuzz = fn() {
     @run(println("\nStart compile time"));
-
-    for i in 0..10 {
+    for i in 1..30 {
         if i % 3 == 0 && i % 5 == 0 {
             println("Fizzbuzz");
         } else if i % 3 == 0 {
@@ -27,7 +20,6 @@ let fizzbuzz = fn() {
             printf("%d\n".data, i);
         }
     }
-
     @run(println("End compile time\n"));
 }
 
