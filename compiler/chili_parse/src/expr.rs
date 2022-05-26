@@ -182,7 +182,7 @@ impl<'p> Parser<'p> {
             } else if eat!(self, CloseCurly) {
                 yields = true;
                 break;
-            } else if self.previous().kind == CloseCurly {
+            } else if exprs.last().map_or(false, expr_doesnt_require_semicolon) {
                 continue;
             } else {
                 let span = Parser::get_missing_delimiter_span(self.previous_span());
@@ -512,5 +512,16 @@ impl<'p> Parser<'p> {
         };
 
         Ok(Expr::new(kind, span.to(self.previous_span())))
+    }
+}
+
+#[inline(always)]
+fn expr_doesnt_require_semicolon(expr: &ast::Expr) -> bool {
+    match &expr.kind {
+        ast::ExprKind::For(_)
+        | ast::ExprKind::While(_)
+        | ast::ExprKind::If(_)
+        | ast::ExprKind::Block(_) => true,
+        _ => false,
     }
 }

@@ -4,6 +4,12 @@ use std.{
 }
 
 let main = fn() {
+    let x = {
+        let x = 5 + 10;
+        x + 1
+    };
+    let y = x + 1;
+    printf("%d\n".data, y);
     fizzbuzz()
 }
 
@@ -23,4 +29,4 @@ let fizzbuzz = fn() {
     @run(println("End compile time\n"));
 }
 
-@run(fizzbuzz())
+// @run(fizzbuzz())
