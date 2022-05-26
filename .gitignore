@@ -21,3 +21,4 @@ Cargo.lock
 vm.out
 examples/**/*
 !examples/*.chili
+dist
