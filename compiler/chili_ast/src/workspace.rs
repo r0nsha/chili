@@ -139,8 +139,6 @@ bitflags! {
         const BUILTIN_TYPE = 1 << 0;
         // whether to codegen this binding or not
         const SHOULD_CODEGEN = 1 << 1;
-        // whether this is a temporary binding made for recursive calls in functions
-        const TEMP_RECURSIVE_FUNCTION_BINDING = 1 << 2;
     }
 }
 
@@ -198,11 +196,6 @@ impl BindingInfo {
 
     pub fn should_codegen(&self) -> bool {
         self.flags.contains(BindingInfoFlags::SHOULD_CODEGEN)
-    }
-
-    pub fn is_temp_recursive_function_binding(&self) -> bool {
-        self.flags
-            .contains(BindingInfoFlags::TEMP_RECURSIVE_FUNCTION_BINDING)
     }
 }
 

@@ -254,11 +254,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.workspace
             .binding_infos
             .iter()
-            .find(|b| {
-                !b.is_temp_recursive_function_binding()
-                    && b.module_id == module_id
-                    && b.symbol == symbol
-            })
+            .find(|b| b.module_id == module_id && b.symbol == symbol)
             .unwrap_or_else(|| panic!("couldn't find {} in {}", symbol, module_name))
     }
 

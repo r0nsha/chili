@@ -7,7 +7,7 @@ pub const STD: &str = "std";
 
 pub fn std_module_root_dir() -> PathBuf {
     // TODO: maybe this needs to come from a configurable path?
-    let mut dir = std::env::current_dir().unwrap();
+    let mut dir = root_dir();
     dir.push("lib");
     dir.push(STD);
     dir
@@ -23,4 +23,12 @@ fn module_info(mut root_dir: PathBuf, module_name: &str) -> ModuleInfo {
         file_path: ustr(root_dir.to_str().unwrap()),
         name: ustr(module_name),
     }
+}
+
+fn root_dir() -> PathBuf {
+    std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
 }
