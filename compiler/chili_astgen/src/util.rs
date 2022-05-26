@@ -3,11 +3,10 @@ use chili_span::Span;
 use std::collections::HashSet;
 
 pub(crate) fn add_std_import(ast: &mut ast::Ast, imports: &mut HashSet<ModuleInfo>) {
-    let module_info = compiler_info::std_module_info();
-    add_intrinsic_module(ast, imports, module_info)
+    add_intrinsic_import(ast, imports, compiler_info::std_module_info())
 }
 
-pub(crate) fn add_intrinsic_module(
+fn add_intrinsic_import(
     ast: &mut ast::Ast,
     imports: &mut HashSet<ModuleInfo>,
     module_info: ModuleInfo,
