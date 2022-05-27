@@ -299,11 +299,9 @@ impl Lint for ast::Expr {
             ast::ExprKind::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
-            ast::ExprKind::SelfType
-            | ast::ExprKind::NeverType
-            | ast::ExprKind::UnitType
-            | ast::ExprKind::ConstValue(_)
-            | ast::ExprKind::PlaceholderType => (),
+            ast::ExprKind::SelfType | ast::ExprKind::ConstValue(_) | ast::ExprKind::Placeholder => {
+                ()
+            }
             ast::ExprKind::Error => panic!("unexpected error node"),
         }
 

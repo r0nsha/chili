@@ -257,16 +257,16 @@ impl Lower for ast::Expr {
             ast::ExprKind::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
-            ast::ExprKind::PointerType(_) => todo!(),
-            ast::ExprKind::MultiPointerType(_) => todo!(),
-            ast::ExprKind::ArrayType(_) => todo!(),
-            ast::ExprKind::SliceType(_) => todo!(),
-            ast::ExprKind::StructType(_) => todo!(),
+            ast::ExprKind::PointerType(_)
+            | ast::ExprKind::MultiPointerType(_)
+            | ast::ExprKind::ArrayType(_)
+            | ast::ExprKind::SliceType(_)
+            | ast::ExprKind::SelfType
+            | ast::ExprKind::Placeholder
+            | ast::ExprKind::StructType(_) => {
+                panic!("unexpected type expression, should have been lowered to a ConstValue")
+            }
             ast::ExprKind::FnType(sig) => sig.lower(sess, code, LowerContext { take_ptr: false }),
-            ast::ExprKind::SelfType => todo!(),
-            ast::ExprKind::NeverType => todo!(),
-            ast::ExprKind::UnitType => todo!(),
-            ast::ExprKind::PlaceholderType => todo!(),
             ast::ExprKind::ConstValue(const_value) => {
                 let value = const_value_to_value(const_value, self.ty, sess, code);
                 sess.push_const(code, value);

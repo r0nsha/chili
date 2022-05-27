@@ -35,7 +35,7 @@ impl<'p> Parser<'p> {
 
             Ok(Expr::new(kind, token.span))
         } else if eat!(self, Placeholder) {
-            Ok(Expr::new(ExprKind::PlaceholderType, self.previous_span()))
+            Ok(Expr::new(ExprKind::Placeholder, self.previous_span()))
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
@@ -48,20 +48,8 @@ impl<'p> Parser<'p> {
                 }),
                 start_span.to(self.previous_span()),
             ))
-        } else if eat!(self, Bang) {
-            Ok(Expr::new(
-                ExprKind::NeverType,
-                start_span.to(self.previous_span()),
-            ))
         } else if eat!(self, OpenParen) {
-            if eat!(self, CloseParen) {
-                Ok(Expr::new(
-                    ExprKind::UnitType,
-                    start_span.to(self.previous_span()),
-                ))
-            } else {
-                self.parse_tuple_ty()
-            }
+            self.parse_tuple_ty()
         } else if eat!(self, OpenCurly) {
             self.parse_struct_ty()
         } else if eat!(self, OpenBracket) {

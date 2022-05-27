@@ -1124,9 +1124,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             | ast::ExprKind::SliceType(..)
             | ast::ExprKind::StructType(..)
             | ast::ExprKind::SelfType
-            | ast::ExprKind::UnitType
-            | ast::ExprKind::NeverType
-            | ast::ExprKind::PlaceholderType => self.gen_unit(),
+            | ast::ExprKind::Placeholder => self.gen_unit(),
 
             ast::ExprKind::ConstValue(const_value) => {
                 let ty = expr.ty.normalize(self.tycx);

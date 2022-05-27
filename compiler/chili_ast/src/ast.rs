@@ -121,9 +121,7 @@ pub enum ExprKind {
     StructType(StructType),
     FnType(FnSig),
     SelfType,
-    NeverType,
-    UnitType,
-    PlaceholderType,
+    Placeholder,
     ConstValue(ConstValue),
     Error,
 }

@@ -1941,21 +1941,7 @@ impl Check for ast::Expr {
                     .with_message("`Self` is only available within struct types")
                     .with_label(Label::primary(self.span, "`Self` is invalid here"))),
             },
-            ast::ExprKind::NeverType => {
-                let ty = sess.tycx.common_types.never;
-                Ok(Res::new_const(
-                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
-                    ConstValue::Type(ty),
-                ))
-            }
-            ast::ExprKind::UnitType => {
-                let ty = sess.tycx.common_types.unit;
-                Ok(Res::new_const(
-                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
-                    ConstValue::Type(ty),
-                ))
-            }
-            ast::ExprKind::PlaceholderType => {
+            ast::ExprKind::Placeholder => {
                 let ty = sess.tycx.var(self.span);
                 Ok(Res::new_const(
                     sess.tycx.bound(ty.as_kind().create_type(), self.span),
