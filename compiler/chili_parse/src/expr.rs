@@ -1,8 +1,12 @@
 use std::vec;
 
 use crate::*;
-use chili_ast::ast::{
-    self, BinaryOp, BindingKind, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility,
+use chili_ast::{
+    ast::{
+        self, BinaryOp, BindingKind, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp,
+        Visibility,
+    },
+    ty::StructTyKind,
 };
 use chili_error::{
     diagnostic::{Diagnostic, Label},
@@ -355,6 +359,10 @@ impl<'p> Parser<'p> {
             }
         } else if eat!(self, Fn) {
             self.parse_fn()?
+        } else if eat!(self, Struct) {
+            self.parse_struct_type()?
+        } else if eat!(self, Union) {
+            self.parse_struct_union_type()?
         } else {
             return Err(SyntaxError::expected(
                 self.span(),
@@ -365,7 +373,71 @@ impl<'p> Parser<'p> {
         self.parse_postfix_expr(expr)
     }
 
-    pub(crate) fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
+    fn parse_struct_type(&mut self) -> DiagnosticResult<Expr> {
+        let start_span = self.previous_span();
+
+        require!(self, OpenCurly, "{");
+
+        let name = self.get_decl_name();
+
+        let fields = self.parse_struct_type_fields()?;
+
+        Ok(Expr::new(
+            ExprKind::StructType(ast::StructType {
+                name,
+                fields,
+                kind: StructTyKind::Struct,
+                binding_info_id: Default::default(),
+            }),
+            start_span.to(self.previous_span()),
+        ))
+    }
+
+    fn parse_struct_union_type(&mut self) -> DiagnosticResult<Expr> {
+        let start_span = self.previous_span();
+        let name = self.get_decl_name();
+
+        require!(self, OpenParen, "(")?;
+
+        let fields = self.parse_struct_type_fields()?;
+
+        Ok(Expr::new(
+            ExprKind::StructType(ast::StructType {
+                name,
+                fields,
+                kind: StructTyKind::Union,
+                binding_info_id: Default::default(),
+            }),
+            start_span.to(self.previous_span()),
+        ))
+    }
+
+    fn parse_struct_type_fields(&mut self) -> DiagnosticResult<Vec<ast::StructTypeField>> {
+        let fields = parse_delimited_list!(
+            self,
+            CloseCurly,
+            Comma,
+            {
+                let id = require!(self, Ident(_), "identifier")?;
+                let name = id.symbol();
+
+                require!(self, Colon, ":")?;
+
+                let ty = self.parse_ty()?;
+
+                ast::StructTypeField {
+                    name,
+                    ty,
+                    span: id.span,
+                }
+            },
+            ", or }"
+        );
+
+        Ok(fields)
+    }
+
+    fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous_span();
         let id_token = require!(self, Ident(_), "identifier")?;
         let symbol = id_token.symbol();

@@ -4,33 +4,14 @@ use std.{
     // types
 }
 
+let A = struct {
+    a: int,
+    b: int
+}
+
 let main = fn() {
-    // let foo: types.int = false;
-    let b = ();
-    let y = b;
-    let x = {
-        let x = 5 + 10;
-        x + 1
-    };
-    let y = x + 1;
-    printf("%d\n".data, y);
-    fizzbuzz()
+    let a: A = .{ a: 1, b: 2 };
+    printf("%d %d\n".data, a.a, a.b);
 }
 
-let fizzbuzz = fn() {
-    @run(println("\nStart compile time"));
-    for i in 1..30 {
-        if i % 3 == 0 && i % 5 == 0 {
-            println("Fizzbuzz");
-        } else if i % 3 == 0 {
-            println("Fizz");
-        } else if i % 5 == 0 {
-            println("Buzz");
-        } else {
-            printf("%d\n".data, i);
-        }
-    }
-    @run(println("End compile time\n"));
-}
-
-// @run(fizzbuzz())
+@run(main())

@@ -9,10 +9,7 @@ use chili_ast::{
     pattern::Pattern,
     workspace::Workspace,
 };
-use chili_error::{
-    diagnostic::{Diagnostic, Label},
-    TypeError,
-};
+use chili_error::diagnostic::{Diagnostic, Label};
 use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
@@ -112,29 +109,6 @@ impl Lint for ast::Binding {
 
         if let Some(expr) = &self.expr {
             let is_a_type = expr.ty.normalize(sess.tycx).is_type();
-
-            // TODO: Type kinds will be deprecated soon
-            // match &self.kind {
-            //     ast::BindingKind::Value => {
-            //         if is_a_type {
-            //             sess.workspace.diagnostics.push(TypeError::expected(
-            //                 expr.span,
-            //                 expr.ty.to_string(),
-            //                 "a value",
-            //             ));
-            //         }
-            //     }
-            //     ast::BindingKind::Type => {
-            //         if !is_a_type {
-            //             sess.workspace.diagnostics.push(TypeError::expected(
-            //                 expr.span,
-            //                 expr.ty.to_string(),
-            //                 "a type",
-            //             ));
-            //         }
-            //     }
-            //     ast::BindingKind::Import => (),
-            // }
 
             // * don't allow types to be bounded to mutable bindings
             if is_a_type {

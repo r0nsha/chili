@@ -1,6 +1,6 @@
 use c.{ printf, exit }
 
-type PanicInfo = {
+let PanicInfo = struct {
     program: str,
     message: str,
     file_path: str,

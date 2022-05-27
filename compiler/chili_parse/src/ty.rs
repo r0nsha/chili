@@ -50,14 +50,10 @@ impl<'p> Parser<'p> {
             ))
         } else if eat!(self, OpenParen) {
             self.parse_tuple_ty()
-        } else if eat!(self, OpenCurly) {
-            self.parse_struct_ty()
         } else if eat!(self, OpenBracket) {
             self.parse_array_type()
         } else if eat!(self, Fn) {
             self.parse_fn_ty()
-        } else if eat!(self, Union) {
-            self.parse_struct_union_ty()
         } else {
             Err(SyntaxError::expected(self.span(), "a type"))
         }
@@ -121,67 +117,6 @@ impl<'p> Parser<'p> {
 
         Ok(Expr::new(
             ExprKind::TupleLiteral(ast::TupleLiteral { elements }),
-            start_span.to(self.previous_span()),
-        ))
-    }
-
-    fn parse_struct_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous_span();
-        let name = self.get_decl_name();
-
-        let fields = self.parse_struct_ty_fields()?;
-
-        Ok(Expr::new(
-            ExprKind::StructType(StructType {
-                name,
-                fields,
-                kind: StructTyKind::Struct,
-                binding_info_id: Default::default(),
-            }),
-            start_span.to(self.previous_span()),
-        ))
-    }
-
-    fn parse_struct_ty_fields(&mut self) -> DiagnosticResult<Vec<StructTypeField>> {
-        let fields = parse_delimited_list!(
-            self,
-            CloseCurly,
-            Comma,
-            {
-                let id = require!(self, Ident(_), "identifier")?;
-                let name = id.symbol();
-
-                require!(self, Colon, ":")?;
-
-                let ty = self.parse_ty()?;
-
-                StructTypeField {
-                    name,
-                    ty,
-                    span: id.span,
-                }
-            },
-            ", or }"
-        );
-
-        Ok(fields)
-    }
-
-    fn parse_struct_union_ty(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous_span();
-        let name = self.get_decl_name();
-
-        require!(self, OpenParen, "(")?;
-
-        let fields = self.parse_struct_ty_fields()?;
-
-        Ok(Expr::new(
-            ExprKind::StructType(StructType {
-                name,
-                fields,
-                kind: StructTyKind::Union,
-                binding_info_id: Default::default(),
-            }),
             start_span.to(self.previous_span()),
         ))
     }

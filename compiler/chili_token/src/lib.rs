@@ -107,6 +107,7 @@ pub enum TokenKind {
     Mut,
     In,
     As,
+    Struct,
     Union,
     Match,
 
@@ -196,6 +197,7 @@ impl TokenKind {
             Mut => "mut",
             In => "in",
             As => "as",
+            Struct => "struct",
             Union => "union",
             Match => "match",
             Placeholder => "_",
@@ -239,6 +241,7 @@ impl TokenKind {
                 | Foreign
                 | Use
                 | Pub
+                | Struct
                 | Union
                 | Match
                 | Placeholder

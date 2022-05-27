@@ -525,6 +525,7 @@ impl<'lx> Lexer<'lx> {
             "mut" => Mut,
             "in" => In,
             "as" => As,
+            "struct" => Struct,
             "union" => Union,
             "match" => Match,
             "_" => Placeholder,
