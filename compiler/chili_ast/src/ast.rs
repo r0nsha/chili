@@ -268,7 +268,6 @@ pub struct Literal {
 
 #[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone, Copy)]
 pub enum LiteralKind {
-    Unit,
     Nil,
     Bool(bool),
     Int(i64),
@@ -697,7 +696,6 @@ impl fmt::Display for LiteralKind {
             f,
             "{}",
             match self {
-                LiteralKind::Unit => "()".to_string(),
                 LiteralKind::Nil => "nil".to_string(),
                 LiteralKind::Bool(v) => v.to_string(),
                 LiteralKind::Int(v) => v.to_string(),

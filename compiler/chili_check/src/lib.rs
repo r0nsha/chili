@@ -1809,7 +1809,6 @@ impl Check for ast::Expr {
                 let const_value: ConstValue = lit.kind.into();
 
                 let ty = match &lit.kind {
-                    ast::LiteralKind::Unit => sess.tycx.common_types.unit,
                     ast::LiteralKind::Nil => sess.tycx.var(self.span),
                     ast::LiteralKind::Bool(_) => sess.tycx.common_types.bool,
                     ast::LiteralKind::Int(_) => sess.tycx.anyint(self.span),

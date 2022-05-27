@@ -119,8 +119,7 @@ pub struct ConstFn {
 impl From<LiteralKind> for ConstValue {
     fn from(lit: LiteralKind) -> Self {
         match lit {
-            ast::LiteralKind::Unit => ConstValue::Unit(()),
-            ast::LiteralKind::Nil => panic!("nil will soon be deprecated"),
+            ast::LiteralKind::Nil => panic!("nil is deprecated"),
             ast::LiteralKind::Bool(v) => ConstValue::Bool(v),
             ast::LiteralKind::Int(v) => ConstValue::Int(v),
             ast::LiteralKind::Float(v) => ConstValue::Float(v),
