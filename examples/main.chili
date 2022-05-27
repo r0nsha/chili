@@ -1,9 +1,11 @@
 use std.{
     c.printf,
-    fmt.println
+    fmt.println,
+    // types
 }
 
 let main = fn() {
+    // let foo: types.int = false;
     let x = {
         let x = 5 + 10;
         x + 1

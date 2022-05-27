@@ -567,15 +567,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ast::ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::BuiltinKind::LangItem(item) => {
+                    panic!("unexpected lang_item builtin: {}", item)
+                }
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
                     TyKind::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
                     TyKind::Type(ty) => ty.llvm_type(self).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::Panic(msg_expr) => {
+                ast::BuiltinKind::Panic(msg_expr) => {
                     let message = if let Some(msg_expr) = msg_expr {
                         self.gen_expr(state, msg_expr, true)
                     } else {
@@ -585,7 +588,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_panic(state, message, expr.span);
                     self.gen_unit()
                 }
-                ast::Builtin::Run(_, result) => {
+                ast::BuiltinKind::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
                     self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref)
                 }

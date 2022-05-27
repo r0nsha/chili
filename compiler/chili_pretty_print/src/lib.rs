@@ -286,22 +286,28 @@ impl PrintTree for ast::Expr {
             }
             ast::ExprKind::Builtin(builtin) => {
                 match builtin {
-                    ast::Builtin::SizeOf(expr) => {
+                    ast::BuiltinKind::LangItem(item) => {
+                        b.add_empty_child(format!("@lang_item(\"{}\")", item));
+                    }
+                    ast::BuiltinKind::SizeOf(expr) => {
                         b.begin_child("@size_of".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::AlignOf(expr) => {
+                    ast::BuiltinKind::AlignOf(expr) => {
                         b.begin_child("@align_of".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::Run(expr, result) => {
-                        b.begin_child(format!("@run => {:?}", result.as_ref().unwrap()));
+                    ast::BuiltinKind::Run(expr, result) => {
+                        b.begin_child(format!(
+                            "@run (resulted in: {:?})",
+                            result.as_ref().unwrap()
+                        ));
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::Panic(expr) => {
+                    ast::BuiltinKind::Panic(expr) => {
                         b.begin_child("@panic".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();

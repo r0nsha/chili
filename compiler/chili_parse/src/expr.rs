@@ -1,8 +1,11 @@
 use crate::*;
 use chili_ast::ast::{
-    self, BinaryOp, BindingKind, Block, Builtin, Expr, ExprKind, ForIter, UnaryOp, Visibility,
+    self, BinaryOp, BindingKind, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility,
 };
-use chili_error::*;
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    *,
+};
 use chili_span::{EndPosition, Position, Span, To};
 use chili_token::TokenKind::*;
 use common::builtin::{default_index_name, default_iter_name};
@@ -373,19 +376,22 @@ impl<'p> Parser<'p> {
         require!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
-            "size_of" => Builtin::SizeOf(Box::new(self.parse_ty()?)),
-            "align_of" => Builtin::AlignOf(Box::new(self.parse_ty()?)),
-            "panic" => Builtin::Panic(if token_is!(self, CloseParen) {
+            "lang_item" => {
+                let item = require!(self, Str(_), "string")?;
+                BuiltinKind::LangItem(item.symbol())
+            }
+            "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_ty()?)),
+            "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_ty()?)),
+            "panic" => BuiltinKind::Panic(if token_is!(self, CloseParen) {
                 None
             } else {
                 Some(Box::new(self.parse_expr()?))
             }),
-            "run" => Builtin::Run(Box::new(self.parse_expr()?), None),
+            "run" => BuiltinKind::Run(Box::new(self.parse_expr()?), None),
             name => {
-                return Err(SyntaxError::unknown_builtin_function(
-                    start_span.to(id_token.span),
-                    name.to_string(),
-                ))
+                return Err(Diagnostic::error()
+                    .with_message(format!("unknown builtin function `{}`", name))
+                    .with_label(Label::primary(start_span.to(id_token.span), "")))
             }
         };
 

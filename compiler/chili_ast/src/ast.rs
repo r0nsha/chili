@@ -94,7 +94,7 @@ pub enum ExprKind {
     Defer(Defer),
     Assign(Assign),
     Cast(Cast),
-    Builtin(Builtin),
+    Builtin(BuiltinKind),
     Fn(Fn),
     While(While),
     For(For),
@@ -290,11 +290,12 @@ impl LiteralKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Builtin {
+pub enum BuiltinKind {
+    LangItem(Ustr),
     SizeOf(Box<Expr>),
     AlignOf(Box<Expr>),
     Panic(Option<Box<Expr>>),
-    Run(Box<Expr>, Option<ConstValue>),
+    Run(Box<Expr>, Option<ConstValue>), // 1. expression to run | 2. the expression's result
 }
 
 #[derive(Debug, PartialEq, Clone)]

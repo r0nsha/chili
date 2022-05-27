@@ -113,27 +113,28 @@ impl Lint for ast::Binding {
         if let Some(expr) = &self.expr {
             let is_a_type = expr.ty.normalize(sess.tycx).is_type();
 
-            match &self.kind {
-                ast::BindingKind::Value => {
-                    if is_a_type {
-                        sess.workspace.diagnostics.push(TypeError::expected(
-                            expr.span,
-                            expr.ty.to_string(),
-                            "a value",
-                        ));
-                    }
-                }
-                ast::BindingKind::Type => {
-                    if !is_a_type {
-                        sess.workspace.diagnostics.push(TypeError::expected(
-                            expr.span,
-                            expr.ty.to_string(),
-                            "a type",
-                        ));
-                    }
-                }
-                ast::BindingKind::Import => (),
-            }
+            // TODO: Type kinds will be deprecated soon
+            // match &self.kind {
+            //     ast::BindingKind::Value => {
+            //         if is_a_type {
+            //             sess.workspace.diagnostics.push(TypeError::expected(
+            //                 expr.span,
+            //                 expr.ty.to_string(),
+            //                 "a value",
+            //             ));
+            //         }
+            //     }
+            //     ast::BindingKind::Type => {
+            //         if !is_a_type {
+            //             sess.workspace.diagnostics.push(TypeError::expected(
+            //                 expr.span,
+            //                 expr.ty.to_string(),
+            //                 "a type",
+            //             ));
+            //         }
+            //     }
+            //     ast::BindingKind::Import => (),
+            // }
 
             // * don't allow types to be bounded to mutable bindings
             if is_a_type {
@@ -186,10 +187,11 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::Cast(t) => t.expr.lint(sess),
             ast::ExprKind::Builtin(b) => match b {
-                ast::Builtin::SizeOf(e) | ast::Builtin::AlignOf(e) | ast::Builtin::Run(e, _) => {
-                    e.lint(sess)
-                }
-                ast::Builtin::Panic(e) => e.lint(sess),
+                ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
+                ast::BuiltinKind::SizeOf(e)
+                | ast::BuiltinKind::AlignOf(e)
+                | ast::BuiltinKind::Run(e, _) => e.lint(sess),
+                ast::BuiltinKind::Panic(e) => e.lint(sess),
             },
             ast::ExprKind::Fn(f) => {
                 f.body.lint(sess);

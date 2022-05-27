@@ -76,12 +76,6 @@ impl LexerError {
 pub struct SyntaxError;
 
 impl SyntaxError {
-    pub fn unknown_builtin_function(span: Span, builtin: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("unknown builtin function `{}`", builtin))
-            .with_label(Label::primary(span, ""))
-    }
-
     pub fn unknown_keyword(keyword: String, span: Span) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("unknown keyword `{}`", keyword))

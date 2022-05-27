@@ -55,19 +55,20 @@ impl Lower for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
                     TyKind::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
                     TyKind::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::Panic(expr) => {
+                ast::BuiltinKind::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.lower(sess, code, ctx);
                     } else {
@@ -76,7 +77,7 @@ impl Lower for ast::Expr {
 
                     code.push(Instruction::Panic);
                 }
-                ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
+                ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
             },
             ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
             ast::ExprKind::While(while_) => {

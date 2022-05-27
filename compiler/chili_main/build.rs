@@ -15,6 +15,16 @@ fn main() {
     #[cfg(not(debug_assertions))]
     let target_dir = workspace_dir.with_file_name("target/release");
 
-    dir::copy(lib_dir, target_dir, &Default::default()).unwrap();
+    let options = dir::CopyOptions {
+        overwrite: true,
+        skip_exist: false,
+        buffer_size: 64000,
+        copy_inside: false,
+        content_only: false,
+        depth: 0,
+    };
+
+    dir::copy(lib_dir, target_dir, &options).unwrap();
+
     println!("cargo:rerun-if-changed=../../lib");
 }

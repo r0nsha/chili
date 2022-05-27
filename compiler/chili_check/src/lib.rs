@@ -763,12 +763,50 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
+                ast::BuiltinKind::LangItem(item) => {
+                    let ty = match item.as_str() {
+                        builtin::SYM_UNIT => sess.tycx.common_types.unit,
+                        builtin::SYM_BOOL => sess.tycx.common_types.bool,
+                        builtin::SYM_I8 => sess.tycx.common_types.i8,
+                        builtin::SYM_I16 => sess.tycx.common_types.i16,
+                        builtin::SYM_I32 => sess.tycx.common_types.i32,
+                        builtin::SYM_I64 => sess.tycx.common_types.i64,
+                        builtin::SYM_INT => sess.tycx.common_types.int,
+                        builtin::SYM_U8 => sess.tycx.common_types.u8,
+                        builtin::SYM_U16 => sess.tycx.common_types.u16,
+                        builtin::SYM_U32 => sess.tycx.common_types.u32,
+                        builtin::SYM_U64 => sess.tycx.common_types.u64,
+                        builtin::SYM_UINT => sess.tycx.common_types.uint,
+                        builtin::SYM_F16 => sess.tycx.common_types.f16,
+                        builtin::SYM_F32 => sess.tycx.common_types.f32,
+                        builtin::SYM_F64 => sess.tycx.common_types.f64,
+                        builtin::SYM_FLOAT => sess.tycx.common_types.float,
+                        builtin::SYM_STR => sess.tycx.common_types.str,
+                        builtin::SYM_NEVER => sess.tycx.common_types.never,
+                        _ => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!("unknown lang item `{}`", item))
+                                .with_label(Label::primary(self.span, "unknown lang item")))
+                        }
+                    };
+
+                    let const_value = ConstValue::Type(ty);
+                    let ty = sess.tycx.bound(ty.as_kind().create_type(), self.span);
+
+                    *self = ast::Expr::typed(
+                        ast::ExprKind::ConstValue(const_value.clone()),
+                        ty,
+                        self.span,
+                    );
+
+                    Ok(Res::new_const(ty, const_value))
+                }
+                ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
                     let res = expr.check(sess, env, None)?;
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::Builtin::Run(expr, run_result) => {
+                ast::BuiltinKind::Run(expr, run_result) => {
                     let res = expr.check(sess, env, None)?;
 
                     // TODO (Ron): unwrap interp result into a diagnostic
@@ -788,7 +826,7 @@ impl Check for ast::Expr {
                             .with_label(Label::primary(self.span, "evaluated here"))),
                     }
                 }
-                ast::Builtin::Panic(expr) => {
+                ast::BuiltinKind::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.check(sess, env, None)?;
                     }
