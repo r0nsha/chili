@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::*;
 use chili_ast::ast::{
     self, BinaryOp, BindingKind, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility,
@@ -331,31 +333,26 @@ impl<'p> Parser<'p> {
         } else if eat!(self, OpenParen) {
             let start_span = self.previous_span();
 
-            // if eat!(self, CloseParen) {
-            //     let span = start_span.to(self.previous_span());
-            //     Expr::new(
-            //         ExprKind::Literal(ast::Literal {
-            //             kind: ast::LiteralKind::Unit,
-            //             span,
-            //         }),
-            //         span,
-            //     )
-            // } else {
-            let mut expr = self.parse_expr()?;
-
-            let expr = if eat!(self, Comma) {
-                self.parse_tuple_literal(expr, start_span)?
+            if eat!(self, CloseParen) {
+                let span = start_span.to(self.previous_span());
+                Expr::new(
+                    ExprKind::TupleLiteral(ast::TupleLiteral { elements: vec![] }),
+                    span,
+                )
             } else {
-                require!(self, CloseParen, ")")?;
+                let mut expr = self.parse_expr()?;
 
-                expr.span.range().start -= 1;
-                expr.span = Span::to(&expr.span, self.previous_span());
+                if eat!(self, Comma) {
+                    self.parse_tuple_literal(expr, start_span)?
+                } else {
+                    require!(self, CloseParen, ")")?;
 
-                expr
-            };
+                    expr.span.range().start -= 1;
+                    expr.span = Span::to(&expr.span, self.previous_span());
 
-            expr
-            // }
+                    expr
+                }
+            }
         } else if eat!(self, Fn) {
             self.parse_fn()?
         } else {

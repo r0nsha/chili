@@ -215,7 +215,10 @@ impl<'a> Substitute<'a> for ast::Expr {
                     expr.substitute(sess);
                 }
             },
-            ast::ExprKind::TupleLiteral(lit) => lit.elements.substitute(sess),
+            ast::ExprKind::TupleLiteral(lit) => {
+                println!("{}", sess.tycx.ty_kind(self.ty));
+                lit.elements.substitute(sess)
+            }
             ast::ExprKind::StructLiteral(lit) => {
                 lit.type_expr.substitute(sess);
                 for f in lit.fields.iter() {

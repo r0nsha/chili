@@ -6,6 +6,8 @@ use std.{
 
 let main = fn() {
     // let foo: types.int = false;
+    let b = ();
+    let y = b;
     let x = {
         let x = 5 + 10;
         x + 1

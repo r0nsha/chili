@@ -1630,21 +1630,27 @@ impl Check for ast::Expr {
                 }
             },
             ast::ExprKind::TupleLiteral(lit) => {
-                // when the tuple literal is empty, this is either a unit value or unit type
+                // when a tuple literal is empty, it is either a unit value or unit type
                 if lit.elements.is_empty() {
-                    let ty = sess.tycx.common_types.unit;
-                    let res = if expected_ty.map_or(false, |ty| ty.normalize(&sess.tycx).is_type())
-                    {
-                        panic!("make this work...");
-                        Res::new_const(
-                            sess.tycx.bound(ty.as_kind().create_type(), self.span),
-                            ConstValue::Type(ty),
-                        )
-                    } else {
-                        Res::new_const(ty, ConstValue::Unit(()))
-                    };
+                    let unit_ty = sess.tycx.common_types.unit;
 
-                    return Ok(res);
+                    let (ty, const_value) =
+                        if expected_ty.map_or(false, |ty| ty.normalize(&sess.tycx).is_type()) {
+                            (
+                                sess.tycx.bound(unit_ty.as_kind().create_type(), self.span),
+                                ConstValue::Type(unit_ty),
+                            )
+                        } else {
+                            (unit_ty, ConstValue::Unit(()))
+                        };
+
+                    *self = ast::Expr::typed(
+                        ast::ExprKind::ConstValue(const_value.clone()),
+                        ty,
+                        self.span,
+                    );
+
+                    return Ok(Res::new_const(ty, const_value));
                 }
 
                 let mut elements_res = vec![];
@@ -1814,7 +1820,7 @@ impl Check for ast::Expr {
 
                 *self = ast::Expr::typed(
                     ast::ExprKind::ConstValue(const_value.clone()),
-                    self.ty,
+                    ty,
                     self.span,
                 );
 

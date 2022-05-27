@@ -56,7 +56,7 @@ impl Display for TyKind {
                 TyKind::Struct(ty) => ty.to_string(),
                 TyKind::Type(inner) => inner.to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
-                TyKind::Never => "!".to_string(),
+                TyKind::Never => "never".to_string(),
                 TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),
                 TyKind::Infer(_, InferTy::AnyInt) => "[anyint]".to_string(),
                 TyKind::Infer(_, InferTy::AnyFloat) => "[anyfloat]".to_string(),
