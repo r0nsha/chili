@@ -8,7 +8,7 @@ type PanicInfo = {
     column: uint,
 }
 
-let default_panic_handler = fn(info: PanicInfo) -> ! {
+let default_panic_handler = fn(info: PanicInfo) -> never {
     // TODO: use my own print routine.
     printf(
         "program '%s' panicked at '%s', %s:%d:%d\n".data, 

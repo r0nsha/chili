@@ -2,17 +2,15 @@ foreign("system:c") {
 	pub let putchar = fn(char: int) -> int;
 	pub let getchar = fn() -> int;
 
-	pub let puts = fn(buffer: [*]u8) -> int;
 	pub let printf = fn(input: [*]u8, ..) -> int;
 	pub let sprintf_s = fn(buffer: [*]u8, sizeOfBuffer: uint, format: [*]u8, ..) -> int;
-
-	pub let scanf = fn(format: [*]u8, ..) -> int;
 
 	pub let strcpy = fn(dest: [*]u8, src: [*]u8) -> [*]u8;
 	pub let wcscpy = fn(dest: [*]u16, src: [*]u16) -> int;
 
 	pub let malloc = fn(size: uint) -> *c_void;
     pub let calloc = fn(nitems: uint, size: uint) -> *c_void;
+    pub let realloc = fn(ptr: *c_void, size: uint) -> *c_void;
 	pub let free = fn(memblock: *c_void);
 
 	pub let abs = fn(x: i32) -> i32;
@@ -31,6 +29,9 @@ foreign("system:c") {
 	pub let srand = fn(seed: uint);
     pub let rand = fn() -> uint;
     pub let time = fn(some: *c_void) -> uint;
+
+	pub let abort = fn() -> never;
+	pub let exit = fn(status: int) -> never;
 }
 
-pub type c_void = ()
+pub type c_void = unit

@@ -36,6 +36,12 @@ impl TyCtx {
     }
 
     #[inline]
+    pub fn anytype(&mut self, span: Span) -> Ty {
+        let var = self.var(span);
+        self.bound(TyKind::Type(Box::new(var.as_kind())), span)
+    }
+
+    #[inline]
     pub fn anyint(&mut self, span: Span) -> Ty {
         self.insert(InferenceValue::AnyInt, Some(span))
     }
