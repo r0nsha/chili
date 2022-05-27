@@ -15,3 +15,31 @@ let main = fn() {
 }
 
 @run(main())
+
+let x: [int; 3] = .[1, 2, 3]
+
+let x: [3]int = .[1, 2, 3]
+let x: []int = .[1, 2, 3]
+
+let x: [[int; 3]; 5] = [[1, 2, 3]; 5]
+let x: [5][3]int = .[1, 2, 3]
+
+impl[a, n: uint] [a; n] {
+    pub let map = fn[b: Default](self, f: fn(_: &a) -> b) -> [b; n] {
+        let new = [b.default(); n];
+        for i in 0..n - 1 {
+            new[i] = f(&self[i]);
+        }
+        new
+    }
+}
+
+impl[a, n: uint] [a; n]
+    pub let map = fn[b: Default](self, f: fn(_: ref a) -> b) -> [b; n] {
+        let new = [b.default(); n];
+        for i in 0..n - 1 {
+            new[i] = f(ref self[i]);
+        }
+        new
+    }
+}

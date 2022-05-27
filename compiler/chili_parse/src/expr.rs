@@ -375,10 +375,9 @@ impl<'p> Parser<'p> {
 
     fn parse_struct_type(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous_span();
-
-        require!(self, OpenCurly, "{");
-
         let name = self.get_decl_name();
+
+        require!(self, OpenCurly, "{")?;
 
         let fields = self.parse_struct_type_fields()?;
 
@@ -397,7 +396,7 @@ impl<'p> Parser<'p> {
         let start_span = self.previous_span();
         let name = self.get_decl_name();
 
-        require!(self, OpenParen, "(")?;
+        require!(self, OpenCurly, "{")?;
 
         let fields = self.parse_struct_type_fields()?;
 
