@@ -25,7 +25,7 @@ use chili_infer::{
     normalize::NormalizeTy,
     substitute::substitute,
     ty_ctx::TyCtx,
-    unify::UnifyTy,
+    unify::{occurs, UnifyTy, UnifyTyErr},
 };
 use chili_interp::interp::{Interp, InterpResult};
 use chili_span::Span;
@@ -1901,34 +1901,33 @@ impl Check for ast::Expr {
                 ))
             }
             ast::ExprKind::StructType(st) => {
-                let is_anonymous = st.name.is_empty();
-
-                st.name = if is_anonymous {
+                st.name = if st.name.is_empty() {
                     get_anonymous_struct_name(self.span)
                 } else {
                     st.name
                 };
 
-                let inferred_ty = sess.tycx.var(self.span);
+                // the struct's main type variable
+                let struct_ty_var = sess.tycx.bound(
+                    TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind)),
+                    self.span,
+                );
 
-                let opaque_struct =
-                    TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind))
-                        .create_type();
+                // the struct's main type variable, in its `type` variation
+                let struct_ty_type_var = sess
+                    .tycx
+                    .bound(struct_ty_var.as_kind().create_type(), self.span);
 
-                inferred_ty
-                    .unify(&opaque_struct.clone().create_type(), &mut sess.tycx)
-                    .unwrap();
+                sess.self_types.push(struct_ty_var);
 
-                sess.self_types.push(inferred_ty);
                 env.push_scope(ScopeKind::Block);
 
-                let opaque_struct_ty = sess.tycx.bound(opaque_struct, self.span);
                 st.binding_info_id = sess.bind_symbol(
                     env,
                     st.name,
                     ast::Visibility::Private,
-                    inferred_ty,
-                    Some(ConstValue::Type(opaque_struct_ty)),
+                    struct_ty_type_var,
+                    Some(ConstValue::Type(struct_ty_var)),
                     false,
                     ast::BindingKind::Value,
                     self.span,
@@ -1958,6 +1957,7 @@ impl Check for ast::Expr {
                 }
 
                 env.pop_scope();
+
                 sess.self_types.pop();
 
                 let struct_ty = TyKind::Struct(StructTy {
@@ -1966,6 +1966,16 @@ impl Check for ast::Expr {
                     kind: st.kind,
                     fields: struct_ty_fields,
                 });
+
+                if occurs(struct_ty_var, &struct_ty, &sess.tycx) {
+                    return Err(UnifyTyErr::Occurs.into_diagnostic(
+                        &sess.tycx,
+                        struct_ty,
+                        None,
+                        struct_ty_var,
+                        self.span,
+                    ));
+                }
 
                 Ok(Res::new_const(
                     sess.tycx.bound(struct_ty.clone().create_type(), self.span),

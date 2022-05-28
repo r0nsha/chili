@@ -272,7 +272,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
     }
 }
 
-fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
+pub fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
     match kind {
         &TyKind::Var(other) => {
             use InferenceValue::*;
@@ -288,12 +288,15 @@ fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
             }
         }
         TyKind::Fn(f) => f.params.iter().any(|p| occurs(var, p, tycx)) || occurs(var, &f.ret, tycx),
-        TyKind::Pointer(ty, _)
-        | TyKind::MultiPointer(ty, _)
-        | TyKind::Array(ty, _)
-        | TyKind::Slice(ty, _) => occurs(var, ty, tycx),
+        TyKind::Array(ty, _) => occurs(var, ty, tycx),
         TyKind::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx)),
         TyKind::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tycx)),
+        TyKind::Infer(other, InferTy::PartialStruct(partial)) => {
+            partial.values().any(|ty| occurs(var, ty, tycx)) || var == *other
+        }
+        TyKind::Infer(other, InferTy::PartialTuple(partial)) => {
+            partial.iter().any(|ty| occurs(var, ty, tycx)) || var == *other
+        }
         _ => false,
     }
 }
@@ -329,10 +332,7 @@ impl UnifyTyErr {
                     expected_span.map(|span| Label::secondary(span, "expected due to this")),
                 ),
             UnifyTyErr::Occurs => Diagnostic::error()
-                .with_message(format!(
-                    "found recursive type - {} is equal to {}",
-                    expected, found
-                ))
+                .with_message(format!("recursive type `{}` has infinite size", expected,))
                 .with_label(Label::primary(found_span, "type is recursive")),
         }
     }
