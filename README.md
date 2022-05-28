@@ -50,7 +50,7 @@ example: cargo run -- run ./examples/main.chili
 > There's no `fmt` module (yet), so we are using c's `printf` for now
 
 ```rust
-let foreign("system:c") printf = fn(input: [*]u8, ..) -> i64;
+let foreign("system:c") printf = fn(input: [u8; *], ..) -> i64;
 
 let main = fn()  {
 	printf("Hello World\n".data);
@@ -67,14 +67,14 @@ let foreign("system:c") printf
 // the function takes a many-item pointer to unsigned bytes (u8).
 // the `..` indicates that the function is variadic.
 // ` -> i64` indicates that the function returns a 64bit signed integer.
-fn(input: [*]u8, ..) -> i64;
+fn(input: [u8; *], ..) -> i64;
 
 // declares the `main` function, which takes no arguments and returns the unit type `()`
 let main = fn()  {
 
 // calls `printf`, passing it the `data` part of the string literal "Hello World\n".
 // string literals are slices to unsigned bytes: []u8.
-// the data field returns the underlying many-item pointer to that slice: [*]u8
+// the data field returns the underlying many-item pointer to that slice: [u8; *]
 	printf("Hello World\n".data);
 }
 ```
@@ -99,11 +99,11 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Structs
 - [x] Tuples
 - [x] Clean up examples folder
-- [X] Compiler refactor
-  - [X] Allow circular dependencies
-  - [X] Whole-program type inference
-- [X] Compile time execution
-  - [X] Bytecode interpreter w/ FFI
+- [x] Compiler refactor
+  - [x] Allow circular dependencies
+  - [x] Whole-program type inference
+- [x] Compile time execution
+  - [x] Bytecode interpreter w/ FFI
 - [ ] Compile-time execution based build configuration
 - [ ] Attributes
 - [ ] Parametric polymorphism - supporting both types and constant values

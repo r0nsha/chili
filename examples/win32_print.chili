@@ -6,7 +6,7 @@ foreign("system:kernel32") {
     let GetStdHandle = fn(handle: i32) -> HANDLE
     let WriteFile = fn(
 		status: i64, 
-		buffer: [*]u8, 
+		buffer: [u8; *], 
 		size: uint, 
 		bytes_written: *mut i32, 
 		overlapped: *i64

@@ -8,9 +8,9 @@ let width: i32 = (cols - 1) * cell_size;
 let height: i32 = (rows - 1) * cell_size;
 
 pub let main = fn() {
-	let mut prev = calloc(cols * rows, @size_of(bool)) as *bool as [*mut]bool;
+	let mut prev = calloc(cols * rows, @size_of(bool)) as *bool as [bool; *mut];
 	defer free(prev as *bool as _);
-	let mut curr = calloc(cols * rows, @size_of(bool)) as *bool as [*mut]bool;
+	let mut curr = calloc(cols * rows, @size_of(bool)) as *bool as [bool; *mut];
 	defer free(curr as *bool as _);
 
 	// map_cells(prev, 30, 50, "..##");
@@ -98,7 +98,7 @@ pub let main = fn() {
 	get_living_cells(prev)
 }
 
-let get_neighbor_count = fn(state: [*]bool, x: int, y: int) -> uint {
+let get_neighbor_count = fn(state: [bool; *], x: int, y: int) -> uint {
 	get_cell_n(state, x - 1, y - 1) + 
 	get_cell_n(state, x - 0, y - 1) + 
 	get_cell_n(state, x + 1, y - 1) +
@@ -110,15 +110,15 @@ let get_neighbor_count = fn(state: [*]bool, x: int, y: int) -> uint {
 	get_cell_n(state, x + 1, y + 1)
 }
 
-let get_cell_n = fn(state: [*]bool, x: int, y: int) -> uint {
+let get_cell_n = fn(state: [bool; *], x: int, y: int) -> uint {
 	state[x + y * cols] as uint
 }
 
-let get_cell = fn(state: [*]bool, x: int, y: int) -> bool {
+let get_cell = fn(state: [bool; *], x: int, y: int) -> bool {
 	state[x + y * cols]
 }
 
-let map_cells = fn(state: [*mut]bool, x: uint, y: uint, cells_map: str) {
+let map_cells = fn(state: [bool; *mut], x: uint, y: uint, cells_map: str) {
 	let mut p = 0;
 	for cells_map {
 		state[x + y * cols + p] = it == '#';
@@ -127,7 +127,7 @@ let map_cells = fn(state: [*mut]bool, x: uint, y: uint, cells_map: str) {
 }
 
 
-let get_living_cells = fn(state: [*]bool) -> uint {
+let get_living_cells = fn(state: [bool; *]) -> uint {
 	let mut count = 0
 	for 0..cols * rows - 1 {
 		if state[it] {

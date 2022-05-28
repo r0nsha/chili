@@ -1,4 +1,4 @@
-let foreign("system:c") printf = fn(input [*]u8, ..) -> u64;
+let foreign("system:c") printf = fn(input [u8; *], ..) -> u64;
 
 let main = fn() {
 	let array = [_]int{1, 2, 3};

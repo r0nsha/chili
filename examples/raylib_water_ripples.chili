@@ -9,9 +9,9 @@ let bg_color = blue
 let main = fn() {
 	srand(time(0 as uint as _))
 
-	let mut prev = calloc(width * height, @size_of(f64)) as *mut f64 as [*mut]f64
+	let mut prev = calloc(width * height, @size_of(f64)) as *mut f64 as [f64; *mut]
   	defer free(prev as *f64 as _)
-	let mut curr = calloc(width * height, @size_of(f64)) as *mut f64 as [*mut]f64
+	let mut curr = calloc(width * height, @size_of(f64)) as *mut f64 as [f64; *mut]
     defer free(curr as *f64 as _)
 
 	// let mut frames = rand() % max_droplet_interval
@@ -78,7 +78,7 @@ let main = fn() {
 	CloseWindow()
 }
 
-let droplet = fn(buf: [*mut]f64, x: i32, y: i32) {
+let droplet = fn(buf: [f64; *mut], x: i32, y: i32) {
 	if  x >= 1 &&
 		x <= width - 1 &&
 		y >= 1 &&

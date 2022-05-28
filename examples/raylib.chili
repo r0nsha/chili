@@ -1,5 +1,5 @@
 foreign("./lib/raylib") {
-    pub let InitWindow = fn(width: i32, height: i32, title: [*]u8)
+    pub let InitWindow = fn(width: i32, height: i32, title: [u8; *])
     pub let CloseWindow = fn()
     pub let WindowShouldClose = fn() -> bool
     pub let ToggleFullscreen = fn() -> bool
@@ -46,7 +46,7 @@ foreign("./lib/raylib") {
     pub let DrawCube = fn(position: Vector3, width: f32, height: f32, length: f32, color: Color)
     pub let DrawCubeWires = fn(position: Vector3, width: f32, height: f32, length: f32, color: Color)
 
-    pub let DrawText = fn(text: [*]u8, posX: i32, posY: i32, fontSize: i32, color: Color)
+    pub let DrawText = fn(text: [u8; *], posX: i32, posY: i32, fontSize: i32, color: Color)
     pub let DrawFPS = fn(posX: i32, posY: i32)
     pub let DrawGrid = fn(slices: i32, spacing: f32)
     
