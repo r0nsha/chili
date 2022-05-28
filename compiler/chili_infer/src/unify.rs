@@ -1,5 +1,9 @@
-use crate::{inference_value::InferenceValue, normalize::NormalizeTy, ty_ctx::TyCtx};
+use crate::{
+    display::DisplayTy, inference_value::InferenceValue, normalize::NormalizeTy, ty_ctx::TyCtx,
+};
 use chili_ast::ty::*;
+use chili_error::diagnostic::{Diagnostic, Label};
+use chili_span::Span;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::ustr;
 
@@ -258,14 +262,10 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
         InferenceValue::Unbound => {
             let other_kind = other.normalize(tycx);
 
-            if TyKind::Var(var) != other_kind {
-                if occurs(var, &other_kind, tycx) {
-                    Err(UnifyTyErr::Occurs)
-                } else {
-                    tycx.bind_ty(var, other.clone());
-                    Ok(())
-                }
+            if occurs(var, &other_kind, tycx) {
+                Err(UnifyTyErr::Occurs)
             } else {
+                tycx.bind_ty(var, other.clone());
                 Ok(())
             }
         }
@@ -304,6 +304,38 @@ pub type UnifyTyResult = Result<(), UnifyTyErr>;
 pub enum UnifyTyErr {
     Mismatch,
     Occurs,
+}
+
+impl UnifyTyErr {
+    pub fn into_diagnostic(
+        self,
+        tycx: &TyCtx,
+        expected: impl DisplayTy,
+        expected_span: Option<Span>,
+        found: impl DisplayTy,
+        found_span: Span,
+    ) -> Diagnostic {
+        let expected = expected.display(tycx);
+        let found = found.display(tycx);
+
+        match self {
+            UnifyTyErr::Mismatch => Diagnostic::error()
+                .with_message(format!(
+                    "mismatched types - expected {}, found {}",
+                    expected, found
+                ))
+                .with_label(Label::primary(found_span, format!("expected {}", expected)))
+                .maybe_with_label(
+                    expected_span.map(|span| Label::secondary(span, "expected due to this")),
+                ),
+            UnifyTyErr::Occurs => Diagnostic::error()
+                .with_message(format!(
+                    "found recursive type - {} is equal to {}",
+                    expected, found
+                ))
+                .with_label(Label::primary(found_span, "type is recursive")),
+        }
+    }
 }
 
 // NOTE (Ron): checks that mutability rules are equal

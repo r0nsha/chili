@@ -1,5 +1,5 @@
 use super::*;
-use std::fmt::Display;
+use std::fmt::{format, Display};
 
 impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -54,7 +54,7 @@ impl Display for TyKind {
                         .join(", ")
                 ),
                 TyKind::Struct(ty) => ty.to_string(),
-                TyKind::Type(inner) => inner.to_string(),
+                TyKind::Type(inner) => format!("type({})", inner), // inner.to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "never".to_string(),
                 TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),
@@ -69,24 +69,24 @@ impl Display for TyKind {
 
 impl Display for StructTy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {{ {} }}",
-            if self.name.is_empty() {
+        if self.binding_info_id != BindingInfoId::unknown() {
+            write!(f, "{}", self.name.as_str())
+        } else {
+            write!(
+                f,
+                "{} {{ {} }}",
                 match self.kind {
                     StructTyKind::Struct => "struct",
                     StructTyKind::PackedStruct => "struct(packed)",
                     StructTyKind::Union => "union",
-                }
-            } else {
-                self.name.as_str()
-            },
-            self.fields
-                .iter()
-                .map(|f| format!("{}: {}", f.symbol, f.ty))
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
+                },
+                self.fields
+                    .iter()
+                    .map(|f| format!("{}: {}", f.symbol, f.ty))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        }
     }
 }
 

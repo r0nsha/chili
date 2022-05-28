@@ -465,6 +465,26 @@ impl Check for ast::Binding {
                 })));
         }
 
+        // * don't allow types and modules to be bounded to mutable bindings
+        let ty_kind = self.ty.normalize(&sess.tycx);
+        if ty_kind.is_type() || ty_kind.is_module() {
+            match &self.pattern {
+                Pattern::Single(pat) => {
+                    if pat.is_mutable {
+                        sess.workspace.diagnostics.push(
+                            Diagnostic::error()
+                                .with_message(
+                                    "variable of type `type` or `module` must be immutable",
+                                )
+                                .with_label(Label::primary(pat.span, "variable is mutable"))
+                                .with_note("try removing the `mut` from the declaration"),
+                        );
+                    }
+                }
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
+            }
+        }
+
         // TODO: support global destructors
         // don't keep const values for mutable patterns
         let const_value = if !self.pattern.as_single_ref().is_mutable {
@@ -2171,7 +2191,7 @@ impl Check for ConstValue {
     #[inline]
     fn check(
         &mut self,
-        sess: &mut CheckSess,
+        _sess: &mut CheckSess,
         _env: &mut Env,
         _expected_ty: Option<Ty>,
     ) -> CheckResult {
