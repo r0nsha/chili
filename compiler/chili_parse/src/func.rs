@@ -79,9 +79,7 @@ impl<'p> Parser<'p> {
                 let pattern = self.parse_pattern()?;
 
                 let ty = if eat!(self, Colon) {
-                    Some(Box::new(
-                        self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
-                    ))
+                    Some(Box::new(self.parse_expr()?))
                 } else {
                     None
                 };

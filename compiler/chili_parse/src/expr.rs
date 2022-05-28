@@ -406,7 +406,7 @@ impl<'p> Parser<'p> {
 
             require!(self, CloseBracket, "]")?;
 
-            let inner = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+            let inner = self.parse_expr()?;
 
             let ty = Expr::new(
                 ExprKind::MultiPointerType(ast::ExprAndMut {
@@ -421,7 +421,7 @@ impl<'p> Parser<'p> {
             // slice type
 
             let is_mutable = eat!(self, Mut);
-            let ty = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+            let ty = self.parse_expr()?;
 
             Ok(Expr::new(
                 ExprKind::SliceType(ast::ExprAndMut {
@@ -435,7 +435,7 @@ impl<'p> Parser<'p> {
 
             let size = self.parse_expr()?;
             require!(self, CloseBracket, "]")?;
-            let ty = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+            let ty = self.parse_expr()?;
 
             Ok(Expr::new(
                 ExprKind::ArrayType(ast::ArrayType {
@@ -496,7 +496,7 @@ impl<'p> Parser<'p> {
 
                 require!(self, Colon, ":")?;
 
-                let ty = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+                let ty = self.parse_expr()?;
 
                 ast::StructTypeField {
                     name,
@@ -522,12 +522,8 @@ impl<'p> Parser<'p> {
                 let item = require!(self, Str(_), "string")?;
                 BuiltinKind::LangItem(item.symbol())
             }
-            "size_of" => BuiltinKind::SizeOf(Box::new(
-                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
-            )),
-            "align_of" => BuiltinKind::AlignOf(Box::new(
-                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
-            )),
+            "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
+            "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
             "panic" => BuiltinKind::Panic(if token_is!(self, CloseParen) {
                 None
             } else {
