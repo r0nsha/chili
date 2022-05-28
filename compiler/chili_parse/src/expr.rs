@@ -12,7 +12,7 @@ use chili_error::{
     diagnostic::{Diagnostic, Label},
     *,
 };
-use chili_span::{EndPosition, Position, Span, To};
+use chili_span::{Span, To};
 use chili_token::TokenKind::*;
 use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
@@ -294,14 +294,34 @@ impl<'p> Parser<'p> {
 
     pub(crate) fn parse_primary(&mut self) -> DiagnosticResult<Expr> {
         let expr = if eat!(self, Ident(_)) {
+            const SELF_SYMBOL: &str = "Self";
+
             let token = self.previous();
             let symbol = token.symbol();
-            Expr::new(
+
+            let kind = if symbol == SELF_SYMBOL {
+                ExprKind::SelfType
+            } else {
                 ExprKind::Ident(ast::Ident {
                     symbol,
                     binding_info_id: Default::default(),
+                })
+            };
+
+            Expr::new(kind, token.span)
+        } else if eat!(self, Placeholder) {
+            Expr::new(ExprKind::Placeholder, self.previous_span())
+        } else if eat!(self, Star) {
+            let start_span = self.previous_span();
+            let is_mutable = eat!(self, Mut);
+            let expr = self.parse_expr()?;
+
+            Expr::new(
+                ExprKind::PointerType(ast::ExprAndMut {
+                    inner: Box::new(expr),
+                    is_mutable,
                 }),
-                token.span,
+                start_span.to(self.previous_span()),
             )
         } else if eat!(self, If) {
             self.parse_if()?
@@ -312,13 +332,16 @@ impl<'p> Parser<'p> {
         } else if eat!(self, OpenCurly) {
             self.parse_block_expr()?
         } else if eat!(self, OpenBracket) {
-            self.parse_array_literal()?
+            self.parse_array_type()?
         } else if eat!(self, Dot) {
             let start_span = self.previous_span();
 
-            // anonymous struct literal
             if eat!(self, OpenCurly) {
+                // anonymous struct literal
                 self.parse_struct_literal(None, start_span)?
+            } else if eat!(self, OpenBracket) {
+                // array literal
+                self.parse_array_literal(start_span)?
             } else {
                 return Err(SyntaxError::expected(
                     self.span(),
@@ -373,6 +396,57 @@ impl<'p> Parser<'p> {
         self.parse_postfix_expr(expr)
     }
 
+    fn parse_array_type(&mut self) -> DiagnosticResult<Expr> {
+        let start_span = self.previous_span();
+
+        if eat!(self, Star) {
+            // multi-pointer type
+
+            let is_mutable = eat!(self, Mut);
+
+            require!(self, CloseBracket, "]")?;
+
+            let inner = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+
+            let ty = Expr::new(
+                ExprKind::MultiPointerType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable,
+                }),
+                start_span.to(self.previous_span()),
+            );
+
+            Ok(ty)
+        } else if eat!(self, CloseBracket) {
+            // slice type
+
+            let is_mutable = eat!(self, Mut);
+            let ty = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+
+            Ok(Expr::new(
+                ExprKind::SliceType(ast::ExprAndMut {
+                    inner: Box::new(ty),
+                    is_mutable,
+                }),
+                start_span.to(self.previous_span()),
+            ))
+        } else {
+            // array type or sized array literal
+
+            let size = self.parse_expr()?;
+            require!(self, CloseBracket, "]")?;
+            let ty = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+
+            Ok(Expr::new(
+                ExprKind::ArrayType(ast::ArrayType {
+                    inner: Box::new(ty),
+                    size: Box::new(size),
+                }),
+                start_span.to(self.previous_span()),
+            ))
+        }
+    }
+
     fn parse_struct_type(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous_span();
         let name = self.get_decl_name();
@@ -422,7 +496,7 @@ impl<'p> Parser<'p> {
 
                 require!(self, Colon, ":")?;
 
-                let ty = self.parse_ty()?;
+                let ty = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
                 ast::StructTypeField {
                     name,
@@ -448,8 +522,12 @@ impl<'p> Parser<'p> {
                 let item = require!(self, Str(_), "string")?;
                 BuiltinKind::LangItem(item.symbol())
             }
-            "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_ty()?)),
-            "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_ty()?)),
+            "size_of" => BuiltinKind::SizeOf(Box::new(
+                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
+            )),
+            "align_of" => BuiltinKind::AlignOf(Box::new(
+                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
+            )),
             "panic" => BuiltinKind::Panic(if token_is!(self, CloseParen) {
                 None
             } else {

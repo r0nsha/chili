@@ -84,7 +84,7 @@ impl<'p> Parser<'p> {
                 span: start_span.to(self.previous_span()),
             }
         } else {
-            let ty_expr = self.parse_ty()?;
+            let ty_expr = self.parse_expr()?;
 
             Binding {
                 module_id: Default::default(),

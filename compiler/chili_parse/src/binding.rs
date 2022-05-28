@@ -20,7 +20,7 @@ impl<'p> Parser<'p> {
                 let pattern = self.parse_pattern()?;
 
                 let ty_expr = if eat!(self, Colon) {
-                    Some(self.parse_ty()?)
+                    Some(self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?)
                 } else {
                     None
                 };
@@ -62,7 +62,7 @@ impl<'p> Parser<'p> {
             BindingKind::Type => {
                 let pattern = self.parse_symbol_pattern()?;
                 require!(self, Eq, "=")?;
-                let expr = self.parse_decl_ty(pattern.symbol)?;
+                let expr = self.parse_decl_expr(pattern.symbol)?;
 
                 Ok(Binding {
                     module_id: Default::default(),

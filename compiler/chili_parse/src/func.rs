@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{Block, Expr, ExprKind, Fn, FnParam, FnSig},
+    ast::{Expr, ExprKind, Fn, FnParam, FnSig},
     ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -14,17 +14,24 @@ impl<'p> Parser<'p> {
 
         let sig = self.parse_fn_sig(name)?;
 
-        let body = self.parse_fn_body()?;
+        if eat!(self, OpenCurly) {
+            let body = self.parse_block()?;
 
-        Ok(Expr::new(
-            ExprKind::Fn(Fn {
-                sig,
-                body,
-                binding_info_id: None,
-                is_entry_point: false,
-            }),
-            start_span.to(self.previous_span()),
-        ))
+            Ok(Expr::new(
+                ExprKind::Fn(Fn {
+                    sig,
+                    body,
+                    binding_info_id: None,
+                    is_entry_point: false,
+                }),
+                start_span.to(self.previous_span()),
+            ))
+        } else {
+            Ok(Expr::new(
+                ExprKind::FnType(sig),
+                start_span.to(self.previous_span()),
+            ))
+        }
     }
 
     pub(crate) fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FnSig> {
@@ -33,7 +40,9 @@ impl<'p> Parser<'p> {
         let (params, variadic) = self.parse_fn_params()?;
 
         let ret_ty = if eat!(self, RightArrow) {
-            Some(Box::new(self.parse_ty()?))
+            Some(Box::new(
+                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
+            ))
         } else {
             None
         };
@@ -70,8 +79,9 @@ impl<'p> Parser<'p> {
                 let pattern = self.parse_pattern()?;
 
                 let ty = if eat!(self, Colon) {
-                    let ty = self.parse_ty()?;
-                    Some(Box::new(ty))
+                    Some(Box::new(
+                        self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
+                    ))
                 } else {
                     None
                 };
@@ -86,10 +96,5 @@ impl<'p> Parser<'p> {
         );
 
         Ok((params, variadic))
-    }
-
-    pub(crate) fn parse_fn_body(&mut self) -> DiagnosticResult<Block> {
-        require!(self, OpenCurly, "{")?;
-        self.parse_block()
     }
 }

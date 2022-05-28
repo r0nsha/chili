@@ -121,8 +121,7 @@ impl<'p> Parser<'p> {
         let ty_expr = if eat!(self, Placeholder) {
             None
         } else {
-            let expr = self.parse_ty()?;
-            Some(Box::new(expr))
+            Some(Box::new(self.parse_expr()?))
         };
 
         Ok(Expr::new(

@@ -7,7 +7,6 @@ mod literal;
 mod pattern;
 mod postfix_expr;
 mod top_level;
-mod ty;
 
 use bitflags::bitflags;
 use chili_ast::{ast::Ast, workspace::ModuleInfo};

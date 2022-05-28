@@ -26,9 +26,7 @@ impl<'p> Parser<'p> {
         ))
     }
 
-    pub(crate) fn parse_array_literal(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous_span();
-
+    pub(crate) fn parse_array_literal(&mut self, start_span: Span) -> DiagnosticResult<Expr> {
         let mut elements = vec![];
         let mut is_first_el = true;
 
