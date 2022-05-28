@@ -12,7 +12,7 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
+use chili_infer::{display::OrReportErr, unify::UnifyTy};
 use chili_span::Span;
 use ustr::Ustr;
 

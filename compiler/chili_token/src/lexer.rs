@@ -517,7 +517,6 @@ impl<'lx> Lexer<'lx> {
             "return" => Return,
             "defer" => Defer,
             "let" => Let,
-            "type" => Type,
             "fn" => Fn,
             "foreign" => Foreign,
             "use" => Use,

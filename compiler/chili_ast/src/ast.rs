@@ -423,17 +423,12 @@ pub struct Binding {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingKind {
     Value,
-    Type,
     Import,
 }
 
 impl BindingKind {
     pub fn is_value(&self) -> bool {
         matches!(self, BindingKind::Value)
-    }
-
-    pub fn is_type(&self) -> bool {
-        matches!(self, BindingKind::Type)
     }
 
     pub fn is_import(&self) -> bool {
@@ -448,7 +443,6 @@ impl Display for BindingKind {
             "{}",
             match self {
                 BindingKind::Value => "value",
-                BindingKind::Type => "type",
                 BindingKind::Import => "import",
             }
         )

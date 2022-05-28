@@ -2,10 +2,7 @@ use std::vec;
 
 use crate::*;
 use chili_ast::{
-    ast::{
-        self, BinaryOp, BindingKind, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp,
-        Visibility,
-    },
+    ast::{self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility},
     ty::StructTyKind,
 };
 use chili_error::{
@@ -94,16 +91,6 @@ impl<'p> Parser<'p> {
                     }),
                     span,
                 ))
-            } else if eat!(self, Type) {
-                todo!()
-                // let start_span = self.previous_span();
-
-                // let binding = self.parse_binding(BindingKind::Type, Visibility::Private, false)?;
-
-                // Ok(Expr::new(
-                //     ExprKind::Binding(Box::new(binding)),
-                //     start_span.to(self.previous_span()),
-                // ))
             } else if eat!(self, Let) {
                 let start_span = self.previous_span();
 
@@ -115,8 +102,7 @@ impl<'p> Parser<'p> {
                         start_span.to(self.previous_span()),
                     ))
                 } else {
-                    let binding =
-                        self.parse_binding(BindingKind::Value, Visibility::Private, false)?;
+                    let binding = self.parse_binding(Visibility::Private, false)?;
 
                     Ok(Expr::new(
                         ExprKind::Binding(Box::new(binding)),
@@ -516,6 +502,22 @@ impl<'p> Parser<'p> {
         let start_span = self.previous_span();
         let name = self.get_decl_name();
 
+        let kind = if eat!(self, OpenParen) {
+            const SYM_PACKED: &str = "packed";
+
+            let token = require!(self, Ident(_), SYM_PACKED)?;
+
+            if token.symbol() != SYM_PACKED {
+                return Err(SyntaxError::expected(token.span, "packed"));
+            }
+
+            require!(self, CloseParen, ")")?;
+
+            StructTyKind::PackedStruct
+        } else {
+            StructTyKind::Struct
+        };
+
         require!(self, OpenCurly, "{")?;
 
         let fields = self.parse_struct_type_fields()?;
@@ -524,7 +526,7 @@ impl<'p> Parser<'p> {
             ExprKind::StructType(ast::StructType {
                 name,
                 fields,
-                kind: StructTyKind::Struct,
+                kind,
                 binding_info_id: Default::default(),
             }),
             start_span.to(self.previous_span()),

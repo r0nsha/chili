@@ -99,7 +99,6 @@ pub enum TokenKind {
     Return,
     Defer,
     Let,
-    Type,
     Fn,
     Foreign,
     Use,
@@ -189,7 +188,6 @@ impl TokenKind {
             Return => "return",
             Defer => "defer",
             Let => "let",
-            Type => "type",
             Fn => "fn",
             Foreign => "foreign",
             Use => "use",
@@ -236,7 +234,6 @@ impl TokenKind {
                 | Return
                 | Defer
                 | Let
-                | Type
                 | Fn
                 | Foreign
                 | Use

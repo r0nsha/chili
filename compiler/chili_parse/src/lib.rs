@@ -48,7 +48,7 @@ macro_rules! eat {
 }
 
 macro_rules! require {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:literal) => {
+    ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:expr) => {
         if token_is!($parser, $( $pattern )|+) {
             Ok($parser.bump().clone())
         } else {
@@ -58,7 +58,7 @@ macro_rules! require {
 }
 
 macro_rules! parse_delimited_list {
-    ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:literal) => {{
+    ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:expr) => {{
         let mut items = vec![];
 
         while !eat!($parser, $close_delim) && !$parser.is_end() {

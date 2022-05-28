@@ -41,11 +41,11 @@ impl Display for TyKind {
                 TyKind::Pointer(ty, is_mutable) =>
                     format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
                 TyKind::MultiPointer(ty, is_mutable) =>
-                    format!("[*{}]{}", if *is_mutable { "mut" } else { "" }, ty),
+                    format!("[{}; *{}]", ty, if *is_mutable { "mut" } else { "" },),
                 TyKind::Fn(func) => func.to_string(),
-                TyKind::Array(inner, size) => format!("[{}]{}", size, inner,),
+                TyKind::Array(inner, size) => format!("[{}; {}]", inner, size,),
                 TyKind::Slice(inner, is_mutable) =>
-                    format!("[]{}{}", if *is_mutable { "mut " } else { "" }, inner),
+                    format!("[{}{}]", if *is_mutable { "mut " } else { "" }, inner),
                 TyKind::Tuple(tys) | TyKind::Infer(_, InferTy::PartialTuple(tys)) => format!(
                     "({})",
                     tys.iter()

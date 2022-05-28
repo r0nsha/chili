@@ -227,7 +227,7 @@ impl<'s> CheckSess<'s> {
                 ty: sess.tycx.bound_builtin(ty.as_kind().create_type()),
                 const_value: Some(ConstValue::Type(ty)),
                 is_mutable: false,
-                kind: ast::BindingKind::Type,
+                kind: ast::BindingKind::Value,
                 scope_level: ScopeLevel::Global,
                 scope_name: ustr(""),
                 span: Span::unknown(),
@@ -1502,11 +1502,14 @@ impl Check for ast::Expr {
 
                     let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
+                    let binding_ty = binding_info.ty.normalize(&sess.tycx);
+
                     let min_scope_level = sess
                         .function_frame()
                         .map_or(ScopeLevel::Global, |f| f.scope_level);
 
-                    if !binding_info.kind.is_type()
+                    if !binding_ty.is_type()
+                        && !binding_ty.is_module()
                         && !binding_info.scope_level.is_global()
                         && binding_info.scope_level < min_scope_level
                     {
@@ -1907,7 +1910,7 @@ impl Check for ast::Expr {
                     inferred_ty,
                     Some(ConstValue::Type(opaque_struct_ty)),
                     false,
-                    ast::BindingKind::Type,
+                    ast::BindingKind::Value,
                     self.span,
                 )?;
 
