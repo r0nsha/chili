@@ -406,23 +406,13 @@ impl Check for ast::Binding {
             sess.workspace.foreign_libraries.insert(lib);
         }
 
-        self.ty =
-            if let Some(ty_expr) = &mut self.ty_expr {
-                println!("yes ty");
-                let expected_ty = Some(sess.tycx.anytype(ty_expr.span));
-                let res = ty_expr.check(sess, env, expected_ty)?;
-                println!(
-                    "bty: {:?}",
-                    res.const_value.as_ref().filter(|t| t.is_type()).map_or(
-                        "None".to_string(),
-                        |t| t.as_type().normalize(&sess.tycx).to_string()
-                    )
-                );
-                // println!("bty: {}", self.ty.normalize(&sess.tycx));
-                sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
-            } else {
-                sess.tycx.var(self.pattern.span())
-            };
+        self.ty = if let Some(ty_expr) = &mut self.ty_expr {
+            let expected_ty = Some(sess.tycx.anytype(ty_expr.span));
+            let res = ty_expr.check(sess, env, expected_ty)?;
+            sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
+        } else {
+            sess.tycx.var(self.pattern.span())
+        };
 
         let const_value = if let Some(expr) = &mut self.expr {
             let res = expr.check(sess, env, Some(self.ty))?;
@@ -1782,28 +1772,21 @@ impl Check for ast::Expr {
                     }
                     None => match expected_ty {
                         Some(ty) => {
-                            println!("1");
                             let kind = ty.normalize(&sess.tycx);
                             match kind {
-                                TyKind::Struct(struct_ty) => {
-                                    println!("2");
-                                    check_named_struct_literal(
-                                        sess,
-                                        env,
-                                        struct_ty,
-                                        &mut lit.fields,
-                                        self.span,
-                                    )?
-                                }
-                                _ => {
-                                    println!("3");
-                                    check_anonymous_struct_literal(
-                                        sess,
-                                        env,
-                                        &mut lit.fields,
-                                        self.span,
-                                    )?
-                                }
+                                TyKind::Struct(struct_ty) => check_named_struct_literal(
+                                    sess,
+                                    env,
+                                    struct_ty,
+                                    &mut lit.fields,
+                                    self.span,
+                                )?,
+                                _ => check_anonymous_struct_literal(
+                                    sess,
+                                    env,
+                                    &mut lit.fields,
+                                    self.span,
+                                )?,
                             }
                         }
                         None => {
@@ -1960,8 +1943,6 @@ impl Check for ast::Expr {
                     kind: st.kind,
                     fields: struct_ty_fields,
                 });
-
-                println!("st: {}", struct_ty.normalize(&sess.tycx));
 
                 Ok(Res::new_const(
                     sess.tycx.bound(struct_ty.clone().create_type(), self.span),

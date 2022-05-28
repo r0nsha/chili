@@ -14,29 +14,31 @@ impl<'p> Parser<'p> {
         }
 
         // compound operations (non-recursive)
-        if eat!(
-            self,
-            PlusEq
-                | MinusEq
-                | StarEq
-                | FwSlashEq
-                | PercentEq
-                | AmpEq
-                | BarEq
-                | CaretEq
-                | LtLtEq
-                | GtGtEq
-                | AmpAmpEq
-                | BarBarEq
-        ) {
-            return self.parse_compound_assign(expr);
+        if self.restrictions.contains(Restrictions::STMT_EXPR) {
+            if eat!(
+                self,
+                PlusEq
+                    | MinusEq
+                    | StarEq
+                    | FwSlashEq
+                    | PercentEq
+                    | AmpEq
+                    | BarEq
+                    | CaretEq
+                    | LtLtEq
+                    | GtGtEq
+                    | AmpAmpEq
+                    | BarBarEq
+            ) {
+                return self.parse_compound_assign(expr);
+            } else if eat!(self, Eq) {
+                return self.parse_assign(expr);
+            }
         }
 
         // postfix expressions (recursive)
         loop {
-            expr = if eat!(self, Eq) {
-                self.parse_assign(expr)?
-            } else if eat!(self, Dot) {
+            expr = if eat!(self, Dot) {
                 self.parse_member_access(expr)?
             } else if eat!(self, OpenParen) {
                 self.parse_call(expr)?

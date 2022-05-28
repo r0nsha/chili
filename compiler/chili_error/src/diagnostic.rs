@@ -7,14 +7,14 @@ pub enum DiagnosticKind {
     Error,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Label {
     pub kind: LabelKind,
     pub span: Span,
     pub message: String,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum LabelKind {
     Primary,
     Secondary,
@@ -38,7 +38,7 @@ impl Label {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Diagnostic {
     pub kind: DiagnosticKind,
     pub message: Option<String>,
