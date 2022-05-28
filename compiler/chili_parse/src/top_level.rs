@@ -16,8 +16,9 @@ impl<'p> Parser<'p> {
             let imports = self.parse_import(visibility)?;
             ast.imports.extend(imports);
         } else if eat!(self, Type) {
-            let binding = self.parse_binding(BindingKind::Type, visibility, true)?;
-            ast.bindings.push(binding);
+            todo!()
+            // let binding = self.parse_binding(BindingKind::Type, visibility, true)?;
+            // ast.bindings.push(binding);
         } else if eat!(self, Let) {
             let binding = if eat!(self, Foreign) {
                 self.parse_foreign_single(visibility)

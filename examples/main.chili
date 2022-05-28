@@ -10,7 +10,8 @@ let A = struct {
 }
 
 let main = fn() {
-    let a: A = .{ a: 1, b: 2 };
+    let a: struct { a: int, b: int } = .{ a: 1, b: 2 };
+    // let a: A = .{ a: 1, b: 2 };
     printf("%d %d\n".data, a.a, a.b);
     let arr = .[1, 2, 3];
     print_array(arr);

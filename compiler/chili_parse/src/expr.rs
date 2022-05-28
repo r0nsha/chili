@@ -95,14 +95,15 @@ impl<'p> Parser<'p> {
                     span,
                 ))
             } else if eat!(self, Type) {
-                let start_span = self.previous_span();
+                todo!()
+                // let start_span = self.previous_span();
 
-                let binding = self.parse_binding(BindingKind::Type, Visibility::Private, false)?;
+                // let binding = self.parse_binding(BindingKind::Type, Visibility::Private, false)?;
 
-                Ok(Expr::new(
-                    ExprKind::Binding(Box::new(binding)),
-                    start_span.to(self.previous_span()),
-                ))
+                // Ok(Expr::new(
+                //     ExprKind::Binding(Box::new(binding)),
+                //     start_span.to(self.previous_span()),
+                // ))
             } else if eat!(self, Let) {
                 let start_span = self.previous_span();
 
