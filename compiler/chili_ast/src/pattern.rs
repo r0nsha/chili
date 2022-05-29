@@ -35,13 +35,6 @@ impl Pattern {
         }
     }
 
-    pub fn as_single_mut(&mut self) -> &mut SymbolPattern {
-        match self {
-            Pattern::Single(ps) => ps,
-            _ => panic!("expected Single, got {}", self),
-        }
-    }
-
     pub fn span(&self) -> Span {
         match self {
             Pattern::Single(p) => p.span,

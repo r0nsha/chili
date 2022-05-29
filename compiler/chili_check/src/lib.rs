@@ -450,16 +450,13 @@ impl Check for ast::Binding {
         // TODO: support global patterns
         // global immutable bindings must resolve to a const value
         if env.scope_level().is_global() // if this is a top level binding
-            && !self.pattern.as_single_ref().is_mutable // if the binding is immutable
+            && !self.pattern.iter().any(|p|p.is_mutable) // if the binding is immutable (no pattern is mutable)
             && const_value.is_none() // and doesn't resolve to a const value
             && self.lib_name.is_none()
         {
             return Err(Diagnostic::error()
                 .with_message(format!("immutable top level binding must be constant"))
-                .with_label(Label::primary(
-                    self.pattern.as_single_ref().span,
-                    "must be constant",
-                ))
+                .with_label(Label::primary(self.pattern.span(), "must be constant"))
                 .maybe_with_label(self.expr.as_ref().map(|expr| {
                     Label::secondary(expr.span, "doesn't resolve to a constant value")
                 })));

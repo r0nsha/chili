@@ -38,11 +38,53 @@ impl Ast {
     }
 }
 
-// TODO: Iterating a HashMap is slow. Switch these to `Vec` with a separate mapping
 #[derive(Debug, Default, Clone)]
 pub struct TypedAst {
     pub imports: HashMap<BindingInfoId, Import>,
     pub bindings: HashMap<BindingInfoId, Binding>,
+}
+
+#[derive(Default)]
+pub struct Hir {
+    imports: Vec<Import>,
+    bindings: Vec<Binding>,
+    ids_to_decls: HashMap<BindingInfoId, HirDeclIndex>,
+}
+
+enum HirDeclIndex {
+    Import(usize),
+    Binding(usize),
+}
+
+#[derive(Debug, Clone)]
+pub enum HirDecl<'a> {
+    Import(&'a Import),
+    Binding(&'a Binding),
+}
+
+impl Hir {
+    pub fn get_decl(&self, id: BindingInfoId) -> Option<HirDecl> {
+        self.ids_to_decls.get(&id).map(|decl| match decl {
+            HirDeclIndex::Import(idx) => HirDecl::Import(&self.imports[*idx]),
+            HirDeclIndex::Binding(idx) => HirDecl::Binding(&self.bindings[*idx]),
+        })
+    }
+
+    pub fn push_binding(&mut self, ids: &[BindingInfoId], binding: Binding) {
+        self.bindings.push(binding);
+        let idx = self.bindings.len() - 1;
+        for id in ids {
+            self.ids_to_decls.insert(*id, HirDeclIndex::Binding(idx));
+        }
+    }
+
+    pub fn push_import(&mut self, ids: &[BindingInfoId], import: Import) {
+        self.imports.push(import);
+        let idx = self.imports.len() - 1;
+        for id in ids {
+            self.ids_to_decls.insert(*id, HirDeclIndex::Import(idx));
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
