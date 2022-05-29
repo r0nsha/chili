@@ -13,8 +13,8 @@ let A: type = struct {
 
 let main = fn() {
     // let f = Foo { a: 1 };
-    let a: A = .{ a: 1, b: 2 };
-    // printf("%d %d\n".data, a.a, a.b);
+    let { a, b }: A = .{ a: 1, b: 2 };
+    printf("%d %d\n".data, a, b);
     // let arr = .[1, 2, 3];
     // print_array(arr);
     // print_slice(&arr);

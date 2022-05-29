@@ -24,21 +24,21 @@ impl Pattern {
     pub fn into_single(&self) -> SymbolPattern {
         match self {
             Pattern::Single(ps) => ps.clone(),
-            _ => panic!("expected a name, got {}", self),
+            _ => panic!("expected Single, got {}", self),
         }
     }
 
     pub fn as_single_ref(&self) -> &SymbolPattern {
         match self {
             Pattern::Single(ps) => ps,
-            _ => panic!("expected a name, got {}", self),
+            _ => panic!("expected Single, got {}", self),
         }
     }
 
     pub fn as_single_mut(&mut self) -> &mut SymbolPattern {
         match self {
             Pattern::Single(ps) => ps,
-            _ => panic!("expected a name, got {}", self),
+            _ => panic!("expected Single, got {}", self),
         }
     }
 
@@ -66,18 +66,38 @@ impl Pattern {
             }
         }
     }
+
+    pub fn iter(&self) -> PatternIter {
+        PatternIter {
+            pattern: self,
+            pos: 0,
+        }
+    }
 }
 
-impl IntoIterator for Pattern {
-    type Item = SymbolPattern;
-    type IntoIter = <Vec<SymbolPattern> as IntoIterator>::IntoIter;
+pub struct PatternIter<'a> {
+    pattern: &'a Pattern,
+    pos: usize,
+}
 
-    fn into_iter(self) -> Self::IntoIter {
-        let vec = match self {
-            Pattern::Single(p) => vec![p],
-            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.symbols,
+impl<'a> Iterator for PatternIter<'a> {
+    type Item = &'a SymbolPattern;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = match &self.pattern {
+            Pattern::Single(pat) => {
+                if self.pos == 0 {
+                    Some(pat)
+                } else {
+                    None
+                }
+            }
+            Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => pat.symbols.get(self.pos),
         };
-        vec.into_iter()
+
+        self.pos += 1;
+
+        item
     }
 }
 

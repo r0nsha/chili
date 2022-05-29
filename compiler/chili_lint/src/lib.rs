@@ -101,7 +101,7 @@ impl Lint for ast::Binding {
             InitState::NotInit
         };
 
-        for symbol in self.pattern.symbols() {
+        for symbol in self.pattern.iter() {
             sess.init_scopes.insert(symbol.binding_info_id, init_state);
         }
 

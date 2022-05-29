@@ -447,7 +447,7 @@ impl Check for ast::Binding {
             None
         };
 
-        // TODO: support global destructors
+        // TODO: support global patterns
         // global immutable bindings must resolve to a const value
         if env.scope_level().is_global() // if this is a top level binding
             && !self.pattern.as_single_ref().is_mutable // if the binding is immutable
@@ -485,9 +485,9 @@ impl Check for ast::Binding {
             }
         }
 
-        // TODO: support global destructors
+        // TODO: support global patterns
         // don't keep const values for mutable patterns
-        let const_value = if !self.pattern.as_single_ref().is_mutable {
+        let const_value = if self.pattern.iter().all(|pat| !pat.is_mutable) {
             const_value
         } else {
             None
@@ -659,7 +659,7 @@ impl Check for ast::FnSig {
 
                 ty_params.push(param.ty.into());
 
-                for pat in param.pattern.symbols() {
+                for pat in param.pattern.iter() {
                     if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
                         return Err(SyntaxError::duplicate_symbol(
                             already_defined_span,
