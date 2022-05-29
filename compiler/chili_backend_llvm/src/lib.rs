@@ -249,7 +249,7 @@ fn link(
         for lib in foreign_libraries.iter() {
             match lib {
                 ast::ForeignLibrary::System(lib_name) => {
-                    if !lib_name.eq_ignore_ascii_case("c") {
+                    if !is_libc(lib_name) {
                         libs.push(lib_name)
                     }
                 }
@@ -273,11 +273,6 @@ fn link(
             .arg("/opt:ref")
             .arg("/threads:8")
             .arg("/subsystem:CONSOLE")
-            // TODO: these paths are hardcoded. i couldn't figure out how to find the appropriate libraries dynamically :/
-            // .arg("/libpath:C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Tools\\Llvm\\x64\\lib\\clang\\12.0.0\\lib\\windows")
-            // .arg("/libpath:C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Tools\\MSVC\\14.29.30133\\lib\\x64")
-            // .arg("/libpath:C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64")
-            // .arg("/libpath:C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64")
             .args(lib_paths.iter().map(|path| format!("/libpath:{}", path)))
             .arg(object_file.to_str().unwrap())
             .args(libs)
@@ -289,7 +284,7 @@ fn link(
             .iter()
             .map(|lib| match lib {
                 ast::ForeignLibrary::System(lib_name) => {
-                    if !lib_name.eq_ignore_ascii_case("c") {
+                    if !is_libc(lib_name) {
                         Some(format!("-l{}", lib_name))
                     } else {
                         None
@@ -316,6 +311,10 @@ fn link(
             .execute_output()
             .unwrap();
     }
+}
+
+fn is_libc(lib: &str) -> bool {
+    lib.eq_ignore_ascii_case("c")
 }
 
 #[allow(dead_code)]
