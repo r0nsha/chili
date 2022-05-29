@@ -54,8 +54,7 @@ impl Display for TyKind {
                         .join(", ")
                 ),
                 TyKind::Struct(ty) => ty.to_string(),
-                TyKind::Type(inner) => "type".to_string(), //inner.to_string(),
-                TyKind::AnyType => "type".to_string(),
+                TyKind::Type(_) | TyKind::AnyType => "type".to_string(),
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "never".to_string(),
                 TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),

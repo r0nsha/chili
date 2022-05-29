@@ -12,6 +12,7 @@ let A: type = struct {
 }
 
 let main = fn() {
+    let a: i8 = "ast";
     // let f = Foo { a: 1 };
     let a: A = .{ a: 1, b: 2 };
     // printf("%d %d\n".data, a.a, a.b);
