@@ -34,4 +34,4 @@ foreign("system:c") {
 	pub let exit = fn(status: int) -> never;
 }
 
-pub let c_void = unit
+pub let c_void: type = ()

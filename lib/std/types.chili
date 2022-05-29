@@ -14,5 +14,6 @@ pub let f16 = @lang_item("f16");
 pub let f32 = @lang_item("f32");
 pub let f64 = @lang_item("f64");
 pub let float = @lang_item("float");
-pub let str = @lang_item("str");
 pub let never = @lang_item("never");
+
+pub let str = [u8];

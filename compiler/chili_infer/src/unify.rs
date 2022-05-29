@@ -109,6 +109,7 @@ impl UnifyTy<TyKind> for TyKind {
             }
 
             (TyKind::Type(t1), TyKind::Type(t2)) => t1.unify(t2.as_ref(), tycx),
+            (TyKind::AnyType, TyKind::Type(_)) | (TyKind::Type(_), TyKind::AnyType) => Ok(()),
 
             (TyKind::Var(var) | TyKind::Infer(var, _), _) => unify_var_ty(*var, other, tycx),
             (_, TyKind::Var(var) | TyKind::Infer(var, _)) => unify_var_ty(*var, self, tycx),

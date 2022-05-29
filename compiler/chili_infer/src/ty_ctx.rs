@@ -36,12 +36,6 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn anytype(&mut self, span: Span) -> Ty {
-        let var = self.var(span);
-        self.bound(TyKind::Type(Box::new(var.as_kind())), span)
-    }
-
-    #[inline]
     pub fn anyint(&mut self, span: Span) -> Ty {
         self.insert(InferenceValue::AnyInt, Some(span))
     }
@@ -136,6 +130,7 @@ pub struct CommonTypes {
     pub float: Ty,
     pub str: Ty,
     pub never: Ty,
+    pub anytype: Ty,
 }
 
 impl CommonTypes {
@@ -170,6 +165,7 @@ impl CommonTypes {
             float: mk(Float(FloatTy::Float)),
             str: mk(TyKind::str()),
             never: mk(Never),
+            anytype: mk(AnyType),
         }
     }
 }

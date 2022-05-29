@@ -1,19 +1,19 @@
-// use std.{
-//     c.printf,
-//     fmt.println,
-//     // types
-// }
+use std.{
+    c.printf,
+    fmt.println,
+    // types
+}
 
-let Foo = struct { a: *Self }
+// let Foo = struct { a: *Self }
 
-// let A = struct {
-//     a: int,
-//     b: int
-// }
+let A: type = struct {
+    a: int,
+    b: int
+}
 
 let main = fn() {
     // let f = Foo { a: 1 };
-    // let a: A = .{ a: 1, b: 2 };
+    let a: A = .{ a: 1, b: 2 };
     // printf("%d %d\n".data, a.a, a.b);
     // let arr = .[1, 2, 3];
     // print_array(arr);

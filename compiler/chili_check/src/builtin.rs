@@ -16,3 +16,4 @@ pub const SYM_F64: &str = "f64";
 pub const SYM_FLOAT: &str = "float";
 pub const SYM_STR: &str = "str";
 pub const SYM_NEVER: &str = "never";
+pub const SYM_TYPE: &str = "type";

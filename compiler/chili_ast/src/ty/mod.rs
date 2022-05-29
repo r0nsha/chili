@@ -53,6 +53,7 @@ pub enum TyKind {
     Struct(StructTy),
     Module(ModuleId),
     Type(Box<TyKind>),
+    AnyType,
     Var(Ty),
     Infer(Ty, InferTy),
     Unknown,
@@ -254,7 +255,11 @@ impl TyKind {
     }
 
     pub fn is_type(&self) -> bool {
-        matches!(self, TyKind::Type(_))
+        matches!(self, TyKind::Type(_) | TyKind::AnyType)
+    }
+
+    pub fn is_anytype(&self) -> bool {
+        matches!(self, TyKind::AnyType)
     }
 
     pub fn is_module(&self) -> bool {
