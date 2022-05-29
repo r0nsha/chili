@@ -4,7 +4,7 @@ use crate::{
         byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
         stack::Stack,
-        value::{Array, Func, Pointer, Value},
+        value::{Array, Function, Pointer, Value},
     },
 };
 use colored::Colorize;
@@ -26,13 +26,13 @@ pub type Globals = Vec<Value>;
 
 #[derive(Debug, Clone)]
 pub(crate) struct StackFrame {
-    func: *const Func,
+    func: *const Function,
     stack_slot: usize,
     ip: usize,
 }
 
 impl StackFrame {
-    pub(crate) fn new(func: *const Func, slot: usize) -> Self {
+    pub(crate) fn new(func: *const Function, slot: usize) -> Self {
         Self {
             func,
             stack_slot: slot,
@@ -41,7 +41,7 @@ impl StackFrame {
     }
 
     #[inline]
-    pub(crate) fn func(&self) -> &Func {
+    pub(crate) fn func(&self) -> &Function {
         debug_assert!(!self.func.is_null());
         unsafe { &*self.func }
     }
@@ -133,9 +133,9 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    pub(crate) fn run_func(&'vm mut self, func: Func) -> Value {
-        self.stack.push(Value::Func(func));
-        let func: *const Func = self.stack.last().as_func();
+    pub(crate) fn run_func(&'vm mut self, func: Function) -> Value {
+        self.stack.push(Value::Function(func));
+        let func: *const Function = self.stack.last().as_func();
         self.push_frame(func);
         self.run_inner()
     }
@@ -268,13 +268,13 @@ impl<'vm> VM<'vm> {
                 Instruction::Call(arg_count) => {
                     let value = self.stack.peek(0);
                     match value {
-                        Value::Func(func) => {
-                            let func: *const Func = func;
+                        Value::Function(func) => {
+                            let func: *const Function = func;
                             self.push_frame(func);
                         }
-                        Value::ForeignFunc(func) => {
+                        Value::ExternFunction(func) => {
                             let func = func.clone();
-                            self.stack.pop(); // this pops the actual foreign function
+                            self.stack.pop(); // this pops the actual extern function
 
                             let mut values = (0..arg_count)
                                 .into_iter()
@@ -454,7 +454,7 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    pub(crate) fn push_frame(&mut self, func: *const Func) {
+    pub(crate) fn push_frame(&mut self, func: *const Function) {
         debug_assert!(!func.is_null());
 
         let stack_slot = self.stack.len() - 1;

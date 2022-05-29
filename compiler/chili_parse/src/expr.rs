@@ -95,10 +95,10 @@ impl<'p> Parser<'p> {
                 let start_span = self.previous_span();
 
                 if eat!(self, Foreign) {
-                    let binding = self.parse_foreign_single(Visibility::Private)?;
+                    let binding = self.parse_extern_single(Visibility::Private)?;
 
                     Ok(Expr::new(
-                        ExprKind::Foreign(vec![binding]),
+                        ExprKind::Extern(vec![binding]),
                         start_span.to(self.previous_span()),
                     ))
                 } else {
@@ -111,10 +111,10 @@ impl<'p> Parser<'p> {
                 }
             } else if eat!(self, Foreign) {
                 let start_span = self.previous_span();
-                let bindings = self.parse_foreign_block()?;
+                let bindings = self.parse_extern_block()?;
 
                 Ok(Expr::new(
-                    ExprKind::Foreign(bindings),
+                    ExprKind::Extern(bindings),
                     start_span.to(self.previous_span()),
                 ))
             } else {
@@ -368,7 +368,7 @@ impl<'p> Parser<'p> {
                 }
             }
         } else if eat!(self, Fn) {
-            self.parse_fn()?
+            self.parse_fn(ast::FunctionKind::Orphan)?
         } else if eat!(self, Struct) {
             self.parse_struct_type()?
         } else if eat!(self, Union) {

@@ -47,7 +47,7 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Co
 impl PrettyPrint for Value {
     fn pretty_print(&self) -> String {
         match self {
-            Value::Func(func) => format!(
+            Value::Function(func) => format!(
                 "fn {}\n{}",
                 if func.name.is_empty() {
                     "<anon>"

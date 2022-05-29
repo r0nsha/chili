@@ -143,7 +143,7 @@ impl Lint for ast::Expr {
     fn lint(&self, sess: &mut LintSess) {
         match &self.kind {
             ast::ExprKind::Import(_) => (),
-            ast::ExprKind::Foreign(e) => e.lint(sess),
+            ast::ExprKind::Extern(e) => e.lint(sess),
             ast::ExprKind::Binding(e) => e.lint(sess),
             ast::ExprKind::Defer(defer) => defer.expr.lint(sess),
             ast::ExprKind::Assign(assign) => {

@@ -89,7 +89,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> 
         &target_machine,
         &target_metrics,
         &module,
-        &workspace.foreign_libraries,
+        &workspace.extern_libraries,
     );
 
     executable_path
@@ -170,7 +170,7 @@ fn build_executable(
     target_machine: &TargetMachine,
     target_metrics: &TargetMetrics,
     module: &Module,
-    foreign_libraries: &HashSet<ast::ForeignLibrary>,
+    extern_libraries: &HashSet<ast::ExternLibrary>,
 ) -> String {
     let source_path = build_options.source_path();
 
@@ -193,7 +193,7 @@ fn build_executable(
     };
 
     time! { build_options.verbose, "link",
-        link(target_metrics, &executable_file, &object_file,&foreign_libraries,)
+        link(target_metrics, &executable_file, &object_file,&extern_libraries,)
     };
 
     executable_file
@@ -208,7 +208,7 @@ fn link(
     target_metrics: &TargetMetrics,
     executable_file: &PathBuf,
     object_file: &PathBuf,
-    foreign_libraries: &HashSet<ast::ForeignLibrary>,
+    extern_libraries: &HashSet<ast::ExternLibrary>,
 ) {
     let link_flags = match target_metrics.arch {
         Arch::Amd64 => match target_metrics.os {
@@ -246,14 +246,14 @@ fn link(
         let mut lib_paths = vec![];
         let mut libs = vec![];
 
-        for lib in foreign_libraries.iter() {
+        for lib in extern_libraries.iter() {
             match lib {
-                ast::ForeignLibrary::System(lib_name) => {
+                ast::ExternLibrary::System(lib_name) => {
                     if !is_libc(lib_name) {
                         libs.push(lib_name.clone())
                     }
                 }
-                ast::ForeignLibrary::Path(path) => {
+                ast::ExternLibrary::Path(path) => {
                     lib_paths.push(path.lib_dir().to_str().unwrap().to_string());
                     libs.push(path.lib_name().to_str().unwrap().to_string());
                 }
@@ -276,17 +276,17 @@ fn link(
             .execute_output()
             .unwrap();
     } else {
-        let libs: Vec<String> = foreign_libraries
+        let libs: Vec<String> = extern_libraries
             .iter()
             .map(|lib| match lib {
-                ast::ForeignLibrary::System(lib_name) => {
+                ast::ExternLibrary::System(lib_name) => {
                     if !is_libc(lib_name) {
                         Some(format!("-l{}", lib_name))
                     } else {
                         None
                     }
                 }
-                ast::ForeignLibrary::Path(path) => Some(format!("-l:{}", path.to_string())),
+                ast::ExternLibrary::Path(path) => Some(format!("-l:{}", path.to_string())),
             })
             .flatten()
             .collect();

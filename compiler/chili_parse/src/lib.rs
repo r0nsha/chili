@@ -1,6 +1,6 @@
 mod binding;
 mod expr;
-mod foreign;
+mod r#extern;
 mod func;
 mod import;
 mod literal;

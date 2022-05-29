@@ -518,7 +518,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
                 self.gen_unit()
             }
-            ast::ExprKind::Foreign(bindings) => {
+            ast::ExprKind::Extern(bindings) => {
                 for binding in bindings.iter() {
                     let ty = binding.ty.normalize(self.tycx);
                     if ty.is_fn() {
@@ -1132,8 +1132,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
 
             ast::ExprKind::FunctionType(sig) => {
-                if sig.lib_name.is_some() {
-                    // this is a foreign function
+                if sig.kind.is_extern() {
+                    // this is an extern function
                     let function = self.declare_fn_sig(state.module_info, sig);
                     function.as_global_value().as_pointer_value().into()
                 } else {

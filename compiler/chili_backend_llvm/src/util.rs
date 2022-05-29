@@ -607,7 +607,7 @@ pub(crate) trait LlvmName {
 
 impl LlvmName for FunctionSig {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        if self.lib_name.is_some() {
+        if self.kind.is_extern() {
             self.name.to_string()
         } else {
             format!("{}.{}", module_name.as_ref(), self.name)

@@ -95,8 +95,8 @@ impl PutValue for [u8] {
             Value::Pointer(v) => self
                 .as_mut()
                 .write_uint::<NativeEndian>(v.as_inner_raw() as u64, WORD_SIZE),
-            Value::Func(_) => todo!(),
-            Value::ForeignFunc(_) => todo!(),
+            Value::Function(_) => todo!(),
+            Value::ExternFunction(_) => todo!(),
             _ => panic!(
                 "can't convert `{}` to raw self.as_mut().inner",
                 value.to_string()

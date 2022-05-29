@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{Expr, ExprKind, Function, FunctionParam, FunctionSig},
+    ast::{Expr, ExprKind, Function, FunctionKind, FunctionParam, FunctionSig},
     ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -8,11 +8,11 @@ use chili_span::To;
 use ustr::Ustr;
 
 impl<'p> Parser<'p> {
-    pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
+    pub(crate) fn parse_fn(&mut self, kind: FunctionKind) -> DiagnosticResult<Expr> {
         let name = self.get_decl_name();
         let start_span = self.previous_span();
 
-        let sig = self.parse_fn_sig(name)?;
+        let sig = self.parse_fn_sig(kind, name)?;
 
         if eat!(self, OpenCurly) {
             let body = self.parse_block()?;
@@ -34,7 +34,11 @@ impl<'p> Parser<'p> {
         }
     }
 
-    pub(crate) fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FunctionSig> {
+    pub(crate) fn parse_fn_sig(
+        &mut self,
+        kind: FunctionKind,
+        name: Ustr,
+    ) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
         let (params, variadic) = self.parse_fn_params()?;
@@ -48,11 +52,11 @@ impl<'p> Parser<'p> {
         };
 
         Ok(FunctionSig {
-            lib_name: None,
             name,
             params,
             variadic,
             ret: ret_ty,
+            kind,
             ty: Default::default(),
             span: start_span.to(self.previous_span()),
         })

@@ -91,7 +91,7 @@ impl Expr {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
     Import(Vec<Import>),
-    Foreign(Vec<Binding>),
+    Extern(Vec<Binding>),
     Binding(Box<Binding>),
     Defer(Defer),
     Assign(Assign),
@@ -346,7 +346,7 @@ pub struct FunctionSig {
     pub params: Vec<FunctionParam>,
     pub variadic: bool,
     pub ret: Option<Box<Expr>>,
-    pub lib_name: Option<Ustr>,
+    pub kind: FunctionKind,
     pub ty: Ty,
     pub span: Span,
 }
@@ -364,18 +364,33 @@ impl ToString for FunctionParam {
     }
 }
 
-#[derive(Hash, Debug, Eq, PartialEq, Clone)]
-pub enum ForeignLibrary {
-    System(String),
-    Path(ForeignLibraryPath),
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum FunctionKind {
+    Orphan,
+    Extern { lib: Ustr },
+}
+
+impl FunctionKind {
+    pub fn is_orphan(&self) -> bool {
+        matches!(self, FunctionKind::Orphan)
+    }
+    pub fn is_extern(&self) -> bool {
+        matches!(self, FunctionKind::Extern { .. })
+    }
 }
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
-pub struct ForeignLibraryPath {
+pub enum ExternLibrary {
+    System(String),
+    Path(ExternLibraryPath),
+}
+
+#[derive(Hash, Debug, Eq, PartialEq, Clone)]
+pub struct ExternLibraryPath {
     path: PathBuf,
 }
 
-impl Deref for ForeignLibraryPath {
+impl Deref for ExternLibraryPath {
     type Target = PathBuf;
 
     fn deref(&self) -> &Self::Target {
@@ -383,13 +398,13 @@ impl Deref for ForeignLibraryPath {
     }
 }
 
-impl ToString for ForeignLibraryPath {
+impl ToString for ExternLibraryPath {
     fn to_string(&self) -> String {
         self.path.to_str().unwrap().to_string()
     }
 }
 
-impl ForeignLibraryPath {
+impl ExternLibraryPath {
     pub fn lib_dir(&self) -> &Path {
         self.path.parent().unwrap()
     }
@@ -399,20 +414,20 @@ impl ForeignLibraryPath {
     }
 }
 
-impl ForeignLibrary {
+impl ExternLibrary {
     pub fn try_from_str(from: &str, relative_to: &str, span: Span) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 
         if from.starts_with(SYSTEM_PREFIX) {
             let split: Vec<&str> = from.split(SYSTEM_PREFIX).collect();
             let lib = split[1].to_string();
-            Ok(ForeignLibrary::System(lib))
+            Ok(ExternLibrary::System(lib))
         } else {
             let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
 
             let path = try_resolve_relative_path(Path::new(from), relative_to, Some(span))?;
 
-            Ok(ForeignLibrary::Path(ForeignLibraryPath { path }))
+            Ok(ExternLibrary::Path(ExternLibraryPath { path }))
         }
     }
 
@@ -422,8 +437,8 @@ impl ForeignLibrary {
 
     pub fn path(&self) -> String {
         match self {
-            ForeignLibrary::System(lib) => lib.clone(),
-            ForeignLibrary::Path(path) => path.to_string(),
+            ExternLibrary::System(lib) => lib.clone(),
+            ExternLibrary::Path(path) => path.to_string(),
         }
     }
 }

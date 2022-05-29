@@ -2,7 +2,7 @@ use crate::{
     vm::{
         byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
-        value::{ForeignFunc, Func, Value},
+        value::{ExternFunction, Function, Value},
         VM,
     },
     IS_64BIT, WORD_SIZE,
@@ -80,7 +80,7 @@ impl Ffi {
     pub(crate) unsafe fn call(
         &mut self,
         vm: *mut VM,
-        func: ForeignFunc,
+        func: ExternFunction,
         mut args: Vec<Value>,
     ) -> Value {
         let symbol = self.load_symbol(func.lib_path, func.name);
@@ -185,7 +185,7 @@ impl Function {
                 }
                 Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
-                Value::Func(func) => {
+                Value::Function(func) => {
                     let function = Function::new(&func.arg_types, &func.return_type);
 
                     let user_data = bump.alloc(ClosureUserData { vm, func });
@@ -198,7 +198,7 @@ impl Function {
 
                     raw_ptr!(code_ptr)
                 }
-                Value::ForeignFunc(func) => {
+                Value::ExternFunction(func) => {
                     let symbol = ffi.load_symbol(func.lib_path, func.name);
                     raw_ptr!(symbol)
                 }
@@ -223,7 +223,7 @@ impl Function {
 
 struct ClosureUserData<'vm> {
     vm: *mut VM<'vm>,
-    func: *const Func,
+    func: *const Function,
 }
 
 // TODO: closures don't work in multithreaded code right now.

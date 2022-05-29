@@ -397,14 +397,14 @@ impl Check for ast::Binding {
         self.module_id = env.module_id();
 
         if let Some(lib) = self.lib_name {
-            // Collect foreign library to be linked later
-            let lib = ast::ForeignLibrary::try_from_str(
+            // Collect extern library to be linked later
+            let lib = ast::ExternLibrary::try_from_str(
                 &lib,
                 &env.module_info().file_path,
                 self.pattern.span(),
             )?;
 
-            sess.workspace.foreign_libraries.insert(lib);
+            sess.workspace.extern_libraries.insert(lib);
         }
 
         self.ty = if let Some(ty_expr) = &mut self.ty_expr {
@@ -702,7 +702,7 @@ impl Check for ast::FunctionSig {
         let ret = if let Some(expr) = &mut self.ret {
             let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
             sess.extract_const_type(res.const_value, res.ty, expr.span)?
-        } else if self.lib_name.is_some() {
+        } else if self.kind.is_extern() {
             sess.tycx.common_types.unit
         } else {
             sess.tycx.var(self.span)
@@ -713,7 +713,10 @@ impl Check for ast::FunctionSig {
                 params: ty_params,
                 ret: Box::new(ret.into()),
                 variadic: self.variadic,
-                lib_name: self.lib_name,
+                lib_name: match self.kind {
+                    ast::FunctionKind::Extern { lib } => Some(lib),
+                    _ => None,
+                },
             }),
             self.span,
         );
@@ -739,7 +742,7 @@ impl Check for ast::Expr {
                 }
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Foreign(bindings) => {
+            ast::ExprKind::Extern(bindings) => {
                 for binding in bindings.iter_mut() {
                     binding.check(sess, env, None)?;
                 }
@@ -1979,7 +1982,7 @@ impl Check for ast::Expr {
             ast::ExprKind::FunctionType(sig) => {
                 let res = sig.check(sess, env, expected_ty)?;
 
-                if sig.lib_name.is_some() {
+                if sig.kind.is_extern() {
                     Ok(Res::new(res.ty))
                 } else {
                     Ok(Res::new_const(

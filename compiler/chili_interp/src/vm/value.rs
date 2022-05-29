@@ -242,8 +242,8 @@ impl_value! {
     Aggregate(Aggregate),
     Array(Array),
     Pointer(Pointer),
-    Func(Func),
-    ForeignFunc(ForeignFunc),
+    Function(Function),
+    ExternFunction(ExternFunction),
     Type(TyKind),
 }
 
@@ -260,7 +260,7 @@ pub struct Array {
 }
 
 #[derive(Debug, Clone)]
-pub struct Func {
+pub struct Function {
     pub id: BindingInfoId,
     pub name: Ustr,
     pub arg_types: Vec<TyKind>,
@@ -269,7 +269,7 @@ pub struct Func {
 }
 
 #[derive(Debug, Clone)]
-pub struct ForeignFunc {
+pub struct ExternFunction {
     pub lib_path: Ustr,
     pub name: Ustr,
     pub param_tys: Vec<TyKind>,
@@ -422,7 +422,7 @@ impl Value {
             Self::Aggregate(agg) => agg.ty.clone(),
             Self::Array(arr) => arr.ty.clone(),
             Self::Pointer(p) => TyKind::Pointer(Box::new(p.get_ty_kind()), true),
-            Self::Func(_) => todo!(),
+            Self::Function(_) => todo!(),
             _ => panic!(),
         }
     }
@@ -547,12 +547,12 @@ impl Value {
                     element_ty: tycx.bound(*el_ty, eval_span),
                 }))
             }
-            Self::Func(f) => Ok(ConstValue::Function(ConstFunction {
+            Self::Function(f) => Ok(ConstValue::Function(ConstFunction {
                 id: f.id,
                 name: f.name,
             })),
             Self::Pointer(_) => Err("pointer"),
-            Self::ForeignFunc(_) => Err("function"),
+            Self::ExternFunction(_) => Err("function"),
         }
     }
 }
@@ -662,7 +662,7 @@ impl Pointer {
                 },
                 true,
             ),
-            Self::Func(_) => todo!(),
+            Self::Function(_) => todo!(),
             _ => panic!(),
         }
     }
@@ -693,8 +693,8 @@ impl Pointer {
             (Self::Aggregate(p), Value::Aggregate(v)) => **p = v,
             (Self::Array(p), Value::Array(v)) => **p = v,
             (Self::Pointer(p), Value::Pointer(v)) => **p = v,
-            (Self::Func(p), Value::Func(v)) => **p = v,
-            (Self::ForeignFunc(p), Value::ForeignFunc(v)) => **p = v,
+            (Self::Function(p), Value::Function(v)) => **p = v,
+            (Self::ExternFunction(p), Value::ExternFunction(v)) => **p = v,
             (Self::Type(p), Value::Type(v)) => **p = v,
             (p, v) => panic!("invalid pair {:?} , {}", p, v.to_string()),
         }
@@ -764,8 +764,8 @@ impl ToString for Value {
                 )
             }
             Value::Pointer(p) => p.to_string(),
-            Value::Func(func) => format!("fn {}", func.name),
-            Value::ForeignFunc(func) => format!("foreign fn {}", func.name),
+            Value::Function(func) => format!("fn {}", func.name),
+            Value::ExternFunction(func) => format!("foreign fn {}", func.name),
             Value::Type(ty) => format!("type {}", ty),
         }
     }
@@ -837,8 +837,8 @@ impl ToString for Pointer {
                         )
                     }
                     Pointer::Pointer(p) => (**p).to_string(),
-                    Pointer::Func(func) => format!("fn {}", (**func).name),
-                    Pointer::ForeignFunc(func) => format!("foreign fn {}", (**func).name),
+                    Pointer::Function(func) => format!("fn {}", (**func).name),
+                    Pointer::ExternFunction(func) => format!("foreign fn {}", (**func).name),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }
             }

@@ -141,7 +141,7 @@ impl<'a> Substitute<'a> for ast::Expr {
 
         match &self.kind {
             ast::ExprKind::Import(..) | ast::ExprKind::Defer(_) => (),
-            ast::ExprKind::Foreign(bindings) => bindings.substitute(sess),
+            ast::ExprKind::Extern(bindings) => bindings.substitute(sess),
             ast::ExprKind::Binding(binding) => binding.substitute(sess),
             ast::ExprKind::Assign(assign) => {
                 assign.lvalue.substitute(sess);

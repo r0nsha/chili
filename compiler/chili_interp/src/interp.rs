@@ -4,7 +4,7 @@ use crate::{
     vm::{
         display::dump_bytecode_to_file,
         instruction::{CompiledCode, Instruction},
-        value::{Func, Value},
+        value::{Function, Value},
         Constants, Globals, VM,
     },
 };
@@ -108,7 +108,7 @@ impl<'i> InterpSess<'i> {
 
         let mut vm = self.create_vm();
 
-        let start_func = Func {
+        let start_func = Function {
             id: BindingInfoId::unknown(),
             name: ustr("__vm_start"),
             arg_types: vec![],
@@ -127,7 +127,7 @@ impl<'i> InterpSess<'i> {
 
         for (global_index, global_code) in self.evaluated_globals.clone() {
             let const_slot = self.interp.constants.len();
-            self.interp.constants.push(Value::Func(Func {
+            self.interp.constants.push(Value::Function(Function {
                 id: BindingInfoId::unknown(),
                 name: ustr(&format!("global_init_{}", global_index)),
                 arg_types: vec![],

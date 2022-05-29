@@ -17,13 +17,13 @@ impl<'p> Parser<'p> {
             ast.imports.extend(imports);
         } else if eat!(self, Let) {
             let binding = if eat!(self, Foreign) {
-                self.parse_foreign_single(visibility)
+                self.parse_extern_single(visibility)
             } else {
                 self.parse_binding(visibility, true)
             }?;
             ast.bindings.push(binding);
         } else if eat!(self, Foreign) {
-            let bindings = self.parse_foreign_block()?;
+            let bindings = self.parse_extern_block()?;
             ast.bindings.extend(bindings);
         } else if eat!(self, At) {
             let token = require!(self, Ident(_), "ident")?;

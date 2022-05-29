@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BindingKind, ForeignLibrary, Visibility},
+    ast::{BindingKind, ExternLibrary, Visibility},
     const_value::ConstValue,
     ty::Ty,
 };
@@ -49,8 +49,8 @@ pub struct Workspace {
     // The entry point function's id (usually main). Resolved during name resolution
     pub entry_point_function_id: Option<BindingInfoId>,
 
-    // Foreign libraries needed to be linked. Resolved during name resolution
-    pub foreign_libraries: HashSet<ForeignLibrary>,
+    // Extern libraries needed to be linked. Resolved during name resolution
+    pub extern_libraries: HashSet<ExternLibrary>,
 }
 
 impl Workspace {
@@ -70,7 +70,7 @@ impl Workspace {
             binding_infos: Default::default(),
             exports: Default::default(),
             entry_point_function_id: None,
-            foreign_libraries: Default::default(),
+            extern_libraries: Default::default(),
         }
     }
 }

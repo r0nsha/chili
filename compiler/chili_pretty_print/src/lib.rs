@@ -215,11 +215,7 @@ impl PrintTree for ast::FunctionSig {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child(format!(
             "{}sig",
-            if self.lib_name.is_some() {
-                "foreign "
-            } else {
-                ""
-            }
+            if self.kind.is_extern() { "extern " } else { "" }
         ));
 
         b.begin_child("parameters".to_string());
@@ -266,7 +262,7 @@ impl PrintTree for ast::Expr {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         match &self.kind {
             ast::ExprKind::Import(imports) => imports.print_tree(b, workspace, tycx),
-            ast::ExprKind::Foreign(bindings) => bindings.print_tree(b, workspace, tycx),
+            ast::ExprKind::Extern(bindings) => bindings.print_tree(b, workspace, tycx),
             ast::ExprKind::Binding(binding) => binding.print_tree(b, workspace, tycx),
             ast::ExprKind::Defer(defer) => {
                 b.begin_child("defer".to_string());

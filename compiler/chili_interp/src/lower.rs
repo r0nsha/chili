@@ -3,7 +3,7 @@ use crate::{
     vm::{
         byte_seq::{ByteSeq, PutValue},
         instruction::{CastInstruction, CompiledCode, Instruction},
-        value::{Aggregate, Array, ForeignFunc, Func, Value, ValueKind},
+        value::{Aggregate, Array, ExternFunction, Function, Value, ValueKind},
     },
     IS_64BIT, WORD_SIZE,
 };
@@ -31,7 +31,7 @@ impl Lower for ast::Expr {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match &self.kind {
             ast::ExprKind::Import(_) => sess.push_const_unit(code),
-            ast::ExprKind::Foreign(bindings) => bindings
+            ast::ExprKind::Extern(bindings) => bindings
                 .iter()
                 .for_each(|binding| lower_local_binding(binding, sess, code)),
             ast::ExprKind::Binding(binding) => {
@@ -471,7 +471,7 @@ impl Lower for ast::Function {
 
         let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
 
-        let func = Func {
+        let func = Function {
             id: self.binding_info_id.unwrap(),
             name: self.sig.name,
             arg_types: sig_ty.params,
@@ -479,7 +479,7 @@ impl Lower for ast::Function {
             code: func_code,
         };
 
-        let slot = sess.push_const(code, Value::Func(func));
+        let slot = sess.push_const(code, Value::Function(func));
 
         sess.interp
             .functions
@@ -489,30 +489,33 @@ impl Lower for ast::Function {
 
 impl Lower for ast::FunctionSig {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        if let Some(lib_name) = self.lib_name {
-            let func_ty = self.ty.normalize(sess.tycx).into_fn();
+        match &self.kind {
+            ast::FunctionKind::Orphan => {
+                // lowering a non-extern function signature is a no-op (until types will be considered values)
+            }
+            ast::FunctionKind::Extern { lib } => {
+                let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
-            let module_path = sess
-                .workspace
-                .get_module_info(sess.module_id())
-                .unwrap()
-                .file_path;
+                let module_path = sess
+                    .workspace
+                    .get_module_info(sess.module_id())
+                    .unwrap()
+                    .file_path;
 
-            let lib_path = ast::ForeignLibrary::from_str(&lib_name, &module_path)
-                .unwrap()
-                .path();
+                let lib_path = ast::ExternLibrary::from_str(&lib, &module_path)
+                    .unwrap()
+                    .path();
 
-            let foreign_func = ForeignFunc {
-                lib_path: ustr(&lib_path),
-                name: self.name,
-                param_tys: func_ty.params,
-                return_ty: *func_ty.ret,
-                variadic: self.variadic,
-            };
+                let extern_func = ExternFunction {
+                    lib_path: ustr(&lib_path),
+                    name: self.name,
+                    param_tys: func_ty.params,
+                    return_ty: *func_ty.ret,
+                    variadic: self.variadic,
+                };
 
-            sess.push_const(code, Value::ForeignFunc(foreign_func));
-        } else {
-            // lowering a non-foreign function signature is a no-op (until types will be considered values)
+                sess.push_const(code, Value::ExternFunction(extern_func));
+            }
         }
     }
 }
