@@ -54,7 +54,7 @@ impl Display for StackFrame {
 }
 
 macro_rules! binary_op {
-    ($vm:expr, $op:tt) => {
+    ($vm:expr, $op:tt) => {{
         let b = $vm.stack.pop();
         let a = $vm.stack.pop();
 
@@ -75,7 +75,30 @@ macro_rules! binary_op {
         }
 
         $vm.next();
-    };
+    }};
+}
+
+macro_rules! binary_op_int {
+    ($vm:expr, $op:tt) => {{
+        let b = $vm.stack.pop();
+        let a = $vm.stack.pop();
+
+        match (&a, &b) {
+            (Value::I8(a), Value::I8(b)) => $vm.stack.push(Value::I8(a $op b)),
+            (Value::I16(a), Value::I16(b)) => $vm.stack.push(Value::I16(a $op b)),
+            (Value::I32(a), Value::I32(b)) => $vm.stack.push(Value::I32(a $op b)),
+            (Value::I64(a), Value::I64(b)) => $vm.stack.push(Value::I64(a $op b)),
+            (Value::Int(a), Value::Int(b)) => $vm.stack.push(Value::Int(a $op b)),
+            (Value::U8(a), Value::U8(b)) => $vm.stack.push(Value::U8(a $op b)),
+            (Value::U16(a), Value::U16(b)) => $vm.stack.push(Value::U16(a $op b)),
+            (Value::U32(a), Value::U32(b)) => $vm.stack.push(Value::U32(a $op b)),
+            (Value::U64(a), Value::U64(b)) => $vm.stack.push(Value::U64(a $op b)),
+            (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Uint(a $op b)),
+            _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a.to_string() ,b.to_string())
+        }
+
+        $vm.next();
+    }};
 }
 
 macro_rules! comp_op {
@@ -233,6 +256,15 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Or => {
                     logic_op!(self, ||);
+                }
+                Instruction::Shl => {
+                    binary_op_int!(self, <<)
+                }
+                Instruction::Shr => {
+                    binary_op_int!(self, >>);
+                }
+                Instruction::Xor => {
+                    binary_op_int!(self, ^);
                 }
                 Instruction::Jmp(offset) => {
                     self.jmp(offset);
