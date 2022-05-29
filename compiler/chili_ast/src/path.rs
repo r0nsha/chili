@@ -4,13 +4,13 @@ use chili_error::{
 };
 use chili_span::Span;
 use path_absolutize::Absolutize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub fn try_resolve_relative_path(
-    path: &Path,
-    relative_to: &str,
+pub fn try_resolve_relative_path<'a>(
+    path: &'a Path,
+    relative_to: &'a str,
     span: Option<Span>,
-) -> DiagnosticResult<String> {
+) -> DiagnosticResult<PathBuf> {
     let absolute_path = if relative_to.is_empty() {
         path.absolutize().unwrap()
     } else {
@@ -18,7 +18,7 @@ pub fn try_resolve_relative_path(
     };
 
     if absolute_path.exists() {
-        Ok(absolute_path.to_str().unwrap().to_string())
+        Ok(absolute_path.to_path_buf())
     } else {
         let diagnostic = Diagnostic::error()
             .with_message(format!("path `{}` doesn't exist", path.display()))

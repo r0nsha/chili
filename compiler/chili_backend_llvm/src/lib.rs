@@ -250,16 +250,12 @@ fn link(
             match lib {
                 ast::ForeignLibrary::System(lib_name) => {
                     if !is_libc(lib_name) {
-                        libs.push(lib_name)
+                        libs.push(lib_name.clone())
                     }
                 }
-                ast::ForeignLibrary::Path {
-                    lib_dir,
-                    lib_path: _,
-                    lib_name,
-                } => {
-                    lib_paths.push(lib_dir);
-                    libs.push(lib_name);
+                ast::ForeignLibrary::Path(path) => {
+                    lib_paths.push(path.lib_dir().to_str().unwrap().to_string());
+                    libs.push(path.lib_name().to_str().unwrap().to_string());
                 }
             }
         }
@@ -290,11 +286,7 @@ fn link(
                         None
                     }
                 }
-                ast::ForeignLibrary::Path {
-                    lib_dir: _,
-                    lib_path,
-                    lib_name: _,
-                } => Some(format!("-l:{}", lib_path)),
+                ast::ForeignLibrary::Path(path) => Some(format!("-l:{}", path.to_string())),
             })
             .flatten()
             .collect();

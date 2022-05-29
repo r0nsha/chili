@@ -10,8 +10,10 @@ use chili_span::{Span, Spanned};
 use chili_token::TokenKind;
 use std::{
     collections::HashMap,
+    ffi::OsStr,
     fmt::{self, Display},
-    path::Path,
+    ops::Deref,
+    path::{Path, PathBuf},
 };
 use ustr::Ustr;
 
@@ -365,11 +367,36 @@ impl ToString for FnParam {
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
 pub enum ForeignLibrary {
     System(String),
-    Path {
-        lib_dir: String,
-        lib_path: String,
-        lib_name: String,
-    },
+    Path(ForeignLibraryPath),
+}
+
+#[derive(Hash, Debug, Eq, PartialEq, Clone)]
+pub struct ForeignLibraryPath {
+    path: PathBuf,
+}
+
+impl Deref for ForeignLibraryPath {
+    type Target = PathBuf;
+
+    fn deref(&self) -> &Self::Target {
+        &self.path
+    }
+}
+
+impl ToString for ForeignLibraryPath {
+    fn to_string(&self) -> String {
+        self.path.to_str().unwrap().to_string()
+    }
+}
+
+impl ForeignLibraryPath {
+    pub fn lib_dir(&self) -> &Path {
+        self.path.parent().unwrap()
+    }
+
+    pub fn lib_name(&self) -> &OsStr {
+        self.path.file_name().unwrap()
+    }
 }
 
 impl ForeignLibrary {
@@ -383,15 +410,9 @@ impl ForeignLibrary {
         } else {
             let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
 
-            let path_string = try_resolve_relative_path(Path::new(from), relative_to, Some(span))?;
+            let path = try_resolve_relative_path(Path::new(from), relative_to, Some(span))?;
 
-            let path = Path::new(&path_string);
-
-            Ok(ForeignLibrary::Path {
-                lib_dir: path.parent().unwrap().to_str().unwrap().to_string(),
-                lib_path: path_string.clone(),
-                lib_name: path.file_name().unwrap().to_str().unwrap().to_string(),
-            })
+            Ok(ForeignLibrary::Path(ForeignLibraryPath { path }))
         }
     }
 
@@ -402,7 +423,7 @@ impl ForeignLibrary {
     pub fn path(&self) -> String {
         match self {
             ForeignLibrary::System(lib) => lib.clone(),
-            ForeignLibrary::Path { lib_path, .. } => lib_path.clone(),
+            ForeignLibrary::Path(path) => path.to_string(),
         }
     }
 }

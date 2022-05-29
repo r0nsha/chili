@@ -39,8 +39,10 @@ impl<'a> AstGenerator<'a> {
         .map_err(|diag| self.workspace.diagnostics.push(diag))
         .ok()?;
 
-        let root_module_info =
-            ModuleInfo::new(common::builtin::root_module(), ustr(&root_file_path));
+        let root_module_info = ModuleInfo::new(
+            common::builtin::root_module(),
+            ustr(&root_file_path.to_str().unwrap().to_string()),
+        );
 
         self.add_source_file(&mut asts, root_module_info, true);
 
