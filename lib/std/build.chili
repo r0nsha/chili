@@ -6,7 +6,7 @@ pub let Workspace = struct {
 pub let BuildOptions = struct {
     input_file: str,
     output_file: str,
-    target_os: Os,
+    target: BuildTarget,
     release: bool,
     run_when_done: bool
 }
