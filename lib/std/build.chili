@@ -1,0 +1,17 @@
+pub let Workspace = struct {
+    name: str,
+    build_options: BuildOptions
+}
+
+pub let BuildOptions = struct {
+    input_file: str,
+    output_file: str,
+    target_os: Os,
+    release: bool,
+    run_when_done: bool
+}
+
+pub let BuildTarget = u8
+pub let BUILD_TARGET_AUTO: BuildTarget = 0
+pub let BUILD_TARGET_LINUX: BuildTarget = 1
+pub let BUILD_TARGET_WINDOWS: BuildTarget = 2

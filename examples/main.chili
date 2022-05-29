@@ -1,10 +1,7 @@
 use std.{
     c.printf,
     fmt.println,
-    // types
 }
-
-// let Foo = struct { a: *Self }
 
 let A: type = struct {
     a: int,
@@ -12,24 +9,23 @@ let A: type = struct {
 }
 
 let main = fn() {
-    // let f = Foo { a: 1 };
     let { a, b }: A = .{ a: 1, b: 2 };
     printf("%d %d\n".data, a, b);
-    // let arr = .[1, 2, 3];
-    // print_array(arr);
-    // print_slice(&arr);
+    let arr = .[1, 2, 3];
+    print_array(arr);
+    print_slice(&arr);
 }
 
-// let print_array = fn(a: [int; 3]) {
-//     println("array");
-//     for a {
-//         printf("a[%d] = %d\n".data, it_index, it)
-//     }
-// }
+let print_array = fn(a: [int; 3]) {
+    println("array");
+    for a {
+        printf("a[%d] = %d\n".data, it_index, it)
+    }
+}
 
-// let print_slice = fn(a: [int]) {
-//     println("slice");
-//     for a {
-//         printf("a[%d] = %d\n".data, it_index, it)
-//     }
-// }
+let print_slice = fn(a: [int]) {
+    println("slice");
+    for a {
+        printf("a[%d] = %d\n".data, it_index, it)
+    }
+}
