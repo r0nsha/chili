@@ -42,7 +42,7 @@ impl Display for TyKind {
                     format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
                 TyKind::MultiPointer(ty, is_mutable) =>
                     format!("[{}; *{}]", ty, if *is_mutable { "mut" } else { "" },),
-                TyKind::Fn(func) => func.to_string(),
+                TyKind::Function(func) => func.to_string(),
                 TyKind::Array(inner, size) => format!("[{}; {}]", inner, size,),
                 TyKind::Slice(inner, is_mutable) =>
                     format!("[{}{}]", if *is_mutable { "mut " } else { "" }, inner),
@@ -103,7 +103,7 @@ impl Display for PartialStructTy {
     }
 }
 
-impl Display for FnTy {
+impl Display for FunctionTy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

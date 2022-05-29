@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{Expr, ExprKind, Fn, FnParam, FnSig},
+    ast::{Expr, ExprKind, Function, FunctionParam, FunctionSig},
     ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -18,7 +18,7 @@ impl<'p> Parser<'p> {
             let body = self.parse_block()?;
 
             Ok(Expr::new(
-                ExprKind::Fn(Fn {
+                ExprKind::Function(Function {
                     sig,
                     body,
                     binding_info_id: None,
@@ -28,13 +28,13 @@ impl<'p> Parser<'p> {
             ))
         } else {
             Ok(Expr::new(
-                ExprKind::FnType(sig),
+                ExprKind::FunctionType(sig),
                 start_span.to(self.previous_span()),
             ))
         }
     }
 
-    pub(crate) fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FnSig> {
+    pub(crate) fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
         let (params, variadic) = self.parse_fn_params()?;
@@ -47,7 +47,7 @@ impl<'p> Parser<'p> {
             None
         };
 
-        Ok(FnSig {
+        Ok(FunctionSig {
             lib_name: None,
             name,
             params,
@@ -58,7 +58,7 @@ impl<'p> Parser<'p> {
         })
     }
 
-    pub(crate) fn parse_fn_params(&mut self) -> DiagnosticResult<(Vec<FnParam>, bool)> {
+    pub(crate) fn parse_fn_params(&mut self) -> DiagnosticResult<(Vec<FunctionParam>, bool)> {
         if !eat!(self, OpenParen) {
             return Ok((vec![], false));
         }
@@ -84,7 +84,7 @@ impl<'p> Parser<'p> {
                     None
                 };
 
-                FnParam {
+                FunctionParam {
                     pattern,
                     ty_expr: ty,
                     ty: Ty::unknown(),

@@ -8,7 +8,7 @@ use crate::{
 };
 use byteorder::{NativeEndian, WriteBytesExt};
 use chili_ast::{
-    const_value::{ConstArray, ConstElement, ConstFn, ConstValue},
+    const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
     workspace::BindingInfoId,
 };
@@ -308,7 +308,7 @@ impl From<&TyKind> for ValueKind {
                 }
             },
             TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer,
-            TyKind::Fn(_) => todo!(),
+            TyKind::Function(_) => todo!(),
             TyKind::Array(_, _) => todo!(),
             TyKind::Slice(_, _) => todo!(),
             TyKind::Tuple(_) => todo!(),
@@ -369,7 +369,7 @@ impl Value {
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
                 Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
             }
-            TyKind::Fn(_) => todo!(),
+            TyKind::Function(_) => todo!(),
             TyKind::Array(inner, size) => Self::Array(Array {
                 bytes: ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE)),
                 ty: ty.clone(),
@@ -449,7 +449,7 @@ impl Value {
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
             Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
             Self::Aggregate(agg) => match ty {
-                TyKind::Unit=> Ok(ConstValue::Unit(())),
+                TyKind::Unit => Ok(ConstValue::Unit(())),
                 TyKind::Slice(inner, _) => {
                     if matches!(inner.as_ref(), TyKind::Uint(UintTy::U8)) {
                         let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;
@@ -547,7 +547,7 @@ impl Value {
                     element_ty: tycx.bound(*el_ty, eval_span),
                 }))
             }
-            Self::Func(f) => Ok(ConstValue::Fn(ConstFn {
+            Self::Func(f) => Ok(ConstValue::Function(ConstFunction {
                 id: f.id,
                 name: f.name,
             })),
@@ -609,7 +609,7 @@ impl Pointer {
             TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
                 Self::from_type_and_ptr(ty, ptr)
             }
-            TyKind::Fn(_) => todo!(),
+            TyKind::Function(_) => todo!(),
             TyKind::Array(inner, size) => {
                 let bytes = unsafe {
                     ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))

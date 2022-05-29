@@ -106,14 +106,14 @@ impl<'a> Substitute<'a> for ast::Block {
     }
 }
 
-impl<'a> Substitute<'a> for ast::Fn {
+impl<'a> Substitute<'a> for ast::Function {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.sig.substitute(sess);
         self.body.substitute(sess);
     }
 }
 
-impl<'a> Substitute<'a> for ast::FnSig {
+impl<'a> Substitute<'a> for ast::FunctionSig {
     fn substitute(&self, sess: &mut Sess<'a>) {
         for param in self.params.iter() {
             param.ty_expr.substitute(sess);
@@ -155,7 +155,7 @@ impl<'a> Substitute<'a> for ast::Expr {
                 | ast::BuiltinKind::Run(expr, _) => expr.substitute(sess),
                 ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
             },
-            ast::ExprKind::Fn(func) => func.substitute(sess),
+            ast::ExprKind::Function(func) => func.substitute(sess),
             ast::ExprKind::While(while_) => {
                 while_.cond.substitute(sess);
                 while_.block.substitute(sess);
@@ -234,7 +234,7 @@ impl<'a> Substitute<'a> for ast::Expr {
                     f.ty.substitute(sess);
                 }
             }
-            ast::ExprKind::FnType(sig) => sig.substitute(sess),
+            ast::ExprKind::FunctionType(sig) => sig.substitute(sess),
             ast::ExprKind::Ident(_)
             | ast::ExprKind::Literal(_)
             | ast::ExprKind::SelfType
@@ -281,7 +281,7 @@ fn extract_free_type_vars(ty: &TyKind, set: &mut HashSet<Ty>) {
         TyKind::Var(var) => {
             set.insert(*var);
         }
-        TyKind::Fn(f) => {
+        TyKind::Function(f) => {
             f.params.iter().for_each(|p| extract_free_type_vars(p, set));
             extract_free_type_vars(&f.ret, set);
         }

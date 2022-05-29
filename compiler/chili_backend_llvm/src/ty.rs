@@ -9,7 +9,7 @@ use inkwell::{
 };
 
 use super::{
-    abi::{self, AbiFn, AbiTyKind},
+    abi::{self, AbiFunction, AbiTyKind},
     codegen::Codegen,
 };
 
@@ -67,7 +67,7 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
             TyKind::Type(_) | TyKind::Unit | TyKind::Never | TyKind::Module { .. } => {
                 cg.unit_type()
             }
-            TyKind::Fn(func) => cg.fn_type(func).ptr_type(AddressSpace::Generic).into(),
+            TyKind::Function(func) => cg.fn_type(func).ptr_type(AddressSpace::Generic).into(),
             TyKind::Array(inner, size) => inner.llvm_type(cg).array_type(*size as u32).into(),
             TyKind::Slice(inner, ..) => cg.slice_type(inner),
             TyKind::Tuple(tys) => cg
@@ -119,7 +119,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .into()
     }
 
-    pub(super) fn fn_type(&mut self, func: &FnTy) -> FunctionType<'ctx> {
+    pub(super) fn fn_type(&mut self, func: &FunctionTy) -> FunctionType<'ctx> {
         let params: Vec<BasicMetadataTypeEnum> = func
             .params
             .iter()
@@ -139,7 +139,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
 
-    pub(super) fn abi_fn_to_type(&mut self, abi_fn: &AbiFn<'ctx>) -> FunctionType<'ctx> {
+    pub(super) fn abi_fn_to_type(&mut self, abi_fn: &AbiFunction<'ctx>) -> FunctionType<'ctx> {
         let mut offset = 0;
 
         let ret = match abi_fn.ret.kind {

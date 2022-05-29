@@ -5,10 +5,10 @@ use inkwell::{
 
 use crate::util::IsAggregateType;
 
-use super::{size_of, AbiFn, AbiInfo, AbiTy};
+use super::{size_of, AbiFunction, AbiInfo, AbiTy};
 
-pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFn<'ctx> {
-    AbiFn {
+pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
+    AbiFunction {
         params: get_params(info, fn_ty.get_param_types()),
         ret: get_return(info, fn_ty.get_return_type().unwrap()),
         variadic: fn_ty.is_var_arg(),

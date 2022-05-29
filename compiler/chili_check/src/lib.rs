@@ -7,9 +7,9 @@ mod top_level;
 
 use chili_ast::{
     ast,
-    const_value::{ConstArray, ConstElement, ConstFn, ConstValue},
+    const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{Pattern, SymbolPattern},
-    ty::{FnTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
+    ty::{FunctionTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
     },
@@ -74,7 +74,7 @@ pub(crate) struct CheckSess<'s> {
     pub(crate) global_scopes: HashMap<ModuleId, Scope>,
     pub(crate) builtin_types: UstrMap<BindingInfoId>,
 
-    // Stack of function frames, each ast::Fn creates its own frame
+    // Stack of function frames, each ast::Function creates its own frame
     pub(crate) function_frames: Vec<FunctionFrame>,
 
     // Stack of `Self` types
@@ -493,10 +493,10 @@ impl Check for ast::Binding {
             None
         };
 
-        if self.expr.as_ref().map_or(false, |e| e.is_fn()) {
+        if self.expr.as_ref().map_or(false, |e| e.is_function()) {
             // because functions can be recursive,
             // we special case them and use the id bounded after checking the function signature
-            let fn_expr = self.expr.as_mut().unwrap().as_fn_mut();
+            let fn_expr = self.expr.as_mut().unwrap().as_function_mut();
 
             let binding_info = sess
                 .workspace
@@ -545,7 +545,7 @@ impl Check for ast::Binding {
     }
 }
 
-impl Check for ast::Fn {
+impl Check for ast::Function {
     fn check(
         &mut self,
         sess: &mut CheckSess,
@@ -574,7 +574,7 @@ impl Check for ast::Fn {
         )?);
         // }
 
-        env.push_scope(ScopeKind::Fn);
+        env.push_scope(ScopeKind::Function);
 
         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
             let ty = sess.tycx.bound(
@@ -630,7 +630,7 @@ impl Check for ast::Fn {
 
         Ok(Res::new_const(
             sig_res.ty,
-            ConstValue::Fn(ConstFn {
+            ConstValue::Function(ConstFunction {
                 id: self.binding_info_id.unwrap(),
                 name: self.sig.name,
             }),
@@ -638,7 +638,7 @@ impl Check for ast::Fn {
     }
 }
 
-impl Check for ast::FnSig {
+impl Check for ast::FunctionSig {
     fn check(
         &mut self,
         sess: &mut CheckSess,
@@ -674,11 +674,11 @@ impl Check for ast::FnSig {
             // parent type is a function with 1 parameter, add an implicit `it` parameter
             if let Some(ty) = expected_ty {
                 match ty.normalize(&sess.tycx) {
-                    TyKind::Fn(f) => {
+                    TyKind::Function(f) => {
                         if f.params.len() == 1 {
                             let symbol = ustr("it");
 
-                            self.params.push(ast::FnParam {
+                            self.params.push(ast::FunctionParam {
                                 pattern: Pattern::Single(SymbolPattern {
                                     binding_info_id: Default::default(),
                                     symbol,
@@ -709,7 +709,7 @@ impl Check for ast::FnSig {
         };
 
         self.ty = sess.tycx.bound(
-            TyKind::Fn(FnTy {
+            TyKind::Function(FunctionTy {
                 params: ty_params,
                 ret: Box::new(ret.into()),
                 variadic: self.variadic,
@@ -854,7 +854,7 @@ impl Check for ast::Expr {
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
-            ast::ExprKind::Fn(f) => f.check(sess, env, expected_ty),
+            ast::ExprKind::Function(f) => f.check(sess, env, expected_ty),
             ast::ExprKind::While(while_) => {
                 let cond_ty = sess.tycx.common_types.bool;
                 let cond_res = while_.cond.check(sess, env, Some(cond_ty))?;
@@ -1976,7 +1976,7 @@ impl Check for ast::Expr {
                     ConstValue::Type(sess.tycx.bound(struct_ty, self.span)),
                 ))
             }
-            ast::ExprKind::FnType(sig) => {
+            ast::ExprKind::FunctionType(sig) => {
                 let res = sig.check(sess, env, expected_ty)?;
 
                 if sig.lib_name.is_some() {
@@ -2024,7 +2024,7 @@ impl Check for ast::Call {
         let callee_res = self.callee.check(sess, env, None)?;
 
         match callee_res.ty.normalize(&sess.tycx) {
-            TyKind::Fn(fn_ty) => {
+            TyKind::Function(fn_ty) => {
                 if (fn_ty.variadic && self.args.len() < fn_ty.params.len())
                     || (!fn_ty.variadic && self.args.len() != fn_ty.params.len())
                 {
@@ -2084,7 +2084,7 @@ impl Check for ast::Call {
 
                 let return_ty = sess.tycx.var(self.span);
 
-                let inferred_fn_ty = TyKind::Fn(FnTy {
+                let inferred_fn_ty = TyKind::Function(FunctionTy {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
                     variadic: false,

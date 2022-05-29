@@ -77,7 +77,7 @@ impl<'p> Parser<'p> {
                 ty: Ty::unknown(),
                 ty_expr: None,
                 expr: Some(Expr::new(
-                    ExprKind::FnType(sig),
+                    ExprKind::FunctionType(sig),
                     fn_sig_start_span.to(self.previous_span()),
                 )),
                 lib_name: Some(lib_name),

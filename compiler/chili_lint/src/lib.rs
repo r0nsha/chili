@@ -167,7 +167,7 @@ impl Lint for ast::Expr {
                 | ast::BuiltinKind::Run(e, _) => e.lint(sess),
                 ast::BuiltinKind::Panic(e) => e.lint(sess),
             },
-            ast::ExprKind::Fn(f) => {
+            ast::ExprKind::Function(f) => {
                 f.body.lint(sess);
             }
             ast::ExprKind::While(while_) => {
@@ -263,7 +263,7 @@ impl Lint for ast::Expr {
                     f.ty.lint(sess);
                 }
             }
-            ast::ExprKind::FnType(sig) => {
+            ast::ExprKind::FunctionType(sig) => {
                 for p in &sig.params {
                     p.ty_expr.lint(sess);
                 }

@@ -189,7 +189,7 @@ impl PrintTree for ast::Binding {
     }
 }
 
-impl PrintTree for ast::Fn {
+impl PrintTree for ast::Function {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child("fn".to_string());
         self.sig.print_tree(b, workspace, tycx);
@@ -211,7 +211,7 @@ impl PrintTree for ast::Block {
     }
 }
 
-impl PrintTree for ast::FnSig {
+impl PrintTree for ast::FunctionSig {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child(format!(
             "{}sig",
@@ -314,7 +314,7 @@ impl PrintTree for ast::Expr {
                     }
                 };
             }
-            ast::ExprKind::Fn(closure) => {
+            ast::ExprKind::Function(closure) => {
                 b.begin_child(closure.sig.to_string());
                 closure.body.print_tree(b, workspace, tycx);
                 b.end_child();
@@ -530,7 +530,7 @@ impl PrintTree for ast::Expr {
                 }
                 b.end_child();
             }
-            ast::ExprKind::FnType(sig) => {
+            ast::ExprKind::FunctionType(sig) => {
                 b.begin_child("fn type".to_string());
                 sig.print_tree(b, workspace, tycx);
                 b.end_child();

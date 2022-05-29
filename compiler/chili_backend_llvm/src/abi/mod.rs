@@ -16,7 +16,7 @@ pub fn get_abi_compliant_fn<'ctx>(
     context: &'ctx Context,
     target_metrics: &TargetMetrics,
     fn_ty: FunctionType<'ctx>,
-) -> AbiFn<'ctx> {
+) -> AbiFunction<'ctx> {
     let info = AbiInfo {
         context,
         word_size: target_metrics.word_size,
@@ -106,7 +106,7 @@ pub struct AbiInfo<'ctx> {
 }
 
 #[derive(Debug, Clone)]
-pub struct AbiFn<'ctx> {
+pub struct AbiFunction<'ctx> {
     pub params: Vec<AbiTy<'ctx>>,
     pub ret: AbiTy<'ctx>,
     pub variadic: bool,

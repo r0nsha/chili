@@ -46,7 +46,7 @@ pub enum TyKind {
     Float(FloatTy),
     Pointer(Box<TyKind>, bool),
     MultiPointer(Box<TyKind>, bool),
-    Fn(FnTy),
+    Function(FunctionTy),
     Array(Box<TyKind>, usize),
     Slice(Box<TyKind>, bool),
     Tuple(Vec<TyKind>),
@@ -112,7 +112,7 @@ impl Default for FloatTy {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-pub struct FnTy {
+pub struct FunctionTy {
     pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
     pub variadic: bool,
@@ -311,7 +311,7 @@ impl TyKind {
     }
 
     pub fn is_fn(&self) -> bool {
-        matches!(self, TyKind::Fn(..))
+        matches!(self, TyKind::Function(..))
     }
 
     pub fn is_var(&self) -> bool {
@@ -353,16 +353,16 @@ impl TyKind {
         }
     }
 
-    pub fn as_fn(&self) -> &FnTy {
+    pub fn as_fn(&self) -> &FunctionTy {
         match self {
-            TyKind::Fn(ty) => ty,
+            TyKind::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }
 
-    pub fn into_fn(self) -> FnTy {
+    pub fn into_fn(self) -> FunctionTy {
         match self {
-            TyKind::Fn(ty) => ty,
+            TyKind::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }

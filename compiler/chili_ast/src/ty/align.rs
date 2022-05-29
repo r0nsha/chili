@@ -12,7 +12,7 @@ impl AlignOf for TyKind {
             TyKind::Int(ty) => ty.align_of(word_size),
             TyKind::Uint(ty) => ty.align_of(word_size),
             TyKind::Float(ty) => ty.align_of(word_size),
-            TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Fn(..) => word_size,
+            TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Function(..) => word_size,
             TyKind::Array(ty, ..) => ty.align_of(word_size),
             TyKind::Slice(..) => StructTy::temp(
                 vec![

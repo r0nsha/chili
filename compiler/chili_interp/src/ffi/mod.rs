@@ -331,7 +331,7 @@ impl AsFfiType for TyKind {
             TyKind::Unit
             | TyKind::Pointer(_, _)
             | TyKind::MultiPointer(_, _)
-            | TyKind::Fn(_)
+            | TyKind::Function(_)
             | TyKind::Array(_, _) => Type::pointer(),
             TyKind::Slice(_, _) => Type::structure([Type::pointer(), Type::usize()]),
             TyKind::Tuple(tuple_elements) => {

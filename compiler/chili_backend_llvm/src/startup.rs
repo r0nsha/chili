@@ -62,7 +62,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         //         linkage,
         //     )
         // };
-        let startup_fn_type = FnTy {
+        let startup_fn_type = FunctionTy {
             params: vec![
                 TyKind::Uint(UintTy::U32),
                 TyKind::Uint(UintTy::U8)
@@ -123,7 +123,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 Some(expr) => match &expr.kind {
                     // if the binding is a fn or fn-type, don't initialize its value
                     // Note (Ron): i can probably come up with a cleaner solution here
-                    ast::ExprKind::Fn(_) | ast::ExprKind::FnType(_) => continue,
+                    ast::ExprKind::Function(_) | ast::ExprKind::FunctionType(_) => continue,
                     _ => (),
                 },
                 None => (),

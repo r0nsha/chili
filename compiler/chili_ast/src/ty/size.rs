@@ -14,7 +14,7 @@ impl SizeOf for TyKind {
             TyKind::Int(ty) => ty.size_of(word_size),
             TyKind::Uint(ty) => ty.size_of(word_size),
             TyKind::Float(ty) => ty.size_of(word_size),
-            TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Fn(..) => word_size,
+            TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Function(..) => word_size,
             TyKind::Array(ty, len) => ty.size_of(word_size) * len,
             TyKind::Slice(..) => StructTy::temp(
                 vec![

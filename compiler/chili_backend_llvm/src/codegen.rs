@@ -1,7 +1,7 @@
 use crate::ty::IntoLlvmType;
 
 use super::{
-    abi::{align_of, size_of, AbiFn},
+    abi::{align_of, size_of, AbiFunction},
     util::is_a_load_inst,
 };
 use chili_ast::{
@@ -76,7 +76,7 @@ pub struct Codegen<'cg, 'ctx> {
 
     pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
     pub types: HashMap<BindingInfoId, BasicTypeEnum<'ctx>>,
-    pub fn_types: HashMap<FnTy, AbiFn<'ctx>>,
+    pub fn_types: HashMap<FunctionTy, AbiFunction<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
 }
 
@@ -84,7 +84,7 @@ pub struct Codegen<'cg, 'ctx> {
 pub(super) struct CodegenState<'ctx> {
     pub(super) module_info: ModuleInfo,
     pub(super) function: FunctionValue<'ctx>,
-    pub(super) fn_type: FnTy,
+    pub(super) fn_type: FunctionTy,
     pub(super) return_ptr: Option<PointerValue<'ctx>>,
     pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
     pub(super) decl_block: BasicBlock<'ctx>,
@@ -96,7 +96,7 @@ impl<'ctx> CodegenState<'ctx> {
     pub(super) fn new(
         module_info: ModuleInfo,
         function: FunctionValue<'ctx>,
-        fn_type: FnTy,
+        fn_type: FunctionTy,
         return_ptr: Option<PointerValue<'ctx>>,
         decl_block: BasicBlock<'ctx>,
         entry_block: BasicBlock<'ctx>,
@@ -148,14 +148,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             match binding.expr.as_ref() {
                 Some(expr) => match &expr.kind {
-                    ast::ExprKind::Fn(func) => {
+                    ast::ExprKind::Function(func) => {
                         let function = self.declare_fn_sig(module_info, &func.sig);
                         let decl = CodegenDecl::Function(function);
                         self.global_decls.insert(id, decl);
                         self.gen_fn(module_info, func, None);
                         decl
                     }
-                    ast::ExprKind::FnType(sig) => {
+                    ast::ExprKind::FunctionType(sig) => {
                         let function = self.declare_fn_sig(module_info, sig);
                         let decl = CodegenDecl::Function(function);
                         self.global_decls.insert(id, decl);
@@ -593,7 +593,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref)
                 }
             },
-            ast::ExprKind::Fn(func) => {
+            ast::ExprKind::Function(func) => {
                 let function = self.gen_fn(state.module_info, func, Some(state.clone()));
 
                 self.start_block(state, state.curr_block);
@@ -1131,7 +1131,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_const_value(Some(state), const_value, &ty, deref)
             }
 
-            ast::ExprKind::FnType(sig) => {
+            ast::ExprKind::FunctionType(sig) => {
                 if sig.lib_name.is_some() {
                     // this is a foreign function
                     let function = self.declare_fn_sig(state.module_info, sig);
@@ -1267,7 +1267,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.context.const_struct(&values, false).into()
             }
-            ConstValue::Fn(f) => {
+            ConstValue::Function(f) => {
                 let decl = match state.and_then(|s| s.scopes.get(f.id)) {
                     Some((_, decl)) => decl.clone(),
                     None => self.find_or_gen_top_level_binding(f.id),

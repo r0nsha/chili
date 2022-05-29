@@ -4,7 +4,7 @@ use crate::{
     ty::IntoLlvmType,
 };
 use chili_ast::ty::*;
-use chili_ast::{ast::FnSig, workspace::BindingInfoId};
+use chili_ast::{ast::FunctionSig, workspace::BindingInfoId};
 use common::mem::calculate_align;
 use inkwell::{
     basic_block::BasicBlock,
@@ -605,7 +605,7 @@ pub(crate) trait LlvmName {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String;
 }
 
-impl LlvmName for FnSig {
+impl LlvmName for FunctionSig {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
         if self.lib_name.is_some() {
             self.name.to_string()

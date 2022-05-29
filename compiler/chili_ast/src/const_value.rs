@@ -95,7 +95,7 @@ impl_value! {
     Array(ConstArray),
     Tuple(Vec<ConstElement>),
     Struct(BTreeMap<Ustr, ConstElement>),
-    Fn(ConstFn),
+    Function(ConstFunction),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -111,7 +111,7 @@ pub struct ConstArray {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ConstFn {
+pub struct ConstFunction {
     pub id: BindingInfoId,
     pub name: Ustr,
 }
@@ -164,7 +164,7 @@ impl ToString for ConstValue {
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
-            ConstValue::Fn(f) => format!("fn '{}'", f.name),
+            ConstValue::Function(f) => format!("fn '{}'", f.name),
         }
     }
 }

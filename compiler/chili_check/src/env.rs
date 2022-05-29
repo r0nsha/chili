@@ -117,7 +117,7 @@ impl Scope {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum ScopeKind {
     Global,
-    Fn,
+    Function,
     Block,
     Loop,
 }

@@ -1,5 +1,5 @@
 use crate::{
-    abi::{AbiFn, AbiTyKind},
+    abi::{AbiFunction, AbiTyKind},
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
     util::LlvmName,
@@ -25,7 +25,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_fn(
         &mut self,
         module_info: ModuleInfo,
-        func: &ast::Fn,
+        func: &ast::Function,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         let prev_block = if let Some(ref prev_state) = prev_state {
@@ -133,7 +133,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn declare_fn_sig(
         &mut self,
         module_info: ModuleInfo,
-        sig: &ast::FnSig,
+        sig: &ast::FunctionSig,
     ) -> FunctionValue<'ctx> {
         let fn_sig_ty = sig.ty.normalize(self.tycx).into_fn();
         let fn_type = self.fn_type(&fn_sig_ty);
@@ -148,7 +148,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         function
     }
 
-    fn add_fn_attributes(&self, function: FunctionValue<'ctx>, abi_fn: &AbiFn<'ctx>) {
+    fn add_fn_attributes(&self, function: FunctionValue<'ctx>, abi_fn: &AbiFunction<'ctx>) {
         for (index, param) in abi_fn.params.iter().enumerate() {
             if param.kind.is_ignore() {
                 continue;
@@ -217,7 +217,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         callee: impl Into<CallableValue<'ctx>>,
-        callee_ty: &FnTy,
+        callee_ty: &FunctionTy,
         args: Vec<BasicValueEnum<'ctx>>,
         result_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {

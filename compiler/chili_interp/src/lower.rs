@@ -79,7 +79,7 @@ impl Lower for ast::Expr {
                 }
                 ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
             },
-            ast::ExprKind::Fn(func) => func.lower(sess, code, ctx),
+            ast::ExprKind::Function(func) => func.lower(sess, code, ctx),
             ast::ExprKind::While(while_) => {
                 while_.lower(sess, code, LowerContext { take_ptr: false })
             }
@@ -266,7 +266,9 @@ impl Lower for ast::Expr {
             | ast::ExprKind::StructType(_) => {
                 panic!("unexpected type expression, should have been lowered to a ConstValue")
             }
-            ast::ExprKind::FnType(sig) => sig.lower(sess, code, LowerContext { take_ptr: false }),
+            ast::ExprKind::FunctionType(sig) => {
+                sig.lower(sess, code, LowerContext { take_ptr: false })
+            }
             ast::ExprKind::ConstValue(const_value) => {
                 let value = const_value_to_value(const_value, self.ty, sess, code);
                 sess.push_const(code, value);
@@ -409,7 +411,7 @@ impl Lower for ast::Cast {
     }
 }
 
-impl Lower for ast::Fn {
+impl Lower for ast::Function {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         if let Some(id) = self.binding_info_id {
             let binding_info = sess.workspace.get_binding_info(id).unwrap();
@@ -485,7 +487,7 @@ impl Lower for ast::Fn {
     }
 }
 
-impl Lower for ast::FnSig {
+impl Lower for ast::FunctionSig {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         if let Some(lib_name) = self.lib_name {
             let func_ty = self.ty.normalize(sess.tycx).into_fn();
@@ -907,7 +909,7 @@ fn const_value_to_value(
                 ty: TyKind::Array(Box::new(el_ty_kind), array_len),
             })
         }
-        ConstValue::Fn(f) => {
+        ConstValue::Function(f) => {
             let fn_slot = sess.interp.functions.get(&f.id).unwrap();
             sess.interp.constants[*fn_slot].clone()
         }
@@ -1084,12 +1086,6 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
     let id = binding.pattern.as_single_ref().binding_info_id;
     assert!(id != BindingInfoId::unknown());
 
-    // match binding.ty.normalize(sess.tycx) {
-    //     TyKind::Fn(_) => match sess.interp.constants.pop() {
-    //         Some(value) => sess.insert_global(id, value),
-    //         None => panic!("top level function doesn't have a defined constant value"),
-    //     },
-    //     _ => {
     let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
     if let Some(const_value) = &binding_info.const_value {
@@ -1102,8 +1098,6 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
         sess.evaluated_globals.push((slot, code));
         slot
     }
-    // }
-    // }
 }
 
 fn lower_block(

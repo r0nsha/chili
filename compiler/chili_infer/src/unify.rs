@@ -58,7 +58,7 @@ impl UnifyTy<TyKind> for TyKind {
                 }
             }
 
-            (TyKind::Fn(f1), TyKind::Fn(f2)) => {
+            (TyKind::Function(f1), TyKind::Function(f2)) => {
                 f1.ret.unify(f2.ret.as_ref(), tycx)?;
 
                 if f1.params.len() != f2.params.len() && !f1.variadic && !f2.variadic {
@@ -288,7 +288,9 @@ pub fn occurs(var: Ty, kind: &TyKind, tycx: &TyCtx) -> bool {
                 AnyInt | AnyFloat | Unbound => var == other,
             }
         }
-        TyKind::Fn(f) => f.params.iter().any(|p| occurs(var, p, tycx)) || occurs(var, &f.ret, tycx),
+        TyKind::Function(f) => {
+            f.params.iter().any(|p| occurs(var, p, tycx)) || occurs(var, &f.ret, tycx)
+        }
         TyKind::Array(ty, _) => occurs(var, ty, tycx),
         TyKind::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx)),
         TyKind::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tycx)),

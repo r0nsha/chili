@@ -60,7 +60,7 @@ impl Normalize {
     fn normalize_kind(&mut self, tycx: &TyCtx, kind: &TyKind) -> TyKind {
         match kind {
             TyKind::Var(ty) => self.normalize_ty(tycx, *ty),
-            TyKind::Fn(f) => TyKind::Fn(FnTy {
+            TyKind::Function(f) => TyKind::Function(FunctionTy {
                 params: f
                     .params
                     .iter()

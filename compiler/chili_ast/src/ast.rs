@@ -65,26 +65,26 @@ impl Expr {
         Self { kind, ty, span }
     }
 
-    pub fn is_fn(&self) -> bool {
-        matches!(&self.kind, ExprKind::Fn(..))
+    pub fn is_function(&self) -> bool {
+        matches!(&self.kind, ExprKind::Function(..))
     }
 
-    pub fn as_fn(&self) -> &Fn {
+    pub fn as_function(&self) -> &Function {
         match &self.kind {
-            ExprKind::Fn(func) => func,
+            ExprKind::Function(func) => func,
             _ => panic!(),
         }
     }
 
-    pub fn as_fn_mut(&mut self) -> &mut Fn {
+    pub fn as_function_mut(&mut self) -> &mut Function {
         match &mut self.kind {
-            ExprKind::Fn(func) => func,
+            ExprKind::Function(func) => func,
             _ => panic!(),
         }
     }
 
-    pub fn is_fn_type(&self) -> bool {
-        matches!(&self.kind, ExprKind::FnType(..))
+    pub fn is_function_type(&self) -> bool {
+        matches!(&self.kind, ExprKind::FunctionType(..))
     }
 }
 
@@ -97,7 +97,7 @@ pub enum ExprKind {
     Assign(Assign),
     Cast(Cast),
     Builtin(BuiltinKind),
-    Fn(Fn),
+    Function(Function),
     While(While),
     For(For),
     Break(Terminator),
@@ -121,7 +121,7 @@ pub enum ExprKind {
     ArrayType(ArrayType),
     SliceType(ExprAndMut),
     StructType(StructType),
-    FnType(FnSig),
+    FunctionType(FunctionSig),
     SelfType,
     Placeholder,
     ConstValue(ConstValue),
@@ -333,17 +333,17 @@ pub enum ForIter {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Fn {
-    pub sig: FnSig,
+pub struct Function {
+    pub sig: FunctionSig,
     pub body: Block,
     pub binding_info_id: Option<BindingInfoId>,
     pub is_entry_point: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FnSig {
+pub struct FunctionSig {
     pub name: Ustr,
-    pub params: Vec<FnParam>,
+    pub params: Vec<FunctionParam>,
     pub variadic: bool,
     pub ret: Option<Box<Expr>>,
     pub lib_name: Option<Ustr>,
@@ -352,13 +352,13 @@ pub struct FnSig {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FnParam {
+pub struct FunctionParam {
     pub pattern: Pattern,
     pub ty_expr: Option<Box<Expr>>,
     pub ty: Ty,
 }
 
-impl ToString for FnParam {
+impl ToString for FunctionParam {
     fn to_string(&self) -> String {
         self.pattern.to_string()
     }
@@ -689,7 +689,7 @@ impl ToString for ImportPathNode {
     }
 }
 
-impl fmt::Display for FnSig {
+impl fmt::Display for FunctionSig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
