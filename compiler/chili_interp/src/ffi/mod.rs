@@ -92,9 +92,9 @@ impl Ffi {
                 .map(Value::get_ty_kind)
                 .collect();
 
-            Function::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
+            FfiFunction::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
         } else {
-            Function::new(&func.param_tys, &func.return_ty)
+            FfiFunction::new(&func.param_tys, &func.return_ty)
         };
 
         let result = function.call(*symbol, &mut args, self, vm);
@@ -104,12 +104,12 @@ impl Ffi {
 }
 
 #[derive(Debug)]
-struct Function {
+struct FfiFunction {
     cif: Cif,
     arg_types: Vec<TyKind>,
 }
 
-impl Function {
+impl FfiFunction {
     unsafe fn new(arg_types: &[TyKind], return_type: &TyKind) -> Self {
         let cif_return_type: Type = return_type.as_ffi_type();
         let cif_arg_types: Vec<Type> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
@@ -186,7 +186,7 @@ impl Function {
                 Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Function(func) => {
-                    let function = Function::new(&func.arg_types, &func.return_type);
+                    let function = FfiFunction::new(&func.arg_types, &func.return_type);
 
                     let user_data = bump.alloc(ClosureUserData { vm, func });
 

@@ -135,7 +135,7 @@ impl<'vm> VM<'vm> {
 
     pub(crate) fn run_func(&'vm mut self, func: Function) -> Value {
         self.stack.push(Value::Function(func));
-        let func: *const Function = self.stack.last().as_func();
+        let func: *const Function = self.stack.last().as_function();
         self.push_frame(func);
         self.run_inner()
     }
