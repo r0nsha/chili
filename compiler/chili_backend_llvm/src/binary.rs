@@ -57,7 +57,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 } else {
                     self.builder
                         .build_int_compare(
-                            binary.op.into_int_predicate(ty.is_int()),
+                            binary.op.into_int_predicate(ty.is_signed_int()),
                             lhs.into_int_value(),
                             rhs.into_int_value(),
                             "",
@@ -261,7 +261,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .build_right_shift(
                 lhs.into_int_value(),
                 rhs.into_int_value(),
-                ty.is_int(),
+                ty.is_signed_int(),
                 "ishr",
             )
             .into()
@@ -293,7 +293,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let llvm_op = format!(
             "{}{}",
-            if ty.is_int() { "s" } else { "u" },
+            if ty.is_signed_int() { "s" } else { "u" },
             match op {
                 ast::BinaryOp::Add => "add",
                 ast::BinaryOp::Sub => "sub",

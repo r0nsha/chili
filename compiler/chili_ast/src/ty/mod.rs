@@ -274,6 +274,10 @@ impl TyKind {
         self.is_int() || self.is_uint() || self.is_anyint()
     }
 
+    pub fn is_signed_int(&self) -> bool {
+        self.is_int() || self.is_anyint()
+    }
+
     pub fn is_anyint(&self) -> bool {
         matches!(self, TyKind::Infer(_, InferTy::AnyInt))
     }

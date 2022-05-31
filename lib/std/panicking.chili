@@ -10,14 +10,16 @@ let PanicInfo = struct {
 
 let default_panic_handler = fn(info: PanicInfo) -> never {
     // TODO: use my own print routine.
+    let message = if info.message.len == 0 {
+        ""
+    } else {
+        info.message
+    };
+
     printf(
         "program '%s' panicked at '%s', %s:%d:%d\n".data, 
         info.program.data,
-        if info.message.len == 0 {
-            "unknown reason\0".data
-        } else {
-            info.message.data
-        },
+        message.data,
         info.file_path.data,
         info.line,
         info.column

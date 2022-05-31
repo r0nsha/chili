@@ -4,14 +4,16 @@ use std.{
 };
 
 let Vector2 = struct { x: int, y: int }
-let mut f = 2
+let mut f = ff()
 // let { mut x, y } = Vector2 { x: 1, y: 2 };
 // let (x, y) = (1, 2);
 
-let ff = fn() { 42 }
+let ff = fn() -> u64 { 42 }
 
 let main = fn() {
     // printf("Vector2(%d, %d)\n".data, x, y);
+    f -= 43;
+    printf("fff\n".data);
     printf("%d)\n".data, f);
 }
 

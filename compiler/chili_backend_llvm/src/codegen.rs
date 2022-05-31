@@ -11,7 +11,7 @@ use chili_ast::{
     workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_ast::{ty::*, workspace::Workspace};
-use chili_infer::{display::DisplayTy, normalize::NormalizeTy, ty_ctx::TyCtx};
+use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     scopes::Scopes,
@@ -906,13 +906,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 };
 
                 let derefed_ty = accessed_ty.maybe_deref_once();
-                let value = match accessed_ty.maybe_deref_once() {
+                let value = match derefed_ty {
                     TyKind::Tuple(_) => {
                         let index = access.member.parse::<usize>().unwrap();
                         let llvm_ty = Some(derefed_ty.llvm_type(self));
                         self.gen_struct_access(value, index as u32, llvm_ty)
                     }
-                    TyKind::Struct(struct_ty) => {
+                    TyKind::Struct(ref struct_ty) => {
                         let struct_llvm_ty = Some(derefed_ty.llvm_type(self));
 
                         if struct_ty.is_union() {
@@ -1231,7 +1231,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 if ty.is_any_integer() {
                     ty.llvm_type(self)
                         .into_int_type()
-                        .const_int(*v as u64, ty.is_int())
+                        .const_int(*v as u64, ty.is_signed_int())
                         .into()
                 } else {
                     ty.llvm_type(self)
@@ -1244,7 +1244,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 if ty.is_any_integer() {
                     ty.llvm_type(self)
                         .into_int_type()
-                        .const_int(*v, ty.is_int())
+                        .const_int(*v, ty.is_signed_int())
                         .into()
                 } else {
                     ty.llvm_type(self)
