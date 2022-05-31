@@ -5,17 +5,14 @@ use chili_span::To;
 
 impl<'p> Parser<'p> {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
-        match self.parse_symbol_pattern() {
-            Ok(symbol) => Ok(Pattern::Single(symbol)),
-            Err(_) => {
-                if eat!(self, OpenCurly) {
-                    self.parse_struct_unpack()
-                } else if eat!(self, OpenParen) {
-                    self.parse_tuple_unpack()
-                } else {
-                    Err(SyntaxError::expected(self.span(), "a pattern"))
-                }
-            }
+        if is!(self, Mut | Ident(_)) {
+            self.parse_symbol_pattern().map(Pattern::Symbol)
+        } else if eat!(self, OpenCurly) {
+            self.parse_struct_unpack()
+        } else if eat!(self, OpenParen) {
+            self.parse_tuple_unpack()
+        } else {
+            Err(SyntaxError::expected(self.span(), "a pattern"))
         }
     }
 

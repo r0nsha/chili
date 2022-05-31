@@ -120,7 +120,11 @@ impl<'s> CheckSess<'s> {
             pattern.alias.unwrap_or(pattern.symbol),
             visibility,
             ty,
-            const_value,
+            if pattern.is_mutable {
+                None
+            } else {
+                const_value
+            },
             pattern.is_mutable,
             kind,
             pattern.span,
@@ -140,7 +144,7 @@ impl<'s> CheckSess<'s> {
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         match pattern {
-            Pattern::Single(pat) => {
+            Pattern::Symbol(pat) => {
                 self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
             }
             Pattern::StructUnpack(pat) => {
@@ -166,9 +170,13 @@ impl<'s> CheckSess<'s> {
                         .tycx
                         .bound(partial_struct[&pat.symbol].clone(), pat.span);
 
-                    let field_const_value = const_value
-                        .as_ref()
-                        .map(|v| v.as_struct().get(&pat.symbol).unwrap().clone().value);
+                    let field_const_value = if pat.is_mutable {
+                        None
+                    } else {
+                        const_value
+                            .as_ref()
+                            .map(|v| v.as_struct().get(&pat.symbol).unwrap().clone().value)
+                    };
 
                     self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
                 }
@@ -193,9 +201,13 @@ impl<'s> CheckSess<'s> {
                 for (index, pat) in pat.symbols.iter_mut().enumerate() {
                     let ty = self.tycx.bound(elements[index].clone(), pat.span);
 
-                    let element_const_value = const_value
-                        .as_ref()
-                        .map(|v| v.as_tuple()[index].clone().value);
+                    let element_const_value = if pat.is_mutable {
+                        None
+                    } else {
+                        const_value
+                            .as_ref()
+                            .map(|v| v.as_tuple()[index].clone().value)
+                    };
 
                     self.bind_symbol_pattern(env, pat, visibility, ty, element_const_value, kind)?;
                 }

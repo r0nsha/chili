@@ -53,7 +53,7 @@ impl<'p> Parser<'p> {
 
         let id = require!(self, Ident(_), "identifier")?;
 
-        let pattern = Pattern::Single(SymbolPattern {
+        let pattern = Pattern::Symbol(SymbolPattern {
             binding_info_id: Default::default(),
             symbol: id.symbol(),
             alias: None,

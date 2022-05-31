@@ -132,7 +132,7 @@ impl PrintTree for ast::Binding {
         };
 
         b.begin_child(match &self.pattern {
-            Pattern::Single(pat) => {
+            Pattern::Symbol(pat) => {
                 let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
                 format!(
                     "{}let {} <{}>",

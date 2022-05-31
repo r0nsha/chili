@@ -64,7 +64,7 @@ impl<'ctx> CodegenDecl<'ctx> {
 pub struct Codegen<'cg, 'ctx> {
     pub workspace: &'cg Workspace,
     pub tycx: &'cg TyCtx,
-    pub ast: &'cg ast::HirCache,
+    pub hir: &'cg ast::HirCache,
 
     pub target_metrics: TargetMetrics,
 
@@ -143,7 +143,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        if let Some(decl) = self.ast.get_decl(id) {
+        if let Some(decl) = self.hir.get_decl(id) {
             match decl {
                 ast::HirDecl::Binding(binding) => {
                     let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
@@ -303,7 +303,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         match pattern {
-            Pattern::Single(SymbolPattern {
+            Pattern::Symbol(SymbolPattern {
                 binding_info_id, ..
             }) => {
                 self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
@@ -384,7 +384,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         value: BasicValueEnum<'ctx>,
     ) {
         match pattern {
-            Pattern::Single(symbol) => {
+            Pattern::Symbol(symbol) => {
                 self.gen_local_with_alloca(state, symbol.binding_info_id, value);
             }
             Pattern::StructUnpack(pattern) => {

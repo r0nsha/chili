@@ -1,9 +1,17 @@
-use crate::codegen::{Codegen, CodegenState};
-use chili_ast::{ast, pattern::Pattern, ty::*};
+use crate::{
+    codegen::{Codegen, CodegenState},
+    ty::IntoLlvmType,
+};
+use chili_ast::{
+    ast,
+    pattern::Pattern,
+    ty::*,
+    workspace::{BindingInfoId, ModuleId},
+};
 use chili_infer::normalize::NormalizeTy;
 use inkwell::{
     module::Linkage,
-    values::{BasicValue, FunctionValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue},
     AddressSpace,
 };
 
@@ -111,12 +119,59 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        for binding in self.ast.bindings.iter() {
-            // match &binding.pattern {
-            //     Pattern::Single(_) => todo!(),
-            //     Pattern::StructUnpack(_) => todo!(),
-            //     Pattern::TupleUnpack(_) => todo!(),
-            // }
+        // we initialize the runtime known global bindings at the start of the program
+        for binding in self.hir.bindings.iter() {
+            // if all patterns are const, then there is no value to generate at runtime - so we skip
+            if binding.pattern.iter().all(|p| !p.is_mutable) {
+                continue;
+            }
+
+            let ty = binding.ty.llvm_type(self);
+
+            // TODO: when hybrid patterns arrive, we can get the ptr to the hybrid pattern that has been generated
+            let global_value = match &binding.pattern {
+                Pattern::Symbol(pat) => self
+                    .global_decls
+                    .get(&pat.binding_info_id)
+                    .unwrap()
+                    .into_global_value(),
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
+                    let global_value = self.module.add_global(ty, None, "");
+                    global_value.set_linkage(Linkage::Private);
+                    global_value
+                }
+            };
+
+            let value = if let Some(expr) = &binding.expr {
+                let old_module_info = state.module_info;
+                state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+
+                let value = self.gen_expr(&mut state, expr, true);
+
+                state.module_info = old_module_info;
+
+                value
+            } else {
+                ty.const_zero()
+            };
+
+            let initializer = if binding.expr.as_ref().map_or(false, |expr| {
+                matches!(&expr.kind, ast::ExprKind::ConstValue(..))
+            }) {
+                value
+            } else {
+                ty.const_zero()
+            };
+
+            global_value.set_initializer(&initializer);
+
+            match &binding.pattern {
+                Pattern::Symbol(_) => {
+                    self.build_store(global_value.as_pointer_value(), value);
+                }
+                Pattern::StructUnpack(pat) => todo!(),
+                Pattern::TupleUnpack(pat) => todo!(),
+            }
             // todo!("initialize global bindings");
             // let binding_info = self.workspace.get_binding_info(*id).unwrap();
 

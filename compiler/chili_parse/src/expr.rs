@@ -591,7 +591,7 @@ impl<'p> Parser<'p> {
             }
             "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
             "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
-            "panic" => BuiltinKind::Panic(if token_is!(self, CloseParen) {
+            "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {
                 None
             } else {
                 Some(Box::new(self.parse_expr()?))
@@ -711,7 +711,7 @@ impl<'p> Parser<'p> {
             Break => ExprKind::Break(ast::Terminator { deferred: vec![] }),
             Continue => ExprKind::Continue(ast::Terminator { deferred: vec![] }),
             Return => {
-                let expr = if !self.peek().kind.is_expr_start() && token_is!(self, Semicolon) {
+                let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
                 } else {
                     let expr = self.parse_expr()?;

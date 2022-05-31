@@ -63,7 +63,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::HirCache) -> 
     let mut cg = Codegen {
         workspace,
         tycx,
-        ast,
+        hir: ast,
         target_metrics: target_metrics.clone(),
         context: &context,
         module: &module,

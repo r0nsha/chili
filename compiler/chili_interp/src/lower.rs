@@ -284,7 +284,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
     }
 
     match &binding.pattern {
-        Pattern::Single(pat) => {
+        Pattern::Symbol(pat) => {
             sess.add_local(code, pat.binding_info_id);
 
             if binding.expr.is_some() {
@@ -429,7 +429,7 @@ impl Lower for ast::Function {
 
         for param in self.sig.params.iter() {
             match &param.pattern {
-                Pattern::Single(pat) => {
+                Pattern::Symbol(pat) => {
                     sess.env_mut().insert(pat.binding_info_id, param_offset);
                 }
                 Pattern::StructUnpack(pat) => {

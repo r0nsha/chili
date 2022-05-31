@@ -23,7 +23,7 @@ bitflags! {
     }
 }
 
-macro_rules! token_is {
+macro_rules! is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
         if $parser.is_end() {
             false
@@ -38,7 +38,7 @@ macro_rules! token_is {
 
 macro_rules! eat {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        if token_is!($parser, $( $pattern )|+) {
+        if is!($parser, $( $pattern )|+) {
             $parser.bump();
             true
         } else {
@@ -49,7 +49,7 @@ macro_rules! eat {
 
 macro_rules! require {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:expr) => {
-        if token_is!($parser, $( $pattern )|+) {
+        if is!($parser, $( $pattern )|+) {
             Ok($parser.bump().clone())
         } else {
             Err(SyntaxError::expected($parser.span(), $msg))
@@ -79,9 +79,9 @@ macro_rules! parse_delimited_list {
 }
 
 pub(crate) use eat;
+pub(crate) use is;
 pub(crate) use parse_delimited_list;
 pub(crate) use require;
-pub(crate) use token_is;
 
 pub struct Parser<'p> {
     tokens: Vec<Token>,
@@ -176,6 +176,11 @@ impl<'p> Parser<'p> {
     }
 
     #[inline]
+    pub(crate) fn revert(&mut self, count: usize) {
+        self.current -= count;
+    }
+
+    #[inline]
     pub(crate) fn is_end(&self) -> bool {
         self.peek().kind == Eof
     }
@@ -214,13 +219,13 @@ impl<'p> Parser<'p> {
 
     #[inline]
     pub(crate) fn skip_trailing_semicolons(&mut self) {
-        while token_is!(self, Semicolon) {
+        while is!(self, Semicolon) {
             self.bump();
         }
     }
 
     pub(crate) fn try_recover_from_err(&mut self) {
-        while !self.is_end() && !token_is!(self, Semicolon) {
+        while !self.is_end() && !is!(self, Semicolon) {
             self.bump();
         }
     }

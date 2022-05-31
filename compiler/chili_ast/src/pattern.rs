@@ -5,7 +5,7 @@ use ustr::Ustr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
-    Single(SymbolPattern),
+    Symbol(SymbolPattern),
     StructUnpack(UnpackPattern),
     TupleUnpack(UnpackPattern),
 }
@@ -18,26 +18,26 @@ pub struct UnpackPattern {
 
 impl Pattern {
     pub fn is_single(&self) -> bool {
-        matches!(self, Pattern::Single(_))
+        matches!(self, Pattern::Symbol(_))
     }
 
     pub fn into_single(&self) -> SymbolPattern {
         match self {
-            Pattern::Single(ps) => ps.clone(),
+            Pattern::Symbol(ps) => ps.clone(),
             _ => panic!("expected Single, got {}", self),
         }
     }
 
     pub fn as_single_ref(&self) -> &SymbolPattern {
         match self {
-            Pattern::Single(ps) => ps,
+            Pattern::Symbol(ps) => ps,
             _ => panic!("expected Single, got {}", self),
         }
     }
 
     pub fn span(&self) -> Span {
         match self {
-            Pattern::Single(p) => p.span,
+            Pattern::Symbol(p) => p.span,
             Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.span,
         }
     }
@@ -66,7 +66,7 @@ impl<'a> Iterator for PatternIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = match &self.pattern {
-            Pattern::Single(pat) => {
+            Pattern::Symbol(pat) => {
                 if self.pos == 0 {
                     Some(pat)
                 } else {
@@ -88,7 +88,7 @@ impl Display for Pattern {
             f,
             "{}",
             match self {
-                Pattern::Single(s) => s.to_string(),
+                Pattern::Symbol(s) => s.to_string(),
                 Pattern::StructUnpack(s) => format!("{{{}}}", s),
                 Pattern::TupleUnpack(s) => format!("({})", s),
             }

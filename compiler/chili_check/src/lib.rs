@@ -441,13 +441,12 @@ impl Check for ast::Binding {
                         .with_message("unpack pattern requires a value to unpack")
                         .with_label(Label::primary(pat.span, "illegal pattern use")));
                 }
-                Pattern::Single(_) => (),
+                Pattern::Symbol(_) => (),
             }
 
             None
         };
 
-        // TODO: support global patterns
         // global immutable bindings must resolve to a const value
         if env.scope_level().is_global() // if this is a top level binding
             && !self.pattern.iter().any(|p|p.is_mutable) // if the binding is immutable (no pattern is mutable)
@@ -466,7 +465,7 @@ impl Check for ast::Binding {
         let ty_kind = self.ty.normalize(&sess.tycx);
         if ty_kind.is_type() || ty_kind.is_module() {
             match &self.pattern {
-                Pattern::Single(pat) => {
+                Pattern::Symbol(pat) => {
                     if pat.is_mutable {
                         sess.workspace.diagnostics.push(
                             Diagnostic::error()
@@ -482,14 +481,6 @@ impl Check for ast::Binding {
             }
         }
 
-        // TODO: support global patterns
-        // don't keep const values for mutable patterns
-        let const_value = if self.pattern.iter().all(|pat| !pat.is_mutable) {
-            const_value
-        } else {
-            None
-        };
-
         if self.expr.as_ref().map_or(false, |e| e.is_function()) {
             // because functions can be recursive,
             // we special case them and use the id bounded after checking the function signature
@@ -504,7 +495,7 @@ impl Check for ast::Binding {
             binding_info.span = self.pattern.span();
 
             match &mut self.pattern {
-                Pattern::Single(pat) => {
+                Pattern::Symbol(pat) => {
                     pat.binding_info_id = fn_expr.binding_info_id.unwrap();
 
                     // If this binding matches the entry point function's requirements,
@@ -676,7 +667,7 @@ impl Check for ast::FunctionSig {
                             let symbol = ustr("it");
 
                             self.params.push(ast::FunctionParam {
-                                pattern: Pattern::Single(SymbolPattern {
+                                pattern: Pattern::Symbol(SymbolPattern {
                                     binding_info_id: Default::default(),
                                     symbol,
                                     alias: None,
