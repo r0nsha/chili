@@ -7,6 +7,7 @@ use chili_error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult,
 };
+use chili_infer::display::DisplayTy;
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -73,7 +74,7 @@ impl<'s> CheckSess<'s> {
             // this symbol points to a binding
             let mut binding = binding.clone();
 
-            let res = binding.check_top_level(self, ast.module_id)?;
+            binding.check_top_level(self, ast.module_id)?;
 
             let desired_pat = binding
                 .pattern
@@ -82,13 +83,17 @@ impl<'s> CheckSess<'s> {
                 .unwrap();
 
             let id = desired_pat.binding_info_id;
+            let desired_binding_info = self.workspace.get_binding_info(id).unwrap();
 
-            self.validate_can_access_item(
-                self.workspace.get_binding_info(id).unwrap(),
-                caller_info,
-            )?;
+            self.validate_can_access_item(desired_binding_info, caller_info)?;
 
-            Ok((res, id))
+            Ok((
+                Res::new_maybe_const(
+                    desired_binding_info.ty,
+                    desired_binding_info.const_value.clone(),
+                ),
+                id,
+            ))
         } else if let Some(import) = ast.imports.iter().find(|import| import.alias == symbol) {
             // this symbol points to an import
             let mut import = import.clone();

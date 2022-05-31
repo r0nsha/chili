@@ -206,12 +206,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> CodegenDecl<'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
         // the global value will is initialized by the entry point function
-        let ty = binding.ty.llvm_type(self);
 
         let global_value = if binding.lib_name.is_some() {
+            let ty = binding.ty.llvm_type(self);
             self.add_global_uninit(id, ty, Linkage::External)
         } else {
-            self.add_global(id, ty, Linkage::Private)
+            self.add_global(id, Linkage::Private)
         };
 
         let decl = CodegenDecl::Global(global_value);
@@ -220,13 +220,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         decl
     }
 
-    pub(super) fn add_global(
-        &mut self,
-        id: BindingInfoId,
-        ty: BasicTypeEnum<'ctx>,
-        linkage: Linkage,
-    ) -> GlobalValue<'ctx> {
+    pub(super) fn add_global(&mut self, id: BindingInfoId, linkage: Linkage) -> GlobalValue<'ctx> {
         let binding_info = self.workspace.get_binding_info(id).unwrap();
+
+        let ty = binding_info.ty.llvm_type(self);
 
         let global_value = self.add_global_uninit(id, ty, linkage);
 
@@ -544,6 +541,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::ExprKind::Extern(bindings) => {
                 for binding in bindings.iter() {
                     let ty = binding.ty.normalize(self.tycx);
+
                     if ty.is_fn() {
                         self.gen_binding_pattern_with_expr(
                             state,
