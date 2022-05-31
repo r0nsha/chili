@@ -77,7 +77,7 @@ pub struct InterpSess<'i> {
     // pub(crate) labels: Vec<Label>,
 
     // globals to be evaluated when the VM starts
-    pub(crate) evaluated_globals: Vec<(usize, CompiledCode)>,
+    pub(crate) evaluated_globals: Vec<CompiledCode>,
 }
 
 // labels are used for patching call instruction after lowering
@@ -125,14 +125,14 @@ impl<'i> InterpSess<'i> {
     fn insert_init_instructions(&mut self, mut code: CompiledCode) -> CompiledCode {
         let mut init_instructions: Vec<Instruction> = vec![];
 
-        for (global_index, global_code) in self.evaluated_globals.clone() {
+        for (i, global_eval_code) in self.evaluated_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
             self.interp.constants.push(Value::Function(Function {
                 id: BindingInfoId::unknown(),
-                name: ustr(&format!("global_init_{}", global_index)),
+                name: ustr(&format!("global_init_{}", i)),
                 arg_types: vec![],
                 return_type: TyKind::Unit,
-                code: global_code,
+                code: global_eval_code.clone(),
             }));
             init_instructions.push(Instruction::PushConst(const_slot as u32));
             init_instructions.push(Instruction::Call(0));

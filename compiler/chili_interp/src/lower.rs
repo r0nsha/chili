@@ -1060,7 +1060,7 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
     if let Some(decl) = sess.cache.get_decl(id) {
         match decl {
-            ast::HirDecl::Binding(binding) => lower_top_level_binding(binding, sess),
+            ast::HirDecl::Binding(binding) => lower_top_level_binding(binding, id, sess),
             ast::HirDecl::Import(import) => {
                 find_and_lower_top_level_binding(import.target_binding_info_id.unwrap(), sess)
             }
@@ -1071,7 +1071,11 @@ fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) ->
 }
 
 #[inline]
-fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
+fn lower_top_level_binding(
+    binding: &ast::Binding,
+    desired_id: BindingInfoId,
+    sess: &mut InterpSess,
+) -> usize {
     let id = binding.pattern.as_single_ref().binding_info_id;
     assert!(id != BindingInfoId::unknown());
 
@@ -1082,26 +1086,41 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
         sess.insert_global(id, value)
     } else {
         // insert a temporary value, since the global will be computed at the start of the vm execution
-        let slot = sess.insert_global(id, Value::unit());
 
         sess.env_stack.push((binding.module_id, Env::default()));
 
-        let mut code = CompiledCode::new();
+        let mut global_eval_code = CompiledCode::new();
 
-        binding
-            .expr
-            .as_ref()
-            .unwrap()
-            .lower(sess, &mut code, LowerContext { take_ptr: false });
+        binding.expr.as_ref().unwrap().lower(
+            sess,
+            &mut global_eval_code,
+            LowerContext { take_ptr: false },
+        );
 
         sess.env_stack.pop();
 
-        code.push(Instruction::SetGlobal(slot as u32));
-        code.push(Instruction::Return);
+        let mut desired_slot = usize::MAX;
 
-        sess.evaluated_globals.push((slot, code));
+        match &binding.pattern {
+            Pattern::Symbol(pat) => {
+                let slot = sess.insert_global(pat.binding_info_id, Value::unit());
+                global_eval_code.push(Instruction::SetGlobal(slot as u32));
 
-        slot
+                if pat.binding_info_id == desired_id {
+                    desired_slot = slot;
+                }
+            }
+            Pattern::StructUnpack(_) => todo!(),
+            Pattern::TupleUnpack(_) => todo!(),
+        }
+
+        global_eval_code.push(Instruction::Return);
+
+        sess.evaluated_globals.push(global_eval_code);
+
+        assert!(desired_slot != usize::MAX);
+
+        desired_slot
     }
 }
 
