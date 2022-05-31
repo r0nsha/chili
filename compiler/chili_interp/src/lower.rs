@@ -1076,52 +1076,91 @@ fn lower_top_level_binding(
     desired_id: BindingInfoId,
     sess: &mut InterpSess,
 ) -> usize {
-    let id = binding.pattern.as_single_ref().binding_info_id;
-    assert!(id != BindingInfoId::unknown());
+    if binding.pattern.is_single() {
+        let id = binding.pattern.as_single_ref().binding_info_id;
+        assert!(id != BindingInfoId::unknown());
 
-    let binding_info = sess.workspace.get_binding_info(id).unwrap();
+        let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
-    if let Some(const_value) = &binding_info.const_value {
-        let value = const_value_to_value(const_value, binding_info.ty, sess);
-        sess.insert_global(id, value)
-    } else {
-        // insert a temporary value, since the global will be computed at the start of the vm execution
+        if let Some(const_value) = &binding_info.const_value {
+            let value = const_value_to_value(const_value, binding_info.ty, sess);
+            return sess.insert_global(id, value);
+        }
+    }
 
-        sess.env_stack.push((binding.module_id, Env::default()));
+    // insert a temporary value, since the global will be computed at the start of the vm's execution
 
-        let mut global_eval_code = CompiledCode::new();
+    sess.env_stack.push((binding.module_id, Env::default()));
 
-        binding.expr.as_ref().unwrap().lower(
-            sess,
-            &mut global_eval_code,
-            LowerContext { take_ptr: false },
-        );
+    let mut code = CompiledCode::new();
 
-        sess.env_stack.pop();
+    binding
+        .expr
+        .as_ref()
+        .unwrap()
+        .lower(sess, &mut code, LowerContext { take_ptr: false });
 
-        let mut desired_slot = usize::MAX;
+    sess.env_stack.pop();
 
-        match &binding.pattern {
-            Pattern::Symbol(pat) => {
+    let mut desired_slot = usize::MAX;
+
+    match &binding.pattern {
+        Pattern::Symbol(pat) => {
+            let slot = sess.insert_global(pat.binding_info_id, Value::unit());
+            code.push(Instruction::SetGlobal(slot as u32));
+
+            if pat.binding_info_id == desired_id {
+                desired_slot = slot;
+            }
+        }
+        Pattern::StructUnpack(pat) => {
+            let ty = binding.ty.normalize(sess.tycx);
+            let ty = ty.as_struct();
+
+            let last_index = pat.symbols.len() - 1;
+
+            for (index, pat) in pat.symbols.iter().enumerate() {
+                if index < last_index {
+                    code.push(Instruction::Copy(0));
+                }
+
+                let field_index = ty.field_index(pat.symbol).unwrap();
+
+                code.push(Instruction::ConstIndex(field_index as u32));
                 let slot = sess.insert_global(pat.binding_info_id, Value::unit());
-                global_eval_code.push(Instruction::SetGlobal(slot as u32));
+                code.push(Instruction::SetGlobal(slot as u32));
 
                 if pat.binding_info_id == desired_id {
                     desired_slot = slot;
                 }
             }
-            Pattern::StructUnpack(_) => todo!(),
-            Pattern::TupleUnpack(_) => todo!(),
         }
+        Pattern::TupleUnpack(pat) => {
+            let last_index = pat.symbols.len() - 1;
 
-        global_eval_code.push(Instruction::Return);
+            for (index, pat) in pat.symbols.iter().enumerate() {
+                if index < last_index {
+                    code.push(Instruction::Copy(0));
+                }
 
-        sess.evaluated_globals.push(global_eval_code);
+                code.push(Instruction::ConstIndex(index as u32));
+                let slot = sess.insert_global(pat.binding_info_id, Value::unit());
+                code.push(Instruction::SetGlobal(slot as u32));
 
-        assert!(desired_slot != usize::MAX);
-
-        desired_slot
+                if pat.binding_info_id == desired_id {
+                    desired_slot = slot;
+                }
+            }
+        }
     }
+
+    code.push(Instruction::Return);
+
+    sess.evaluated_globals.push(code);
+
+    assert!(desired_slot != usize::MAX);
+
+    desired_slot
 }
 
 fn lower_block(
