@@ -117,7 +117,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             //     Pattern::StructUnpack(_) => todo!(),
             //     Pattern::TupleUnpack(_) => todo!(),
             // }
-            todo!("initialize global bindings");
+            // todo!("initialize global bindings");
             // let binding_info = self.workspace.get_binding_info(*id).unwrap();
 
             // // if the binding has a constant value, its value is already initialized at compile time

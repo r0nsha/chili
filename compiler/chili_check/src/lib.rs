@@ -119,19 +119,23 @@ impl<'s> CheckSess<'s> {
             }
 
             for binding in ast.bindings.iter() {
-                match &binding.pattern {
-                    Pattern::Single(pat) => {
-                        if let None = self.get_global_symbol(module_id, pat.symbol) {
-                            binding.clone().check_top_level(self, module_id)?;
-                        }
-                    }
-                    Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
-                        let span = binding.pattern.span();
-                        return Err(Diagnostic::error()
-                            .with_message("this pattern is not supported yet for global bindings")
-                            .with_label(Label::primary(span, "not supported yet")));
-                    }
-                };
+                let pat = binding.pattern.iter().next().unwrap();
+                if let None = self.get_global_symbol(module_id, pat.symbol) {
+                    binding.clone().check_top_level(self, module_id)?;
+                }
+                // match &binding.pattern {
+                //     Pattern::Single(pat) => {
+                //         if let None = self.get_global_symbol(module_id, pat.symbol) {
+                //             binding.clone().check_top_level(self, module_id)?;
+                //         }
+                //     }
+                //     Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
+                //         let span = binding.pattern.span();
+                //         return Err(Diagnostic::error()
+                //             .with_message("this pattern is not supported yet for global bindings")
+                //             .with_label(Label::primary(span, "not supported yet")));
+                //     }
+                // };
             }
 
             for import in ast.imports.iter() {

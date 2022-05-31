@@ -16,8 +16,9 @@ pub(crate) fn collect_module_exports(asts: &[Ast], exports: &mut ModuleExports) 
 
         for binding in ast.bindings.iter() {
             if binding.visibility.is_public() {
-                let pat = binding.pattern.into_single();
-                entry.insert(pat.symbol, pat.binding_info_id);
+                binding.pattern.iter().for_each(|pat| {
+                    entry.insert(pat.symbol, pat.binding_info_id);
+                });
             }
         }
     }

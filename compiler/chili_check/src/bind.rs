@@ -12,7 +12,10 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_infer::{display::OrReportErr, unify::UnifyTy};
+use chili_infer::{
+    display::{DisplayTy, OrReportErr},
+    unify::UnifyTy,
+};
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -162,7 +165,12 @@ impl<'s> CheckSess<'s> {
                     let ty = self
                         .tycx
                         .bound(partial_struct[&pat.symbol].clone(), pat.span);
-                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value.clone(), kind)?;
+
+                    let field_const_value = const_value
+                        .as_ref()
+                        .map(|v| v.as_struct().get(&pat.symbol).unwrap().clone().value);
+
+                    self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
                 }
             }
             Pattern::TupleUnpack(pat) => {
@@ -184,7 +192,12 @@ impl<'s> CheckSess<'s> {
 
                 for (index, pat) in pat.symbols.iter_mut().enumerate() {
                     let ty = self.tycx.bound(elements[index].clone(), pat.span);
-                    self.bind_symbol_pattern(env, pat, visibility, ty, const_value.clone(), kind)?;
+
+                    let element_const_value = const_value
+                        .as_ref()
+                        .map(|v| v.as_tuple()[index].clone().value);
+
+                    self.bind_symbol_pattern(env, pat, visibility, ty, element_const_value, kind)?;
                 }
             }
         }

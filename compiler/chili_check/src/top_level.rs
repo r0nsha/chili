@@ -68,13 +68,20 @@ impl<'s> CheckSess<'s> {
         if let Some(binding) = ast
             .bindings
             .iter()
-            .find(|binding| binding.pattern.as_single_ref().symbol == symbol)
+            .find(|binding| binding.pattern.iter().any(|pat| pat.symbol == symbol))
         {
             // this symbol points to a binding
             let mut binding = binding.clone();
 
             let res = binding.check_top_level(self, ast.module_id)?;
-            let id = binding.pattern.as_single_ref().binding_info_id;
+
+            let desired_pat = binding
+                .pattern
+                .iter()
+                .find(|pat| pat.symbol == symbol)
+                .unwrap();
+
+            let id = desired_pat.binding_info_id;
 
             self.validate_can_access_item(
                 self.workspace.get_binding_info(id).unwrap(),

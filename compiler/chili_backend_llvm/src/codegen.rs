@@ -11,7 +11,7 @@ use chili_ast::{
     workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_ast::{ty::*, workspace::Workspace};
-use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
+use chili_infer::{display::DisplayTy, normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     scopes::Scopes,
@@ -554,8 +554,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     } else {
                         let pat = binding.pattern.as_single_ref();
                         let ty = ty.llvm_type(self);
+
                         let global_value =
                             self.add_global_uninit(pat.binding_info_id, ty, Linkage::External);
+
                         state
                             .scopes
                             .insert(pat.binding_info_id, CodegenDecl::Global(global_value));
@@ -1287,7 +1289,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
                     })
                     .collect::<Vec<BasicValueEnum>>();
-                println!("{}", 123);
+
                 self.context.const_struct(&values, false).into()
             }
             ConstValue::Function(f) => {
