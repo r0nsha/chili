@@ -64,7 +64,7 @@ impl<'ctx> CodegenDecl<'ctx> {
 pub struct Codegen<'cg, 'ctx> {
     pub workspace: &'cg Workspace,
     pub tycx: &'cg TyCtx,
-    pub ast: &'cg ast::TypedAst,
+    pub ast: &'cg ast::HirCache,
 
     pub target_metrics: TargetMetrics,
 
@@ -143,30 +143,53 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        if let Some(binding) = self.ast.bindings.get(&id) {
-            let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+        if let Some(decl) = self.ast.get_decl(id) {
+            match decl {
+                ast::HirDecl::Binding(binding) => {
+                    let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
-            match binding.expr.as_ref() {
-                Some(expr) => match &expr.kind {
-                    ast::ExprKind::Function(func) => {
-                        let function = self.declare_fn_sig(module_info, &func.sig);
-                        let decl = CodegenDecl::Function(function);
-                        self.global_decls.insert(id, decl);
-                        self.gen_fn(module_info, func, None);
-                        decl
-                    }
-                    ast::ExprKind::FunctionType(sig) => {
-                        let function = self.declare_fn_sig(module_info, sig);
-                        let decl = CodegenDecl::Function(function);
-                        self.global_decls.insert(id, decl);
-                        decl
-                    }
-                    _ => self.declare_global(id, binding),
-                },
-                None => self.declare_global(id, binding),
+                    binding
+                        .expr
+                        .as_ref()
+                        .map(|expr| match &expr.kind {
+                            ast::ExprKind::Function(func) => {
+                                let function = self.declare_fn_sig(module_info, &func.sig);
+                                let decl = CodegenDecl::Function(function);
+                                self.global_decls.insert(id, decl);
+                                self.gen_fn(module_info, func, None);
+                                decl
+                            }
+                            ast::ExprKind::FunctionType(sig) => {
+                                let function = self.declare_fn_sig(module_info, sig);
+                                let decl = CodegenDecl::Function(function);
+                                self.global_decls.insert(id, decl);
+                                decl
+                            }
+                            _ => self.declare_global(id, binding),
+                        })
+                        .unwrap_or_else(|| self.declare_global(id, binding))
+                    // match binding.expr.as_ref() {
+                    //     Some(expr) => match &expr.kind {
+                    //         ast::ExprKind::Function(func) => {
+                    //             let function = self.declare_fn_sig(module_info, &func.sig);
+                    //             let decl = CodegenDecl::Function(function);
+                    //             self.global_decls.insert(id, decl);
+                    //             self.gen_fn(module_info, func, None);
+                    //             decl
+                    //         }
+                    //         ast::ExprKind::FunctionType(sig) => {
+                    //             let function = self.declare_fn_sig(module_info, sig);
+                    //             let decl = CodegenDecl::Function(function);
+                    //             self.global_decls.insert(id, decl);
+                    //             decl
+                    //         }
+                    //         _ => self.declare_global(id, binding),
+                    //     },
+                    //     None => self.declare_global(id, binding),
+                    // }
+                }
+                ast::HirDecl::Import(import) => self.gen_import(import),
             }
-        } else if let Some(import) = self.ast.imports.get(&id) {
-            self.gen_import(import)
         } else {
             unreachable!("{:?}", id)
         }
@@ -1264,7 +1287,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
                     })
                     .collect::<Vec<BasicValueEnum>>();
-
+                println!("{}", 123);
                 self.context.const_struct(&values, false).into()
             }
             ConstValue::Function(f) => {

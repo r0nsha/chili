@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenState};
-use chili_ast::{ast, ty::*};
+use chili_ast::{ast, pattern::Pattern, ty::*};
 use chili_infer::normalize::NormalizeTy;
 use inkwell::{
     module::Linkage,
@@ -111,29 +111,36 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        for (id, binding) in self.ast.bindings.iter() {
-            let binding_info = self.workspace.get_binding_info(*id).unwrap();
+        for binding in self.ast.bindings.iter() {
+            // match &binding.pattern {
+            //     Pattern::Single(_) => todo!(),
+            //     Pattern::StructUnpack(_) => todo!(),
+            //     Pattern::TupleUnpack(_) => todo!(),
+            // }
+            todo!("initialize global bindings");
+            // let binding_info = self.workspace.get_binding_info(*id).unwrap();
 
-            // if the binding has a constant value, its value is already initialized at compile time
-            if binding_info.const_value.is_some() {
-                continue;
-            }
+            // // if the binding has a constant value, its value is already initialized at compile time
+            // if binding_info.const_value.is_some() {
+            //     continue;
+            // }
 
-            match binding.expr.as_ref() {
-                Some(expr) => match &expr.kind {
-                    // if the binding is a fn or fn-type, don't initialize its value
-                    // Note (Ron): i can probably come up with a cleaner solution here
-                    ast::ExprKind::Function(_) | ast::ExprKind::FunctionType(_) => continue,
-                    _ => (),
-                },
-                None => (),
-            }
+            // // TODO: this is probably not needed, since functions are now const values
+            // match binding.expr.as_ref() {
+            //     Some(expr) => match &expr.kind {
+            //         // if the binding is a fn or fn-type, don't initialize its value
+            //         // Note (Ron): i can probably come up with a cleaner solution here
+            //         ast::ExprKind::Function(_) | ast::ExprKind::FunctionType(_) => continue,
+            //         _ => (),
+            //     },
+            //     None => (),
+            // }
 
-            if let Some(ptr) = self.global_decls.get(id).map(|d| d.into_pointer_value()) {
-                state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
-                let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
-                self.build_store(ptr, value);
-            }
+            // if let Some(ptr) = self.global_decls.get(id).map(|d| d.into_pointer_value()) {
+            //     state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+            //     let value = self.gen_expr(&mut state, binding.expr.as_ref().unwrap(), true);
+            //     self.build_store(ptr, value);
+            // }
         }
 
         self.gen_fn_call(&mut state, entry_point_func, &fn_ty, vec![], &fn_ty.ret);

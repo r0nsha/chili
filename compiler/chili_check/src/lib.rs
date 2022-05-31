@@ -45,15 +45,11 @@ use ustr::{ustr, Ustr, UstrMap, UstrSet};
 pub fn check(
     workspace: &mut Workspace,
     ast: Vec<ast::Ast>,
-) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
+) -> DiagnosticResult<(ast::HirCache, TyCtx)> {
     let mut sess = CheckSess::new(workspace, &ast);
     sess.start()?;
-    substitute(
-        &mut sess.workspace.diagnostics,
-        &mut sess.tycx,
-        &sess.new_ast,
-    );
-    Ok((sess.new_ast, sess.tycx))
+    substitute(&mut sess.workspace.diagnostics, &mut sess.tycx, &sess.hir);
+    Ok((sess.hir, sess.tycx))
 }
 
 pub(crate) struct CheckSess<'s> {
@@ -68,7 +64,7 @@ pub(crate) struct CheckSess<'s> {
     pub(crate) old_asts: &'s Vec<ast::Ast>,
 
     // The new typed ast being generated
-    pub(crate) new_ast: ast::TypedAst,
+    pub(crate) hir: ast::HirCache,
 
     // Information that's relevant for the global context
     pub(crate) global_scopes: HashMap<ModuleId, Scope>,
@@ -101,7 +97,7 @@ impl<'s> CheckSess<'s> {
             interp: Interp::new(),
             tycx: TyCtx::default(),
             old_asts,
-            new_ast: ast::TypedAst::default(),
+            hir: ast::HirCache::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -2378,6 +2374,6 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
 fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
     let mut interp_sess = sess
         .interp
-        .create_session(sess.workspace, &sess.tycx, &sess.new_ast);
+        .create_session(sess.workspace, &sess.tycx, &sess.hir);
     interp_sess.eval(expr, module_id)
 }

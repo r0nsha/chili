@@ -13,7 +13,7 @@ use crate::{normalize::NormalizeTy, ty_ctx::TyCtx};
 pub fn substitute<'a>(
     diagnostics: &'a mut Diagnostics,
     tycx: &'a mut TyCtx,
-    typed_ast: &'a ast::TypedAst,
+    cache: &'a ast::HirCache,
 ) {
     let mut sess = Sess {
         diagnostics,
@@ -21,7 +21,7 @@ pub fn substitute<'a>(
         erroneous_tys: HashMap::new(),
     };
 
-    typed_ast.substitute(&mut sess);
+    cache.substitute(&mut sess);
 
     let diagnostics: Vec<Diagnostic> = sess
         .erroneous_tys
@@ -84,9 +84,9 @@ impl<'a, T: Substitute<'a>> Substitute<'a> for Box<T> {
     }
 }
 
-impl<'a> Substitute<'a> for ast::TypedAst {
+impl<'a> Substitute<'a> for ast::HirCache {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        for binding in self.bindings.values() {
+        for binding in self.bindings.iter() {
             binding.substitute(sess);
         }
     }

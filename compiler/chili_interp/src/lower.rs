@@ -1063,10 +1063,13 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
 
 #[inline]
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
-    if let Some(binding) = sess.typed_ast.bindings.get(&id) {
-        lower_top_level_binding(binding, sess)
-    } else if let Some(import) = sess.typed_ast.imports.get(&id) {
-        find_and_lower_top_level_binding(import.target_binding_info_id.unwrap(), sess)
+    if let Some(decl) = sess.cache.get_decl(id) {
+        match decl {
+            ast::HirDecl::Binding(binding) => lower_top_level_binding(binding, sess),
+            ast::HirDecl::Import(import) => {
+                find_and_lower_top_level_binding(import.target_binding_info_id.unwrap(), sess)
+            }
+        }
     } else {
         panic!("binding not found: {:?}", id)
     }

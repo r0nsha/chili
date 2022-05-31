@@ -38,7 +38,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> String {
+pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::HirCache) -> String {
     let context = Context::create();
     let module = context.create_module(
         workspace

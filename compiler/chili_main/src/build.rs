@@ -62,7 +62,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     }
 
     // Type inference, type checking, static analysis, const folding, etc..
-    let (typed_ast, tycx) = time! { workspace.build_options.verbose, "check",
+    let (hir, tycx) = time! { workspace.build_options.verbose, "check",
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
             Err(diagnostic) => {
@@ -80,7 +80,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     // Lint - does auxillary checks which are not required for compilation
     time! { workspace.build_options.verbose, "lint",
-        chili_lint::lint(&mut workspace, &tycx, &typed_ast)
+        chili_lint::lint(&mut workspace, &tycx, &hir)
     }
 
     if workspace.diagnostics.has_errors() {
@@ -88,11 +88,11 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         return workspace;
     }
 
-    // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
+    // chili_pretty_print::print_hir(&hir, &workspace, &tycx);
 
     // Code generation
     let executable_path = if !workspace.build_options.no_codegen {
-        Some(chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast))
+        Some(chili_backend_llvm::codegen(&workspace, &tycx, &hir))
     } else {
         None
     };

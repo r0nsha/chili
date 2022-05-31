@@ -46,8 +46,14 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
 
         ast.bindings.iter_mut().for_each(|binding| {
             binding.module_id = ast.module_id;
-            let pat = binding.pattern.as_single_ref();
-            check_duplicate_global_symbol(workspace, &mut defined_symbols, pat.symbol, pat.span);
+            for pat in binding.pattern.iter() {
+                check_duplicate_global_symbol(
+                    workspace,
+                    &mut defined_symbols,
+                    pat.symbol,
+                    pat.span,
+                );
+            }
         });
     }
 }

@@ -38,31 +38,25 @@ impl Ast {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct TypedAst {
-    pub imports: HashMap<BindingInfoId, Import>,
-    pub bindings: HashMap<BindingInfoId, Binding>,
-}
-
 #[derive(Default)]
-pub struct Hir {
-    imports: Vec<Import>,
-    bindings: Vec<Binding>,
+pub struct HirCache {
+    pub bindings: Vec<Binding>,
+    pub imports: Vec<Import>,
     ids_to_decls: HashMap<BindingInfoId, HirDeclIndex>,
 }
 
 enum HirDeclIndex {
-    Import(usize),
     Binding(usize),
+    Import(usize),
 }
 
 #[derive(Debug, Clone)]
 pub enum HirDecl<'a> {
-    Import(&'a Import),
     Binding(&'a Binding),
+    Import(&'a Import),
 }
 
-impl Hir {
+impl HirCache {
     pub fn get_decl(&self, id: BindingInfoId) -> Option<HirDecl> {
         self.ids_to_decls.get(&id).map(|decl| match decl {
             HirDeclIndex::Import(idx) => HirDecl::Import(&self.imports[*idx]),

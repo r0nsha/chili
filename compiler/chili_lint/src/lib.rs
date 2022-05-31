@@ -4,32 +4,26 @@ mod ref_access;
 mod sess;
 mod type_limits;
 
-use chili_ast::{
-    ast::{self, TypedAst},
-    pattern::Pattern,
-    workspace::Workspace,
-};
+use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
 use chili_error::diagnostic::{Diagnostic, Label};
 use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 
-pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, ast: &TypedAst) {
-    {
-        let mut sess = LintSess {
-            workspace,
-            tycx,
-            init_scopes: Scopes::default(),
-        };
+pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, hir: &ast::HirCache) {
+    let mut sess = LintSess {
+        workspace,
+        tycx,
+        init_scopes: Scopes::default(),
+    };
 
-        sess.init_scopes.push_scope();
+    sess.init_scopes.push_scope();
 
-        for binding in ast.bindings.values() {
-            binding.lint(&mut sess);
-        }
-
-        sess.init_scopes.pop_scope();
+    for binding in hir.bindings.iter() {
+        binding.lint(&mut sess);
     }
+
+    sess.init_scopes.pop_scope();
 
     // Check that an entry point function exists
     // TODO (Ron): This won't be relevant for future targets like WASM, DLLs and libraries

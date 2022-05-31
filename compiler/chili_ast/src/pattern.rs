@@ -42,29 +42,17 @@ impl Pattern {
         }
     }
 
-    pub fn symbols(&self) -> Vec<&SymbolPattern> {
-        match self {
-            Pattern::Single(p) => vec![p],
-            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => {
-                p.symbols.iter().collect::<Vec<_>>()
-            }
-        }
-    }
-
-    pub fn symbols_mut(&mut self) -> Vec<&mut SymbolPattern> {
-        match self {
-            Pattern::Single(p) => vec![p],
-            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => {
-                p.symbols.iter_mut().collect::<Vec<_>>()
-            }
-        }
-    }
-
     pub fn iter(&self) -> PatternIter {
         PatternIter {
             pattern: self,
             pos: 0,
         }
+    }
+
+    pub fn ids(&self) -> Vec<BindingInfoId> {
+        self.iter()
+            .map(|p| p.binding_info_id)
+            .collect::<Vec<BindingInfoId>>()
     }
 }
 
