@@ -136,7 +136,6 @@ impl<'i> InterpSess<'i> {
             }));
             init_instructions.push(Instruction::PushConst(const_slot as u32));
             init_instructions.push(Instruction::Call(0));
-            init_instructions.push(Instruction::SetGlobal(global_index as u32));
         }
 
         code.instructions = init_instructions

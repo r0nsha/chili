@@ -1096,7 +1096,9 @@ fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usi
 
         sess.env_stack.pop();
 
+        code.push(Instruction::SetGlobal(slot as u32));
         code.push(Instruction::Return);
+
         sess.evaluated_globals.push((slot, code));
 
         slot
