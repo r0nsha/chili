@@ -270,7 +270,7 @@ impl Lower for ast::Expr {
                 sig.lower(sess, code, LowerContext { take_ptr: false })
             }
             ast::ExprKind::ConstValue(const_value) => {
-                let value = const_value_to_value(const_value, self.ty, sess, code);
+                let value = const_value_to_value(const_value, self.ty, sess);
                 sess.push_const(code, value);
             }
             ast::ExprKind::Error => panic!("got an Error expression"),
@@ -772,12 +772,7 @@ impl Lower for ast::Subscript {
     }
 }
 
-fn const_value_to_value(
-    const_value: &ConstValue,
-    ty: Ty,
-    sess: &mut InterpSess,
-    code: &mut CompiledCode,
-) -> Value {
+fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess) -> Value {
     let ty = ty.normalize(sess.tycx);
 
     match const_value {
@@ -881,14 +876,14 @@ fn const_value_to_value(
         ConstValue::Tuple(elements) => Value::Aggregate(Aggregate {
             elements: elements
                 .iter()
-                .map(|el| const_value_to_value(&el.value, el.ty, sess, code))
+                .map(|el| const_value_to_value(&el.value, el.ty, sess))
                 .collect(),
             ty,
         }),
         ConstValue::Struct(fields) => Value::Aggregate(Aggregate {
             elements: fields
                 .values()
-                .map(|el| const_value_to_value(&el.value, el.ty, sess, code))
+                .map(|el| const_value_to_value(&el.value, el.ty, sess))
                 .collect(),
             ty,
         }),
@@ -902,7 +897,7 @@ fn const_value_to_value(
             let mut bytes = ByteSeq::new(array_len * el_size);
 
             for (index, const_value) in array.values.iter().enumerate() {
-                let value = const_value_to_value(const_value, el_ty, sess, code);
+                let value = const_value_to_value(const_value, el_ty, sess);
 
                 bytes.offset_mut(index * el_size).put_value(&value);
             }
@@ -1077,31 +1072,33 @@ fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) ->
 
 #[inline]
 fn lower_top_level_binding(binding: &ast::Binding, sess: &mut InterpSess) -> usize {
-    sess.env_stack.push((binding.module_id, Env::default()));
-
-    let mut code = CompiledCode::new();
-
-    binding
-        .expr
-        .as_ref()
-        .unwrap()
-        .lower(sess, &mut code, LowerContext { take_ptr: false });
-
-    sess.env_stack.pop();
-
     let id = binding.pattern.as_single_ref().binding_info_id;
     assert!(id != BindingInfoId::unknown());
 
     let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
     if let Some(const_value) = &binding_info.const_value {
-        let value = const_value_to_value(const_value, binding_info.ty, sess, &mut code);
+        let value = const_value_to_value(const_value, binding_info.ty, sess);
         sess.insert_global(id, value)
     } else {
         // insert a temporary value, since the global will be computed at the start of the vm execution
         let slot = sess.insert_global(id, Value::unit());
+
+        sess.env_stack.push((binding.module_id, Env::default()));
+
+        let mut code = CompiledCode::new();
+
+        binding
+            .expr
+            .as_ref()
+            .unwrap()
+            .lower(sess, &mut code, LowerContext { take_ptr: false });
+
+        sess.env_stack.pop();
+
         code.push(Instruction::Return);
         sess.evaluated_globals.push((slot, code));
+
         slot
     }
 }

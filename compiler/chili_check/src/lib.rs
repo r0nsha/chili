@@ -549,7 +549,6 @@ impl Check for ast::Function {
         );
         let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
 
-        // if !self.sig.name.is_empty() {
         self.binding_info_id = Some(sess.bind_symbol(
             env,
             self.sig.name,
@@ -560,7 +559,6 @@ impl Check for ast::Function {
             ast::BindingKind::Value,
             self.body.span,
         )?);
-        // }
 
         env.push_scope(ScopeKind::Function);
 
