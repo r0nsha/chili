@@ -165,12 +165,77 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             global_value.set_initializer(&initializer);
 
+            let global_ptr = global_value.as_pointer_value();
             match &binding.pattern {
                 Pattern::Symbol(_) => {
-                    self.build_store(global_value.as_pointer_value(), value);
+                    self.build_store(global_ptr, value);
                 }
-                Pattern::StructUnpack(pat) => todo!(),
-                Pattern::TupleUnpack(pat) => todo!(),
+                Pattern::StructUnpack(pat) => {
+                    let ty = binding.ty.normalize(self.tycx);
+                    let struct_ty = ty.maybe_deref_once().as_struct().clone();
+                    let struct_llvm_type = Some(ty.llvm_type(self));
+
+                    for pat in pat.symbols.iter() {
+                        if pat.ignore {
+                            continue;
+                        }
+
+                        let binding_info = self
+                            .workspace
+                            .get_binding_info(pat.binding_info_id)
+                            .unwrap();
+
+                        if binding_info.const_value.is_some() {
+                            continue;
+                        }
+
+                        if let Some(ptr) = self
+                            .global_decls
+                            .get(&pat.binding_info_id)
+                            .map(|d| d.into_pointer_value())
+                        {
+                            let field_index = struct_ty.field_index(pat.symbol).unwrap();
+
+                            let field_value = self.gen_struct_access(
+                                global_ptr.into(),
+                                field_index as u32,
+                                struct_llvm_type,
+                            );
+
+                            self.build_store(ptr, self.build_load(field_value));
+                        }
+                    }
+                }
+                Pattern::TupleUnpack(pat) => {
+                    let ty = binding.ty.normalize(self.tycx);
+                    let llvm_type = Some(ty.llvm_type(self));
+
+                    for (i, pat) in pat.symbols.iter().enumerate() {
+                        if pat.ignore {
+                            continue;
+                        }
+
+                        let binding_info = self
+                            .workspace
+                            .get_binding_info(pat.binding_info_id)
+                            .unwrap();
+
+                        if binding_info.const_value.is_some() {
+                            continue;
+                        }
+
+                        if let Some(ptr) = self
+                            .global_decls
+                            .get(&pat.binding_info_id)
+                            .map(|d| d.into_pointer_value())
+                        {
+                            let field_value =
+                                self.gen_struct_access(global_ptr.into(), i as u32, llvm_type);
+
+                            self.build_store(ptr, self.build_load(field_value));
+                        }
+                    }
+                }
             }
             // todo!("initialize global bindings");
             // let binding_info = self.workspace.get_binding_info(*id).unwrap();

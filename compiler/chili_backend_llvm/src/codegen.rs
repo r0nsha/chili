@@ -313,26 +313,21 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let ty = ty.normalize(self.tycx);
                 let struct_ty = ty.maybe_deref_once().as_struct().clone();
+                let struct_llvm_type = Some(ty.llvm_type(self));
 
-                for SymbolPattern {
-                    binding_info_id,
-                    symbol,
-                    ignore,
-                    ..
-                } in pattern.symbols.iter()
-                {
-                    if *ignore {
+                for pat in pattern.symbols.iter() {
+                    if pat.ignore {
                         continue;
                     }
 
-                    let field_index = struct_ty.field_index(*symbol).unwrap();
+                    let field_index = struct_ty.field_index(pat.symbol).unwrap();
 
-                    let llvm_type = Some(ty.llvm_type(self));
-                    let value = self.gen_struct_access(ptr.into(), field_index as u32, llvm_type);
+                    let value =
+                        self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
 
                     self.gen_local_with_alloca(
                         state,
-                        *binding_info_id,
+                        pat.binding_info_id,
                         if ty.is_pointer() {
                             value
                         } else {
@@ -344,27 +339,19 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             Pattern::TupleUnpack(pattern) => {
                 let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
 
-                for (
-                    i,
-                    SymbolPattern {
-                        binding_info_id,
-                        ignore,
-                        ..
-                    },
-                ) in pattern.symbols.iter().enumerate()
-                {
-                    if *ignore {
+                let ty = ty.normalize(self.tycx);
+                let llvm_type = Some(ty.llvm_type(self));
+
+                for (i, pat) in pattern.symbols.iter().enumerate() {
+                    if pat.ignore {
                         continue;
                     }
-
-                    let ty = ty.normalize(self.tycx);
-                    let llvm_type = Some(ty.llvm_type(self));
 
                     let value = self.gen_struct_access(ptr.into(), i as u32, llvm_type);
 
                     self.gen_local_with_alloca(
                         state,
-                        *binding_info_id,
+                        pat.binding_info_id,
                         if ty.is_pointer() {
                             value
                         } else {
