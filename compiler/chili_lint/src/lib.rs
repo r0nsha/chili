@@ -155,6 +155,7 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::Cast(t) => t.expr.lint(sess),
             ast::ExprKind::Builtin(b) => match b {
+                ast::BuiltinKind::Import(_) => panic!("unexpected import"),
                 ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
                 ast::BuiltinKind::SizeOf(e)
                 | ast::BuiltinKind::AlignOf(e)

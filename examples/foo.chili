@@ -1,0 +1,3 @@
+pub let bar = fn() {
+    42
+}

@@ -149,11 +149,12 @@ impl<'a> Substitute<'a> for ast::Expr {
             }
             ast::ExprKind::Cast(info) => info.substitute(sess),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::LangItem(_) => (),
-                ast::BuiltinKind::SizeOf(expr)
+                ast::BuiltinKind::Import(expr)
+                | ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
                 | ast::BuiltinKind::Run(expr, _) => expr.substitute(sess),
                 ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
+                ast::BuiltinKind::LangItem(_) => (),
             },
             ast::ExprKind::Function(func) => func.substitute(sess),
             ast::ExprKind::While(while_) => {

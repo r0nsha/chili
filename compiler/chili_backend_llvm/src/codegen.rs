@@ -582,6 +582,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ast::ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::Import(_) => panic!("unexpected import builtin"),
                 ast::BuiltinKind::LangItem(item) => {
                     panic!("unexpected lang_item builtin: {}", item)
                 }

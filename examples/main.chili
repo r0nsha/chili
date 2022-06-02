@@ -1,10 +1,6 @@
-use std.{
-    c.printf,
-    fmt.println
-};
+use std.c.printf
 
-let Vector2 = struct { x: int, y: int }
-let { x, y } = Vector2 { x: 1, y: 2 }
+let foo = @import("foo.chili")
 
 let main = fn() {
     printf("Vector2(%d, %d)\n".data, x, y);

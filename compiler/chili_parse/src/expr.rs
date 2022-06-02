@@ -585,6 +585,7 @@ impl<'p> Parser<'p> {
         require!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
+            "import" => BuiltinKind::Import(Box::new(self.parse_expr()?)),
             "lang_item" => {
                 let item = require!(self, Str(_), "string")?;
                 BuiltinKind::LangItem(item.symbol())

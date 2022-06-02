@@ -777,6 +777,7 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::Import(expr) => todo!("import"),
                 ast::BuiltinKind::LangItem(item) => {
                     let ty = match item.as_str() {
                         builtin::SYM_UNIT => sess.tycx.common_types.unit,

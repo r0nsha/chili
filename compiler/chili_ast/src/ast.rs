@@ -326,6 +326,7 @@ impl LiteralKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BuiltinKind {
+    Import(Box<Expr>),
     LangItem(Ustr),
     SizeOf(Box<Expr>),
     AlignOf(Box<Expr>),
