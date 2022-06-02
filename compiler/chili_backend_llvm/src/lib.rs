@@ -38,7 +38,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::HirCache) -> String {
+pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> String {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -63,7 +63,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::HirCache) -> 
     let mut cg = Codegen {
         workspace,
         tycx,
-        hir: ast,
+        typed_ast: ast,
         target_metrics: target_metrics.clone(),
         context: &context,
         module: &module,

@@ -21,7 +21,8 @@ where
 impl CheckTopLevel for ast::Binding {
     fn check_top_level(&mut self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult {
         let res = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
-        sess.hir.push_binding(&self.pattern.ids(), self.clone());
+        sess.typed_ast
+            .push_binding(&self.pattern.ids(), self.clone());
         Ok(res)
     }
 }
@@ -29,7 +30,8 @@ impl CheckTopLevel for ast::Binding {
 impl CheckTopLevel for ast::Import {
     fn check_top_level(&mut self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult {
         let res = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
-        sess.hir.push_import(&[self.binding_info_id], self.clone());
+        sess.typed_ast
+            .push_import(&[self.binding_info_id], self.clone());
         Ok(res)
     }
 }

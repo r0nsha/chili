@@ -53,7 +53,7 @@ impl Interp {
         &'i mut self,
         workspace: &'i Workspace,
         tycx: &'i TyCtx,
-        cache: &'i ast::HirCache,
+        cache: &'i ast::TypedAst,
     ) -> InterpSess<'i> {
         InterpSess {
             interp: self,
@@ -71,7 +71,7 @@ pub struct InterpSess<'i> {
     pub(crate) interp: &'i mut Interp,
     pub(crate) workspace: &'i Workspace,
     pub(crate) tycx: &'i TyCtx,
-    pub(crate) cache: &'i ast::HirCache,
+    pub(crate) cache: &'i ast::TypedAst,
     pub(crate) env_stack: Vec<(ModuleId, Env)>,
 
     // pub(crate) labels: Vec<Label>,

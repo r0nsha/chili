@@ -1060,8 +1060,8 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
     if let Some(decl) = sess.cache.get_decl(id) {
         match decl {
-            ast::HirDecl::Binding(binding) => lower_top_level_binding(binding, id, sess),
-            ast::HirDecl::Import(import) => {
+            ast::AstDecl::Binding(binding) => lower_top_level_binding(binding, id, sess),
+            ast::AstDecl::Import(import) => {
                 find_and_lower_top_level_binding(import.target_binding_info_id.unwrap(), sess)
             }
         }

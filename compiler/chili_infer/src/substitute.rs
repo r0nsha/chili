@@ -13,7 +13,7 @@ use crate::{normalize::NormalizeTy, ty_ctx::TyCtx};
 pub fn substitute<'a>(
     diagnostics: &'a mut Diagnostics,
     tycx: &'a mut TyCtx,
-    cache: &'a ast::HirCache,
+    cache: &'a ast::TypedAst,
 ) {
     let mut sess = Sess {
         diagnostics,
@@ -84,7 +84,7 @@ impl<'a, T: Substitute<'a>> Substitute<'a> for Box<T> {
     }
 }
 
-impl<'a> Substitute<'a> for ast::HirCache {
+impl<'a> Substitute<'a> for ast::TypedAst {
     fn substitute(&self, sess: &mut Sess<'a>) {
         for binding in self.bindings.iter() {
             binding.substitute(sess);

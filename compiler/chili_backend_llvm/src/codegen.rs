@@ -35,6 +35,7 @@ pub enum CodegenDecl<'ctx> {
     Function(FunctionValue<'ctx>),
     Local(PointerValue<'ctx>),
     Global(GlobalValue<'ctx>),
+    Module(ModuleId),
 }
 
 impl<'ctx> CodegenDecl<'ctx> {
@@ -43,6 +44,7 @@ impl<'ctx> CodegenDecl<'ctx> {
             CodegenDecl::Function(f) => f.as_global_value().as_pointer_value(),
             CodegenDecl::Local(p) => *p,
             CodegenDecl::Global(g) => g.as_pointer_value(),
+            CodegenDecl::Module(_) => panic!("can't take a pointer to a module decl"),
         }
     }
 
@@ -64,7 +66,7 @@ impl<'ctx> CodegenDecl<'ctx> {
 pub struct Codegen<'cg, 'ctx> {
     pub workspace: &'cg Workspace,
     pub tycx: &'cg TyCtx,
-    pub hir: &'cg ast::HirCache,
+    pub typed_ast: &'cg ast::TypedAst,
 
     pub target_metrics: TargetMetrics,
 
@@ -136,16 +138,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn find_or_gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        match self.global_decls.get(&id) {
-            Some(decl) => decl.clone(),
-            None => self.gen_top_level_binding(id),
-        }
+        self.global_decls
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| self.gen_top_level_binding(id))
     }
 
     pub(super) fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        if let Some(decl) = self.hir.get_decl(id) {
+        if let Some(decl) = self.typed_ast.get_decl(id) {
             match decl {
-                ast::HirDecl::Binding(binding) => {
+                ast::AstDecl::Binding(binding) => {
                     let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
                     binding
@@ -188,7 +190,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     //     None => self.declare_global(id, binding),
                     // }
                 }
-                ast::HirDecl::Import(import) => self.gen_import(import),
+                ast::AstDecl::Import(import) => self.gen_import(import),
             }
         } else {
             unreachable!("{:?}", id)
@@ -196,7 +198,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_import(&mut self, import: &ast::Import) -> CodegenDecl<'ctx> {
-        self.gen_top_level_binding(import.target_binding_info_id.unwrap())
+        match import.target_binding_info_id {
+            Some(id) => self.gen_top_level_binding(id),
+            None => CodegenDecl::Module(import.target_module_id),
+        }
     }
 
     pub(super) fn declare_global(
@@ -949,12 +954,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         );
 
                         let decl = self.find_or_gen_top_level_binding(id);
-                        let ptr = decl.into_pointer_value();
 
-                        if deref {
-                            self.build_load(ptr.into())
-                        } else {
-                            ptr.into()
+                        match decl {
+                            CodegenDecl::Module(_) => self.gen_unit(),
+                            _ => {
+                                let ptr = decl.into_pointer_value();
+
+                                if deref {
+                                    self.build_load(ptr.into())
+                                } else {
+                                    ptr.into()
+                                }
+                            }
                         }
                     }
                     _ => unreachable!("invalid ty `{}`", accessed_ty),
@@ -974,12 +985,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     None => self.find_or_gen_top_level_binding(ident.binding_info_id),
                 };
 
-                let ptr = decl.into_pointer_value();
+                match decl {
+                    CodegenDecl::Module(_) => self.gen_unit(),
+                    _ => {
+                        let ptr = decl.into_pointer_value();
 
-                if deref {
-                    self.build_load(ptr.into())
-                } else {
-                    ptr.into()
+                        if deref {
+                            self.build_load(ptr.into())
+                        } else {
+                            ptr.into()
+                        }
+                    }
                 }
             }
             ast::ExprKind::ArrayLiteral(lit) => {

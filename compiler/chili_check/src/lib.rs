@@ -45,11 +45,15 @@ use ustr::{ustr, Ustr, UstrMap, UstrSet};
 pub fn check(
     workspace: &mut Workspace,
     ast: Vec<ast::Ast>,
-) -> DiagnosticResult<(ast::HirCache, TyCtx)> {
+) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
     let mut sess = CheckSess::new(workspace, &ast);
     sess.start()?;
-    substitute(&mut sess.workspace.diagnostics, &mut sess.tycx, &sess.hir);
-    Ok((sess.hir, sess.tycx))
+    substitute(
+        &mut sess.workspace.diagnostics,
+        &mut sess.tycx,
+        &sess.typed_ast,
+    );
+    Ok((sess.typed_ast, sess.tycx))
 }
 
 pub(crate) struct CheckSess<'s> {
@@ -64,7 +68,7 @@ pub(crate) struct CheckSess<'s> {
     pub(crate) old_asts: &'s Vec<ast::Ast>,
 
     // The new typed ast being generated
-    pub(crate) hir: ast::HirCache,
+    pub(crate) typed_ast: ast::TypedAst,
 
     // Information that's relevant for the global context
     pub(crate) global_scopes: HashMap<ModuleId, Scope>,
@@ -97,7 +101,7 @@ impl<'s> CheckSess<'s> {
             interp: Interp::new(),
             tycx: TyCtx::default(),
             old_asts,
-            hir: ast::HirCache::default(),
+            typed_ast: ast::TypedAst::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -338,7 +342,7 @@ impl Check for ast::Import {
             .tycx
             .bound(TyKind::Module(self.target_module_id), self.span);
         let mut const_value = None;
-        let mut target_binding_info = None;
+        let mut target_binding_info_id = None;
 
         for (index, node) in self.import_path.iter().enumerate() {
             let (res, id) = sess.check_top_level_symbol(
@@ -352,7 +356,7 @@ impl Check for ast::Import {
 
             previous_module_id = module_id;
 
-            target_binding_info = Some(id);
+            target_binding_info_id = Some(id);
             ty = res.ty;
             const_value = res.const_value;
 
@@ -370,7 +374,7 @@ impl Check for ast::Import {
             }
         }
 
-        self.target_binding_info_id = target_binding_info;
+        self.target_binding_info_id = target_binding_info_id;
 
         self.binding_info_id = sess.bind_symbol(
             env,
@@ -2367,6 +2371,6 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
 fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
     let mut interp_sess = sess
         .interp
-        .create_session(sess.workspace, &sess.tycx, &sess.hir);
+        .create_session(sess.workspace, &sess.tycx, &sess.typed_ast);
     interp_sess.eval(expr, module_id)
 }

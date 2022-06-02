@@ -4,10 +4,8 @@ use std.{
 };
 
 let Vector2 = struct { x: int, y: int }
-let { x, y } = Vector2 { x: 1, y: 2 };
+let { x, y } = Vector2 { x: 1, y: 2 }
 
 let main = fn() {
-    printf("Vector2(%d, %d)\n".data, x, y);
+    c.printf("Vector2(%d, %d)\n".data, x, y);
 }
-
-@run(main())

@@ -4,7 +4,7 @@ use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 
-pub fn print_hir(hir: &ast::HirCache, workspace: &Workspace, tycx: &TyCtx) {
+pub fn print_typed_ast(typed_ast: &ast::TypedAst, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();
         config.branch = Style {
@@ -23,7 +23,7 @@ pub fn print_hir(hir: &ast::HirCache, workspace: &Workspace, tycx: &TyCtx) {
 
     let mut b = TreeBuilder::new("Program".to_string());
 
-    hir.print_tree(&mut b, workspace, tycx);
+    typed_ast.print_tree(&mut b, workspace, tycx);
 
     print_tree_with(&b.build(), &config).expect("error printing ir tree");
 
@@ -93,7 +93,7 @@ impl<T: PrintTree> PrintTree for Box<T> {
     }
 }
 
-impl PrintTree for ast::HirCache {
+impl PrintTree for ast::TypedAst {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         for import in self.imports.iter() {
             import.print_tree(b, workspace, tycx);

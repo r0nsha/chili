@@ -39,28 +39,28 @@ impl Ast {
 }
 
 #[derive(Default)]
-pub struct HirCache {
+pub struct TypedAst {
     pub bindings: Vec<Binding>,
     pub imports: Vec<Import>,
-    ids_to_decls: HashMap<BindingInfoId, HirDeclIndex>,
+    ids_to_decls: HashMap<BindingInfoId, AstDeclIndex>,
 }
 
-enum HirDeclIndex {
+enum AstDeclIndex {
     Binding(usize),
     Import(usize),
 }
 
 #[derive(Debug, Clone)]
-pub enum HirDecl<'a> {
+pub enum AstDecl<'a> {
     Binding(&'a Binding),
     Import(&'a Import),
 }
 
-impl HirCache {
-    pub fn get_decl(&self, id: BindingInfoId) -> Option<HirDecl> {
+impl TypedAst {
+    pub fn get_decl(&self, id: BindingInfoId) -> Option<AstDecl> {
         self.ids_to_decls.get(&id).map(|decl| match decl {
-            HirDeclIndex::Import(idx) => HirDecl::Import(&self.imports[*idx]),
-            HirDeclIndex::Binding(idx) => HirDecl::Binding(&self.bindings[*idx]),
+            AstDeclIndex::Import(idx) => AstDecl::Import(&self.imports[*idx]),
+            AstDeclIndex::Binding(idx) => AstDecl::Binding(&self.bindings[*idx]),
         })
     }
 
@@ -68,7 +68,7 @@ impl HirCache {
         self.bindings.push(binding);
         let idx = self.bindings.len() - 1;
         for id in ids {
-            self.ids_to_decls.insert(*id, HirDeclIndex::Binding(idx));
+            self.ids_to_decls.insert(*id, AstDeclIndex::Binding(idx));
         }
     }
 
@@ -76,7 +76,7 @@ impl HirCache {
         self.imports.push(import);
         let idx = self.imports.len() - 1;
         for id in ids {
-            self.ids_to_decls.insert(*id, HirDeclIndex::Import(idx));
+            self.ids_to_decls.insert(*id, AstDeclIndex::Import(idx));
         }
     }
 }

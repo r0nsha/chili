@@ -28,12 +28,12 @@ impl<'p> Parser<'p> {
 
         match name {
             compiler_info::STD => {
-                let info = compiler_info::std_module_info();
+                let std_module_info = compiler_info::std_module_info();
 
-                let path_buf = PathBuf::from(info.file_path.as_str());
+                let path_buf = PathBuf::from(std_module_info.file_path.as_str());
 
-                let module = info.name;
-                let alias = info.name;
+                let module = std_module_info.name;
+                let alias = std_module_info.name;
 
                 self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
             }
@@ -83,13 +83,15 @@ impl<'p> Parser<'p> {
         visibility: Visibility,
         module_name_span: Span,
     ) -> DiagnosticResult<Vec<Import>> {
+        let mut import_path = vec![];
+
         let imports = self.parse_import_postfix_inner(
             ustr(path_buf.to_str().unwrap()),
             module,
             alias,
             visibility,
             module_name_span,
-            &mut vec![],
+            &mut import_path,
         )?;
 
         Ok(imports)

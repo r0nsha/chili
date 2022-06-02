@@ -10,7 +10,7 @@ use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 
-pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, hir: &ast::HirCache) {
+pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) {
     let mut sess = LintSess {
         workspace,
         tycx,
@@ -19,7 +19,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, hir: &ast::HirCache) {
 
     sess.init_scopes.push_scope();
 
-    for binding in hir.bindings.iter() {
+    for binding in typed_ast.bindings.iter() {
         binding.lint(&mut sess);
     }
 
