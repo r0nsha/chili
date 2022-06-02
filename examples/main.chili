@@ -7,5 +7,5 @@ let Vector2 = struct { x: int, y: int }
 let { x, y } = Vector2 { x: 1, y: 2 }
 
 let main = fn() {
-    c.printf("Vector2(%d, %d)\n".data, x, y);
+    printf("Vector2(%d, %d)\n".data, x, y);
 }
