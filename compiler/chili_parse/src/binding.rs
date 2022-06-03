@@ -5,7 +5,7 @@ use chili_ast::{
 };
 use chili_span::To;
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_binding(
         &mut self,
         visibility: Visibility,

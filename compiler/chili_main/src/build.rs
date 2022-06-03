@@ -30,7 +30,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
             Diagnostic::error()
                 .with_message(format!("file `{}` doesn't exist", source_path.display())),
         );
-        workspace.diagnostics.emit();
+        workspace.emit_diagnostics();
         return workspace;
     }
 
@@ -39,7 +39,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
             match chili_astgen::generate_ast(&mut workspace) {
                 Some(result) => result,
                 None => {
-                    workspace.diagnostics.emit();
+                    workspace.emit_diagnostics();
                     return workspace;
                 }
             }
@@ -47,7 +47,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     };
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit();
+        workspace.emit_diagnostics();
         return workspace;
     }
 
@@ -57,7 +57,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     };
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit();
+        workspace.emit_diagnostics();
         return workspace;
     }
 
@@ -67,14 +67,14 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
             Ok(result) => result,
             Err(diagnostic) => {
                 workspace.diagnostics.push(diagnostic);
-                workspace.diagnostics.emit();
+                workspace.emit_diagnostics();
                 return workspace;
             }
         }
     };
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit();
+        workspace.emit_diagnostics();
         return workspace;
     }
 
@@ -84,7 +84,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     }
 
     if workspace.diagnostics.has_errors() {
-        workspace.diagnostics.emit();
+        workspace.emit_diagnostics();
         return workspace;
     }
 

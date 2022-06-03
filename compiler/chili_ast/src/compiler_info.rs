@@ -1,6 +1,6 @@
 use crate::workspace::ModuleInfo;
 use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use ustr::ustr;
 
 pub const STD: &str = "std";
@@ -21,6 +21,10 @@ pub fn std_module_root_dir() -> PathBuf {
     dir.push("lib");
     dir.push(STD);
     dir
+}
+
+pub fn std_module_root_file() -> PathBuf {
+    std_module_root_dir().join(Path::new("std.chili"))
 }
 
 pub fn std_module_info() -> ModuleInfo {

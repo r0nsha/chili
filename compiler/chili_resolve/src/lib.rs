@@ -7,6 +7,13 @@ use import::{collect_module_exports, resolve_imports};
 use ustr::{Ustr, UstrMap};
 
 pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
+    println!(
+        "{:#?}",
+        asts.iter()
+            .map(|a| a.module_info.file_path)
+            .collect::<Vec<Ustr>>()
+    );
+
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);
@@ -22,6 +29,7 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
     // Assign module ids to all imports
     for ast in asts.iter_mut() {
         for import in ast.imports.iter_mut() {
+            println!("{:?}", import.target_module_info);
             import.target_module_id = workspace
                 .find_module_info(import.target_module_info)
                 .unwrap();

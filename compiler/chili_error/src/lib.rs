@@ -7,18 +7,22 @@ use diagnostic::{Diagnostic, DiagnosticKind, Label};
 use emitter::{ColorMode, DiagnosticEmitter};
 use ustr::Ustr;
 
+pub fn emit_diagnostics(diagnostics: &Diagnostics, color_mode: ColorMode) {
+    let emitter = DiagnosticEmitter::new(color_mode);
+    emitter.emit_many(&diagnostics.files, diagnostics.items.clone());
+}
+
+#[derive(Debug, Clone)]
 pub struct Diagnostics {
     files: SimpleFiles<String, String>,
-    emitter: DiagnosticEmitter,
-    diagnostics: Vec<Diagnostic>,
+    items: Vec<Diagnostic>,
 }
 
 impl Diagnostics {
-    pub fn new(color_mode: ColorMode) -> Self {
+    pub fn new() -> Self {
         Self {
             files: SimpleFiles::new(),
-            emitter: DiagnosticEmitter::new(color_mode),
-            diagnostics: vec![],
+            items: vec![],
         }
     }
 
@@ -27,23 +31,23 @@ impl Diagnostics {
     }
 
     pub fn errors(&self) -> &[Diagnostic] {
-        &self.diagnostics
+        &self.items
     }
 
     pub fn push(&mut self, diagnostic: Diagnostic) {
-        self.diagnostics.push(diagnostic);
+        self.items.push(diagnostic);
     }
 
     pub fn extend(&mut self, diagnostics: impl IntoIterator<Item = Diagnostic>) {
-        self.diagnostics.extend(diagnostics);
+        self.items.extend(diagnostics);
     }
 
     pub fn count(&self) -> usize {
-        self.diagnostics.len()
+        self.items.len()
     }
 
     pub fn error_count(&self) -> usize {
-        self.diagnostics
+        self.items
             .iter()
             .filter(|d| d.kind == DiagnosticKind::Error)
             .count()
@@ -51,11 +55,6 @@ impl Diagnostics {
 
     pub fn has_errors(&self) -> bool {
         self.error_count() > 0
-    }
-
-    pub fn emit(&self) {
-        self.emitter
-            .emit_many(&self.files, self.diagnostics.clone());
     }
 }
 

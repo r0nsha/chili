@@ -3,7 +3,7 @@ use chili_ast::pattern::{Pattern, SymbolPattern, UnpackPattern};
 use chili_error::SyntaxError;
 use chili_span::To;
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
         if is!(self, Mut | Ident(_)) {
             self.parse_symbol_pattern().map(Pattern::Symbol)

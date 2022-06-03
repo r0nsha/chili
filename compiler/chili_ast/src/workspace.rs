@@ -4,7 +4,7 @@ use crate::{
     ty::Ty,
 };
 use bitflags::bitflags;
-use chili_error::{emitter::ColorMode, Diagnostics};
+use chili_error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
 use chili_span::{FileId, Span};
 use common::build_options::BuildOptions;
 use std::{
@@ -22,9 +22,6 @@ pub struct Workspace {
 
     // Diagnostics are responsible for both keeping errors/warnings and for emitting them
     pub diagnostics: Diagnostics,
-
-    // The root source file's id. Resolved during ast generation
-    pub root_file_id: FileId,
 
     // The workspace's root directory
     pub root_dir: PathBuf,
@@ -56,13 +53,8 @@ pub struct Workspace {
 impl Workspace {
     pub fn new(build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
         Self {
-            diagnostics: Diagnostics::new(if build_options.no_color {
-                ColorMode::Never
-            } else {
-                ColorMode::Always
-            }),
+            diagnostics: Diagnostics::new(),
             build_options,
-            root_file_id: Default::default(),
             root_dir,
             std_dir,
             module_infos: Default::default(),
@@ -143,6 +135,17 @@ bitflags! {
 }
 
 impl Workspace {
+    pub fn emit_diagnostics(&self) {
+        emit_diagnostics(
+            &self.diagnostics,
+            if self.build_options.no_color {
+                ColorMode::Never
+            } else {
+                ColorMode::Always
+            },
+        );
+    }
+
     pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {
         self.module_infos.push(module_info);
         ModuleId(self.module_infos.len() - 1)

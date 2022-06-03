@@ -4,7 +4,7 @@ use chili_error::*;
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_literal(&mut self) -> DiagnosticResult<Expr> {
         let token = self.previous();
         let span = token.span;

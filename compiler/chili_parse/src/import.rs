@@ -13,7 +13,7 @@ use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
 use std::path::{Path, PathBuf};
 use ustr::{ustr, Ustr};
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_import(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
         let imports = self.parse_import_inner(visibility)?;
         imports.iter().for_each(|import| {
@@ -46,11 +46,11 @@ impl<'p> Parser<'p> {
 
                 if path_buf.with_extension(SOURCE_FILE_EXT).is_file() {
                     path_buf.set_extension(SOURCE_FILE_EXT);
-                    check_path_is_under_root_or_std(self.root_dir, &path_buf, id_token.span)?;
+                    self.check_path_is_under_root_or_std(&path_buf, id_token.span)?;
 
                     self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
                 } else if path_buf.is_dir() {
-                    check_path_is_under_root_or_std(self.root_dir, &path_buf, id_token.span)?;
+                    self.check_path_is_under_root_or_std(&path_buf, id_token.span)?;
 
                     let mut mod_path = path_buf.clone();
 
@@ -192,11 +192,12 @@ impl<'p> Parser<'p> {
         }
     }
 
-    fn get_module_name_from_path(&self, path: &Path) -> String {
+    pub(crate) fn get_module_name_from_path(&self, path: &Path) -> String {
         // TODO: this `std_root_dir` thing is very hacky. we should probably get
         // TODO: `std` from `root_dir`, and not do this ad-hoc.
-        let root_dir = self.root_dir.to_str().unwrap();
-        let std_root_dir = self.std_dir.parent().unwrap().to_str().unwrap();
+        let cache = self.cache.lock().unwrap();
+        let root_dir = cache.root_dir.to_str().unwrap();
+        let std_root_dir = cache.std_dir.parent().unwrap().to_str().unwrap();
 
         let path_str = path.to_str().unwrap().to_string();
 
@@ -211,6 +212,20 @@ impl<'p> Parser<'p> {
 
         path_str
     }
+
+    fn check_path_is_under_root_or_std(&self, path_buf: &Path, span: Span) -> DiagnosticResult<()> {
+        let cache = self.cache.lock().unwrap();
+
+        if path_buf.starts_with(&cache.root_dir)
+            || path_buf.starts_with(compiler_info::std_module_root_dir())
+        {
+            Ok(())
+        } else {
+            Err(Diagnostic::error()
+                .with_message("cannot use modules outside of the root module scope")
+                .with_label(Label::primary(span, "cannot use")))
+        }
+    }
 }
 
 fn module_not_found_err(path_buf: &Path, module: &str, span: Span) -> Diagnostic {
@@ -221,19 +236,4 @@ fn module_not_found_err(path_buf: &Path, module: &str, span: Span) -> Diagnostic
             "tried to resolve this path: {}",
             path_buf.display()
         ))
-}
-
-fn check_path_is_under_root_or_std(
-    root_path: &Path,
-    path_buf: &Path,
-    span: Span,
-) -> DiagnosticResult<()> {
-    if path_buf.starts_with(root_path) || path_buf.starts_with(compiler_info::std_module_root_dir())
-    {
-        Ok(())
-    } else {
-        Err(Diagnostic::error()
-            .with_message("cannot use modules outside of the root module scope")
-            .with_label(Label::primary(span, "cannot use")))
-    }
 }

@@ -8,7 +8,7 @@ use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
 use ustr::Ustr;
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_extern_block(&mut self) -> DiagnosticResult<Vec<Binding>> {
         let lib_name = self.parse_lib_name()?;
 

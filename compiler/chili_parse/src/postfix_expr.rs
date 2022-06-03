@@ -5,7 +5,7 @@ use chili_span::{EndPosition, To};
 use chili_token::TokenKind::*;
 use ustr::ustr;
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_postfix_expr(&mut self, mut expr: Expr) -> DiagnosticResult<Expr> {
         // named struct literal
         if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && eat!(self, OpenCurly) {

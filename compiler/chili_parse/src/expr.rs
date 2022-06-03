@@ -41,7 +41,7 @@ macro_rules! parse_binary {
     }};
 }
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
         self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(ustr("")))
     }
@@ -722,7 +722,7 @@ impl<'p> Parser<'p> {
 
         let absolute_path = if is_std_module_path(&path) {
             try_resolve_relative_path(
-                &compiler_info::std_module_root_dir().join(Path::new("std.chili")),
+                &compiler_info::std_module_root_file(),
                 RelativeTo::Cwd,
                 Some(token.span),
             )?
@@ -742,7 +742,12 @@ impl<'p> Parser<'p> {
             )?
         };
 
-        println!("parse and add: {:?}", absolute_path);
+        let module_name = self.get_module_name_from_path(&absolute_path);
+
+        let module_info =
+            ModuleInfo::new(ustr(&module_name), ustr(absolute_path.to_str().unwrap()));
+
+        spawn_parser(self.tx.clone(), Arc::clone(&self.cache), module_info);
 
         Ok(BuiltinKind::Import(absolute_path))
     }

@@ -2,7 +2,7 @@ use crate::*;
 use chili_ast::ast::{Ast, Visibility};
 use chili_error::SyntaxError;
 
-impl<'p> Parser<'p> {
+impl Parser {
     pub(crate) fn parse_top_level(&mut self, ast: &mut Ast) -> DiagnosticResult<()> {
         self.skip_trailing_semicolons();
 

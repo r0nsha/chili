@@ -9,14 +9,22 @@ mod postfix_expr;
 mod top_level;
 
 use bitflags::bitflags;
-use chili_ast::{ast::Ast, workspace::ModuleInfo};
-use chili_error::{DiagnosticResult, Diagnostics, SyntaxError};
+use chili_ast::{ast, workspace::ModuleInfo};
+use chili_error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::{EndPosition, Position, Span};
-use chili_token::{Token, TokenKind::*};
+use chili_token::{lexer::Lexer, Token, TokenKind::*};
 use std::{
     collections::HashSet,
+    fmt::Debug,
     path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        mpsc::Sender,
+        Arc, Mutex,
+    },
+    thread,
 };
+use unindent::unindent;
 use ustr::{ustr, Ustr};
 
 bitflags! {
@@ -86,61 +94,106 @@ pub(crate) use is;
 pub(crate) use parse_delimited_list;
 pub(crate) use require;
 
-pub struct Parser<'p> {
+pub fn spawn_parser(
+    tx: Sender<Box<ParserResult>>,
+    cache: Arc<Mutex<ParserCache>>,
+    module_info: ModuleInfo,
+) {
+    thread::spawn(move || {
+        Parser::new(tx, Arc::clone(&cache), module_info).parse();
+    });
+}
+
+pub struct Parser {
+    tx: Sender<Box<ParserResult>>,
+    pub cache: Arc<Mutex<ParserCache>>,
     tokens: Vec<Token>,
     current: usize,
     marked: Vec<usize>,
     module_info: ModuleInfo,
-    root_dir: &'p Path,
-    std_dir: &'p Path,
     current_dir: PathBuf,
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
     restrictions: Restrictions,
 }
 
-pub struct ParserResult {
-    pub ast: Ast,
-    pub imports: HashSet<ModuleInfo>,
+#[derive(Debug)]
+pub struct ParserCache {
+    pub root_dir: PathBuf,
+    pub std_dir: PathBuf,
+    pub diagnostics: Diagnostics,
+    pub parsed_modules: HashSet<ModuleInfo>,
+    pub total_lines: u32,
 }
 
-impl<'p> Parser<'p> {
+pub enum ParserResult {
+    NewAst(ast::Ast),
+    AlreadyParsed,
+    Failed(Diagnostic),
+}
+
+impl Parser {
     pub fn new(
-        tokens: Vec<Token>,
+        tx: Sender<Box<ParserResult>>,
+        cache: Arc<Mutex<ParserCache>>,
         module_info: ModuleInfo,
-        root_dir: &'p Path,
-        std_dir: &'p Path,
-        current_dir: PathBuf,
     ) -> Self {
         Self {
-            tokens,
+            tx,
+            cache,
+            tokens: vec![],
             current: 0,
             marked: Default::default(),
             module_info,
-            root_dir,
-            std_dir,
-            current_dir,
+            current_dir: module_info.dir().to_path_buf(),
             decl_name_frames: Default::default(),
             used_modules: Default::default(),
             restrictions: Restrictions::empty(),
         }
     }
 
-    pub fn parse(&mut self) -> DiagnosticResult<ParserResult> {
-        let mut ast = Ast::new(self.module_info);
-
-        while !self.is_end() {
-            self.parse_top_level(&mut ast)?;
-            self.skip_trailing_semicolons();
-        }
-
-        Ok(self.make_result(ast))
+    pub fn parse(mut self) {
+        let result = self.parse_inner();
+        self.tx.send(Box::new(result)).unwrap();
     }
 
-    fn make_result(&self, ast: Ast) -> ParserResult {
-        ParserResult {
-            ast,
-            imports: self.used_modules.clone(),
+    fn parse_inner(&mut self) -> ParserResult {
+        let (file_id, source) = {
+            let mut cache = self.cache.lock().unwrap();
+
+            if !cache.parsed_modules.insert(self.module_info) {
+                return ParserResult::AlreadyParsed;
+            } else {
+                let source = std::fs::read_to_string(self.module_info.file_path.as_str())
+                    .unwrap_or_else(|_| panic!("failed to read `{}`", self.module_info.file_path));
+
+                cache.total_lines += source.lines().count() as u32;
+
+                let file_id = cache
+                    .diagnostics
+                    .add_file(self.module_info.file_path.to_string(), unindent(&source));
+
+                (file_id, source)
+            }
+        };
+
+        match Lexer::new(file_id, &source).scan() {
+            Ok(tokens) => {
+                self.tokens = tokens;
+
+                let mut ast = ast::Ast::new(self.module_info);
+
+                while !self.is_end() {
+                    if let Err(diag) = self.parse_top_level(&mut ast) {
+                        return ParserResult::Failed(diag);
+                    }
+
+                    self.skip_trailing_semicolons();
+                }
+
+                ParserResult::NewAst(ast)
+            }
+            Err(diag) => ParserResult::Failed(diag),
         }
     }
 
