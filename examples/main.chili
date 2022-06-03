@@ -1,8 +1,8 @@
 use std.c.printf
 
-// let foo = @import("foo.chili")
+let foo = @import("foo.chili")
 
 let main = fn() {
-    // let answer = foo.bar();
-    printf("answer = %d\n".data, 5);
+    let answer = foo.bar();
+    printf("answer = %d\n".data, answer);
 }

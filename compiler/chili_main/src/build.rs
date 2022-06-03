@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use chili_ast::workspace::Workspace;
-use chili_astgen::{AstGenerationMode, AstGenerationStats};
+use chili_astgen::AstGenerationStats;
 use chili_error::diagnostic::Diagnostic;
 use colored::Colorize;
 use common::{build_options::BuildOptions, time, Stopwatch};
@@ -36,7 +36,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
 
     // Parse all source files into ast's
     let (mut asts, stats) = time! { workspace.build_options.verbose, "parse", {
-            match chili_astgen::generate_ast(&mut workspace, AstGenerationMode::SingleThreaded) {
+            match chili_astgen::generate_ast(&mut workspace) {
                 Some(result) => result,
                 None => {
                     workspace.diagnostics.emit();

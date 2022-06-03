@@ -1,6 +1,6 @@
 use crate::{
     const_value::ConstValue,
-    path::try_resolve_relative_path,
+    path::{try_resolve_relative_path, RelativeTo},
     pattern::Pattern,
     ty::*,
     workspace::{BindingInfoId, ModuleId, ModuleInfo},
@@ -326,7 +326,7 @@ impl LiteralKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BuiltinKind {
-    Import(Box<Expr>),
+    Import(PathBuf),
     LangItem(Ustr),
     SizeOf(Box<Expr>),
     AlignOf(Box<Expr>),
@@ -452,7 +452,11 @@ impl ExternLibraryPath {
 }
 
 impl ExternLibrary {
-    pub fn try_from_str(from: &str, relative_to: &str, span: Span) -> DiagnosticResult<Self> {
+    pub fn try_from_str(
+        from: &str,
+        relative_to: RelativeTo<'_>,
+        span: Span,
+    ) -> DiagnosticResult<Self> {
         const SYSTEM_PREFIX: &str = "system:";
 
         if from.starts_with(SYSTEM_PREFIX) {
@@ -460,15 +464,12 @@ impl ExternLibrary {
             let lib = split[1].to_string();
             Ok(ExternLibrary::System(lib))
         } else {
-            let relative_to = Path::new(relative_to).parent().unwrap().to_str().unwrap();
-
             let path = try_resolve_relative_path(Path::new(from), relative_to, Some(span))?;
-
             Ok(ExternLibrary::Path(ExternLibraryPath { path }))
         }
     }
 
-    pub fn from_str(from: &str, relative_to: &str) -> Option<Self> {
+    pub fn from_str(from: &str, relative_to: RelativeTo<'_>) -> Option<Self> {
         Self::try_from_str(from, relative_to, Span::unknown()).ok()
     }
 

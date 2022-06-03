@@ -282,10 +282,8 @@ impl PrintTree for ast::Expr {
             }
             ast::ExprKind::Builtin(builtin) => {
                 match builtin {
-                    ast::BuiltinKind::Import(expr) => {
-                        b.begin_child("@import".to_string());
-                        expr.print_tree(b, workspace, tycx);
-                        b.end_child();
+                    ast::BuiltinKind::Import(path) => {
+                        b.add_empty_child(format!("@import(\"{}\")", path.to_str().unwrap()));
                     }
                     ast::BuiltinKind::LangItem(item) => {
                         b.add_empty_child(format!("@lang_item(\"{}\")", item));

@@ -3,6 +3,8 @@ use std::vec;
 use crate::*;
 use chili_ast::{
     ast::{self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility},
+    compiler_info::{self, is_std_module_path, is_std_module_path_start},
+    path::{try_resolve_relative_path, RelativeTo},
     ty::StructTyKind,
 };
 use chili_error::{
@@ -585,11 +587,8 @@ impl<'p> Parser<'p> {
         require!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
-            "import" => BuiltinKind::Import(Box::new(self.parse_expr()?)),
-            "lang_item" => {
-                let item = require!(self, Str(_), "string")?;
-                BuiltinKind::LangItem(item.symbol())
-            }
+            "import" => self.parse_builtin_import()?,
+            "lang_item" => BuiltinKind::LangItem(require!(self, Str(_), "string")?.symbol()),
             "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
             "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
             "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {
@@ -728,6 +727,37 @@ impl<'p> Parser<'p> {
         };
 
         Ok(Expr::new(kind, span.to(self.previous_span())))
+    }
+
+    fn parse_builtin_import(&mut self) -> DiagnosticResult<BuiltinKind> {
+        let token = require!(self, Str(_), "string")?;
+        let path = token.symbol().as_str();
+
+        let absolute_path = if is_std_module_path(&path) {
+            try_resolve_relative_path(
+                &compiler_info::std_module_root_dir().join(Path::new("std.chili")),
+                RelativeTo::Cwd,
+                Some(token.span),
+            )?
+        } else if is_std_module_path_start(&path) {
+            let trimmed_path = path
+                .trim_start_matches(compiler_info::STD_PREFIX_FW)
+                .trim_start_matches(compiler_info::STD_PREFIX_BK);
+
+            let full_std_path = compiler_info::std_module_root_dir().join(trimmed_path);
+
+            try_resolve_relative_path(&full_std_path, RelativeTo::Cwd, Some(token.span))?
+        } else {
+            try_resolve_relative_path(
+                Path::new(path),
+                RelativeTo::Path(Path::new(&self.current_dir)),
+                Some(token.span),
+            )?
+        };
+
+        println!("parse and add to ast, multithreaded, yay!");
+
+        Ok(BuiltinKind::Import(absolute_path))
     }
 }
 

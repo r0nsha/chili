@@ -7,7 +7,9 @@ mod top_level;
 
 use chili_ast::{
     ast,
+    compiler_info::{self, is_std_module_path, is_std_module_path_start},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+    path::{try_resolve_relative_path, RelativeTo},
     pattern::{Pattern, SymbolPattern},
     ty::{FunctionTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
@@ -38,6 +40,7 @@ use env::{Env, Scope, ScopeKind};
 use std::{
     collections::{BTreeMap, HashMap},
     iter::repeat_with,
+    path::Path,
 };
 use top_level::{CallerInfo, CheckTopLevel};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
@@ -404,7 +407,7 @@ impl Check for ast::Binding {
             // Collect extern library to be linked later
             let lib = ast::ExternLibrary::try_from_str(
                 &lib,
-                &env.module_info().file_path,
+                RelativeTo::Path(env.module_info().dir()),
                 self.pattern.span(),
             )?;
 
@@ -777,8 +780,11 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::Import(expr) => todo!("import"),
+                ast::BuiltinKind::Import(path) => {
+                    todo!("import")
+                }
                 ast::BuiltinKind::LangItem(item) => {
+                    // TODO: Remove this builtin?
                     let ty = match item.as_str() {
                         builtin::SYM_UNIT => sess.tycx.common_types.unit,
                         builtin::SYM_BOOL => sess.tycx.common_types.bool,

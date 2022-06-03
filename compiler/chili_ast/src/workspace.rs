@@ -10,7 +10,7 @@ use common::build_options::BuildOptions;
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use ustr::{ustr, Ustr, UstrMap};
 
@@ -217,6 +217,10 @@ pub struct ModuleInfo {
 impl ModuleInfo {
     pub fn new(name: Ustr, file_path: Ustr) -> Self {
         Self { name, file_path }
+    }
+
+    pub fn dir(&self) -> &Path {
+        Path::new(self.file_path.as_str()).parent().unwrap()
     }
 }
 

@@ -1,9 +1,9 @@
 use crate::target::TargetPlatform;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
-    pub source_file: String,
+    pub source_file: PathBuf,
     pub target_platform: TargetPlatform,
     pub build_mode: BuildMode,
     pub run: bool,

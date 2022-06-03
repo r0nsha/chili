@@ -4,6 +4,16 @@ use std::path::PathBuf;
 use ustr::ustr;
 
 pub const STD: &str = "std";
+pub const STD_PREFIX_FW: &str = "std/";
+pub const STD_PREFIX_BK: &str = "std\\";
+
+pub fn is_std_module_path(path: &str) -> bool {
+    path == STD
+}
+
+pub fn is_std_module_path_start(path: &str) -> bool {
+    path.starts_with(STD_PREFIX_FW) || path.starts_with(STD_PREFIX_BK)
+}
 
 pub fn std_module_root_dir() -> PathBuf {
     // TODO: maybe this needs to come from a configurable path?

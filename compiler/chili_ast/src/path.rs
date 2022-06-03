@@ -6,15 +6,19 @@ use chili_span::Span;
 use path_absolutize::Absolutize;
 use std::path::{Path, PathBuf};
 
+pub enum RelativeTo<'a> {
+    Path(&'a Path),
+    Cwd,
+}
+
 pub fn try_resolve_relative_path<'a>(
     path: &'a Path,
-    relative_to: &'a str,
+    relative_to: RelativeTo,
     span: Option<Span>,
 ) -> DiagnosticResult<PathBuf> {
-    let absolute_path = if relative_to.is_empty() {
-        path.absolutize().unwrap()
-    } else {
-        path.absolutize_from(Path::new(relative_to)).unwrap()
+    let absolute_path = match relative_to {
+        RelativeTo::Path(relative_to) => path.absolutize_from(relative_to).unwrap(),
+        RelativeTo::Cwd => path.absolutize().unwrap(),
     };
 
     if absolute_path.exists() {

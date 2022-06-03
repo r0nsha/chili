@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::{
     interp::{Env, InterpSess},
     vm::{
@@ -10,6 +12,7 @@ use crate::{
 use chili_ast::{
     ast,
     const_value::ConstValue,
+    path::RelativeTo,
     pattern::Pattern,
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Ty, TyKind, UintTy},
     workspace::BindingInfoId,
@@ -497,15 +500,12 @@ impl Lower for ast::FunctionSig {
             ast::FunctionKind::Extern { lib } => {
                 let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
-                let module_path = sess
-                    .workspace
-                    .get_module_info(sess.module_id())
-                    .unwrap()
-                    .file_path;
+                let module_info = sess.workspace.get_module_info(sess.module_id()).unwrap();
 
-                let lib_path = ast::ExternLibrary::from_str(&lib, &module_path)
-                    .unwrap()
-                    .path();
+                let lib_path =
+                    ast::ExternLibrary::from_str(&lib, RelativeTo::Path(module_info.dir()))
+                        .unwrap()
+                        .path();
 
                 let extern_func = ExternFunction {
                     lib_path: ustr(&lib_path),

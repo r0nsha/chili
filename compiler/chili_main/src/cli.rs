@@ -5,7 +5,10 @@ use common::{
     build_options::{BuildMode, BuildOptions},
     target::TargetPlatform,
 };
-use std::{env, path::Path};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -76,7 +79,7 @@ pub fn start_cli() {
     match get_file_path(&args.input) {
         Ok(file) => {
             let build_options = BuildOptions {
-                source_file: file.to_string(),
+                source_file: PathBuf::from(file),
                 target_platform: match args.target {
                     Target::Current => get_current_target_platform(),
                     Target::Windows => TargetPlatform::WindowsAmd64,
