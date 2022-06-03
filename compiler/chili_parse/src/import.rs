@@ -38,7 +38,7 @@ impl<'p> Parser<'p> {
                 self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
             }
             _ => {
-                let mut path_buf = PathBuf::from(&self.current_dir);
+                let mut path_buf = self.current_dir.clone();
                 path_buf.push(name);
 
                 let module = ustr(&self.get_module_name_from_path(&path_buf));

@@ -755,7 +755,7 @@ impl<'p> Parser<'p> {
             )?
         };
 
-        println!("parse and add to ast, multithreaded, yay!");
+        println!("parse and add: {:?}", absolute_path);
 
         Ok(BuiltinKind::Import(absolute_path))
     }

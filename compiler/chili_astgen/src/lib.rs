@@ -96,27 +96,12 @@ impl<'a> AstGenerator<'a> {
             }
         };
 
-        // println!(
-        //     "{:?}",
-        //     tokens
-        //         .iter()
-        //         .map(|t| t.kind.lexeme())
-        //         .collect::<Vec<&str>>()
-        // );
-
-        let current_dir = PathBuf::from(module_info.file_path.as_str())
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-
         let mut parse_result = Parser::new(
             tokens,
             module_info,
             &self.workspace.root_dir,
             &self.workspace.std_dir,
-            current_dir,
+            module_info.dir().to_path_buf(),
             &mut self.workspace.diagnostics,
         )
         .parse();

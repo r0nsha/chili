@@ -13,7 +13,10 @@ use chili_ast::{ast::Ast, workspace::ModuleInfo};
 use chili_error::{DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::{EndPosition, Position, Span};
 use chili_token::{Token, TokenKind::*};
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 use ustr::{ustr, Ustr};
 
 bitflags! {
@@ -90,7 +93,7 @@ pub struct Parser<'p> {
     module_info: ModuleInfo,
     root_dir: &'p Path,
     std_dir: &'p Path,
-    current_dir: String,
+    current_dir: PathBuf,
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
     restrictions: Restrictions,
@@ -108,7 +111,7 @@ impl<'p> Parser<'p> {
         module_info: ModuleInfo,
         root_dir: &'p Path,
         std_dir: &'p Path,
-        current_dir: String,
+        current_dir: PathBuf,
         diagnostics: &'p mut Diagnostics,
     ) -> Self {
         Self {
