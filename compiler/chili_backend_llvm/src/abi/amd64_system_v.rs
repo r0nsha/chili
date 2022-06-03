@@ -24,6 +24,7 @@ pub fn get_return<'ctx>(info: AbiInfo<'ctx>, ret_ty: BasicTypeEnum<'ctx>) -> Abi
     amd64_sysv_type(info, ret_ty, Amd64TypeAttributeKind::StructRect)
 }
 
+#[allow(unused)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum RegClass {
     NoClass,
@@ -59,6 +60,7 @@ impl RegClass {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Amd64TypeAttributeKind {
     None,

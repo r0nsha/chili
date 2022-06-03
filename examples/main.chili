@@ -1,7 +1,8 @@
 use std.c.printf
 
-let foo = @import("foo.chili")
+// let foo = @import("foo.chili")
 
 let main = fn() {
-    printf("Vector2(%d, %d)\n".data, x, y);
+    // let answer = foo.bar();
+    printf("answer = %d\n".data, 5);
 }

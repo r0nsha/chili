@@ -25,6 +25,5 @@ fn main() {
     };
 
     dir::copy(lib_dir, target_dir, &options).unwrap();
-
     println!("cargo:rerun-if-changed=../../lib");
 }

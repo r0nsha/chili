@@ -1,5 +1,3 @@
-# mode = "${$1,,}"
-
 if test $1 = "release" 
 then
     cargo build --release

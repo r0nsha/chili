@@ -7,7 +7,6 @@ use chili_error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult,
 };
-use chili_infer::display::DisplayTy;
 use chili_span::Span;
 use ustr::Ustr;
 
