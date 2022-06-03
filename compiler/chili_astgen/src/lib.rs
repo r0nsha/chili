@@ -96,23 +96,25 @@ impl<'a> AstGenerator<'a> {
             }
         };
 
-        let mut parse_result = Parser::new(
+        let mut parser = Parser::new(
             tokens,
             module_info,
             &self.workspace.root_dir,
             &self.workspace.std_dir,
             module_info.dir().to_path_buf(),
-            &mut self.workspace.diagnostics,
-        )
-        .parse();
+        );
+        match parser.parse() {
+            Ok(mut parse_result) => {
+                // implicitly add `std` to every file we parse
+                add_std_import(&mut parse_result.ast, &mut parse_result.imports);
 
-        // implicitly add `std` to every file we parse
-        add_std_import(&mut parse_result.ast, &mut parse_result.imports);
+                for u in parse_result.imports.iter() {
+                    self.add_source_file(asts, *u, false);
+                }
 
-        for u in parse_result.imports.iter() {
-            self.add_source_file(asts, *u, false);
+                asts.push(parse_result.ast);
+            }
+            Err(diag) => self.workspace.diagnostics.push(diag),
         }
-
-        asts.push(parse_result.ast);
     }
 }

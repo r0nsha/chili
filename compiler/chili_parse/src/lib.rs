@@ -97,7 +97,6 @@ pub struct Parser<'p> {
     decl_name_frames: Vec<Ustr>,
     used_modules: HashSet<ModuleInfo>,
     restrictions: Restrictions,
-    diagnostics: &'p mut Diagnostics,
 }
 
 pub struct ParserResult {
@@ -112,7 +111,6 @@ impl<'p> Parser<'p> {
         root_dir: &'p Path,
         std_dir: &'p Path,
         current_dir: PathBuf,
-        diagnostics: &'p mut Diagnostics,
     ) -> Self {
         Self {
             tokens,
@@ -125,22 +123,18 @@ impl<'p> Parser<'p> {
             decl_name_frames: Default::default(),
             used_modules: Default::default(),
             restrictions: Restrictions::empty(),
-            diagnostics,
         }
     }
 
-    pub fn parse(&mut self) -> ParserResult {
+    pub fn parse(&mut self) -> DiagnosticResult<ParserResult> {
         let mut ast = Ast::new(self.module_info);
 
         while !self.is_end() {
-            if let Err(diag) = self.parse_top_level(&mut ast) {
-                self.diagnostics.push(diag);
-                return self.make_result(ast);
-            }
+            self.parse_top_level(&mut ast)?;
             self.skip_trailing_semicolons();
         }
 
-        self.make_result(ast)
+        Ok(self.make_result(ast))
     }
 
     fn make_result(&self, ast: Ast) -> ParserResult {
@@ -246,18 +240,5 @@ impl<'p> Parser<'p> {
         };
 
         after_span.with_start(start_pos).with_end(end_pos)
-    }
-}
-
-pub(crate) trait OrRecover<T> {
-    fn or_recover(self, parser: &mut Parser) -> Result<T, ()>;
-}
-
-impl<T> OrRecover<T> for DiagnosticResult<T> {
-    fn or_recover(self, parser: &mut Parser) -> Result<T, ()> {
-        self.map_err(|diag| {
-            parser.diagnostics.push(diag);
-            parser.try_recover_from_err();
-        })
     }
 }

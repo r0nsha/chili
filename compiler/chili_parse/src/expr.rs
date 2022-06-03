@@ -50,20 +50,7 @@ impl<'p> Parser<'p> {
         &mut self,
         restrictions: Restrictions,
     ) -> DiagnosticResult<Expr> {
-        self.with_res(restrictions, |parser| {
-            let start_span = parser.span();
-            let is_stmt = parser.restrictions.contains(Restrictions::STMT_EXPR);
-            let result = parser.parse_expr_inner(ustr(""));
-            if is_stmt {
-                let end_span = parser.previous_span();
-                let expr = result
-                    .or_recover(parser)
-                    .unwrap_or_else(|_| Expr::new(ExprKind::Error, start_span.to(end_span)));
-                Ok(expr)
-            } else {
-                result
-            }
-        })
+        self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
     }
 
     pub(crate) fn parse_decl_expr(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
