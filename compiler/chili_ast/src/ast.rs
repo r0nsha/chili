@@ -1,5 +1,5 @@
 use crate::{
-    const_value::ConstValue,
+    const_value::{ConstStruct, ConstValue},
     path::{try_resolve_relative_path, RelativeTo},
     pattern::Pattern,
     ty::*,
@@ -42,7 +42,14 @@ impl Ast {
 pub struct TypedAst {
     pub bindings: Vec<Binding>,
     pub imports: Vec<Import>,
+    // TODO: Remove this mapping in favor of the current 'module as struct value' thing.
     ids_to_decls: HashMap<BindingInfoId, AstDeclIndex>,
+    pub modules: HashMap<ModuleId, ModuleStruct>,
+}
+
+pub struct ModuleStruct {
+    pub ty: Ty,
+    pub const_value: ConstStruct,
 }
 
 enum AstDeclIndex {

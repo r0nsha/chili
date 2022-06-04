@@ -56,9 +56,9 @@ pub fn check(
     substitute(
         &mut sess.workspace.diagnostics,
         &mut sess.tycx,
-        &sess.typed_ast,
+        &sess.new_typed_ast,
     );
-    Ok((sess.typed_ast, sess.tycx))
+    Ok((sess.new_typed_ast, sess.tycx))
 }
 
 pub(crate) struct CheckSess<'s> {
@@ -73,7 +73,7 @@ pub(crate) struct CheckSess<'s> {
     pub(crate) old_asts: &'s Vec<ast::Ast>,
 
     // The new typed ast being generated
-    pub(crate) typed_ast: ast::TypedAst,
+    pub(crate) new_typed_ast: ast::TypedAst,
 
     // Information that's relevant for the global context
     pub(crate) global_scopes: HashMap<ModuleId, Scope>,
@@ -106,7 +106,7 @@ impl<'s> CheckSess<'s> {
             interp: Interp::new(),
             tycx: TyCtx::default(),
             old_asts,
-            typed_ast: ast::TypedAst::default(),
+            new_typed_ast: ast::TypedAst::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -132,19 +132,6 @@ impl<'s> CheckSess<'s> {
                 if let None = self.get_global_symbol(module_id, pat.symbol) {
                     binding.clone().check_top_level(self, module_id)?;
                 }
-                // match &binding.pattern {
-                //     Pattern::Single(pat) => {
-                //         if let None = self.get_global_symbol(module_id, pat.symbol) {
-                //             binding.clone().check_top_level(self, module_id)?;
-                //         }
-                //     }
-                //     Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
-                //         let span = binding.pattern.span();
-                //         return Err(Diagnostic::error()
-                //             .with_message("this pattern is not supported yet for global bindings")
-                //             .with_label(Label::primary(span, "not supported yet")));
-                //     }
-                // };
             }
 
             for import in ast.imports.iter() {
@@ -783,7 +770,8 @@ impl Check for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::BuiltinKind::Import(path) => {
-                    check_import(sess, env, self.span);
+                    let res = check_import(sess, env, path)?;
+                    dbg!(res);
                     todo!()
                 }
                 ast::BuiltinKind::LangItem(item) => {
@@ -2439,8 +2427,8 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
 }
 
 fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
-    let mut interp_sess = sess
-        .interp
-        .create_session(sess.workspace, &sess.tycx, &sess.typed_ast);
+    let mut interp_sess =
+        sess.interp
+            .create_session(sess.workspace, &sess.tycx, &sess.new_typed_ast);
     interp_sess.eval(expr, module_id)
 }

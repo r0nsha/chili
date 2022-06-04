@@ -94,9 +94,11 @@ impl_value! {
     Str(Ustr),
     Array(ConstArray),
     Tuple(Vec<ConstElement>),
-    Struct(BTreeMap<Ustr, ConstElement>),
+    Struct(ConstStruct),
     Function(ConstFunction),
 }
+
+pub type ConstStruct = BTreeMap<Ustr, ConstElement>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstElement {
