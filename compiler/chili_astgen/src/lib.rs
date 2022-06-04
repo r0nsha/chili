@@ -5,14 +5,10 @@ use chili_ast::{
     path::{try_resolve_relative_path, RelativeTo},
     workspace::{ModuleInfo, Workspace},
 };
-use chili_parse::{spawn_parser, Parser, ParserCache, ParserResult};
+use chili_parse::{spawn_parser, ParserCache, ParserResult};
 use std::{
     collections::HashSet,
-    sync::{
-        mpsc::{channel, Sender},
-        Arc, Mutex,
-    },
-    thread,
+    sync::{mpsc::channel, Arc, Mutex},
 };
 use ustr::ustr;
 
