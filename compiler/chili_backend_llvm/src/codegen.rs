@@ -198,10 +198,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_import(&mut self, import: &ast::Import) -> CodegenDecl<'ctx> {
-        match import.target_binding_info_id {
-            Some(id) => self.gen_top_level_binding(id),
-            None => CodegenDecl::Module(import.target_module_id),
-        }
+        todo!()
+        // match import.target_binding_info_id {
+        //     Some(id) => self.gen_top_level_binding(id),
+        //     None => CodegenDecl::Module(import.target_module_id),
+        // }
     }
 
     pub(super) fn declare_global(
@@ -303,7 +304,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         ty: &TyKind,
         expr: &Option<ast::Expr>,
     ) {
-        if ty.is_type() || ty.is_module() {
+        if ty.is_type() {
             return;
         }
 
@@ -582,7 +583,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ast::ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::Import(_) => panic!("unexpected import builtin"),
+                ast::BuiltinKind::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
                 ast::BuiltinKind::LangItem(item) => {
                     panic!("unexpected lang_item builtin: {}", item)
                 }

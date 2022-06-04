@@ -426,10 +426,18 @@ impl Check for ast::Binding {
             None
         };
 
-        // global immutable bindings must resolve to a const value
-        if env.scope_level().is_global() // if this is a top level binding
-            && !self.pattern.iter().any(|p|p.is_mutable) // if the binding is immutable (no pattern is mutable)
-            && const_value.is_none() // and doesn't resolve to a const value
+        let ty_kind = self.ty.normalize(&sess.tycx);
+
+        let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
+        let is_any_pattern_mut = self.pattern.iter().any(|p| p.is_mutable);
+
+        // Global immutable bindings must resolve to a const value, unless:
+        // - It is of type `type` or `module`
+        // - It is an extern binding
+        if env.scope_level().is_global()
+            && !is_type_or_module
+            && !is_any_pattern_mut
+            && const_value.is_none()
             && self.lib_name.is_none()
         {
             return Err(Diagnostic::error()
@@ -440,23 +448,17 @@ impl Check for ast::Binding {
                 })));
         }
 
-        // * don't allow types and modules to be bounded to mutable bindings
-        let ty_kind = self.ty.normalize(&sess.tycx);
-        if ty_kind.is_type() || ty_kind.is_module() {
-            match &self.pattern {
-                Pattern::Symbol(pat) => {
-                    if pat.is_mutable {
-                        sess.workspace.diagnostics.push(
-                            Diagnostic::error()
-                                .with_message(
-                                    "variable of type `type` or `module` must be immutable",
-                                )
-                                .with_label(Label::primary(pat.span, "variable is mutable"))
-                                .with_note("try removing the `mut` from the declaration"),
-                        );
-                    }
+        // Bindings of type `type` and `module` cannot be assigned to mutable bindings
+        if is_type_or_module {
+            for pat in self.pattern.iter() {
+                if pat.is_mutable {
+                    sess.workspace.diagnostics.push(
+                        Diagnostic::error()
+                            .with_message("variable of type `type` or `module` must be immutable")
+                            .with_label(Label::primary(pat.span, "variable is mutable"))
+                            .with_note("try removing the `mut` from the declaration"),
+                    );
                 }
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
             }
         }
 
