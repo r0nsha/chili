@@ -56,10 +56,10 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn bound_builtin(&mut self, kind: TyKind) -> Ty {
+    pub fn bound_maybe_spanned(&mut self, kind: TyKind, span: Option<Span>) -> Ty {
         match kind {
             TyKind::Var(ty) | TyKind::Infer(ty, _) => ty,
-            _ => self.insert(InferenceValue::Bound(kind), None),
+            _ => self.insert(InferenceValue::Bound(kind), span),
         }
     }
 
