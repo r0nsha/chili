@@ -17,6 +17,11 @@ pub(crate) fn check_import(sess: &mut CheckSess, import_path: &Path, span: Span)
 }
 
 pub(crate) fn check_ast(sess: &mut CheckSess, ast: &ast::Ast, span: Option<Span>) -> CheckResult {
+    // TODO: Module Type should be Struct (Kind: Module)
+    // TODO: Before checking a module, create a type, and a const struct ({a: Value::Binding(id), ...})
+    // TODO: Need to add Visibility to StructTypeField
+    // TODO: When accessing or destructing a struct field, where the kind is `Module` - Check its visibility - instead of in `check_top_level_binding`
+
     if let Some(module_ty) = sess.checked_modules.get(&ast.module_id) {
         Ok(Res::new(*module_ty))
     } else {
