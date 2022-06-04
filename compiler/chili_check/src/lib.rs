@@ -1302,35 +1302,50 @@ impl Check for ast::Expr {
                 let kind = res.ty.normalize(&sess.tycx);
                 let kind_deref = kind.maybe_deref_once();
 
-                if let Some(value) = index_res.const_value {
-                    let value = value.into_int();
+                let const_value = if let Some(ConstValue::Int(const_index)) = index_res.const_value
+                {
+                    // compile-time array bounds check
                     if let TyKind::Array(_, size) = kind_deref {
-                        if value < 0 || value >= size as _ {
+                        if const_index < 0 || const_index >= size as _ {
                             let msg = format!(
                                 "index out of array bounds - expected 0 to {}, but found {}",
                                 size - 1,
-                                value
+                                const_index
                             );
                             return Err(Diagnostic::error().with_message(msg).with_label(
                                 Label::primary(sub.index.span, "index out of bounds"),
                             ));
                         }
                     }
-                }
+
+                    if let Some(ConstValue::Array(const_array)) = &res.const_value {
+                        Some(const_array.values[const_index as usize].clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
 
                 match kind_deref {
                     TyKind::Array(inner, ..)
                     | TyKind::Slice(inner, ..)
                     | TyKind::MultiPointer(inner, ..) => {
                         let ty = sess.tycx.bound(*inner, self.span);
-                        Ok(Res::new(ty))
+
+                        if let Some(const_value) = &const_value {
+                            *self = ast::Expr::typed(
+                                ast::ExprKind::ConstValue(const_value.clone()),
+                                ty,
+                                self.span,
+                            );
+                        }
+
+                        Ok(Res::new_maybe_const(ty, const_value))
                     }
                     _ => Err(Diagnostic::error()
                         .with_message(format!("cannot index type `{}`", kind.display(&sess.tycx)))
-                        .with_label(Label::primary(sub.expr.span, "cannot index"))
-                        .with_note(
-                            "this error will be fixed when ad-hoc polymorphism is implemented",
-                        )),
+                        .with_label(Label::primary(sub.expr.span, "cannot index"))),
                 }
             }
             ast::ExprKind::Slice(slice) => {
