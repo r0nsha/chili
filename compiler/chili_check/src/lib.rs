@@ -3,6 +3,7 @@ mod builtin;
 mod const_fold;
 mod defer;
 mod env;
+mod import;
 mod top_level;
 
 use chili_ast::{
@@ -37,6 +38,7 @@ use common::{
 };
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
+use import::check_import;
 use std::{
     collections::{BTreeMap, HashMap},
     iter::repeat_with,
@@ -781,7 +783,8 @@ impl Check for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::BuiltinKind::Import(path) => {
-                    todo!("import")
+                    check_import(sess, env, self.span);
+                    todo!()
                 }
                 ast::BuiltinKind::LangItem(item) => {
                     // TODO: Remove this builtin?
@@ -1438,7 +1441,19 @@ impl Check for ast::Expr {
                         match member_tuple_index {
                             Ok(index) => match elements.get(index) {
                                 Some(field_ty) => {
-                                    Ok(Res::new(sess.tycx.bound(field_ty.clone(), self.span)))
+                                    let const_value =
+                                        if let Some(ConstValue::Tuple(const_elements)) =
+                                            &res.const_value
+                                        {
+                                            Some(const_elements[index].value.clone())
+                                        } else {
+                                            None
+                                        };
+
+                                    Ok(Res::new_maybe_const(
+                                        sess.tycx.bound(field_ty.clone(), self.span),
+                                        const_value,
+                                    ))
                                 }
                                 None => Err(TypeError::tuple_field_out_of_bounds(
                                     access.expr.span,
@@ -1457,7 +1472,18 @@ impl Check for ast::Expr {
                     ty @ TyKind::Struct(st) => {
                         match st.fields.iter().find(|f| f.symbol == access.member) {
                             Some(field) => {
-                                Ok(Res::new(sess.tycx.bound(field.ty.clone(), self.span)))
+                                let const_value = if let Some(ConstValue::Struct(const_fields)) =
+                                    &res.const_value
+                                {
+                                    Some(const_fields[&field.symbol].value.clone())
+                                } else {
+                                    None
+                                };
+
+                                Ok(Res::new_maybe_const(
+                                    sess.tycx.bound(field.ty.clone(), self.span),
+                                    const_value,
+                                ))
                             }
                             None => Err(TypeError::invalid_struct_field(
                                 access.expr.span,
@@ -1466,9 +1492,22 @@ impl Check for ast::Expr {
                             )),
                         }
                     }
-                    ty @ TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
-                        match partial.get(&access.member) {
-                            Some(ty) => Ok(Res::new(sess.tycx.bound(ty.clone(), self.span))),
+                    ty @ TyKind::Infer(_, InferTy::PartialStruct(partial_struct)) => {
+                        match partial_struct.get(&access.member) {
+                            Some(field_ty) => {
+                                let const_value = if let Some(ConstValue::Struct(const_fields)) =
+                                    &res.const_value
+                                {
+                                    Some(const_fields[&access.member].value.clone())
+                                } else {
+                                    None
+                                };
+
+                                Ok(Res::new_maybe_const(
+                                    sess.tycx.bound(field_ty.clone(), self.span),
+                                    const_value,
+                                ))
+                            }
                             None => Err(TypeError::invalid_struct_field(
                                 access.expr.span,
                                 access.member,
@@ -1480,7 +1519,16 @@ impl Check for ast::Expr {
                         Res::new_const(sess.tycx.common_types.uint, ConstValue::Int(*size as _)),
                     ),
                     TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        Ok(Res::new(sess.tycx.common_types.uint))
+                        let const_value = if let Some(ConstValue::Str(s)) = &res.const_value {
+                            Some(ConstValue::Uint(s.len() as _))
+                        } else {
+                            None
+                        };
+
+                        Ok(Res::new_maybe_const(
+                            sess.tycx.common_types.uint,
+                            const_value,
+                        ))
                     }
                     TyKind::Slice(inner, is_mutable)
                         if access.member.as_str() == BUILTIN_FIELD_DATA =>
