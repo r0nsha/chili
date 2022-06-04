@@ -8,9 +8,8 @@ mod top_level;
 
 use chili_ast::{
     ast,
-    compiler_info::{self, is_std_module_path, is_std_module_path_start},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    path::{try_resolve_relative_path, RelativeTo},
+    path::RelativeTo,
     pattern::{Pattern, SymbolPattern},
     ty::{FunctionTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
@@ -40,9 +39,8 @@ use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
 use import::check_import;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     iter::repeat_with,
-    path::Path,
 };
 use top_level::{CallerInfo, CheckTopLevel};
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
@@ -74,6 +72,7 @@ pub(crate) struct CheckSess<'s> {
 
     // The new typed ast being generated
     pub(crate) new_typed_ast: ast::TypedAst,
+    pub(crate) checked_modules: HashSet<ModuleId>,
 
     // Information that's relevant for the global context
     pub(crate) global_scopes: HashMap<ModuleId, Scope>,
@@ -107,6 +106,7 @@ impl<'s> CheckSess<'s> {
             tycx: TyCtx::default(),
             old_asts,
             new_typed_ast: ast::TypedAst::default(),
+            checked_modules: HashSet::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -121,15 +121,10 @@ impl<'s> CheckSess<'s> {
         for ast in self.old_asts.iter() {
             let module_id = ast.module_id;
 
-            for expr in ast.run_exprs.iter() {
-                let mut expr = expr.clone();
-                self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
-                interp_expr(&expr, self, module_id).unwrap();
-            }
-
             for binding in ast.bindings.iter() {
-                let pat = binding.pattern.iter().next().unwrap();
-                if let None = self.get_global_symbol(module_id, pat.symbol) {
+                let first_pat = binding.pattern.iter().next().unwrap();
+
+                if let None = self.get_global_symbol(module_id, first_pat.symbol) {
                     binding.clone().check_top_level(self, module_id)?;
                 }
             }
@@ -138,6 +133,12 @@ impl<'s> CheckSess<'s> {
                 if let None = self.get_global_symbol(module_id, import.alias) {
                     import.clone().check_top_level(self, module_id)?;
                 }
+            }
+
+            for expr in ast.run_exprs.iter() {
+                let mut expr = expr.clone();
+                self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
+                interp_expr(&expr, self, module_id).unwrap();
             }
         }
 
@@ -769,11 +770,7 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::Import(path) => {
-                    let res = check_import(sess, env, path)?;
-                    dbg!(res);
-                    todo!()
-                }
+                ast::BuiltinKind::Import(path) => check_import(sess, env, path, self.span),
                 ast::BuiltinKind::LangItem(item) => {
                     // TODO: Remove this builtin?
                     let ty = match item.as_str() {

@@ -189,6 +189,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                 }
                 TyKind::Module(module_id) => {
                     // TODO: check that the symbols in this PartialStruct actually exist in this module
+                    todo!("check that the symbols in this PartialStruct actually exist in this module");
                     tycx.bind_ty(var, TyKind::Module(module_id));
                     Ok(())
                 }

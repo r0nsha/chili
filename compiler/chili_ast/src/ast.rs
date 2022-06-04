@@ -44,12 +44,6 @@ pub struct TypedAst {
     pub imports: Vec<Import>,
     // TODO: Remove this mapping in favor of the current 'module as struct value' thing.
     ids_to_decls: HashMap<BindingInfoId, AstDeclIndex>,
-    pub modules: HashMap<ModuleId, ModuleStruct>,
-}
-
-pub struct ModuleStruct {
-    pub ty: Ty,
-    pub const_value: ConstStruct,
 }
 
 enum AstDeclIndex {

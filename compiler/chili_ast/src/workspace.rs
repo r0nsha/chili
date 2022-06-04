@@ -5,7 +5,7 @@ use crate::{
 };
 use bitflags::bitflags;
 use chili_error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
-use chili_span::{FileId, Span};
+use chili_span::Span;
 use common::build_options::BuildOptions;
 use std::{
     cmp::Ordering,
