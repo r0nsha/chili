@@ -7,12 +7,12 @@ use crate::{
 use chili_ast::{
     ast,
     const_value::ConstValue,
-    pattern::{Pattern, SymbolPattern},
+    pattern::{Pattern, SymbolPattern, UnpackPattern},
     ty::{PartialStructTy, Ty, TyKind},
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_infer::{display::OrReportErr, unify::UnifyTy};
+use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -111,7 +111,7 @@ impl<'s> CheckSess<'s> {
         ty: Ty,
         const_value: Option<ConstValue>,
         kind: ast::BindingKind,
-    ) -> DiagnosticResult<BindingInfoId> {
+    ) -> DiagnosticResult<()> {
         pattern.binding_info_id = self.bind_symbol(
             env,
             pattern.alias.unwrap_or(pattern.symbol),
@@ -127,7 +127,7 @@ impl<'s> CheckSess<'s> {
             pattern.span,
         )?;
 
-        Ok(pattern.binding_info_id)
+        Ok(())
     }
 
     pub(crate) fn bind_pattern(
@@ -141,28 +141,90 @@ impl<'s> CheckSess<'s> {
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         match pattern {
-            Pattern::Symbol(pat) => {
-                self.bind_symbol_pattern(env, pat, visibility, ty, const_value, kind)?;
+            Pattern::Symbol(pattern) => {
+                self.bind_symbol_pattern(env, pattern, visibility, ty, const_value, kind)
             }
-            Pattern::StructUnpack(pat) => {
+            Pattern::StructUnpack(pattern) => self.bind_struct_unpack_pattern(
+                env,
+                pattern,
+                visibility,
+                ty,
+                const_value,
+                kind,
+                ty_origin_span,
+            ),
+            Pattern::TupleUnpack(pattern) => self.bind_tuple_unpack_pattern(
+                env,
+                pattern,
+                visibility,
+                ty,
+                const_value,
+                kind,
+                ty_origin_span,
+            ),
+        }
+    }
+
+    fn bind_struct_unpack_pattern(
+        &mut self,
+        env: &mut Env,
+        pattern: &mut UnpackPattern,
+        visibility: ast::Visibility,
+        ty: Ty,
+        const_value: Option<ConstValue>,
+        kind: ast::BindingKind,
+        ty_origin_span: Span,
+    ) -> DiagnosticResult<()> {
+        match ty.normalize(&self.tycx) {
+            TyKind::Module(module_id) => {
+                for pat in pattern.symbols.iter_mut() {
+                    // let (res, id) = sess.check_top_level_symbol(
+                    //     CallerInfo {
+                    //         module_id: env.module_id(),
+                    //         span: self.span,
+                    //     },
+                    //     *module_id,
+                    //     access.member,
+                    // )?;
+                    // sess.workspace.increment_binding_use(id);
+                    // Ok(res)
+                    // let ty = self
+                    //     .tycx
+                    //     .bound(partial_struct[&pat.symbol].clone(), pat.span);
+
+                    // let field_const_value = if pat.is_mutable {
+                    //     None
+                    // } else {
+                    //     const_value
+                    //         .as_ref()
+                    //         .map(|v| v.as_struct().get(&pat.symbol).unwrap().clone().value)
+                    // };
+
+                    // self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
+                }
+            }
+            _ => {
                 let partial_struct = PartialStructTy(FromIterator::from_iter(
-                    pat.symbols
+                    pattern
+                        .symbols
                         .iter()
                         .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).as_kind()))
                         .collect::<BTreeMap<Ustr, TyKind>>(),
                 ));
 
-                let partial_struct_ty = self.tycx.partial_struct(partial_struct.clone(), pat.span);
+                let partial_struct_ty = self
+                    .tycx
+                    .partial_struct(partial_struct.clone(), pattern.span);
 
                 ty.unify(&partial_struct_ty, &mut self.tycx).or_report_err(
                     &self.tycx,
                     partial_struct_ty,
-                    Some(pat.span),
+                    Some(pattern.span),
                     ty,
                     ty_origin_span,
                 )?;
 
-                for pat in pat.symbols.iter_mut() {
+                for pat in pattern.symbols.iter_mut() {
                     let ty = self
                         .tycx
                         .bound(partial_struct[&pat.symbol].clone(), pat.span);
@@ -178,37 +240,49 @@ impl<'s> CheckSess<'s> {
                     self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
                 }
             }
-            Pattern::TupleUnpack(pat) => {
-                let elements = pat
-                    .symbols
-                    .iter()
-                    .map(|symbol| self.tycx.var(symbol.span).as_kind())
-                    .collect::<Vec<TyKind>>();
+        }
 
-                let partial_tuple = self.tycx.partial_tuple(elements.clone(), pat.span);
+        Ok(())
+    }
 
-                ty.unify(&partial_tuple, &mut self.tycx).or_report_err(
-                    &self.tycx,
-                    partial_tuple,
-                    Some(pat.span),
-                    ty,
-                    ty_origin_span,
-                )?;
+    fn bind_tuple_unpack_pattern(
+        &mut self,
+        env: &mut Env,
+        pattern: &mut UnpackPattern,
+        visibility: ast::Visibility,
+        ty: Ty,
+        const_value: Option<ConstValue>,
+        kind: ast::BindingKind,
+        ty_origin_span: Span,
+    ) -> DiagnosticResult<()> {
+        let elements = pattern
+            .symbols
+            .iter()
+            .map(|symbol| self.tycx.var(symbol.span).as_kind())
+            .collect::<Vec<TyKind>>();
 
-                for (index, pat) in pat.symbols.iter_mut().enumerate() {
-                    let ty = self.tycx.bound(elements[index].clone(), pat.span);
+        let partial_tuple = self.tycx.partial_tuple(elements.clone(), pattern.span);
 
-                    let element_const_value = if pat.is_mutable {
-                        None
-                    } else {
-                        const_value
-                            .as_ref()
-                            .map(|v| v.as_tuple()[index].clone().value)
-                    };
+        ty.unify(&partial_tuple, &mut self.tycx).or_report_err(
+            &self.tycx,
+            partial_tuple,
+            Some(pattern.span),
+            ty,
+            ty_origin_span,
+        )?;
 
-                    self.bind_symbol_pattern(env, pat, visibility, ty, element_const_value, kind)?;
-                }
-            }
+        for (index, pat) in pattern.symbols.iter_mut().enumerate() {
+            let ty = self.tycx.bound(elements[index].clone(), pat.span);
+
+            let element_const_value = if pat.is_mutable {
+                None
+            } else {
+                const_value
+                    .as_ref()
+                    .map(|v| v.as_tuple()[index].clone().value)
+            };
+
+            self.bind_symbol_pattern(env, pat, visibility, ty, element_const_value, kind)?;
         }
 
         Ok(())

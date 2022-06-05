@@ -3,8 +3,8 @@
 
 pub let foreign("system:c") printf = fn(input: [u8; *], ..) -> int;
 
-let foo = @import("foo");
-// let { bar } = @import("foo.chili")
+let { foo } = @import("foo");
+// let { bar } = @import("foo")
 
 let main = fn() {
     let answer = foo.bar();
