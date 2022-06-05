@@ -720,7 +720,7 @@ impl Parser {
         let token = require!(self, Str(_), "string")?;
         let path = token.symbol().as_str();
 
-        let absolute_path = if is_std_module_path(&path) {
+        let absolute_import_path = if is_std_module_path(&path) {
             try_resolve_relative_path(
                 &compiler_info::std_module_root_file(),
                 RelativeTo::Cwd,
@@ -731,32 +731,49 @@ impl Parser {
                 .trim_start_matches(compiler_info::STD_PREFIX_FW)
                 .trim_start_matches(compiler_info::STD_PREFIX_BK);
 
-            let full_std_path = compiler_info::std_module_root_dir().join(trimmed_path);
+            let full_std_import_path = compiler_info::std_module_root_dir().join(trimmed_path);
 
-            try_resolve_relative_path(&full_std_path, RelativeTo::Cwd, Some(token.span))?
+            try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
         } else {
             let path = Path::new(path);
-            let path = if path.extension().is_some() {
+
+            let import_path = if path.extension().is_some() {
                 path.to_path_buf()
             } else {
                 Path::new(path).with_extension(SOURCE_FILE_EXT)
             };
 
             try_resolve_relative_path(
-                &path,
+                &import_path,
                 RelativeTo::Path(Path::new(&self.current_dir)),
                 Some(token.span),
             )?
         };
 
-        let module_name = self.get_module_name_from_path(&absolute_path);
+        {
+            let root_dir = &self.cache.lock().unwrap().root_dir;
 
-        let module_info =
-            ModuleInfo::new(ustr(&module_name), ustr(absolute_path.to_str().unwrap()));
+            // TODO: We specially handle the case of paths under std.
+            // TODO: In the future, we'd like to treat std is a proper library, so we won't need this.
+            if !absolute_import_path.starts_with(root_dir)
+                && !absolute_import_path.starts_with(compiler_info::std_module_root_dir())
+            {
+                return Err(Diagnostic::error()
+                    .with_message("cannot use a file outside of the root module's directory")
+                    .with_label(Label::primary(token.span, "cannot use this file")));
+            }
+        }
+
+        let module_name = self.get_module_name_from_path(&absolute_import_path);
+
+        let module_info = ModuleInfo::new(
+            ustr(&module_name),
+            ustr(absolute_import_path.to_str().unwrap()),
+        );
 
         spawn_parser(self.tx.clone(), Arc::clone(&self.cache), module_info);
 
-        Ok(BuiltinKind::Import(absolute_path))
+        Ok(BuiltinKind::Import(absolute_import_path))
     }
 }
 
