@@ -3,7 +3,7 @@ use std::vec;
 use crate::*;
 use chili_ast::{
     ast::{self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility},
-    compiler_info::{self, is_std_module_path, is_std_module_path_start},
+    compiler_info::{self, is_std_module_path, is_std_module_path_start, SOURCE_FILE_EXT},
     path::{try_resolve_relative_path, RelativeTo},
     ty::StructTyKind,
 };
@@ -735,8 +735,15 @@ impl Parser {
 
             try_resolve_relative_path(&full_std_path, RelativeTo::Cwd, Some(token.span))?
         } else {
+            let path = Path::new(path);
+            let path = if path.extension().is_some() {
+                path.to_path_buf()
+            } else {
+                Path::new(path).with_extension(SOURCE_FILE_EXT)
+            };
+
             try_resolve_relative_path(
-                Path::new(path),
+                &path,
                 RelativeTo::Path(Path::new(&self.current_dir)),
                 Some(token.span),
             )?

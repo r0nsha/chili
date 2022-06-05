@@ -1,14 +1,12 @@
-// use std.c.printf
-
 // let std = @import("std");
 // let printf = std.c.printf;
 
 pub let foreign("system:c") printf = fn(input: [u8; *], ..) -> int;
 
-let foo = @import("foo.chili")
+let foo = @import("foo");
 // let { bar } = @import("foo.chili")
 
 let main = fn() {
     let answer = foo.bar();
     printf("answer = %d\n".data, answer);
-}
+};

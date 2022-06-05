@@ -1,11 +1,12 @@
 use crate::workspace::ModuleInfo;
-use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
+use common::builtin::MOD_FILE_NAME;
 use std::path::{Path, PathBuf};
 use ustr::ustr;
 
 pub const STD: &str = "std";
 pub const STD_PREFIX_FW: &str = "std/";
 pub const STD_PREFIX_BK: &str = "std\\";
+pub const SOURCE_FILE_EXT: &str = "chili";
 
 pub fn is_std_module_path(path: &str) -> bool {
     path == STD
