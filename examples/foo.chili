@@ -2,4 +2,4 @@ pub let bar = fn() {
     42
 }
 
-pub let mut a = 5
+pub let baz = 100

@@ -2,10 +2,8 @@ let { printf } = @import("std/c");
 let { println } = @import("std/fmt");
 
 let main = fn() {
-    let { bar, a } = @import("foo");
-
     println("Hello World");
-    
-    let answer = bar();
-    printf("answer = %d\n".data, answer + 1 + a);
+
+    let { bar, baz } = @import("foo");
+    printf("bar = %d, baz = %d\n".data, bar(), baz);
 };
