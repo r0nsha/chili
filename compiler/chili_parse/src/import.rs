@@ -18,6 +18,19 @@ impl Parser {
 
         let absolute_import_path = if path == "~" {
             self.cache.lock().unwrap().root_file.clone()
+        } else if path.starts_with("~") {
+            let mut import_path = self
+                .cache
+                .lock()
+                .unwrap()
+                .root_dir
+                .join(PathBuf::from(path.trim_start_matches("~/")));
+
+            if import_path.extension().is_none() {
+                import_path.set_extension(compiler_info::SOURCE_FILE_EXT);
+            }
+
+            try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(token.span))?
         } else if compiler_info::is_std_module_path(&path) {
             // example: @import("std")
             try_resolve_relative_path(
