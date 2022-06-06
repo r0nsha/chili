@@ -19,6 +19,13 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
 
     collect_module_exports(asts, &mut workspace.exports);
 
+    // println!(
+    //     "{:#?}",
+    //     asts.iter()
+    //         .map(|a| a.module_info.name)
+    //         .collect::<Vec<Ustr>>()
+    // );
+
     // Assign module ids to all imports
     for ast in asts.iter_mut() {
         for import in ast.imports.iter_mut() {

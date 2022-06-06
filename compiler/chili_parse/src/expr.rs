@@ -716,6 +716,7 @@ impl Parser {
         Ok(Expr::new(kind, span.to(self.previous_span())))
     }
 
+    // TODO: move to import.rs
     fn parse_builtin_import(&mut self) -> DiagnosticResult<BuiltinKind> {
         let token = require!(self, Str(_), "string")?;
         let path = token.symbol().as_str();
@@ -774,6 +775,26 @@ impl Parser {
         spawn_parser(self.tx.clone(), Arc::clone(&self.cache), module_info);
 
         Ok(BuiltinKind::Import(absolute_import_path))
+    }
+
+    pub(crate) fn get_module_name_from_path(&self, path: &Path) -> String {
+        // TODO: this `std_root_dir` thing is very hacky. we should probably get
+        // TODO: `std` from `root_dir`, and not do this ad-hoc.
+        let cache = self.cache.lock().unwrap();
+        let root_dir = cache.root_dir.to_str().unwrap();
+        let std_root_dir = cache.std_dir.parent().unwrap().to_str().unwrap();
+
+        let path_str = path.with_extension("").to_str().unwrap().to_string();
+
+        const DOT: &str = ".";
+
+        path_str
+            .replace(root_dir, "")
+            .replace(std_root_dir, "")
+            .replace(std::path::MAIN_SEPARATOR, DOT)
+            .trim_start_matches(DOT)
+            .trim_end_matches(DOT)
+            .to_string()
     }
 }
 

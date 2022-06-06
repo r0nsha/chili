@@ -1,5 +1,4 @@
 use crate::workspace::ModuleInfo;
-use common::builtin::MOD_FILE_NAME;
 use std::path::{Path, PathBuf};
 use ustr::ustr;
 
@@ -17,7 +16,14 @@ pub fn is_std_module_path_start(path: &str) -> bool {
 }
 
 pub fn std_module_root_dir() -> PathBuf {
-    // TODO: maybe this needs to come from a configurable path?
+    fn root_dir() -> PathBuf {
+        std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
     let mut dir = root_dir();
     dir.push("lib");
     dir.push(STD);
@@ -29,21 +35,8 @@ pub fn std_module_root_file() -> PathBuf {
 }
 
 pub fn std_module_info() -> ModuleInfo {
-    module_info(std_module_root_dir(), STD)
-}
-
-fn module_info(mut root_dir: PathBuf, module_name: &str) -> ModuleInfo {
-    root_dir.push(format!("{}.{}", MOD_FILE_NAME, SOURCE_FILE_EXT));
     ModuleInfo {
-        file_path: ustr(root_dir.to_str().unwrap()),
-        name: ustr(module_name),
+        file_path: ustr(std_module_root_file().to_str().unwrap()),
+        name: ustr(STD),
     }
-}
-
-fn root_dir() -> PathBuf {
-    std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf()
 }

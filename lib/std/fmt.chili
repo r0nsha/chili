@@ -1,9 +1,10 @@
-use c.printf
+// TODO: change this to an unpack: { printf }
+let c = @import("c");
 
 pub let print = fn(fmt: str) {
-    printf(fmt.data);
+    c.printf(fmt.data);
 }
 
 pub let println = fn(fmt: str) {
-    printf("%s\n".data, fmt.data);
+    c.printf("%s\n".data, fmt.data);
 }

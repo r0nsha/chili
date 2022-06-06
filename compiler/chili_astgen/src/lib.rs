@@ -2,6 +2,7 @@ mod util;
 
 use chili_ast::{
     ast::{self},
+    compiler_info,
     path::{try_resolve_relative_path, RelativeTo},
     workspace::{ModuleInfo, Workspace},
 };
@@ -27,11 +28,6 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
             .map_err(|diag| workspace.diagnostics.push(diag))
             .ok()?;
 
-    let root_module_info = ModuleInfo::new(
-        common::builtin::root_module(),
-        ustr(&root_file_path.to_str().unwrap().to_string()),
-    );
-
     let (tx, rx) = channel::<Box<ParserResult>>();
 
     let cache = Arc::new(Mutex::new(ParserCache {
@@ -42,6 +38,16 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
         total_lines: 0,
     }));
 
+    let root_module_info = ModuleInfo::new(
+        common::builtin::root_module(),
+        ustr(&root_file_path.to_str().unwrap().to_string()),
+    );
+
+    spawn_parser(
+        tx.clone(),
+        Arc::clone(&cache),
+        compiler_info::std_module_info(),
+    );
     spawn_parser(tx, Arc::clone(&cache), root_module_info);
 
     for result in rx.iter() {

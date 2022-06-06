@@ -274,12 +274,6 @@ impl Parser {
         }
     }
 
-    pub(crate) fn try_recover_from_err(&mut self) {
-        while !self.is_end() && !is!(self, Semicolon) {
-            self.bump();
-        }
-    }
-
     #[inline]
     pub(crate) fn get_missing_delimiter_span(after_span: Span) -> Span {
         let start_pos = Position {

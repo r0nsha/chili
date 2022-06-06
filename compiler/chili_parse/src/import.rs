@@ -192,27 +192,6 @@ impl Parser {
         }
     }
 
-    pub(crate) fn get_module_name_from_path(&self, path: &Path) -> String {
-        // TODO: this `std_root_dir` thing is very hacky. we should probably get
-        // TODO: `std` from `root_dir`, and not do this ad-hoc.
-        let cache = self.cache.lock().unwrap();
-        let root_dir = cache.root_dir.to_str().unwrap();
-        let std_root_dir = cache.std_dir.parent().unwrap().to_str().unwrap();
-
-        let path_str = path.to_str().unwrap().to_string();
-
-        const DOT: &str = ".";
-        let path_str = path_str
-            .replace(root_dir, "")
-            .replace(std_root_dir, "")
-            .replace(std::path::MAIN_SEPARATOR, DOT)
-            .trim_start_matches(DOT)
-            .trim_end_matches(DOT)
-            .to_string();
-
-        path_str
-    }
-
     fn check_path_is_under_root_or_std(&self, path_buf: &Path, span: Span) -> DiagnosticResult<()> {
         let cache = self.cache.lock().unwrap();
 
