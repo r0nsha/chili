@@ -39,10 +39,10 @@ use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
 use import::{check_ast, check_import};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     iter::repeat_with,
 };
-use top_level::{CallerInfo, CheckTopLevel};
+use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
 pub fn check(
@@ -296,74 +296,6 @@ where
         env: &mut Env,
         expected_ty: Option<Ty>,
     ) -> CheckResult;
-}
-
-impl Check for ast::Import {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        _expected_ty: Option<Ty>,
-    ) -> CheckResult {
-        self.target_module_id = sess
-            .workspace
-            .find_module_info(self.target_module_info)
-            .unwrap();
-
-        let mut previous_module_id = env.module_id();
-        let mut module_id = self.target_module_id;
-
-        let mut ty = sess
-            .tycx
-            .bound(TyKind::Module(self.target_module_id), self.span);
-        let mut const_value = None;
-        let mut target_binding_info_id = None;
-
-        for (index, node) in self.import_path.iter().enumerate() {
-            let (res, id) = sess.check_top_level_symbol(
-                CallerInfo {
-                    module_id: previous_module_id,
-                    span: node.span,
-                },
-                module_id,
-                node.value.as_symbol(),
-            )?;
-
-            previous_module_id = module_id;
-
-            target_binding_info_id = Some(id);
-            ty = res.ty;
-            const_value = res.const_value;
-
-            match ty.normalize(&sess.tycx) {
-                TyKind::Module(id) => module_id = id,
-                _ => {
-                    if index < self.import_path.len() - 1 {
-                        return Err(TypeError::expected(
-                            node.span,
-                            ty.display(&sess.tycx),
-                            "a module",
-                        ));
-                    }
-                }
-            }
-        }
-
-        self.target_binding_info_id = target_binding_info_id;
-
-        self.binding_info_id = sess.bind_symbol(
-            env,
-            self.alias,
-            self.visibility,
-            ty,
-            const_value.clone(),
-            false,
-            ast::BindingKind::Import,
-            self.span,
-        )?;
-
-        Ok(Res::new_maybe_const(ty, const_value))
-    }
 }
 
 impl Check for ast::Binding {
@@ -705,12 +637,6 @@ impl Check for ast::Expr {
         expected_ty: Option<Ty>,
     ) -> CheckResult {
         let res = match &mut self.kind {
-            ast::ExprKind::Import(imports) => {
-                for import in imports.iter_mut() {
-                    import.check(sess, env, None)?;
-                }
-                Ok(Res::new(sess.tycx.common_types.unit))
-            }
             ast::ExprKind::Extern(bindings) => {
                 for binding in bindings.iter_mut() {
                     binding.check(sess, env, None)?;

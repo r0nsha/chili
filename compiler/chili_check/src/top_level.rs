@@ -26,15 +26,6 @@ impl CheckTopLevel for ast::Binding {
     }
 }
 
-impl CheckTopLevel for ast::Import {
-    fn check_top_level(&mut self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult {
-        let res = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
-        sess.new_typed_ast
-            .push_import(&[self.binding_info_id], self.clone());
-        Ok(res)
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct CallerInfo {
     pub(crate) module_id: ModuleId,
@@ -95,19 +86,6 @@ impl<'s> CheckSess<'s> {
                 ),
                 id,
             )
-        } else if let Some(import) = ast.imports.iter().find(|import| import.alias == symbol) {
-            // this symbol points to an import
-            let mut import = import.clone();
-
-            let res = import.check_top_level(self, ast.module_id)?;
-            let id = import.binding_info_id;
-
-            self.validate_can_access_item(
-                self.workspace.get_binding_info(id).unwrap(),
-                caller_info,
-            )?;
-
-            (res, id)
         } else if let Some(&builtin_id) = self.builtin_types.get(&symbol) {
             // this is a builtin symbol, such as i32, bool, etc.
             let res = self

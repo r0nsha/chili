@@ -21,7 +21,6 @@ use ustr::Ustr;
 pub struct Ast {
     pub module_id: ModuleId,
     pub module_info: ModuleInfo,
-    pub imports: Vec<Import>,
     pub bindings: Vec<Binding>,
     pub run_exprs: Vec<Expr>,
 }
@@ -31,7 +30,6 @@ impl Ast {
         Self {
             module_id: Default::default(),
             module_info,
-            imports: vec![],
             bindings: vec![],
             run_exprs: vec![],
         }
@@ -41,43 +39,22 @@ impl Ast {
 #[derive(Default)]
 pub struct TypedAst {
     pub bindings: Vec<Binding>,
-    pub imports: Vec<Import>,
-    // TODO: Remove this mapping in favor of the current 'module as struct value' thing.
-    ids_to_decls: HashMap<BindingInfoId, AstDeclIndex>,
-}
-
-enum AstDeclIndex {
-    Binding(usize),
-    Import(usize),
-}
-
-#[derive(Debug, Clone)]
-pub enum AstDecl<'a> {
-    Binding(&'a Binding),
-    Import(&'a Import),
+    ids_to_bindings: HashMap<BindingInfoId, usize>,
 }
 
 impl TypedAst {
-    pub fn get_decl(&self, id: BindingInfoId) -> Option<AstDecl> {
-        self.ids_to_decls.get(&id).map(|decl| match decl {
-            AstDeclIndex::Import(idx) => AstDecl::Import(&self.imports[*idx]),
-            AstDeclIndex::Binding(idx) => AstDecl::Binding(&self.bindings[*idx]),
-        })
+    pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
+        self.ids_to_bindings
+            .get(&id)
+            .map(|idx| &self.bindings[*idx])
     }
 
     pub fn push_binding(&mut self, ids: &[BindingInfoId], binding: Binding) {
         self.bindings.push(binding);
         let idx = self.bindings.len() - 1;
-        for id in ids {
-            self.ids_to_decls.insert(*id, AstDeclIndex::Binding(idx));
-        }
-    }
 
-    pub fn push_import(&mut self, ids: &[BindingInfoId], import: Import) {
-        self.imports.push(import);
-        let idx = self.imports.len() - 1;
         for id in ids {
-            self.ids_to_decls.insert(*id, AstDeclIndex::Import(idx));
+            self.ids_to_bindings.insert(*id, idx);
         }
     }
 }
@@ -127,7 +104,6 @@ impl Expr {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
-    Import(Vec<Import>),
     Extern(Vec<Binding>),
     Binding(Box<Binding>),
     Defer(Defer),
@@ -653,92 +629,6 @@ impl From<TokenKind> for UnaryOp {
             Plus => UnaryOp::Plus,
             Bang => UnaryOp::Not,
             _ => panic!("{} is not a unary op", kind),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Import {
-    // The import binding module id, during `resolve` phase
-    pub module_id: ModuleId,
-
-    // The binding info id assigned during `check` phase, binds to `alias`
-    pub binding_info_id: BindingInfoId,
-
-    // The resolved module id, during `check` phase
-    pub target_module_id: ModuleId,
-
-    // The module info resolved when generating the ast
-    pub target_module_info: ModuleInfo,
-
-    // If this import contains a path, this is the resolved binding info id, during `check` phase
-    pub target_binding_info_id: Option<BindingInfoId>,
-    pub alias: Ustr,
-    pub import_path: ImportPath,
-    pub visibility: Visibility,
-    pub span: Span,
-}
-
-impl Import {
-    pub fn path_span(&self) -> Span {
-        if self.import_path.is_empty() {
-            self.span
-        } else {
-            self.import_path.last().unwrap().span
-        }
-    }
-
-    pub fn is_glob(&self) -> bool {
-        if self.import_path.is_empty() {
-            false
-        } else {
-            self.import_path.last().unwrap().value.is_glob()
-        }
-    }
-
-    pub fn import_path_str(&self) -> String {
-        if self.import_path.is_empty() {
-            self.target_module_info.name.to_string()
-        } else {
-            format!(
-                "{}.{}",
-                self.target_module_info.name,
-                self.import_path
-                    .iter()
-                    .map(|p| p.value.to_string())
-                    .collect::<Vec<String>>()
-                    .join(".")
-            )
-        }
-    }
-}
-
-pub type ImportPath = Vec<Spanned<ImportPathNode>>;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ImportPathNode {
-    Symbol(Ustr),
-    Glob,
-}
-
-impl ImportPathNode {
-    pub fn as_symbol(&self) -> Ustr {
-        match self {
-            ImportPathNode::Symbol(s) => *s,
-            _ => panic!(),
-        }
-    }
-
-    pub fn is_glob(&self) -> bool {
-        matches!(self, ImportPathNode::Glob)
-    }
-}
-
-impl ToString for ImportPathNode {
-    fn to_string(&self) -> String {
-        match self {
-            ImportPathNode::Symbol(s) => s.to_string(),
-            ImportPathNode::Glob => String::from("?"),
         }
     }
 }

@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::{
     interp::{Env, InterpSess},
     vm::{
@@ -33,7 +31,6 @@ pub(crate) trait Lower {
 impl Lower for ast::Expr {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match &self.kind {
-            ast::ExprKind::Import(_) => sess.push_const_unit(code),
             ast::ExprKind::Extern(bindings) => bindings
                 .iter()
                 .for_each(|binding| lower_local_binding(binding, sess, code)),
@@ -1059,13 +1056,8 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
 
 #[inline]
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
-    if let Some(decl) = sess.cache.get_decl(id) {
-        match decl {
-            ast::AstDecl::Binding(binding) => lower_top_level_binding(binding, id, sess),
-            ast::AstDecl::Import(import) => {
-                find_and_lower_top_level_binding(import.target_binding_info_id.unwrap(), sess)
-            }
-        }
+    if let Some(binding) = sess.cache.get_binding(id) {
+        lower_top_level_binding(binding, id, sess)
     } else {
         panic!("binding not found: {:?}", id)
     }

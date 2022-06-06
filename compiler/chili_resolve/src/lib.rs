@@ -1,9 +1,6 @@
-mod import;
-
 use chili_ast::{ast::Ast, workspace::Workspace};
 use chili_error::SyntaxError;
 use chili_span::Span;
-use import::{collect_module_exports, resolve_imports};
 use ustr::{Ustr, UstrMap};
 
 pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
@@ -17,8 +14,6 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
         }
     }
 
-    collect_module_exports(asts, &mut workspace.exports);
-
     // println!(
     //     "{:#?}",
     //     asts.iter()
@@ -26,30 +21,9 @@ pub fn resolve(workspace: &mut Workspace, asts: &mut [Ast]) {
     //         .collect::<Vec<Ustr>>()
     // );
 
-    // Assign module ids to all imports
-    for ast in asts.iter_mut() {
-        for import in ast.imports.iter_mut() {
-            import.target_module_id = workspace
-                .find_module_info(import.target_module_info)
-                .unwrap();
-        }
-    }
-
-    // Resolve all imports and apply module ids to top level expressions
+    // Apply module ids to top level expressions, and check for duplicate globals
     for ast in asts.iter_mut() {
         let mut defined_symbols = UstrMap::<Span>::default();
-
-        resolve_imports(&mut ast.imports, &workspace.exports);
-
-        ast.imports.iter_mut().for_each(|import| {
-            import.module_id = ast.module_id;
-            check_duplicate_global_symbol(
-                workspace,
-                &mut defined_symbols,
-                import.alias,
-                import.span,
-            );
-        });
 
         ast.bindings.iter_mut().for_each(|binding| {
             binding.module_id = ast.module_id;

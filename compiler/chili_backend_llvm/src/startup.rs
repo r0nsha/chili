@@ -2,16 +2,11 @@ use crate::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use chili_ast::{
-    ast,
-    pattern::Pattern,
-    ty::*,
-    workspace::{BindingInfoId, ModuleId},
-};
+use chili_ast::{ast, pattern::Pattern, ty::*};
 use chili_infer::normalize::NormalizeTy;
 use inkwell::{
     module::Linkage,
-    values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue},
+    values::{BasicValue, FunctionValue},
     AddressSpace,
 };
 

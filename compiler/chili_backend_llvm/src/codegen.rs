@@ -35,7 +35,6 @@ pub enum CodegenDecl<'ctx> {
     Function(FunctionValue<'ctx>),
     Local(PointerValue<'ctx>),
     Global(GlobalValue<'ctx>),
-    Module(ModuleId),
 }
 
 impl<'ctx> CodegenDecl<'ctx> {
@@ -44,7 +43,6 @@ impl<'ctx> CodegenDecl<'ctx> {
             CodegenDecl::Function(f) => f.as_global_value().as_pointer_value(),
             CodegenDecl::Local(p) => *p,
             CodegenDecl::Global(g) => g.as_pointer_value(),
-            CodegenDecl::Module(_) => panic!("can't take a pointer to a module decl"),
         }
     }
 
@@ -145,64 +143,51 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub(super) fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        if let Some(decl) = self.typed_ast.get_decl(id) {
-            match decl {
-                ast::AstDecl::Binding(binding) => {
-                    let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+        if let Some(binding) = self.typed_ast.get_binding(id) {
+            let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
-                    binding
-                        .expr
-                        .as_ref()
-                        .map(|expr| match &expr.kind {
-                            ast::ExprKind::Function(func) => {
-                                let function = self.declare_fn_sig(module_info, &func.sig);
-                                let decl = CodegenDecl::Function(function);
-                                self.global_decls.insert(id, decl);
-                                self.gen_fn(module_info, func, None);
-                                decl
-                            }
-                            ast::ExprKind::FunctionType(sig) => {
-                                let function = self.declare_fn_sig(module_info, sig);
-                                let decl = CodegenDecl::Function(function);
-                                self.global_decls.insert(id, decl);
-                                decl
-                            }
-                            _ => self.declare_global(id, binding),
-                        })
-                        .unwrap_or_else(|| self.declare_global(id, binding))
-                    // match binding.expr.as_ref() {
-                    //     Some(expr) => match &expr.kind {
-                    //         ast::ExprKind::Function(func) => {
-                    //             let function = self.declare_fn_sig(module_info, &func.sig);
-                    //             let decl = CodegenDecl::Function(function);
-                    //             self.global_decls.insert(id, decl);
-                    //             self.gen_fn(module_info, func, None);
-                    //             decl
-                    //         }
-                    //         ast::ExprKind::FunctionType(sig) => {
-                    //             let function = self.declare_fn_sig(module_info, sig);
-                    //             let decl = CodegenDecl::Function(function);
-                    //             self.global_decls.insert(id, decl);
-                    //             decl
-                    //         }
-                    //         _ => self.declare_global(id, binding),
-                    //     },
-                    //     None => self.declare_global(id, binding),
-                    // }
-                }
-                ast::AstDecl::Import(import) => self.gen_import(import),
-            }
+            binding
+                .expr
+                .as_ref()
+                .map(|expr| match &expr.kind {
+                    ast::ExprKind::Function(func) => {
+                        let function = self.declare_fn_sig(module_info, &func.sig);
+                        let decl = CodegenDecl::Function(function);
+                        self.global_decls.insert(id, decl);
+                        self.gen_fn(module_info, func, None);
+                        decl
+                    }
+                    ast::ExprKind::FunctionType(sig) => {
+                        let function = self.declare_fn_sig(module_info, sig);
+                        let decl = CodegenDecl::Function(function);
+                        self.global_decls.insert(id, decl);
+                        decl
+                    }
+                    _ => self.declare_global(id, binding),
+                })
+                .unwrap_or_else(|| self.declare_global(id, binding))
+            // match binding.expr.as_ref() {
+            //     Some(expr) => match &expr.kind {
+            //         ast::ExprKind::Function(func) => {
+            //             let function = self.declare_fn_sig(module_info, &func.sig);
+            //             let decl = CodegenDecl::Function(function);
+            //             self.global_decls.insert(id, decl);
+            //             self.gen_fn(module_info, func, None);
+            //             decl
+            //         }
+            //         ast::ExprKind::FunctionType(sig) => {
+            //             let function = self.declare_fn_sig(module_info, sig);
+            //             let decl = CodegenDecl::Function(function);
+            //             self.global_decls.insert(id, decl);
+            //             decl
+            //         }
+            //         _ => self.declare_global(id, binding),
+            //     },
+            //     None => self.declare_global(id, binding),
+            // }
         } else {
-            unreachable!("{:?}", id)
+            panic!("{:?}", id)
         }
-    }
-
-    pub(super) fn gen_import(&mut self, import: &ast::Import) -> CodegenDecl<'ctx> {
-        todo!()
-        // match import.target_binding_info_id {
-        //     Some(id) => self.gen_top_level_binding(id),
-        //     None => CodegenDecl::Module(import.target_module_id),
-        // }
     }
 
     pub(super) fn declare_global(
@@ -555,13 +540,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         let value = match &expr.kind {
-            ast::ExprKind::Import(imports) => {
-                for import in imports.iter() {
-                    let decl = self.gen_import(import);
-                    state.scopes.insert(import.binding_info_id, decl);
-                }
-                self.gen_unit()
-            }
             ast::ExprKind::Extern(bindings) => {
                 for binding in bindings.iter() {
                     let ty = binding.ty.normalize(self.tycx);
@@ -988,17 +966,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         let decl = self.find_or_gen_top_level_binding(id);
 
-                        match decl {
-                            CodegenDecl::Module(_) => self.gen_unit(),
-                            _ => {
-                                let ptr = decl.into_pointer_value();
+                        let ptr = decl.into_pointer_value();
 
-                                if deref {
-                                    self.build_load(ptr.into())
-                                } else {
-                                    ptr.into()
-                                }
-                            }
+                        if deref {
+                            self.build_load(ptr.into())
+                        } else {
+                            ptr.into()
                         }
                     }
                     _ => unreachable!("invalid ty `{}`", accessed_ty),
@@ -1018,17 +991,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     None => self.find_or_gen_top_level_binding(ident.binding_info_id),
                 };
 
-                match decl {
-                    CodegenDecl::Module(_) => self.gen_unit(),
-                    _ => {
-                        let ptr = decl.into_pointer_value();
+                let ptr = decl.into_pointer_value();
 
-                        if deref {
-                            self.build_load(ptr.into())
-                        } else {
-                            ptr.into()
-                        }
-                    }
+                if deref {
+                    self.build_load(ptr.into())
+                } else {
+                    ptr.into()
                 }
             }
             ast::ExprKind::ArrayLiteral(lit) => {

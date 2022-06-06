@@ -1,5 +1,3 @@
-mod util;
-
 use chili_ast::{
     ast::{self},
     compiler_info,

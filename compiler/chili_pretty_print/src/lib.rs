@@ -95,9 +95,6 @@ impl<T: PrintTree> PrintTree for Box<T> {
 
 impl PrintTree for ast::TypedAst {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        for import in self.imports.iter() {
-            import.print_tree(b, workspace, tycx);
-        }
         for binding in self.bindings.iter() {
             binding.print_tree(b, workspace, tycx);
         }
@@ -106,19 +103,7 @@ impl PrintTree for ast::TypedAst {
 
 impl PrintTree for ast::Ast {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        self.imports.print_tree(b, workspace, tycx);
         self.bindings.print_tree(b, workspace, tycx);
-    }
-}
-
-impl PrintTree for ast::Import {
-    fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        b.add_empty_child(format!(
-            "use \"{}\" = {} <{}>",
-            self.target_module_info.file_path,
-            self.alias,
-            tycx.ty_kind(workspace.get_binding_info(self.binding_info_id).unwrap().ty)
-        ));
     }
 }
 
@@ -261,7 +246,6 @@ fn build_deferred(
 impl PrintTree for ast::Expr {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         match &self.kind {
-            ast::ExprKind::Import(imports) => imports.print_tree(b, workspace, tycx),
             ast::ExprKind::Extern(bindings) => bindings.print_tree(b, workspace, tycx),
             ast::ExprKind::Binding(binding) => binding.print_tree(b, workspace, tycx),
             ast::ExprKind::Defer(defer) => {

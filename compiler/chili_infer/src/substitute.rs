@@ -140,7 +140,7 @@ impl<'a> Substitute<'a> for ast::Expr {
         self.ty.substitute(sess, self.span);
 
         match &self.kind {
-            ast::ExprKind::Import(..) | ast::ExprKind::Defer(_) => (),
+            ast::ExprKind::Defer(_) => (),
             ast::ExprKind::Extern(bindings) => bindings.substitute(sess),
             ast::ExprKind::Binding(binding) => binding.substitute(sess),
             ast::ExprKind::Assign(assign) => {
