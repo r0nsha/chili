@@ -1,5 +1,4 @@
-// TODO: change this to an unpack: { printf, exit }
-let c = @import("c");
+let { printf, exit } = @import("c");
 
 let PanicInfo = struct {
     program: str,
@@ -17,7 +16,7 @@ let default_panic_handler = fn(info: PanicInfo) -> never {
         info.message
     };
 
-    c.printf(
+    printf(
         "program '%s' panicked at '%s', %s:%d:%d\n".data, 
         info.program.data,
         message.data,
@@ -26,5 +25,5 @@ let default_panic_handler = fn(info: PanicInfo) -> never {
         info.column
     );
 
-    c.exit(1)
+    exit(1)
 }
