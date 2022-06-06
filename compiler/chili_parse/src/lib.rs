@@ -176,7 +176,7 @@ impl Parser {
             Ok(tokens) => {
                 self.tokens = tokens;
 
-                let mut ast = ast::Ast::new(self.module_info);
+                let mut ast = ast::Ast::new(file_id, self.module_info);
 
                 while !self.is_end() {
                     if let Err(diag) = self.parse_top_level(&mut ast) {

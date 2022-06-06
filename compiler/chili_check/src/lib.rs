@@ -117,7 +117,7 @@ impl<'s> CheckSess<'s> {
         self.add_builtin_types();
 
         for ast in self.old_asts.iter() {
-            check_ast(self, ast, None)?;
+            check_ast(self, ast)?;
         }
 
         Ok(())
@@ -680,7 +680,7 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::Import(path) => check_import(sess, path, self.span),
+                ast::BuiltinKind::Import(path) => check_import(sess, path),
                 ast::BuiltinKind::LangItem(item) => {
                     // TODO: Remove this builtin?
                     let ty = match item.as_str() {

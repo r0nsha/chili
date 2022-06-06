@@ -6,7 +6,7 @@ use crate::{
     workspace::{BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_error::DiagnosticResult;
-use chili_span::Span;
+use chili_span::{FileId, Span};
 use chili_token::TokenKind;
 use std::{
     collections::HashMap,
@@ -19,6 +19,7 @@ use ustr::Ustr;
 
 #[derive(Debug, Clone)]
 pub struct Ast {
+    pub file_id: FileId,
     pub module_id: ModuleId,
     pub module_info: ModuleInfo,
     pub bindings: Vec<Binding>,
@@ -26,8 +27,9 @@ pub struct Ast {
 }
 
 impl Ast {
-    pub fn new(module_info: ModuleInfo) -> Self {
+    pub fn new(file_id: FileId, module_info: ModuleInfo) -> Self {
         Self {
+            file_id,
             module_id: Default::default(),
             module_info,
             bindings: vec![],

@@ -105,6 +105,10 @@ impl EndPosition {
     pub fn new(index: usize) -> Self {
         Self { index }
     }
+
+    pub fn initial() -> Self {
+        Self { index: 0 }
+    }
 }
 
 pub trait To {

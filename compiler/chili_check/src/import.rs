@@ -1,10 +1,10 @@
 use crate::{interp_expr, top_level::CheckTopLevel, Check, CheckResult, CheckSess, Res};
 use chili_ast::{ast, ty::TyKind};
-use chili_span::Span;
+use chili_span::{EndPosition, Position, Span};
 use std::path::Path;
 
 #[inline]
-pub(crate) fn check_import(sess: &mut CheckSess, import_path: &Path, span: Span) -> CheckResult {
+pub(crate) fn check_import(sess: &mut CheckSess, import_path: &Path) -> CheckResult {
     let path_str = import_path.to_str().unwrap();
 
     let ast = sess
@@ -13,18 +13,21 @@ pub(crate) fn check_import(sess: &mut CheckSess, import_path: &Path, span: Span)
         .find(|a| a.module_info.file_path == path_str)
         .unwrap_or_else(|| panic!("couldn't find ast for module with path: {}", path_str));
 
-    check_ast(sess, ast, Some(span))
+    check_ast(sess, ast)
 }
 
-pub(crate) fn check_ast(sess: &mut CheckSess, ast: &ast::Ast, span: Option<Span>) -> CheckResult {
+pub(crate) fn check_ast(sess: &mut CheckSess, ast: &ast::Ast) -> CheckResult {
     if let Some(module_ty) = sess.checked_modules.get(&ast.module_id) {
         Ok(Res::new(*module_ty))
     } else {
         let module_id = ast.module_id;
 
-        let module_type = sess
-            .tycx
-            .bound_maybe_spanned(TyKind::Module(module_id), span);
+        let module_type = sess.tycx.bound(
+            TyKind::Module(module_id),
+            Span::new(ast.file_id, Position::initial(), EndPosition::initial()),
+        );
+
+        sess.checked_modules.insert(ast.module_id, module_type);
 
         for binding in ast.bindings.iter() {
             let first_pat = binding.pattern.iter().next().unwrap();
