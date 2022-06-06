@@ -12,12 +12,7 @@ impl Parser {
             Visibility::Private
         };
 
-        if eat!(self, Use) {
-            let imports = self.parse_import(visibility)?;
-            ast.imports.extend(imports);
-
-            Ok(())
-        } else if eat!(self, Let) {
+        if eat!(self, Let) {
             let binding = if eat!(self, Foreign) {
                 self.parse_extern_single(visibility)
             } else {

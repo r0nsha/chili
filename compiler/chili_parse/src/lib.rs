@@ -16,12 +16,8 @@ use chili_token::{lexer::Lexer, Token, TokenKind::*};
 use std::{
     collections::HashSet,
     fmt::Debug,
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        mpsc::Sender,
-        Arc, Mutex,
-    },
+    path::PathBuf,
+    sync::{mpsc::Sender, Arc, Mutex},
     thread,
 };
 use unindent::unindent;
@@ -113,7 +109,6 @@ pub struct Parser {
     module_info: ModuleInfo,
     current_dir: PathBuf,
     decl_name_frames: Vec<Ustr>,
-    used_modules: HashSet<ModuleInfo>,
     restrictions: Restrictions,
 }
 
@@ -147,7 +142,6 @@ impl Parser {
             module_info,
             current_dir: module_info.dir().to_path_buf(),
             decl_name_frames: Default::default(),
-            used_modules: Default::default(),
             restrictions: Restrictions::empty(),
         }
     }
@@ -223,11 +217,6 @@ impl Parser {
             self.current += 1;
         }
         self.previous()
-    }
-
-    #[inline]
-    pub(crate) fn revert(&mut self, count: usize) {
-        self.current -= count;
     }
 
     #[inline]

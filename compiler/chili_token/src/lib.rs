@@ -101,7 +101,6 @@ pub enum TokenKind {
     Let,
     Fn,
     Foreign,
-    Use,
     Pub,
     Mut,
     In,
@@ -190,7 +189,6 @@ impl TokenKind {
             Let => "let",
             Fn => "fn",
             Foreign => "foreign",
-            Use => "use",
             Pub => "pub",
             Mut => "mut",
             In => "in",
@@ -236,7 +234,6 @@ impl TokenKind {
                 | Let
                 | Fn
                 | Foreign
-                | Use
                 | Pub
                 | Struct
                 | Union

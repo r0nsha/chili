@@ -2,8 +2,6 @@ use ustr::{ustr, Ustr};
 
 pub const BUILTIN_FIELD_LEN: &str = "len";
 pub const BUILTIN_FIELD_DATA: &str = "data";
-pub const MOD_FILE_NAME: &str = "mod";
-pub const SOURCE_FILE_EXT: &str = "chili";
 
 pub fn root_module() -> Ustr {
     ustr("")

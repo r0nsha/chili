@@ -1,218 +1,98 @@
 use crate::*;
 use chili_ast::{
-    ast::{Import, ImportPath, ImportPathNode, Visibility},
-    compiler_info,
+    ast, compiler_info,
+    path::{try_resolve_relative_path, RelativeTo},
     workspace::ModuleInfo,
 };
 use chili_error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult, SyntaxError,
 };
-use chili_span::{Span, Spanned};
-use common::builtin::{MOD_FILE_NAME, SOURCE_FILE_EXT};
-use std::path::{Path, PathBuf};
-use ustr::{ustr, Ustr};
+use std::path::Path;
+use ustr::ustr;
 
 impl Parser {
-    pub(crate) fn parse_import(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
-        let imports = self.parse_import_inner(visibility)?;
-        imports.iter().for_each(|import| {
-            self.used_modules.insert(import.target_module_info);
-        });
-        Ok(imports)
-    }
+    pub(crate) fn parse_builtin_import(&mut self) -> DiagnosticResult<ast::BuiltinKind> {
+        let token = require!(self, Str(_), "string")?;
+        let path = token.symbol().as_str();
 
-    fn parse_import_inner(&mut self, visibility: Visibility) -> DiagnosticResult<Vec<Import>> {
-        let id_token = require!(self, Ident(_), "identifier")?;
-        let name = id_token.symbol().as_str();
+        let absolute_import_path = if compiler_info::is_std_module_path(&path) {
+            try_resolve_relative_path(
+                &compiler_info::std_module_root_file(),
+                RelativeTo::Cwd,
+                Some(token.span),
+            )?
+        } else if compiler_info::is_std_module_path_start(&path) {
+            let trimmed_path = path
+                .trim_start_matches(compiler_info::STD_PREFIX_FW)
+                .trim_start_matches(compiler_info::STD_PREFIX_BK);
 
-        match name {
-            compiler_info::STD => {
-                let std_module_info = compiler_info::std_module_info();
+            let mut full_std_import_path = compiler_info::std_module_root_dir().join(trimmed_path);
 
-                let path_buf = PathBuf::from(std_module_info.file_path.as_str());
-
-                let module = std_module_info.name;
-                let alias = std_module_info.name;
-
-                self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
+            if full_std_import_path.extension().is_none() {
+                full_std_import_path.set_extension(compiler_info::SOURCE_FILE_EXT);
             }
-            _ => {
-                let mut path_buf = self.current_dir.clone();
-                path_buf.push(name);
 
-                let module = ustr(&self.get_module_name_from_path(&path_buf));
-                let alias = ustr(name);
-
-                if path_buf.with_extension(SOURCE_FILE_EXT).is_file() {
-                    path_buf.set_extension(SOURCE_FILE_EXT);
-                    self.check_path_is_under_root_or_std(&path_buf, id_token.span)?;
-
-                    self.parse_import_postfix(path_buf, module, alias, visibility, id_token.span)
-                } else if path_buf.is_dir() {
-                    self.check_path_is_under_root_or_std(&path_buf, id_token.span)?;
-
-                    let mut mod_path = path_buf.clone();
-
-                    mod_path.push(MOD_FILE_NAME);
-                    mod_path.set_extension(SOURCE_FILE_EXT);
-
-                    if mod_path.exists() && mod_path.is_file() {
-                        self.parse_import_postfix(
-                            mod_path,
-                            module,
-                            alias,
-                            visibility,
-                            id_token.span,
-                        )
-                    } else {
-                        Err(module_not_found_err(&path_buf, &module, id_token.span))
-                    }
-                } else {
-                    Err(module_not_found_err(&path_buf, &module, id_token.span))
-                }
-            }
-        }
-    }
-
-    fn parse_import_postfix(
-        &mut self,
-        path_buf: PathBuf,
-        module: Ustr,
-        alias: Ustr,
-        visibility: Visibility,
-        module_name_span: Span,
-    ) -> DiagnosticResult<Vec<Import>> {
-        let mut import_path = vec![];
-
-        let imports = self.parse_import_postfix_inner(
-            ustr(path_buf.to_str().unwrap()),
-            module,
-            alias,
-            visibility,
-            module_name_span,
-            &mut import_path,
-        )?;
-
-        Ok(imports)
-    }
-
-    fn parse_import_postfix_inner(
-        &mut self,
-        path: Ustr,
-        module: Ustr,
-        alias: Ustr,
-        visibility: Visibility,
-        span: Span,
-        import_path: &mut ImportPath,
-    ) -> DiagnosticResult<Vec<Import>> {
-        if eat!(self, Dot) {
-            if eat!(self, Ident(_)) {
-                // single child, i.e: `use other.foo`
-
-                let id_token = self.previous();
-                let id_token_span = id_token.span;
-                let alias = id_token.symbol();
-
-                import_path.push(Spanned::new(ImportPathNode::Symbol(alias), id_token.span));
-
-                self.parse_import_postfix_inner(
-                    path,
-                    module,
-                    alias,
-                    visibility,
-                    id_token_span,
-                    import_path,
-                )
-            } else if eat!(self, OpenCurly) {
-                // multiple children, i.e: `use other.{foo, bar}`
-
-                let mut imports = vec![];
-
-                while !eat!(self, CloseCurly) {
-                    let id_token = require!(self, Ident(_), "identifier")?;
-                    let alias = id_token.symbol();
-
-                    let mut local_import_path = import_path.clone();
-                    local_import_path
-                        .push(Spanned::new(ImportPathNode::Symbol(alias), id_token.span));
-
-                    let import = self.parse_import_postfix_inner(
-                        path,
-                        module,
-                        alias,
-                        visibility,
-                        id_token.span,
-                        &mut local_import_path,
-                    )?;
-
-                    imports.extend(import);
-
-                    if !eat!(self, Comma) {
-                        require!(self, CloseCurly, "}")?;
-                        break;
-                    }
-                }
-
-                Ok(imports)
-            } else if eat!(self, QuestionMark) {
-                import_path.push(Spanned::new(ImportPathNode::Glob, self.previous_span()));
-                Ok(vec![Import {
-                    module_id: Default::default(),
-                    target_binding_info_id: None,
-                    target_module_id: Default::default(),
-                    target_module_info: ModuleInfo::new(module, path),
-                    alias: ustr(""),
-                    import_path: import_path.clone(),
-                    visibility,
-                    span,
-                    binding_info_id: Default::default(),
-                }])
-            } else {
-                Err(SyntaxError::expected(self.span(), "an identifier, { or ?"))
-            }
+            try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
         } else {
-            let alias = if eat!(self, As) {
-                require!(self, Ident(_), "identifier")?.symbol()
+            let path = Path::new(path);
+
+            let import_path = if path.extension().is_some() {
+                path.to_path_buf()
             } else {
-                alias
+                Path::new(path).with_extension(compiler_info::SOURCE_FILE_EXT)
             };
 
-            Ok(vec![Import {
-                module_id: Default::default(),
-                target_binding_info_id: None,
-                target_module_id: Default::default(),
-                target_module_info: ModuleInfo::new(module, path),
-                alias,
-                import_path: import_path.clone(),
-                visibility,
-                span,
-                binding_info_id: Default::default(),
-            }])
-        }
-    }
+            try_resolve_relative_path(
+                &import_path,
+                RelativeTo::Path(Path::new(&self.current_dir)),
+                Some(token.span),
+            )?
+        };
 
-    fn check_path_is_under_root_or_std(&self, path_buf: &Path, span: Span) -> DiagnosticResult<()> {
-        let cache = self.cache.lock().unwrap();
-
-        if path_buf.starts_with(&cache.root_dir)
-            || path_buf.starts_with(compiler_info::std_module_root_dir())
         {
-            Ok(())
-        } else {
-            Err(Diagnostic::error()
-                .with_message("cannot use modules outside of the root module scope")
-                .with_label(Label::primary(span, "cannot use")))
-        }
-    }
-}
+            let root_dir = &self.cache.lock().unwrap().root_dir;
 
-fn module_not_found_err(path_buf: &Path, module: &str, span: Span) -> Diagnostic {
-    Diagnostic::error()
-        .with_message(format!("couldn't find module `{}`", module))
-        .with_label(Label::primary(span, "not found"))
-        .with_note(format!(
-            "tried to resolve this path: {}",
-            path_buf.display()
-        ))
+            // TODO: We specially handle the case of paths under std.
+            // TODO: In the future, we'd like to treat std is a proper library, so we won't need this.
+            if !absolute_import_path.starts_with(root_dir)
+                && !absolute_import_path.starts_with(compiler_info::std_module_root_dir())
+            {
+                return Err(Diagnostic::error()
+                    .with_message("cannot use a file outside of the root module's directory")
+                    .with_label(Label::primary(token.span, "cannot use this file")));
+            }
+        }
+
+        let module_name = self.get_module_name_from_path(&absolute_import_path);
+
+        let module_info = ModuleInfo::new(
+            ustr(&module_name),
+            ustr(absolute_import_path.to_str().unwrap()),
+        );
+
+        spawn_parser(self.tx.clone(), Arc::clone(&self.cache), module_info);
+
+        Ok(ast::BuiltinKind::Import(absolute_import_path))
+    }
+
+    fn get_module_name_from_path(&self, path: &Path) -> String {
+        // TODO: this `std_root_dir` thing is very hacky. we should probably get
+        // TODO: `std` from `root_dir`, and not do this ad-hoc.
+        let cache = self.cache.lock().unwrap();
+        let root_dir = cache.root_dir.to_str().unwrap();
+        let std_root_dir = cache.std_dir.parent().unwrap().to_str().unwrap();
+
+        let path_str = path.with_extension("").to_str().unwrap().to_string();
+
+        const DOT: &str = ".";
+
+        path_str
+            .replace(root_dir, "")
+            .replace(std_root_dir, "")
+            .replace(std::path::MAIN_SEPARATOR, DOT)
+            .trim_start_matches(DOT)
+            .trim_end_matches(DOT)
+            .to_string()
+    }
 }

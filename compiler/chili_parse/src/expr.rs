@@ -3,8 +3,6 @@ use std::vec;
 use crate::*;
 use chili_ast::{
     ast::{self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility},
-    compiler_info::{self, is_std_module_path, is_std_module_path_start, SOURCE_FILE_EXT},
-    path::{try_resolve_relative_path, RelativeTo},
     ty::StructTyKind,
 };
 use chili_error::{
@@ -63,15 +61,7 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            if eat!(self, Use) {
-                let start_span = self.previous_span();
-                let imports = self.parse_import(Visibility::Private)?;
-
-                Ok(Expr::new(
-                    ExprKind::Import(imports),
-                    start_span.to(self.previous_span()),
-                ))
-            } else if eat!(self, Defer) {
+            if eat!(self, Defer) {
                 let span = self.span();
                 let expr = self.parse_expr()?;
                 Ok(Expr::new(
@@ -714,91 +704,6 @@ impl Parser {
         };
 
         Ok(Expr::new(kind, span.to(self.previous_span())))
-    }
-
-    // TODO: move to import.rs
-    fn parse_builtin_import(&mut self) -> DiagnosticResult<BuiltinKind> {
-        let token = require!(self, Str(_), "string")?;
-        let path = token.symbol().as_str();
-
-        let absolute_import_path = if is_std_module_path(&path) {
-            try_resolve_relative_path(
-                &compiler_info::std_module_root_file(),
-                RelativeTo::Cwd,
-                Some(token.span),
-            )?
-        } else if is_std_module_path_start(&path) {
-            let trimmed_path = path
-                .trim_start_matches(compiler_info::STD_PREFIX_FW)
-                .trim_start_matches(compiler_info::STD_PREFIX_BK);
-
-            let mut full_std_import_path = compiler_info::std_module_root_dir().join(trimmed_path);
-
-            if full_std_import_path.extension().is_none() {
-                full_std_import_path.set_extension(SOURCE_FILE_EXT);
-            }
-
-            try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
-        } else {
-            let path = Path::new(path);
-
-            let import_path = if path.extension().is_some() {
-                path.to_path_buf()
-            } else {
-                Path::new(path).with_extension(SOURCE_FILE_EXT)
-            };
-
-            try_resolve_relative_path(
-                &import_path,
-                RelativeTo::Path(Path::new(&self.current_dir)),
-                Some(token.span),
-            )?
-        };
-
-        {
-            let root_dir = &self.cache.lock().unwrap().root_dir;
-
-            // TODO: We specially handle the case of paths under std.
-            // TODO: In the future, we'd like to treat std is a proper library, so we won't need this.
-            if !absolute_import_path.starts_with(root_dir)
-                && !absolute_import_path.starts_with(compiler_info::std_module_root_dir())
-            {
-                return Err(Diagnostic::error()
-                    .with_message("cannot use a file outside of the root module's directory")
-                    .with_label(Label::primary(token.span, "cannot use this file")));
-            }
-        }
-
-        let module_name = self.get_module_name_from_path(&absolute_import_path);
-
-        let module_info = ModuleInfo::new(
-            ustr(&module_name),
-            ustr(absolute_import_path.to_str().unwrap()),
-        );
-
-        spawn_parser(self.tx.clone(), Arc::clone(&self.cache), module_info);
-
-        Ok(BuiltinKind::Import(absolute_import_path))
-    }
-
-    pub(crate) fn get_module_name_from_path(&self, path: &Path) -> String {
-        // TODO: this `std_root_dir` thing is very hacky. we should probably get
-        // TODO: `std` from `root_dir`, and not do this ad-hoc.
-        let cache = self.cache.lock().unwrap();
-        let root_dir = cache.root_dir.to_str().unwrap();
-        let std_root_dir = cache.std_dir.parent().unwrap().to_str().unwrap();
-
-        let path_str = path.with_extension("").to_str().unwrap().to_string();
-
-        const DOT: &str = ".";
-
-        path_str
-            .replace(root_dir, "")
-            .replace(std_root_dir, "")
-            .replace(std::path::MAIN_SEPARATOR, DOT)
-            .trim_start_matches(DOT)
-            .trim_end_matches(DOT)
-            .to_string()
     }
 }
 
