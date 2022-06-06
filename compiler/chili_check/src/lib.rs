@@ -39,10 +39,7 @@ use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
 use import::{check_ast, check_import};
 use indexmap::IndexMap;
-use std::{
-    collections::{BTreeMap, HashMap},
-    iter::repeat_with,
-};
+use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -1330,7 +1327,7 @@ impl Check for ast::Expr {
                             }
                             Err(_) => {
                                 let fields =
-                                    BTreeMap::from([(access.member, TyKind::Var(member_ty))]);
+                                    IndexMap::from([(access.member, TyKind::Var(member_ty))]);
                                 sess.tycx.partial_struct(PartialStructTy(fields), self.span)
                             }
                         };

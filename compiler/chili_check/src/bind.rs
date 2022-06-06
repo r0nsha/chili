@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::{
     env::{Env, Scope, ScopeKind},
     top_level::CallerInfo,
@@ -15,6 +13,7 @@ use chili_ast::{
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
 use chili_span::Span;
+use indexmap::IndexMap;
 use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
@@ -208,12 +207,11 @@ impl<'s> CheckSess<'s> {
                 Ok(())
             }
             _ => {
-                let partial_struct = PartialStructTy(FromIterator::from_iter(
+                let partial_struct = PartialStructTy(IndexMap::from_iter(
                     pattern
                         .symbols
                         .iter()
-                        .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).as_kind()))
-                        .collect::<BTreeMap<Ustr, TyKind>>(),
+                        .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).as_kind())),
                 ));
 
                 let partial_struct_ty = self

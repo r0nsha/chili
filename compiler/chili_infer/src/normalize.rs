@@ -1,7 +1,7 @@
 use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
-use std::collections::BTreeMap;
-use ustr::UstrMap;
+use indexmap::IndexMap;
+use ustr::{Ustr, UstrMap};
 
 pub trait NormalizeTy {
     fn normalize(&self, tycx: &TyCtx) -> TyKind;
@@ -119,11 +119,10 @@ impl Normalize {
             TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
             TyKind::Infer(ty, InferTy::PartialStruct(partial)) => TyKind::Infer(
                 *ty,
-                InferTy::PartialStruct(PartialStructTy(BTreeMap::from_iter(
+                InferTy::PartialStruct(PartialStructTy(IndexMap::from_iter(
                     partial
                         .iter()
-                        .map(|(symbol, ty)| (*symbol, ty.normalize(tycx)))
-                        .collect::<UstrMap<TyKind>>(),
+                        .map(|(symbol, ty)| (*symbol, ty.normalize(tycx))),
                 ))),
             ),
             TyKind::Infer(ty, InferTy::PartialTuple(elements)) => TyKind::Infer(

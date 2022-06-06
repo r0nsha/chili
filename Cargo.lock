@@ -209,6 +209,7 @@ dependencies = [
  "chili_error",
  "chili_span",
  "common",
+ "indexmap",
  "slab",
  "ustr",
 ]

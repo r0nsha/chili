@@ -4,10 +4,8 @@ pub mod size;
 
 use crate::workspace::{BindingInfoId, ModuleId};
 use chili_span::Span;
-use std::{
-    collections::BTreeMap,
-    ops::{Deref, DerefMut},
-};
+use indexmap::IndexMap;
+use std::ops::{Deref, DerefMut};
 use ustr::{ustr, Ustr};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -137,10 +135,10 @@ impl StructTy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct PartialStructTy(pub BTreeMap<Ustr, TyKind>);
+pub struct PartialStructTy(pub IndexMap<Ustr, TyKind>);
 
 impl Deref for PartialStructTy {
-    type Target = BTreeMap<Ustr, TyKind>;
+    type Target = IndexMap<Ustr, TyKind>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
