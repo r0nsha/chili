@@ -125,7 +125,7 @@ impl Lower for ast::Expr {
                         });
                     }
                     TyKind::Struct(st) => {
-                        let index = st.field_index(access.member).unwrap();
+                        let index = st.find_field_position(access.member).unwrap();
 
                         code.push(if ctx.take_ptr {
                             Instruction::ConstIndexPtr(index as u32)
@@ -243,8 +243,8 @@ impl Lower for ast::Expr {
                 let mut ordered_fields = lit.fields.clone();
 
                 ordered_fields.sort_by(|f1, f2| {
-                    let index_1 = ty.field_index(f1.symbol).unwrap();
-                    let index_2 = ty.field_index(f2.symbol).unwrap();
+                    let index_1 = ty.find_field_position(f1.symbol).unwrap();
+                    let index_2 = ty.find_field_position(f2.symbol).unwrap();
                     index_1.cmp(&index_2)
                 });
 
@@ -323,7 +323,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                             code.push(Instruction::Copy(0));
                         }
 
-                        let field_index = ty.field_index(pat.symbol).unwrap();
+                        let field_index = ty.find_field_position(pat.symbol).unwrap();
 
                         code.push(Instruction::ConstIndex(field_index as u32));
                         sess.add_local(code, pat.id);
@@ -462,7 +462,7 @@ impl Lower for ast::Function {
                     let ty = ty.as_struct();
 
                     for pat in pat.symbols.iter() {
-                        let field_index = ty.field_index(pat.symbol).unwrap();
+                        let field_index = ty.find_field_position(pat.symbol).unwrap();
                         func_code.push(Instruction::PeekPtr(param_offset as i32));
                         func_code.push(Instruction::ConstIndex(field_index as u32));
                         sess.add_local(&mut func_code, pat.id);
@@ -1174,7 +1174,7 @@ fn lower_top_level_binding(
                             code.push(Instruction::Copy(0));
                         }
 
-                        let field_index = ty.field_index(pat.symbol).unwrap();
+                        let field_index = ty.find_field_position(pat.symbol).unwrap();
 
                         code.push(Instruction::ConstIndex(field_index as u32));
                         let slot = sess.insert_global(pat.id, Value::unit());

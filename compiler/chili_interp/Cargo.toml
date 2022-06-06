@@ -11,6 +11,7 @@ ustr = "0.8.1"
 libloading = "0.7.1"
 byteorder = "1.4.3"
 bumpalo = "3.9.1"
+indexmap = "1.8.2"
 
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }

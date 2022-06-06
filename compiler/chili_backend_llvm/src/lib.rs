@@ -73,7 +73,6 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> 
         global_decls: HashMap::default(),
         types: HashMap::default(),
         static_strs: UstrMap::default(),
-        fn_types: HashMap::new(),
     };
 
     time! { workspace.build_options.verbose, "llvm",

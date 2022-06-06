@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 slab = "0.4.5"
 ustr = "0.8.1"
+indexmap = "1.8.2"
 
 common = { path = '../common' }
 chili_span = { path = '../chili_span' }

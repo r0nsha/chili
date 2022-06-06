@@ -1,9 +1,8 @@
-use crate::ty::IntoLlvmType;
-
 use super::{
-    abi::{align_of, size_of, AbiFunction},
+    abi::{align_of, size_of},
     util::is_a_load_inst,
 };
+use crate::ty::IntoLlvmType;
 use chili_ast::{
     ast,
     const_value::ConstValue,
@@ -76,7 +75,6 @@ pub struct Codegen<'cg, 'ctx> {
 
     pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
     pub types: HashMap<BindingInfoId, BasicTypeEnum<'ctx>>,
-    pub fn_types: HashMap<FunctionTy, AbiFunction<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
 }
 
@@ -339,7 +337,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             continue;
                         }
 
-                        let field_index = struct_ty.field_index(pat.symbol).unwrap();
+                        let field_index = struct_ty.find_field_position(pat.symbol).unwrap();
 
                         let value = self.gen_struct_access(
                             ptr.into(),
@@ -412,7 +410,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         continue;
                     }
 
-                    let field_index = struct_ty.field_index(symbol).unwrap();
+                    let field_index = struct_ty.find_field_position(symbol).unwrap();
 
                     let llvm_type = Some(ty.llvm_type(self));
                     let value = self.gen_struct_access(value, field_index as u32, llvm_type);
@@ -932,7 +930,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             );
                             casted_ptr.into()
                         } else {
-                            let field_index = struct_ty.field_index(access.member).unwrap();
+                            let field_index = struct_ty.find_field_position(access.member).unwrap();
                             self.gen_struct_access(value, field_index as u32, struct_llvm_ty)
                         }
                     }
@@ -1476,7 +1474,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         value: Option<BasicValueEnum<'ctx>>,
         deferred: &[ast::Expr],
     ) -> BasicValueEnum<'ctx> {
-        let abi_fn = self.fn_types.get(&state.fn_type).unwrap().clone();
+        let abi_fn = self.get_abi_compliant_fn(&state.fn_type);
 
         if abi_fn.ret.kind.is_indirect() {
             let return_ptr = state.return_ptr.unwrap();

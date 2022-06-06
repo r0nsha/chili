@@ -14,8 +14,9 @@ use chili_ast::{
 };
 use chili_infer::ty_ctx::TyCtx;
 use chili_span::Span;
+use indexmap::IndexMap;
 use paste::paste;
-use std::{collections::BTreeMap, ffi::c_void, fmt::Display, mem, slice, str};
+use std::{ffi::c_void, fmt::Display, mem, slice, str};
 use ustr::{ustr, Ustr};
 
 macro_rules! impl_value {
@@ -475,7 +476,7 @@ impl Value {
                     Ok(ConstValue::Tuple(values))
                 }
                 TyKind::Struct(struct_ty) => {
-                    let mut fields = BTreeMap::<Ustr, ConstElement>::new();
+                    let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
                     for (value, field) in agg.elements.iter().zip(struct_ty.fields.iter()) {
                         let value = value
@@ -506,7 +507,7 @@ impl Value {
                     Ok(ConstValue::Tuple(values))
                 }
                 TyKind::Infer(_, InferTy::PartialStruct(struct_ty)) => {
-                    let mut fields = BTreeMap::<Ustr, ConstElement>::new();
+                    let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
                     for (value, (name, ty)) in agg.elements.iter().zip(struct_ty.iter()) {
                         let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;

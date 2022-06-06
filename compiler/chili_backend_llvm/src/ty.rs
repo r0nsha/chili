@@ -119,23 +119,19 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .into()
     }
 
-    pub(super) fn fn_type(&mut self, func: &FunctionTy) -> FunctionType<'ctx> {
-        let params: Vec<BasicMetadataTypeEnum> = func
-            .params
-            .iter()
-            .map(|p| p.llvm_type(self).into())
-            .collect();
-        let ret = func.ret.llvm_type(self);
-        let fn_ty = ret.fn_type(&params, func.variadic);
+    pub(super) fn get_abi_compliant_fn(&mut self, f: &FunctionTy) -> AbiFunction<'ctx> {
+        let params: Vec<BasicMetadataTypeEnum> =
+            f.params.iter().map(|p| p.llvm_type(self).into()).collect();
 
-        // println!("before: {:#?}", fn_ty);
-        let abi_compliant_fn_ty =
-            abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_ty);
+        let ret = f.ret.llvm_type(self);
 
-        self.fn_types
-            .insert(func.clone(), abi_compliant_fn_ty.clone());
+        let fn_type = ret.fn_type(&params, f.variadic);
 
-        // println!("after: {:#?}", self.abi_fn_to_type(&abi_compliant_fn_ty));
+        abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
+    }
+
+    pub(super) fn fn_type(&mut self, f: &FunctionTy) -> FunctionType<'ctx> {
+        let abi_compliant_fn_ty = self.get_abi_compliant_fn(f);
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
 

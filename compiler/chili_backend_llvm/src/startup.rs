@@ -182,7 +182,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .get(&pat.id)
                             .map(|d| d.into_pointer_value())
                         {
-                            let field_index = struct_ty.field_index(pat.symbol).unwrap();
+                            let field_index = struct_ty.find_field_position(pat.symbol).unwrap();
 
                             let field_value = self.gen_struct_access(
                                 global_ptr.into(),

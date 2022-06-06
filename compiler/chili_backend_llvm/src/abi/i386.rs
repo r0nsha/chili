@@ -7,6 +7,7 @@ use crate::util::IsAggregateType;
 
 use super::{size_of, AbiFunction, AbiInfo, AbiTy};
 
+#[allow(unused)]
 pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
     AbiFunction {
         params: get_params(info, fn_ty.get_param_types()),
@@ -15,6 +16,7 @@ pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFuncti
     }
 }
 
+#[allow(unused)]
 pub fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
     params
         .iter()

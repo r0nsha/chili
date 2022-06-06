@@ -43,7 +43,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let entry_block = self.context.append_basic_block(function, "entry");
 
         let fn_ty = func.sig.ty.normalize(self.tycx).into_fn();
-        let abi_fn = self.fn_types.get(&fn_ty).unwrap().clone();
+        let abi_fn = self.get_abi_compliant_fn(&fn_ty);
 
         let return_ptr = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = function.get_first_param().unwrap().into_pointer_value();
@@ -137,13 +137,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> FunctionValue<'ctx> {
         let fn_sig_ty = sig.ty.normalize(self.tycx).into_fn();
         let fn_type = self.fn_type(&fn_sig_ty);
-        let abi_fn = self.fn_types.get(&fn_sig_ty).unwrap();
+        let abi_fn = self.get_abi_compliant_fn(&fn_sig_ty);
 
         let llvm_name = sig.llvm_name(module_info.name);
 
         let function = self.get_or_add_function(llvm_name, fn_type, Some(Linkage::External));
 
-        self.add_fn_attributes(function, abi_fn);
+        self.add_fn_attributes(function, &abi_fn);
 
         function
     }
@@ -221,11 +221,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         args: Vec<BasicValueEnum<'ctx>>,
         result_ty: &TyKind,
     ) -> BasicValueEnum<'ctx> {
-        let abi_fn = self
-            .fn_types
-            .get(callee_ty)
-            .unwrap_or_else(|| panic!("not found: {}", callee_ty))
-            .clone();
+        let abi_fn = self.get_abi_compliant_fn(callee_ty);
 
         let mut processed_args = vec![];
 

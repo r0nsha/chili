@@ -3,8 +3,9 @@ use crate::{
     ty::Ty,
     workspace::BindingInfoId,
 };
+use indexmap::IndexMap;
 use paste::paste;
-use std::{collections::BTreeMap, fmt};
+use std::fmt::{self, Display};
 use ustr::Ustr;
 
 macro_rules! impl_value {
@@ -98,7 +99,7 @@ impl_value! {
     Function(ConstFunction),
 }
 
-pub type ConstStruct = BTreeMap<Ustr, ConstElement>;
+pub type ConstStruct = IndexMap<Ustr, ConstElement>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstElement {
@@ -131,42 +132,46 @@ impl From<LiteralKind> for ConstValue {
     }
 }
 
-impl ToString for ConstValue {
-    fn to_string(&self) -> String {
-        match self {
-            ConstValue::Unit(_) => "unit".to_string(),
-            ConstValue::Type(t) => format!("ty {}", t),
-            ConstValue::Bool(v) => format!("bool {}", v),
-            ConstValue::Int(v) => format!("int {}", v),
-            ConstValue::Uint(v) => format!("uint {}", v),
-            ConstValue::Float(v) => format!("float {}", v),
-            ConstValue::Str(v) => format!("str {}", v),
-            ConstValue::Array(array) => format!(
-                "[{}]",
-                array
-                    .values
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ),
-            ConstValue::Tuple(elements) => format!(
-                "({})",
-                elements
-                    .iter()
-                    .map(|el| el.value.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ),
-            ConstValue::Struct(fields) => format!(
-                "{{{}}}",
-                fields
-                    .iter()
-                    .map(|(name, el)| format!("{}: {}", name, el.value.to_string()))
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ),
-            ConstValue::Function(f) => format!("fn '{}'", f.name),
-        }
+impl Display for ConstValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ConstValue::Unit(_) => "unit".to_string(),
+                ConstValue::Type(t) => format!("ty {}", t),
+                ConstValue::Bool(v) => format!("bool {}", v),
+                ConstValue::Int(v) => format!("int {}", v),
+                ConstValue::Uint(v) => format!("uint {}", v),
+                ConstValue::Float(v) => format!("float {}", v),
+                ConstValue::Str(v) => format!("str {}", v),
+                ConstValue::Array(array) => format!(
+                    "[{}]",
+                    array
+                        .values
+                        .iter()
+                        .map(|v| v.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                ),
+                ConstValue::Tuple(elements) => format!(
+                    "({})",
+                    elements
+                        .iter()
+                        .map(|el| el.value.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                ),
+                ConstValue::Struct(fields) => format!(
+                    "{{{}}}",
+                    fields
+                        .iter()
+                        .map(|(name, el)| format!("{}: {}", name, el.value.to_string()))
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                ),
+                ConstValue::Function(f) => format!("fn '{}'", f.name),
+            }
+        )
     }
 }

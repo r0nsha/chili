@@ -98,7 +98,7 @@ impl UnifyTy<TyKind> for TyKind {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for f1 in t1.fields.iter() {
-                        if let Some(f2) = t2.fields.iter().find(|f| f.symbol == f1.symbol) {
+                        if let Some(f2) = t2.find_field(f1.symbol) {
                             f1.ty.unify(&f2.ty, tycx)?;
                         } else {
                             return Err(UnifyTyErr::Mismatch);
@@ -173,9 +173,7 @@ fn unify_var_ty(var: Ty, other: &TyKind, tycx: &mut TyCtx) -> UnifyTyResult {
                 TyKind::Struct(ref other_struct) => {
                     for (symbol, ty) in partial_struct.iter() {
                         // if both the partial struct and the struct have this field, unify their types
-                        if let Some(other_ty) =
-                            other_struct.fields.iter().find(|f| f.symbol == *symbol)
-                        {
+                        if let Some(other_ty) = other_struct.find_field(*symbol) {
                             ty.unify(&other_ty.ty, tycx)?;
                         } else {
                             // any field that exists in the partial struct, but doesn't exist in struct, is an error

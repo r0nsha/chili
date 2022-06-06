@@ -38,6 +38,7 @@ use common::{
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
 use import::{check_ast, check_import};
+use indexmap::IndexMap;
 use std::{
     collections::{BTreeMap, HashMap},
     iter::repeat_with,
@@ -1381,29 +1382,26 @@ impl Check for ast::Expr {
                             )),
                         }
                     }
-                    ty @ TyKind::Struct(st) => {
-                        match st.fields.iter().find(|f| f.symbol == access.member) {
-                            Some(field) => {
-                                let const_value = if let Some(ConstValue::Struct(const_fields)) =
-                                    &res.const_value
-                                {
+                    ty @ TyKind::Struct(st) => match st.find_field(access.member) {
+                        Some(field) => {
+                            let const_value =
+                                if let Some(ConstValue::Struct(const_fields)) = &res.const_value {
                                     Some(const_fields[&field.symbol].value.clone())
                                 } else {
                                     None
                                 };
 
-                                Ok(Res::new_maybe_const(
-                                    sess.tycx.bound(field.ty.clone(), self.span),
-                                    const_value,
-                                ))
-                            }
-                            None => Err(TypeError::invalid_struct_field(
-                                access.expr.span,
-                                access.member,
-                                ty.display(&sess.tycx),
-                            )),
+                            Ok(Res::new_maybe_const(
+                                sess.tycx.bound(field.ty.clone(), self.span),
+                                const_value,
+                            ))
                         }
-                    }
+                        None => Err(TypeError::invalid_struct_field(
+                            access.expr.span,
+                            access.member,
+                            ty.display(&sess.tycx),
+                        )),
+                    },
                     ty @ TyKind::Infer(_, InferTy::PartialStruct(partial_struct)) => {
                         match partial_struct.get(&access.member) {
                             Some(field_ty) => {
@@ -2183,7 +2181,7 @@ fn check_named_struct_literal(
             ));
         }
 
-        match struct_ty.fields.iter().find(|f| f.symbol == field.symbol) {
+        match struct_ty.find_field(field.symbol) {
             Some(ty_field) => {
                 uninit_fields.remove(&field.symbol);
 
@@ -2241,7 +2239,7 @@ fn check_named_struct_literal(
     let is_const_struct = fields_res.iter().all(|(_, res)| res.const_value.is_some());
 
     if is_const_struct {
-        let mut const_value_fields = BTreeMap::new();
+        let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
 
         for (name, res) in fields_res.iter() {
             const_value_fields.insert(
@@ -2308,7 +2306,7 @@ fn check_anonymous_struct_literal(
     let is_const_struct = fields_res.iter().all(|(_, res)| res.const_value.is_some());
 
     if is_const_struct {
-        let mut const_value_fields = BTreeMap::new();
+        let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
 
         for (name, res) in fields_res.iter() {
             const_value_fields.insert(

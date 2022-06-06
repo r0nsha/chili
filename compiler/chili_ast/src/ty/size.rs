@@ -77,11 +77,13 @@ impl SizeOf for StructTy {
         match self.kind {
             StructTyKind::Struct => {
                 let mut offset = 0;
+
                 for field in self.fields.iter() {
                     let align = field.ty.align_of(word_size);
                     offset = calculate_align_from_offset(offset, align);
                     offset += field.ty.size_of(word_size);
                 }
+
                 offset = calculate_align_from_offset(offset, self.align_of(word_size));
                 offset
             }

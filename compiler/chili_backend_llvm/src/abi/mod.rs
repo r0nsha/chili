@@ -178,6 +178,7 @@ impl<'ctx> AbiTy<'ctx> {
         self
     }
 
+    #[allow(unused)]
     pub fn with_align_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
         self.align_attr = Some(attr);
         self
@@ -192,6 +193,7 @@ pub enum AbiTyKind {
 }
 
 impl AbiTyKind {
+    #[allow(unused)]
     pub fn is_direct(&self) -> bool {
         match self {
             AbiTyKind::Direct => true,
