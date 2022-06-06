@@ -9,12 +9,10 @@ use chili_span::Span;
 use common::build_options::BuildOptions;
 use std::{
     cmp::Ordering,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
 };
-use ustr::{ustr, Ustr, UstrMap};
-
-pub type ModuleExports = HashMap<ModuleId, UstrMap<BindingInfoId>>;
+use ustr::{ustr, Ustr};
 
 pub struct Workspace {
     // The build options, either passed by the user, or inferred from the host machine
@@ -40,9 +38,6 @@ pub struct Workspace {
     // BindingInfoId -> BindingInfo
     pub binding_infos: Vec<BindingInfo>,
 
-    // Exported symbol map of each module. Resolved during name resolution
-    pub exports: ModuleExports,
-
     // The entry point function's id (usually main). Resolved during name resolution
     pub entry_point_function_id: Option<BindingInfoId>,
 
@@ -60,7 +55,6 @@ impl Workspace {
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
-            exports: Default::default(),
             entry_point_function_id: None,
             extern_libraries: Default::default(),
         }

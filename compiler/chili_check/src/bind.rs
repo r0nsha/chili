@@ -1,6 +1,6 @@
 use crate::{
     env::{Env, Scope, ScopeKind},
-    top_level::CallerInfo,
+    top_level::{CallerInfo, CheckTopLevel},
     CheckSess,
 };
 use chili_ast::{
@@ -171,7 +171,7 @@ impl<'s> CheckSess<'s> {
     fn bind_struct_unpack_pattern(
         &mut self,
         env: &mut Env,
-        pattern: &mut UnpackPattern,
+        unpack_pattern: &mut UnpackPattern,
         visibility: ast::Visibility,
         ty: Ty,
         const_value: Option<ConstValue>,
@@ -180,7 +180,7 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tycx) {
             TyKind::Module(module_id) => {
-                for pat in pattern.symbols.iter_mut() {
+                for pat in unpack_pattern.symbols.iter_mut() {
                     let (res, top_level_symbol_id) = self.check_top_level_symbol(
                         CallerInfo {
                             module_id: env.module_id(),
@@ -207,11 +207,71 @@ impl<'s> CheckSess<'s> {
                         .set_binding_info_redirect(pat.id, top_level_symbol_id);
                 }
 
+                if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
+                    let ast = self
+                        .old_asts
+                        .iter()
+                        .find(|a| a.module_id == module_id)
+                        .unwrap_or_else(|| panic!("couldn't find {:?}", module_id));
+
+                    for binding in &ast.bindings {
+                        if binding.visibility.is_private() {
+                            continue;
+                        }
+
+                        let binding_pattern = match binding.pattern.iter().next() {
+                            Some(pattern) => {
+                                // check if the binding has already been checked
+                                if let Some(id) = self.get_global_symbol(module_id, pattern.symbol)
+                                {
+                                    self.new_typed_ast.get_binding(id).unwrap().pattern.clone()
+                                } else {
+                                    let mut binding = binding.clone();
+                                    binding.check_top_level(self, ast.module_id)?;
+                                    binding.pattern
+                                }
+                            }
+                            None => {
+                                let mut binding = binding.clone();
+                                binding.check_top_level(self, ast.module_id)?;
+                                binding.pattern
+                            }
+                        };
+
+                        for pattern in binding_pattern.iter() {
+                            let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
+
+                            let mut new_pattern = SymbolPattern {
+                                id: BindingInfoId::unknown(),
+                                symbol: pattern.symbol,
+                                alias: None,
+                                span: wildcard_symbol,
+                                is_mutable: false,
+                                ignore: false,
+                            };
+
+                            self.bind_symbol_pattern(
+                                env,
+                                &mut new_pattern,
+                                visibility,
+                                binding_info.ty,
+                                binding_info.const_value.clone(),
+                                kind,
+                            )?;
+
+                            self.workspace
+                                .set_binding_info_redirect(new_pattern.id, pattern.id);
+
+                            unpack_pattern.symbols.push(new_pattern);
+                        }
+                    }
+                }
+
                 Ok(())
             }
             ty_kind => {
                 let partial_struct = PartialStructTy(IndexMap::from_iter(
-                    pattern
+                    unpack_pattern
                         .symbols
                         .iter()
                         .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).as_kind())),
@@ -219,17 +279,17 @@ impl<'s> CheckSess<'s> {
 
                 let partial_struct_ty = self
                     .tycx
-                    .partial_struct(partial_struct.clone(), pattern.span);
+                    .partial_struct(partial_struct.clone(), unpack_pattern.span);
 
                 ty.unify(&partial_struct_ty, &mut self.tycx).or_report_err(
                     &self.tycx,
                     partial_struct_ty,
-                    Some(pattern.span),
+                    Some(unpack_pattern.span),
                     ty,
                     ty_origin_span,
                 )?;
 
-                for pat in pattern.symbols.iter_mut() {
+                for pat in unpack_pattern.symbols.iter_mut() {
                     let ty = self
                         .tycx
                         .bound(partial_struct[&pat.symbol].clone(), pat.span);
@@ -245,11 +305,11 @@ impl<'s> CheckSess<'s> {
                     self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
                 }
 
-                if let Some(wildcard_symbol) = pattern.wildcard_symbol {
-                    match ty_kind {
+                if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
+                    match ty_kind.maybe_deref_once() {
                         TyKind::Struct(struct_ty) => {
                             for field in struct_ty.fields.iter() {
-                                if pattern
+                                if unpack_pattern
                                     .symbols
                                     .iter()
                                     .find(|p| field.symbol == p.symbol)
@@ -283,7 +343,7 @@ impl<'s> CheckSess<'s> {
                                     kind,
                                 )?;
 
-                                pattern.symbols.push(field_pattern);
+                                unpack_pattern.symbols.push(field_pattern);
                             }
                         }
                         TyKind::Infer(_, InferTy::PartialStruct(_)) => {

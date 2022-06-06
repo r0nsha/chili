@@ -11,6 +11,13 @@ impl Parser {
             self.parse_struct_unpack()
         } else if eat!(self, OpenParen) {
             self.parse_tuple_unpack()
+        } else if eat!(self, QuestionMark) {
+            let span = self.previous_span();
+            Ok(Pattern::StructUnpack(UnpackPattern {
+                symbols: vec![],
+                span,
+                wildcard_symbol: Some(span),
+            }))
         } else {
             Err(SyntaxError::expected(self.span(), "a pattern"))
         }

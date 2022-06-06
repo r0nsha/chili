@@ -126,7 +126,7 @@ impl<'s> CheckSess<'s> {
         Ok((res, id))
     }
 
-    fn validate_can_access_item(
+    pub(crate) fn validate_can_access_item(
         &self,
         binding_info: &BindingInfo,
         caller_info: CallerInfo,

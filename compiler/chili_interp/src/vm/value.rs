@@ -248,10 +248,19 @@ impl_value! {
     Type(TyKind),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Aggregate {
     pub elements: Vec<Value>,
     pub ty: TyKind,
+}
+
+impl Clone for Aggregate {
+    fn clone(&self) -> Self {
+        Self {
+            elements: self.elements.clone(),
+            ty: self.ty.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -704,76 +713,80 @@ impl Pointer {
 
 const MAX_CONSECUTIVE_VALUES: isize = 4;
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
-        match self {
-            Value::I8(v) => format!("i8 {}", v),
-            Value::I16(v) => format!("i16 {}", v),
-            Value::I32(v) => format!("i32 {}", v),
-            Value::I64(v) => format!("i64 {}", v),
-            Value::Int(v) => format!("int {}", v),
-            Value::U8(v) => format!("u8 {}", v),
-            Value::U16(v) => format!("u16 {}", v),
-            Value::U32(v) => format!("u32 {}", v),
-            Value::U64(v) => format!("u64 {}", v),
-            Value::Uint(v) => format!("uint {}", v),
-            Value::F32(v) => format!("f32 {}", v),
-            Value::F64(v) => format!("f64 {}", v),
-            Value::Bool(v) => format!("bool {}", v),
-            Value::Aggregate(v) => {
-                let extra_values = v.elements.len() as isize - MAX_CONSECUTIVE_VALUES;
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Value::I8(v) => format!("i8 {}", v),
+                Value::I16(v) => format!("i16 {}", v),
+                Value::I32(v) => format!("i32 {}", v),
+                Value::I64(v) => format!("i64 {}", v),
+                Value::Int(v) => format!("int {}", v),
+                Value::U8(v) => format!("u8 {}", v),
+                Value::U16(v) => format!("u16 {}", v),
+                Value::U32(v) => format!("u32 {}", v),
+                Value::U64(v) => format!("u64 {}", v),
+                Value::Uint(v) => format!("uint {}", v),
+                Value::F32(v) => format!("f32 {}", v),
+                Value::F64(v) => format!("f64 {}", v),
+                Value::Bool(v) => format!("bool {}", v),
+                Value::Aggregate(v) => {
+                    let extra_values = v.elements.len() as isize - MAX_CONSECUTIVE_VALUES;
 
-                format!(
-                    "{{{}{}}}",
-                    v.elements
-                        .iter()
-                        .take(MAX_CONSECUTIVE_VALUES as usize)
-                        .map(|v| v.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                    if extra_values > 0 {
-                        format!(", +{} more", extra_values)
-                    } else {
-                        "".to_string()
-                    }
-                )
-            }
-            Value::Array(v) => {
-                let bytes = &v.bytes;
-
-                let ty = v.ty.inner();
-                let element_size = ty.size_of(WORD_SIZE);
-                let size = (bytes.len() / element_size) as isize;
-
-                let mut elements = vec![];
-
-                for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
-                    let el = bytes.offset(element_size * (i as usize)).get_value(ty);
-                    elements.push(el.to_string());
+                    format!(
+                        "{{{}{}}}",
+                        v.elements
+                            .iter()
+                            .take(MAX_CONSECUTIVE_VALUES as usize)
+                            .map(|v| v.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                        if extra_values > 0 {
+                            format!(", +{} more", extra_values)
+                        } else {
+                            "".to_string()
+                        }
+                    )
                 }
+                Value::Array(v) => {
+                    let bytes = &v.bytes;
 
-                let extra_values = size - MAX_CONSECUTIVE_VALUES;
+                    let ty = v.ty.inner();
+                    let element_size = ty.size_of(WORD_SIZE);
+                    let size = (bytes.len() / element_size) as isize;
 
-                format!(
-                    "[{}{}]",
-                    elements.join(", "),
-                    if extra_values > 0 {
-                        format!(", +{} more", extra_values)
-                    } else {
-                        "".to_string()
+                    let mut elements = vec![];
+
+                    for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
+                        let el = bytes.offset(element_size * (i as usize)).get_value(ty);
+                        elements.push(el.to_string());
                     }
-                )
+
+                    let extra_values = size - MAX_CONSECUTIVE_VALUES;
+
+                    format!(
+                        "[{}{}]",
+                        elements.join(", "),
+                        if extra_values > 0 {
+                            format!(", +{} more", extra_values)
+                        } else {
+                            "".to_string()
+                        }
+                    )
+                }
+                Value::Pointer(p) => p.to_string(),
+                Value::Function(func) => format!("fn {}", func.name),
+                Value::ExternFunction(func) => format!("foreign fn {}", func.name),
+                Value::Type(ty) => format!("type {}", ty),
             }
-            Value::Pointer(p) => p.to_string(),
-            Value::Function(func) => format!("fn {}", func.name),
-            Value::ExternFunction(func) => format!("foreign fn {}", func.name),
-            Value::Type(ty) => format!("type {}", ty),
-        }
+        )
     }
 }
 
-impl ToString for Pointer {
-    fn to_string(&self) -> String {
+impl Display for Pointer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = if self.as_inner_raw().is_null() {
             "null".to_string()
         } else {
@@ -845,6 +858,6 @@ impl ToString for Pointer {
             }
         };
 
-        format!("ptr {}", value)
+        write!(f, "ptr {}", value)
     }
 }

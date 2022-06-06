@@ -202,6 +202,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         // println!("callee: {:#?}", callee_ptr.get_type());
 
+        // for arg in args.iter() {
+        //     println!("arg: {:#?}", arg);
+        // }
+
         let callable_value: CallableValue = callee_ptr.try_into().unwrap();
 
         self.gen_fn_call(
@@ -236,12 +240,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         Some(cast_to) => cast_to,
                         None => param.ty,
                     };
-                    let arg = self.build_transmute(state, arg, abi_ty);
-                    arg
+
+                    self.build_transmute(state, arg, abi_ty)
                 }
                 AbiTyKind::Indirect => {
                     // println!("...indirect");
                     let arg_type = arg.get_type();
+
                     let is_array = arg_type.is_pointer_type()
                         && arg_type
                             .into_pointer_type()
@@ -257,7 +262,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                                 .try_into()
                                 .unwrap(),
                         );
+
                         self.build_store(ptr, arg);
+
                         ptr
                     } else if callee_ty.lib_name.is_none() {
                         self.gen_local_or_load_addr(state, BindingInfoId::unknown(), arg)

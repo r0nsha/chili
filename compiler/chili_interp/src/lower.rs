@@ -457,13 +457,13 @@ impl Lower for ast::Function {
                     sess.env_mut().insert(pat.id, param_offset);
                 }
                 Pattern::StructUnpack(pat) => {
-                    let ty = param.ty.normalize(sess.tycx);
-
+                    let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
                     let ty = ty.as_struct();
 
                     for pat in pat.symbols.iter() {
                         let field_index = ty.find_field_position(pat.symbol).unwrap();
-                        func_code.push(Instruction::PeekPtr(param_offset as i32));
+                        // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+                        func_code.push(Instruction::Peek(param_offset as i32));
                         func_code.push(Instruction::ConstIndex(field_index as u32));
                         sess.add_local(&mut func_code, pat.id);
                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
