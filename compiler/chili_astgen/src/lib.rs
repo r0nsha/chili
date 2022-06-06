@@ -1,6 +1,6 @@
 use chili_ast::{
     ast, compiler_info,
-    path::{try_resolve_relative_path, RelativeTo},
+    path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
     workspace::{ModuleInfo, Workspace},
 };
 use chili_error::SyntaxError;
@@ -67,6 +67,8 @@ fn generate_ast_inner(
     let (tx, rx) = channel::<Box<ParserResult>>();
 
     let cache = Arc::new(Mutex::new(ParserCache {
+        root_file: resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd)
+            .unwrap(),
         root_dir: workspace.root_dir.clone(),
         std_dir: workspace.std_dir.clone(),
         diagnostics: workspace.diagnostics.clone(),

@@ -35,14 +35,11 @@ pub fn try_resolve_relative_path<'a>(
     }
 }
 
-pub fn resolve_relative_path(path: &Path, relative_to: &str) -> Option<String> {
-    let absolute_path = if relative_to.is_empty() {
-        path.absolutize().unwrap()
-    } else {
-        path.absolutize_from(Path::new(relative_to)).unwrap()
+pub fn resolve_relative_path(path: &Path, relative_to: RelativeTo) -> Option<PathBuf> {
+    let absolute_path = match relative_to {
+        RelativeTo::Path(relative_to) => path.absolutize_from(relative_to).unwrap(),
+        RelativeTo::Cwd => path.absolutize().unwrap(),
     };
 
-    absolute_path
-        .exists()
-        .then(|| absolute_path.to_str().unwrap().to_string())
+    absolute_path.exists().then(|| absolute_path.to_path_buf())
 }

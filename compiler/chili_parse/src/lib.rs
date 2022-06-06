@@ -114,6 +114,7 @@ pub struct Parser {
 
 #[derive(Debug)]
 pub struct ParserCache {
+    pub root_file: PathBuf,
     pub root_dir: PathBuf,
     pub std_dir: PathBuf,
     pub diagnostics: Diagnostics,

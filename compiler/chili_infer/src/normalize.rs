@@ -1,7 +1,6 @@
 use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
 use indexmap::IndexMap;
-use ustr::{Ustr, UstrMap};
 
 pub trait NormalizeTy {
     fn normalize(&self, tycx: &TyCtx) -> TyKind;

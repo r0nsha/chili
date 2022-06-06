@@ -1,6 +1,6 @@
 let { printf } = @import("std/c");
 let { println } = @import("std/fmt");
-let { bar, baz } = @import("foo");
+let { bar, baz } = @import("foo/foo");
 
 let Foo = struct { a: int, b: int, c: int };
 // let Foo = struct { a: int, b: int, c: int };
@@ -13,9 +13,11 @@ let main = fn() {
     let foo = Foo { a: 1, b: 2, c: 3 };
     printf("%d %d %d\n".data, foo.a, foo.b, foo.c);
 
-    // println("Hello World");
-    // bar();
-    // printf("baz = %d\n".data, baz);
+    print_hello();
+    bar();
+    printf("baz = %d\n".data, baz);
 };
 
-@run(main())
+pub let print_hello = fn() {
+    println("Hello World");
+}

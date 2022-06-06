@@ -16,13 +16,17 @@ impl Parser {
         let token = require!(self, Str(_), "string")?;
         let path = token.symbol().as_str();
 
-        let absolute_import_path = if compiler_info::is_std_module_path(&path) {
+        let absolute_import_path = if path == "~" {
+            self.cache.lock().unwrap().root_file.clone()
+        } else if compiler_info::is_std_module_path(&path) {
+            // example: @import("std")
             try_resolve_relative_path(
                 &compiler_info::std_module_root_file(),
                 RelativeTo::Cwd,
                 Some(token.span),
             )?
         } else if compiler_info::is_std_module_path_start(&path) {
+            // example: @import("std/foo/bar")
             let trimmed_path = path
                 .trim_start_matches(compiler_info::STD_PREFIX_FW)
                 .trim_start_matches(compiler_info::STD_PREFIX_BK);
@@ -35,6 +39,7 @@ impl Parser {
 
             try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
         } else {
+            // example: @import("foo/bar")
             let path = Path::new(path);
 
             let import_path = if path.extension().is_some() {
@@ -60,7 +65,12 @@ impl Parser {
             {
                 return Err(Diagnostic::error()
                     .with_message("cannot use a file outside of the root module's directory")
-                    .with_label(Label::primary(token.span, "cannot use this file")));
+                    .with_label(Label::primary(token.span, "cannot use this file"))
+                    .with_note(format!(
+                        "import path is {}",
+                        absolute_import_path.to_str().unwrap()
+                    ))
+                    .with_note(format!("root directory is {}", root_dir.to_str().unwrap())));
             }
         }
 
