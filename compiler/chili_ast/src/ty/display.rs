@@ -1,5 +1,5 @@
 use super::*;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -8,7 +8,7 @@ impl fmt::Display for Ty {
 }
 
 impl Display for TyKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
@@ -68,7 +68,7 @@ impl Display for TyKind {
 }
 
 impl Display for StructTy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.binding_info_id != BindingInfoId::unknown() {
             write!(f, "{}", self.name.as_str())
         } else {
@@ -91,7 +91,7 @@ impl Display for StructTy {
 }
 
 impl Display for PartialStructTy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "struct {{ {} }}",
@@ -104,7 +104,7 @@ impl Display for PartialStructTy {
 }
 
 impl Display for FunctionTy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "fn({}{}) -> {}",
