@@ -1525,7 +1525,7 @@ impl Check for ast::Expr {
                         )))
                     }
                     TyKind::Module(module_id) => {
-                        let (res, id) = sess.check_top_level_symbol(
+                        let (res, _) = sess.check_top_level_symbol(
                             CallerInfo {
                                 module_id: env.module_id(),
                                 span: self.span,
@@ -1533,8 +1533,6 @@ impl Check for ast::Expr {
                             *module_id,
                             access.member,
                         )?;
-
-                        sess.workspace.increment_binding_use(id);
 
                         Ok(res)
                     }
@@ -1551,6 +1549,7 @@ impl Check for ast::Expr {
                 Some(id) => {
                     // this is a local binding
                     ident.binding_info_id = id;
+
                     sess.workspace.increment_binding_use(id);
 
                     let binding_info = sess.workspace.get_binding_info(id).unwrap();
@@ -1590,7 +1589,6 @@ impl Check for ast::Expr {
                     )?;
 
                     ident.binding_info_id = id;
-                    sess.workspace.increment_binding_use(id);
 
                     Ok(res)
                 }

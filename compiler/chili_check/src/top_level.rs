@@ -67,7 +67,7 @@ impl<'s> CheckSess<'s> {
             .find(|ast| ast.module_id == module_id)
             .expect(&format!("{:?}", module_id));
 
-        if let Some(binding) = ast
+        let (res, id) = if let Some(binding) = ast
             .bindings
             .iter()
             .find(|binding| binding.pattern.iter().any(|pat| pat.symbol == symbol))
@@ -88,13 +88,13 @@ impl<'s> CheckSess<'s> {
 
             self.validate_can_access_item(desired_binding_info, caller_info)?;
 
-            Ok((
+            (
                 Res::new_maybe_const(
                     desired_binding_info.ty,
                     desired_binding_info.const_value.clone(),
                 ),
                 id,
-            ))
+            )
         } else if let Some(import) = ast.imports.iter().find(|import| import.alias == symbol) {
             // this symbol points to an import
             let mut import = import.clone();
@@ -107,7 +107,7 @@ impl<'s> CheckSess<'s> {
                 caller_info,
             )?;
 
-            Ok((res, id))
+            (res, id)
         } else if let Some(&builtin_id) = self.builtin_types.get(&symbol) {
             // this is a builtin symbol, such as i32, bool, etc.
             let res = self
@@ -118,7 +118,7 @@ impl<'s> CheckSess<'s> {
                 })
                 .unwrap();
 
-            Ok((res, builtin_id))
+            (res, builtin_id)
         } else {
             // the symbol doesn't exist, return an error
             let module_info = self.workspace.get_module_info(module_id).unwrap();
@@ -138,10 +138,14 @@ impl<'s> CheckSess<'s> {
                 format!("not found in `{}`", module_info.name)
             };
 
-            Err(Diagnostic::error()
+            return Err(Diagnostic::error()
                 .with_message(message)
-                .with_label(Label::primary(caller_info.span, label_message)))
-        }
+                .with_label(Label::primary(caller_info.span, label_message)));
+        };
+
+        self.workspace.increment_binding_use(id);
+
+        Ok((res, id))
     }
 
     fn validate_can_access_item(
