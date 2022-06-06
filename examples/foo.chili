@@ -1,5 +1,0 @@
-pub let bar = fn() {
-    42
-}
-
-pub let baz = 100

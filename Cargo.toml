@@ -8,7 +8,6 @@ members = [
     "compiler/chili_token",
     "compiler/chili_parse",
     "compiler/chili_astgen",
-    "compiler/chili_resolve",
     "compiler/chili_infer",
     "compiler/chili_interp",
     "compiler/chili_check",

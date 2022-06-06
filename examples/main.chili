@@ -3,7 +3,4 @@ let { println } = @import("std/fmt");
 
 let main = fn() {
     println("Hello World");
-
-    let { bar, baz } = @import("foo");
-    printf("bar = %d, baz = %d\n".data, bar(), baz);
 };

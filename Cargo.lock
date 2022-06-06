@@ -253,7 +253,6 @@ dependencies = [
  "chili_error",
  "chili_lint",
  "chili_pretty_print",
- "chili_resolve",
  "chili_span",
  "clap",
  "colored",
@@ -292,19 +291,6 @@ dependencies = [
  "chili_token",
  "common",
  "ptree",
-]
-
-[[package]]
-name = "chili_resolve"
-version = "0.1.0"
-dependencies = [
- "chili_ast",
- "chili_error",
- "chili_parse",
- "chili_span",
- "chili_token",
- "common",
- "ustr",
 ]
 
 [[package]]

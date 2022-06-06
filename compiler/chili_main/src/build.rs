@@ -35,7 +35,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
     }
 
     // Parse all source files into ast's
-    let (mut asts, stats) = time! { workspace.build_options.verbose, "parse", {
+    let (asts, stats) = time! { workspace.build_options.verbose, "parse", {
             match chili_astgen::generate_ast(&mut workspace) {
                 Some(result) => result,
                 None => {
@@ -44,16 +44,6 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
                 }
             }
         }
-    };
-
-    if workspace.diagnostics.has_errors() {
-        workspace.emit_diagnostics();
-        return workspace;
-    }
-
-    // General pre-check transforms, such as glob import expansion
-    time! { workspace.build_options.verbose, "resolve",
-        chili_resolve::resolve(&mut workspace, &mut asts)
     };
 
     if workspace.diagnostics.has_errors() {

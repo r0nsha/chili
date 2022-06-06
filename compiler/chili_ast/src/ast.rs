@@ -1,12 +1,12 @@
 use crate::{
-    const_value::{ConstStruct, ConstValue},
+    const_value::ConstValue,
     path::{try_resolve_relative_path, RelativeTo},
     pattern::Pattern,
     ty::*,
     workspace::{BindingInfoId, ModuleId, ModuleInfo},
 };
 use chili_error::DiagnosticResult;
-use chili_span::{Span, Spanned};
+use chili_span::Span;
 use chili_token::TokenKind;
 use std::{
     collections::HashMap,
