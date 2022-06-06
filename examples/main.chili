@@ -1,11 +1,10 @@
 let { printf } = @import("std/c");
 let { println } = @import("std/fmt");
-
-let Vector2: type = struct {
-    x: a,
-    y: a
-}
+let { bar } = @import("foo");
 
 let main = fn() {
     println("Hello World");
+    bar();
 };
+
+@run(main())

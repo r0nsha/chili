@@ -304,7 +304,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         match pattern {
             Pattern::Symbol(SymbolPattern {
-                binding_info_id, ..
+                id: binding_info_id,
+                ..
             }) => {
                 self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
             }
@@ -317,14 +318,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         let redirect_id = self
                             .workspace
-                            .get_binding_info(pat.binding_info_id)
+                            .get_binding_info(pat.id)
                             .unwrap()
                             .redirects_to
                             .unwrap();
 
                         let decl = self.find_or_gen_top_level_binding(redirect_id);
 
-                        state.scopes.insert(pat.binding_info_id, decl);
+                        state.scopes.insert(pat.id, decl);
                     }
                 }
                 TyKind::Struct(struct_ty) => {
@@ -348,7 +349,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         self.gen_local_with_alloca(
                             state,
-                            pat.binding_info_id,
+                            pat.id,
                             if ty.is_pointer() {
                                 value
                             } else {
@@ -373,7 +374,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                     self.gen_local_with_alloca(
                         state,
-                        pat.binding_info_id,
+                        pat.id,
                         if ty.is_pointer() {
                             value
                         } else {
@@ -394,14 +395,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         match pattern {
             Pattern::Symbol(symbol) => {
-                self.gen_local_with_alloca(state, symbol.binding_info_id, value);
+                self.gen_local_with_alloca(state, symbol.id, value);
             }
             Pattern::StructUnpack(pattern) => {
                 let struct_ty = ty.maybe_deref_once().as_struct().clone();
 
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern {
-                        binding_info_id,
+                        id: binding_info_id,
                         symbol,
                         ignore,
                         ..
@@ -427,7 +428,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             Pattern::TupleUnpack(pattern) => {
                 for i in 0..pattern.symbols.len() {
                     let SymbolPattern {
-                        binding_info_id,
+                        id: binding_info_id,
                         ignore,
                         ..
                     } = pattern.symbols[i];
@@ -555,12 +556,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let pat = binding.pattern.as_single_ref();
                         let ty = ty.llvm_type(self);
 
-                        let global_value =
-                            self.add_global_uninit(pat.binding_info_id, ty, Linkage::External);
+                        let global_value = self.add_global_uninit(pat.id, ty, Linkage::External);
 
                         state
                             .scopes
-                            .insert(pat.binding_info_id, CodegenDecl::Global(global_value));
+                            .insert(pat.id, CodegenDecl::Global(global_value));
                     }
                 }
 

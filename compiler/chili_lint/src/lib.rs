@@ -96,7 +96,7 @@ impl Lint for ast::Binding {
         };
 
         for symbol in self.pattern.iter() {
-            sess.init_scopes.insert(symbol.binding_info_id, init_state);
+            sess.init_scopes.insert(symbol.id, init_state);
         }
 
         self.expr.lint(sess);

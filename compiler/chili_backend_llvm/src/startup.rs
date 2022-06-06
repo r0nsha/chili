@@ -125,11 +125,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             // TODO: when hybrid patterns arrive, we can get the ptr to the hybrid pattern that has been generated
             let global_value = match &binding.pattern {
-                Pattern::Symbol(pat) => self
-                    .global_decls
-                    .get(&pat.binding_info_id)
-                    .unwrap()
-                    .into_global_value(),
+                Pattern::Symbol(pat) => self.global_decls.get(&pat.id).unwrap().into_global_value(),
                 Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
                     let global_value = self.module.add_global(ty, None, "");
                     global_value.set_linkage(Linkage::Private);
@@ -175,10 +171,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             continue;
                         }
 
-                        let binding_info = self
-                            .workspace
-                            .get_binding_info(pat.binding_info_id)
-                            .unwrap();
+                        let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
 
                         if binding_info.const_value.is_some() {
                             continue;
@@ -186,7 +179,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         if let Some(ptr) = self
                             .global_decls
-                            .get(&pat.binding_info_id)
+                            .get(&pat.id)
                             .map(|d| d.into_pointer_value())
                         {
                             let field_index = struct_ty.field_index(pat.symbol).unwrap();
@@ -210,10 +203,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             continue;
                         }
 
-                        let binding_info = self
-                            .workspace
-                            .get_binding_info(pat.binding_info_id)
-                            .unwrap();
+                        let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
 
                         if binding_info.const_value.is_some() {
                             continue;
@@ -221,7 +211,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         if let Some(ptr) = self
                             .global_decls
-                            .get(&pat.binding_info_id)
+                            .get(&pat.id)
                             .map(|d| d.into_pointer_value())
                         {
                             let field_value =

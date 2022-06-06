@@ -74,7 +74,7 @@ impl<'s> CheckSess<'s> {
                 .find(|pat| pat.symbol == symbol)
                 .unwrap();
 
-            let id = desired_pat.binding_info_id;
+            let id = desired_pat.id;
             let desired_binding_info = self.workspace.get_binding_info(id).unwrap();
 
             self.validate_can_access_item(desired_binding_info, caller_info)?;

@@ -118,7 +118,7 @@ impl PrintTree for ast::Binding {
 
         b.begin_child(match &self.pattern {
             Pattern::Symbol(pat) => {
-                let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                let ty = &workspace.get_binding_info(pat.id).unwrap().ty;
                 format!(
                     "{}let {} <{}>",
                     module_prefix,
@@ -131,7 +131,7 @@ impl PrintTree for ast::Binding {
                     .symbols
                     .iter()
                     .map(|pat| {
-                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                        let ty = &workspace.get_binding_info(pat.id).unwrap().ty;
                         format!(
                             "{}let {} <{}>",
                             module_prefix,
@@ -149,7 +149,7 @@ impl PrintTree for ast::Binding {
                     .symbols
                     .iter()
                     .map(|pat| {
-                        let ty = &workspace.get_binding_info(pat.binding_info_id).unwrap().ty;
+                        let ty = &workspace.get_binding_info(pat.id).unwrap().ty;
                         format!(
                             "{}let {} <{}>",
                             module_prefix,

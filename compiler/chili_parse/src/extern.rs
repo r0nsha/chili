@@ -54,7 +54,7 @@ impl Parser {
         let id = require!(self, Ident(_), "identifier")?;
 
         let pattern = Pattern::Symbol(SymbolPattern {
-            binding_info_id: Default::default(),
+            id: Default::default(),
             symbol: id.symbol(),
             alias: None,
             is_mutable: false,

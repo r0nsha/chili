@@ -113,7 +113,7 @@ impl<'s> CheckSess<'s> {
         const_value: Option<ConstValue>,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<()> {
-        pattern.binding_info_id = self.bind_symbol(
+        pattern.id = self.bind_symbol(
             env,
             pattern.alias.unwrap_or(pattern.symbol),
             visibility,
@@ -190,7 +190,7 @@ impl<'s> CheckSess<'s> {
 
                     self.workspace.increment_binding_use(top_level_symbol_id);
 
-                    pat.binding_info_id = self.bind_symbol(
+                    pat.id = self.bind_symbol(
                         env,
                         pat.alias.unwrap_or(pat.symbol),
                         visibility,
@@ -202,7 +202,7 @@ impl<'s> CheckSess<'s> {
                     )?;
 
                     self.workspace
-                        .set_binding_info_redirect(pat.binding_info_id, top_level_symbol_id);
+                        .set_binding_info_redirect(pat.id, top_level_symbol_id);
                 }
 
                 Ok(())

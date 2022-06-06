@@ -50,9 +50,7 @@ impl Pattern {
     }
 
     pub fn ids(&self) -> Vec<BindingInfoId> {
-        self.iter()
-            .map(|p| p.binding_info_id)
-            .collect::<Vec<BindingInfoId>>()
+        self.iter().map(|p| p.id).collect::<Vec<BindingInfoId>>()
     }
 }
 
@@ -119,7 +117,7 @@ impl Display for UnpackPattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SymbolPattern {
-    pub binding_info_id: BindingInfoId,
+    pub id: BindingInfoId,
     pub symbol: Ustr,
     pub alias: Option<Ustr>,
     pub span: Span,

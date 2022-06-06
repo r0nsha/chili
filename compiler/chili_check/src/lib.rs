@@ -410,7 +410,7 @@ impl Check for ast::Binding {
 
             match &mut self.pattern {
                 Pattern::Symbol(pat) => {
-                    pat.binding_info_id = fn_expr.binding_info_id.unwrap();
+                    pat.id = fn_expr.binding_info_id.unwrap();
 
                     // TODO: this should be moved to another place...
                     // If this binding matches the entry point function's requirements,
@@ -422,7 +422,7 @@ impl Check for ast::Binding {
                         && self.module_id == sess.workspace.root_module_id
                         && pat.symbol == "main"
                     {
-                        sess.workspace.entry_point_function_id = Some(pat.binding_info_id);
+                        sess.workspace.entry_point_function_id = Some(pat.id);
                         fn_expr.is_entry_point = true;
                     }
                 }
@@ -581,7 +581,7 @@ impl Check for ast::FunctionSig {
 
                             self.params.push(ast::FunctionParam {
                                 pattern: Pattern::Symbol(SymbolPattern {
-                                    binding_info_id: Default::default(),
+                                    id: Default::default(),
                                     symbol,
                                     alias: None,
                                     span: Span::unknown(),

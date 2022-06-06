@@ -76,7 +76,7 @@ impl Parser {
         };
 
         Ok(SymbolPattern {
-            binding_info_id: Default::default(),
+            id: Default::default(),
             symbol,
             alias: None,
             is_mutable,
