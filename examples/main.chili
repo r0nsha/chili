@@ -3,21 +3,17 @@ let { println } = @import("std/fmt");
 let { bar, baz } = @import("foo/foo");
 
 let Foo = struct { a: int, b: int, c: int };
-// let Foo = struct { a: int, b: int, c: int };
+// let { ? } = Foo { a: 1, b: 2, c: 3 };
 
 // let print_foo = fn({ ? }: Foo) {
 //     printf("%d %d %d\n".data, foo.a, foo.b, foo.c)
 // }
 
 let main = fn() {
-    let foo = Foo { a: 1, b: 2, c: 3 };
+    let { ? } = Foo { a: 1, b: 2, c: 3 };
     printf("%d %d %d\n".data, foo.a, foo.b, foo.c);
 
-    print_hello();
-    bar();
-    printf("baz = %d\n".data, baz);
+    // println("Hello World");
+    // bar();
+    // printf("baz = %d\n".data, baz);
 };
-
-pub let print_hello = fn() {
-    println("Hello World");
-}
