@@ -13,11 +13,12 @@ use chili_ast::{ast, workspace::ModuleInfo};
 use chili_error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::{EndPosition, Position, Span};
 use chili_token::{lexer::Lexer, Token, TokenKind::*};
+use parking_lot::Mutex;
 use std::{
     collections::HashSet,
     fmt::Debug,
     path::PathBuf,
-    sync::{mpsc::Sender, Arc, Mutex},
+    sync::{mpsc::Sender, Arc},
     thread,
 };
 use unindent::unindent;
@@ -154,7 +155,7 @@ impl Parser {
 
     fn parse_inner(&mut self) -> ParserResult {
         let (file_id, source) = {
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock();
 
             if !cache.parsed_modules.insert(self.module_info) {
                 return ParserResult::AlreadyParsed;

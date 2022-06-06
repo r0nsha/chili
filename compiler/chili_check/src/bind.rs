@@ -7,10 +7,13 @@ use chili_ast::{
     ast,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern},
-    ty::{PartialStructTy, Ty, TyKind},
+    ty::{InferTy, PartialStructTy, Ty, TyKind},
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
-use chili_error::{DiagnosticResult, SyntaxError};
+use chili_error::{
+    diagnostic::{Diagnostic, Label},
+    DiagnosticResult, SyntaxError,
+};
 use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
 use chili_span::Span;
 use indexmap::IndexMap;
@@ -206,7 +209,7 @@ impl<'s> CheckSess<'s> {
 
                 Ok(())
             }
-            _ => {
+            ty_kind => {
                 let partial_struct = PartialStructTy(IndexMap::from_iter(
                     pattern
                         .symbols
@@ -240,6 +243,72 @@ impl<'s> CheckSess<'s> {
                     };
 
                     self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
+                }
+
+                if let Some(wildcard_symbol) = pattern.wildcard_symbol {
+                    match ty_kind {
+                        TyKind::Struct(struct_ty) => {
+                            for field in struct_ty.fields.iter() {
+                                if pattern
+                                    .symbols
+                                    .iter()
+                                    .find(|p| field.symbol == p.symbol)
+                                    .is_some()
+                                {
+                                    // skip explicitly unpacked fields
+                                    continue;
+                                }
+
+                                let field_const_value = const_value.as_ref().map(|v| {
+                                    v.as_struct().get(&field.symbol).unwrap().clone().value
+                                });
+
+                                let mut field_pattern = SymbolPattern {
+                                    id: BindingInfoId::unknown(),
+                                    symbol: field.symbol,
+                                    alias: None,
+                                    span: wildcard_symbol,
+                                    is_mutable: false,
+                                    ignore: false,
+                                };
+
+                                let ty = self.tycx.bound(field.ty.clone(), field.span);
+
+                                self.bind_symbol_pattern(
+                                    env,
+                                    &mut field_pattern,
+                                    visibility,
+                                    ty,
+                                    field_const_value,
+                                    kind,
+                                )?;
+
+                                pattern.symbols.push(field_pattern);
+                            }
+                        }
+                        TyKind::Infer(_, InferTy::PartialStruct(_)) => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot use wildcard unpack on partial struct type - {}",
+                                    ty_kind
+                                ))
+                                .with_label(Label::primary(
+                                    wildcard_symbol,
+                                    "illegal wildcard unpack",
+                                )))
+                        }
+                        _ => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot use wildcard unpack on type {}",
+                                    ty_kind
+                                ))
+                                .with_label(Label::primary(
+                                    wildcard_symbol,
+                                    "illegal wildcard unpack",
+                                )))
+                        }
+                    }
                 }
 
                 Ok(())

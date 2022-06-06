@@ -17,12 +17,11 @@ impl Parser {
         let path = token.symbol().as_str();
 
         let absolute_import_path = if path == "~" {
-            self.cache.lock().unwrap().root_file.clone()
+            self.cache.lock().root_file.clone()
         } else if path.starts_with("~") {
             let mut import_path = self
                 .cache
                 .lock()
-                .unwrap()
                 .root_dir
                 .join(PathBuf::from(path.trim_start_matches("~/")));
 
@@ -69,7 +68,7 @@ impl Parser {
         };
 
         {
-            let root_dir = &self.cache.lock().unwrap().root_dir;
+            let root_dir = &self.cache.lock().root_dir;
 
             // TODO: We specially handle the case of paths under std.
             // TODO: In the future, we'd like to treat std is a proper library, so we won't need this.
@@ -102,7 +101,7 @@ impl Parser {
     fn get_module_name_from_path(&self, path: &Path) -> String {
         // TODO: this `std_root_dir` thing is very hacky. we should probably get
         // TODO: `std` from `root_dir`, and not do this ad-hoc.
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock();
         let root_dir = cache.root_dir.to_str().unwrap();
         let std_root_dir = cache.std_dir.parent().unwrap().to_str().unwrap();
 

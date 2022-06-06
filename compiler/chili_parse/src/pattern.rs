@@ -19,11 +19,15 @@ impl Parser {
     fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous_span();
 
-        let symbols = parse_delimited_list!(
-            self,
-            CloseCurly,
-            Comma,
-            {
+        let mut symbols = vec![];
+        let mut wildcard_symbol: Option<Span> = None;
+
+        while !eat!(self, CloseCurly) && !self.is_end() {
+            if eat!(self, QuestionMark) {
+                wildcard_symbol = Some(self.previous().span);
+                require!(self, CloseCurly, "}")?;
+                break;
+            } else {
                 let mut symbol_pattern = self.parse_symbol_pattern()?;
 
                 if eat!(self, Colon) {
@@ -32,14 +36,23 @@ impl Parser {
                     symbol_pattern.alias = Some(symbol);
                 }
 
-                symbol_pattern
-            },
-            ", or }"
-        );
+                symbols.push(symbol_pattern);
+
+                if eat!(self, Comma) {
+                    continue;
+                } else if eat!(self, CloseCurly) {
+                    break;
+                } else {
+                    let span = Parser::get_missing_delimiter_span(self.previous_span());
+                    return Err(SyntaxError::expected(span, ", or }"));
+                }
+            }
+        }
 
         let unpack = UnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
+            wildcard_symbol,
         };
 
         Ok(Pattern::StructUnpack(unpack))
@@ -59,6 +72,7 @@ impl Parser {
         let unpack = UnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
+            wildcard_symbol: None,
         };
 
         Ok(Pattern::TupleUnpack(unpack))

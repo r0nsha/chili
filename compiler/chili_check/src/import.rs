@@ -30,10 +30,16 @@ pub(crate) fn check_ast(sess: &mut CheckSess, ast: &ast::Ast) -> CheckResult {
         sess.checked_modules.insert(ast.module_id, module_type);
 
         for binding in ast.bindings.iter() {
-            let first_pat = binding.pattern.iter().next().unwrap();
-
-            if let None = sess.get_global_symbol(module_id, first_pat.symbol) {
-                binding.clone().check_top_level(sess, module_id)?;
+            match binding.pattern.iter().next() {
+                Some(first_pat) => {
+                    if let None = sess.get_global_symbol(module_id, first_pat.symbol) {
+                        binding.clone().check_top_level(sess, module_id)?;
+                    }
+                }
+                None => {
+                    // 6/6/2022: this is reached when only a wildcard symbol is used in a pattern
+                    binding.clone().check_top_level(sess, module_id)?;
+                }
             }
         }
 

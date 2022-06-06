@@ -1101,18 +1101,6 @@ fn lower_top_level_binding(
     desired_id: BindingInfoId,
     sess: &mut InterpSess,
 ) -> usize {
-    // if binding.pattern.is_single() {
-    //     let id = binding.pattern.as_single_ref().binding_info_id;
-    //     assert!(id != BindingInfoId::unknown());
-
-    //     let binding_info = sess.workspace.get_binding_info(id).unwrap();
-
-    //     if let Some(const_value) = &binding_info.const_value {
-    //         let value = const_value_to_value(const_value, binding_info.ty, sess);
-    //         return sess.insert_global(id, value);
-    //     }
-    // }
-
     // insert a temporary value, since the global will be computed at the start of the vm's execution
 
     sess.env_stack.push((binding.module_id, Env::default()));

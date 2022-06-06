@@ -1,6 +1,7 @@
 use crate::*;
 use chili_ast::{
     ast::{Binding, BindingKind, Visibility},
+    pattern::Pattern,
     ty::Ty,
 };
 use chili_span::To;
@@ -37,10 +38,9 @@ impl Parser {
             });
         }
 
-        let expr = if pattern.is_single() {
-            self.parse_decl_expr(pattern.into_single().symbol)?
-        } else {
-            self.parse_expr()?
+        let expr = match &pattern {
+            Pattern::Symbol(pattern) => self.parse_decl_expr(pattern.symbol)?,
+            _ => self.parse_expr()?,
         };
 
         Ok(Binding {

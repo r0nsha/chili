@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 ustr = "0.8.1"
 unindent = "0.1.7"
+parking_lot = "0.12.1"
 
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }

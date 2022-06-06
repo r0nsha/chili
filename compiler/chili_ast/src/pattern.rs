@@ -14,18 +14,12 @@ pub enum Pattern {
 pub struct UnpackPattern {
     pub symbols: Vec<SymbolPattern>,
     pub span: Span,
+    pub wildcard_symbol: Option<Span>,
 }
 
 impl Pattern {
     pub fn is_single(&self) -> bool {
         matches!(self, Pattern::Symbol(_))
-    }
-
-    pub fn into_single(&self) -> SymbolPattern {
-        match self {
-            Pattern::Symbol(ps) => ps.clone(),
-            _ => panic!("expected Single, got {}", self),
-        }
     }
 
     pub fn as_single_ref(&self) -> &SymbolPattern {

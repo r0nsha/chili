@@ -6,10 +6,11 @@ use chili_ast::{
 use chili_error::SyntaxError;
 use chili_parse::{spawn_parser, ParserCache, ParserResult};
 use chili_span::Span;
+use parking_lot::Mutex;
 use std::{
     collections::HashSet,
     path::PathBuf,
-    sync::{mpsc::channel, Arc, Mutex},
+    sync::{mpsc::channel, Arc},
 };
 use ustr::{ustr, Ustr, UstrMap};
 
@@ -93,11 +94,11 @@ fn generate_ast_inner(
         match *result {
             ParserResult::NewAst(ast) => asts.push(ast),
             ParserResult::AlreadyParsed => (),
-            ParserResult::Failed(diag) => cache.lock().unwrap().diagnostics.push(diag),
+            ParserResult::Failed(diag) => cache.lock().diagnostics.push(diag),
         }
     }
 
-    let cache = Arc::try_unwrap(cache).unwrap().into_inner().unwrap();
+    let cache = Arc::try_unwrap(cache).unwrap().into_inner();
 
     workspace.diagnostics = cache.diagnostics;
 
