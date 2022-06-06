@@ -1,10 +1,11 @@
 let { printf } = @import("std/c");
 let { println } = @import("std/fmt");
-let { bar } = @import("foo");
+let { bar, baz } = @import("foo");
 
 let main = fn() {
     println("Hello World");
     bar();
+    printf("baz = %d\n".data, baz);
 };
 
 @run(main())
