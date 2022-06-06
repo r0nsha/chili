@@ -37,17 +37,19 @@ impl<'s> Stopwatch<'s> {
     }
 
     pub fn print(&self) {
-        let value = self.elapsed().as_micros();
-        let color = if value < 100 {
+        let value = self.elapsed().as_millis();
+
+        let color = if value < 5 {
             Color::BrightCyan
-        } else if value < 1000 {
+        } else if value < 20 {
             Color::BrightGreen
-        } else if value < 1000 * 100 {
+        } else if value < 100 {
             Color::BrightYellow
         } else {
             Color::BrightRed
         };
-        println!("{:<16}{}μs", self.label.color(color).bold(), value);
+
+        println!("{:<16}{}ms", self.label.color(color).bold(), value);
     }
 }
 
