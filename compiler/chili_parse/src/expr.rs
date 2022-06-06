@@ -732,7 +732,11 @@ impl Parser {
                 .trim_start_matches(compiler_info::STD_PREFIX_FW)
                 .trim_start_matches(compiler_info::STD_PREFIX_BK);
 
-            let full_std_import_path = compiler_info::std_module_root_dir().join(trimmed_path);
+            let mut full_std_import_path = compiler_info::std_module_root_dir().join(trimmed_path);
+
+            if full_std_import_path.extension().is_none() {
+                full_std_import_path.set_extension(SOURCE_FILE_EXT);
+            }
 
             try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
         } else {

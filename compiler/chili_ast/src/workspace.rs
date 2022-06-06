@@ -88,6 +88,9 @@ pub struct BindingInfo {
     pub flags: BindingInfoFlags,
     // the amount of times this binding was used
     pub uses: usize,
+    // TODO: redirects_to as a workaround for the current module implementation.
+    // TODO: we should be treating modules as regular compile-time structs.
+    // TODO: when this happens, redirects_to should become obsolete
     pub redirects_to: Option<BindingInfoId>,
     pub span: Span,
 }

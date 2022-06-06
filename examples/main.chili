@@ -1,11 +1,11 @@
-// let std = @import("std");
-// let printf = std.c.printf;
-
-pub let foreign("system:c") printf = fn(input: [u8; *], ..) -> int;
-
-let { bar, a } = @import("foo");
+let { printf } = @import("std/c");
+let { println } = @import("std/fmt");
 
 let main = fn() {
+    let { bar, a } = @import("foo");
+
+    println("Hello World");
+    
     let answer = bar();
     printf("answer = %d\n".data, answer + 1 + a);
 };

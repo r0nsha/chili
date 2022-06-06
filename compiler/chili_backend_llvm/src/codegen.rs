@@ -323,38 +323,60 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }) => {
                 self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
             }
-            Pattern::StructUnpack(pattern) => {
-                let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
+            Pattern::StructUnpack(pattern) => match ty.maybe_deref_once() {
+                TyKind::Module(_) => {
+                    for pat in pattern.symbols.iter() {
+                        if pat.ignore {
+                            continue;
+                        }
 
-                let ty = ty.normalize(self.tycx);
-                let struct_ty = ty.maybe_deref_once().as_struct().clone();
-                let struct_llvm_type = Some(ty.llvm_type(self));
+                        let redirect_id = self
+                            .workspace
+                            .get_binding_info(pat.binding_info_id)
+                            .unwrap()
+                            .redirects_to
+                            .unwrap();
 
-                for pat in pattern.symbols.iter() {
-                    if pat.ignore {
-                        continue;
+                        let decl = self.find_or_gen_top_level_binding(redirect_id);
+
+                        state.scopes.insert(pat.binding_info_id, decl);
                     }
-
-                    let field_index = struct_ty.field_index(pat.symbol).unwrap();
-
-                    let value =
-                        self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
-
-                    self.gen_local_with_alloca(
-                        state,
-                        pat.binding_info_id,
-                        if ty.is_pointer() {
-                            value
-                        } else {
-                            self.build_load(value)
-                        },
-                    );
                 }
-            }
+                TyKind::Struct(struct_ty) => {
+                    let ptr =
+                        self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
+
+                    let struct_llvm_type = Some(ty.llvm_type(self));
+
+                    for pat in pattern.symbols.iter() {
+                        if pat.ignore {
+                            continue;
+                        }
+
+                        let field_index = struct_ty.field_index(pat.symbol).unwrap();
+
+                        let value = self.gen_struct_access(
+                            ptr.into(),
+                            field_index as u32,
+                            struct_llvm_type,
+                        );
+
+                        self.gen_local_with_alloca(
+                            state,
+                            pat.binding_info_id,
+                            if ty.is_pointer() {
+                                value
+                            } else {
+                                self.build_load(value)
+                            },
+                        );
+                    }
+                }
+                ty => panic!("unexpected type: {}", ty),
+            },
             Pattern::TupleUnpack(pattern) => {
                 let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
 
-                let ty = ty.normalize(self.tycx);
                 let llvm_type = Some(ty.llvm_type(self));
 
                 for (i, pat) in pattern.symbols.iter().enumerate() {
