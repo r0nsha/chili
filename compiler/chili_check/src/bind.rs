@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     env::{Env, Scope, ScopeKind},
+    top_level::CallerInfo,
     CheckSess,
 };
 use chili_ast::{
@@ -12,7 +13,11 @@ use chili_ast::{
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
-use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
+use chili_infer::{
+    display::{DisplayTy, OrReportErr},
+    normalize::NormalizeTy,
+    unify::UnifyTy,
+};
 use chili_span::Span;
 use ustr::Ustr;
 
@@ -178,30 +183,33 @@ impl<'s> CheckSess<'s> {
         match ty.normalize(&self.tycx) {
             TyKind::Module(module_id) => {
                 for pat in pattern.symbols.iter_mut() {
-                    // let (res, id) = sess.check_top_level_symbol(
-                    //     CallerInfo {
-                    //         module_id: env.module_id(),
-                    //         span: self.span,
-                    //     },
-                    //     *module_id,
-                    //     access.member,
-                    // )?;
-                    // sess.workspace.increment_binding_use(id);
-                    // Ok(res)
-                    // let ty = self
-                    //     .tycx
-                    //     .bound(partial_struct[&pat.symbol].clone(), pat.span);
+                    let (res, top_level_symbol_id) = self.check_top_level_symbol(
+                        CallerInfo {
+                            module_id: env.module_id(),
+                            span: pat.span,
+                        },
+                        module_id,
+                        pat.symbol,
+                    )?;
 
-                    // let field_const_value = if pat.is_mutable {
-                    //     None
-                    // } else {
-                    //     const_value
-                    //         .as_ref()
-                    //         .map(|v| v.as_struct().get(&pat.symbol).unwrap().clone().value)
-                    // };
+                    self.workspace.increment_binding_use(top_level_symbol_id);
 
-                    // self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
+                    pat.binding_info_id = self.bind_symbol(
+                        env,
+                        pat.alias.unwrap_or(pat.symbol),
+                        visibility,
+                        res.ty,
+                        res.const_value,
+                        pat.is_mutable,
+                        kind,
+                        pat.span,
+                    )?;
+
+                    self.workspace
+                        .set_binding_info_redirect(pat.binding_info_id, top_level_symbol_id);
                 }
+
+                Ok(())
             }
             _ => {
                 let partial_struct = PartialStructTy(FromIterator::from_iter(
@@ -239,10 +247,10 @@ impl<'s> CheckSess<'s> {
 
                     self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
                 }
+
+                Ok(())
             }
         }
-
-        Ok(())
     }
 
     fn bind_tuple_unpack_pattern(

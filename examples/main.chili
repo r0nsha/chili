@@ -3,11 +3,9 @@
 
 pub let foreign("system:c") printf = fn(input: [u8; *], ..) -> int;
 
-let foo = @import("foo");
-// let { foo } = @import("foo");
-// let { bar } = @import("foo")
+let { bar, a } = @import("foo");
 
 let main = fn() {
-    let answer = foo.bar();
-    printf("answer = %d\n".data, answer + 1);
+    let answer = bar();
+    printf("answer = %d\n".data, answer + 1 + a);
 };

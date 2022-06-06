@@ -474,11 +474,13 @@ impl Check for ast::Binding {
 
             binding_info.visibility = self.visibility;
             binding_info.span = self.pattern.span();
+            binding_info.const_value = const_value.clone();
 
             match &mut self.pattern {
                 Pattern::Symbol(pat) => {
                     pat.binding_info_id = fn_expr.binding_info_id.unwrap();
 
+                    // TODO: this should be moved to another place...
                     // If this binding matches the entry point function's requirements,
                     // Tag it as the entry function
                     // Requirements:
@@ -1531,7 +1533,9 @@ impl Check for ast::Expr {
                             *module_id,
                             access.member,
                         )?;
+
                         sess.workspace.increment_binding_use(id);
+
                         Ok(res)
                     }
                     ty => Err(Diagnostic::error()

@@ -213,17 +213,26 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
         // the global value will is initialized by the entry point function
 
-        let global_value = if binding.lib_name.is_some() {
-            let ty = binding.ty.llvm_type(self);
-            self.add_global_uninit(id, ty, Linkage::External)
+        let binding_info = self.workspace.get_binding_info(id).unwrap();
+
+        if let Some(redirect) = binding_info.redirects_to {
+            let decl = self.find_or_gen_top_level_binding(redirect);
+            self.global_decls.insert(id, decl);
+
+            decl
         } else {
-            self.add_global(id, Linkage::Private)
-        };
+            let global_value = if binding.lib_name.is_some() {
+                let ty = binding.ty.llvm_type(self);
+                self.add_global_uninit(id, ty, Linkage::External)
+            } else {
+                self.add_global(id, Linkage::Private)
+            };
 
-        let decl = CodegenDecl::Global(global_value);
-        self.global_decls.insert(id, decl);
+            let decl = CodegenDecl::Global(global_value);
+            self.global_decls.insert(id, decl);
 
-        decl
+            decl
+        }
     }
 
     pub(super) fn add_global(&mut self, id: BindingInfoId, linkage: Linkage) -> GlobalValue<'ctx> {

@@ -88,6 +88,7 @@ pub struct BindingInfo {
     pub flags: BindingInfoFlags,
     // the amount of times this binding was used
     pub uses: usize,
+    pub redirects_to: Option<BindingInfoId>,
     pub span: Span,
 }
 
@@ -118,8 +119,9 @@ impl PartialBindingInfo {
             kind: self.kind,
             scope_level: self.scope_level,
             scope_name: self.scope_name,
-            uses: 0,
             flags: BindingInfoFlags::empty(),
+            uses: 0,
+            redirects_to: None,
             span: self.span,
         }
     }
@@ -183,6 +185,12 @@ impl Workspace {
     pub fn increment_binding_use(&mut self, id: BindingInfoId) {
         if let Some(binding_info) = self.get_binding_info_mut(id) {
             binding_info.uses += 1;
+        }
+    }
+
+    pub fn set_binding_info_redirect(&mut self, src: BindingInfoId, dest: BindingInfoId) {
+        if let Some(info) = self.get_binding_info_mut(src) {
+            info.redirects_to = Some(dest);
         }
     }
 
