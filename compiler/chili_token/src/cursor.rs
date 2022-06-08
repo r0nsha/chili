@@ -35,6 +35,12 @@ impl Cursor {
         }
     }
 
+    #[allow(unused)]
+    #[inline]
+    pub(crate) fn start_index(&self) -> usize {
+        self.start.index
+    }
+
     #[inline]
     pub(crate) fn end_index(&self) -> usize {
         self.end.index
