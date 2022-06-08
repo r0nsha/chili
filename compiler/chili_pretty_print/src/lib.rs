@@ -1,4 +1,4 @@
-use chili_ast::{ast, pattern::Pattern, ty::TyKind, workspace::Workspace};
+use chili_ast::{ast, ty::TyKind, workspace::Workspace};
 use chili_infer::{display::DisplayTy, ty_ctx::TyCtx};
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
@@ -116,53 +116,12 @@ impl PrintTree for ast::Binding {
             format!("{}: ", module_info.name)
         };
 
-        b.begin_child(match &self.pattern {
-            Pattern::Symbol(pat) => {
-                let ty = &workspace.get_binding_info(pat.id).unwrap().ty;
-                format!(
-                    "{}let {} <{}>",
-                    module_prefix,
-                    pat.symbol,
-                    tycx.ty_kind(*ty)
-                )
-            }
-            Pattern::StructUnpack(pat) => {
-                let concat_symbols = pat
-                    .symbols
-                    .iter()
-                    .map(|pat| {
-                        let ty = &workspace.get_binding_info(pat.id).unwrap().ty;
-                        format!(
-                            "{}let {} <{}>",
-                            module_prefix,
-                            pat.symbol,
-                            tycx.ty_kind(*ty)
-                        )
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                format!("{{ {} }}", concat_symbols)
-            }
-            Pattern::TupleUnpack(pat) => {
-                let concat_symbols = pat
-                    .symbols
-                    .iter()
-                    .map(|pat| {
-                        let ty = &workspace.get_binding_info(pat.id).unwrap().ty;
-                        format!(
-                            "{}let {} <{}>",
-                            module_prefix,
-                            pat.symbol,
-                            tycx.ty_kind(*ty)
-                        )
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                format!("({})", concat_symbols)
-            }
-        });
+        b.begin_child(format!(
+            "{}let {} <{}>",
+            module_prefix,
+            self.pattern,
+            tycx.ty_kind(self.ty)
+        ));
 
         if let Some(value) = &self.expr {
             value.print_tree(b, workspace, tycx);

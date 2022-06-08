@@ -8,6 +8,7 @@ pub enum Pattern {
     Symbol(SymbolPattern),
     StructUnpack(UnpackPattern),
     TupleUnpack(UnpackPattern),
+    Hybrid(HybridPattern),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -17,15 +18,43 @@ pub struct UnpackPattern {
     pub wildcard_symbol: Option<Span>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum UnpackPatternKind {
+    Struct(UnpackPattern),
+    Tuple(UnpackPattern),
+}
+
+impl UnpackPatternKind {
+    pub fn as_inner(&self) -> &UnpackPattern {
+        match self {
+            UnpackPatternKind::Struct(p) | UnpackPatternKind::Tuple(p) => p,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct HybridPattern {
+    pub symbol: SymbolPattern,
+    pub unpack: UnpackPatternKind,
+    pub span: Span,
+}
+
 impl Pattern {
-    pub fn is_single(&self) -> bool {
+    pub fn is_symbol(&self) -> bool {
         matches!(self, Pattern::Symbol(_))
     }
 
-    pub fn as_single_ref(&self) -> &SymbolPattern {
+    pub fn as_symbol_ref(&self) -> &SymbolPattern {
         match self {
-            Pattern::Symbol(ps) => ps,
-            _ => panic!("expected Single, got {}", self),
+            Pattern::Symbol(s) => s,
+            _ => panic!("expected Symbol, got {}", self),
+        }
+    }
+
+    pub fn into_symbol(self) -> SymbolPattern {
+        match self {
+            Pattern::Symbol(s) => s,
+            _ => panic!("expected Symbol, got {}", self),
         }
     }
 
@@ -33,6 +62,7 @@ impl Pattern {
         match self {
             Pattern::Symbol(p) => p.span,
             Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.span,
+            Pattern::Hybrid(p) => p.span,
         }
     }
 
@@ -58,14 +88,15 @@ impl<'a> Iterator for PatternIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = match &self.pattern {
-            Pattern::Symbol(pat) => {
-                if self.pos == 0 {
-                    Some(pat)
-                } else {
-                    None
-                }
-            }
+            Pattern::Symbol(pat) => match self.pos {
+                0 => Some(pat),
+                _ => None,
+            },
             Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => pat.symbols.get(self.pos),
+            Pattern::Hybrid(pat) => match self.pos {
+                0 => Some(&pat.symbol),
+                _ => pat.unpack.as_inner().symbols.get(self.pos - 1),
+            },
         };
 
         self.pos += 1;
@@ -80,9 +111,17 @@ impl Display for Pattern {
             f,
             "{}",
             match self {
-                Pattern::Symbol(s) => s.to_string(),
-                Pattern::StructUnpack(s) => format!("{{{}}}", s),
-                Pattern::TupleUnpack(s) => format!("({})", s),
+                Pattern::Symbol(pat) => pat.to_string(),
+                Pattern::StructUnpack(pat) => format!("{{{}}}", pat),
+                Pattern::TupleUnpack(pat) => format!("({})", pat),
+                Pattern::Hybrid(pat) => format!(
+                    "{} @ {}",
+                    pat.symbol,
+                    match &pat.unpack {
+                        UnpackPatternKind::Struct(pat) => format!("{{{}}}", pat),
+                        UnpackPatternKind::Tuple(pat) => format!("({})", pat),
+                    }
+                ),
             }
         )
     }

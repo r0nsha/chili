@@ -165,6 +165,7 @@ impl<'s> CheckSess<'s> {
                 kind,
                 ty_origin_span,
             ),
+            Pattern::Hybrid(_) => todo!(),
         }
     }
 

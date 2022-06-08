@@ -3,14 +3,17 @@ let ? = @import("std/fmt"); /* println */
 let ? = @import("foo"); /* bar, baz */
 
 let Foo = struct { a: int, b: int, c: int };
+let foo @ ? /* a, b, c */ = Foo { a: 1, b: 2, c: 3 };
 
 let main = fn() {
     println("Hello World");
 
-    let ? /* a, b, c */ = Foo { a: 1, b: 2, c: 3 };
-    printf("%d %d %d\n".data, a, b, c);
+    // let ? /* a, b, c */ = Foo { a: 1, b: 2, c: 3 };
+    printf("%d %d %d\n".data, foo.a, b, c);
 
     bar();
     
     printf("baz = %d\n".data, baz);
 };
+
+// @run(main())

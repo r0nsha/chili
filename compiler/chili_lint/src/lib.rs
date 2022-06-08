@@ -4,7 +4,11 @@ mod ref_access;
 mod sess;
 mod type_limits;
 
-use chili_ast::{ast, pattern::Pattern, workspace::Workspace};
+use chili_ast::{
+    ast,
+    pattern::{HybridPattern, Pattern},
+    workspace::Workspace,
+};
 use chili_error::diagnostic::{Diagnostic, Label};
 use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
 use common::scopes::Scopes;
@@ -107,12 +111,12 @@ impl Lint for ast::Binding {
             // * don't allow types to be bounded to mutable bindings
             if is_a_type {
                 match &self.pattern {
-                    Pattern::Symbol(pat) => {
-                        if pat.is_mutable {
+                    Pattern::Symbol(symbol) | Pattern::Hybrid(HybridPattern { symbol, .. }) => {
+                        if symbol.is_mutable {
                             sess.workspace.diagnostics.push(
                                 Diagnostic::error()
                                     .with_message("variable of type `type` must be immutable")
-                                    .with_label(Label::primary(pat.span, "variable is mutable"))
+                                    .with_label(Label::primary(symbol.span, "variable is mutable"))
                                     .with_note("try removing the `mut` from the declaration"),
                             );
                         }

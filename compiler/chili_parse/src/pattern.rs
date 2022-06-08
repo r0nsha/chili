@@ -1,13 +1,38 @@
 use crate::*;
-use chili_ast::pattern::{Pattern, SymbolPattern, UnpackPattern};
+use chili_ast::pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind};
 use chili_error::SyntaxError;
 use chili_span::To;
 
 impl Parser {
     pub(crate) fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
-        if is!(self, Mut | Ident(_)) {
-            self.parse_symbol_pattern().map(Pattern::Symbol)
-        } else if eat!(self, OpenCurly) {
+        if is!(self, Mut | Ident(_) | Placeholder) {
+            let pattern = self.parse_symbol_pattern().map(Pattern::Symbol)?;
+
+            if eat!(self, At) {
+                let pattern = pattern.into_symbol();
+                let start_span = pattern.span;
+
+                let unpack_pattern = match self.parse_unpack_pattern("an unpack pattern")? {
+                    Pattern::StructUnpack(pat) => UnpackPatternKind::Struct(pat),
+                    Pattern::TupleUnpack(pat) => UnpackPatternKind::Tuple(pat),
+                    _ => panic!(),
+                };
+
+                Ok(Pattern::Hybrid(HybridPattern {
+                    symbol: pattern,
+                    unpack: unpack_pattern,
+                    span: start_span.to(self.previous_span()),
+                }))
+            } else {
+                Ok(pattern)
+            }
+        } else {
+            self.parse_unpack_pattern("a pattern")
+        }
+    }
+
+    fn parse_unpack_pattern(&mut self, expectation: &str) -> DiagnosticResult<Pattern> {
+        if eat!(self, OpenCurly) {
             self.parse_struct_unpack()
         } else if eat!(self, OpenParen) {
             self.parse_tuple_unpack()
@@ -19,7 +44,7 @@ impl Parser {
                 wildcard_symbol: Some(span),
             }))
         } else {
-            Err(SyntaxError::expected(self.span(), "a pattern"))
+            Err(SyntaxError::expected(self.span(), expectation))
         }
     }
 

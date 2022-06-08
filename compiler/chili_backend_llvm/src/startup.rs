@@ -131,6 +131,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     global_value.set_linkage(Linkage::Private);
                     global_value
                 }
+                Pattern::Hybrid(_) => todo!(),
             };
 
             let value = if let Some(expr) = &binding.expr {
@@ -221,6 +222,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         }
                     }
                 }
+                Pattern::Hybrid(_) => todo!(),
             }
             // todo!("initialize global bindings");
             // let binding_info = self.workspace.get_binding_info(*id).unwrap();

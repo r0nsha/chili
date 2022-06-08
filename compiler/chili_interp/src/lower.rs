@@ -346,6 +346,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                 code.push(Instruction::SetLocal(code.locals as i32));
             }
         }
+        Pattern::Hybrid(_) => todo!(),
     }
 
     sess.push_const_unit(code);
@@ -477,6 +478,7 @@ impl Lower for ast::Function {
                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
                     }
                 }
+                Pattern::Hybrid(_) => todo!(),
             }
             param_offset += 1;
         }
@@ -1193,6 +1195,7 @@ fn lower_top_level_binding(
                 }
             }
         }
+        Pattern::Hybrid(_) => todo!(),
     }
 
     code.push(Instruction::Return);

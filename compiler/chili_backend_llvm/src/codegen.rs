@@ -381,6 +381,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     );
                 }
             }
+            Pattern::Hybrid(_) => todo!(),
         }
     }
 
@@ -446,6 +447,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_local_with_alloca(state, binding_info_id, value);
                 }
             }
+            Pattern::Hybrid(_) => todo!(),
         }
     }
 
@@ -551,7 +553,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             &binding.expr,
                         );
                     } else {
-                        let pat = binding.pattern.as_single_ref();
+                        let pat = binding.pattern.as_symbol_ref();
                         let ty = ty.llvm_type(self);
 
                         let global_value = self.add_global_uninit(pat.id, ty, Linkage::External);

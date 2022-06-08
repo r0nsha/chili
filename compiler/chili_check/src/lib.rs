@@ -10,7 +10,7 @@ use chili_ast::{
     ast,
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     path::RelativeTo,
-    pattern::{Pattern, SymbolPattern},
+    pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{FunctionTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -345,7 +345,12 @@ impl Check for ast::Binding {
             res.const_value
         } else {
             match &self.pattern {
-                Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => {
+                Pattern::StructUnpack(pat)
+                | Pattern::TupleUnpack(pat)
+                | Pattern::Hybrid(HybridPattern {
+                    unpack: UnpackPatternKind::Struct(pat) | UnpackPatternKind::Tuple(pat),
+                    ..
+                }) => {
                     return Err(Diagnostic::error()
                         .with_message("unpack pattern requires a value to unpack")
                         .with_label(Label::primary(pat.span, "illegal pattern use")));
