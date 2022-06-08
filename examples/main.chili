@@ -1,19 +1,19 @@
-let ? = @import("std/c"); /* printf */
-let ? = @import("std/fmt"); /* println */
-let ? = @import("foo"); /* bar, baz */
+let ? = @import("std/c");
+let ? = @import("std/fmt");
+let foo @ ? = @import("foo");
 
 let Foo = struct { a: int, b: int, c: int };
-let foo @ ? /* a, b, c */ = Foo { a: 1, b: 2, c: 3 };
+// let ?  = Foo { a: 1, b: 2, c: 3 };
 
 let main = fn() {
     println("Hello World");
 
-    // let ? /* a, b, c */ = Foo { a: 1, b: 2, c: 3 };
-    printf("%d %d %d\n".data, foo.a, b, c);
+    let x @ ? = Foo { a: 1, b: 2, c: 3 };
+    printf("%d %d %d\n".data, x.a, b, c);
 
     bar();
     
-    printf("baz = %d\n".data, baz);
+    printf("baz = %d\n".data, foo.baz);
 };
 
 // @run(main())

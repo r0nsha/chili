@@ -6,7 +6,7 @@ use crate::{
 use chili_ast::{
     ast,
     const_value::ConstValue,
-    pattern::{Pattern, SymbolPattern, UnpackPattern},
+    pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
     ty::{InferTy, PartialStructTy, Ty, TyKind},
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
@@ -115,20 +115,22 @@ impl<'s> CheckSess<'s> {
         const_value: Option<ConstValue>,
         kind: ast::BindingKind,
     ) -> DiagnosticResult<()> {
-        pattern.id = self.bind_symbol(
-            env,
-            pattern.alias.unwrap_or(pattern.symbol),
-            visibility,
-            ty,
-            if pattern.is_mutable {
-                None
-            } else {
-                const_value
-            },
-            pattern.is_mutable,
-            kind,
-            pattern.span,
-        )?;
+        if !pattern.ignore {
+            pattern.id = self.bind_symbol(
+                env,
+                pattern.alias.unwrap_or(pattern.symbol),
+                visibility,
+                ty,
+                if pattern.is_mutable {
+                    None
+                } else {
+                    const_value
+                },
+                pattern.is_mutable,
+                kind,
+                pattern.span,
+            )?;
+        }
 
         Ok(())
     }
@@ -165,7 +167,39 @@ impl<'s> CheckSess<'s> {
                 kind,
                 ty_origin_span,
             ),
-            Pattern::Hybrid(_) => todo!(),
+            Pattern::Hybrid(pattern) => {
+                self.bind_symbol_pattern(
+                    env,
+                    &mut pattern.symbol,
+                    visibility,
+                    ty,
+                    const_value.clone(),
+                    kind,
+                )?;
+
+                match &mut pattern.unpack {
+                    UnpackPatternKind::Struct(pattern) => self.bind_struct_unpack_pattern(
+                        env,
+                        pattern,
+                        visibility,
+                        ty,
+                        const_value,
+                        kind,
+                        ty_origin_span,
+                    )?,
+                    UnpackPatternKind::Tuple(pattern) => self.bind_tuple_unpack_pattern(
+                        env,
+                        pattern,
+                        visibility,
+                        ty,
+                        const_value,
+                        kind,
+                        ty_origin_span,
+                    )?,
+                }
+
+                Ok(())
+            }
         }
     }
 
@@ -182,6 +216,10 @@ impl<'s> CheckSess<'s> {
         match ty.normalize(&self.tycx) {
             TyKind::Module(module_id) => {
                 for pat in unpack_pattern.symbols.iter_mut() {
+                    if pat.ignore {
+                        continue;
+                    }
+
                     let (res, top_level_symbol_id) = self.check_top_level_symbol(
                         CallerInfo {
                             module_id: env.module_id(),
@@ -291,6 +329,10 @@ impl<'s> CheckSess<'s> {
                 )?;
 
                 for pat in unpack_pattern.symbols.iter_mut() {
+                    if pat.ignore {
+                        continue;
+                    }
+
                     let ty = self
                         .tycx
                         .bound(partial_struct[&pat.symbol].clone(), pat.span);
@@ -404,6 +446,10 @@ impl<'s> CheckSess<'s> {
         )?;
 
         for (index, pat) in pattern.symbols.iter_mut().enumerate() {
+            if pat.ignore {
+                continue;
+            }
+
             let ty = self.tycx.bound(elements[index].clone(), pat.span);
 
             let element_const_value = if pat.is_mutable {
