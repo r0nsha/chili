@@ -115,6 +115,27 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.start_block(&mut state, entry_block);
 
         // we initialize the runtime known global bindings at the start of the program
+        self.initialize_globals(&mut state);
+
+        self.gen_fn_call(&mut state, entry_point_func, &fn_ty, vec![], &fn_ty.ret);
+
+        // TODO: if this is DLL Main, return 1 instead of 0
+
+        if self.current_block().get_terminator().is_none() {
+            self.builder
+                .build_return(Some(&self.context.i32_type().const_zero()));
+        }
+
+        self.start_block(&mut state, decl_block);
+
+        state.pop_scope();
+
+        self.builder.build_unconditional_branch(entry_block);
+
+        self.verify_and_optimize_function(function, name)
+    }
+
+    fn initialize_globals(&mut self, state: &mut CodegenState<'ctx>) {
         for binding in self.typed_ast.bindings.iter() {
             // if all patterns are const, then there is no value to generate at runtime - so we skip
             if binding.pattern.iter().all(|p| !p.is_mutable) {
@@ -138,7 +159,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let old_module_info = state.module_info;
                 state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
-                let value = self.gen_expr(&mut state, expr, true);
+                let value = self.gen_expr(state, expr, true);
 
                 state.module_info = old_module_info;
 
@@ -225,22 +246,5 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 Pattern::Hybrid(_) => todo!(),
             }
         }
-
-        self.gen_fn_call(&mut state, entry_point_func, &fn_ty, vec![], &fn_ty.ret);
-
-        // TODO: if this is DLL Main, return 1 instead of 0
-
-        if self.current_block().get_terminator().is_none() {
-            self.builder
-                .build_return(Some(&self.context.i32_type().const_zero()));
-        }
-
-        self.start_block(&mut state, decl_block);
-
-        state.pop_scope();
-
-        self.builder.build_unconditional_branch(entry_block);
-
-        self.verify_and_optimize_function(function, name)
     }
 }
