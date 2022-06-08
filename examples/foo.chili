@@ -1,7 +1,0 @@
-let { println } = @import("std/fmt");
-
-pub let bar = fn() {
-    println("Hello from bar");
-};
-
-pub let baz = 42;

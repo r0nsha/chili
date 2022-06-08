@@ -7,6 +7,7 @@ edition = "2021"
 ustr = "0.8.1"
 strum_macros = "0.23.1"
 unicode-xid = "0.2.2"
+unindent = "0.1.7"
 
 chili_span = { path = "../chili_span" }
 chili_error = { path = "../chili_error" }

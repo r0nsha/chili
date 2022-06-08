@@ -54,6 +54,20 @@ impl Cursor {
             },
         )
     }
+
+    pub(crate) fn end_span(&self) -> Span {
+        Span::new(
+            self.file_id,
+            Position {
+                index: self.end.index,
+                line: self.start.line, // FIXME: this is the wrong line...
+                column: self.start.column,
+            },
+            EndPosition {
+                index: self.end.index,
+            },
+        )
+    }
 }
 
 impl From<Cursor> for Range<usize> {

@@ -28,7 +28,7 @@ pub fn unescape(s: &str, start_span: Span) -> Result<String, UnescapeError> {
                 't' => s.push('\t'),
                 '0' => s.push('\0'),
                 '\'' => s.push('\''),
-                '\"' => s.push('\"'),
+                '"' => s.push('"'),
                 '\\' => s.push('\\'),
                 _ => {
                     return Err(UnescapeError::InvalidEscapeSequence(Span::new(

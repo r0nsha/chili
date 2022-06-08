@@ -8,8 +8,9 @@ use crate::{
     TokenKind::{self, *},
 };
 use chili_error::diagnostic::{Diagnostic, Label};
-use chili_error::{DiagnosticResult, LexerError};
+use chili_error::{DiagnosticResult, LexerError, SyntaxError};
 use unicode_xid::UnicodeXID;
+use unindent::unindent;
 use ustr::ustr;
 
 pub(crate) const EOF_CHAR: char = '\0';
@@ -122,7 +123,19 @@ impl<'lx> Lexer<'lx> {
                 // skip this character
                 ' ' | '\r' | '\t' | '\n' => self.eat_token()?,
                 '\'' => self.eat_char()?,
-                DOUBLE_QUOTE => self.eat_str()?,
+                DOUBLE_QUOTE => {
+                    if self.is(DOUBLE_QUOTE) {
+                        if self.is(DOUBLE_QUOTE) {
+                            // this is a multiline string
+                            self.eat_str(true)?
+                        } else {
+                            // this is just an empty string, we can return an empty Str
+                            Str(ustr(""))
+                        }
+                    } else {
+                        self.eat_str(false)?
+                    }
+                }
                 '^' => {
                     if self.is('=') {
                         CaretEq
@@ -201,11 +214,9 @@ impl<'lx> Lexer<'lx> {
                     if ch.is_ascii_digit() {
                         self.eat_number()?
                     } else {
-                        let span = self.cursor.span();
-                        let message = format!("invalid token `{}`", ch);
                         return Err(Diagnostic::error()
-                            .with_message(message.clone())
-                            .with_label(Label::primary(span, message)));
+                            .with_message(format!("unknown character `{}`", ch))
+                            .with_label(Label::primary(self.cursor.span(), "unknown character")));
                     }
                 }
             }
@@ -291,11 +302,9 @@ impl<'lx> Lexer<'lx> {
         Ok(Str(ustr(&slice)))
     }
 
-    fn eat_str(&mut self) -> DiagnosticResult<TokenKind> {
-        loop {
-            if self.peek() == DOUBLE_QUOTE || self.is_eof() {
-                break;
-            } else if self.peek() == '\\' && self.peek_next() == '\"' {
+    fn eat_str(&mut self, is_multiline: bool) -> DiagnosticResult<TokenKind> {
+        while self.peek() != DOUBLE_QUOTE && !self.is_eof() {
+            if self.peek() == '\\' && self.peek_next() == '"' {
                 self.bump();
                 self.bump();
             } else {
@@ -313,21 +322,48 @@ impl<'lx> Lexer<'lx> {
                 .with_label(Label::primary(span, "missing terminator")));
         }
 
-        self.bump();
+        if is_multiline {
+            self.expect(DOUBLE_QUOTE)?;
+            self.expect(DOUBLE_QUOTE)?;
+            self.expect(DOUBLE_QUOTE)?;
+        } else {
+            self.expect(DOUBLE_QUOTE)?;
+        }
 
         let value = self.source.range(self.cursor.range());
 
-        let slice = value
-            .chars()
-            .skip(1)
-            .take_while(|x| *x != DOUBLE_QUOTE)
-            .collect::<String>();
+        let mut chars = value.chars();
 
-        match unescape(&slice, self.cursor.span()) {
-            Ok(s) => Ok(Str(ustr(&s))),
+        if is_multiline {
+            chars.next();
+            chars.next();
+            chars.next();
+            chars.next_back();
+            chars.next_back();
+            chars.next_back();
+        } else {
+            chars.next();
+            chars.next_back();
+        }
+
+        let mut string = chars.as_str().to_string();
+
+        if is_multiline {
+            string = unindent(string.trim());
+        }
+
+        if !is_multiline && string.contains('\n') {
+            return Err(Diagnostic::error()
+                .with_message("string cannot contain newline characters")
+                .with_label(Label::primary(self.cursor.span(), "cannot contain newline"))
+                .with_note("use a multiline string instead, example: \"\"\"your string\"\"\""));
+        }
+
+        match unescape(&string, self.cursor.span()) {
+            Ok(string) => Ok(Str(ustr(&string))),
             Err(e) => match e {
                 UnescapeError::InvalidEscapeSequence(span) => {
-                    let message = "invalid escape sequence";
+                    let message = "unknown escape sequence";
                     Err(Diagnostic::error()
                         .with_message(message)
                         .with_label(Label::primary(span, message)))
@@ -563,6 +599,12 @@ impl<'lx> Lexer<'lx> {
         } else {
             false
         }
+    }
+
+    pub(crate) fn expect(&mut self, expected: char) -> DiagnosticResult<()> {
+        self.is(expected)
+            .then(|| ())
+            .ok_or_else(|| SyntaxError::expected(self.cursor.end_span(), &expected.to_string()))
     }
 
     fn bump(&mut self) -> char {

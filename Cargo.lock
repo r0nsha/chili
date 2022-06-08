@@ -159,7 +159,6 @@ dependencies = [
  "num_cpus",
  "parking_lot 0.12.1",
  "threadpool",
- "unindent",
  "ustr",
 ]
 
@@ -314,6 +313,7 @@ dependencies = [
  "chili_span",
  "strum_macros",
  "unicode-xid",
+ "unindent",
  "ustr",
 ]
 
