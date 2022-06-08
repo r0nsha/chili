@@ -2,11 +2,15 @@ use crate::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use chili_ast::{ast, pattern::Pattern, ty::*};
+use chili_ast::{
+    ast,
+    pattern::{HybridPattern, Pattern, UnpackPattern, UnpackPatternKind},
+    ty::*,
+};
 use chili_infer::normalize::NormalizeTy;
 use inkwell::{
     module::Linkage,
-    values::{BasicValue, FunctionValue},
+    values::{BasicValue, FunctionValue, PointerValue},
     AddressSpace,
 };
 
@@ -146,13 +150,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             // TODO: when hybrid patterns arrive, we can get the ptr to the hybrid pattern that has been generated
             let global_value = match &binding.pattern {
-                Pattern::Symbol(pat) => self.global_decls.get(&pat.id).unwrap().into_global_value(),
+                Pattern::Symbol(pat) | Pattern::Hybrid(HybridPattern { symbol: pat, .. }) => {
+                    self.global_decls.get(&pat.id).unwrap().into_global_value()
+                }
                 Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
                     let global_value = self.module.add_global(ty, None, "");
                     global_value.set_linkage(Linkage::Private);
                     global_value
                 }
-                Pattern::Hybrid(_) => todo!(),
             };
 
             let value = if let Some(expr) = &binding.expr {
@@ -168,82 +173,112 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 ty.const_zero()
             };
 
-            let initializer = if binding.expr.as_ref().map_or(false, |expr| {
+            let is_const = binding.expr.as_ref().map_or(false, |expr| {
                 matches!(&expr.kind, ast::ExprKind::ConstValue(..))
-            }) {
-                value
-            } else {
-                ty.const_zero()
-            };
+            });
+
+            let initializer = if is_const { value } else { ty.const_zero() };
 
             global_value.set_initializer(&initializer);
 
             let global_ptr = global_value.as_pointer_value();
+
             match &binding.pattern {
                 Pattern::Symbol(_) => {
-                    self.build_store(global_ptr, value);
+                    if !is_const {
+                        self.build_store(global_ptr, value);
+                    }
                 }
-                Pattern::StructUnpack(pat) => {
-                    let ty = binding.ty.normalize(self.tycx);
-                    let struct_ty = ty.maybe_deref_once().as_struct().clone();
-                    let struct_llvm_type = Some(ty.llvm_type(self));
+                Pattern::StructUnpack(pattern) => {
+                    self.initialize_global_struct_unpack(binding, pattern, global_ptr);
+                }
+                Pattern::TupleUnpack(pattern) => {
+                    self.initialize_global_tuple_unpack(binding, pattern, global_ptr);
+                }
+                Pattern::Hybrid(pattern) => {
+                    if !is_const {
+                        self.build_store(global_ptr, value);
+                    }
 
-                    for pat in pat.symbols.iter() {
-                        if pat.ignore {
-                            continue;
+                    match &pattern.unpack {
+                        UnpackPatternKind::Struct(pattern) => {
+                            self.initialize_global_struct_unpack(binding, pattern, global_ptr)
                         }
-
-                        let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
-
-                        if binding_info.const_value.is_some() {
-                            continue;
-                        }
-
-                        if let Some(ptr) = self
-                            .global_decls
-                            .get(&pat.id)
-                            .map(|d| d.into_pointer_value())
-                        {
-                            let field_index = struct_ty.find_field_position(pat.symbol).unwrap();
-
-                            let field_value = self.gen_struct_access(
-                                global_ptr.into(),
-                                field_index as u32,
-                                struct_llvm_type,
-                            );
-
-                            self.build_store(ptr, self.build_load(field_value));
+                        UnpackPatternKind::Tuple(pattern) => {
+                            self.initialize_global_tuple_unpack(binding, pattern, global_ptr)
                         }
                     }
                 }
-                Pattern::TupleUnpack(pat) => {
-                    let ty = binding.ty.normalize(self.tycx);
-                    let llvm_type = Some(ty.llvm_type(self));
+            }
+        }
+    }
 
-                    for (i, pat) in pat.symbols.iter().enumerate() {
-                        if pat.ignore {
-                            continue;
-                        }
+    fn initialize_global_struct_unpack(
+        &mut self,
+        binding: &ast::Binding,
+        pattern: &UnpackPattern,
+        global_ptr: PointerValue<'ctx>,
+    ) {
+        let ty = binding.ty.normalize(self.tycx);
+        let struct_ty = ty.maybe_deref_once().as_struct().clone();
 
-                        let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
+        let struct_llvm_type = Some(ty.llvm_type(self));
 
-                        if binding_info.const_value.is_some() {
-                            continue;
-                        }
+        for pat in pattern.symbols.iter() {
+            if pat.ignore {
+                continue;
+            }
 
-                        if let Some(ptr) = self
-                            .global_decls
-                            .get(&pat.id)
-                            .map(|d| d.into_pointer_value())
-                        {
-                            let field_value =
-                                self.gen_struct_access(global_ptr.into(), i as u32, llvm_type);
+            let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
 
-                            self.build_store(ptr, self.build_load(field_value));
-                        }
-                    }
-                }
-                Pattern::Hybrid(_) => todo!(),
+            if binding_info.const_value.is_some() {
+                continue;
+            }
+
+            if let Some(ptr) = self
+                .global_decls
+                .get(&pat.id)
+                .map(|d| d.into_pointer_value())
+            {
+                let field_index = struct_ty.find_field_position(pat.symbol).unwrap();
+
+                let field_value =
+                    self.gen_struct_access(global_ptr.into(), field_index as u32, struct_llvm_type);
+
+                self.build_store(ptr, self.build_load(field_value));
+            }
+        }
+    }
+
+    fn initialize_global_tuple_unpack(
+        &mut self,
+        binding: &ast::Binding,
+        pattern: &UnpackPattern,
+        global_ptr: PointerValue<'ctx>,
+    ) {
+        let ty = binding.ty.normalize(self.tycx);
+
+        let llvm_type = Some(ty.llvm_type(self));
+
+        for (i, pat) in pattern.symbols.iter().enumerate() {
+            if pat.ignore {
+                continue;
+            }
+
+            let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
+
+            if binding_info.const_value.is_some() {
+                continue;
+            }
+
+            if let Some(ptr) = self
+                .global_decls
+                .get(&pat.id)
+                .map(|d| d.into_pointer_value())
+            {
+                let field_value = self.gen_struct_access(global_ptr.into(), i as u32, llvm_type);
+
+                self.build_store(ptr, self.build_load(field_value));
             }
         }
     }

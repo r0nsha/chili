@@ -18,8 +18,8 @@ impl fmt::Display for InferenceValue {
             "{}",
             match self {
                 InferenceValue::Bound(t) => t.to_string(),
-                InferenceValue::AnyInt => "[anyint]".to_string(),
-                InferenceValue::AnyFloat => "[anyfloat]".to_string(),
+                InferenceValue::AnyInt => "[integer]".to_string(),
+                InferenceValue::AnyFloat => "[float]".to_string(),
                 InferenceValue::PartialTuple(elements) =>
                     TyKind::Tuple(elements.clone()).to_string(),
                 InferenceValue::PartialStruct(partial) => partial.to_string(),

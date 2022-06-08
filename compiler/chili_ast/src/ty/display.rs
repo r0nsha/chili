@@ -58,8 +58,8 @@ impl Display for TyKind {
                 TyKind::Module(_) => "[module]".to_string(),
                 TyKind::Never => "never".to_string(),
                 TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),
-                TyKind::Infer(_, InferTy::AnyInt) => "[anyint]".to_string(),
-                TyKind::Infer(_, InferTy::AnyFloat) => "[anyfloat]".to_string(),
+                TyKind::Infer(_, InferTy::AnyInt) => "[integer]".to_string(),
+                TyKind::Infer(_, InferTy::AnyFloat) => "[float]".to_string(),
                 TyKind::Var(v) => v.to_string(),
                 TyKind::Unknown => "[unknown]".to_string(),
             }
