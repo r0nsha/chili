@@ -432,7 +432,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
-        ty: TyKind,
+        ty: &TyKind,
         value: BasicValueEnum<'ctx>,
     ) {
         match pattern {
@@ -440,57 +440,98 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_local_with_alloca(state, symbol.id, value);
             }
             Pattern::StructUnpack(pattern) => {
-                let struct_ty = ty.maybe_deref_once().as_struct().clone();
-
-                for i in 0..pattern.symbols.len() {
-                    let SymbolPattern {
-                        id: binding_info_id,
-                        symbol,
-                        ignore,
-                        ..
-                    } = pattern.symbols[i];
-
-                    if ignore {
-                        continue;
-                    }
-
-                    let field_index = struct_ty.find_field_position(symbol).unwrap();
-
-                    let llvm_type = Some(ty.llvm_type(self));
-                    let value = self.gen_struct_access(value, field_index as u32, llvm_type);
-                    let value = if ty.is_pointer() {
-                        value
-                    } else {
-                        self.build_load(value)
-                    };
-
-                    self.gen_local_with_alloca(state, binding_info_id, value);
-                }
+                self.gen_binding_struct_unpack_pattern_with_value(state, pattern, ty, value);
             }
             Pattern::TupleUnpack(pattern) => {
-                for i in 0..pattern.symbols.len() {
-                    let SymbolPattern {
-                        id: binding_info_id,
-                        ignore,
-                        ..
-                    } = pattern.symbols[i];
+                self.gen_binding_tuple_unpack_pattern_with_value(state, pattern, ty, value);
+            }
+            Pattern::Hybrid(pattern) => {
+                let ptr = self.gen_local_with_alloca(state, pattern.symbol.id, value);
 
-                    if ignore {
-                        continue;
+                match &pattern.unpack {
+                    UnpackPatternKind::Struct(unpack) => {
+                        self.gen_binding_struct_unpack_pattern(
+                            state,
+                            unpack,
+                            ty,
+                            ty.maybe_deref_once().as_struct(),
+                            ptr,
+                        );
                     }
-
-                    let llvm_type = Some(ty.llvm_type(self));
-                    let value = self.gen_struct_access(value, i as u32, llvm_type);
-                    let value = if ty.is_pointer() {
-                        value
-                    } else {
-                        self.build_load(value)
-                    };
-
-                    self.gen_local_with_alloca(state, binding_info_id, value);
+                    UnpackPatternKind::Tuple(unpack) => {
+                        self.gen_binding_tuple_unpack_pattern(state, unpack, ty, ptr);
+                    }
                 }
             }
-            Pattern::Hybrid(_) => todo!(),
+        }
+    }
+
+    pub(super) fn gen_binding_struct_unpack_pattern_with_value(
+        &mut self,
+        state: &mut CodegenState<'ctx>,
+        pattern: &UnpackPattern,
+        ty: &TyKind,
+        value: BasicValueEnum<'ctx>,
+    ) {
+        let struct_ty = ty.maybe_deref_once().into_struct();
+
+        for i in 0..pattern.symbols.len() {
+            let SymbolPattern {
+                id: binding_info_id,
+                symbol,
+                ignore,
+                ..
+            } = pattern.symbols[i];
+
+            if ignore {
+                continue;
+            }
+
+            let field_index = struct_ty.find_field_position(symbol).unwrap();
+
+            let llvm_type = Some(ty.llvm_type(self));
+
+            let value = self.gen_struct_access(value, field_index as u32, llvm_type);
+
+            let value = if ty.is_pointer() {
+                value
+            } else {
+                self.build_load(value)
+            };
+
+            self.gen_local_with_alloca(state, binding_info_id, value);
+        }
+    }
+
+    pub(super) fn gen_binding_tuple_unpack_pattern_with_value(
+        &mut self,
+        state: &mut CodegenState<'ctx>,
+        pattern: &UnpackPattern,
+        ty: &TyKind,
+        value: BasicValueEnum<'ctx>,
+    ) {
+        for i in 0..pattern.symbols.len() {
+            let SymbolPattern {
+                id: binding_info_id,
+                ignore,
+                ..
+            } = pattern.symbols[i];
+
+            if ignore {
+                continue;
+            }
+
+            let llvm_type = Some(ty.llvm_type(self));
+
+            let value = self.gen_struct_access(value, i as u32, llvm_type);
+
+            let value = if ty.is_pointer() {
+                value
+            } else {
+                self.build_load(value)
+            };
+
+            self.gen_local_with_alloca(state, binding_info_id, value);
         }
     }
 

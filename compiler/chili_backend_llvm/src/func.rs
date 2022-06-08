@@ -92,7 +92,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             let value = self.build_transmute(&state, value, llvm_param_ty);
 
-            self.gen_binding_pattern_with_value(&mut state, &param.pattern, param_ty, value);
+            self.gen_binding_pattern_with_value(&mut state, &param.pattern, &param_ty, value);
         }
 
         let return_value: BasicValueEnum = self.gen_block(&mut state, &func.body, true);

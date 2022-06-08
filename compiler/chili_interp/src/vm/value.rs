@@ -318,12 +318,16 @@ impl From<&TyKind> for ValueKind {
                 }
             },
             TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer,
-            TyKind::Function(_) => todo!(),
-            TyKind::Array(_, _) => todo!(),
-            TyKind::Slice(_, _) => todo!(),
-            TyKind::Tuple(_) => todo!(),
-            TyKind::Struct(_) => todo!(),
-            TyKind::Module(_) => todo!(),
+            TyKind::Function(f) => {
+                if f.lib_name.is_some() {
+                    Self::ExternFunction
+                } else {
+                    Self::Function
+                }
+            }
+            TyKind::Array(_, _) => Self::Array,
+            TyKind::Slice(_, _) | TyKind::Tuple(_) | TyKind::Struct(_) => Self::Aggregate,
+            TyKind::Module(_) => panic!(),
             TyKind::Type(_) => Self::Type,
             TyKind::Infer(_, InferTy::AnyInt) => Self::Int,
             TyKind::Infer(_, InferTy::AnyFloat) => {
@@ -333,7 +337,9 @@ impl From<&TyKind> for ValueKind {
                     Self::F32
                 }
             }
-            TyKind::Infer(_, _) => todo!(),
+            TyKind::Infer(_, InferTy::PartialStruct(_) | InferTy::PartialTuple(_)) => {
+                Self::Aggregate
+            }
             _ => panic!("invalid type {}", ty),
         }
     }

@@ -358,6 +358,13 @@ impl TyKind {
         }
     }
 
+    pub fn into_struct(self) -> StructTy {
+        match self {
+            TyKind::Struct(ty) => ty,
+            _ => panic!("expected struct, got {:?}", self),
+        }
+    }
+
     pub fn as_fn(&self) -> &FunctionTy {
         match self {
             TyKind::Function(ty) => ty,
