@@ -11,8 +11,8 @@ use chili_ast::{
     ast,
     const_value::ConstValue,
     path::RelativeTo,
-    pattern::Pattern,
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Ty, TyKind, UintTy},
+    pattern::{Pattern, UnpackPattern, UnpackPatternKind},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, StructTy, Ty, TyKind, UintTy},
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::NormalizeTy;
@@ -285,71 +285,128 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
     }
 
     match &binding.pattern {
-        Pattern::Symbol(pat) => {
-            sess.add_local(code, pat.id);
+        Pattern::Symbol(pattern) => {
+            sess.add_local(code, pattern.id);
 
             if binding.expr.is_some() {
                 code.push(Instruction::SetLocal(code.locals as i32));
             }
         }
-        Pattern::StructUnpack(pat) => {
+        Pattern::StructUnpack(pattern) => {
             let ty = binding.ty.normalize(sess.tycx);
 
             match ty.maybe_deref_once() {
-                TyKind::Module(_) => {
-                    for pat in pat.symbols.iter() {
-                        let redirect_id = sess
-                            .workspace
-                            .get_binding_info(pat.id)
-                            .unwrap()
-                            .redirects_to
-                            .unwrap();
-
-                        let slot = sess
-                            .get_global(redirect_id)
-                            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
-                            as u32;
-
-                        code.push(Instruction::GetGlobal(slot as u32));
-                        sess.add_local(code, pat.id);
-                        code.push(Instruction::SetLocal(code.locals as i32));
-                    }
-                }
-                TyKind::Struct(ty) => {
-                    let last_index = pat.symbols.len() - 1;
-
-                    for (index, pat) in pat.symbols.iter().enumerate() {
-                        if index < last_index {
-                            code.push(Instruction::Copy(0));
-                        }
-
-                        let field_index = ty.find_field_position(pat.symbol).unwrap();
-
-                        code.push(Instruction::ConstIndex(field_index as u32));
-                        sess.add_local(code, pat.id);
-                        code.push(Instruction::SetLocal(code.locals as i32));
-                    }
+                TyKind::Module(_) => lower_local_module_unpack(pattern, sess, code),
+                TyKind::Struct(struct_ty) => {
+                    lower_local_struct_unpack(pattern, &struct_ty, sess, code)
                 }
                 _ => panic!("{}", ty),
             }
         }
-        Pattern::TupleUnpack(pat) => {
-            let last_index = pat.symbols.len() - 1;
+        Pattern::TupleUnpack(pattern) => lower_local_tuple_unpack(pattern, sess, code),
+        Pattern::Hybrid(pattern) => {
+            if !pattern.symbol.ignore {
+                sess.add_local(code, pattern.symbol.id);
 
-            for (index, pat) in pat.symbols.iter().enumerate() {
-                if index < last_index {
+                if binding.expr.is_some() {
                     code.push(Instruction::Copy(0));
+                    code.push(Instruction::SetLocal(code.locals as i32));
                 }
+            }
 
-                code.push(Instruction::ConstIndex(index as u32));
-                sess.add_local(code, pat.id);
-                code.push(Instruction::SetLocal(code.locals as i32));
+            match &pattern.unpack {
+                UnpackPatternKind::Struct(pattern) => {
+                    let ty = binding.ty.normalize(sess.tycx);
+
+                    match ty.maybe_deref_once() {
+                        TyKind::Module(_) => lower_local_module_unpack(pattern, sess, code),
+                        TyKind::Struct(struct_ty) => {
+                            lower_local_struct_unpack(pattern, &struct_ty, sess, code)
+                        }
+                        _ => panic!("{}", ty),
+                    }
+                }
+                UnpackPatternKind::Tuple(pattern) => lower_local_tuple_unpack(pattern, sess, code),
             }
         }
-        Pattern::Hybrid(_) => todo!(),
     }
 
     sess.push_const_unit(code);
+}
+
+fn lower_local_module_unpack(
+    pattern: &UnpackPattern,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+) {
+    for pattern in pattern.symbols.iter() {
+        if pattern.ignore {
+            continue;
+        }
+
+        let redirect_id = sess
+            .workspace
+            .get_binding_info(pattern.id)
+            .unwrap()
+            .redirects_to
+            .unwrap();
+
+        let slot = sess
+            .get_global(redirect_id)
+            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
+            as u32;
+
+        code.push(Instruction::GetGlobal(slot as u32));
+        sess.add_local(code, pattern.id);
+        code.push(Instruction::SetLocal(code.locals as i32));
+    }
+}
+
+fn lower_local_struct_unpack(
+    pattern: &UnpackPattern,
+    struct_ty: &StructTy,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+
+        code.push(Instruction::ConstIndex(field_index as u32));
+        sess.add_local(code, pattern.id);
+        code.push(Instruction::SetLocal(code.locals as i32));
+    }
+}
+
+fn lower_local_tuple_unpack(
+    pattern: &UnpackPattern,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        code.push(Instruction::ConstIndex(index as u32));
+        sess.add_local(code, pattern.id);
+        code.push(Instruction::SetLocal(code.locals as i32));
+    }
 }
 
 impl Lower for ast::Cast {
@@ -454,31 +511,77 @@ impl Lower for ast::Function {
 
         for param in self.sig.params.iter() {
             match &param.pattern {
-                Pattern::Symbol(pat) => {
-                    sess.env_mut().insert(pat.id, param_offset);
+                Pattern::Symbol(pattern) => {
+                    if !pattern.ignore {
+                        sess.env_mut().insert(pattern.id, param_offset);
+                    }
                 }
-                Pattern::StructUnpack(pat) => {
+                Pattern::StructUnpack(pattern) => {
                     let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
                     let ty = ty.as_struct();
 
-                    for pat in pat.symbols.iter() {
-                        let field_index = ty.find_field_position(pat.symbol).unwrap();
+                    for pattern in pattern.symbols.iter() {
+                        if pattern.ignore {
+                            continue;
+                        }
+
+                        let field_index = ty.find_field_position(pattern.symbol).unwrap();
                         // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
                         func_code.push(Instruction::Peek(param_offset as i32));
                         func_code.push(Instruction::ConstIndex(field_index as u32));
-                        sess.add_local(&mut func_code, pat.id);
+                        sess.add_local(&mut func_code, pattern.id);
                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
                     }
                 }
-                Pattern::TupleUnpack(pat) => {
-                    for (index, pat) in pat.symbols.iter().enumerate() {
+                Pattern::TupleUnpack(pattern) => {
+                    for (index, pattern) in pattern.symbols.iter().enumerate() {
+                        if pattern.ignore {
+                            continue;
+                        }
+
                         func_code.push(Instruction::PeekPtr(param_offset as i32));
                         func_code.push(Instruction::ConstIndex(index as u32));
-                        sess.add_local(&mut func_code, pat.id);
+                        sess.add_local(&mut func_code, pattern.id);
                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
                     }
                 }
-                Pattern::Hybrid(_) => todo!(),
+                Pattern::Hybrid(pattern) => {
+                    if !pattern.symbol.ignore {
+                        sess.env_mut().insert(pattern.symbol.id, param_offset);
+                    }
+
+                    match &pattern.unpack {
+                        UnpackPatternKind::Struct(pattern) => {
+                            let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
+                            let ty = ty.as_struct();
+
+                            for pattern in pattern.symbols.iter() {
+                                if pattern.ignore {
+                                    continue;
+                                }
+
+                                let field_index = ty.find_field_position(pattern.symbol).unwrap();
+                                // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+                                func_code.push(Instruction::Peek(param_offset as i32));
+                                func_code.push(Instruction::ConstIndex(field_index as u32));
+                                sess.add_local(&mut func_code, pattern.id);
+                                func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                            }
+                        }
+                        UnpackPatternKind::Tuple(pattern) => {
+                            for (index, pattern) in pattern.symbols.iter().enumerate() {
+                                if pattern.ignore {
+                                    continue;
+                                }
+
+                                func_code.push(Instruction::PeekPtr(param_offset as i32));
+                                func_code.push(Instruction::ConstIndex(index as u32));
+                                sess.add_local(&mut func_code, pattern.id);
+                                func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                            }
+                        }
+                    }
+                }
             }
             param_offset += 1;
         }
@@ -1088,7 +1191,6 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
     }
 }
 
-#[inline]
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
     if let Some(binding) = sess.cache.get_binding(id) {
         lower_top_level_binding(binding, id, sess)
@@ -1097,7 +1199,6 @@ fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) ->
     }
 }
 
-#[inline]
 fn lower_top_level_binding(
     binding: &ast::Binding,
     desired_id: BindingInfoId,
@@ -1120,82 +1221,86 @@ fn lower_top_level_binding(
     let mut desired_slot = usize::MAX;
 
     match &binding.pattern {
-        Pattern::Symbol(pat) => {
-            let slot = sess.insert_global(pat.id, Value::unit());
+        Pattern::Symbol(pattern) => {
+            let slot = sess.insert_global(pattern.id, Value::unit());
             code.push(Instruction::SetGlobal(slot as u32));
 
-            if pat.id == desired_id {
+            if pattern.id == desired_id {
                 desired_slot = slot;
             }
         }
-        Pattern::StructUnpack(pat) => {
+        Pattern::StructUnpack(pattern) => {
             let ty = binding.ty.normalize(sess.tycx);
 
             match ty.maybe_deref_once() {
-                TyKind::Module(_) => {
-                    for pat in pat.symbols.iter() {
-                        let redirect_id = sess
-                            .workspace
-                            .get_binding_info(pat.id)
-                            .unwrap()
-                            .redirects_to
-                            .unwrap();
-
-                        let slot = sess
-                            .get_global(redirect_id)
-                            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
-                            as u32;
-
-                        code.push(Instruction::GetGlobal(slot as u32));
-
-                        let slot = sess.insert_global(pat.id, Value::unit());
-                        code.push(Instruction::SetGlobal(slot as u32));
-
-                        if pat.id == desired_id {
-                            desired_slot = slot;
-                        }
-                    }
-                }
-                TyKind::Struct(ty) => {
-                    let last_index = pat.symbols.len() - 1;
-
-                    for (index, pat) in pat.symbols.iter().enumerate() {
-                        if index < last_index {
-                            code.push(Instruction::Copy(0));
-                        }
-
-                        let field_index = ty.find_field_position(pat.symbol).unwrap();
-
-                        code.push(Instruction::ConstIndex(field_index as u32));
-                        let slot = sess.insert_global(pat.id, Value::unit());
-                        code.push(Instruction::SetGlobal(slot as u32));
-
-                        if pat.id == desired_id {
-                            desired_slot = slot;
-                        }
-                    }
-                }
+                TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                    pattern,
+                    desired_id,
+                    &mut desired_slot,
+                    &mut code,
+                    sess,
+                ),
+                TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                    pattern,
+                    &struct_ty,
+                    desired_id,
+                    &mut desired_slot,
+                    &mut code,
+                    sess,
+                ),
                 _ => panic!("{}", ty),
             }
         }
-        Pattern::TupleUnpack(pat) => {
-            let last_index = pat.symbols.len() - 1;
-
-            for (index, pat) in pat.symbols.iter().enumerate() {
-                if index < last_index {
-                    code.push(Instruction::Copy(0));
-                }
-
-                code.push(Instruction::ConstIndex(index as u32));
-                let slot = sess.insert_global(pat.id, Value::unit());
+        Pattern::TupleUnpack(pattern) => lower_top_level_binding_tuple_unpack(
+            pattern,
+            desired_id,
+            &mut desired_slot,
+            &mut code,
+            sess,
+        ),
+        Pattern::Hybrid(pattern) => {
+            if !pattern.symbol.ignore {
+                let slot = sess.insert_global(pattern.symbol.id, Value::unit());
+                code.push(Instruction::Copy(0));
                 code.push(Instruction::SetGlobal(slot as u32));
 
-                if pat.id == desired_id {
+                if pattern.symbol.id == desired_id {
                     desired_slot = slot;
                 }
             }
+
+            match &pattern.unpack {
+                UnpackPatternKind::Struct(pattern) => {
+                    let ty = binding.ty.normalize(sess.tycx);
+
+                    match ty.maybe_deref_once() {
+                        TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                            pattern,
+                            desired_id,
+                            &mut desired_slot,
+                            &mut code,
+                            sess,
+                        ),
+                        TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                            pattern,
+                            &struct_ty,
+                            desired_id,
+                            &mut desired_slot,
+                            &mut code,
+                            sess,
+                        ),
+                        _ => panic!("{}", ty),
+                    }
+                }
+                UnpackPatternKind::Tuple(pattern) => lower_top_level_binding_tuple_unpack(
+                    pattern,
+                    desired_id,
+                    &mut desired_slot,
+                    &mut code,
+                    sess,
+                ),
+            }
         }
-        Pattern::Hybrid(_) => todo!(),
     }
 
     code.push(Instruction::Return);
@@ -1205,6 +1310,100 @@ fn lower_top_level_binding(
     assert!(desired_slot != usize::MAX);
 
     desired_slot
+}
+
+fn lower_top_level_binding_module_unpack(
+    pattern: &UnpackPattern,
+    desired_id: BindingInfoId,
+    desired_slot: &mut usize,
+    code: &mut CompiledCode,
+    sess: &mut InterpSess,
+) {
+    for pattern in pattern.symbols.iter() {
+        if pattern.ignore {
+            continue;
+        }
+
+        let redirect_id = sess
+            .workspace
+            .get_binding_info(pattern.id)
+            .unwrap()
+            .redirects_to
+            .unwrap();
+
+        let slot = sess
+            .get_global(redirect_id)
+            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
+            as u32;
+
+        code.push(Instruction::GetGlobal(slot as u32));
+
+        let slot = sess.insert_global(pattern.id, Value::unit());
+        code.push(Instruction::SetGlobal(slot as u32));
+
+        if pattern.id == desired_id {
+            *desired_slot = slot;
+        }
+    }
+}
+
+fn lower_top_level_binding_struct_unpack(
+    pattern: &UnpackPattern,
+    struct_ty: &StructTy,
+    desired_id: BindingInfoId,
+    desired_slot: &mut usize,
+    code: &mut CompiledCode,
+    sess: &mut InterpSess,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+
+        code.push(Instruction::ConstIndex(field_index as u32));
+        let slot = sess.insert_global(pattern.id, Value::unit());
+        code.push(Instruction::SetGlobal(slot as u32));
+
+        if pattern.id == desired_id {
+            *desired_slot = slot;
+        }
+    }
+}
+
+fn lower_top_level_binding_tuple_unpack(
+    pattern: &UnpackPattern,
+    desired_id: BindingInfoId,
+    desired_slot: &mut usize,
+    code: &mut CompiledCode,
+    sess: &mut InterpSess,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        code.push(Instruction::ConstIndex(index as u32));
+        let slot = sess.insert_global(pattern.id, Value::unit());
+        code.push(Instruction::SetGlobal(slot as u32));
+
+        if pattern.id == desired_id {
+            *desired_slot = slot;
+        }
+    }
 }
 
 fn lower_block(

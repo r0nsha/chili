@@ -3,22 +3,21 @@ let ? = @import("std/fmt");
 let foo @ ? = @import("foo");
 
 let Foo = struct { a: int, b: int, c: int };
-let mut x @ ? = Foo { a: 1, b: 2, c: 3 };
+let x @ ? = Foo { a: 1, b: 2, c: 3 };
 
 let main = fn() {
     println("Hello World");
 
-    // let x @ ? = Foo { a: 1, b: 2, c: 3 };
+    let x @ ? = Foo { a: 1, b: 2, c: 3 };
     printf("%d %d %d\n".data, x.a, b, c);
-    // printfoo(&x);
 
     bar();
     
     printf("baz = %d\n".data, foo.baz);
 };
 
-// let printfoo = fn(x @ ?: *Foo) {
-//     printf("%d %d %d\n".data, x.a, b, c);
-// }
+let printfoo = fn(x @ ?: *Foo) {
+    printf("%d %d %d\n".data, x.a, b, c);
+}
 
-// @run(main())
+@run(main())

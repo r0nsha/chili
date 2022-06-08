@@ -215,35 +215,35 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tycx) {
             TyKind::Module(module_id) => {
-                for pat in unpack_pattern.symbols.iter_mut() {
-                    if pat.ignore {
+                for pattern in unpack_pattern.symbols.iter_mut() {
+                    if pattern.ignore {
                         continue;
                     }
 
                     let (res, top_level_symbol_id) = self.check_top_level_symbol(
                         CallerInfo {
                             module_id: env.module_id(),
-                            span: pat.span,
+                            span: pattern.span,
                         },
                         module_id,
-                        pat.symbol,
+                        pattern.symbol,
                     )?;
 
                     self.workspace.increment_binding_use(top_level_symbol_id);
 
-                    pat.id = self.bind_symbol(
+                    pattern.id = self.bind_symbol(
                         env,
-                        pat.alias.unwrap_or(pat.symbol),
+                        pattern.alias.unwrap_or(pattern.symbol),
                         visibility,
                         res.ty,
                         res.const_value,
-                        pat.is_mutable,
+                        pattern.is_mutable,
                         kind,
-                        pat.span,
+                        pattern.span,
                     )?;
 
                     self.workspace
-                        .set_binding_info_redirect(pat.id, top_level_symbol_id);
+                        .set_binding_info_redirect(pattern.id, top_level_symbol_id);
                 }
 
                 if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
@@ -328,24 +328,31 @@ impl<'s> CheckSess<'s> {
                     ty_origin_span,
                 )?;
 
-                for pat in unpack_pattern.symbols.iter_mut() {
-                    if pat.ignore {
+                for pattern in unpack_pattern.symbols.iter_mut() {
+                    if pattern.ignore {
                         continue;
                     }
 
                     let ty = self
                         .tycx
-                        .bound(partial_struct[&pat.symbol].clone(), pat.span);
+                        .bound(partial_struct[&pattern.symbol].clone(), pattern.span);
 
-                    let field_const_value = if pat.is_mutable {
+                    let field_const_value = if pattern.is_mutable {
                         None
                     } else {
                         const_value
                             .as_ref()
-                            .map(|v| v.as_struct().get(&pat.symbol).unwrap().clone().value)
+                            .map(|v| v.as_struct().get(&pattern.symbol).unwrap().clone().value)
                     };
 
-                    self.bind_symbol_pattern(env, pat, visibility, ty, field_const_value, kind)?;
+                    self.bind_symbol_pattern(
+                        env,
+                        pattern,
+                        visibility,
+                        ty,
+                        field_const_value,
+                        kind,
+                    )?;
                 }
 
                 if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
@@ -445,14 +452,14 @@ impl<'s> CheckSess<'s> {
             ty_origin_span,
         )?;
 
-        for (index, pat) in pattern.symbols.iter_mut().enumerate() {
-            if pat.ignore {
+        for (index, pattern) in pattern.symbols.iter_mut().enumerate() {
+            if pattern.ignore {
                 continue;
             }
 
-            let ty = self.tycx.bound(elements[index].clone(), pat.span);
+            let ty = self.tycx.bound(elements[index].clone(), pattern.span);
 
-            let element_const_value = if pat.is_mutable {
+            let element_const_value = if pattern.is_mutable {
                 None
             } else {
                 const_value
@@ -460,7 +467,7 @@ impl<'s> CheckSess<'s> {
                     .map(|v| v.as_tuple()[index].clone().value)
             };
 
-            self.bind_symbol_pattern(env, pat, visibility, ty, element_const_value, kind)?;
+            self.bind_symbol_pattern(env, pattern, visibility, ty, element_const_value, kind)?;
         }
 
         Ok(())

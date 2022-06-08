@@ -351,21 +351,21 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
     ) {
-        for pat in pattern.symbols.iter() {
-            if pat.ignore {
+        for pattern in pattern.symbols.iter() {
+            if pattern.ignore {
                 continue;
             }
 
             let redirect_id = self
                 .workspace
-                .get_binding_info(pat.id)
+                .get_binding_info(pattern.id)
                 .unwrap()
                 .redirects_to
                 .unwrap();
 
             let decl = self.find_or_gen_top_level_binding(redirect_id);
 
-            state.scopes.insert(pat.id, decl);
+            state.scopes.insert(pattern.id, decl);
         }
     }
 
@@ -379,18 +379,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         let struct_llvm_type = Some(ty.llvm_type(self));
 
-        for pat in pattern.symbols.iter() {
-            if pat.ignore {
+        for pattern in pattern.symbols.iter() {
+            if pattern.ignore {
                 continue;
             }
 
-            let field_index = struct_ty.find_field_position(pat.symbol).unwrap();
+            let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
 
             let value = self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
 
             self.gen_local_with_alloca(
                 state,
-                pat.id,
+                pattern.id,
                 if ty.is_pointer() {
                     value
                 } else {
@@ -409,8 +409,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         let llvm_type = Some(ty.llvm_type(self));
 
-        for (i, pat) in pattern.symbols.iter().enumerate() {
-            if pat.ignore {
+        for (i, pattern) in pattern.symbols.iter().enumerate() {
+            if pattern.ignore {
                 continue;
             }
 
@@ -418,7 +418,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             self.gen_local_with_alloca(
                 state,
-                pat.id,
+                pattern.id,
                 if ty.is_pointer() {
                     value
                 } else {

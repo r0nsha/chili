@@ -224,12 +224,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let struct_llvm_type = Some(ty.llvm_type(self));
 
-        for pat in pattern.symbols.iter() {
-            if pat.ignore {
+        for pattern in pattern.symbols.iter() {
+            if pattern.ignore {
                 continue;
             }
 
-            let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
+            let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
 
             if binding_info.const_value.is_some() {
                 continue;
@@ -237,10 +237,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             if let Some(ptr) = self
                 .global_decls
-                .get(&pat.id)
+                .get(&pattern.id)
                 .map(|d| d.into_pointer_value())
             {
-                let field_index = struct_ty.find_field_position(pat.symbol).unwrap();
+                let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
 
                 let field_value =
                     self.gen_struct_access(global_ptr.into(), field_index as u32, struct_llvm_type);
@@ -260,12 +260,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let llvm_type = Some(ty.llvm_type(self));
 
-        for (i, pat) in pattern.symbols.iter().enumerate() {
-            if pat.ignore {
+        for (i, pattern) in pattern.symbols.iter().enumerate() {
+            if pattern.ignore {
                 continue;
             }
 
-            let binding_info = self.workspace.get_binding_info(pat.id).unwrap();
+            let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
 
             if binding_info.const_value.is_some() {
                 continue;
@@ -273,7 +273,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             if let Some(ptr) = self
                 .global_decls
-                .get(&pat.id)
+                .get(&pattern.id)
                 .map(|d| d.into_pointer_value())
             {
                 let field_value = self.gen_struct_access(global_ptr.into(), i as u32, llvm_type);
