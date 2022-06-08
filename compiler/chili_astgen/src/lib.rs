@@ -12,6 +12,7 @@ use std::{
     path::PathBuf,
     sync::{mpsc::channel, Arc},
 };
+use threadpool::ThreadPool;
 use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Debug, Clone, Copy)]
@@ -65,8 +66,6 @@ fn generate_ast_inner(
     root_file_path: PathBuf,
     asts: &mut Vec<ast::Ast>,
 ) -> AstGenerationStats {
-    let (tx, rx) = channel::<Box<ParserResult>>();
-
     let cache = Arc::new(Mutex::new(ParserCache {
         root_file: resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd)
             .unwrap(),
@@ -82,13 +81,22 @@ fn generate_ast_inner(
         ustr(&root_file_path.to_str().unwrap().to_string()),
     );
 
+    let thread_pool = ThreadPool::new(num_cpus::get());
+    let (tx, rx) = channel::<Box<ParserResult>>();
+
     spawn_parser(
+        thread_pool.clone(),
         tx.clone(),
         Arc::clone(&cache),
         compiler_info::std_module_info(),
     );
 
-    spawn_parser(tx, Arc::clone(&cache), root_module_info);
+    spawn_parser(
+        thread_pool.clone(),
+        tx,
+        Arc::clone(&cache),
+        root_module_info,
+    );
 
     for result in rx.iter() {
         match *result {
@@ -97,6 +105,8 @@ fn generate_ast_inner(
             ParserResult::Failed(diag) => cache.lock().diagnostics.push(diag),
         }
     }
+
+    thread_pool.join();
 
     let cache = Arc::try_unwrap(cache).unwrap().into_inner();
 

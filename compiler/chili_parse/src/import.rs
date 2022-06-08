@@ -93,7 +93,12 @@ impl Parser {
             ustr(absolute_import_path.to_str().unwrap()),
         );
 
-        spawn_parser(self.tx.clone(), Arc::clone(&self.cache), module_info);
+        spawn_parser(
+            self.thread_pool.clone(),
+            self.tx.clone(),
+            Arc::clone(&self.cache),
+            module_info,
+        );
 
         Ok(ast::BuiltinKind::Import(absolute_import_path))
     }

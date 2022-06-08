@@ -7,6 +7,8 @@ edition = "2021"
 ustr = "0.8.1"
 unindent = "0.1.7"
 parking_lot = "0.12.1"
+threadpool = "1.8.1"
+num_cpus = "1.13.1"
 
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }

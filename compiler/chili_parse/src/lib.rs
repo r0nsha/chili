@@ -19,8 +19,8 @@ use std::{
     fmt::Debug,
     path::PathBuf,
     sync::{mpsc::Sender, Arc},
-    thread,
 };
+use threadpool::ThreadPool;
 use unindent::unindent;
 use ustr::{ustr, Ustr};
 
@@ -92,18 +92,20 @@ pub(crate) use parse_delimited_list;
 pub(crate) use require;
 
 pub fn spawn_parser(
+    thread_pool: ThreadPool,
     tx: Sender<Box<ParserResult>>,
     cache: Arc<Mutex<ParserCache>>,
     module_info: ModuleInfo,
 ) {
-    thread::spawn(move || {
-        Parser::new(tx, Arc::clone(&cache), module_info).parse();
+    thread_pool.clone().execute(move || {
+        Parser::new(thread_pool, tx, Arc::clone(&cache), module_info).parse();
     });
 }
 
 pub struct Parser {
-    tx: Sender<Box<ParserResult>>,
     pub cache: Arc<Mutex<ParserCache>>,
+    thread_pool: ThreadPool,
+    tx: Sender<Box<ParserResult>>,
     tokens: Vec<Token>,
     current: usize,
     marked: Vec<usize>,
@@ -131,13 +133,15 @@ pub enum ParserResult {
 
 impl Parser {
     pub fn new(
+        thread_pool: ThreadPool,
         tx: Sender<Box<ParserResult>>,
         cache: Arc<Mutex<ParserCache>>,
         module_info: ModuleInfo,
     ) -> Self {
         Self {
-            tx,
             cache,
+            thread_pool,
+            tx,
             tokens: vec![],
             current: 0,
             marked: Default::default(),

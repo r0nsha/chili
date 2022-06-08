@@ -11,6 +11,7 @@ ustr = "0.8.1"
 bitflags = "1.3.2"
 unindent = "0.1.7"
 parking_lot = "0.12.1"
+threadpool = "1.8.1"
 
 common = { path = "../common" }
 chili_span = { path = "../chili_span" }
