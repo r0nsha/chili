@@ -774,7 +774,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let it = match &for_.iterator {
                     ast::ForIter::Range(_, _) => {
-                        self.gen_local_with_alloca(state, for_.iter_id, start.into())
+                        self.gen_local_with_alloca(state, for_.iter_binding.id, start.into())
                     }
                     ast::ForIter::Value(value) => {
                         // TODO: remove by_ref?
@@ -790,11 +790,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             !by_ref,
                         );
 
-                        self.gen_local_with_alloca(state, for_.iter_id, item)
+                        self.gen_local_with_alloca(state, for_.iter_binding.id, item)
                     }
                 };
 
-                let it_index = self.gen_local_with_alloca(state, for_.iter_index_id, start.into());
+                let it_index = self.gen_local_with_alloca(
+                    state,
+                    for_.index_binding
+                        .as_ref()
+                        .map_or(BindingInfoId::unknown(), |x| x.id),
+                    start.into(),
+                );
 
                 self.builder.build_unconditional_branch(loop_head);
                 self.start_block(state, loop_head);

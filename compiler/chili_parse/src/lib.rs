@@ -108,7 +108,6 @@ pub struct Parser {
     tx: Sender<Box<ParserResult>>,
     tokens: Vec<Token>,
     current: usize,
-    marked: Vec<usize>,
     module_info: ModuleInfo,
     current_dir: PathBuf,
     decl_name_frames: Vec<Ustr>,
@@ -144,7 +143,6 @@ impl Parser {
             tx,
             tokens: vec![],
             current: 0,
-            marked: Default::default(),
             module_info,
             current_dir: module_info.dir().to_path_buf(),
             decl_name_frames: Default::default(),
@@ -228,18 +226,6 @@ impl Parser {
     #[inline]
     pub(crate) fn is_end(&self) -> bool {
         self.peek().kind == Eof
-    }
-
-    pub(crate) fn mark(&mut self, offset: isize) {
-        self.marked.push((self.current as isize + offset) as usize);
-    }
-
-    pub(crate) fn reset_to_mark(&mut self) {
-        self.current = self.marked.pop().unwrap();
-    }
-
-    pub(crate) fn pop_mark(&mut self) {
-        self.marked.pop();
     }
 
     #[inline]

@@ -2,8 +2,9 @@ let ? = @import("std/fmt");
 let { printf } = @import("std/c");
 
 let main = fn() {
-    println(r"Hello World");
-    println("""Hello World""");
-    println("Hello \"World\"");
-    printf("char = %c\n".data, c"x");
+    println("Hello World");
+    let array = .[1, 2, 3];
+    for it, index in array {
+        printf("%d = %d\n".data, index, it)
+    }
 };

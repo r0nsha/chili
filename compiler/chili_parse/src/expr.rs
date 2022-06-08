@@ -2,7 +2,9 @@ use std::vec;
 
 use crate::*;
 use chili_ast::{
-    ast::{self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, UnaryOp, Visibility},
+    ast::{
+        self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, NameAndId, UnaryOp, Visibility,
+    },
     ty::StructTyKind,
 };
 use chili_error::{
@@ -11,7 +13,6 @@ use chili_error::{
 };
 use chili_span::{Span, To};
 use chili_token::TokenKind::*;
-use common::builtin::{default_index_name, default_iter_name};
 use ustr::ustr;
 
 macro_rules! parse_binary {
@@ -607,54 +608,18 @@ impl Parser {
     }
 
     pub(crate) fn parse_for(&mut self) -> DiagnosticResult<Expr> {
-        let default_iter = default_iter_name();
-        let default_index = default_index_name();
-
-        let mut declared_names = 0;
-
         let start_span = self.previous_span();
 
-        self.mark(0);
+        let iter_name = require!(self, Ident(_), "identifier")?.symbol();
 
-        // iterator and index declarations
-        let (mut iter_name, iter_index_name) = if eat!(self, Ident(_)) {
-            declared_names = 1;
-
-            let iter_name = self.previous().symbol();
-
-            let iter_index_name = if eat!(self, Comma) {
-                if eat!(self, Ident(_)) {
-                    declared_names = 2;
-                    self.previous().symbol()
-                } else {
-                    default_index
-                }
-            } else {
-                default_index
-            };
-
-            (iter_name, iter_index_name)
+        let iter_index_name = if eat!(self, Comma) {
+            Some(require!(self, Ident(_), "identifier")?.symbol())
         } else {
-            (default_iter, default_index)
+            None
         };
 
-        // in declaration
-        let mut has_reset_mark = false;
-        if declared_names == 1 {
-            if !eat!(self, In) {
-                iter_name = default_iter;
-                self.reset_to_mark();
-                has_reset_mark = true;
-            }
-        } else if declared_names == 2 {
-            require!(self, In, "in")?;
-        }
+        require!(self, In, "in")?;
 
-        if !has_reset_mark {
-            self.pop_mark();
-        }
-
-        // actual expression
         let iter_start = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         let iterator = if eat!(self, DotDot) {
@@ -669,10 +634,8 @@ impl Parser {
 
         Ok(Expr::new(
             ExprKind::For(ast::For {
-                iter_name,
-                iter_id: Default::default(),
-                iter_index_name,
-                iter_index_id: Default::default(),
+                iter_binding: NameAndId::new(iter_name),
+                index_binding: iter_index_name.map(|name| NameAndId::new(name)),
                 iterator,
                 block,
             }),

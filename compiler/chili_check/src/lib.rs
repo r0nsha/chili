@@ -846,9 +846,9 @@ impl Check for ast::Expr {
                 env.push_scope(ScopeKind::Loop);
                 sess.loop_depth += 1;
 
-                for_.iter_id = sess.bind_symbol(
+                for_.iter_binding.id = sess.bind_symbol(
                     env,
-                    for_.iter_name,
+                    for_.iter_binding.name,
                     ast::Visibility::Private,
                     iter_ty,
                     None,
@@ -857,16 +857,18 @@ impl Check for ast::Expr {
                     self.span, // TODO: use iter's actual span
                 )?;
 
-                for_.iter_index_id = sess.bind_symbol(
-                    env,
-                    for_.iter_index_name,
-                    ast::Visibility::Private,
-                    sess.tycx.common_types.uint,
-                    None,
-                    false,
-                    ast::BindingKind::Value,
-                    self.span, // TODO: use iter_index's actual span
-                )?;
+                if let Some(index_binding) = &mut for_.index_binding {
+                    index_binding.id = sess.bind_symbol(
+                        env,
+                        index_binding.name,
+                        ast::Visibility::Private,
+                        sess.tycx.common_types.uint,
+                        None,
+                        false,
+                        ast::BindingKind::Value,
+                        self.span, // TODO: use iter_index's actual span
+                    )?;
+                }
 
                 for_.block.check(sess, env, None)?;
 

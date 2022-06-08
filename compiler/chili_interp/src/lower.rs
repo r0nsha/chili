@@ -662,7 +662,14 @@ impl Lower for ast::For {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         // lower iterator index
         sess.push_const(code, Value::Uint(0));
-        sess.add_local(code, self.iter_index_id);
+
+        sess.add_local(
+            code,
+            self.index_binding
+                .as_ref()
+                .map_or(BindingInfoId::unknown(), |x| x.id),
+        );
+
         let iter_index_slot = code.locals as i32;
         code.push(Instruction::SetLocal(iter_index_slot));
 
@@ -670,7 +677,7 @@ impl Lower for ast::For {
             ast::ForIter::Range(start, end) => {
                 start.lower(sess, code, ctx);
 
-                sess.add_local(code, self.iter_id);
+                sess.add_local(code, self.iter_binding.id);
                 let iter_slot = code.locals as i32;
                 code.push(Instruction::SetLocal(iter_slot));
 
@@ -755,7 +762,7 @@ impl Lower for ast::For {
                 code.push(Instruction::Mul);
                 code.push(Instruction::Index);
 
-                sess.add_local(code, self.iter_id);
+                sess.add_local(code, self.iter_binding.id);
                 let iter_slot = code.locals as i32;
                 code.push(Instruction::SetLocal(iter_slot));
 

@@ -334,12 +334,25 @@ pub struct While {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct For {
-    pub iter_name: Ustr,
-    pub iter_id: BindingInfoId,
-    pub iter_index_name: Ustr,
-    pub iter_index_id: BindingInfoId,
+    pub iter_binding: NameAndId,
+    pub index_binding: Option<NameAndId>,
     pub iterator: ForIter,
     pub block: Block,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct NameAndId {
+    pub name: Ustr,
+    pub id: BindingInfoId,
+}
+
+impl NameAndId {
+    pub fn new(name: Ustr) -> Self {
+        Self {
+            name,
+            id: BindingInfoId::unknown(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

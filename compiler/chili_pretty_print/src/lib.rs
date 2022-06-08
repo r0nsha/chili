@@ -268,10 +268,14 @@ impl PrintTree for ast::Expr {
                 b.end_child();
             }
             ast::ExprKind::For(for_) => {
-                b.begin_child(format!(
-                    "for ({}, {})",
-                    for_.iter_name, for_.iter_index_name
-                ));
+                if let Some(index_binding) = &for_.index_binding {
+                    b.begin_child(format!(
+                        "for {}, {}",
+                        for_.iter_binding.name, index_binding.name
+                    ));
+                } else {
+                    b.begin_child(format!("for {}", for_.iter_binding.name));
+                }
 
                 match &for_.iterator {
                     ast::ForIter::Range(start, end) => {
