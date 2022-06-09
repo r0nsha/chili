@@ -3,7 +3,9 @@ let { printf } = @import("std/c");
 
 let main = fn() {
     println("Hello World");
+
     let array = .[1, 2, 3];
+
     for it, index in array {
         printf("%d = %d\n".data, index, it)
     }

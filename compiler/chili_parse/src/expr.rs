@@ -366,116 +366,57 @@ impl Parser {
     fn parse_array_type(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous_span();
 
-        if eat!(self, Mut) {
-            // mutable slice type
-            // Note (Ron): syntax for mut slices will be removed once we have unsized types
-            let inner = self.parse_expr()?;
+        if eat!(self, Star) {
+            // multi-pointer type
+            // Note (Ron): multi-pointers will be removed once we have:
+            //     1. parametric polymorphism
+            //     2. methods
+            //     3. ptr offset builtin function
+
+            let is_mutable = eat!(self, Mut);
 
             require!(self, CloseBracket, "]")?;
 
+            let inner = self.parse_expr()?;
+
+            let ty = Expr::new(
+                ExprKind::MultiPointerType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable,
+                }),
+                start_span.to(self.previous_span()),
+            );
+
+            Ok(ty)
+        } else if eat!(self, CloseBracket) {
+            // slice type
+            // Note (Ron): syntax for mut slices will probably be removed once we have unsized types
+
+            let is_mutable = eat!(self, Mut);
+            let ty = self.parse_expr()?;
+
             Ok(Expr::new(
                 ExprKind::SliceType(ast::ExprAndMut {
-                    inner: Box::new(inner),
-                    is_mutable: true,
+                    inner: Box::new(ty),
+                    is_mutable,
                 }),
                 start_span.to(self.previous_span()),
             ))
         } else {
-            let inner = self.parse_expr()?;
+            // array type
 
-            if eat!(self, Semicolon) {
-                if eat!(self, Star) {
-                    // multi-pointer type
-                    // Note (Ron): multi-pointers will be removed once we have:
-                    //     1. parametric polymorphism
-                    //     2. methods
-                    //     3. ptr offset builtin function
+            let size = self.parse_expr()?;
+            require!(self, CloseBracket, "]")?;
+            let ty = self.parse_expr()?;
 
-                    let is_mutable = eat!(self, Mut);
-
-                    require!(self, CloseBracket, "]")?;
-
-                    let ty = Expr::new(
-                        ExprKind::MultiPointerType(ast::ExprAndMut {
-                            inner: Box::new(inner),
-                            is_mutable,
-                        }),
-                        start_span.to(self.previous_span()),
-                    );
-
-                    Ok(ty)
-                } else {
-                    let size = self.parse_expr()?;
-
-                    require!(self, CloseBracket, "]")?;
-
-                    Ok(Expr::new(
-                        ExprKind::ArrayType(ast::ArrayType {
-                            inner: Box::new(inner),
-                            size: Box::new(size),
-                        }),
-                        start_span.to(self.previous_span()),
-                    ))
-                }
-            } else {
-                require!(self, CloseBracket, "]")?;
-
-                Ok(Expr::new(
-                    ExprKind::SliceType(ast::ExprAndMut {
-                        inner: Box::new(inner),
-                        is_mutable: false,
-                    }),
-                    start_span.to(self.previous_span()),
-                ))
-            }
+            Ok(Expr::new(
+                ExprKind::ArrayType(ast::ArrayType {
+                    inner: Box::new(ty),
+                    size: Box::new(size),
+                }),
+                start_span.to(self.previous_span()),
+            ))
         }
-
-        // if eat!(self, Star) {
-        //     // multi-pointer type
-
-        //     let is_mutable = eat!(self, Mut);
-
-        //     require!(self, CloseBracket, "]")?;
-
-        //     let inner = self.parse_expr()?;
-
-        //     let ty = Expr::new(
-        //         ExprKind::MultiPointerType(ast::ExprAndMut {
-        //             inner: Box::new(inner),
-        //             is_mutable,
-        //         }),
-        //         start_span.to(self.previous_span()),
-        //     );
-
-        //     Ok(ty)
-        // } else if eat!(self, CloseBracket) {
-        //     // slice type
-
-        //     let is_mutable = eat!(self, Mut);
-        //     let ty = self.parse_expr()?;
-
-        //     Ok(Expr::new(
-        //         ExprKind::SliceType(ast::ExprAndMut {
-        //             inner: Box::new(ty),
-        //             is_mutable,
-        //         }),
-        //         start_span.to(self.previous_span()),
-        //     ))
-        // } else {
-        //     // array type or sized array literal
-
-        //     let size = self.parse_expr()?;
-        //     require!(self, CloseBracket, "]")?;
-        //     let ty = self.parse_expr()?;
-
-        //     Ok(Expr::new(
-        //         ExprKind::ArrayType(ast::ArrayType {
-        //             inner: Box::new(ty),
-        //             size: Box::new(size),
-        //         }),
-        //         start_span.to(self.previous_span()),
-        //     ))
-        // }
     }
 
     fn parse_struct_type(&mut self) -> DiagnosticResult<Expr> {
