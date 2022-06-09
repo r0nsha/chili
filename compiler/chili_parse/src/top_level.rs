@@ -28,7 +28,7 @@ impl Parser {
 
             Ok(())
         } else if eat!(self, At) {
-            let token = require!(self, Ident(_), "ident")?;
+            let token = require!(self, Ident(_), "an identifier")?;
             let symbol = token.symbol();
 
             if symbol == "run" {

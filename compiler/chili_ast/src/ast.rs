@@ -373,10 +373,17 @@ pub struct Function {
 pub struct FunctionSig {
     pub name: Ustr,
     pub params: Vec<FunctionParam>,
-    pub variadic: bool,
     pub ret: Option<Box<Expr>>,
+    pub varargs: Option<FunctionVarargs>,
     pub kind: FunctionKind,
     pub ty: Ty,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunctionVarargs {
+    pub name: Ustr,
+    pub ty: Option<Box<Expr>>,
     pub span: Span,
 }
 
@@ -403,6 +410,7 @@ impl FunctionKind {
     pub fn is_orphan(&self) -> bool {
         matches!(self, FunctionKind::Orphan)
     }
+
     pub fn is_extern(&self) -> bool {
         matches!(self, FunctionKind::Extern { .. })
     }
@@ -482,7 +490,7 @@ pub struct Binding {
     pub ty_expr: Option<Expr>,
     pub ty: Ty,
     pub expr: Option<Expr>,
-    pub lib_name: Option<Ustr>,
+    pub extern_lib: Option<Ustr>,
     pub span: Span,
 }
 
@@ -659,7 +667,10 @@ impl fmt::Display for FunctionSig {
                 .map(|a| a.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
-            if self.variadic { ", .." } else { "" }
+            match &self.varargs {
+                Some(v) => format!(", ..{}", v.name),
+                None => "".to_string(),
+            }
         )
     }
 }

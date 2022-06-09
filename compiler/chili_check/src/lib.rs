@@ -11,7 +11,10 @@ use chili_ast::{
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     path::RelativeTo,
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
-    ty::{FunctionTy, InferTy, PartialStructTy, StructTy, StructTyField, StructTyKind, Ty, TyKind},
+    ty::{
+        FunctionTy, FunctionTyVarargs, InferTy, PartialStructTy, StructTy, StructTyField,
+        StructTyKind, Ty, TyKind,
+    },
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
     },
@@ -305,7 +308,7 @@ impl Check for ast::Binding {
     ) -> CheckResult {
         self.module_id = env.module_id();
 
-        if let Some(lib) = self.lib_name {
+        if let Some(lib) = self.extern_lib {
             // Collect extern library to be linked later
             let lib = ast::ExternLibrary::try_from_str(
                 &lib,
@@ -373,7 +376,7 @@ impl Check for ast::Binding {
             && !is_type_or_module
             && !is_any_pattern_mut
             && const_value.is_none()
-            && self.lib_name.is_none()
+            && self.extern_lib.is_none()
         {
             return Err(Diagnostic::error()
                 .with_message(format!("immutable top level binding must be constant"))
@@ -612,12 +615,27 @@ impl Check for ast::FunctionSig {
             sess.tycx.var(self.span)
         };
 
+        let varargs = if let Some(varargs) = &mut self.varargs {
+            let ty = if let Some(ty) = &mut varargs.ty {
+                let res = ty.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                let ty = sess.extract_const_type(res.const_value, res.ty, ty.span)?;
+
+                Some(ty.as_kind())
+            } else {
+                None
+            };
+
+            Some(Box::new(FunctionTyVarargs { ty }))
+        } else {
+            None
+        };
+
         self.ty = sess.tycx.bound(
             TyKind::Function(FunctionTy {
                 params: ty_params,
                 ret: Box::new(ret.into()),
-                variadic: self.variadic,
-                lib_name: match self.kind {
+                varargs,
+                extern_lib: match self.kind {
                     ast::FunctionKind::Extern { lib } => Some(lib),
                     _ => None,
                 },
@@ -1987,10 +2005,13 @@ impl Check for ast::Call {
 
         match callee_res.ty.normalize(&sess.tycx) {
             TyKind::Function(fn_ty) => {
-                if (fn_ty.variadic && self.args.len() < fn_ty.params.len())
-                    || (!fn_ty.variadic && self.args.len() != fn_ty.params.len())
-                {
-                    let span = self.span;
+                let arg_mismatch = match &fn_ty.varargs {
+                    Some(_) if self.args.len() < fn_ty.params.len() => true,
+                    None if self.args.len() != fn_ty.params.len() => true,
+                    _ => false,
+                };
+
+                if arg_mismatch {
                     let expected = fn_ty.params.len();
                     let actual = self.args.len();
 
@@ -2003,7 +2024,7 @@ impl Check for ast::Call {
                             if actual > 1 { "were" } else { "was" },
                         ))
                         .with_label(Label::primary(
-                            span,
+                            self.span,
                             format!(
                                 "expected {} argument{}, got {}",
                                 expected,
@@ -2049,8 +2070,8 @@ impl Check for ast::Call {
                 let inferred_fn_ty = TyKind::Function(FunctionTy {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
-                    variadic: false,
-                    lib_name: None,
+                    varargs: None,
+                    extern_lib: None,
                 });
 
                 ty.unify(&inferred_fn_ty, &mut sess.tycx).or_report_err(

@@ -33,7 +33,7 @@ impl Parser {
                 ty: Ty::unknown(),
                 ty_expr,
                 expr: None,
-                lib_name: None,
+                extern_lib: None,
                 span: start_span.to(self.previous_span()),
             });
         }
@@ -51,7 +51,7 @@ impl Parser {
             ty: Ty::unknown(),
             ty_expr,
             expr: Some(expr),
-            lib_name: None,
+            extern_lib: None,
             span: start_span.to(self.previous_span()),
         })
     }

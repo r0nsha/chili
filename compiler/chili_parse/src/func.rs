@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{Expr, ExprKind, Function, FunctionKind, FunctionParam, FunctionSig},
+    ast::{Expr, ExprKind, Function, FunctionKind, FunctionParam, FunctionSig, FunctionVarargs},
     ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -41,7 +41,7 @@ impl Parser {
     ) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
-        let (params, variadic) = self.parse_fn_params()?;
+        let (params, varargs) = self.parse_fn_params()?;
 
         let ret_ty = if eat!(self, RightArrow) {
             Some(Box::new(
@@ -54,7 +54,7 @@ impl Parser {
         Ok(FunctionSig {
             name,
             params,
-            variadic,
+            varargs,
             ret: ret_ty,
             kind,
             ty: Default::default(),
@@ -62,12 +62,14 @@ impl Parser {
         })
     }
 
-    pub(crate) fn parse_fn_params(&mut self) -> DiagnosticResult<(Vec<FunctionParam>, bool)> {
+    pub(crate) fn parse_fn_params(
+        &mut self,
+    ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
         if !eat!(self, OpenParen) {
-            return Ok((vec![], false));
+            return Ok((vec![], None));
         }
 
-        let mut variadic = false;
+        let mut varargs: Option<FunctionVarargs> = None;
 
         let params = parse_delimited_list!(
             self,
@@ -75,8 +77,23 @@ impl Parser {
             Comma,
             {
                 if eat!(self, DotDot) {
+                    let start_span = self.previous_span();
+
+                    let name = require!(self, Ident(_), "an identifier")?.symbol();
+
+                    let ty = if eat!(self, Colon) {
+                        Some(Box::new(self.parse_expr()?))
+                    } else {
+                        None
+                    };
+
                     require!(self, CloseParen, ")")?;
-                    variadic = true;
+
+                    varargs = Some(FunctionVarargs {
+                        name,
+                        ty,
+                        span: start_span.to(self.previous_span()),
+                    });
                     break;
                 }
 
@@ -97,6 +114,6 @@ impl Parser {
             ", or )"
         );
 
-        Ok((params, variadic))
+        Ok((params, varargs))
     }
 }

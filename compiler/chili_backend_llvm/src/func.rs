@@ -266,7 +266,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.build_store(ptr, arg);
 
                         ptr
-                    } else if callee_ty.lib_name.is_none() {
+                    } else if callee_ty.extern_lib.is_none() {
                         self.gen_local_or_load_addr(state, BindingInfoId::unknown(), arg)
                     } else {
                         self.build_copy_value_to_ptr(state, arg, arg_type, 16)

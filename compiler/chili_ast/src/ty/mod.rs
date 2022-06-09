@@ -112,8 +112,13 @@ impl Default for FloatTy {
 pub struct FunctionTy {
     pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
-    pub variadic: bool,
-    pub lib_name: Option<Ustr>,
+    pub varargs: Option<Box<FunctionTyVarargs>>,
+    pub extern_lib: Option<Ustr>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct FunctionTyVarargs {
+    pub ty: Option<TyKind>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

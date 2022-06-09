@@ -479,7 +479,7 @@ impl Parser {
             CloseCurly,
             Comma,
             {
-                let id = require!(self, Ident(_), "identifier")?;
+                let id = require!(self, Ident(_), "an identifier")?;
                 let name = id.symbol();
 
                 require!(self, Colon, ":")?;
@@ -500,7 +500,7 @@ impl Parser {
 
     fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous_span();
-        let id_token = require!(self, Ident(_), "identifier")?;
+        let id_token = require!(self, Ident(_), "an identifier")?;
         let symbol = id_token.symbol();
 
         require!(self, OpenParen, "(")?;
@@ -551,10 +551,10 @@ impl Parser {
     pub(crate) fn parse_for(&mut self) -> DiagnosticResult<Expr> {
         let start_span = self.previous_span();
 
-        let iter_name = require!(self, Ident(_), "identifier")?.symbol();
+        let iter_name = require!(self, Ident(_), "an identifier")?.symbol();
 
         let iter_index_name = if eat!(self, Comma) {
-            Some(require!(self, Ident(_), "identifier")?.symbol())
+            Some(require!(self, Ident(_), "an identifier")?.symbol())
         } else {
             None
         };

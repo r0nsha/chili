@@ -77,8 +77,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .pointer_type(false),
             ],
             ret: Box::new(TyKind::Uint(UintTy::U32)),
-            variadic: false,
-            lib_name: None,
+            varargs: None,
+            extern_lib: None,
         };
 
         let function = self.module.add_function(

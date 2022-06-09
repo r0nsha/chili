@@ -125,7 +125,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let ret = f.ret.llvm_type(self);
 
-        let fn_type = ret.fn_type(&params, f.variadic);
+        let fn_type = ret.fn_type(&params, f.varargs.is_some());
 
         abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
     }

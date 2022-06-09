@@ -61,7 +61,10 @@ impl UnifyTy<TyKind> for TyKind {
             (TyKind::Function(f1), TyKind::Function(f2)) => {
                 f1.ret.unify(f2.ret.as_ref(), tycx)?;
 
-                if f1.params.len() != f2.params.len() && !f1.variadic && !f2.variadic {
+                if f1.params.len() != f2.params.len()
+                    && f1.varargs.is_none()
+                    && f2.varargs.is_none()
+                {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {

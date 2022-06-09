@@ -638,7 +638,7 @@ impl Lower for ast::FunctionSig {
                     name: self.name,
                     param_tys: func_ty.params,
                     return_ty: *func_ty.ret,
-                    variadic: self.variadic,
+                    variadic: self.varargs.is_some(),
                 };
 
                 sess.push_const(code, Value::ExternFunction(extern_func));

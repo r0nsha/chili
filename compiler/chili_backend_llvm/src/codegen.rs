@@ -204,7 +204,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             decl
         } else {
-            let global_value = if binding.lib_name.is_some() {
+            let global_value = if binding.extern_lib.is_some() {
                 let ty = binding.ty.llvm_type(self);
                 self.add_global_uninit(id, ty, Linkage::External)
             } else {

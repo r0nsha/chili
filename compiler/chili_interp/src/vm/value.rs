@@ -319,7 +319,7 @@ impl From<&TyKind> for ValueKind {
             },
             TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer,
             TyKind::Function(f) => {
-                if f.lib_name.is_some() {
+                if f.extern_lib.is_some() {
                     Self::ExternFunction
                 } else {
                     Self::Function

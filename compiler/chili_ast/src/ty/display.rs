@@ -113,7 +113,13 @@ impl Display for FunctionTy {
                 .map(|p| p.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
-            if self.variadic { ", .." } else { "" },
+            match &self.varargs {
+                Some(v) => match &v.ty {
+                    Some(ty) => format!(", ..{}", ty),
+                    None => ", ..".to_string(),
+                },
+                None => "".to_string(),
+            },
             self.ret,
         )
     }

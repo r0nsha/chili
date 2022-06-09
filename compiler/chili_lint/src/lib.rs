@@ -35,7 +35,8 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
         let ty = binding_info.ty.normalize(tycx).into_fn();
 
         // if this is the main function, check its type matches a fn() -> [unit | never]
-        if !(ty.ret.is_unit() || ty.ret.is_never()) || !ty.params.is_empty() || ty.variadic {
+        if !(ty.ret.is_unit() || ty.ret.is_never()) || !ty.params.is_empty() || ty.varargs.is_some()
+        {
             workspace.diagnostics.push(
                 Diagnostic::error()
                     .with_message(format!(

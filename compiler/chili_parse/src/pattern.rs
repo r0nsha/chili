@@ -63,7 +63,7 @@ impl Parser {
                 let mut symbol_pattern = self.parse_symbol_pattern()?;
 
                 if eat!(self, Colon) {
-                    let id_token = require!(self, Ident(_), "identifier")?;
+                    let id_token = require!(self, Ident(_), "an identifier")?;
                     let symbol = id_token.symbol();
                     symbol_pattern.alias = Some(symbol);
                 }
@@ -118,7 +118,7 @@ impl Parser {
         } else if eat!(self, Placeholder) {
             (ustr(""), true)
         } else {
-            return Err(SyntaxError::expected(self.span(), "identifier or _"));
+            return Err(SyntaxError::expected(self.span(), "an identifier or _"));
         };
 
         Ok(SymbolPattern {

@@ -51,7 +51,7 @@ impl Parser {
     ) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
-        let id = require!(self, Ident(_), "identifier")?;
+        let id = require!(self, Ident(_), "an identifier")?;
 
         let pattern = Pattern::Symbol(SymbolPattern {
             id: Default::default(),
@@ -79,7 +79,7 @@ impl Parser {
                     ExprKind::FunctionType(sig),
                     fn_sig_start_span.to(self.previous_span()),
                 )),
-                lib_name: Some(lib),
+                extern_lib: Some(lib),
                 span: start_span.to(self.previous_span()),
             }
         } else {
@@ -93,7 +93,7 @@ impl Parser {
                 ty: Ty::unknown(),
                 ty_expr: Some(ty_expr),
                 expr: None,
-                lib_name: Some(lib),
+                extern_lib: Some(lib),
                 span: start_span.to(self.previous_span()),
             }
         };

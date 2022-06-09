@@ -66,8 +66,8 @@ impl Normalize {
                     .map(|p| self.normalize_kind(tycx, p))
                     .collect(),
                 ret: Box::new(f.ret.normalize(tycx)),
-                variadic: f.variadic,
-                lib_name: f.lib_name,
+                varargs: f.varargs.clone(),
+                extern_lib: f.extern_lib,
             }),
             TyKind::Pointer(inner, a) => {
                 TyKind::Pointer(Box::new(self.normalize_kind(tycx, inner)), *a)
