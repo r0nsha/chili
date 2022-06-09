@@ -87,12 +87,14 @@ impl Parser {
                         None
                     };
 
+                    let end_span = self.previous_span();
+
                     require!(self, CloseParen, ")")?;
 
                     varargs = Some(FunctionVarargs {
                         name,
                         ty,
-                        span: start_span.to(self.previous_span()),
+                        span: start_span.to(end_span),
                     });
                     break;
                 }

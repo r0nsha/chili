@@ -625,6 +625,14 @@ impl Check for ast::FunctionSig {
                 None
             };
 
+            if ty.is_none() && !self.kind.is_extern() {
+                return Err(Diagnostic::error()
+                    .with_message(
+                        "varargs without type annotation are only valid in extern functions",
+                    )
+                    .with_label(Label::primary(varargs.span, "missing a type annotation")));
+            }
+
             Some(Box::new(FunctionTyVarargs { ty }))
         } else {
             None

@@ -10,3 +10,7 @@ let main = fn() {
         printf("%d = %d\n".data, index, it)
     }
 };
+
+let f = fn(..a) {
+
+}
