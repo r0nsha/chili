@@ -24,6 +24,7 @@ impl Env {
         self.module_id
     }
 
+    #[allow(unused)]
     pub(crate) fn module_info(&self) -> ModuleInfo {
         self.module_info
     }

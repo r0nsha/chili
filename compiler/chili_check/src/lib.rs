@@ -9,7 +9,6 @@ mod top_level;
 use chili_ast::{
     ast,
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    path::RelativeTo,
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
         FunctionTy, FunctionTyVarargs, InferTy, PartialStructTy, StructTy, StructTyField,
@@ -51,12 +50,15 @@ pub fn check(
     ast: Vec<ast::Ast>,
 ) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
     let mut sess = CheckSess::new(workspace, &ast);
+
     sess.start()?;
+
     substitute(
         &mut sess.workspace.diagnostics,
         &mut sess.tycx,
         &sess.new_typed_ast,
     );
+
     Ok((sess.new_typed_ast, sess.tycx))
 }
 
@@ -207,7 +209,7 @@ impl<'s> CheckSess<'s> {
                     .bound_maybe_spanned(ty.as_kind().create_type(), None),
                 const_value: Some(ConstValue::Type(ty)),
                 is_mutable: false,
-                kind: ast::BindingKind::Value,
+                kind: ast::BindingKind::Normal,
                 scope_level: ScopeLevel::Global,
                 scope_name: ustr(""),
                 span: Span::unknown(),
@@ -308,15 +310,9 @@ impl Check for ast::Binding {
     ) -> CheckResult {
         self.module_id = env.module_id();
 
-        if let Some(lib) = self.extern_lib {
+        if let ast::BindingKind::Extern(Some(lib)) = &self.kind {
             // Collect extern library to be linked later
-            let lib = ast::ExternLibrary::try_from_str(
-                &lib,
-                RelativeTo::Path(env.module_info().dir()),
-                self.pattern.span(),
-            )?;
-
-            sess.workspace.extern_libraries.insert(lib);
+            sess.workspace.extern_libraries.insert(lib.clone());
         }
 
         self.ty = if let Some(ty_expr) = &mut self.ty_expr {
@@ -369,14 +365,14 @@ impl Check for ast::Binding {
         let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
         let is_any_pattern_mut = self.pattern.iter().any(|p| p.is_mutable);
 
-        // Global immutable bindings must resolve to a const value, unless:
-        // - It is of type `type` or `module`
-        // - It is an extern binding
+        // Global immutable bindings must resolve to a const value, unless it is:
+        // - of type `type` or `module`
+        // - an extern binding
         if env.scope_level().is_global()
             && !is_type_or_module
             && !is_any_pattern_mut
             && const_value.is_none()
-            && self.extern_lib.is_none()
+            && !self.kind.is_extern()
         {
             return Err(Diagnostic::error()
                 .with_message(format!("immutable top level binding must be constant"))
@@ -441,7 +437,7 @@ impl Check for ast::Binding {
                 self.visibility,
                 self.ty,
                 const_value.clone(),
-                self.kind,
+                &self.kind,
                 self.expr
                     .as_ref()
                     .map(|e| e.span)
@@ -477,7 +473,7 @@ impl Check for ast::Function {
             sig_res.ty,
             None,
             false,
-            ast::BindingKind::Value,
+            ast::BindingKind::Normal,
             self.body.span,
         )?);
 
@@ -500,7 +496,7 @@ impl Check for ast::Function {
                 ast::Visibility::Private,
                 ty,
                 None,
-                ast::BindingKind::Value,
+                &ast::BindingKind::Normal,
                 span,
             )?;
         }
@@ -643,8 +639,8 @@ impl Check for ast::FunctionSig {
                 params: ty_params,
                 ret: Box::new(ret.into()),
                 varargs,
-                extern_lib: match self.kind {
-                    ast::FunctionKind::Extern { lib } => Some(lib),
+                extern_lib: match &self.kind {
+                    ast::FunctionKind::Extern { lib } => lib.clone(),
                     _ => None,
                 },
             }),
@@ -666,12 +662,6 @@ impl Check for ast::Expr {
         expected_ty: Option<Ty>,
     ) -> CheckResult {
         let res = match &mut self.kind {
-            ast::ExprKind::Extern(bindings) => {
-                for binding in bindings.iter_mut() {
-                    binding.check(sess, env, None)?;
-                }
-                Ok(Res::new(sess.tycx.common_types.unit))
-            }
             ast::ExprKind::Binding(binding) => {
                 binding.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
@@ -879,7 +869,7 @@ impl Check for ast::Expr {
                     iter_ty,
                     None,
                     false,
-                    ast::BindingKind::Value,
+                    ast::BindingKind::Normal,
                     self.span, // TODO: use iter's actual span
                 )?;
 
@@ -891,7 +881,7 @@ impl Check for ast::Expr {
                         sess.tycx.common_types.uint,
                         None,
                         false,
-                        ast::BindingKind::Value,
+                        ast::BindingKind::Normal,
                         self.span, // TODO: use iter_index's actual span
                     )?;
                 }
@@ -1910,7 +1900,7 @@ impl Check for ast::Expr {
                     struct_ty_type_var,
                     Some(ConstValue::Type(struct_ty_var)),
                     false,
-                    ast::BindingKind::Value,
+                    ast::BindingKind::Normal,
                     self.span,
                 )?;
 
@@ -1967,14 +1957,10 @@ impl Check for ast::Expr {
             ast::ExprKind::FunctionType(sig) => {
                 let res = sig.check(sess, env, expected_ty)?;
 
-                if sig.kind.is_extern() {
-                    Ok(Res::new(res.ty))
-                } else {
-                    Ok(Res::new_const(
-                        sess.tycx.bound(res.ty.as_kind().create_type(), self.span),
-                        ConstValue::Type(res.ty),
-                    ))
-                }
+                Ok(Res::new_const(
+                    sess.tycx.bound(res.ty.as_kind().create_type(), self.span),
+                    ConstValue::Type(res.ty),
+                ))
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(

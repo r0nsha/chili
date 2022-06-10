@@ -28,12 +28,11 @@ impl Parser {
             return Ok(Binding {
                 module_id: Default::default(),
                 visibility,
-                kind: BindingKind::Value,
+                kind: BindingKind::Normal,
                 pattern,
                 ty: Ty::unknown(),
                 ty_expr,
                 expr: None,
-                extern_lib: None,
                 span: start_span.to(self.previous_span()),
             });
         }
@@ -46,12 +45,11 @@ impl Parser {
         Ok(Binding {
             module_id: Default::default(),
             visibility,
-            kind: BindingKind::Value,
+            kind: BindingKind::Normal,
             pattern,
             ty: Ty::unknown(),
             ty_expr,
             expr: Some(expr),
-            extern_lib: None,
             span: start_span.to(self.previous_span()),
         })
     }

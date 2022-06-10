@@ -10,7 +10,6 @@ use crate::{
 use chili_ast::{
     ast,
     const_value::ConstValue,
-    path::RelativeTo,
     pattern::{Pattern, UnpackPattern, UnpackPatternKind},
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, StructTy, Ty, TyKind, UintTy},
     workspace::BindingInfoId,
@@ -31,9 +30,6 @@ pub(crate) trait Lower {
 impl Lower for ast::Expr {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match &self.kind {
-            ast::ExprKind::Extern(bindings) => bindings
-                .iter()
-                .for_each(|binding| lower_local_binding(binding, sess, code)),
             ast::ExprKind::Binding(binding) => {
                 lower_local_binding(binding, sess, code);
             }
@@ -623,18 +619,11 @@ impl Lower for ast::FunctionSig {
             ast::FunctionKind::Orphan => {
                 // lowering a non-extern function signature is a no-op (until types will be considered values)
             }
-            ast::FunctionKind::Extern { lib } => {
+            ast::FunctionKind::Extern { lib: Some(lib) } => {
                 let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
-                let module_info = sess.workspace.get_module_info(sess.module_id()).unwrap();
-
-                let lib_path =
-                    ast::ExternLibrary::from_str(&lib, RelativeTo::Path(module_info.dir()))
-                        .unwrap()
-                        .path();
-
                 let extern_func = ExternFunction {
-                    lib_path: ustr(&lib_path),
+                    lib_path: ustr(&lib.path()),
                     name: self.name,
                     param_tys: func_ty.params,
                     return_ty: *func_ty.ret,
@@ -642,6 +631,10 @@ impl Lower for ast::FunctionSig {
                 };
 
                 sess.push_const(code, Value::ExternFunction(extern_func));
+            }
+            ast::FunctionKind::Extern { lib: None } => {
+                // TODO: raise proper diagnostic
+                panic!("cannot interpret extern function without specifying a library. TODO: proper diagnostic")
             }
         }
     }

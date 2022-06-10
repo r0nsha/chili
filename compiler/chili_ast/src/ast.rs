@@ -106,7 +106,6 @@ impl Expr {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
-    Extern(Box<Extern>),
     Binding(Box<Binding>),
     Defer(Defer),
     Assign(Assign),
@@ -385,10 +384,10 @@ impl ToString for FunctionParam {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum FunctionKind {
     Orphan,
-    Extern { lib: Ustr },
+    Extern { lib: Option<ExternLibrary> },
 }
 
 impl FunctionKind {
@@ -474,23 +473,22 @@ pub struct Binding {
     pub ty_expr: Option<Expr>,
     pub ty: Ty,
     pub expr: Option<Expr>,
-    pub extern_lib: Option<Ustr>,
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
-    Value,
-    Import,
+    Normal,
+    Extern(Option<ExternLibrary>),
 }
 
 impl BindingKind {
-    pub fn is_value(&self) -> bool {
-        matches!(self, BindingKind::Value)
+    pub fn is_normal(&self) -> bool {
+        matches!(self, BindingKind::Normal)
     }
 
-    pub fn is_import(&self) -> bool {
-        matches!(self, BindingKind::Import)
+    pub fn is_extern(&self) -> bool {
+        matches!(self, BindingKind::Extern(_))
     }
 }
 
@@ -500,22 +498,11 @@ impl Display for BindingKind {
             f,
             "{}",
             match self {
-                BindingKind::Value => "value",
-                BindingKind::Import => "import",
+                BindingKind::Normal => "normal",
+                BindingKind::Extern(_) => "extern",
             }
         )
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Extern {
-    pub module_id: ModuleId,
-    pub visibility: Visibility,
-    pub lib: Option<(Ustr, Span)>,
-    pub is_mutable: bool,
-    pub symbol: (Ustr, Span),
-    pub ty: Expr,
-    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]

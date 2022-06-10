@@ -2,7 +2,10 @@ pub mod align;
 pub mod display;
 pub mod size;
 
-use crate::workspace::{BindingInfoId, ModuleId};
+use crate::{
+    ast::ExternLibrary,
+    workspace::{BindingInfoId, ModuleId},
+};
 use chili_span::Span;
 use indexmap::IndexMap;
 use std::ops::{Deref, DerefMut};
@@ -113,7 +116,7 @@ pub struct FunctionTy {
     pub params: Vec<TyKind>,
     pub ret: Box<TyKind>,
     pub varargs: Option<Box<FunctionTyVarargs>>,
-    pub extern_lib: Option<Ustr>,
+    pub extern_lib: Option<ExternLibrary>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

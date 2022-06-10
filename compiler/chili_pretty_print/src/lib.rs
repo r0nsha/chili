@@ -205,7 +205,6 @@ fn build_deferred(
 impl PrintTree for ast::Expr {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         match &self.kind {
-            ast::ExprKind::Extern(bindings) => bindings.print_tree(b, workspace, tycx),
             ast::ExprKind::Binding(binding) => binding.print_tree(b, workspace, tycx),
             ast::ExprKind::Defer(defer) => {
                 b.begin_child("defer".to_string());

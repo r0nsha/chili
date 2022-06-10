@@ -78,7 +78,7 @@ impl Parser {
                     let binding = self.parse_extern(Visibility::Private, start_span)?;
 
                     Ok(Expr::new(
-                        ExprKind::Extern(vec![binding]),
+                        ExprKind::Binding(Box::new(binding)),
                         start_span.to(self.previous_span()),
                     ))
                 } else {
@@ -89,14 +89,6 @@ impl Parser {
                         start_span.to(self.previous_span()),
                     ))
                 }
-            } else if eat!(self, Extern) {
-                let start_span = self.previous_span();
-                let bindings = self.parse_extern_block()?;
-
-                Ok(Expr::new(
-                    ExprKind::Extern(bindings),
-                    start_span.to(self.previous_span()),
-                ))
             } else {
                 self.parse_logic_or()
             }
@@ -350,7 +342,7 @@ impl Parser {
                 }
             }
         } else if eat!(self, Fn) {
-            self.parse_fn(ast::FunctionKind::Orphan)?
+            self.parse_fn()?
         } else if eat!(self, Struct) {
             self.parse_struct_type()?
         } else if eat!(self, Union) {

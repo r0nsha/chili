@@ -111,9 +111,7 @@ impl<'a, T: Substitute<'a>> Substitute<'a> for Box<T> {
 
 impl<'a> Substitute<'a> for ast::TypedAst {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        for binding in self.bindings.iter() {
-            binding.substitute(sess);
-        }
+        self.bindings.iter().for_each(|b| b.substitute(sess));
     }
 }
 
@@ -166,7 +164,6 @@ impl<'a> Substitute<'a> for ast::Expr {
 
         match &self.kind {
             ast::ExprKind::Defer(_) => (),
-            ast::ExprKind::Extern(bindings) => bindings.substitute(sess),
             ast::ExprKind::Binding(binding) => binding.substitute(sess),
             ast::ExprKind::Assign(assign) => {
                 assign.lvalue.substitute(sess);

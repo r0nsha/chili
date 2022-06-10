@@ -179,6 +179,7 @@ impl<'i> InterpSess<'i> {
         self.interp.bindings_to_globals.get(&id).cloned()
     }
 
+    #[allow(unused)]
     pub(crate) fn module_id(&self) -> ModuleId {
         self.env_stack.last().unwrap().0
     }

@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{Expr, ExprKind, Function, FunctionKind, FunctionParam, FunctionSig, FunctionVarargs},
+    ast::{Expr, ExprKind, Function, FunctionParam, FunctionSig, FunctionVarargs},
     ty::Ty,
 };
 use chili_error::{DiagnosticResult, SyntaxError};
@@ -8,11 +8,11 @@ use chili_span::To;
 use ustr::Ustr;
 
 impl Parser {
-    pub(crate) fn parse_fn(&mut self, kind: FunctionKind) -> DiagnosticResult<Expr> {
+    pub(crate) fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
         let name = self.get_decl_name();
         let start_span = self.previous_span();
 
-        let sig = self.parse_fn_sig(kind, name)?;
+        let sig = self.parse_fn_sig(name)?;
 
         if eat!(self, OpenCurly) {
             let body = self.parse_block()?;
@@ -34,11 +34,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse_fn_sig(
-        &mut self,
-        kind: FunctionKind,
-        name: Ustr,
-    ) -> DiagnosticResult<FunctionSig> {
+    pub(crate) fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
         let (params, varargs) = self.parse_fn_params()?;
@@ -56,7 +52,12 @@ impl Parser {
             params,
             varargs,
             ret: ret_ty,
-            kind,
+            kind: self
+                .extern_lib
+                .as_ref()
+                .map_or(ast::FunctionKind::Orphan, |lib| ast::FunctionKind::Extern {
+                    lib: lib.clone(),
+                }),
             ty: Default::default(),
             span: start_span.to(self.previous_span()),
         })

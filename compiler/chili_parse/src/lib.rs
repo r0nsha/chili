@@ -9,7 +9,10 @@ mod postfix_expr;
 mod top_level;
 
 use bitflags::bitflags;
-use chili_ast::{ast, workspace::ModuleInfo};
+use chili_ast::{
+    ast::{self, ExternLibrary},
+    workspace::ModuleInfo,
+};
 use chili_error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::{EndPosition, Position, Span};
 use chili_token::{lexer::Lexer, Token, TokenKind::*};
@@ -112,6 +115,7 @@ pub struct Parser {
     current_dir: PathBuf,
     decl_name_frames: Vec<Ustr>,
     restrictions: Restrictions,
+    extern_lib: Option<Option<ExternLibrary>>,
 }
 
 #[derive(Debug)]
@@ -147,6 +151,7 @@ impl Parser {
             current_dir: module_info.dir().to_path_buf(),
             decl_name_frames: Default::default(),
             restrictions: Restrictions::empty(),
+            extern_lib: None,
         }
     }
 

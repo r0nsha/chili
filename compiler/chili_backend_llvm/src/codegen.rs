@@ -164,25 +164,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     _ => self.declare_global(id, binding),
                 })
                 .unwrap_or_else(|| self.declare_global(id, binding))
-            // match binding.expr.as_ref() {
-            //     Some(expr) => match &expr.kind {
-            //         ast::ExprKind::Function(func) => {
-            //             let function = self.declare_fn_sig(module_info, &func.sig);
-            //             let decl = CodegenDecl::Function(function);
-            //             self.global_decls.insert(id, decl);
-            //             self.gen_fn(module_info, func, None);
-            //             decl
-            //         }
-            //         ast::ExprKind::FunctionType(sig) => {
-            //             let function = self.declare_fn_sig(module_info, sig);
-            //             let decl = CodegenDecl::Function(function);
-            //             self.global_decls.insert(id, decl);
-            //             decl
-            //         }
-            //         _ => self.declare_global(id, binding),
-            //     },
-            //     None => self.declare_global(id, binding),
-            // }
         } else {
             panic!("{:?}", id)
         }
@@ -196,6 +177,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
         // the global value will is initialized by the entry point function
 
+        if let Some(decl) = self.global_decls.get(&id) {
+            return *decl;
+        }
+
         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
         if let Some(redirect) = binding_info.redirects_to {
@@ -204,7 +189,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             decl
         } else {
-            let global_value = if binding.extern_lib.is_some() {
+            let global_value = if binding.kind.is_extern() {
                 let ty = binding.ty.llvm_type(self);
                 self.add_global_uninit(id, ty, Linkage::External)
             } else {
@@ -625,38 +610,19 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         let value = match &expr.kind {
-            ast::ExprKind::Extern(bindings) => {
-                for binding in bindings.iter() {
-                    let ty = binding.ty.normalize(self.tycx);
-
-                    if ty.is_fn() {
-                        self.gen_binding_pattern_with_expr(
-                            state,
-                            &binding.pattern,
-                            &ty,
-                            &binding.expr,
-                        );
-                    } else {
-                        let pat = binding.pattern.as_symbol_ref();
-                        let ty = ty.llvm_type(self);
-
-                        let global_value = self.add_global_uninit(pat.id, ty, Linkage::External);
-
-                        state
-                            .scopes
-                            .insert(pat.id, CodegenDecl::Global(global_value));
-                    }
-                }
-
-                self.gen_unit()
-            }
             ast::ExprKind::Binding(binding) => {
-                self.gen_binding_pattern_with_expr(
-                    state,
-                    &binding.pattern,
-                    &binding.ty.normalize(self.tycx),
-                    &binding.expr,
-                );
+                if binding.kind.is_extern() {
+                    let pattern = binding.pattern.as_symbol_ref();
+                    let decl = self.declare_global(pattern.id, binding);
+                    state.scopes.insert(pattern.id, decl);
+                } else {
+                    self.gen_binding_pattern_with_expr(
+                        state,
+                        &binding.pattern,
+                        &binding.ty.normalize(self.tycx),
+                        &binding.expr,
+                    );
+                }
 
                 self.gen_unit()
             }
@@ -665,6 +631,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let left = self
                     .gen_expr(state, &assign.lvalue, false)
                     .into_pointer_value();
+
                 let right = self.gen_expr(state, &assign.rvalue, true);
 
                 // println!("left: {:#?}", left);

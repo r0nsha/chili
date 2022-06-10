@@ -113,7 +113,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: Ty,
         const_value: Option<ConstValue>,
-        kind: ast::BindingKind,
+        kind: &ast::BindingKind,
     ) -> DiagnosticResult<()> {
         if !pattern.ignore {
             pattern.id = self.bind_symbol(
@@ -127,7 +127,7 @@ impl<'s> CheckSess<'s> {
                     const_value
                 },
                 pattern.is_mutable,
-                kind,
+                kind.clone(),
                 pattern.span,
             )?;
         }
@@ -142,7 +142,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: Ty,
         const_value: Option<ConstValue>,
-        kind: ast::BindingKind,
+        kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         match pattern {
@@ -210,7 +210,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: Ty,
         const_value: Option<ConstValue>,
-        kind: ast::BindingKind,
+        kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tycx) {
@@ -238,7 +238,7 @@ impl<'s> CheckSess<'s> {
                         res.ty,
                         res.const_value,
                         pattern.is_mutable,
-                        kind,
+                        kind.clone(),
                         pattern.span,
                     )?;
 
@@ -433,7 +433,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: Ty,
         const_value: Option<ConstValue>,
-        kind: ast::BindingKind,
+        kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         let elements = pattern

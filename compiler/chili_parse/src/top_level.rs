@@ -14,17 +14,12 @@ impl Parser {
             let start_span = self.previous_span();
 
             let binding = if eat!(self, Extern) {
-                self.parse_extern(visibility, start_span)
+                self.parse_extern(visibility, start_span)?
             } else {
-                self.parse_binding(visibility, true)
-            }?;
+                self.parse_binding(visibility, true)?
+            };
 
             ast.bindings.push(binding);
-
-            Ok(())
-        } else if eat!(self, Extern) {
-            let bindings = self.parse_extern_block()?;
-            ast.bindings.extend(bindings);
 
             Ok(())
         } else if eat!(self, At) {

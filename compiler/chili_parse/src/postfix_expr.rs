@@ -49,7 +49,7 @@ impl Parser {
             } else if eat!(self, Fn) {
                 let start_span = expr.span;
 
-                let fn_arg = self.parse_fn(ast::FunctionKind::Orphan)?;
+                let fn_arg = self.parse_fn()?;
                 let span = start_span.to(self.previous_span());
 
                 match &mut expr.kind {
