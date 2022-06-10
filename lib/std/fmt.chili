@@ -2,8 +2,8 @@ let { printf } = @import("c");
 
 pub let print = fn(fmt: str) {
     printf(fmt.data);
-}
+};
 
 pub let println = fn(fmt: str) {
     printf("%s\n".data, fmt.data);
-}
+};

@@ -100,7 +100,7 @@ pub enum TokenKind {
     Defer,
     Let,
     Fn,
-    Foreign,
+    Extern,
     Pub,
     Mut,
     In,
@@ -188,7 +188,7 @@ impl TokenKind {
             Defer => "defer",
             Let => "let",
             Fn => "fn",
-            Foreign => "foreign",
+            Extern => "extern",
             Pub => "pub",
             Mut => "mut",
             In => "in",
@@ -233,7 +233,7 @@ impl TokenKind {
                 | Defer
                 | Let
                 | Fn
-                | Foreign
+                | Extern
                 | Pub
                 | Struct
                 | Union

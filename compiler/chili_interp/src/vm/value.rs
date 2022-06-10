@@ -784,7 +784,7 @@ impl Display for Value {
                 }
                 Value::Pointer(p) => p.to_string(),
                 Value::Function(func) => format!("fn {}", func.name),
-                Value::ExternFunction(func) => format!("foreign fn {}", func.name),
+                Value::ExternFunction(func) => format!("extern fn {}", func.name),
                 Value::Type(ty) => format!("type {}", ty),
             }
         )
@@ -858,7 +858,7 @@ impl Display for Pointer {
                     }
                     Pointer::Pointer(p) => (**p).to_string(),
                     Pointer::Function(func) => format!("fn {}", (**func).name),
-                    Pointer::ExternFunction(func) => format!("foreign fn {}", (**func).name),
+                    Pointer::ExternFunction(func) => format!("extern fn {}", (**func).name),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }
             }

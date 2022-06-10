@@ -3,6 +3,7 @@ use chili_ast::{
     ast::{self, Binding, BindingKind, Expr, ExprKind, Visibility},
     pattern::{Pattern, SymbolPattern},
     ty::Ty,
+    workspace::{BindingInfoId, ModuleId},
 };
 use chili_error::{DiagnosticResult, SyntaxError};
 use chili_span::To;
@@ -27,7 +28,7 @@ impl Parser {
 
                 require!(self, Let, "let")?;
 
-                self.parse_foreign_binding(lib_name, visibility)?
+                self.parse_extern_binding_old(lib_name, visibility)?
             },
             "; or }"
         );
@@ -35,16 +36,44 @@ impl Parser {
         Ok(bindings)
     }
 
-    pub(crate) fn parse_extern_single(
+    pub(crate) fn parse_extern_binding(
         &mut self,
         visibility: Visibility,
+        start_span: Span,
     ) -> DiagnosticResult<Binding> {
-        let lib_name = self.parse_lib_name()?;
-        let binding = self.parse_foreign_binding(lib_name, visibility)?;
-        Ok(binding)
+        let lib = eat!(self, Str(_)).then(|| self.previous().symbol());
+
+        let is_mutable = eat!(self, Mut);
+
+        let id = require!(self, Ident(_), "an identifier")?;
+
+        let pattern = Pattern::Symbol(SymbolPattern {
+            id: BindingInfoId::unknown(),
+            symbol: id.symbol(),
+            alias: None,
+            is_mutable,
+            span: id.span,
+            ignore: false,
+        });
+
+        require!(self, Colon, ":")?;
+
+        let ty_expr = self.parse_expr()?;
+
+        Ok(Binding {
+            module_id: ModuleId::default(),
+            visibility,
+            kind: BindingKind::Value,
+            pattern,
+            ty: Ty::unknown(),
+            ty_expr: Some(ty_expr),
+            expr: None,
+            extern_lib: lib,
+            span: start_span.to(self.previous_span()),
+        })
     }
 
-    fn parse_foreign_binding(
+    fn parse_extern_binding_old(
         &mut self,
         lib: Ustr,
         visibility: Visibility,

@@ -50,7 +50,7 @@ example: cargo run -- run ./examples/main.chili
 > There's no `fmt` module (yet), so we are using c's `printf` for now
 
 ```rust
-let foreign("system:c") printf = fn(input: [u8; *], ..) -> i64;
+let foreign("c") printf = fn(input: [u8; *], ..) -> i64;
 
 let main = fn()  {
 	printf("Hello World\n".data);
@@ -61,7 +61,7 @@ let main = fn()  {
 
 ```rust
 // declares a symbol named `printf`, which comes from the foreign `system` library - `libucrt`
-let foreign("system:c") printf
+let foreign("c") printf
 
 // the signature of the `printf` function.
 // the function takes a many-item pointer to unsigned bytes (u8).

@@ -11,8 +11,10 @@ impl Parser {
         };
 
         if eat!(self, Let) {
-            let binding = if eat!(self, Foreign) {
-                self.parse_extern_single(visibility)
+            let start_span = self.previous_span();
+
+            let binding = if eat!(self, Extern) {
+                self.parse_extern_binding(visibility, start_span)
             } else {
                 self.parse_binding(visibility, true)
             }?;
@@ -20,7 +22,7 @@ impl Parser {
             ast.bindings.push(binding);
 
             Ok(())
-        } else if eat!(self, Foreign) {
+        } else if eat!(self, Extern) {
             let bindings = self.parse_extern_block()?;
             ast.bindings.extend(bindings);
 

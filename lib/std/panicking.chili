@@ -6,7 +6,7 @@ let PanicInfo = struct {
     file_path: str,
     line: uint,
     column: uint,
-}
+};
 
 let default_panic_handler = fn(info: PanicInfo) -> never {
     // TODO: use my own print routine.
@@ -26,4 +26,4 @@ let default_panic_handler = fn(info: PanicInfo) -> never {
     );
 
     exit(1)
-}
+};

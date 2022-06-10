@@ -1,4 +1,4 @@
-foreign("system:c") {
+foreign("c") {
 	pub let putchar = fn(char: int) -> int;
 	pub let getchar = fn() -> int;
 
@@ -31,6 +31,6 @@ foreign("system:c") {
 
 	pub let abort = fn() -> never;
 	pub let exit = fn(status: int) -> never;
-}
+};
 
-pub let c_void: type = ()
+pub let c_void: type = ();

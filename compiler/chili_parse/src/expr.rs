@@ -74,8 +74,8 @@ impl Parser {
             } else if eat!(self, Let) {
                 let start_span = self.previous_span();
 
-                if eat!(self, Foreign) {
-                    let binding = self.parse_extern_single(Visibility::Private)?;
+                if eat!(self, Extern) {
+                    let binding = self.parse_extern_binding(Visibility::Private, start_span)?;
 
                     Ok(Expr::new(
                         ExprKind::Extern(vec![binding]),
@@ -89,7 +89,7 @@ impl Parser {
                         start_span.to(self.previous_span()),
                     ))
                 }
-            } else if eat!(self, Foreign) {
+            } else if eat!(self, Extern) {
                 let start_span = self.previous_span();
                 let bindings = self.parse_extern_block()?;
 

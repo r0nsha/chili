@@ -453,19 +453,18 @@ impl ExternLibraryPath {
 
 impl ExternLibrary {
     pub fn try_from_str(
-        from: &str,
+        s: &str,
         relative_to: RelativeTo<'_>,
         span: Span,
     ) -> DiagnosticResult<Self> {
-        const SYSTEM_PREFIX: &str = "system:";
+        let path = Path::new(s);
 
-        if from.starts_with(SYSTEM_PREFIX) {
-            let split: Vec<&str> = from.split(SYSTEM_PREFIX).collect();
-            let lib = split[1].to_string();
-            Ok(ExternLibrary::System(lib))
-        } else {
-            let path = try_resolve_relative_path(Path::new(from), relative_to, Some(span))?;
+        if path.extension().is_some() {
+            let path = try_resolve_relative_path(Path::new(s), relative_to, Some(span))?;
             Ok(ExternLibrary::Path(ExternLibraryPath { path }))
+        } else {
+            let lib = s.to_string();
+            Ok(ExternLibrary::System(lib))
         }
     }
 

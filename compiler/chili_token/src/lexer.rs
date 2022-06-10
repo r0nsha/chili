@@ -505,7 +505,7 @@ impl<'lx> Lexer<'lx> {
             "defer" => Defer,
             "let" => Let,
             "fn" => Fn,
-            "foreign" => Foreign,
+            "extern" => Extern,
             "pub" => Pub,
             "mut" => Mut,
             "in" => In,

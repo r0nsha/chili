@@ -1,7 +1,7 @@
 let ? = @import("std/fmt");
-let { printf } = @import("std/c");
+// let { printf } = @import("std/c");
 
-let x = 5;
+let extern printf: fn(input: [*]u8, ..args) -> int;
 
 let main = fn() {
     println("Hello World");
@@ -11,5 +11,4 @@ let main = fn() {
     for it, index in array {
         printf("%d = %d\n".data, index, it)
     }
-    printf("%d = %d\n".data, x, x * 10);
 };
