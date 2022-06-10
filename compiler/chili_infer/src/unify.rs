@@ -1,5 +1,5 @@
 use crate::{
-    display::DisplayTy, inference_value::InferenceValue, normalize::NormalizeTy, ty_ctx::TyCtx,
+    display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, ty_ctx::TyCtx,
 };
 use chili_ast::ty::*;
 use chili_error::diagnostic::{Diagnostic, Label};

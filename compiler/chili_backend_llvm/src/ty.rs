@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use chili_ast::ty::{size::SizeOf, *};
 
-use chili_infer::normalize::NormalizeTy;
+use chili_infer::normalize::Normalize;
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, PointerType},
     AddressSpace,

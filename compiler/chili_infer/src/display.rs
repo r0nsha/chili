@@ -1,5 +1,5 @@
 use crate::{
-    normalize::NormalizeTy,
+    normalize::Normalize,
     ty_ctx::TyCtx,
     unify::{UnifyTyErr, UnifyTyResult},
 };
@@ -10,7 +10,7 @@ pub trait DisplayTy {
     fn display(&self, tycx: &TyCtx) -> String;
 }
 
-impl<T: NormalizeTy> DisplayTy for T {
+impl<T: Normalize> DisplayTy for T {
     fn display(&self, tycx: &TyCtx) -> String {
         self.normalize(tycx).to_string()
     }

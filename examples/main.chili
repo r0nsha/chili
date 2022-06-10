@@ -1,6 +1,8 @@
 let ? = @import("std/fmt");
 let { printf } = @import("std/c");
 
+let x = 5;
+
 let main = fn() {
     println("Hello World");
 

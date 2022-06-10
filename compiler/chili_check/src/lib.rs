@@ -27,7 +27,7 @@ use chili_infer::{
     cast::CanCast,
     coerce::{OrCoerceExprIntoTy, OrCoerceExprs},
     display::{DisplayTy, OrReportErr},
-    normalize::NormalizeTy,
+    normalize::Normalize,
     substitute::substitute,
     ty_ctx::TyCtx,
     unify::{occurs, UnifyTy, UnifyTyErr},

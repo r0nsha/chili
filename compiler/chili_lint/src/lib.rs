@@ -10,7 +10,7 @@ use chili_ast::{
     workspace::Workspace,
 };
 use chili_error::diagnostic::{Diagnostic, Label};
-use chili_infer::{normalize::NormalizeTy, ty_ctx::TyCtx};
+use chili_infer::{normalize::Normalize, ty_ctx::TyCtx};
 use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 

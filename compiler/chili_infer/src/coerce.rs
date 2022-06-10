@@ -4,7 +4,7 @@ use chili_ast::{
 };
 
 use crate::{
-    normalize::NormalizeTy,
+    normalize::Normalize,
     ty_ctx::TyCtx,
     unify::{can_coerce_mut, UnifyTyResult},
 };
@@ -203,7 +203,7 @@ pub trait OrCoerceExprIntoTy {
     fn or_coerce_expr_into_ty(
         self,
         expr: &mut ast::Expr,
-        ty: impl NormalizeTy,
+        ty: impl Normalize,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult;
@@ -213,7 +213,7 @@ impl OrCoerceExprIntoTy for UnifyTyResult {
     fn or_coerce_expr_into_ty(
         self,
         expr: &mut ast::Expr,
-        ty: impl NormalizeTy,
+        ty: impl Normalize,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult {

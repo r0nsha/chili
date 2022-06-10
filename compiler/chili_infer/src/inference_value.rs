@@ -28,3 +28,13 @@ impl fmt::Display for InferenceValue {
         )
     }
 }
+
+impl InferenceValue {
+    pub fn is_concrete(&self) -> bool {
+        match self {
+            InferenceValue::Bound(TyKind::Var(_)) => false,
+            InferenceValue::Bound(_) => true,
+            _ => false,
+        }
+    }
+}

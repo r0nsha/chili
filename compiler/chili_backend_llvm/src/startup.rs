@@ -7,7 +7,7 @@ use chili_ast::{
     pattern::{HybridPattern, Pattern, UnpackPattern, UnpackPatternKind},
     ty::*,
 };
-use chili_infer::normalize::NormalizeTy;
+use chili_infer::normalize::Normalize;
 use inkwell::{
     module::Linkage,
     values::{BasicValue, FunctionValue, PointerValue},

@@ -2,11 +2,11 @@ use chili_ast::ty::*;
 use chili_span::Span;
 use slab::Slab;
 
-use crate::{inference_value::InferenceValue, normalize::NormalizeTy};
+use crate::{inference_value::InferenceValue, normalize::Normalize};
 
 pub struct TyCtx {
-    bindings: Slab<InferenceValue>,
-    binding_spans: Slab<Option<Span>>,
+    pub bindings: Slab<InferenceValue>,
+    pub binding_spans: Slab<Option<Span>>,
     pub common_types: CommonTypes,
 }
 
@@ -99,13 +99,15 @@ impl TyCtx {
         self.bindings[var.0] = value;
     }
 
-    pub fn print_type_bindings(&self) {
-        for (i, tb) in self.bindings.iter() {
-            println!("'{} :: {}", i, tb)
+    pub fn print_all_bindings(&self, only_concrete: bool) {
+        for (i, b) in self.bindings.iter() {
+            if !only_concrete || b.is_concrete() {
+                println!("'{} :: {}", i, b)
+            }
         }
     }
 
-    pub fn print_ty(&self, ty: Ty) {
+    pub fn print_binding(&self, ty: Ty) {
         println!("'{} :: {}", ty.0, self.bindings[ty.0]);
     }
 }

@@ -10,7 +10,7 @@ use chili_ast::{
     ty::*,
     workspace::{BindingInfoId, ModuleInfo},
 };
-use chili_infer::normalize::NormalizeTy;
+use chili_infer::normalize::Normalize;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,

@@ -1,57 +1,106 @@
 use crate::{inference_value::InferenceValue, ty_ctx::TyCtx};
 use chili_ast::{ty::*, workspace::BindingInfoId};
+use chili_span::Span;
 use indexmap::IndexMap;
+use ustr::ustr;
 
-pub trait NormalizeTy {
+pub trait Normalize {
     fn normalize(&self, tycx: &TyCtx) -> TyKind;
 }
 
-impl NormalizeTy for Ty {
+impl Normalize for Ty {
     fn normalize(&self, tycx: &TyCtx) -> TyKind {
-        Normalize {
+        NormalizeCtx {
             parent_binding_info_id: Default::default(),
+            concrete: false,
         }
         .normalize_ty(tycx, *self)
     }
 }
 
-impl NormalizeTy for TyKind {
+impl Normalize for TyKind {
     fn normalize(&self, tycx: &TyCtx) -> TyKind {
-        Normalize {
+        NormalizeCtx {
             parent_binding_info_id: Default::default(),
+            concrete: false,
         }
         .normalize_kind(tycx, self)
     }
 }
 
-struct Normalize {
-    parent_binding_info_id: BindingInfoId,
+pub trait Concrete {
+    fn concrete(&self, tycx: &TyCtx) -> TyKind;
 }
 
-impl Normalize {
+impl Concrete for Ty {
+    fn concrete(&self, tycx: &TyCtx) -> TyKind {
+        NormalizeCtx {
+            parent_binding_info_id: Default::default(),
+            concrete: true,
+        }
+        .normalize_ty(tycx, *self)
+    }
+}
+
+impl Concrete for TyKind {
+    fn concrete(&self, tycx: &TyCtx) -> TyKind {
+        NormalizeCtx {
+            parent_binding_info_id: Default::default(),
+            concrete: true,
+        }
+        .normalize_kind(tycx, self)
+    }
+}
+
+struct NormalizeCtx {
+    parent_binding_info_id: BindingInfoId,
+    concrete: bool,
+}
+
+impl NormalizeCtx {
     fn normalize_ty(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
         match tycx.value_of(ty) {
             InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
-            InferenceValue::AnyInt => TyKind::Infer(ty, InferTy::AnyInt),
-            InferenceValue::AnyFloat => TyKind::Infer(ty, InferTy::AnyFloat),
-            InferenceValue::PartialTuple(elements) => TyKind::Infer(
-                ty,
-                InferTy::PartialTuple(
-                    elements
-                        .iter()
-                        .map(|el| self.normalize_kind(tycx, el))
-                        .collect(),
-                ),
-            ),
-            InferenceValue::PartialStruct(partial) => TyKind::Infer(
-                ty,
-                InferTy::PartialStruct(PartialStructTy(
-                    partial
-                        .iter()
-                        .map(|(name, el)| (*name, self.normalize_kind(tycx, el)))
-                        .collect(),
-                )),
-            ),
+            InferenceValue::AnyInt => self.normalize_anyint(ty),
+            InferenceValue::AnyFloat => self.normalize_anyfloat(ty),
+            InferenceValue::PartialTuple(elements) => {
+                let elements = elements
+                    .iter()
+                    .map(|el| self.normalize_kind(tycx, el))
+                    .collect::<Vec<TyKind>>();
+
+                if self.concrete {
+                    TyKind::Tuple(elements)
+                } else {
+                    TyKind::Infer(ty, InferTy::PartialTuple(elements))
+                }
+            }
+            InferenceValue::PartialStruct(st) => {
+                if self.concrete {
+                    TyKind::Struct(StructTy {
+                        name: ustr(""),
+                        binding_info_id: BindingInfoId::unknown(),
+                        fields: st
+                            .iter()
+                            .map(|(name, ty)| StructTyField {
+                                symbol: *name,
+                                ty: self.normalize_kind(tycx, ty),
+                                span: Span::unknown(),
+                            })
+                            .collect(),
+                        kind: StructTyKind::Struct,
+                    })
+                } else {
+                    TyKind::Infer(
+                        ty,
+                        InferTy::PartialStruct(PartialStructTy(
+                            st.iter()
+                                .map(|(name, ty)| (*name, self.normalize_kind(tycx, ty)))
+                                .collect(),
+                        )),
+                    )
+                }
+            }
             InferenceValue::Unbound => ty.as_kind(),
         }
     }
@@ -65,7 +114,7 @@ impl Normalize {
                     .iter()
                     .map(|p| self.normalize_kind(tycx, p))
                     .collect(),
-                ret: Box::new(f.ret.normalize(tycx)),
+                ret: Box::new(self.normalize_kind(tycx, &f.ret)),
                 varargs: f.varargs.clone(),
                 extern_lib: f.extern_lib,
             }),
@@ -116,19 +165,70 @@ impl Normalize {
                 }
             }
             TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
-            TyKind::Infer(ty, InferTy::PartialStruct(partial)) => TyKind::Infer(
-                *ty,
-                InferTy::PartialStruct(PartialStructTy(IndexMap::from_iter(
-                    partial
-                        .iter()
-                        .map(|(symbol, ty)| (*symbol, ty.normalize(tycx))),
-                ))),
-            ),
-            TyKind::Infer(ty, InferTy::PartialTuple(elements)) => TyKind::Infer(
-                *ty,
-                InferTy::PartialTuple(elements.iter().map(|ty| ty.normalize(tycx)).collect()),
-            ),
+            TyKind::Infer(ty, InferTy::AnyInt) => self.normalize_anyint(*ty),
+            TyKind::Infer(ty, InferTy::AnyFloat) => self.normalize_anyfloat(*ty),
+            TyKind::Infer(ty, InferTy::PartialTuple(elements)) => {
+                let elements = elements
+                    .iter()
+                    .map(|el| self.normalize_kind(tycx, el))
+                    .collect::<Vec<TyKind>>();
+
+                if self.concrete {
+                    TyKind::Tuple(elements)
+                } else {
+                    TyKind::Infer(
+                        *ty,
+                        InferTy::PartialTuple(
+                            elements
+                                .iter()
+                                .map(|ty| self.normalize_kind(tycx, ty))
+                                .collect(),
+                        ),
+                    )
+                }
+            }
+            TyKind::Infer(ty, InferTy::PartialStruct(st)) => {
+                if self.concrete {
+                    TyKind::Struct(StructTy {
+                        name: ustr(""),
+                        binding_info_id: BindingInfoId::unknown(),
+                        fields: st
+                            .iter()
+                            .map(|(name, ty)| StructTyField {
+                                symbol: *name,
+                                ty: self.normalize_kind(tycx, ty),
+                                span: Span::unknown(),
+                            })
+                            .collect(),
+                        kind: StructTyKind::Struct,
+                    })
+                } else {
+                    TyKind::Infer(
+                        *ty,
+                        InferTy::PartialStruct(PartialStructTy(IndexMap::from_iter(
+                            st.iter()
+                                .map(|(symbol, ty)| (*symbol, self.normalize_kind(tycx, ty))),
+                        ))),
+                    )
+                }
+            }
             _ => kind.clone(),
+        }
+    }
+
+    fn normalize_anyint(&self, ty: Ty) -> TyKind {
+        if self.concrete {
+            TyKind::Int(IntTy::Int)
+        } else {
+            TyKind::Infer(ty, InferTy::AnyInt)
+        }
+    }
+
+    fn normalize_anyfloat(&self, ty: Ty) -> TyKind {
+        if self.concrete {
+            TyKind::Float(FloatTy::Float)
+        } else {
+            TyKind::Infer(ty, InferTy::AnyFloat)
         }
     }
 }

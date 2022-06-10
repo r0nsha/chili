@@ -14,7 +14,7 @@ use chili_error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult, SyntaxError,
 };
-use chili_infer::{display::OrReportErr, normalize::NormalizeTy, unify::UnifyTy};
+use chili_infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy};
 use chili_span::Span;
 use indexmap::IndexMap;
 use ustr::Ustr;

@@ -4,7 +4,7 @@ use chili_ast::{
     ty::{IntTy, Ty, TyKind, UintTy},
 };
 use chili_error::diagnostic::{Diagnostic, Label};
-use chili_infer::normalize::NormalizeTy;
+use chili_infer::normalize::Normalize;
 use chili_span::Span;
 use std::fmt::Display;
 

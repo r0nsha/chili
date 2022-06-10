@@ -15,7 +15,7 @@ use chili_ast::{
     ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, StructTy, Ty, TyKind, UintTy},
     workspace::BindingInfoId,
 };
-use chili_infer::normalize::NormalizeTy;
+use chili_infer::normalize::Normalize;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use ustr::ustr;
 
@@ -1199,7 +1199,7 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
 }
 
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
-    if let Some(binding) = sess.cache.get_binding(id) {
+    if let Some(binding) = sess.typed_ast.get_binding(id) {
         lower_top_level_binding(binding, id, sess)
     } else {
         panic!("binding not found: {:?}", id)
