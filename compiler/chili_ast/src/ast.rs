@@ -106,7 +106,7 @@ impl Expr {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
-    Extern(Vec<Binding>),
+    Extern(Box<Extern>),
     Binding(Box<Binding>),
     Defer(Defer),
     Assign(Assign),
@@ -341,21 +341,6 @@ pub struct For {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct NameAndId {
-    pub name: Ustr,
-    pub id: BindingInfoId,
-}
-
-impl NameAndId {
-    pub fn new(name: Ustr) -> Self {
-        Self {
-            name,
-            id: BindingInfoId::unknown(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub enum ForIter {
     Range(Box<Expr>, Box<Expr>),
     Value(Box<Expr>),
@@ -519,6 +504,32 @@ impl Display for BindingKind {
                 BindingKind::Import => "import",
             }
         )
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Extern {
+    pub module_id: ModuleId,
+    pub visibility: Visibility,
+    pub lib: Option<(Ustr, Span)>,
+    pub is_mutable: bool,
+    pub symbol: (Ustr, Span),
+    pub ty: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct NameAndId {
+    pub name: Ustr,
+    pub id: BindingInfoId,
+}
+
+impl NameAndId {
+    pub fn new(name: Ustr) -> Self {
+        Self {
+            name,
+            id: BindingInfoId::unknown(),
+        }
     }
 }
 

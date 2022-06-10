@@ -14,7 +14,7 @@ impl Parser {
             let start_span = self.previous_span();
 
             let binding = if eat!(self, Extern) {
-                self.parse_extern_binding(visibility, start_span)
+                self.parse_extern(visibility, start_span)
             } else {
                 self.parse_binding(visibility, true)
             }?;

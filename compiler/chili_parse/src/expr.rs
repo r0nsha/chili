@@ -75,7 +75,7 @@ impl Parser {
                 let start_span = self.previous_span();
 
                 if eat!(self, Extern) {
-                    let binding = self.parse_extern_binding(Visibility::Private, start_span)?;
+                    let binding = self.parse_extern(Visibility::Private, start_span)?;
 
                     Ok(Expr::new(
                         ExprKind::Extern(vec![binding]),

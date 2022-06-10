@@ -1,6 +1,6 @@
 use crate::*;
 use chili_ast::{
-    ast::{self, Binding, BindingKind, Expr, ExprKind, Visibility},
+    ast,
     pattern::{Pattern, SymbolPattern},
     ty::Ty,
     workspace::{BindingInfoId, ModuleId},
@@ -10,7 +10,7 @@ use chili_span::To;
 use ustr::Ustr;
 
 impl Parser {
-    pub(crate) fn parse_extern_block(&mut self) -> DiagnosticResult<Vec<Binding>> {
+    pub(crate) fn parse_extern_block(&mut self) -> DiagnosticResult<Vec<ast::Binding>> {
         let lib_name = self.parse_lib_name()?;
 
         require!(self, OpenCurly, "{")?;
@@ -21,9 +21,9 @@ impl Parser {
             Semicolon,
             {
                 let visibility = if eat!(self, Pub) {
-                    Visibility::Public
+                    ast::Visibility::Public
                 } else {
-                    Visibility::Private
+                    ast::Visibility::Private
                 };
 
                 require!(self, Let, "let")?;
@@ -36,11 +36,11 @@ impl Parser {
         Ok(bindings)
     }
 
-    pub(crate) fn parse_extern_binding(
+    pub(crate) fn parse_extern(
         &mut self,
-        visibility: Visibility,
+        visibility: ast::Visibility,
         start_span: Span,
-    ) -> DiagnosticResult<Binding> {
+    ) -> DiagnosticResult<ast::Extern> {
         let lib = eat!(self, Str(_)).then(|| self.previous().symbol());
 
         let is_mutable = eat!(self, Mut);
@@ -60,10 +60,10 @@ impl Parser {
 
         let ty_expr = self.parse_expr()?;
 
-        Ok(Binding {
+        Ok(ast::Binding {
             module_id: ModuleId::default(),
             visibility,
-            kind: BindingKind::Value,
+            kind: ast::BindingKind::Value,
             pattern,
             ty: Ty::unknown(),
             ty_expr: Some(ty_expr),
@@ -76,8 +76,8 @@ impl Parser {
     fn parse_extern_binding_old(
         &mut self,
         lib: Ustr,
-        visibility: Visibility,
-    ) -> DiagnosticResult<Binding> {
+        visibility: ast::Visibility,
+    ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let id = require!(self, Ident(_), "an identifier")?;
@@ -97,15 +97,15 @@ impl Parser {
             let fn_sig_start_span = self.previous_span();
             let sig = self.parse_fn_sig(ast::FunctionKind::Extern { lib }, id.symbol())?;
 
-            Binding {
+            ast::Binding {
                 module_id: Default::default(),
                 visibility,
-                kind: BindingKind::Value,
+                kind: ast::BindingKind::Value,
                 pattern,
                 ty: Ty::unknown(),
                 ty_expr: None,
-                expr: Some(Expr::new(
-                    ExprKind::FunctionType(sig),
+                expr: Some(ast::Expr::new(
+                    ast::ExprKind::FunctionType(sig),
                     fn_sig_start_span.to(self.previous_span()),
                 )),
                 extern_lib: Some(lib),
@@ -114,10 +114,10 @@ impl Parser {
         } else {
             let ty_expr = self.parse_expr()?;
 
-            Binding {
+            ast::Binding {
                 module_id: Default::default(),
                 visibility,
-                kind: BindingKind::Value,
+                kind: ast::BindingKind::Value,
                 pattern,
                 ty: Ty::unknown(),
                 ty_expr: Some(ty_expr),
