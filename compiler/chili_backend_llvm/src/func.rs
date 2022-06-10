@@ -37,7 +37,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let function = self
             .module
             .get_function(&func.sig.llvm_name(module_info.name))
-            .unwrap_or_else(|| self.declare_fn_sig(module_info, &func.sig));
+            .unwrap_or_else(|| {
+                self.declare_fn_sig(
+                    &func.sig.ty.normalize(self.tycx).as_fn(),
+                    func.sig.llvm_name(module_info.name),
+                )
+            });
 
         let decl_block = self.context.append_basic_block(function, "decls");
         let entry_block = self.context.append_basic_block(function, "entry");
@@ -132,14 +137,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub(super) fn declare_fn_sig(
         &mut self,
-        module_info: ModuleInfo,
-        sig: &ast::FunctionSig,
+        ty: &FunctionTy,
+        llvm_name: impl AsRef<str>,
     ) -> FunctionValue<'ctx> {
-        let fn_sig_ty = sig.ty.normalize(self.tycx).into_fn();
-        let fn_type = self.fn_type(&fn_sig_ty);
-        let abi_fn = self.get_abi_compliant_fn(&fn_sig_ty);
-
-        let llvm_name = sig.llvm_name(module_info.name);
+        let fn_type = self.fn_type(&ty);
+        let abi_fn = self.get_abi_compliant_fn(&ty);
 
         let function = self.get_or_add_function(llvm_name, fn_type, Some(Linkage::External));
 

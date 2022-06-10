@@ -133,37 +133,37 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.gen_entry_point_function();
     }
 
-    pub(super) fn find_or_gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
-        self.global_decls
-            .get(&id)
-            .cloned()
-            .unwrap_or_else(|| self.gen_top_level_binding(id))
-    }
-
     pub(super) fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
+        if let Some(decl) = self.global_decls.get(&id) {
+            return *decl;
+        }
+
         if let Some(binding) = self.typed_ast.get_binding(id) {
             let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
-            binding
-                .expr
-                .as_ref()
-                .map(|expr| match &expr.kind {
-                    ast::ExprKind::Function(func) => {
-                        let function = self.declare_fn_sig(module_info, &func.sig);
-                        let decl = CodegenDecl::Function(function);
-                        self.global_decls.insert(id, decl);
-                        self.gen_fn(module_info, func, None);
-                        decl
-                    }
-                    ast::ExprKind::FunctionType(sig) => {
-                        let function = self.declare_fn_sig(module_info, sig);
-                        let decl = CodegenDecl::Function(function);
-                        self.global_decls.insert(id, decl);
-                        decl
-                    }
-                    _ => self.declare_global(id, binding),
-                })
-                .unwrap_or_else(|| self.declare_global(id, binding))
+            if binding.kind.is_extern() {
+                let function = self.declare_fn_sig(
+                    binding.ty.normalize(self.tycx).as_fn(),
+                    binding.pattern.as_symbol_ref().symbol,
+                );
+                let decl = CodegenDecl::Function(function);
+                self.global_decls.insert(id, decl);
+                decl
+            } else {
+                binding
+                    .expr
+                    .as_ref()
+                    .map(|expr| match &expr.kind {
+                        ast::ExprKind::Function(func) => {
+                            let function = self.gen_fn(module_info, func, None);
+                            let decl = CodegenDecl::Function(function);
+                            self.global_decls.insert(id, decl);
+                            decl
+                        }
+                        _ => self.declare_global(id, binding),
+                    })
+                    .unwrap_or_else(|| self.declare_global(id, binding))
+            }
         } else {
             panic!("{:?}", id)
         }
@@ -184,10 +184,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
         if let Some(redirect) = binding_info.redirects_to {
-            let decl = self.find_or_gen_top_level_binding(redirect);
-            self.global_decls.insert(id, decl);
-
-            decl
+            self.gen_top_level_binding(redirect)
         } else {
             let global_value = if binding.kind.is_extern() {
                 let ty = binding.ty.llvm_type(self);
@@ -266,12 +263,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         module_name: impl Into<Ustr>,
         symbol: impl Into<Ustr>,
     ) -> CodegenDecl<'ctx> {
-        let binding_info = self.find_binding_info_by_name(module_name, symbol);
-        let id = binding_info.id;
-        self.global_decls
-            .get(&id)
-            .cloned()
-            .unwrap_or_else(|| self.gen_top_level_binding(id))
+        let id = self.find_binding_info_by_name(module_name, symbol).id;
+        self.gen_top_level_binding(id)
     }
 
     pub(super) fn gen_binding_pattern_with_expr(
@@ -348,7 +341,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .redirects_to
                 .unwrap();
 
-            let decl = self.find_or_gen_top_level_binding(redirect_id);
+            let decl = self.gen_top_level_binding(redirect_id);
 
             state.scopes.insert(pattern.id, decl);
         }
@@ -1021,7 +1014,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                                 }),
                         );
 
-                        let decl = self.find_or_gen_top_level_binding(id);
+                        let decl = self.gen_top_level_binding(id);
 
                         let ptr = decl.into_pointer_value();
 
@@ -1045,7 +1038,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let decl = match state.scopes.get(ident.binding_info_id) {
                     Some((_, decl)) => decl.clone(),
-                    None => self.find_or_gen_top_level_binding(ident.binding_info_id),
+                    None => self.gen_top_level_binding(ident.binding_info_id),
                 };
 
                 let ptr = decl.into_pointer_value();
@@ -1208,22 +1201,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             | ast::ExprKind::SliceType(..)
             | ast::ExprKind::StructType(..)
             | ast::ExprKind::SelfType
-            | ast::ExprKind::Placeholder => self.gen_unit(),
+            | ast::ExprKind::Placeholder
+            | ast::ExprKind::FunctionType(..) => self.gen_unit(),
 
             ast::ExprKind::ConstValue(const_value) => {
                 let ty = expr.ty.normalize(self.tycx);
                 self.gen_const_value(Some(state), const_value, &ty, deref)
-            }
-
-            ast::ExprKind::FunctionType(sig) => {
-                if sig.kind.is_extern() {
-                    // this is an extern function
-                    let function = self.declare_fn_sig(state.module_info, sig);
-                    function.as_global_value().as_pointer_value().into()
-                } else {
-                    // this is a type
-                    self.gen_unit()
-                }
             }
 
             ast::ExprKind::Error => panic!("unexpected error node"),
@@ -1354,7 +1337,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ConstValue::Function(f) => {
                 let decl = match state.and_then(|s| s.scopes.get(f.id)) {
                     Some((_, decl)) => decl.clone(),
-                    None => self.find_or_gen_top_level_binding(f.id),
+                    None => self.gen_top_level_binding(f.id),
                 };
 
                 decl.into_pointer_value().into()
