@@ -96,6 +96,7 @@ impl Parser {
                         ty,
                         span: start_span.to(end_span),
                     });
+
                     break;
                 }
 

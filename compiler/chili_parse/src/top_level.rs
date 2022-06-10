@@ -4,8 +4,6 @@ use chili_error::SyntaxError;
 
 impl Parser {
     pub(crate) fn parse_top_level(&mut self, ast: &mut Ast) -> DiagnosticResult<()> {
-        self.skip_trailing_semicolons();
-
         let visibility = if eat!(self, Pub) {
             Visibility::Public
         } else {

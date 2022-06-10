@@ -186,7 +186,12 @@ impl Parser {
                         return ParserResult::Failed(diag);
                     }
 
-                    self.skip_trailing_semicolons();
+                    if let Err(_) = require!(self, Semicolon, ";") {
+                        let span = Parser::get_missing_delimiter_span(self.previous_span());
+                        return ParserResult::Failed(SyntaxError::expected(span, ";"));
+                    }
+
+                    self.skip_semicolons();
                 }
 
                 ParserResult::NewAst(ast)
@@ -249,7 +254,7 @@ impl Parser {
     }
 
     #[inline]
-    pub(crate) fn skip_trailing_semicolons(&mut self) {
+    pub(crate) fn skip_semicolons(&mut self) {
         while is!(self, Semicolon) {
             self.bump();
         }
@@ -264,7 +269,7 @@ impl Parser {
         };
 
         let end_pos = EndPosition {
-            index: after_span.end.index + 1,
+            index: after_span.end.index,
         };
 
         after_span.with_start(start_pos).with_end(end_pos)

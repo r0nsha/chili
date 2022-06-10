@@ -150,6 +150,8 @@ impl Parser {
         let mut yields = false;
 
         while !eat!(self, CloseCurly) && !self.is_end() {
+            self.skip_semicolons();
+
             exprs.push(self.parse_expr_with_res(Restrictions::STMT_EXPR)?);
 
             if eat!(self, Semicolon) {
