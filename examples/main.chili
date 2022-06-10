@@ -11,4 +11,5 @@ let main = fn() {
     for it, index in array {
         printf("%d = %d\n".data, index, it)
     }
+    printf("%d = %d\n".data, x, x * 10);
 };

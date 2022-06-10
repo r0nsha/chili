@@ -45,9 +45,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::UnaryOp::Not => {
                 let value = self.gen_expr(state, &unary.lhs, true).into_int_value();
                 match ty {
-                    TyKind::Int(_) | TyKind::Uint(_) | TyKind::Infer(_, InferTy::AnyInt) => {
-                        self.builder.build_not(value, "not").into()
-                    }
+                    TyKind::Int(_) | TyKind::Uint(_) => self.builder.build_not(value, "not").into(),
                     TyKind::Bool => self
                         .builder
                         .build_int_compare(

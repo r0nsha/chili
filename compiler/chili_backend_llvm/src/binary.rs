@@ -82,7 +82,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_) => {
+            TyKind::Int(_) | TyKind::Uint(_) => {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
@@ -95,7 +95,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     result.into()
                 }
             }
-            TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
+            TyKind::Float(_) => self
                 .builder
                 .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "fadd")
                 .into(),
@@ -112,7 +112,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_) => {
+            TyKind::Int(_) | TyKind::Uint(_) => {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
@@ -125,7 +125,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     result.into()
                 }
             }
-            TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
+            TyKind::Float(_) => self
                 .builder
                 .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "fsub")
                 .into(),
@@ -142,7 +142,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_) => {
+            TyKind::Int(_) | TyKind::Uint(_) => {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
@@ -155,7 +155,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     result.into()
                 }
             }
-            TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
+            TyKind::Float(_) => self
                 .builder
                 .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "fmul")
                 .into(),
@@ -172,7 +172,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) => {
+            TyKind::Int(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "idiv")
@@ -184,7 +184,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .build_int_unsigned_div(lhs.into_int_value(), rhs.into_int_value(), "udiv")
                     .into()
             }
-            TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
+            TyKind::Float(_) => self
                 .builder
                 .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "fdiv")
                 .into(),
@@ -201,7 +201,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         span: Span,
     ) -> BasicValueEnum<'ctx> {
         match &ty {
-            TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) => {
+            TyKind::Int(_) => {
                 self.gen_runtime_check_division_by_zero(state, rhs.into_int_value(), span);
                 self.builder
                     .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "irem")
@@ -213,7 +213,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .build_int_unsigned_rem(lhs.into_int_value(), rhs.into_int_value(), "urem")
                     .into()
             }
-            TyKind::Infer(_, InferTy::AnyFloat) | TyKind::Float(_) => self
+            TyKind::Float(_) => self
                 .builder
                 .build_float_rem(lhs.into_float_value(), rhs.into_float_value(), "frem")
                 .into(),

@@ -1443,21 +1443,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let cast_type = target_ty.llvm_type(self);
 
         match (from_ty, target_ty) {
-            (TyKind::Bool, TyKind::Infer(_, InferTy::AnyInt))
-            | (TyKind::Bool, TyKind::Int(_))
-            | (TyKind::Bool, TyKind::Uint(_)) => self
+            (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::Uint(_)) => self
                 .builder
                 .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
-            (
-                TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_),
-                TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_) | TyKind::Uint(_),
-            ) => self
+            (TyKind::Int(_) | TyKind::Uint(_), TyKind::Int(_) | TyKind::Uint(_)) => self
                 .builder
                 .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
 
-            (TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_), TyKind::Float(_)) => self
+            (TyKind::Int(_), TyKind::Float(_)) => self
                 .builder
                 .build_signed_int_to_float(
                     value.into_int_value(),
@@ -1475,7 +1470,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (TyKind::Float(_), TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(_)) => self
+            (TyKind::Float(_), TyKind::Int(_)) => self
                 .builder
                 .build_float_to_signed_int(
                     value.into_float_value(),
@@ -1513,10 +1508,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             // pointer <=> int | uint
-            (
-                TyKind::Pointer(..),
-                TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(..) | TyKind::Uint(..),
-            ) => self
+            (TyKind::Pointer(..), TyKind::Int(..) | TyKind::Uint(..)) => self
                 .builder
                 .build_ptr_to_int(
                     value.into_pointer_value(),
@@ -1526,10 +1518,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             // int | uint <=> pointer
-            (
-                TyKind::Infer(_, InferTy::AnyInt) | TyKind::Int(..) | TyKind::Uint(..),
-                TyKind::Pointer(..),
-            ) => self
+            (TyKind::Int(..) | TyKind::Uint(..), TyKind::Pointer(..)) => self
                 .builder
                 .build_int_to_ptr(
                     value.into_int_value(),
