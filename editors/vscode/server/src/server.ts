@@ -53,30 +53,6 @@ const exec = util.promisify(require("node:child_process").exec);
 
 const tmpFile = tmp.fileSync();
 
-async function runCompiler(text: string, flags: string): Promise<string> {
-  try {
-    fs.writeFileSync(tmpFile.name, text);
-  } catch (error) {
-    console.log(error);
-  }
-
-  let stdout: string;
-  try {
-    const output = await exec(`chili check ${tmpFile.name} ${flags}`);
-    // console.log(output);
-    stdout = output.stdout;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    stdout = e.stdout;
-    if (e.signal != null) {
-      console.log("compile failed: ");
-      console.log(e);
-    }
-  }
-
-  return stdout;
-}
-
 connection.onInitialize((params: InitializeParams) => {
   const capabilities = params.capabilities;
 
@@ -119,6 +95,7 @@ connection.onInitialize((params: InitializeParams) => {
   }
 
   console.log("Chili language server initialized");
+
   return result;
 });
 
@@ -137,3 +114,27 @@ connection.onInitialized(() => {
     });
   }
 });
+
+async function runCompiler(text: string, flags: string): Promise<string> {
+  try {
+    fs.writeFileSync(tmpFile.name, text);
+  } catch (error) {
+    console.log(error);
+  }
+
+  let stdout: string;
+  try {
+    const output = await exec(`chili check ${tmpFile.name} ${flags}`);
+    // console.log(output);
+    stdout = output.stdout;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (e: any) {
+    stdout = e.stdout;
+    if (e.signal != null) {
+      console.log("compile failed: ");
+      console.log(e);
+    }
+  }
+
+  return stdout;
+}
