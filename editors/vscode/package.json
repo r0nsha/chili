@@ -1,0 +1,39 @@
+{
+  "name": "chili-vscode",
+  "displayName": "chili-vscode",
+  "publisher": "r0nsha",
+  "repository": {
+    "url": "https://github.com/r0nsha/chili-vscode"
+  },
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.46.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "chili",
+        "aliases": [
+          "Chili",
+          "chili"
+        ],
+        "extensions": [
+          ".chili",
+          ".cl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "chili",
+        "scopeName": "source.chili",
+        "path": "./syntaxes/chili.tmLanguage.json"
+      }
+    ]
+  }
+}

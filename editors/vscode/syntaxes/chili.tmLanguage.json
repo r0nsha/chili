@@ -1,0 +1,246 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "source.chili",
+  "name": "Chili",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#functions-and-declarations"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#punctuation"
+    },
+    {
+      "include": "#identifier"
+    }
+  ],
+  "repository": {
+    "identifier": {
+      "patterns": [
+        {
+          "name": "variable.other.chili",
+          "match": "\\b[[:alpha:]_][[:alnum:]_]*\\b"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "match": "//(.*)",
+          "name": "comment.line.double-slash.chili"
+        },
+        {
+          "begin": "/\\*",
+          "contentName": "comment.block.content.chili",
+          "end": "\\*/",
+          "name": "comment.block.chili",
+          "patterns": [
+            {
+              "include": "#comments"
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.chili",
+          "match": "\\b(if|else|while|for|in|break|continue|return|defer)\\b"
+        },
+        {
+          "name": "keyword.other.chili",
+          "match": "\\b(let|fn|extern|use|mod|as|struct|union)\\b"
+        },
+        {
+          "name": "storage.modifier.chili",
+          "match": "\\b(pub|mut)\\b"
+        },
+        {
+          "name": "constant.language.chili",
+          "match": "\\b(nil|true|false)\\b"
+        },
+        {
+          "match": "\\b(0)([xX])([0-9a-fA-F_]+)\\b",
+          "captures": {
+            "1": {
+              "name": "constant.numeric.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "constant.numeric.chili"
+            }
+          }
+        },
+        {
+          "match": "\\b(0)([oO])([0-7_]+)\\b",
+          "captures": {
+            "1": {
+              "name": "constant.numeric.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "constant.numeric.chili"
+            }
+          }
+        },
+        {
+          "match": "\\b(0)([bB])([01_]+)\\b",
+          "captures": {
+            "1": {
+              "name": "constant.numeric.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "constant.numeric.chili"
+            }
+          }
+        },
+        {
+          "name": "constant.numeric.chili",
+          "match": "\\b[\\d_]+(?:\\.[\\d_]+)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.chili",
+          "match": "(==|!=|>=|<=|<|>)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.chili",
+          "match": "(-%?|\\+%?|\\*%?|/|%)=?"
+        },
+        {
+          "name": "keyword.operator.bitwise.chili",
+          "match": "(<<%?|>>|!|&|\\^|~|\\|)=?"
+        },
+        {
+          "name": "keyword.operator.special.chili",
+          "match": "(=)"
+        }
+      ]
+    },
+    "functions-and-declarations": {
+      "patterns": [
+        {
+          "comment": "let binding",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "storage.modifier.chili"
+            },
+            "4": {
+              "name": "string.quoted.double.chili"
+            },
+            "5": {
+              "name": "storage.modifier.chili"
+            },
+            "6": {
+              "name": "entity.name.function.chili"
+            }
+          },
+          "match": "\\b(pub\\s*)?(let\\s*)(extern\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+        },
+        {
+          "name": "support.function.builtin.chili",
+          "match": "@[_a-zA-Z][_a-zA-Z0-9]*"
+        },
+        {
+          "comment": "function expression",
+          "match": "\\b(fn)\\s*([\\(])",
+          "captures": {
+            "1": {
+              "name": "keyword.other.chili"
+            },
+            "2": {
+              "name": "punctuation.chili"
+            }
+          }
+        },
+        {
+          "comment": "function call",
+          "captures": {
+            "1": {
+              "name": "support.function.chili"
+            },
+            "2": {
+              "name": "punctuation.chili"
+            }
+          },
+          "match": "([[:alpha:]_][[:alnum:]_]*)([\\(])"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "keyword.type.chili",
+          "match": "\\b(bool|i8|i16|i32|i64|i128|int|u8|u16|u32|u64|u128|uint|f16|f32|f64|float|str|never|type|Self)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.chili",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "include": "#string-escaped-char"
+            }
+          ]
+        }
+      ],
+      "repository": {
+        "string-escaped-char": {
+          "patterns": [
+            {
+              "name": "constant.character.escape.chili",
+              "match": "\\\\(\\\\|[abfnrutv''\"]|x\\h{2}|u\\h{4}|U\\h{8}|[0-7]{3})"
+            },
+            {
+              "name": "invalid.illegal.unknown-escape.chili",
+              "match": "\\\\."
+            }
+          ]
+        }
+      }
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.chili",
+          "match": "\\(|\\)|\\{|\\}|;|:|\\[|\\]|\\.|,|->"
+        }
+      ]
+    }
+  }
+}
