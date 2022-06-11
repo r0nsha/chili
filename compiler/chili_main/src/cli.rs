@@ -7,11 +7,13 @@ use common::{
 };
 use std::{
     env,
+    io::Write,
     path::{Path, PathBuf},
 };
 
 #[derive(Parser, Debug)]
 #[clap(
+    name = "chili",
     author,
     version,
     about,
@@ -29,6 +31,8 @@ enum Action {
     Build(Args),
     /// Same as `build`, but also runs the compiled executable
     Run(Args),
+    /// Checks the source file, providing additional flags - mainly for LSP usage
+    Check(CheckArgs),
 }
 
 #[derive(Args, Debug, PartialEq, Eq)]
@@ -52,7 +56,7 @@ struct Args {
     #[clap(long)]
     no_codegen: bool,
 
-    /// Skip the code generation phase
+    /// Omit colors from output
     #[clap(long)]
     no_color: bool,
 
@@ -68,12 +72,22 @@ enum Target {
     Linux,
 }
 
+#[derive(Args, Debug, PartialEq, Eq)]
+struct CheckArgs {
+    /// The main action the compiler should take
+    input: String,
+}
+
 pub fn start_cli() {
     let cli = Cli::parse();
 
     let (run, args) = match cli.action {
         Action::Build(args) => (false, args),
         Action::Run(args) => (true, args),
+        Action::Check(args) => {
+            run_check(args);
+            return;
+        }
     };
 
     match get_file_path(&args.input) {
@@ -98,6 +112,29 @@ pub fn start_cli() {
             };
 
             start_workspace(build_options);
+        }
+        Err(e) => print_err(&e),
+    }
+}
+
+fn run_check(args: CheckArgs) {
+    match get_file_path(&args.input) {
+        Ok(file) => {
+            let build_options = BuildOptions {
+                source_file: PathBuf::from(file),
+                target_platform: get_current_target_platform(),
+                build_mode: BuildMode::Debug,
+                run: false,
+                verbose: false,
+                emit_llvm_ir: false,
+                no_codegen: true,
+                no_color: false,
+            };
+
+            let workspace = start_workspace(build_options);
+
+            let mut stdout = std::io::stdout();
+            stdout.write(b"hello world\n").unwrap();
         }
         Err(e) => print_err(&e),
     }

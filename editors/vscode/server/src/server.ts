@@ -142,6 +142,27 @@ documents.onDidChangeContent(
   })()
 );
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+  if (!hasConfigurationCapability) {
+    return Promise.resolve(globalSettings);
+  }
+  let result = documentSettings.get(resource);
+  if (!result) {
+    result = connection.workspace.getConfiguration({
+      scopeUri: resource,
+      section: "chiliLanguageServer",
+    });
+    documentSettings.set(resource, result);
+  }
+  return result;
+}
+
+// Only keep settings for open documents
+documents.onDidClose((e) => {
+  documentSettings.delete(e.document.uri);
+});
+
 async function validateTextDocument(
   textDocument: ChiliTextDocument
 ): Promise<void> {
@@ -154,92 +175,89 @@ async function validateTextDocument(
     return;
   }
 
-  // // In this simple example we get the settings for every validate run.
-  // const settings = await getDocumentSettings(textDocument.uri);
+  // In this simple example we get the settings for every validate run.
+  const settings = await getDocumentSettings(textDocument.uri);
 
   // The validator creates diagnostics for all uppercase words length 2 and more
-  // const text = textDocument.getText();
+  const text = textDocument.getText();
 
   // const lineBreaks = findLineBreaks(text);
 
-  // textDocument.jaktInlayHints = [];
+  textDocument.chiliInlayHints = [];
 
-  // const stdout = await runCompiler(
-  //   text,
-  //   "-c -H -j" + includeFlagForPath(textDocument.uri)
-  // );
-
-  // const diagnostics: Diagnostic[] = [];
+  const diagnostics: Diagnostic[] = [];
 
   // // FIXME: We use this to deduplicate type hints given by the compiler.
   // //        It'd be nicer if it didn't give duplicate hints in the first place.
   // const seenTypeHintPositions = new Set();
 
-  // const lines = stdout.split("\n").filter((l) => l.length > 0);
-  // for (const line of lines) {
-  //   // console.log(line);
-  //   try {
-  //     const obj = JSON.parse(line);
+  const stdout = await runCompiler(text, "");
 
-  //     // HACK: Ignore everything that isn't about file ID #1 here, since that's always the current editing buffer.
-  //     if (obj.file_id != 1) {
-  //       continue;
-  //     }
-  //     if (obj.type == "diagnostic") {
-  //       let severity: DiagnosticSeverity = DiagnosticSeverity.Error;
+  console.log({ stdout });
+  const lines = stdout.split("\n").filter((l) => l.length > 0);
+  console.log({ lines });
 
-  //       switch (obj.severity) {
-  //         case "Information":
-  //           severity = DiagnosticSeverity.Information;
-  //           break;
-  //         case "Hint":
-  //           severity = DiagnosticSeverity.Hint;
-  //           break;
-  //         case "Warning":
-  //           severity = DiagnosticSeverity.Warning;
-  //           break;
-  //         case "Error":
-  //           severity = DiagnosticSeverity.Error;
-  //           break;
-  //       }
+  for (const line of lines) {
+    console.log(line);
+    try {
+      const obj = JSON.parse(line);
 
-  //       const position_start = convertSpan(obj.span.start, lineBreaks);
-  //       const position_end = convertSpan(obj.span.end, lineBreaks);
+      console.log({ obj });
 
-  //       const diagnostic: Diagnostic = {
-  //         severity,
-  //         range: {
-  //           start: position_start,
-  //           end: position_end,
-  //         },
-  //         message: obj.message,
-  //         source: textDocument.uri,
-  //       };
+      //     // HACK: Ignore everything that isn't about file ID #1 here, since that's always the current editing buffer.
+      //     if (obj.file_id != 1) {
+      //       continue;
+      //     }
+      //     if (obj.type == "diagnostic") {
+      //       let severity: DiagnosticSeverity = DiagnosticSeverity.Error;
+      //       switch (obj.severity) {
+      //         case "Information":
+      //           severity = DiagnosticSeverity.Information;
+      //           break;
+      //         case "Hint":
+      //           severity = DiagnosticSeverity.Hint;
+      //           break;
+      //         case "Warning":
+      //           severity = DiagnosticSeverity.Warning;
+      //           break;
+      //         case "Error":
+      //           severity = DiagnosticSeverity.Error;
+      //           break;
+      //       }
+      //       const position_start = convertSpan(obj.span.start, lineBreaks);
+      //       const position_end = convertSpan(obj.span.end, lineBreaks);
+      //       const diagnostic: Diagnostic = {
+      //         severity,
+      //         range: {
+      //           start: position_start,
+      //           end: position_end,
+      //         },
+      //         message: obj.message,
+      //         source: textDocument.uri,
+      //       };
+      //       // console.log(diagnostic);
+      //       diagnostics.push(diagnostic);
+      //     } else if (obj.type == "hint") {
+      //       if (!seenTypeHintPositions.has(obj.position)) {
+      //         seenTypeHintPositions.add(obj.position);
+      //         const position = convertSpan(obj.position, lineBreaks);
+      //         const hint_string = ": " + obj.typename;
+      //         const hint = InlayHint.create(
+      //           position,
+      //           [InlayHintLabelPart.create(hint_string)],
+      //           InlayHintKind.Type
+      //         );
+      //         textDocument.chiliInlayHints.push(hint);
+      //       }
+      //     }
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-  //       // console.log(diagnostic);
+  // Send the computed diagnostics to VSCode.
+  connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 
-  //       diagnostics.push(diagnostic);
-  //     } else if (obj.type == "hint") {
-  //       if (!seenTypeHintPositions.has(obj.position)) {
-  //         seenTypeHintPositions.add(obj.position);
-  //         const position = convertSpan(obj.position, lineBreaks);
-  //         const hint_string = ": " + obj.typename;
-  //         const hint = InlayHint.create(
-  //           position,
-  //           [InlayHintLabelPart.create(hint_string)],
-  //           InlayHintKind.Type
-  //         );
-
-  //         textDocument.jaktInlayHints.push(hint);
-  //       }
-  //     }
-  //   } catch (e) {
-  //     console.error(e);
-  //   }
-  // }
-
-  // // Send the computed diagnostics to VSCode.
-  // connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
   console.timeEnd("validateTextDocument");
 }
 
@@ -251,17 +269,15 @@ async function runCompiler(text: string, flags: string): Promise<string> {
   }
 
   let stdout: string;
+
   try {
     const output = await exec(`chili check ${tmpFile.name} ${flags}`);
-    // console.log(output);
+    // console.log({ output });
     stdout = output.stdout;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (e: any) {
+    console.log(e);
     stdout = e.stdout;
-    if (e.signal != null) {
-      console.log("compile failed: ");
-      console.log(e);
-    }
   }
 
   return stdout;
@@ -295,3 +311,10 @@ function throttle(fn: (...args: any) => void, delay: number) {
     setTimeout(timeoutFunc, delay);
   };
 }
+
+// Make the text document manager listen on the connection
+// for open, change and close text document events
+documents.listen(connection);
+
+// Listen on the connection
+connection.listen();
