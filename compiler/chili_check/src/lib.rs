@@ -59,7 +59,60 @@ pub fn check(
         &sess.new_typed_ast,
     );
 
+    for binding in sess
+        .new_typed_ast
+        .bindings
+        .iter()
+        .filter(|b| b.kind.is_extern())
+    {
+        if !ty_is_extern(&binding.ty.normalize(&sess.tycx)) {
+            sess.workspace.diagnostics.push(
+                Diagnostic::error()
+                    .with_message("type is not valid in extern context")
+                    .with_label(Label::primary(
+                        binding.ty_expr.as_ref().unwrap().span,
+                        "cannot be used in extern context",
+                    )),
+            )
+        }
+    }
+
     Ok((sess.new_typed_ast, sess.tycx))
+}
+
+fn ty_is_extern(ty: &TyKind) -> bool {
+    match ty {
+        TyKind::Never
+        | TyKind::Unit
+        | TyKind::Bool
+        | TyKind::Int(_)
+        | TyKind::Uint(_)
+        | TyKind::Float(_) => true,
+
+        TyKind::Module(_)
+        | TyKind::Type(_)
+        | TyKind::AnyType
+        | TyKind::Var(_)
+        | TyKind::Infer(_, _)
+        | TyKind::Unknown => false,
+
+        TyKind::Pointer(inner, _)
+        | TyKind::MultiPointer(inner, _)
+        | TyKind::Array(inner, _)
+        | TyKind::Slice(inner, _) => ty_is_extern(inner),
+
+        TyKind::Function(f) => {
+            ty_is_extern(&f.ret)
+                && f.varargs
+                    .as_ref()
+                    .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
+                && f.params.iter().all(ty_is_extern)
+        }
+
+        TyKind::Tuple(tys) => tys.iter().all(ty_is_extern),
+
+        TyKind::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
+    }
 }
 
 pub(crate) struct CheckSess<'s> {

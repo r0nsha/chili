@@ -115,7 +115,11 @@ impl NormalizeCtx {
                     .map(|p| self.normalize_kind(tycx, p))
                     .collect(),
                 ret: Box::new(self.normalize_kind(tycx, &f.ret)),
-                varargs: f.varargs.clone(),
+                varargs: f.varargs.as_ref().map(|v| {
+                    Box::new(FunctionTyVarargs {
+                        ty: v.ty.as_ref().map(|ty| self.normalize_kind(tycx, ty)),
+                    })
+                }),
                 extern_lib: f.extern_lib.clone(),
             }),
             TyKind::Pointer(inner, a) => {
