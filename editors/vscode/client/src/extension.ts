@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
+import * as vscode from "vscode";
 import * as path from "path";
 import { workspace, ExtensionContext } from "vscode";
 
@@ -20,6 +21,7 @@ export function activate(context: ExtensionContext) {
   const serverModule = context.asAbsolutePath(
     path.join("out", "server", "src", "server.js")
   );
+
   // The debug options for the server
   // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
   const debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
@@ -58,8 +60,5 @@ export function activate(context: ExtensionContext) {
 }
 
 export function deactivate(): Thenable<void> | undefined {
-  if (!client) {
-    return undefined;
-  }
-  return client.stop();
+  return client?.stop();
 }

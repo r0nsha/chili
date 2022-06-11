@@ -44,7 +44,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "chili",
+      "title": "Chili",
       "properties": {
         "chiliLanguageServer.maxNumberOfProblems": {
           "scope": "resource",
