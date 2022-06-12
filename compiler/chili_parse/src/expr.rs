@@ -156,7 +156,7 @@ impl Parser {
                 continue;
             } else {
                 let span = Parser::get_missing_delimiter_span(self.previous_span());
-                return Err(SyntaxError::expected(span, ";"));
+                return Err(SyntaxError::expected(span, "; or }"));
             }
         }
 

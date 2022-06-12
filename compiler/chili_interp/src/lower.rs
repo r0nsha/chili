@@ -11,12 +11,15 @@ use chili_ast::{
     ast,
     const_value::ConstValue,
     pattern::{Pattern, UnpackPattern, UnpackPatternKind},
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, StructTy, Ty, TyKind, UintTy},
+    ty::{
+        align::AlignOf, size::SizeOf, FloatTy, FunctionTy, InferTy, IntTy, StructTy, Ty, TyKind,
+        UintTy,
+    },
     workspace::BindingInfoId,
 };
 use chili_infer::normalize::Normalize;
 use common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use ustr::ustr;
+use ustr::{ustr, Ustr};
 
 #[derive(Clone, Copy)]
 pub(crate) struct LowerContext {
@@ -276,6 +279,24 @@ impl Lower for ast::Expr {
 }
 
 fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut CompiledCode) {
+    if binding.kind.is_extern() {
+        let ty = binding.ty.normalize(sess.tycx);
+
+        match &ty {
+            TyKind::Function(func_ty) => {
+                let pattern = binding.pattern.as_symbol_ref();
+
+                let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
+                sess.push_const(code, Value::ExternFunction(extern_func));
+
+                sess.add_local(code, pattern.id);
+
+                code.push(Instruction::SetLocal(code.locals as i32));
+            }
+            _ => todo!("lower extern variables"),
+        }
+    }
+
     if let Some(expr) = &binding.expr {
         expr.lower(sess, code, LowerContext { take_ptr: false });
     }
@@ -1210,104 +1231,124 @@ fn lower_top_level_binding(
 
     let mut code = CompiledCode::new();
 
-    binding
-        .expr
-        .as_ref()
-        .unwrap()
-        .lower(sess, &mut code, LowerContext { take_ptr: false });
+    let desired_slot = if binding.kind.is_extern() {
+        let ty = binding.ty.normalize(sess.tycx);
 
-    sess.env_stack.pop();
+        match &ty {
+            TyKind::Function(func_ty) => {
+                let pattern = binding.pattern.as_symbol_ref();
 
-    let mut desired_slot = usize::MAX;
+                let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
 
-    match &binding.pattern {
-        Pattern::Symbol(pattern) => {
-            let slot = sess.insert_global(pattern.id, Value::unit());
-            code.push(Instruction::SetGlobal(slot as u32));
-
-            if pattern.id == desired_id {
-                desired_slot = slot;
-            }
-        }
-        Pattern::StructUnpack(pattern) => {
-            let ty = binding.ty.normalize(sess.tycx);
-
-            match ty.maybe_deref_once() {
-                TyKind::Module(_) => lower_top_level_binding_module_unpack(
-                    pattern,
-                    desired_id,
-                    &mut desired_slot,
-                    &mut code,
-                    sess,
-                ),
-                TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
-                    pattern,
-                    &struct_ty,
-                    desired_id,
-                    &mut desired_slot,
-                    &mut code,
-                    sess,
-                ),
-                _ => panic!("{}", ty),
-            }
-        }
-        Pattern::TupleUnpack(pattern) => lower_top_level_binding_tuple_unpack(
-            pattern,
-            desired_id,
-            &mut desired_slot,
-            &mut code,
-            sess,
-        ),
-        Pattern::Hybrid(pattern) => {
-            if !pattern.symbol.ignore {
-                let slot = sess.insert_global(pattern.symbol.id, Value::unit());
-                code.push(Instruction::Copy(0));
+                let slot = sess.insert_global(pattern.id, Value::ExternFunction(extern_func));
                 code.push(Instruction::SetGlobal(slot as u32));
 
-                if pattern.symbol.id == desired_id {
+                slot
+            }
+            _ => todo!("lower extern variables"),
+        }
+    } else {
+        binding
+            .expr
+            .as_ref()
+            .unwrap()
+            .lower(sess, &mut code, LowerContext { take_ptr: false });
+
+        sess.env_stack.pop();
+
+        let mut desired_slot = usize::MAX;
+
+        match &binding.pattern {
+            Pattern::Symbol(pattern) => {
+                let slot = sess.insert_global(pattern.id, Value::unit());
+                code.push(Instruction::SetGlobal(slot as u32));
+
+                if pattern.id == desired_id {
                     desired_slot = slot;
                 }
             }
+            Pattern::StructUnpack(pattern) => {
+                let ty = binding.ty.normalize(sess.tycx);
 
-            match &pattern.unpack {
-                UnpackPatternKind::Struct(pattern) => {
-                    let ty = binding.ty.normalize(sess.tycx);
+                match ty.maybe_deref_once() {
+                    TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                        pattern,
+                        desired_id,
+                        &mut desired_slot,
+                        &mut code,
+                        sess,
+                    ),
+                    TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                        pattern,
+                        &struct_ty,
+                        desired_id,
+                        &mut desired_slot,
+                        &mut code,
+                        sess,
+                    ),
+                    _ => panic!("{}", ty),
+                }
+            }
+            Pattern::TupleUnpack(pattern) => lower_top_level_binding_tuple_unpack(
+                pattern,
+                desired_id,
+                &mut desired_slot,
+                &mut code,
+                sess,
+            ),
+            Pattern::Hybrid(pattern) => {
+                if !pattern.symbol.ignore {
+                    let slot = sess.insert_global(pattern.symbol.id, Value::unit());
+                    code.push(Instruction::Copy(0));
+                    code.push(Instruction::SetGlobal(slot as u32));
 
-                    match ty.maybe_deref_once() {
-                        TyKind::Module(_) => lower_top_level_binding_module_unpack(
-                            pattern,
-                            desired_id,
-                            &mut desired_slot,
-                            &mut code,
-                            sess,
-                        ),
-                        TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
-                            pattern,
-                            &struct_ty,
-                            desired_id,
-                            &mut desired_slot,
-                            &mut code,
-                            sess,
-                        ),
-                        _ => panic!("{}", ty),
+                    if pattern.symbol.id == desired_id {
+                        desired_slot = slot;
                     }
                 }
-                UnpackPatternKind::Tuple(pattern) => lower_top_level_binding_tuple_unpack(
-                    pattern,
-                    desired_id,
-                    &mut desired_slot,
-                    &mut code,
-                    sess,
-                ),
+
+                match &pattern.unpack {
+                    UnpackPatternKind::Struct(pattern) => {
+                        let ty = binding.ty.normalize(sess.tycx);
+
+                        match ty.maybe_deref_once() {
+                            TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                                pattern,
+                                desired_id,
+                                &mut desired_slot,
+                                &mut code,
+                                sess,
+                            ),
+                            TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                                pattern,
+                                &struct_ty,
+                                desired_id,
+                                &mut desired_slot,
+                                &mut code,
+                                sess,
+                            ),
+                            _ => panic!("{}", ty),
+                        }
+                    }
+                    UnpackPatternKind::Tuple(pattern) => lower_top_level_binding_tuple_unpack(
+                        pattern,
+                        desired_id,
+                        &mut desired_slot,
+                        &mut code,
+                        sess,
+                    ),
+                }
             }
         }
-    }
 
-    code.push(Instruction::Return);
+        code.push(Instruction::Return);
 
-    sess.evaluated_globals.push(code);
+        sess.evaluated_globals.push(code);
 
-    assert!(desired_slot != usize::MAX);
+        assert!(desired_slot != usize::MAX);
+
+        desired_slot
+    };
 
     desired_slot
 }
@@ -1445,5 +1486,15 @@ fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut Comp
     for expr in deferred.iter() {
         expr.lower(sess, code, LowerContext { take_ptr: false });
         code.push(Instruction::Pop);
+    }
+}
+
+fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionTy) -> ExternFunction {
+    ExternFunction {
+        lib_path: ustr(&func_ty.extern_lib.as_ref().unwrap().path()),
+        name,
+        param_tys: func_ty.params.clone(),
+        return_ty: *func_ty.ret.clone(),
+        variadic: func_ty.varargs.is_some(),
     }
 }
