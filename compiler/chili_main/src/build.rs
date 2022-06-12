@@ -91,7 +91,7 @@ pub fn start_workspace(build_options: BuildOptions) -> Workspace {
         print_stats(stats, all_sw.unwrap().elapsed().as_millis());
     }
 
-    if workspace.build_options.run {
+    if !workspace.build_options.no_codegen && workspace.build_options.run {
         if let Some(executable_path) = executable_path {
             Command::new(&executable_path)
                 .spawn()

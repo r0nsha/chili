@@ -1,4 +1,4 @@
-use crate::diagnostic::{Diagnostic, DiagnosticKind, LabelKind};
+use crate::diagnostic::{Diagnostic, DiagnosticSeverity, LabelKind};
 use chili_span::FileId;
 use codespan_reporting::{
     diagnostic::{LabelStyle, Severity},
@@ -53,7 +53,7 @@ type CodespanDiagnostic = codespan_reporting::diagnostic::Diagnostic<FileId>;
 
 impl From<Diagnostic> for CodespanDiagnostic {
     fn from(val: Diagnostic) -> Self {
-        CodespanDiagnostic::new(val.kind.into())
+        CodespanDiagnostic::new(val.severity.into())
             .with_message(val.message.unwrap_or_default())
             .with_labels(
                 val.labels
@@ -72,10 +72,10 @@ impl From<Diagnostic> for CodespanDiagnostic {
     }
 }
 
-impl From<DiagnosticKind> for Severity {
-    fn from(val: DiagnosticKind) -> Self {
+impl From<DiagnosticSeverity> for Severity {
+    fn from(val: DiagnosticSeverity) -> Self {
         match val {
-            DiagnosticKind::Error => Severity::Error,
+            DiagnosticSeverity::Error => Severity::Error,
         }
     }
 }

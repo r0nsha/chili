@@ -3,7 +3,7 @@ use chili_span::Span;
 pub type DiagnosticCode = String;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum DiagnosticKind {
+pub enum DiagnosticSeverity {
     Error,
 }
 
@@ -40,7 +40,7 @@ impl Label {
 
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
-    pub kind: DiagnosticKind,
+    pub severity: DiagnosticSeverity,
     pub message: Option<String>,
     pub labels: Vec<Label>,
     pub notes: Vec<String>,
@@ -49,7 +49,7 @@ pub struct Diagnostic {
 impl Diagnostic {
     pub fn error() -> Self {
         Self {
-            kind: DiagnosticKind::Error,
+            severity: DiagnosticSeverity::Error,
             message: None,
             labels: vec![],
             notes: vec![],

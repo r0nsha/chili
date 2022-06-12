@@ -3,7 +3,7 @@ pub mod emitter;
 
 use chili_span::{FileId, Span};
 use codespan_reporting::files::SimpleFiles;
-use diagnostic::{Diagnostic, DiagnosticKind, Label};
+use diagnostic::{Diagnostic, DiagnosticSeverity, Label};
 use emitter::{ColorMode, DiagnosticEmitter};
 use ustr::Ustr;
 
@@ -30,7 +30,7 @@ impl Diagnostics {
         self.files.add(name, source)
     }
 
-    pub fn errors(&self) -> &[Diagnostic] {
+    pub fn items(&self) -> &[Diagnostic] {
         &self.items
     }
 
@@ -49,7 +49,7 @@ impl Diagnostics {
     pub fn error_count(&self) -> usize {
         self.items
             .iter()
-            .filter(|d| d.kind == DiagnosticKind::Error)
+            .filter(|d| d.severity == DiagnosticSeverity::Error)
             .count()
     }
 

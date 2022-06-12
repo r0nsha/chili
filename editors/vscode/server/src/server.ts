@@ -48,6 +48,7 @@ let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 
 import { TextEncoder } from "node:util";
+import { workspace } from "vscode";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const exec = util.promisify(require("node:child_process").exec);
 
@@ -191,14 +192,13 @@ async function validateTextDocument(
   // //        It'd be nicer if it didn't give duplicate hints in the first place.
   // const seenTypeHintPositions = new Set();
 
-  const stdout = await runCompiler(text, "");
+  // const stdout = await runCompiler(text, "");
+  const stdout = await runCompiler2(textDocument.uri, "");
 
-  console.log({ stdout });
   const lines = stdout.split("\n").filter((l) => l.length > 0);
-  console.log({ lines });
 
   for (const line of lines) {
-    console.log(line);
+    // console.log(line);
     try {
       const obj = JSON.parse(line);
 
@@ -261,6 +261,74 @@ async function validateTextDocument(
   console.timeEnd("validateTextDocument");
 }
 
+function lowerBoundBinarySearch(arr: number[], num: number): number {
+  let low = 0;
+  let mid = 0;
+  let high = arr.length - 1;
+
+  if (num >= arr[high]) return high;
+
+  while (low < high) {
+    // Bitshift to avoid floating point division
+    mid = (low + high) >> 1;
+
+    if (arr[mid] < num) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low - 1;
+}
+
+function convertSpan(utf8_offset: number, lineBreaks: Array<number>): Position {
+  const lineBreakIndex = lowerBoundBinarySearch(lineBreaks, utf8_offset);
+
+  const start_of_line_offset =
+    lineBreakIndex == -1 ? 0 : lineBreaks[lineBreakIndex] + 1;
+  const character = utf8_offset - start_of_line_offset;
+
+  return { line: lineBreakIndex + 1, character };
+}
+
+function convertPosition(position: Position, text: string): number {
+  let line = 0;
+  let character = 0;
+  const buffer = new TextEncoder().encode(text);
+
+  let i = 0;
+  while (i < text.length) {
+    if (line == position.line && character == position.character) {
+      return i;
+    }
+
+    if (buffer.at(i) == 0x0a) {
+      line++;
+      character = 0;
+    } else {
+      character++;
+    }
+
+    i++;
+  }
+
+  return i;
+}
+
+function findLineBreaks(utf16_text: string): Array<number> {
+  const utf8_text = new TextEncoder().encode(utf16_text);
+  const lineBreaks: Array<number> = [];
+
+  for (let i = 0; i < utf8_text.length; ++i) {
+    if (utf8_text[i] == 0x0a) {
+      lineBreaks.push(i);
+    }
+  }
+
+  return lineBreaks;
+}
+
 async function runCompiler(text: string, flags: string): Promise<string> {
   try {
     fs.writeFileSync(tmpFile.name, text);
@@ -268,19 +336,41 @@ async function runCompiler(text: string, flags: string): Promise<string> {
     console.log(error);
   }
 
-  let stdout: string;
-
   try {
     const output = await exec(`chili check ${tmpFile.name} ${flags}`);
     // console.log({ output });
-    stdout = output.stdout;
+    if (output.stderr != null && output.stderr != "") {
+      console.error(output.stderr);
+    } else {
+      return output.stdout;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (e: any) {
     console.log(e);
-    stdout = e.stdout;
+    return e.stdout ?? "";
   }
 
-  return stdout;
+  return "";
+}
+
+async function runCompiler2(uri: string, flags: string): Promise<string> {
+  const filename = uri.replace("file://", "");
+
+  try {
+    const output = await exec(`chili check ${filename} ${flags}`);
+    // console.log({ output });
+    if (output.stderr != null && output.stderr != "") {
+      console.error(output.stderr);
+    } else {
+      return output.stdout;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (e: any) {
+    console.log(e);
+    return e.stdout ?? "";
+  }
+
+  return "";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

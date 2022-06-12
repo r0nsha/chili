@@ -1,4 +1,4 @@
-use crate::build::start_workspace;
+use crate::{build::start_workspace, ide::do_ide_check};
 use clap::*;
 use colored::Colorize;
 use common::{
@@ -7,7 +7,6 @@ use common::{
 };
 use std::{
     env,
-    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -107,6 +106,7 @@ pub fn start_cli() {
                 run,
                 verbose: args.verbose,
                 emit_llvm_ir: args.emit_llvm,
+                emit_diagnostics: true,
                 no_codegen: args.no_codegen,
                 no_color: args.no_color,
             };
@@ -127,14 +127,14 @@ fn run_check(args: CheckArgs) {
                 run: false,
                 verbose: false,
                 emit_llvm_ir: false,
+                emit_diagnostics: false,
                 no_codegen: true,
                 no_color: false,
             };
 
             let workspace = start_workspace(build_options);
 
-            let mut stdout = std::io::stdout();
-            stdout.write(b"hello world\n").unwrap();
+            do_ide_check(&workspace);
         }
         Err(e) => print_err(&e),
     }
