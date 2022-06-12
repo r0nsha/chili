@@ -2,7 +2,7 @@ pub mod diagnostic;
 pub mod emitter;
 
 use chili_span::{FileId, Span};
-use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::files::{SimpleFile, SimpleFiles};
 use diagnostic::{Diagnostic, DiagnosticSeverity, Label};
 use emitter::{ColorMode, DiagnosticEmitter};
 use ustr::Ustr;
@@ -28,6 +28,10 @@ impl Diagnostics {
 
     pub fn add_file(&mut self, name: String, source: String) -> FileId {
         self.files.add(name, source)
+    }
+
+    pub fn get_file(&self, file_id: FileId) -> Option<&SimpleFile<String, String>> {
+        self.files.get(file_id).ok()
     }
 
     pub fn items(&self) -> &[Diagnostic] {

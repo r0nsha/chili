@@ -135,14 +135,16 @@ bitflags! {
 
 impl Workspace {
     pub fn emit_diagnostics(&self) {
-        emit_diagnostics(
-            &self.diagnostics,
-            if self.build_options.no_color {
-                ColorMode::Never
-            } else {
-                ColorMode::Always
-            },
-        );
+        if self.build_options.emit_diagnostics {
+            emit_diagnostics(
+                &self.diagnostics,
+                if self.build_options.no_color {
+                    ColorMode::Never
+                } else {
+                    ColorMode::Always
+                },
+            );
+        }
     }
 
     pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {

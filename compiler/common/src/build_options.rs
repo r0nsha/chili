@@ -9,6 +9,7 @@ pub struct BuildOptions {
     pub run: bool,
     pub verbose: bool,
     pub emit_llvm_ir: bool,
+    pub emit_diagnostics: bool,
     pub no_codegen: bool,
     pub no_color: bool,
 }
