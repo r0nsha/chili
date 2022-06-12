@@ -62,6 +62,10 @@ struct Args {
     /// Specify the target platform. Important: This flag is a placeholder until workspace-based configuration is implemented
     #[clap(arg_enum, default_value_t = Target::Current)]
     target: Target,
+
+    /// Additional include paths, separated by ;
+    #[clap(long)]
+    include_paths: Option<String>,
 }
 
 #[derive(clap::ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
@@ -75,6 +79,10 @@ enum Target {
 struct CheckArgs {
     /// The main action the compiler should take
     input: String,
+
+    /// Additional include paths, separated by ;
+    #[clap(long)]
+    include_paths: Option<String>,
 }
 
 pub fn start_cli() {
@@ -109,6 +117,7 @@ pub fn start_cli() {
                 emit_diagnostics: true,
                 no_codegen: args.no_codegen,
                 no_color: args.no_color,
+                include_paths: get_include_paths(&args.include_paths),
             };
 
             start_workspace(build_options);
@@ -130,6 +139,7 @@ fn run_check(args: CheckArgs) {
                 emit_diagnostics: false,
                 no_codegen: true,
                 no_color: false,
+                include_paths: get_include_paths(&args.include_paths),
             };
 
             let workspace = start_workspace(build_options);
@@ -165,4 +175,11 @@ fn get_file_path(input_file: &str) -> Result<&str, String> {
 
 fn print_err(msg: &str) {
     println!("\n{} {}\n", "error:".red().bold(), msg.bold());
+}
+
+fn get_include_paths(include_paths: &Option<String>) -> Vec<String> {
+    include_paths.as_ref().map_or_else(
+        || vec![],
+        |i| i.split(';').map(|s| s.to_string()).collect::<Vec<String>>(),
+    )
 }

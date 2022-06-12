@@ -12,6 +12,7 @@ pub struct BuildOptions {
     pub emit_diagnostics: bool,
     pub no_codegen: bool,
     pub no_color: bool,
+    pub include_paths: Vec<String>,
 }
 
 impl BuildOptions {

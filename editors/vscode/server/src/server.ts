@@ -189,7 +189,7 @@ async function validateTextDocument(
 
   // const seenTypeHintPositions = new Set();
 
-  const stdout = await runCompiler(text, "");
+  const stdout = await runCompiler(text, includeFlagForPath(textDocument.uri));
   // const stdout = await runCompiler2(textDocument.uri, "");
 
   const lines = stdout.split("\n").filter((l) => l.length > 0);
@@ -352,26 +352,11 @@ async function runCompiler(text: string, flags: string): Promise<string> {
   return stdout;
 }
 
-async function runCompiler2(uri: string, flags: string): Promise<string> {
-  const filename = uri.replace("file://", "");
-
-  let stdout = "";
-
-  try {
-    const output = await exec(`chili check ${filename} ${flags}`);
-    // console.log(output);
-    if (output.stderr != null && output.stderr != "") {
-      console.error(output.stderr);
-    } else {
-      stdout = output.stdout;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    console.log(e);
-    stdout = e.stdout ?? "";
-  }
-
-  return stdout;
+function includeFlagForPath(file_path: string): string {
+  const protocol_end = file_path.indexOf("://");
+  if (protocol_end == -1) return " --include-path " + file_path;
+  // Not protocol.length + 3, include the last '/'
+  return " -I " + path.dirname(file_path.slice(protocol_end + 2));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
