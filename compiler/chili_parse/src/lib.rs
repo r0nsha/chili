@@ -16,7 +16,7 @@ use chili_ast::{
 use chili_error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::{EndPosition, Position, Span};
 use chili_token::{lexer::Lexer, Token, TokenKind::*};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -112,7 +112,6 @@ pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
     module_info: ModuleInfo,
-    current_dir: PathBuf,
     decl_name_frames: Vec<Ustr>,
     restrictions: Restrictions,
     extern_lib: Option<Option<ExternLibrary>>,
@@ -123,10 +122,13 @@ pub struct ParserCache {
     pub root_file: PathBuf,
     pub root_dir: PathBuf,
     pub std_dir: PathBuf,
+    pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
     pub parsed_modules: HashSet<ModuleInfo>,
     pub total_lines: u32,
 }
+
+pub type ParserCacheGuard<'a> = MutexGuard<'a, ParserCache>;
 
 pub enum ParserResult {
     NewAst(ast::Ast),
@@ -148,7 +150,6 @@ impl Parser {
             tokens: vec![],
             current: 0,
             module_info,
-            current_dir: module_info.dir().to_path_buf(),
             decl_name_frames: Default::default(),
             restrictions: Restrictions::empty(),
             extern_lib: None,

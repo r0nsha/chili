@@ -23,14 +23,12 @@ pub struct AstGenerationStats {
 pub type AstGenerationResult = Option<(Vec<ast::Ast>, AstGenerationStats)>;
 
 pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
-    let mut asts: Vec<ast::Ast> = vec![];
-
     let root_file_path =
         try_resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd, None)
             .map_err(|diag| workspace.diagnostics.push(diag))
             .ok()?;
 
-    let stats = generate_ast_inner(workspace, root_file_path, &mut asts);
+    let (mut asts, stats) = generate_ast_inner(workspace, root_file_path);
 
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
@@ -64,13 +62,15 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
 fn generate_ast_inner(
     workspace: &mut Workspace,
     root_file_path: PathBuf,
-    asts: &mut Vec<ast::Ast>,
-) -> AstGenerationStats {
+) -> (Vec<ast::Ast>, AstGenerationStats) {
+    let mut asts: Vec<ast::Ast> = vec![];
+
     let cache = Arc::new(Mutex::new(ParserCache {
         root_file: resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd)
             .unwrap(),
         root_dir: workspace.root_dir.clone(),
         std_dir: workspace.std_dir.clone(),
+        include_paths: workspace.build_options.include_paths.clone(),
         diagnostics: workspace.diagnostics.clone(),
         parsed_modules: HashSet::<ModuleInfo>::new(),
         total_lines: 0,
@@ -112,9 +112,12 @@ fn generate_ast_inner(
 
     workspace.diagnostics = cache.diagnostics;
 
-    AstGenerationStats {
-        total_lines: cache.total_lines,
-    }
+    (
+        asts,
+        AstGenerationStats {
+            total_lines: cache.total_lines,
+        },
+    )
 }
 
 fn check_duplicate_global_symbol(

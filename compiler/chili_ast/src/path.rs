@@ -26,12 +26,10 @@ pub fn try_resolve_relative_path<'a>(
     } else {
         let diagnostic = Diagnostic::error()
             .with_message(format!("path `{}` doesn't exist", path.display()))
+            .maybe_with_label(span.map(|span| Label::primary(span, "doesn't exist")))
             .with_note(format!("absolute path is: {}", absolute_path.display()));
 
-        Err(match span {
-            Some(span) => diagnostic.with_label(Label::primary(span, "doesn't exist")),
-            None => diagnostic,
-        })
+        Err(diagnostic)
     }
 }
 

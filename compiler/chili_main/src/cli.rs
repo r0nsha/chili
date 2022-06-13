@@ -177,9 +177,9 @@ fn print_err(msg: &str) {
     println!("\n{} {}\n", "error:".red().bold(), msg.bold());
 }
 
-fn get_include_paths(include_paths: &Option<String>) -> Vec<String> {
+fn get_include_paths(include_paths: &Option<String>) -> Vec<PathBuf> {
     include_paths.as_ref().map_or_else(
         || vec![],
-        |i| i.split(';').map(|s| s.to_string()).collect::<Vec<String>>(),
+        |i| i.split(';').map(|s| PathBuf::from(s)).collect(),
     )
 }
