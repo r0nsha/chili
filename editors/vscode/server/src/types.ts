@@ -6,6 +6,7 @@ export interface ChiliTextDocument extends TextDocument {
 }
 
 export interface Span {
+  file: string;
   start: number;
   end: number;
 }
@@ -35,8 +36,4 @@ export type LspObject = {
 
 export interface HoverInfo {
   contents: string;
-}
-
-export interface DefinitionSpan {
-  span: Span;
 }

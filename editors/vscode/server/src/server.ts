@@ -12,10 +12,10 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
   ChiliTextDocument,
-  DefinitionSpan,
   HoverInfo,
   LspDiagnosticSeverity,
   LspObject,
+  Span,
   spanToRange,
 } from "./types";
 import {
@@ -323,17 +323,39 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
 
   const lines = stdout.split("\n").filter((l) => l.length > 0);
   for (const line of lines) {
-    const definition: DefinitionSpan = JSON.parse(line);
-    console.log("going to definition: ", definition);
+    const span: Span | null = JSON.parse(line);
+    console.log(span);
 
-    const range = spanToRange(document, definition.span);
+    if (span) {
+      const uri =
+        span.file == tmpFile.name
+          ? request.textDocument.uri
+          : "file://" + span.file;
 
-    console.timeEnd("onDefinition");
+      console.log(`going to definition: ${uri}`);
 
-    return {
-      uri: request.textDocument.uri,
-      range,
-    };
+      const result = await connection.window.showDocument({
+        uri,
+        takeFocus: false,
+      });
+
+      if (result.success) {
+        const document = documents.get(uri);
+
+        if (document) {
+          const range = spanToRange(document, span);
+
+          console.log(`going to definition: ${uri} | ${range}`);
+
+          console.timeEnd("onDefinition");
+
+          return {
+            uri,
+            range,
+          };
+        }
+      }
+    }
   }
 
   console.timeEnd("onDefinition");

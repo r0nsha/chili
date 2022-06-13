@@ -11,7 +11,7 @@ mod top_level;
 use bitflags::bitflags;
 use chili_ast::{
     ast::{self, ExternLibrary},
-    workspace::ModuleInfo,
+    workspace::{ModuleInfo, PartialModuleInfo},
 };
 use chili_error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
 use chili_span::{EndPosition, Position, Span};
@@ -98,10 +98,10 @@ pub fn spawn_parser(
     thread_pool: ThreadPool,
     tx: Sender<Box<ParserResult>>,
     cache: Arc<Mutex<ParserCache>>,
-    module_info: ModuleInfo,
+    partial_module_info: PartialModuleInfo,
 ) {
     thread_pool.clone().execute(move || {
-        Parser::new(thread_pool, tx, Arc::clone(&cache), module_info).parse();
+        Parser::new(thread_pool, tx, Arc::clone(&cache), partial_module_info).parse();
     });
 }
 
@@ -124,7 +124,7 @@ pub struct ParserCache {
     pub std_dir: PathBuf,
     pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
-    pub parsed_modules: HashSet<ModuleInfo>,
+    pub parsed_files: HashSet<Ustr>,
     pub total_lines: u32,
 }
 
@@ -141,7 +141,7 @@ impl Parser {
         thread_pool: ThreadPool,
         tx: Sender<Box<ParserResult>>,
         cache: Arc<Mutex<ParserCache>>,
-        module_info: ModuleInfo,
+        partial_module_info: PartialModuleInfo,
     ) -> Self {
         Self {
             cache,
@@ -149,7 +149,7 @@ impl Parser {
             tx,
             tokens: vec![],
             current: 0,
-            module_info,
+            module_info: partial_module_info.into(),
             decl_name_frames: Default::default(),
             restrictions: Restrictions::empty(),
             extern_lib: None,
@@ -165,7 +165,7 @@ impl Parser {
         let (file_id, source) = {
             let mut cache = self.cache.lock();
 
-            if !cache.parsed_modules.insert(self.module_info) {
+            if !cache.parsed_files.insert(self.module_info.file_path) {
                 return ParserResult::AlreadyParsed;
             } else {
                 let source = std::fs::read_to_string(self.module_info.file_path.as_str())
@@ -180,6 +180,8 @@ impl Parser {
                 (file_id, source)
             }
         };
+
+        self.module_info.file_id = file_id;
 
         match Lexer::new(file_id, &source).scan() {
             Ok(tokens) => {

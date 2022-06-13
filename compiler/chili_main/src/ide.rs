@@ -9,6 +9,7 @@ pub(crate) fn diagnostics(workspace: &Workspace) {
         .diagnostics
         .items()
         .iter()
+        .filter(|diag| !diag.labels.is_empty())
         .map(|diag| {
             let label = diag.labels.first().unwrap();
             let file = workspace.diagnostics.get_file(label.span.file_id).unwrap();
@@ -17,7 +18,7 @@ pub(crate) fn diagnostics(workspace: &Workspace) {
                 severity: match &diag.severity {
                     DiagnosticSeverity::Error => IdeDiagnosticSeverity::Error,
                 },
-                span: label.span.into(),
+                span: IdeSpan::from_span_and_file(label.span, file.name()),
                 message: diag.message.clone().unwrap(),
                 source: file.name().to_string(),
             };
@@ -43,17 +44,27 @@ pub(crate) fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: us
 pub(crate) fn goto_definition(workspace: &Workspace, offset: usize) {
     for binding_info in workspace.binding_infos.iter() {
         if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
-            write(&SpanResponse {
-                span: IdeSpan::from(binding_info.span),
-            });
+            write(&IdeSpan::from_span_and_file(
+                binding_info.span,
+                workspace
+                    .get_module_info(binding_info.module_id)
+                    .unwrap()
+                    .file_path
+                    .to_string(),
+            ));
             return;
         }
 
         for &use_span in binding_info.uses.iter() {
             if is_offset_in_span_and_root_module(workspace, offset, use_span) {
-                write(&SpanResponse {
-                    span: IdeSpan::from(binding_info.span),
-                });
+                write(&IdeSpan::from_span_and_file(
+                    binding_info.span,
+                    workspace
+                        .get_module_info(binding_info.module_id)
+                        .unwrap()
+                        .file_path
+                        .to_string(),
+                ));
                 return;
             }
         }
@@ -88,17 +99,19 @@ fn write_null() {
     println!("null")
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Serialize, Deserialize, Clone)]
 struct IdeSpan {
+    file: String,
     start: usize,
     end: usize,
 }
 
-impl From<Span> for IdeSpan {
-    fn from(s: Span) -> Self {
-        IdeSpan {
-            start: s.start.index,
-            end: s.end.index,
+impl IdeSpan {
+    pub fn from_span_and_file(span: Span, file: impl Into<String>) -> Self {
+        Self {
+            file: file.into(),
+            start: span.start.index,
+            end: span.end.index,
         }
     }
 }
@@ -134,9 +147,4 @@ impl IdeDiagnosticResponse {
 #[derive(Serialize, Deserialize, Clone)]
 struct HoverInfo {
     contents: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct SpanResponse {
-    span: IdeSpan,
 }

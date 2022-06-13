@@ -65,7 +65,7 @@ impl Parser {
 
         let module_name = self.get_module_name_from_path(&cache, &absolute_import_path);
 
-        let module_info = ModuleInfo::new(
+        let module_info = PartialModuleInfo::new(
             ustr(&module_name),
             ustr(absolute_import_path.to_str().unwrap()),
         );

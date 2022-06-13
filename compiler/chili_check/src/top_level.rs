@@ -42,6 +42,9 @@ impl<'s> CheckSess<'s> {
         // check if the binding has already been checked
         if let Some(id) = self.get_global_symbol(module_id, symbol) {
             // this binding has already been checked, so just return its data
+
+            self.workspace.add_binding_info_use(id, caller_info.span);
+
             let binding_info = self.workspace.get_binding_info(id).unwrap();
             self.validate_can_access_item(binding_info, caller_info)?;
 

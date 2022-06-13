@@ -193,19 +193,18 @@ impl<'i> InterpSess<'i> {
     }
 
     pub(crate) fn find_symbol(&self, module_id: ModuleId, symbol: Ustr) -> BindingInfoId {
-        BindingInfoId(
-            self.workspace
-                .binding_infos
-                .iter()
-                .position(|info| info.module_id == module_id && info.symbol == symbol)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "couldn't find member `{}` in module `{}`",
-                        self.workspace.get_module_info(module_id).unwrap().name,
-                        symbol
-                    )
-                }),
-        )
+        self.workspace
+            .binding_infos
+            .iter()
+            .position(|info| info.module_id == module_id && info.symbol == symbol)
+            .map(BindingInfoId)
+            .unwrap_or_else(|| {
+                panic!(
+                    "couldn't find member `{}` in module `{}`",
+                    self.workspace.get_module_info(module_id).unwrap().name,
+                    symbol
+                )
+            })
     }
 
     pub(crate) fn add_local(&mut self, code: &mut CompiledCode, id: BindingInfoId) {

@@ -243,13 +243,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let module_name: Ustr = module_name.into();
         let symbol: Ustr = symbol.into();
 
-        let module_id = ModuleId(
-            self.workspace
-                .module_infos
-                .iter()
-                .position(|m| m.name == module_name)
-                .unwrap_or_else(|| panic!("couldn't find {}", module_name)),
-        );
+        let module_id = self
+            .workspace
+            .module_infos
+            .iter()
+            .position(|m| m.name == module_name)
+            .map(ModuleId)
+            .unwrap_or_else(|| panic!("couldn't find {}", module_name));
 
         self.workspace
             .binding_infos
@@ -998,21 +998,21 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         _ => unreachable!("got field `{}`", access.member),
                     },
                     TyKind::Module(module_id) => {
-                        let id = BindingInfoId(
-                            self.workspace
-                                .binding_infos
-                                .iter()
-                                .position(|info| {
-                                    info.module_id == module_id && info.symbol == access.member
-                                })
-                                .unwrap_or_else(|| {
-                                    panic!(
-                                        "couldn't find member `{}` in module `{}`",
-                                        self.workspace.get_module_info(module_id).unwrap().name,
-                                        access.member
-                                    )
-                                }),
-                        );
+                        let id = self
+                            .workspace
+                            .binding_infos
+                            .iter()
+                            .position(|info| {
+                                info.module_id == module_id && info.symbol == access.member
+                            })
+                            .map(BindingInfoId)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "couldn't find member `{}` in module `{}`",
+                                    self.workspace.get_module_info(module_id).unwrap().name,
+                                    access.member
+                                )
+                            });
 
                         let decl = self.gen_top_level_binding(id);
 

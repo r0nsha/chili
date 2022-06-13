@@ -1,7 +1,7 @@
 use chili_ast::{
     ast, compiler_info,
     path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
-    workspace::{ModuleInfo, Workspace},
+    workspace::{PartialModuleInfo, Workspace},
 };
 use chili_error::SyntaxError;
 use chili_parse::{spawn_parser, ParserCache, ParserResult};
@@ -34,7 +34,7 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);
 
-        if ast.module_info.name == compiler_info::root_module_name() {
+        if ast.module_info.name == "" {
             workspace.root_module_id = ast.module_id;
         }
     }
@@ -72,12 +72,12 @@ fn generate_ast_inner(
         std_dir: workspace.std_dir.clone(),
         include_paths: workspace.build_options.include_paths.clone(),
         diagnostics: workspace.diagnostics.clone(),
-        parsed_modules: HashSet::<ModuleInfo>::new(),
+        parsed_files: HashSet::new(),
         total_lines: 0,
     }));
 
-    let root_module_info = ModuleInfo::new(
-        compiler_info::root_module_name(),
+    let root_module_info = PartialModuleInfo::new(
+        ustr(""),
         ustr(&root_file_path.to_str().unwrap().to_string()),
     );
 

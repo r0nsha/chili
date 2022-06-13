@@ -312,7 +312,7 @@ fn extract_free_type_vars(ty: &TyKind, free_types: &mut HashSet<Ty>) {
 
             extract_free_type_vars(&f.ret, free_types);
 
-            if let Some(ty) = f.varargs.as_ref().map(|v| v.ty.as_ref()).flatten() {
+            if let Some(ty) = f.varargs.as_ref().and_then(|v| v.ty.as_ref()) {
                 extract_free_type_vars(ty, free_types);
             }
         }

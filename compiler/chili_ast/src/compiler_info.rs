@@ -1,15 +1,11 @@
-use crate::workspace::ModuleInfo;
+use crate::workspace::PartialModuleInfo;
 use std::path::{Path, PathBuf};
-use ustr::{ustr, Ustr};
+use ustr::ustr;
 
 pub const STD: &str = "std";
 pub const STD_PREFIX_FW: &str = "std/";
 pub const STD_PREFIX_BK: &str = "std\\";
 pub const SOURCE_FILE_EXT: &str = "chili";
-
-pub fn root_module_name() -> Ustr {
-    ustr("")
-}
 
 pub fn is_std_module_path(path: &str) -> bool {
     path == STD
@@ -38,8 +34,8 @@ pub fn std_module_root_file() -> PathBuf {
     std_module_root_dir().join(Path::new("std.chili"))
 }
 
-pub fn std_module_info() -> ModuleInfo {
-    ModuleInfo {
+pub fn std_module_info() -> PartialModuleInfo {
+    PartialModuleInfo {
         file_path: ustr(std_module_root_file().to_str().unwrap()),
         name: ustr(STD),
     }
