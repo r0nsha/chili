@@ -60,15 +60,23 @@ impl Parser {
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
-                let mut symbol_pattern = self.parse_symbol_pattern()?;
+                let mut symbol = self.parse_symbol_pattern()?;
 
-                if eat!(self, Colon) {
-                    let id_token = require!(self, Ident(_), "an identifier")?;
-                    let symbol = id_token.symbol();
-                    symbol_pattern.alias = Some(symbol);
+                // This means the user used `_`, instead of `x: _` - which is illegal
+                if symbol.ignore {
+                    return Err(SyntaxError::expected(symbol.span, "an identifier, ? or }"));
                 }
 
-                symbols.push(symbol_pattern);
+                if eat!(self, Colon) {
+                    if eat!(self, Placeholder) {
+                        symbol.ignore = true;
+                    } else {
+                        let id_token = require!(self, Ident(_), "an identifier")?;
+                        symbol.alias = Some(id_token.symbol());
+                    }
+                }
+
+                symbols.push(symbol);
 
                 if eat!(self, Comma) {
                     continue;

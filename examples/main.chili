@@ -1,5 +1,14 @@
-let { println } = @import("std/fmt");
+// let { println } = @import("std/fmt");
+
+// let main = fn() {
+//     println("Hello World");
+// };
+
+let { printf } = @import("std/c");
+
 
 let main = fn() {
-    println("Hello World");
+  let s = .{ a: 1, b: 2, c: 3 };
+  let { c: _, ? } = s;
+  printf("A: %d, B: %d, C: %d\n".data, a, b, 5);
 };

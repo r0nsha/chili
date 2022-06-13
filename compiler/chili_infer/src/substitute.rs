@@ -33,7 +33,7 @@ pub fn substitute<'a>(
         return;
     }
 
-    sess.concretize_types();
+    sess.make_all_types_concrete();
 }
 
 struct Sess<'a> {
@@ -75,10 +75,11 @@ impl<'a> Sess<'a> {
         self.diagnostics.extend(diagnostics);
     }
 
-    fn concretize_types(&mut self) {
-        for ty in self.used_types.iter() {
+    fn make_all_types_concrete(&mut self) {
+        let tys: Vec<Ty> = self.tycx.bindings.iter().map(|(ty, _)| Ty(ty)).collect();
+        for ty in tys {
             let concrete_type = ty.concrete(&self.tycx);
-            self.tycx.bind_ty(*ty, concrete_type);
+            self.tycx.bind_ty(ty, concrete_type);
         }
     }
 }

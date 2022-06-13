@@ -223,7 +223,10 @@ impl<'a> CollectHints<'a> for ast::FunctionSig {
             ret.collect_hints(sess);
         } else {
             let ret_ty = &self.ty.normalize(sess.tycx).into_fn().ret;
-            sess.push_hint(self.span, ret_ty.to_string(), HintKind::ReturnType)
+            match ret_ty.as_ref() {
+                TyKind::Unit => (),
+                _ => sess.push_hint(self.span, ret_ty.to_string(), HintKind::ReturnType),
+            }
         }
     }
 }

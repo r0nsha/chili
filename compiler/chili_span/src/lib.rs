@@ -27,7 +27,7 @@ impl Span {
     }
 
     pub fn range(&self) -> Range<usize> {
-        self.start.index..self.end.index + 1
+        self.start.index..self.end.index
     }
 
     pub fn with_start(&self, start: Position) -> Self {
