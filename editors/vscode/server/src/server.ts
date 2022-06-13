@@ -208,26 +208,26 @@ async function validateTextDocument(
               break;
           }
 
-          const sourceUri = "file://" + diagnostic.source;
-          console.log({ sourceUri });
+          const uri = "file://" + diagnostic.source;
+          // console.log({  uri });
 
-          const sourceDocument =
+          const document =
             diagnostic.source == tmpFile.name
               ? textDocument
-              : documents.get(sourceUri);
+              : documents.get(uri);
 
-          if (!sourceDocument) {
-            console.error(`couldn't open text document: ${sourceUri}`);
+          if (!document) {
+            console.error(`couldn't open text document: ${uri}`);
             continue;
           }
 
-          const range = spanToRange(sourceDocument, diagnostic.span);
+          const range = spanToRange(document, diagnostic.span);
 
           diagnostics.push({
             severity,
             range,
             message: diagnostic.message,
-            source: sourceDocument.uri.toString(),
+            source: document.uri.toString(),
           });
         }
         //     } else if (obj.type == "hint") {
