@@ -198,7 +198,6 @@ async function validateTextDocument(
           const diagnostic = object.diagnostic;
 
           let severity = DiagnosticSeverity.Error;
-
           switch (diagnostic.severity) {
             case LspDiagnosticSeverity.Error:
               severity = DiagnosticSeverity.Error;
@@ -206,6 +205,8 @@ async function validateTextDocument(
           }
 
           const sourceUri = "file://" + diagnostic.source;
+          console.log({ sourceUri });
+
           const sourceDocument =
             diagnostic.source == tmpFile.name
               ? textDocument
@@ -286,6 +287,7 @@ connection.onHover(async (request) => {
         };
 
         console.timeEnd("onHover");
+
         return { contents };
       }
     }
@@ -299,8 +301,6 @@ connection.onHover(async (request) => {
 const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
   request
 ) => {
-  console.time("onDefinition");
-
   const document = documents.get(request.textDocument.uri);
 
   if (!document) {
@@ -322,6 +322,7 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
   // console.log("got: ", stdout);
 
   const lines = stdout.split("\n").filter((l) => l.length > 0);
+
   for (const line of lines) {
     const span: Span | null = JSON.parse(line);
     console.log(span);
@@ -334,31 +335,20 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
 
       console.log(`going to definition: ${uri}`);
 
-      const result = await connection.window.showDocument({
-        uri,
-        takeFocus: false,
-      });
+      const document = documents.get(uri);
 
-      if (result.success) {
-        const document = documents.get(uri);
+      if (document) {
+        const range = spanToRange(document, span);
 
-        if (document) {
-          const range = spanToRange(document, span);
+        console.log(`going to definition: ${uri} | ${range}`);
 
-          console.log(`going to definition: ${uri} | ${range}`);
-
-          console.timeEnd("onDefinition");
-
-          return {
-            uri,
-            range,
-          };
-        }
+        return {
+          uri,
+          range,
+        };
       }
     }
   }
-
-  console.timeEnd("onDefinition");
 };
 
 connection.onDefinition(goToDefinition);

@@ -161,7 +161,7 @@ fn run_check(args: CheckArgs) {
             } else if let Some(offset) = args.hover_info {
                 ide::hover_info(&workspace, tycx.as_ref(), offset);
             } else if let Some(offset) = args.goto_def {
-                ide::goto_definition(&workspace, offset);
+                ide::goto_definition(&workspace, tycx.as_ref(), offset);
             }
         }
         Err(e) => print_err(&e),

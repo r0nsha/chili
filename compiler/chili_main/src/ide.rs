@@ -1,7 +1,10 @@
-use chili_ast::workspace::{BindingInfo, Workspace};
+use chili_ast::{
+    ty::TyKind,
+    workspace::{BindingInfo, Workspace},
+};
 use chili_error::diagnostic::DiagnosticSeverity;
-use chili_infer::{display::DisplayTy, ty_ctx::TyCtx};
-use chili_span::Span;
+use chili_infer::{display::DisplayTy, normalize::Normalize, ty_ctx::TyCtx};
+use chili_span::{EndPosition, Position, Span};
 use serde::{Deserialize, Serialize};
 
 pub(crate) fn diagnostics(workspace: &Workspace) {
@@ -41,9 +44,31 @@ pub(crate) fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: us
     }
 }
 
-pub(crate) fn goto_definition(workspace: &Workspace, offset: usize) {
+pub(crate) fn goto_definition(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
     for binding_info in workspace.binding_infos.iter() {
         if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
+            if let Some(tycx) = tycx {
+                match binding_info.ty.normalize(tycx) {
+                    TyKind::Module(module_id) => {
+                        let module_info = workspace.get_module_info(module_id).unwrap();
+
+                        let span = Span {
+                            file_id: module_info.file_id,
+                            start: Position::initial(),
+                            end: EndPosition::initial(),
+                        };
+
+                        write(&IdeSpan::from_span_and_file(
+                            span,
+                            module_info.file_path.to_string(),
+                        ));
+
+                        return;
+                    }
+                    _ => (),
+                }
+            }
+
             write(&IdeSpan::from_span_and_file(
                 binding_info.span,
                 workspace
@@ -52,6 +77,7 @@ pub(crate) fn goto_definition(workspace: &Workspace, offset: usize) {
                     .file_path
                     .to_string(),
             ));
+
             return;
         }
 
@@ -65,6 +91,7 @@ pub(crate) fn goto_definition(workspace: &Workspace, offset: usize) {
                         .file_path
                         .to_string(),
                 ));
+
                 return;
             }
         }
