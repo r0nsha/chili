@@ -62,17 +62,9 @@ pub(crate) fn diagnostics(
 
 pub(crate) fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
     if let Some(tycx) = tycx {
-        let searched_binding_info = workspace
-            .binding_infos
-            .iter()
-            .filter(|binding_info| binding_info.module_id == workspace.root_module_id)
-            .find(|binding_info| {
-                binding_info.span.contains(offset)
-                    || binding_info
-                        .uses
-                        .iter()
-                        .any(|use_span| use_span.contains(offset))
-            });
+        let searched_binding_info = workspace.binding_infos.iter().find(|binding_info| {
+            binding_info.module_id == workspace.root_module_id && binding_info.span.contains(offset)
+        });
 
         if let Some(binding_info) = searched_binding_info {
             write(&HoverInfo {
