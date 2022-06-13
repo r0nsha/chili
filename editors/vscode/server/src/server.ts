@@ -20,11 +20,14 @@ import {
 } from "./types";
 import {
   convertPosition,
+  convertSpan,
+  findLineBreaks,
   includeFlagForPath,
   runCompiler,
   throttle,
   tmpFile,
 } from "./util";
+import * as fs from "fs";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -105,12 +108,13 @@ connection.onInitialized(() => {
       undefined
     );
   }
-  if (hasWorkspaceFolderCapability) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    connection.workspace.onDidChangeWorkspaceFolders((_event) => {
-      connection.console.log("Workspace folder change event received.");
-    });
-  }
+
+  // if (hasWorkspaceFolderCapability) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // connection.workspace.onDidChangeWorkspaceFolders((_event) => {
+  // connection.console.log("Workspace folder change event received.");
+  // });
+  // }
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -325,7 +329,7 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
 
   for (const line of lines) {
     const span: Span | null = JSON.parse(line);
-    console.log(span);
+    // console.log(span);
 
     if (span) {
       const uri =
@@ -333,20 +337,30 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
           ? request.textDocument.uri
           : "file://" + span.file;
 
-      console.log(`going to definition: ${uri}`);
+      const fileContents = fs.readFileSync(span.file).toString();
 
-      const document = documents.get(uri);
+      const lineBreaks = findLineBreaks(fileContents);
 
-      if (document) {
-        const range = spanToRange(document, span);
+      const start = convertSpan(span.start, lineBreaks);
+      const end = convertSpan(span.end, lineBreaks);
 
-        console.log(`going to definition: ${uri} | ${range}`);
+      // console.log(`going to definition: ${uri} | ${start}..${end}`);
 
-        return {
-          uri,
-          range,
-        };
-      }
+      return {
+        uri,
+        range: { start, end },
+      };
+
+      // const document = documents.get(uri);
+
+      // if (document) {
+      //   const range = spanToRange(document, span);
+
+      //   return {
+      //     uri,
+      //     range,
+      //   };
+      // }
     }
   }
 };
