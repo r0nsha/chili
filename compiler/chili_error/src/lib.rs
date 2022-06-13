@@ -1,6 +1,8 @@
 pub mod diagnostic;
 pub mod emitter;
 
+use std::path::Path;
+
 use chili_span::{FileId, Span};
 use codespan_reporting::files::{SimpleFile, SimpleFiles};
 use diagnostic::{Diagnostic, DiagnosticSeverity, Label};

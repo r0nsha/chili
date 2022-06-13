@@ -175,9 +175,6 @@ async function validateTextDocument(
     return;
   }
 
-  // In this simple example we get the settings for every validate run.
-  const settings = await getDocumentSettings(textDocument.uri);
-
   // The validator creates diagnostics for all uppercase words length 2 and more
   const text = textDocument.getText();
 
@@ -354,9 +351,9 @@ async function runCompiler(text: string, flags: string): Promise<string> {
 
 function includeFlagForPath(file_path: string): string {
   const protocol_end = file_path.indexOf("://");
-  if (protocol_end == -1) return " --include-path " + file_path;
+  if (protocol_end == -1) return " --include-paths " + file_path;
   // Not protocol.length + 3, include the last '/'
-  return " --include-path " + path.dirname(file_path.slice(protocol_end + 2));
+  return " --include-paths " + path.dirname(file_path.slice(protocol_end + 2));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -30,7 +30,12 @@ impl Parser {
                 .join(PathBuf::from(path.trim_start_matches("~/")))
                 .with_extension(compiler_info::SOURCE_FILE_EXT);
 
-            try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(token.span))?
+            let import_path =
+                try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(token.span))?;
+
+            self.check_import_path_is_under_root(&cache, &import_path, token.span)?;
+
+            import_path
         } else if compiler_info::is_std_module_path(&path) {
             // import std root file
             // example: @import("std")
@@ -55,32 +60,8 @@ impl Parser {
             // import relative to current dir
             // example: @import("foo/bar")
             let import_path = PathBuf::from(path).with_extension(compiler_info::SOURCE_FILE_EXT);
-
-            println!("{:?}", self.search_for_path(&cache, &import_path));
-
-            try_resolve_relative_path(
-                &import_path,
-                RelativeTo::Path(Path::new(self.module_info.dir())),
-                Some(token.span),
-            )?
+            self.search_for_import_path(&cache, &import_path, token.span)?
         };
-
-        let root_dir = &cache.root_dir;
-
-        // TODO: We specially handle the case of paths under std.
-        // TODO: In the future, we'd like to treat std is a proper library, so we won't need this.
-        if !absolute_import_path.starts_with(root_dir)
-            && !absolute_import_path.starts_with(compiler_info::std_module_root_dir())
-        {
-            return Err(Diagnostic::error()
-                .with_message("cannot use a file outside of the root module's directory")
-                .with_label(Label::primary(token.span, "cannot use this file"))
-                .with_note(format!(
-                    "import path is {}",
-                    absolute_import_path.to_str().unwrap()
-                ))
-                .with_note(format!("root directory is {}", root_dir.to_str().unwrap())));
-        }
 
         let module_name = self.get_module_name_from_path(&cache, &absolute_import_path);
 
@@ -99,18 +80,37 @@ impl Parser {
         Ok(ast::BuiltinKind::Import(absolute_import_path))
     }
 
-    fn search_for_path(&self, cache: &ParserCacheGuard, path: &Path) -> Option<PathBuf> {
-        if let Some(path) = resolve_relative_path(&path, RelativeTo::Path(self.module_info.dir())) {
-            return Some(path);
+    fn search_for_import_path(
+        &self,
+        cache: &ParserCacheGuard,
+        path: &Path,
+        span: Span,
+    ) -> DiagnosticResult<PathBuf> {
+        let current_dir = self.module_info.dir();
+
+        if let Some(import_path) = resolve_relative_path(&path, RelativeTo::Path(current_dir)) {
+            self.check_import_path_is_under_root(&cache, &import_path, span)?;
+            return Ok(import_path);
         } else {
             for include_path in cache.include_paths.iter() {
                 if let Some(path) = resolve_relative_path(&path, RelativeTo::Path(include_path)) {
-                    return Some(path);
+                    return Ok(path);
                 }
             }
-
-            None
         }
+
+        let mut diagnostic = Diagnostic::error()
+            .with_message(format!("path `{}` doesn't exist", path.display()))
+            .with_label(Label::primary(span, "doesn't exist"))
+            .with_note("searched paths:");
+
+        diagnostic.add_note(current_dir.join(path).to_str().unwrap());
+
+        for include_path in cache.include_paths.iter() {
+            diagnostic.add_note(include_path.to_str().unwrap());
+        }
+
+        Err(diagnostic)
     }
 
     fn get_module_name_from_path(&self, cache: &ParserCacheGuard, path: &Path) -> String {
@@ -131,5 +131,22 @@ impl Parser {
             .trim_start_matches(DOT)
             .trim_end_matches(DOT)
             .to_string()
+    }
+
+    fn check_import_path_is_under_root(
+        &self,
+        cache: &ParserCacheGuard,
+        import_path: &Path,
+        span: Span,
+    ) -> DiagnosticResult<()> {
+        if import_path.starts_with(&cache.root_dir) || import_path.starts_with(&cache.std_dir) {
+            Ok(())
+        } else {
+            Err(Diagnostic::error()
+                .with_message("cannot use a file outside of the root module's directory")
+                .with_label(Label::primary(span, "cannot use this file"))
+                .with_note(format!("import path is {}", import_path.to_str().unwrap()))
+                .with_note(format!("root directory is {}", cache.root_dir.display())))
+        }
     }
 }
