@@ -7,7 +7,7 @@ mod import;
 mod top_level;
 
 use chili_ast::{
-    ast,
+    ast::{self, TypedAst},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
@@ -48,11 +48,11 @@ use ustr::{ustr, Ustr, UstrMap, UstrSet};
 pub fn check(
     workspace: &mut Workspace,
     ast: Vec<ast::Ast>,
-) -> Result<(ast::TypedAst, TyCtx), (TyCtx, Diagnostic)> {
+) -> Result<(ast::TypedAst, TyCtx), (TyCtx, TypedAst, Diagnostic)> {
     let mut sess = CheckSess::new(workspace, &ast);
 
     if let Err(diag) = sess.start() {
-        return Err((sess.tycx, diag));
+        return Err((sess.tycx, sess.new_typed_ast, diag));
     }
 
     substitute(

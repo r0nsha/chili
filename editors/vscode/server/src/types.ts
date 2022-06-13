@@ -33,6 +33,7 @@ export type LspObject =
       type: "Hint";
       span: Span;
       type_name: string;
+      kind: "Binding" | "ReturnType" | "ImplicitParam";
     };
 
 export interface HoverInfo {

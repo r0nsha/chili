@@ -174,7 +174,7 @@ const tmpFiles: { [uri: string]: tmp.FileResult } = {};
 documents.onDidChangeContent(
   createThrottledDocumentChangeEventHandler("changeContent")
 );
-documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
+// documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
 
 documents.onDidOpen((e) => {
   tmpFiles[e.document.uri] = tmp.fileSync();
@@ -252,11 +252,23 @@ async function validateTextDocument(
 
           const position = textDocument.positionAt(object.span.end);
 
-          const hint_string = ": " + object.type_name;
+          let hintString: string;
+
+          switch (object.kind) {
+            case "Binding":
+              hintString = `: ${object.type_name}`;
+              break;
+            case "ReturnType":
+              hintString = ` -> ${object.type_name}`;
+              break;
+            case "ImplicitParam":
+              hintString = `(${object.type_name})`;
+              break;
+          }
 
           const inlayHint = InlayHint.create(
             position,
-            [InlayHintLabelPart.create(hint_string)],
+            [InlayHintLabelPart.create(hintString)],
             InlayHintKind.Type
           );
 

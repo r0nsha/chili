@@ -60,10 +60,10 @@ pub fn start_workspace(
     let (typed_ast, tycx) = time! { workspace.build_options.verbose, "check",
         match chili_check::check(&mut workspace, asts) {
             Ok(result) => result,
-            Err((tycx,diagnostic)) => {
+            Err((tycx, typed_ast, diagnostic)) => {
                 workspace.diagnostics.push(diagnostic);
                 workspace.emit_diagnostics();
-                return (workspace, Some(tycx),None);
+                return (workspace, Some(tycx), Some(typed_ast));
             }
         }
     };

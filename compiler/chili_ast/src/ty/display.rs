@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 
 impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[unknown]")
+        write!(f, "???")
     }
 }
 
@@ -61,7 +61,7 @@ impl Display for TyKind {
                 TyKind::Infer(_, InferTy::AnyInt) => "[integer]".to_string(),
                 TyKind::Infer(_, InferTy::AnyFloat) => "[float]".to_string(),
                 TyKind::Var(v) => v.to_string(),
-                TyKind::Unknown => "[unknown]".to_string(),
+                TyKind::Unknown => "???".to_string(),
             }
         )
     }

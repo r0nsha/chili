@@ -141,7 +141,7 @@ impl Lint for ast::Block {
 impl Lint for ast::Expr {
     fn lint(&self, sess: &mut LintSess) {
         match &self.kind {
-            ast::ExprKind::Binding(e) => e.lint(sess),
+            ast::ExprKind::Binding(binding) => binding.lint(sess),
             ast::ExprKind::Defer(defer) => defer.expr.lint(sess),
             ast::ExprKind::Assign(assign) => {
                 assign.rvalue.lint(sess);
