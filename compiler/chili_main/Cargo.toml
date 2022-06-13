@@ -22,6 +22,7 @@ chili_error = { path = "../chili_error" }
 chili_ast = { path = "../chili_ast" }
 chili_pretty_print = { path = "../chili_pretty_print" }
 chili_astgen = { path = "../chili_astgen" }
+chili_infer = { path = "../chili_infer" }
 chili_check = { path = "../chili_check" }
 chili_lint = { path = "../chili_lint" }
 chili_backend_llvm = { path = "../chili_backend_llvm" }

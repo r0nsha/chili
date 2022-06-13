@@ -1,12 +1,3 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
-import * as fs from "fs";
-import * as tmp from "tmp";
-import * as path from "path";
-import * as util from "node:util";
-
 import {
   createConnection,
   TextDocuments,
@@ -15,9 +6,6 @@ import {
   ProposedFeatures,
   InitializeParams,
   DidChangeConfigurationNotification,
-  CompletionItem,
-  CompletionItemKind,
-  TextDocumentPositionParams,
   TextDocumentSyncKind,
   InitializeResult,
 } from "vscode-languageserver/node";
@@ -28,13 +16,7 @@ interface ChiliTextDocument extends TextDocument {
   chiliInlayHints?: InlayHint[];
 }
 
-import {
-  Position,
-  InlayHint,
-  InlayHintParams,
-  InlayHintLabelPart,
-  InlayHintKind,
-} from "vscode-languageserver-protocol";
+import { InlayHint } from "vscode-languageserver-protocol";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -47,11 +29,15 @@ let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 
-import { TextEncoder } from "node:util";
+import { HoverInfo, LspDiagnosticSeverity, LspObject } from "./types";
+import {
+  convertPosition,
+  includeFlagForPath,
+  runCompiler,
+  throttle,
+  tmpFile,
+} from "./util";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const exec = util.promisify(require("node:child_process").exec);
-
-const tmpFile = tmp.fileSync();
 
 // The example settings
 interface ExampleSettings {
@@ -87,6 +73,16 @@ connection.onInitialize(({ capabilities }: InitializeParams) => {
   const result: InitializeResult = {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Full,
+      hoverProvider: true,
+      // completionProvider: {
+      // 	resolveProvider: false,
+      // 	triggerCharacters: ['.']
+      // },
+      // inlayHintProvider: {
+      // 	resolveProvider: false
+      // },
+      // definitionProvider: true,
+      // typeDefinitionProvider: true,
     },
   };
 
@@ -119,6 +115,27 @@ connection.onInitialized(() => {
   }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+  if (!hasConfigurationCapability) {
+    return Promise.resolve(globalSettings);
+  }
+  let result = documentSettings.get(resource);
+  if (!result) {
+    result = connection.workspace.getConfiguration({
+      scopeUri: resource,
+      section: "chiliLanguageServer",
+    });
+    documentSettings.set(resource, result);
+  }
+  return result;
+}
+
+// Only keep settings for open documents
+documents.onDidClose((e) => {
+  documentSettings.delete(e.document.uri);
+});
+
 connection.onDidChangeConfiguration((change) => {
   if (hasConfigurationCapability) {
     // Reset all cached document settings
@@ -141,27 +158,6 @@ documents.onDidChangeContent(
     };
   })()
 );
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
-  if (!hasConfigurationCapability) {
-    return Promise.resolve(globalSettings);
-  }
-  let result = documentSettings.get(resource);
-  if (!result) {
-    result = connection.workspace.getConfiguration({
-      scopeUri: resource,
-      section: "chiliLanguageServer",
-    });
-    documentSettings.set(resource, result);
-  }
-  return result;
-}
-
-// Only keep settings for open documents
-documents.onDidClose((e) => {
-  documentSettings.delete(e.document.uri);
-});
 
 async function validateTextDocument(
   textDocument: ChiliTextDocument
@@ -186,8 +182,10 @@ async function validateTextDocument(
 
   // const seenTypeHintPositions = new Set();
 
-  const stdout = await runCompiler(text, includeFlagForPath(textDocument.uri));
-  // const stdout = await runCompiler2(textDocument.uri, "");
+  const stdout = await runCompiler(
+    text,
+    "--diagnostics " + includeFlagForPath(textDocument.uri)
+  );
 
   const lines = stdout.split("\n").filter((l) => l.length > 0);
 
@@ -255,135 +253,51 @@ async function validateTextDocument(
   console.timeEnd("validateTextDocument");
 }
 
-function lowerBoundBinarySearch(arr: number[], num: number): number {
-  let low = 0;
-  let mid = 0;
-  let high = arr.length - 1;
+connection.onHover(async (request) => {
+  console.time("onHover");
 
-  if (num >= arr[high]) return high;
+  const document = documents.get(request.textDocument.uri);
 
-  while (low < high) {
-    // Bitshift to avoid floating point division
-    mid = (low + high) >> 1;
+  const text = document?.getText();
 
-    if (arr[mid] < num) {
-      low = mid + 1;
-    } else {
-      high = mid;
+  if (typeof text == "string") {
+    // console.log("request: ");
+    // console.log(request);
+
+    const index = convertPosition(request.position, text);
+    // console.log("index: " + index);
+
+    const stdout = await runCompiler(
+      text,
+      "--hover-info " + index + includeFlagForPath(request.textDocument.uri)
+    );
+    // console.log("got: ", stdout);
+
+    const lines = stdout.split("\n").filter((l) => l.length > 0);
+    for (const line of lines) {
+      // console.log("hovering");
+
+      const object: HoverInfo | null = JSON.parse(line);
+      // console.log(object);
+
+      if (object) {
+        // FIXME: Figure out how to import `vscode` package in server.ts without
+        // getting runtime import errors to remove this deprication warning.
+        const contents = {
+          value: object.contents,
+          language: "chili",
+        };
+
+        console.timeEnd("onHover");
+        return { contents };
+      }
     }
   }
 
-  return low - 1;
-}
+  console.timeEnd("onHover");
 
-function convertSpan(utf8_offset: number, lineBreaks: Array<number>): Position {
-  const lineBreakIndex = lowerBoundBinarySearch(lineBreaks, utf8_offset);
-
-  const start_of_line_offset =
-    lineBreakIndex == -1 ? 0 : lineBreaks[lineBreakIndex] + 1;
-  const character = utf8_offset - start_of_line_offset;
-
-  return { line: lineBreakIndex + 1, character };
-}
-
-function convertPosition(position: Position, text: string): number {
-  let line = 0;
-  let character = 0;
-  const buffer = new TextEncoder().encode(text);
-
-  let i = 0;
-  while (i < text.length) {
-    if (line == position.line && character == position.character) {
-      return i;
-    }
-
-    if (buffer.at(i) == 0x0a) {
-      line++;
-      character = 0;
-    } else {
-      character++;
-    }
-
-    i++;
-  }
-
-  return i;
-}
-
-function findLineBreaks(utf16_text: string): Array<number> {
-  const utf8_text = new TextEncoder().encode(utf16_text);
-  const lineBreaks: Array<number> = [];
-
-  for (let i = 0; i < utf8_text.length; ++i) {
-    if (utf8_text[i] == 0x0a) {
-      lineBreaks.push(i);
-    }
-  }
-
-  return lineBreaks;
-}
-
-async function runCompiler(text: string, flags: string): Promise<string> {
-  try {
-    fs.writeFileSync(tmpFile.name, text);
-  } catch (error) {
-    console.log(error);
-  }
-
-  let stdout = "";
-
-  try {
-    const output = await exec(`chili check ${tmpFile.name} ${flags}`);
-    // console.log(output);
-    if (output.stderr != null && output.stderr != "") {
-      console.error(output.stderr);
-    } else {
-      stdout = output.stdout;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    console.log(e);
-    stdout = e.stdout ?? "";
-  }
-
-  return stdout;
-}
-
-function includeFlagForPath(file_path: string): string {
-  const protocol_end = file_path.indexOf("://");
-  if (protocol_end == -1) return " --include-paths " + file_path;
-  // Not protocol.length + 3, include the last '/'
-  return " --include-paths " + path.dirname(file_path.slice(protocol_end + 2));
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function throttle(fn: (...args: any) => void, delay: number) {
-  let shouldWait = false;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let waitingArgs: any | null;
-  const timeoutFunc = () => {
-    if (waitingArgs == null) {
-      shouldWait = false;
-    } else {
-      fn(...waitingArgs);
-      waitingArgs = null;
-      setTimeout(timeoutFunc, delay);
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (...args: any) => {
-    if (shouldWait) {
-      waitingArgs = args;
-      return;
-    }
-
-    fn(...args);
-    shouldWait = true;
-
-    setTimeout(timeoutFunc, delay);
-  };
-}
+  return null;
+});
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events
@@ -391,24 +305,3 @@ documents.listen(connection);
 
 // Listen on the connection
 connection.listen();
-
-export interface Span {
-  start: number;
-  end: number;
-}
-
-export interface LspDiagnostic {
-  severity: LspDiagnosticSeverity;
-  span: Span;
-  message: string;
-  source: string;
-}
-
-export enum LspDiagnosticSeverity {
-  Error,
-}
-
-export type LspObject = {
-  type: "diagnostic";
-  diagnostic: LspDiagnostic;
-};

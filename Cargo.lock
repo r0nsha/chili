@@ -257,6 +257,7 @@ dependencies = [
  "chili_backend_llvm",
  "chili_check",
  "chili_error",
+ "chili_infer",
  "chili_lint",
  "chili_pretty_print",
  "chili_span",

@@ -1,4 +1,4 @@
-use crate::{build::start_workspace, ide::do_ide_check};
+use crate::{build::start_workspace, ide};
 use clap::*;
 use colored::Colorize;
 use common::{
@@ -83,6 +83,14 @@ struct CheckArgs {
     /// Additional include paths, separated by ;
     #[clap(long)]
     include_paths: Option<String>,
+
+    /// Return diagnostics of the input file, and all files imported by it - recursively
+    #[clap(long)]
+    diagnostics: bool,
+
+    /// Return the hover info for a given index, in the given input file
+    #[clap(long)]
+    hover_info: Option<usize>,
 }
 
 pub fn start_cli() {
@@ -142,9 +150,13 @@ fn run_check(args: CheckArgs) {
                 include_paths: get_include_paths(&args.include_paths),
             };
 
-            let workspace = start_workspace(build_options);
+            let (workspace, tycx) = start_workspace(build_options);
 
-            do_ide_check(&workspace);
+            if args.diagnostics {
+                ide::write_diagnostics(&workspace);
+            } else if let Some(index) = args.hover_info {
+                ide::write_hover_info(&workspace, tycx.as_ref(), index);
+            }
         }
         Err(e) => print_err(&e),
     }

@@ -48,10 +48,12 @@ use ustr::{ustr, Ustr, UstrMap, UstrSet};
 pub fn check(
     workspace: &mut Workspace,
     ast: Vec<ast::Ast>,
-) -> DiagnosticResult<(ast::TypedAst, TyCtx)> {
+) -> Result<(ast::TypedAst, TyCtx), (TyCtx, Diagnostic)> {
     let mut sess = CheckSess::new(workspace, &ast);
 
-    sess.start()?;
+    if let Err(diag) = sess.start() {
+        return Err((sess.tycx, diag));
+    }
 
     substitute(
         &mut sess.workspace.diagnostics,
