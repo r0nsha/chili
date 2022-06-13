@@ -28,13 +28,13 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
             .map_err(|diag| workspace.diagnostics.push(diag))
             .ok()?;
 
-    let (mut asts, stats) = generate_ast_inner(workspace, root_file_path);
+    let (mut asts, stats) = generate_ast_inner(workspace, root_file_path.clone());
 
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
         ast.module_id = workspace.add_module_info(ast.module_info);
 
-        if ast.module_info.name == "" {
+        if ast.module_info.file_path.as_str() == root_file_path.to_str().unwrap() {
             workspace.root_module_id = ast.module_id;
         }
     }

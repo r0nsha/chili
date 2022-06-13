@@ -1390,7 +1390,9 @@ impl Check for ast::Expr {
 
                 // if the accessed expression's type is not resolved yet - try unifying it with a partial type
                 match res.ty.normalize(&sess.tycx) {
-                    TyKind::Var(_) => {
+                    TyKind::Var(_)
+                    | TyKind::Infer(_, InferTy::PartialStruct(_))
+                    | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
                         // if this parsing operation succeeds, this is a tuple member access - `tup.0`
                         // otherwise, this is a struct field access - `strct.field`
 

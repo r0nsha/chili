@@ -1,12 +1,5 @@
-use chili_ast::workspace::{BindingInfo, Workspace};
+use chili_ast::workspace::Workspace;
 use chili_span::Span;
-
-#[inline]
-pub fn find_offset_in_root_module(workspace: &Workspace, offset: usize) -> Option<&BindingInfo> {
-    workspace.binding_infos.iter().find(|binding_info| {
-        binding_info.module_id == workspace.root_module_id && binding_info.span.contains(offset)
-    })
-}
 
 #[inline]
 pub fn is_offset_in_span_and_root_module(workspace: &Workspace, offset: usize, span: Span) -> bool {

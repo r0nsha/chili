@@ -61,13 +61,26 @@ pub(crate) fn diagnostics(
 }
 
 pub(crate) fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
-    match (tycx, find_offset_in_root_module(workspace, offset)) {
-        (Some(tycx), Some(binding_info)) => {
+    if let Some(tycx) = tycx {
+        let searched_binding_info = workspace
+            .binding_infos
+            .iter()
+            .filter(|binding_info| binding_info.module_id == workspace.root_module_id)
+            .find(|binding_info| {
+                binding_info.span.contains(offset)
+                    || binding_info
+                        .uses
+                        .iter()
+                        .any(|use_span| use_span.contains(offset))
+            });
+
+        if let Some(binding_info) = searched_binding_info {
             write(&HoverInfo {
-                contents: binding_info.ty.display(tycx),
+                contents: binding_info.ty.normalize(tycx).to_string(),
             });
         }
-        _ => write_null(),
+    } else {
+        write_null();
     }
 }
 
