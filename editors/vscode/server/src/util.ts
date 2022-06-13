@@ -7,8 +7,6 @@ import { TextEncoder, promisify } from "node:util";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const exec = promisify(require("node:child_process").exec);
 
-export const tmpFile = tmp.fileSync();
-
 export function lowerBoundBinarySearch(arr: number[], num: number): number {
   let low = 0;
   let mid = 0;
@@ -81,6 +79,7 @@ export function findLineBreaks(utf16_text: string): Array<number> {
 }
 
 export async function runCompiler(
+  tmpFile: tmp.FileResult,
   text: string,
   flags: string
 ): Promise<string> {

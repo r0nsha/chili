@@ -8,6 +8,7 @@ import {
   DidChangeConfigurationNotification,
   TextDocumentSyncKind,
   InitializeResult,
+  TextDocumentChangeEvent,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
@@ -25,9 +26,9 @@ import {
   includeFlagForPath,
   runCompiler,
   throttle,
-  tmpFile,
 } from "./util";
 import * as fs from "fs";
+import * as tmp from "tmp";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -133,11 +134,6 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
   return result;
 }
 
-// Only keep settings for open documents
-documents.onDidClose((e) => {
-  documentSettings.delete(e.document.uri);
-});
-
 connection.onDidChangeConfiguration((change) => {
   if (hasConfigurationCapability) {
     // Reset all cached document settings
@@ -149,22 +145,58 @@ connection.onDidChangeConfiguration((change) => {
   }
 
   // Revalidate all open text documents
-  documents.all().forEach(validateTextDocument);
+  documents
+    .all()
+    .forEach((textDocument) =>
+      validateTextDocument("changeConfiguration", textDocument)
+    );
 });
 
+const THROTTLE_MS = 500;
+
+const createThrottledDocumentChangeEventHandler = (name: string) => {
+  const throttledValidateTextDocument = throttle(
+    validateTextDocument,
+    THROTTLE_MS
+  );
+
+  return <T>(e: TextDocumentChangeEvent<T>) => {
+    throttledValidateTextDocument(name, e.document);
+  };
+};
+
+const tmpFiles: { [uri: string]: tmp.FileResult } = {};
+
 documents.onDidChangeContent(
+  createThrottledDocumentChangeEventHandler("changeContent")
+);
+documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
+
+documents.onDidOpen(
   (() => {
-    const throttledValidateTextDocument = throttle(validateTextDocument, 500);
-    return (change) => {
-      throttledValidateTextDocument(change.document);
+    const throttledValidateTextDocument = throttle(
+      validateTextDocument,
+      THROTTLE_MS
+    );
+
+    return (e: TextDocumentChangeEvent<TextDocument>) => {
+      tmpFiles[e.document.uri] = tmp.fileSync();
+      throttledValidateTextDocument("open", e.document);
     };
   })()
 );
 
+// Only keep settings for open documents
+documents.onDidClose((e) => {
+  delete tmpFiles[e.document.uri];
+  documentSettings.delete(e.document.uri);
+});
+
 async function validateTextDocument(
+  name: string,
   textDocument: ChiliTextDocument
 ): Promise<void> {
-  console.time("validateTextDocument");
+  console.time(`validateTextDocument_${name}`);
 
   if (!hasDiagnosticRelatedInformationCapability) {
     console.error(
@@ -173,19 +205,14 @@ async function validateTextDocument(
     return;
   }
 
-  // The validator creates diagnostics for all uppercase words length 2 and more
-  const text = textDocument.getText();
-
-  // const lineBreaks = findLineBreaks(text);
-
   textDocument.chiliInlayHints = [];
 
+  const tmpFile = tmpFiles[textDocument.uri];
   const diagnostics: Diagnostic[] = [];
 
-  // const seenTypeHintPositions = new Set();
-
   const stdout = await runCompiler(
-    text,
+    tmpFile,
+    textDocument.getText(),
     "--diagnostics " + includeFlagForPath(textDocument.uri)
   );
 
@@ -210,6 +237,10 @@ async function validateTextDocument(
 
           const uri = "file://" + diagnostic.source;
           // console.log({  uri });
+
+          if (diagnostic.source != tmpFile.name) {
+            return;
+          }
 
           const document =
             diagnostic.source == tmpFile.name
@@ -252,48 +283,52 @@ async function validateTextDocument(
   // Send the computed diagnostics to VSCode.
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 
-  console.timeEnd("validateTextDocument");
+  console.timeEnd(`validateTextDocument_${name}`);
 }
 
 connection.onHover(async (request) => {
   console.time("onHover");
 
-  const document = documents.get(request.textDocument.uri);
+  const textDocument = documents.get(request.textDocument.uri);
 
-  const text = document?.getText();
+  if (!textDocument) {
+    return null;
+  }
 
-  if (typeof text == "string") {
-    // console.log("request: ");
-    // console.log(request);
+  const text = textDocument.getText();
 
-    const offset = convertPosition(request.position, text);
-    // console.log("offset: " + index);
+  // console.log("request: ");
+  // console.log(request);
 
-    const stdout = await runCompiler(
-      text,
-      "--hover-info " + offset + includeFlagForPath(request.textDocument.uri)
-    );
-    // console.log("got: ", stdout);
+  const tmpFile = tmpFiles[textDocument.uri];
+  const offset = convertPosition(request.position, text);
+  // console.log("offset: " + index);
 
-    const lines = stdout.split("\n").filter((l) => l.length > 0);
-    for (const line of lines) {
-      // console.log("hovering");
+  const stdout = await runCompiler(
+    tmpFile,
+    text,
+    "--hover-info " + offset + includeFlagForPath(request.textDocument.uri)
+  );
+  // console.log("got: ", stdout);
 
-      const hoverInfo: HoverInfo | null = JSON.parse(line);
-      // console.log(object);
+  const lines = stdout.split("\n").filter((l) => l.length > 0);
+  for (const line of lines) {
+    // console.log("hovering");
 
-      if (hoverInfo) {
-        // FIXME: Figure out how to import `vscode` package in server.ts without
-        // getting runtime import errors to remove this deprication warning.
-        const contents = {
-          value: hoverInfo.contents,
-          language: "chili",
-        };
+    const hoverInfo: HoverInfo | null = JSON.parse(line);
+    // console.log(object);
 
-        console.timeEnd("onHover");
+    if (hoverInfo) {
+      // FIXME: Figure out how to import `vscode` package in server.ts without
+      // getting runtime import errors to remove this deprication warning.
+      const contents = {
+        value: hoverInfo.contents,
+        language: "chili",
+      };
 
-        return { contents };
-      }
+      console.timeEnd("onHover");
+
+      return { contents };
     }
   }
 
@@ -305,21 +340,23 @@ connection.onHover(async (request) => {
 const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
   request
 ) => {
-  const document = documents.get(request.textDocument.uri);
+  const textDocument = documents.get(request.textDocument.uri);
 
-  if (!document) {
+  if (!textDocument) {
     return null;
   }
 
-  const text = document.getText();
+  const text = textDocument.getText();
 
-  const offset = document.offsetAt(request.position);
+  const tmpFile = tmpFiles[textDocument.uri];
+  const offset = textDocument.offsetAt(request.position);
 
   // console.log("request: ");
   // console.log(request);
   // console.log("offset: " + convertPosition(request.position, text));
 
   const stdout = await runCompiler(
+    tmpFile,
     text,
     "--goto-def " + offset + includeFlagForPath(request.textDocument.uri)
   );
