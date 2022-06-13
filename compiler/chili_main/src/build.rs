@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use chili_ast::workspace::Workspace;
+use chili_ast::{ast::TypedAst, workspace::Workspace};
 use chili_astgen::AstGenerationStats;
 use chili_error::diagnostic::Diagnostic;
 use chili_infer::ty_ctx::TyCtx;
@@ -9,7 +9,9 @@ use common::{build_options::BuildOptions, time, Stopwatch};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
-pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>) {
+pub fn start_workspace(
+    build_options: BuildOptions,
+) -> (Workspace, Option<TyCtx>, Option<TypedAst>) {
     // Set up workspace
     let source_path = build_options.source_path();
     let absolute_path = source_path.absolutize().unwrap();
@@ -34,7 +36,7 @@ pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>
 
         workspace.emit_diagnostics();
 
-        return (workspace, None);
+        return (workspace, None, None);
     }
 
     // Parse all source files into ast's
@@ -43,7 +45,7 @@ pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>
                 Some(result) => result,
                 None => {
                     workspace.emit_diagnostics();
-                    return (workspace, None);
+                    return (workspace, None,None);
                 }
             }
         }
@@ -51,7 +53,7 @@ pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return (workspace, None);
+        return (workspace, None, None);
     }
 
     // Type inference, type checking, static analysis, const folding, etc..
@@ -61,14 +63,14 @@ pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>
             Err((tycx,diagnostic)) => {
                 workspace.diagnostics.push(diagnostic);
                 workspace.emit_diagnostics();
-                return (workspace, Some(tycx));
+                return (workspace, Some(tycx),None);
             }
         }
     };
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return (workspace, Some(tycx));
+        return (workspace, Some(tycx), Some(typed_ast));
     }
 
     // Lint - does auxillary checks which are not required for compilation
@@ -78,7 +80,7 @@ pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return (workspace, Some(tycx));
+        return (workspace, Some(tycx), Some(typed_ast));
     }
 
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
@@ -103,7 +105,7 @@ pub fn start_workspace(build_options: BuildOptions) -> (Workspace, Option<TyCtx>
         }
     }
 
-    (workspace, Some(tycx))
+    (workspace, Some(tycx), Some(typed_ast))
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {

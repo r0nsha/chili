@@ -154,10 +154,10 @@ fn run_check(args: CheckArgs) {
                 include_paths: get_include_paths(&args.include_paths),
             };
 
-            let (workspace, tycx) = start_workspace(build_options);
+            let (workspace, tycx, typed_ast) = start_workspace(build_options);
 
             if args.diagnostics {
-                ide::diagnostics(&workspace);
+                ide::diagnostics(&workspace, tycx.as_ref(), typed_ast.as_ref());
             } else if let Some(offset) = args.hover_info {
                 ide::hover_info(&workspace, tycx.as_ref(), offset);
             } else if let Some(offset) = args.goto_def {

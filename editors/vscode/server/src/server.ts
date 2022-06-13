@@ -9,6 +9,10 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   TextDocumentChangeEvent,
+  InlayHintParams,
+  InlayHint,
+  InlayHintLabelPart,
+  InlayHintKind,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
@@ -78,12 +82,12 @@ connection.onInitialize(({ capabilities }: InitializeParams) => {
       hoverProvider: true,
       definitionProvider: true,
       typeDefinitionProvider: true,
+      inlayHintProvider: {
+        resolveProvider: false,
+      },
       // completionProvider: {
       // 	resolveProvider: false,
       // 	triggerCharacters: ['.']
-      // },
-      // inlayHintProvider: {
-      // 	resolveProvider: false
       // },
     },
   };
@@ -147,8 +151,8 @@ connection.onDidChangeConfiguration((change) => {
   // Revalidate all open text documents
   documents
     .all()
-    .forEach((textDocument) =>
-      validateTextDocument("changeConfiguration", textDocument)
+    .forEach((textDocument, index) =>
+      validateTextDocument(`changeConfiguration_${index}`, textDocument)
     );
 });
 
@@ -172,21 +176,10 @@ documents.onDidChangeContent(
 );
 documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
 
-documents.onDidOpen(
-  (() => {
-    const throttledValidateTextDocument = throttle(
-      validateTextDocument,
-      THROTTLE_MS
-    );
+documents.onDidOpen((e) => {
+  tmpFiles[e.document.uri] = tmp.fileSync();
+});
 
-    return (e: TextDocumentChangeEvent<TextDocument>) => {
-      tmpFiles[e.document.uri] = tmp.fileSync();
-      throttledValidateTextDocument("open", e.document);
-    };
-  })()
-);
-
-// Only keep settings for open documents
 documents.onDidClose((e) => {
   delete tmpFiles[e.document.uri];
   documentSettings.delete(e.document.uri);
@@ -209,6 +202,7 @@ async function validateTextDocument(
 
   const tmpFile = tmpFiles[textDocument.uri];
   const diagnostics: Diagnostic[] = [];
+  const seenTypeHintPositions: Set<Span> = new Set();
 
   const stdout = await runCompiler(
     tmpFile,
@@ -225,55 +219,49 @@ async function validateTextDocument(
       // console.log(objects);
 
       for (const object of objects) {
-        if (object.type == "diagnostic") {
-          const diagnostic = object.diagnostic;
+        if (object.type == "Diagnostic") {
+          const file = object.span.file;
 
           let severity = DiagnosticSeverity.Error;
-          switch (diagnostic.severity) {
+          switch (object.severity) {
             case LspDiagnosticSeverity.Error:
               severity = DiagnosticSeverity.Error;
               break;
           }
 
-          const uri = "file://" + diagnostic.source;
-          // console.log({  uri });
-
-          if (diagnostic.source != tmpFile.name) {
-            return;
-          }
-
-          const document =
-            diagnostic.source == tmpFile.name
-              ? textDocument
-              : documents.get(uri);
-
-          if (!document) {
-            console.error(`couldn't open text document: ${uri}`);
+          if (file != tmpFile.name) {
             continue;
           }
 
-          const range = spanToRange(document, diagnostic.span);
+          const range = spanToRange(textDocument, object.span);
 
           diagnostics.push({
             severity,
             range,
-            message: diagnostic.message,
-            source: document.uri.toString(),
+            message: object.message,
+            source: textDocument.uri.toString(),
           });
+        } else if (object.type == "Hint") {
+          const file = object.span.file;
+
+          if (file != tmpFile.name || seenTypeHintPositions.has(object.span)) {
+            continue;
+          }
+
+          seenTypeHintPositions.add(object.span);
+
+          const position = textDocument.positionAt(object.span.end);
+
+          const hint_string = ": " + object.type_name;
+
+          const inlayHint = InlayHint.create(
+            position,
+            [InlayHintLabelPart.create(hint_string)],
+            InlayHintKind.Type
+          );
+
+          textDocument.chiliInlayHints.push(inlayHint);
         }
-        //     } else if (obj.type == "hint") {
-        //       if (!seenTypeHintPositions.has(obj.position)) {
-        //         seenTypeHintPositions.add(obj.position);
-        //         const position = convertSpan(obj.position, lineBreaks);
-        //         const hint_string = ": " + obj.typename;
-        //         const hint = InlayHint.create(
-        //           position,
-        //           [InlayHintLabelPart.create(hint_string)],
-        //           InlayHintKind.Type
-        //         );
-        //         textDocument.chiliInlayHints.push(hint);
-        //       }
-        //     }
       }
     } catch (e) {
       console.error(e);
@@ -404,6 +392,11 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
 
 connection.onDefinition(goToDefinition);
 connection.onTypeDefinition(goToDefinition);
+
+connection.languages.inlayHint.on((params: InlayHintParams) => {
+  const document = documents.get(params.textDocument.uri) as ChiliTextDocument;
+  return document.chiliInlayHints;
+});
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

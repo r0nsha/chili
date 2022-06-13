@@ -18,21 +18,22 @@ export function spanToRange(textDocument: TextDocument, span: Span): Range {
   };
 }
 
-export interface LspDiagnostic {
-  severity: LspDiagnosticSeverity;
-  span: Span;
-  message: string;
-  source: string;
-}
-
 export enum LspDiagnosticSeverity {
   Error,
 }
 
-export type LspObject = {
-  type: "diagnostic";
-  diagnostic: LspDiagnostic;
-};
+export type LspObject =
+  | {
+      type: "Diagnostic";
+      severity: LspDiagnosticSeverity;
+      span: Span;
+      message: string;
+    }
+  | {
+      type: "Hint";
+      span: Span;
+      type_name: string;
+    };
 
 export interface HoverInfo {
   contents: string;

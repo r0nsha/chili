@@ -1,4 +1,5 @@
 use chili_ast::{
+    ast::TypedAst,
     ty::TyKind,
     workspace::{BindingInfo, Workspace},
 };
@@ -7,30 +8,58 @@ use chili_infer::{display::DisplayTy, normalize::Normalize, ty_ctx::TyCtx};
 use chili_span::{EndPosition, Position, Span};
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn diagnostics(workspace: &Workspace) {
-    let diagnostics: Vec<IdeDiagnosticResponse> = workspace
-        .diagnostics
-        .items()
-        .iter()
-        .filter(|diag| !diag.labels.is_empty())
-        .map(|diag| {
-            let label = diag.labels.first().unwrap();
-            let file = workspace.diagnostics.get_file(label.span.file_id).unwrap();
+pub(crate) fn diagnostics(
+    workspace: &Workspace,
+    tycx: Option<&TyCtx>,
+    typed_ast: Option<&TypedAst>,
+) {
+    let mut objects: Vec<IdeObject> = vec![];
 
-            let ide_diag = IdeDiagnostic {
-                severity: match &diag.severity {
-                    DiagnosticSeverity::Error => IdeDiagnosticSeverity::Error,
-                },
-                span: IdeSpan::from_span_and_file(label.span, file.name()),
-                message: diag.message.clone().unwrap(),
-                source: file.name().to_string(),
-            };
+    objects.extend(
+        workspace
+            .diagnostics
+            .items()
+            .iter()
+            .filter(|diag| !diag.labels.is_empty())
+            .map(|diag| {
+                let label = diag.labels.first().unwrap();
+                let file = workspace.diagnostics.get_file(label.span.file_id).unwrap();
 
-            IdeDiagnosticResponse::new(ide_diag)
-        })
-        .collect();
+                IdeObject::Diagnostic(IdeDiagnostic {
+                    severity: match &diag.severity {
+                        DiagnosticSeverity::Error => IdeDiagnosticSeverity::Error,
+                    },
+                    span: IdeSpan::from_span_and_file(label.span, file.name()),
+                    message: diag.message.clone().unwrap(),
+                })
+            }),
+    );
 
-    write(&diagnostics);
+    match (tycx, typed_ast) {
+        (Some(tycx), Some(typed_ast)) => typed_ast.bindings.iter().for_each(|binding| {
+            if binding.ty_expr.is_none() {
+                let ty = binding.ty.normalize(tycx);
+
+                match ty {
+                    TyKind::Function(_) | TyKind::Module(_) | TyKind::Type(_) | TyKind::AnyType => {
+                        ()
+                    }
+                    _ => {
+                        let span = binding.pattern.span();
+                        let file = workspace.diagnostics.get_file(span.file_id).unwrap();
+
+                        objects.push(IdeObject::Hint(Hint {
+                            span: IdeSpan::from_span_and_file(span, file.name()),
+                            type_name: ty.to_string(),
+                        }))
+                    }
+                }
+            }
+        }),
+        _ => (),
+    }
+
+    write(&objects);
 }
 
 pub(crate) fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
@@ -126,7 +155,7 @@ fn write_null() {
     println!("null")
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct IdeSpan {
     file: String,
     start: usize,
@@ -143,35 +172,32 @@ impl IdeSpan {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct IdeDiagnostic {
     severity: IdeDiagnosticSeverity,
     span: IdeSpan,
     message: String,
-    source: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 enum IdeDiagnosticSeverity {
     Error,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-struct IdeDiagnosticResponse {
-    r#type: String,
-    diagnostic: IdeDiagnostic,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Hint {
+    span: IdeSpan,
+    type_name: String,
 }
 
-impl IdeDiagnosticResponse {
-    fn new(diagnostic: IdeDiagnostic) -> Self {
-        Self {
-            r#type: "diagnostic".to_string(),
-            diagnostic,
-        }
-    }
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type")]
+enum IdeObject {
+    Diagnostic(IdeDiagnostic),
+    Hint(Hint),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct HoverInfo {
     contents: String,
 }
