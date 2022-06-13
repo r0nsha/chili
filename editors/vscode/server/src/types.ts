@@ -1,5 +1,5 @@
 import { InlayHint } from "vscode-languageserver";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { Range, TextDocument } from "vscode-languageserver-textdocument";
 
 export interface ChiliTextDocument extends TextDocument {
   chiliInlayHints?: InlayHint[];
@@ -8,6 +8,13 @@ export interface ChiliTextDocument extends TextDocument {
 export interface Span {
   start: number;
   end: number;
+}
+
+export function spanToRange(textDocument: TextDocument, span: Span): Range {
+  return {
+    start: textDocument.positionAt(span.start),
+    end: textDocument.positionAt(span.end),
+  };
 }
 
 export interface LspDiagnostic {
@@ -28,4 +35,8 @@ export type LspObject = {
 
 export interface HoverInfo {
   contents: string;
+}
+
+export interface DefinitionSpan {
+  span: Span;
 }

@@ -1549,7 +1549,7 @@ impl Check for ast::Expr {
                     // this is a local binding
                     ident.binding_info_id = id;
 
-                    sess.workspace.increment_binding_use(id);
+                    sess.workspace.add_binding_info_use(id, self.span);
 
                     let binding_info = sess.workspace.get_binding_info(id).unwrap();
 

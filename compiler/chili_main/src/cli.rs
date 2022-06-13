@@ -91,6 +91,10 @@ struct CheckArgs {
     /// Return the hover info for a given index, in the given input file
     #[clap(long)]
     hover_info: Option<usize>,
+
+    /// Return the hover info for a given index, in the given input file
+    #[clap(long)]
+    goto_def: Option<usize>,
 }
 
 pub fn start_cli() {
@@ -153,9 +157,11 @@ fn run_check(args: CheckArgs) {
             let (workspace, tycx) = start_workspace(build_options);
 
             if args.diagnostics {
-                ide::write_diagnostics(&workspace);
-            } else if let Some(index) = args.hover_info {
-                ide::write_hover_info(&workspace, tycx.as_ref(), index);
+                ide::diagnostics(&workspace);
+            } else if let Some(offset) = args.hover_info {
+                ide::hover_info(&workspace, tycx.as_ref(), offset);
+            } else if let Some(offset) = args.goto_def {
+                ide::goto_definition(&workspace, offset);
             }
         }
         Err(e) => print_err(&e),

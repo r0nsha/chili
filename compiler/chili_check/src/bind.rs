@@ -27,8 +27,7 @@ impl<'s> CheckSess<'s> {
     ) -> Option<BindingInfoId> {
         self.global_scopes
             .get(&module_id)
-            .map(|module| module.symbols.get(&symbol).cloned())
-            .flatten()
+            .and_then(|module| module.symbols.get(&symbol).cloned())
     }
 
     pub(crate) fn insert_global_symbol(
@@ -229,7 +228,8 @@ impl<'s> CheckSess<'s> {
                         pattern.symbol,
                     )?;
 
-                    self.workspace.increment_binding_use(top_level_symbol_id);
+                    self.workspace
+                        .add_binding_info_use(top_level_symbol_id, pattern.span);
 
                     pattern.id = self.bind_symbol(
                         env,

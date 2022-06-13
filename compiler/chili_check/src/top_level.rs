@@ -121,7 +121,7 @@ impl<'s> CheckSess<'s> {
                 .with_label(Label::primary(caller_info.span, label_message)));
         };
 
-        self.workspace.increment_binding_use(id);
+        self.workspace.add_binding_info_use(id, caller_info.span);
 
         Ok((res, id))
     }

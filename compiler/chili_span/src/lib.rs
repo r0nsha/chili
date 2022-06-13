@@ -27,7 +27,7 @@ impl Span {
     }
 
     pub fn range(&self) -> Range<usize> {
-        self.start.index..self.end.index
+        self.start.index..self.end.index + 1
     }
 
     pub fn with_start(&self, start: Position) -> Self {
@@ -44,6 +44,10 @@ impl Span {
             start: self.start,
             end,
         }
+    }
+
+    pub fn contains(&self, index: usize) -> bool {
+        self.range().contains(&index)
     }
 }
 

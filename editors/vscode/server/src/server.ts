@@ -9,14 +9,22 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
 } from "vscode-languageserver/node";
-
 import { TextDocument } from "vscode-languageserver-textdocument";
-
-interface ChiliTextDocument extends TextDocument {
-  chiliInlayHints?: InlayHint[];
-}
-
-import { InlayHint } from "vscode-languageserver-protocol";
+import {
+  ChiliTextDocument,
+  DefinitionSpan,
+  HoverInfo,
+  LspDiagnosticSeverity,
+  LspObject,
+  spanToRange,
+} from "./types";
+import {
+  convertPosition,
+  includeFlagForPath,
+  runCompiler,
+  throttle,
+  tmpFile,
+} from "./util";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -28,16 +36,6 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
-
-import { HoverInfo, LspDiagnosticSeverity, LspObject } from "./types";
-import {
-  convertPosition,
-  includeFlagForPath,
-  runCompiler,
-  throttle,
-  tmpFile,
-} from "./util";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 
 // The example settings
 interface ExampleSettings {
@@ -74,6 +72,8 @@ connection.onInitialize(({ capabilities }: InitializeParams) => {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Full,
       hoverProvider: true,
+      definitionProvider: true,
+      typeDefinitionProvider: true,
       // completionProvider: {
       // 	resolveProvider: false,
       // 	triggerCharacters: ['.']
@@ -81,8 +81,6 @@ connection.onInitialize(({ capabilities }: InitializeParams) => {
       // inlayHintProvider: {
       // 	resolveProvider: false
       // },
-      // definitionProvider: true,
-      // typeDefinitionProvider: true,
     },
   };
 
@@ -218,12 +216,11 @@ async function validateTextDocument(
             continue;
           }
 
-          const start = sourceDocument.positionAt(diagnostic.span.start);
-          const end = sourceDocument.positionAt(diagnostic.span.end);
+          const range = spanToRange(sourceDocument, diagnostic.span);
 
           diagnostics.push({
             severity,
-            range: { start, end },
+            range,
             message: diagnostic.message,
             source: sourceDocument.uri.toString(),
           });
@@ -264,12 +261,12 @@ connection.onHover(async (request) => {
     // console.log("request: ");
     // console.log(request);
 
-    const index = convertPosition(request.position, text);
-    // console.log("index: " + index);
+    const offset = convertPosition(request.position, text);
+    // console.log("offset: " + index);
 
     const stdout = await runCompiler(
       text,
-      "--hover-info " + index + includeFlagForPath(request.textDocument.uri)
+      "--hover-info " + offset + includeFlagForPath(request.textDocument.uri)
     );
     // console.log("got: ", stdout);
 
@@ -277,14 +274,14 @@ connection.onHover(async (request) => {
     for (const line of lines) {
       // console.log("hovering");
 
-      const object: HoverInfo | null = JSON.parse(line);
+      const hoverInfo: HoverInfo | null = JSON.parse(line);
       // console.log(object);
 
-      if (object) {
+      if (hoverInfo) {
         // FIXME: Figure out how to import `vscode` package in server.ts without
         // getting runtime import errors to remove this deprication warning.
         const contents = {
-          value: object.contents,
+          value: hoverInfo.contents,
           language: "chili",
         };
 
@@ -298,6 +295,52 @@ connection.onHover(async (request) => {
 
   return null;
 });
+
+const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
+  request
+) => {
+  console.time("onDefinition");
+
+  const document = documents.get(request.textDocument.uri);
+
+  if (!document) {
+    return null;
+  }
+
+  const text = document.getText();
+
+  const offset = document.offsetAt(request.position);
+
+  // console.log("request: ");
+  // console.log(request);
+  // console.log("offset: " + convertPosition(request.position, text));
+
+  const stdout = await runCompiler(
+    text,
+    "--goto-def " + offset + includeFlagForPath(request.textDocument.uri)
+  );
+  // console.log("got: ", stdout);
+
+  const lines = stdout.split("\n").filter((l) => l.length > 0);
+  for (const line of lines) {
+    const definition: DefinitionSpan = JSON.parse(line);
+    console.log("going to definition: ", definition);
+
+    const range = spanToRange(document, definition.span);
+
+    console.timeEnd("onDefinition");
+
+    return {
+      uri: request.textDocument.uri,
+      range,
+    };
+  }
+
+  console.timeEnd("onDefinition");
+};
+
+connection.onDefinition(goToDefinition);
+connection.onTypeDefinition(goToDefinition);
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

@@ -1,10 +1,10 @@
 use chili_ast::workspace::{BindingInfo, Workspace};
 use chili_error::diagnostic::DiagnosticSeverity;
-use chili_infer::{display::DisplayTy, normalize::Normalize, ty_ctx::TyCtx};
+use chili_infer::{display::DisplayTy, ty_ctx::TyCtx};
 use chili_span::Span;
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn write_diagnostics(workspace: &Workspace) {
+pub(crate) fn diagnostics(workspace: &Workspace) {
     let diagnostics: Vec<IdeDiagnosticResponse> = workspace
         .diagnostics
         .items()
@@ -26,35 +26,65 @@ pub(crate) fn write_diagnostics(workspace: &Workspace) {
         })
         .collect();
 
-    let json = serde_json::to_string(&diagnostics).unwrap();
-
-    println!("{}", json)
+    write(&diagnostics);
 }
 
-pub(crate) fn write_hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, index: usize) {
-    match (tycx, find_index_in_workspace(workspace, index)) {
+pub(crate) fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
+    match (tycx, find_offset_in_root_module(workspace, offset)) {
         (Some(tycx), Some(binding_info)) => {
-            let hover_info = HoverInfo {
+            write(&HoverInfo {
                 contents: binding_info.ty.display(tycx),
-            };
-
-            let json = serde_json::to_string(&hover_info).unwrap();
-
-            println!("{}", json);
+            });
         }
-        _ => print_null(),
+        _ => write_null(),
     }
 }
 
-fn find_index_in_workspace(workspace: &Workspace, index: usize) -> Option<&BindingInfo> {
+pub(crate) fn goto_definition(workspace: &Workspace, offset: usize) {
+    for binding_info in workspace.binding_infos.iter() {
+        if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
+            write(&SpanResponse {
+                span: IdeSpan::from(binding_info.span),
+            });
+            return;
+        }
+
+        for &use_span in binding_info.uses.iter() {
+            if is_offset_in_span_and_root_module(workspace, offset, use_span) {
+                write(&SpanResponse {
+                    span: IdeSpan::from(binding_info.span),
+                });
+                return;
+            }
+        }
+    }
+
+    write_null();
+}
+
+fn find_offset_in_root_module(workspace: &Workspace, offset: usize) -> Option<&BindingInfo> {
     workspace.binding_infos.iter().find(|binding_info| {
-        binding_info.module_id == workspace.root_module_id
-            && binding_info.span.range().contains(&index)
+        binding_info.module_id == workspace.root_module_id && binding_info.span.contains(offset)
     })
 }
 
+fn is_offset_in_span_and_root_module(workspace: &Workspace, offset: usize, span: Span) -> bool {
+    span.contains(offset)
+        && workspace
+            .find_module_id_by_file_id(span.file_id)
+            .map_or(false, |module_id| module_id == workspace.root_module_id)
+}
+
 #[inline]
-fn print_null() {
+fn write<T>(value: &T)
+where
+    T: ?Sized + serde::Serialize,
+{
+    println!("{}", serde_json::to_string(value).unwrap())
+}
+
+#[inline]
+fn write_null() {
     println!("null")
 }
 
@@ -104,4 +134,9 @@ impl IdeDiagnosticResponse {
 #[derive(Serialize, Deserialize, Clone)]
 struct HoverInfo {
     contents: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct SpanResponse {
+    span: IdeSpan,
 }

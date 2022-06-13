@@ -5,7 +5,7 @@ use crate::{
 };
 use bitflags::bitflags;
 use chili_error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
-use chili_span::Span;
+use chili_span::{FileId, Span};
 use common::build_options::BuildOptions;
 use std::{
     cmp::Ordering,
@@ -81,10 +81,7 @@ pub struct BindingInfo {
     pub scope_name: Ustr,
     pub flags: BindingInfoFlags,
     // the amount of times this binding was used
-    pub uses: usize,
-    // TODO: redirects_to as a workaround for the current module implementation.
-    // TODO: we should be treating modules as regular compile-time structs.
-    // TODO: when this happens, redirects_to should become obsolete
+    pub uses: Vec<Span>,
     pub redirects_to: Option<BindingInfoId>,
     pub span: Span,
 }
@@ -117,7 +114,7 @@ impl PartialBindingInfo {
             scope_level: self.scope_level,
             scope_name: self.scope_name,
             flags: BindingInfoFlags::empty(),
-            uses: 0,
+            uses: vec![],
             redirects_to: None,
             span: self.span,
         }
@@ -167,6 +164,13 @@ impl Workspace {
             .map(ModuleId)
     }
 
+    pub fn find_module_id_by_file_id(&self, file_id: FileId) -> Option<ModuleId> {
+        self.module_infos
+            .iter()
+            .position(|module| module.file_id == file_id)
+            .map(ModuleId)
+    }
+
     pub fn add_binding_info(&mut self, partial: PartialBindingInfo) -> BindingInfoId {
         let id = BindingInfoId(self.binding_infos.len());
         self.binding_infos.push(partial.into_binding_info(id));
@@ -181,9 +185,9 @@ impl Workspace {
         self.binding_infos.get_mut(id.0)
     }
 
-    pub fn increment_binding_use(&mut self, id: BindingInfoId) {
+    pub fn add_binding_info_use(&mut self, id: BindingInfoId, span: Span) {
         if let Some(binding_info) = self.get_binding_info_mut(id) {
-            binding_info.uses += 1;
+            binding_info.uses.push(span);
         }
     }
 
@@ -222,15 +226,42 @@ impl ModuleId {
 pub struct ModuleInfo {
     pub name: Ustr,
     pub file_path: Ustr,
+    pub file_id: FileId,
 }
 
 impl ModuleInfo {
+    pub fn new(name: Ustr, file_path: Ustr, file_id: FileId) -> Self {
+        Self {
+            name,
+            file_path,
+            file_id,
+        }
+    }
+
+    pub fn dir(&self) -> &Path {
+        Path::new(self.file_path.as_str()).parent().unwrap()
+    }
+}
+
+#[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
+pub struct PartialModuleInfo {
+    pub name: Ustr,
+    pub file_path: Ustr,
+}
+
+impl PartialModuleInfo {
     pub fn new(name: Ustr, file_path: Ustr) -> Self {
         Self { name, file_path }
     }
 
     pub fn dir(&self) -> &Path {
         Path::new(self.file_path.as_str()).parent().unwrap()
+    }
+}
+
+impl From<PartialModuleInfo> for ModuleInfo {
+    fn from(p: PartialModuleInfo) -> Self {
+        Self::new(p.name, p.file_path, FileId::MAX)
     }
 }
 
