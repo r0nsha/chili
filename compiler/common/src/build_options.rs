@@ -12,20 +12,12 @@ pub struct BuildOptions {
     /// The overall codegen optimization level
     pub opt_level: OptLevel,
 
-    /// Whether to run the compiled file after codegen
-    pub run: bool,
-
     /// Prints information verbosely, for example: timings
     pub verbose: bool,
 
-    /// Whether to emit LLVM IR after codegen
-    pub emit_llvm_ir: bool,
-
-    /// Whether to emit collected diagnostics
     pub diagnostic_options: DiagnosticOptions,
 
-    /// Disables the codegen phase
-    pub no_codegen: bool,
+    pub codegen_options: CodegenOptions,
 
     /// Additional search paths for imports
     pub include_paths: Vec<PathBuf>,
@@ -55,6 +47,18 @@ impl OptLevel {
 
 #[derive(Debug, Clone)]
 pub enum DiagnosticOptions {
-    Enabled { no_color: bool },
-    Disabled,
+    Emit { no_color: bool },
+    DontEmit,
+}
+
+#[derive(Debug, Clone)]
+pub enum CodegenOptions {
+    Enabled(EnabledCodegenOptions),
+    Skip,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnabledCodegenOptions {
+    pub emit_llvm_ir: bool,
+    pub run_when_done: bool,
 }

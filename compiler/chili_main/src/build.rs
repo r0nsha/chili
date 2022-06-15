@@ -5,7 +5,10 @@ use chili_astgen::AstGenerationStats;
 use chili_error::diagnostic::Diagnostic;
 use chili_infer::ty_ctx::TyCtx;
 use colored::Colorize;
-use common::{build_options::BuildOptions, time, Stopwatch};
+use common::{
+    build_options::{BuildOptions, CodegenOptions},
+    time, Stopwatch,
+};
 use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
@@ -86,22 +89,26 @@ pub fn start_workspace(
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
 
     // Code generation
-    let executable_path = if !workspace.build_options.no_codegen {
-        Some(chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast))
-    } else {
-        None
-    };
+    match &workspace.build_options.codegen_options {
+        CodegenOptions::Enabled(codegen_options) => {
+            let executable_path =
+                chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast, codegen_options);
 
-    if workspace.build_options.verbose {
-        print_stats(stats, all_sw.unwrap().elapsed().as_millis());
-    }
+            if workspace.build_options.verbose {
+                print_stats(stats, all_sw.unwrap().elapsed().as_millis());
+            }
 
-    if !workspace.build_options.no_codegen && workspace.build_options.run {
-        if let Some(executable_path) = executable_path {
-            Command::new(&executable_path)
-                .spawn()
-                .ok()
-                .unwrap_or_else(|| panic!("{}", executable_path));
+            if codegen_options.run_when_done {
+                Command::new(&executable_path)
+                    .spawn()
+                    .ok()
+                    .unwrap_or_else(|| panic!("{}", executable_path));
+            }
+        }
+        _ => {
+            if workspace.build_options.verbose {
+                print_stats(stats, all_sw.unwrap().elapsed().as_millis());
+            }
         }
     }
 

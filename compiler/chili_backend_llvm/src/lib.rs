@@ -15,7 +15,7 @@ use chili_ast::{ast, workspace::Workspace};
 use chili_infer::ty_ctx::TyCtx;
 use codegen::Codegen;
 use common::{
-    build_options::BuildOptions,
+    build_options::{BuildOptions, EnabledCodegenOptions},
     target::{Arch, Os, TargetMetrics},
     time,
 };
@@ -38,7 +38,12 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> String {
+pub fn codegen<'w>(
+    workspace: &Workspace,
+    tycx: &TyCtx,
+    ast: &ast::TypedAst,
+    codegen_options: &EnabledCodegenOptions,
+) -> String {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -79,7 +84,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> 
         cg.start()
     };
 
-    if workspace.build_options.emit_llvm_ir {
+    if codegen_options.emit_llvm_ir {
         dump_ir(&module, workspace.build_options.source_path());
     }
 

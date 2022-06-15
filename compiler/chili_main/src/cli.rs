@@ -2,7 +2,9 @@ use crate::{build::start_workspace, ide};
 use clap::*;
 use colored::Colorize;
 use common::{
-    build_options::{BuildOptions, DiagnosticOptions, OptLevel},
+    build_options::{
+        BuildOptions, CodegenOptions, DiagnosticOptions, EnabledCodegenOptions, OptLevel,
+    },
     target::TargetPlatform,
 };
 use std::{
@@ -49,7 +51,7 @@ struct Args {
 
     /// Emit LLVM IR file
     #[clap(long)]
-    emit_llvm: bool,
+    emit_llvm_ir: bool,
 
     /// Skip the code generation phase
     #[clap(long)]
@@ -111,6 +113,20 @@ pub fn start_cli() {
 
     match get_file_path(&args.input) {
         Ok(file) => {
+            let diagnostic_options = DiagnosticOptions::Emit {
+                no_color: args.no_color,
+            };
+
+            let codegen_options = args
+                .no_codegen
+                .then(|| CodegenOptions::Skip)
+                .unwrap_or_else(|| {
+                    CodegenOptions::Enabled(EnabledCodegenOptions {
+                        emit_llvm_ir: args.emit_llvm_ir,
+                        run_when_done: run,
+                    })
+                });
+
             let build_options = BuildOptions {
                 source_file: PathBuf::from(file),
                 target_platform: match args.target {
@@ -123,13 +139,9 @@ pub fn start_cli() {
                 } else {
                     OptLevel::Debug
                 },
-                run,
                 verbose: args.verbose,
-                emit_llvm_ir: args.emit_llvm,
-                diagnostic_options: DiagnosticOptions::Enabled {
-                    no_color: args.no_color,
-                },
-                no_codegen: args.no_codegen,
+                diagnostic_options,
+                codegen_options,
                 include_paths: get_include_paths(&args.include_paths),
             };
 
@@ -146,11 +158,9 @@ fn run_check(args: CheckArgs) {
                 source_file: PathBuf::from(file),
                 target_platform: get_current_target_platform(),
                 opt_level: OptLevel::Debug,
-                run: false,
                 verbose: false,
-                emit_llvm_ir: false,
-                diagnostic_options: DiagnosticOptions::Disabled,
-                no_codegen: true,
+                diagnostic_options: DiagnosticOptions::DontEmit,
+                codegen_options: CodegenOptions::Skip,
                 include_paths: get_include_paths(&args.include_paths),
             };
 

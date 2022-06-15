@@ -134,7 +134,7 @@ bitflags! {
 impl Workspace {
     pub fn emit_diagnostics(&self) {
         match &self.build_options.diagnostic_options {
-            DiagnosticOptions::Enabled { no_color } => {
+            DiagnosticOptions::Emit { no_color } => {
                 emit_diagnostics(
                     &self.diagnostics,
                     if *no_color {
@@ -144,7 +144,7 @@ impl Workspace {
                     },
                 );
             }
-            DiagnosticOptions::Disabled => (),
+            DiagnosticOptions::DontEmit => (),
         }
     }
 
