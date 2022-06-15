@@ -3,15 +3,31 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
+    /// The root source file input from the user
     pub source_file: PathBuf,
+
+    /// The target platform, including os and arch
     pub target_platform: TargetPlatform,
-    pub build_mode: BuildMode,
+
+    /// The overall codegen optimization level
+    pub opt_level: OptLevel,
+
+    /// Whether to run the compiled file after codegen
     pub run: bool,
+
+    /// Prints information verbosely, for example: timings
     pub verbose: bool,
+
+    /// Whether to emit LLVM IR after codegen
     pub emit_llvm_ir: bool,
-    pub emit_diagnostics: bool,
+
+    /// Whether to emit collected diagnostics
+    pub diagnostic_options: DiagnosticOptions,
+
+    /// Disables the codegen phase
     pub no_codegen: bool,
-    pub no_color: bool,
+
+    /// Additional search paths for imports
     pub include_paths: Vec<PathBuf>,
 }
 
@@ -22,17 +38,23 @@ impl BuildOptions {
 }
 
 #[derive(Debug, Clone)]
-pub enum BuildMode {
+pub enum OptLevel {
     Debug,
     Release,
 }
 
-impl BuildMode {
+impl OptLevel {
     pub fn is_debug(&self) -> bool {
-        matches!(self, BuildMode::Debug)
+        matches!(self, OptLevel::Debug)
     }
 
     pub fn is_release(&self) -> bool {
-        matches!(self, BuildMode::Release)
+        matches!(self, OptLevel::Release)
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum DiagnosticOptions {
+    Enabled { no_color: bool },
+    Disabled,
 }

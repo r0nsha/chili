@@ -7,7 +7,7 @@ use inkwell::{
 
 macro_rules! release_guard {
     ($cg: expr) => {{
-        if $cg.workspace.build_options.build_mode.is_release() {
+        if $cg.workspace.build_options.opt_level.is_release() {
             return;
         }
     }};

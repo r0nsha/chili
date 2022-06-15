@@ -6,7 +6,7 @@ use crate::{
 use bitflags::bitflags;
 use chili_error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
 use chili_span::{FileId, Span};
-use common::build_options::BuildOptions;
+use common::build_options::{BuildOptions, DiagnosticOptions};
 use slab::Slab;
 use std::{
     cmp::Ordering,
@@ -133,15 +133,18 @@ bitflags! {
 
 impl Workspace {
     pub fn emit_diagnostics(&self) {
-        if self.build_options.emit_diagnostics {
-            emit_diagnostics(
-                &self.diagnostics,
-                if self.build_options.no_color {
-                    ColorMode::Never
-                } else {
-                    ColorMode::Always
-                },
-            );
+        match &self.build_options.diagnostic_options {
+            DiagnosticOptions::Enabled { no_color } => {
+                emit_diagnostics(
+                    &self.diagnostics,
+                    if *no_color {
+                        ColorMode::Never
+                    } else {
+                        ColorMode::Always
+                    },
+                );
+            }
+            DiagnosticOptions::Disabled => (),
         }
     }
 

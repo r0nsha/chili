@@ -2,7 +2,7 @@ use crate::{build::start_workspace, ide};
 use clap::*;
 use colored::Colorize;
 use common::{
-    build_options::{BuildMode, BuildOptions},
+    build_options::{BuildOptions, DiagnosticOptions, OptLevel},
     target::TargetPlatform,
 };
 use std::{
@@ -118,17 +118,18 @@ pub fn start_cli() {
                     Target::Windows => TargetPlatform::WindowsAmd64,
                     Target::Linux => TargetPlatform::LinuxAmd64,
                 },
-                build_mode: if args.release {
-                    BuildMode::Release
+                opt_level: if args.release {
+                    OptLevel::Release
                 } else {
-                    BuildMode::Debug
+                    OptLevel::Debug
                 },
                 run,
                 verbose: args.verbose,
                 emit_llvm_ir: args.emit_llvm,
-                emit_diagnostics: true,
+                diagnostic_options: DiagnosticOptions::Enabled {
+                    no_color: args.no_color,
+                },
                 no_codegen: args.no_codegen,
-                no_color: args.no_color,
                 include_paths: get_include_paths(&args.include_paths),
             };
 
@@ -144,13 +145,12 @@ fn run_check(args: CheckArgs) {
             let build_options = BuildOptions {
                 source_file: PathBuf::from(file),
                 target_platform: get_current_target_platform(),
-                build_mode: BuildMode::Debug,
+                opt_level: OptLevel::Debug,
                 run: false,
                 verbose: false,
                 emit_llvm_ir: false,
-                emit_diagnostics: false,
+                diagnostic_options: DiagnosticOptions::Disabled,
                 no_codegen: true,
-                no_color: false,
                 include_paths: get_include_paths(&args.include_paths),
             };
 

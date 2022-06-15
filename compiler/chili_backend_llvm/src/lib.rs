@@ -58,7 +58,7 @@ pub fn codegen<'w>(workspace: &Workspace, tycx: &TyCtx, ast: &ast::TypedAst) -> 
     module.set_triple(&target_machine.get_triple());
 
     let fpm = PassManager::create(&module);
-    init_pass_manager(&fpm, workspace.build_options.build_mode.is_release());
+    init_pass_manager(&fpm, workspace.build_options.opt_level.is_release());
 
     let mut cg = Codegen {
         workspace,
