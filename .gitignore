@@ -19,6 +19,7 @@ Cargo.lock
 *.ilk
 *.lib
 vm.out
-examples/**/*
-!examples/*.chili
+*.o
+*.txt
 dist
+local_resources

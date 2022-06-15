@@ -1,0 +1,138 @@
+use raylib.?;
+use c.?;
+
+let rows: i32 = 100;
+let cols: i32 = 100;
+let cell_size: i32 = 8;
+let width: i32 = (cols - 1) * cell_size;
+let height: i32 = (rows - 1) * cell_size;
+
+pub let main = fn() {
+	let mut prev = calloc(cols * rows, @size_of(bool)) as *bool as [bool; *mut];
+	defer free(prev as *bool as _);
+	let mut curr = calloc(cols * rows, @size_of(bool)) as *bool as [bool; *mut];
+	defer free(curr as *bool as _);
+
+	// map_cells(prev, 30, 50, "..##");
+	// map_cells(prev, 30, 51, ".##.");
+	// map_cells(prev, 30, 52, "..#.");
+
+	map_cells(prev, 30, 45, "........................#............");
+	map_cells(prev, 30, 46, "......................#.#............");
+	map_cells(prev, 30, 47, "............##......##............##.");
+	map_cells(prev, 30, 48, "...........#...#....##............##.");
+	map_cells(prev, 30, 49, "##........#.....#...##...............");
+	map_cells(prev, 30, 50, "##........#...#.##....#.#............");
+	map_cells(prev, 30, 51, "..........#.....#.......#............");
+	map_cells(prev, 30, 52, "...........#...#.....................");
+	map_cells(prev, 30, 53, "............##.......................");
+
+	InitWindow(width, height, "chili language example - game of life\0".data);
+	SetTargetFPS(120);
+
+	let mut simulate = true;
+
+	while !WindowShouldClose() {
+		if IsKeyPressed(KEY_SPACE) {
+			simulate = !simulate;
+		}
+
+		if IsMouseButtonDown(0) {
+			let mx = GetMouseX() / cell_size;
+			let my = GetMouseY() / cell_size;
+			prev[mx + my * cols] = true;
+		}
+
+		BeginDrawing();
+
+		ClearBackground(black);
+
+		for x in 1..cols - 2 {
+			for y in 1..rows - 2 {
+				if simulate {
+					let count = get_neighbor_count(prev, x, y);
+
+					// let count = 
+					// prev[(x - 1) + (y - 1) * cols] as uint + 
+					// prev[(x + 0) + (y - 1) * cols] as uint + 
+					// prev[(x + 1) + (y - 1) * cols] as uint + 
+					// prev[(x - 1) + (y + 0) * cols] as uint + 
+					// 0								 	   +
+					// prev[(x + 1) + (y + 0) * cols] as uint + 
+					// prev[(x - 1) + (y + 1) * cols] as uint + 
+					// prev[(x + 0) + (y + 1) * cols] as uint + 
+					// prev[(x + 1) + (y + 1) * cols] as uint
+
+					curr[x + y * cols] = if get_cell(prev, x, y) {
+						count == 2 || count == 3
+					} else {
+						count == 3
+					};
+				}
+
+				if get_cell(prev, x, y) {
+					DrawRectangle(
+						x * cell_size, 
+						y * cell_size, 
+						cell_size, 
+						cell_size, 
+						ray_white
+					);
+				}
+			}
+		}
+
+		if simulate {
+			for 0..cols * rows {
+				prev[it] = curr[it];
+			}
+		}
+
+		DrawFPS(10, 10);
+
+		EndDrawing();
+	}
+
+	CloseWindow();
+
+	get_living_cells(prev)
+}
+
+let get_neighbor_count = fn(state: [bool; *], x: int, y: int) -> uint {
+	get_cell_n(state, x - 1, y - 1) + 
+	get_cell_n(state, x - 0, y - 1) + 
+	get_cell_n(state, x + 1, y - 1) +
+	get_cell_n(state, x - 1, y + 0) + 
+	0 								+ 
+	get_cell_n(state, x + 1, y + 0) +
+	get_cell_n(state, x - 1, y + 1) +
+	get_cell_n(state, x + 0, y + 1) +
+	get_cell_n(state, x + 1, y + 1)
+}
+
+let get_cell_n = fn(state: [bool; *], x: int, y: int) -> uint {
+	state[x + y * cols] as uint
+}
+
+let get_cell = fn(state: [bool; *], x: int, y: int) -> bool {
+	state[x + y * cols]
+}
+
+let map_cells = fn(state: [bool; *mut], x: uint, y: uint, cells_map: str) {
+	let mut p = 0;
+	for cells_map {
+		state[x + y * cols + p] = it == '#';
+		p += 1;
+	}
+}
+
+
+let get_living_cells = fn(state: [bool; *]) -> uint {
+	let mut count = 0
+	for 0..cols * rows - 1 {
+		if state[it] {
+			count += 1
+		}
+	}
+	count
+}

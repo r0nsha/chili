@@ -1,0 +1,28 @@
+foreign("c") {
+    let printf = fn(format [&]u8, ..) -> int;
+    let scanf = fn(format [&]u8, ..) -> i64;
+    let srand = fn(seed uint);
+    let rand = fn() -> uint;
+    let time = fn(some *()) -> uint;
+}
+
+let main = fn() {
+    srand(time(0 as uint as _));
+
+    let random_number = rand() % 50;
+    let input_num uint;
+
+    while true {
+        printf("Enter a value -> ".data);
+        scanf("%d".data, &input_num);
+        
+        if input_num > random_number {
+            printf("Lower...\n".data);
+        } else if input_num < random_number {
+            printf("Higher...\n".data);
+        } else {
+            printf("Nice! That's the correct answer\n".data);
+            break;
+        }
+    }
+}
