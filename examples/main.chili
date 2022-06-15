@@ -1,5 +1,13 @@
-let { println } = @import("std/fmt");
+// let { println } = @import("std/fmt");
+
+// let main = fn() {
+//     println("Hello World");
+// };
+
+let { printf } = @import("std/c");
 
 let main = fn() {
-    println("Hello World");
+    let s: struct { a: int, b: int, c: int } = .{ a: 1, b: 2, c: 3 };
+    let { c, ? }: struct { a: int, b: int, c: int } = s;
+    printf("A: %d, B: %d, C: %d\n".data, a, b, c);
 };
