@@ -176,6 +176,7 @@ impl<'s> LintSess<'s> {
         self.workspace
             .binding_infos
             .iter()
+            .map(|(_, b)| b)
             .find(|b| b.module_id == module_id && b.symbol == symbol)
             .unwrap()
     }

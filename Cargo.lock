@@ -142,6 +142,7 @@ dependencies = [
  "paste",
  "path-absolutize",
  "ptree",
+ "slab",
  "strum_macros",
  "ustr",
 ]

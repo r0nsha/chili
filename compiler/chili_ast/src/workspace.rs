@@ -7,6 +7,7 @@ use bitflags::bitflags;
 use chili_error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
 use chili_span::{FileId, Span};
 use common::build_options::BuildOptions;
+use slab::Slab;
 use std::{
     cmp::Ordering,
     collections::HashSet,
@@ -32,11 +33,11 @@ pub struct Workspace {
 
     // Parsed modules/trees info. Resolved during ast generation
     // ModuleId -> ModuleInfo
-    pub module_infos: Vec<ModuleInfo>,
+    pub module_infos: Slab<ModuleInfo>,
 
     // Bindings resolved during name resolution
     // BindingInfoId -> BindingInfo
-    pub binding_infos: Vec<BindingInfo>,
+    pub binding_infos: Slab<BindingInfo>,
 
     // The entry point function's id (usually main). Resolved during name resolution
     pub entry_point_function_id: Option<BindingInfoId>,
@@ -145,8 +146,7 @@ impl Workspace {
     }
 
     pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {
-        self.module_infos.push(module_info);
-        ModuleId(self.module_infos.len() - 1)
+        ModuleId(self.module_infos.insert(module_info))
     }
 
     pub fn get_module_info(&self, id: ModuleId) -> Option<&ModuleInfo> {
@@ -157,23 +157,21 @@ impl Workspace {
         self.get_module_info(self.root_module_id).unwrap()
     }
 
-    pub fn find_module_info(&self, module_info: ModuleInfo) -> Option<ModuleId> {
-        self.module_infos
-            .iter()
-            .position(|m| *m == module_info)
-            .map(ModuleId)
-    }
-
     pub fn find_module_id_by_file_id(&self, file_id: FileId) -> Option<ModuleId> {
         self.module_infos
             .iter()
-            .position(|module| module.file_id == file_id)
-            .map(ModuleId)
+            .position(|(_, module)| module.file_id == file_id)
+            .map(ModuleId::from)
     }
 
     pub fn add_binding_info(&mut self, partial: PartialBindingInfo) -> BindingInfoId {
-        let id = BindingInfoId(self.binding_infos.len());
-        self.binding_infos.push(partial.into_binding_info(id));
+        let vacant_entry = self.binding_infos.vacant_entry();
+
+        let id = BindingInfoId(vacant_entry.key());
+        let binding_info = partial.into_binding_info(id);
+
+        vacant_entry.insert(binding_info);
+
         id
     }
 
@@ -213,14 +211,37 @@ impl BindingInfo {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct ModuleId(pub usize);
+macro_rules! define_id_type {
+    ($name:ident) => {
+        #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+        pub struct $name(usize);
 
-impl ModuleId {
-    pub fn invalid() -> Self {
-        Self(usize::MAX)
-    }
+        impl From<usize> for $name {
+            fn from(x: usize) -> Self {
+                Self(x)
+            }
+        }
+
+        impl Default for $name {
+            fn default() -> Self {
+                Self(usize::MAX)
+            }
+        }
+
+        impl $name {
+            pub fn unknown() -> Self {
+                Self(usize::MAX)
+            }
+
+            pub fn inner(&self) -> usize {
+                self.0
+            }
+        }
+    };
 }
+
+define_id_type!(ModuleId);
+define_id_type!(BindingInfoId);
 
 #[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleInfo {
@@ -262,21 +283,6 @@ impl PartialModuleInfo {
 impl From<PartialModuleInfo> for ModuleInfo {
     fn from(p: PartialModuleInfo) -> Self {
         Self::new(p.name, p.file_path, FileId::MAX)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BindingInfoId(pub usize);
-
-impl BindingInfoId {
-    pub fn unknown() -> Self {
-        Self::default()
-    }
-}
-
-impl Default for BindingInfoId {
-    fn default() -> Self {
-        Self(usize::MAX)
     }
 }
 

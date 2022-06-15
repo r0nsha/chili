@@ -2,7 +2,6 @@ use crate::*;
 use chili_ast::{
     ast, compiler_info,
     path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
-    workspace::ModuleInfo,
 };
 use chili_error::{
     diagnostic::{Diagnostic, Label},

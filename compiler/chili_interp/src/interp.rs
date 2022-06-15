@@ -196,8 +196,8 @@ impl<'i> InterpSess<'i> {
         self.workspace
             .binding_infos
             .iter()
-            .position(|info| info.module_id == module_id && info.symbol == symbol)
-            .map(BindingInfoId)
+            .position(|(_, info)| info.module_id == module_id && info.symbol == symbol)
+            .map(BindingInfoId::from)
             .unwrap_or_else(|| {
                 panic!(
                     "couldn't find member `{}` in module `{}`",

@@ -247,13 +247,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .workspace
             .module_infos
             .iter()
-            .position(|m| m.name == module_name)
-            .map(ModuleId)
+            .position(|(_, m)| m.name == module_name)
+            .map(ModuleId::from)
             .unwrap_or_else(|| panic!("couldn't find {}", module_name));
 
         self.workspace
             .binding_infos
             .iter()
+            .map(|(_, b)| b)
             .find(|b| b.module_id == module_id && b.symbol == symbol)
             .unwrap_or_else(|| panic!("couldn't find {} in {}", symbol, module_name))
     }
@@ -1002,10 +1003,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .workspace
                             .binding_infos
                             .iter()
-                            .position(|info| {
+                            .position(|(_, info)| {
                                 info.module_id == module_id && info.symbol == access.member
                             })
-                            .map(BindingInfoId)
+                            .map(BindingInfoId::from)
                             .unwrap_or_else(|| {
                                 panic!(
                                     "couldn't find member `{}` in module `{}`",
