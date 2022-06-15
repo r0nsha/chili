@@ -464,16 +464,23 @@ impl Check for ast::Binding {
                     pattern.id = f.id;
 
                     // TODO: this should be moved to another place...
-                    // If this binding matches the entry point function's requirements,
-                    // Tag it as the entry function
-                    // Requirements:
-                    // - Is declared in the root module
-                    // - Its name is "main"
-                    if sess.workspace.entry_point_function_id.is_none()
-                        && self.module_id == sess.workspace.root_module_id
-                        && pattern.symbol == "main"
-                    {
-                        sess.workspace.entry_point_function_id = Some(pattern.id);
+                    if sess.workspace.build_options.need_entry_point_function() {
+                        // If this binding matches the entry point function's requirements,
+                        // Tag it as the entry function
+                        // Requirements:
+                        // - Is declared in the root module
+                        // - Its name is "main"
+                        if sess.workspace.entry_point_function_id.is_none()
+                            && self.module_id == sess.workspace.root_module_id
+                            && pattern.symbol
+                                == sess
+                                    .workspace
+                                    .build_options
+                                    .entry_point_function_name()
+                                    .unwrap()
+                        {
+                            sess.workspace.entry_point_function_id = Some(pattern.id);
+                        }
                     }
                 }
                 _ => (),

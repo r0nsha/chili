@@ -31,7 +31,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let fn_ty = entry_point_func_info.ty.normalize(self.tycx).into_fn();
 
-        let name = "main";
+        let name = self
+            .workspace
+            .build_options
+            .entry_point_function_name()
+            .unwrap();
 
         let linkage = Some(Linkage::External);
 

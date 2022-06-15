@@ -45,7 +45,7 @@ impl Display for TyKind {
                 TyKind::Function(func) => func.to_string(),
                 TyKind::Array(inner, size) => format!("[{}]{}", size, inner),
                 TyKind::Slice(inner, is_mutable) =>
-                    format!("[{}]{}", inner, if *is_mutable { "mut " } else { "" }),
+                    format!("[{}]{}", if *is_mutable { "mut " } else { "" }, inner,),
                 TyKind::Tuple(tys) | TyKind::Infer(_, InferTy::PartialTuple(tys)) => format!(
                     "({})",
                     tys.iter()

@@ -49,7 +49,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
                     )),
             );
         }
-    } else {
+    } else if workspace.build_options.need_entry_point_function() {
         workspace.diagnostics.push(
             Diagnostic::error()
                 .with_message("entry point function `main` is not defined")
