@@ -512,7 +512,7 @@ impl Lower for ast::Cast {
 
 impl Lower for ast::Function {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        if let Some(id) = self.binding_info_id {
+        if let Some(id) = self.id {
             let binding_info = sess.workspace.get_binding_info(id).unwrap();
             if binding_info.scope_level.is_global() {
                 sess.insert_global(id, Value::unit());
@@ -619,7 +619,7 @@ impl Lower for ast::Function {
         let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
 
         let func = Function {
-            id: self.binding_info_id.unwrap(),
+            id: self.id.unwrap(),
             name: self.sig.name,
             arg_types: sig_ty.params,
             return_type: *sig_ty.ret,
@@ -628,9 +628,7 @@ impl Lower for ast::Function {
 
         let slot = sess.push_const(code, Value::Function(func));
 
-        sess.interp
-            .functions
-            .insert(self.binding_info_id.unwrap(), slot);
+        sess.interp.functions.insert(self.id.unwrap(), slot);
     }
 }
 

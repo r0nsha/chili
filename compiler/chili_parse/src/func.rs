@@ -21,8 +21,7 @@ impl Parser {
                 ExprKind::Function(Function {
                     sig,
                     body,
-                    binding_info_id: None,
-                    is_entry_point: false,
+                    id: None,
                 }),
                 start_span.to(self.previous_span()),
             ))

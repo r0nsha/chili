@@ -439,35 +439,29 @@ impl Check for ast::Binding {
 
         // Bindings of type `type` and `module` cannot be assigned to mutable bindings
         if is_type_or_module {
-            for pat in self.pattern.iter() {
-                if pat.is_mutable {
+            self.pattern
+                .iter()
+                .filter(|pat| pat.is_mutable)
+                .for_each(|pat| {
                     sess.workspace.diagnostics.push(
                         Diagnostic::error()
                             .with_message("variable of type `type` or `module` must be immutable")
                             .with_label(Label::primary(pat.span, "variable is mutable"))
                             .with_note("try removing the `mut` from the declaration"),
                     );
-                }
-            }
+                });
         }
 
-        if self.expr.as_ref().map_or(false, |e| e.is_function()) {
-            // because functions can be recursive,
-            // we special case them and use the id bounded after checking the function signature
-            let fn_expr = self.expr.as_mut().unwrap().as_function_mut();
-
-            let binding_info = sess
-                .workspace
-                .get_binding_info_mut(fn_expr.binding_info_id.unwrap())
-                .unwrap();
+        if let Some(ConstValue::Function(f)) = &const_value {
+            let binding_info = sess.workspace.get_binding_info_mut(f.id).unwrap();
 
             binding_info.visibility = self.visibility;
             binding_info.span = self.pattern.span();
             binding_info.const_value = const_value.clone();
 
             match &mut self.pattern {
-                Pattern::Symbol(pat) => {
-                    pat.id = fn_expr.binding_info_id.unwrap();
+                Pattern::Symbol(pattern) => {
+                    pattern.id = f.id;
 
                     // TODO: this should be moved to another place...
                     // If this binding matches the entry point function's requirements,
@@ -477,10 +471,9 @@ impl Check for ast::Binding {
                     // - Its name is "main"
                     if sess.workspace.entry_point_function_id.is_none()
                         && self.module_id == sess.workspace.root_module_id
-                        && pat.symbol == "main"
+                        && pattern.symbol == "main"
                     {
-                        sess.workspace.entry_point_function_id = Some(pat.id);
-                        fn_expr.is_entry_point = true;
+                        sess.workspace.entry_point_function_id = Some(pattern.id);
                     }
                 }
                 _ => (),
@@ -521,7 +514,7 @@ impl Check for ast::Function {
         );
         let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
 
-        self.binding_info_id = Some(sess.bind_symbol(
+        self.id = Some(sess.bind_symbol(
             env,
             self.sig.name,
             ast::Visibility::Private,
@@ -589,7 +582,7 @@ impl Check for ast::Function {
         Ok(Res::new_const(
             sig_res.ty,
             ConstValue::Function(ConstFunction {
-                id: self.binding_info_id.unwrap(),
+                id: self.id.unwrap(),
                 name: self.sig.name,
             }),
         ))

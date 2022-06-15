@@ -349,8 +349,7 @@ pub enum ForIter {
 pub struct Function {
     pub sig: FunctionSig,
     pub body: Block,
-    pub binding_info_id: Option<BindingInfoId>,
-    pub is_entry_point: bool,
+    pub id: Option<BindingInfoId>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -7,7 +7,7 @@ use chili_ast::{
     workspace::Workspace,
 };
 use chili_error::diagnostic::DiagnosticSeverity;
-use chili_infer::{display::DisplayTy, normalize::Normalize, ty_ctx::TyCtx};
+use chili_infer::{normalize::Normalize, ty_ctx::TyCtx};
 use chili_span::{EndPosition, Position, Span};
 use types::*;
 use util::*;
