@@ -206,7 +206,6 @@ dependencies = [
  "chili_infer",
  "chili_lint",
  "chili_pretty_print",
- "chili_span",
  "colored",
  "common",
  "num-format",

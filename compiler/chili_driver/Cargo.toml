@@ -10,7 +10,6 @@ ustr = "0.8.1"
 path-absolutize = "3.0.11"
 
 common = { path = "../common" }
-chili_span = { path = "../chili_span" }
 chili_error = { path = "../chili_error" }
 chili_ast = { path = "../chili_ast" }
 chili_pretty_print = { path = "../chili_pretty_print" }
