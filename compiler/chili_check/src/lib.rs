@@ -2300,14 +2300,16 @@ fn check_named_struct_literal(
     }
 
     if !struct_ty.is_union() && !uninit_fields.is_empty() {
+        let mut uninit_fields_str = uninit_fields
+            .iter()
+            .map(|f| f.as_str())
+            .collect::<Vec<&str>>();
+
+        uninit_fields_str.reverse();
         return Err(Diagnostic::error()
             .with_message(format!(
                 "missing struct fields: {}",
-                uninit_fields
-                    .iter()
-                    .map(|f| f.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
+                uninit_fields_str.join(", ")
             ))
             .with_label(Label::primary(span, "missing fields")));
     }

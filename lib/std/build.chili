@@ -6,9 +6,9 @@ pub let Workspace = struct {
 pub let BuildOptions = struct {
     input_file: str,
     output_file: str,
-    // target: BuildTarget,
-    // opt_level: OptLevel,
-    // run_when_done: bool
+    target: BuildTarget,
+    opt_level: OptLevel,
+    run_when_done: bool
 };
 
 // TODO: turn into enum
