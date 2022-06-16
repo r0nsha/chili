@@ -195,6 +195,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "chili_driver"
+version = "0.1.0"
+dependencies = [
+ "chili_ast",
+ "chili_astgen",
+ "chili_backend_llvm",
+ "chili_check",
+ "chili_error",
+ "chili_infer",
+ "chili_lint",
+ "chili_pretty_print",
+ "chili_span",
+ "colored",
+ "common",
+ "num-format",
+ "path-absolutize",
+ "ustr",
+]
+
+[[package]]
 name = "chili_error"
 version = "0.1.0"
 dependencies = [
@@ -257,6 +277,7 @@ dependencies = [
  "chili_astgen",
  "chili_backend_llvm",
  "chili_check",
+ "chili_driver",
  "chili_error",
  "chili_infer",
  "chili_lint",
