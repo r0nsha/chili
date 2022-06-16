@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
     about,
     long_about = "Compiler for the Chili programming language"
 )]
-struct Cli {
+struct Args {
     /// The main action the compiler should take
     #[clap(subcommand)]
     action: Action,
@@ -24,15 +24,15 @@ struct Cli {
 #[derive(clap::Subcommand, Debug, PartialEq, Eq)]
 enum Action {
     /// Compile a chili source file, as an executable
-    Build(Args),
+    Build(BuildArgs),
     /// Same as `build`, but also runs the compiled executable
-    Run(Args),
+    Run(BuildArgs),
     /// Checks the source file, providing additional flags - mainly for LSP usage
     Check(CheckArgs),
 }
 
 #[derive(Args, Debug, PartialEq, Eq)]
-struct Args {
+struct BuildArgs {
     /// The main action the compiler should take
     input: String,
 
@@ -95,48 +95,70 @@ struct CheckArgs {
 }
 
 pub fn start_cli() {
-    let cli = Cli::parse();
+    let args = Args::parse();
 
-    let (run, args) = match cli.action {
-        Action::Build(args) => (false, args),
-        Action::Run(args) => (true, args),
-        Action::Check(args) => {
-            run_check(args);
-            return;
-        }
+    match args.action {
+        Action::Build(args) | Action::Run(args) => match get_file_path(&args.input) {
+            Ok(source_file) => {
+                let build_options = BuildOptions {
+                    source_file,
+                    target_platform: current_target_platform(),
+                    opt_level: OptLevel::Debug,
+                    verbose: args.verbose,
+                    diagnostic_options: DiagnosticOptions::Emit {
+                        no_color: args.no_color,
+                    },
+                    codegen_options: CodegenOptions::Skip,
+                    include_paths: get_include_paths(&args.include_paths),
+                };
+
+                start_workspace("__TEST__".to_string(), build_options);
+            }
+            Err(e) => print_err(&e),
+        },
+        Action::Check(args) => run_check(args),
     };
 
-    match get_file_path(&args.input) {
-        Ok(file) => {
-            let diagnostic_options = DiagnosticOptions::Emit {
-                no_color: args.no_color,
-            };
+    // let (run, args) = match cli.action {
+    //     Action::Build(args) => (false, args),
+    //     Action::Run(args) => (true, args),
+    //     Action::Check(args) => {
+    //         run_check(args);
+    //         return;
+    //     }
+    // };
 
-            let build_options = BuildOptions {
-                source_file: PathBuf::from(file),
-                target_platform: current_target_platform(),
-                opt_level: if args.release {
-                    OptLevel::Release
-                } else {
-                    OptLevel::Debug
-                },
-                verbose: args.verbose,
-                diagnostic_options,
-                codegen_options: CodegenOptions::Skip,
-                include_paths: get_include_paths(&args.include_paths),
-            };
+    // match get_file_path(&args.input) {
+    //     Ok(source_file) => {
+    //         let diagnostic_options = DiagnosticOptions::Emit {
+    //             no_color: args.no_color,
+    //         };
 
-            start_workspace("__TEST__".to_string(), build_options);
-        }
-        Err(e) => print_err(&e),
-    }
+    //         let build_options = BuildOptions {
+    //             source_file,
+    //             target_platform: current_target_platform(),
+    //             opt_level: if args.release {
+    //                 OptLevel::Release
+    //             } else {
+    //                 OptLevel::Debug
+    //             },
+    //             verbose: args.verbose,
+    //             diagnostic_options,
+    //             codegen_options: CodegenOptions::Skip,
+    //             include_paths: get_include_paths(&args.include_paths),
+    //         };
+
+    //         start_workspace("__TEST__".to_string(), build_options);
+    //     }
+    //     Err(e) => print_err(&e),
+    // }
 }
 
 fn run_check(args: CheckArgs) {
     match get_file_path(&args.input) {
-        Ok(file) => {
+        Ok(source_file) => {
             let build_options = BuildOptions {
-                source_file: PathBuf::from(file),
+                source_file,
                 target_platform: current_target_platform(),
                 opt_level: OptLevel::Debug,
                 verbose: false,
@@ -160,7 +182,7 @@ fn run_check(args: CheckArgs) {
     }
 }
 
-fn get_file_path(input_file: &str) -> Result<&str, String> {
+fn get_file_path(input_file: &str) -> Result<PathBuf, String> {
     let path = Path::new(input_file);
 
     if !path.exists() {
@@ -168,7 +190,7 @@ fn get_file_path(input_file: &str) -> Result<&str, String> {
     } else if !path.is_file() {
         Err(format!("`{}` is not a file", input_file))
     } else {
-        Ok(input_file)
+        Ok(path.to_path_buf())
     }
 }
 

@@ -738,56 +738,78 @@ impl Display for Value {
                 Value::F32(v) => format!("f32 {}", v),
                 Value::F64(v) => format!("f64 {}", v),
                 Value::Bool(v) => format!("bool {}", v),
-                Value::Aggregate(v) => {
-                    let extra_values = v.elements.len() as isize - MAX_CONSECUTIVE_VALUES;
-
-                    format!(
-                        "{{{}{}}}",
-                        v.elements
-                            .iter()
-                            .take(MAX_CONSECUTIVE_VALUES as usize)
-                            .map(|v| v.to_string())
-                            .collect::<Vec<String>>()
-                            .join(", "),
-                        if extra_values > 0 {
-                            format!(", +{} more", extra_values)
-                        } else {
-                            "".to_string()
-                        }
-                    )
-                }
-                Value::Array(v) => {
-                    let bytes = &v.bytes;
-
-                    let ty = v.ty.inner();
-                    let element_size = ty.size_of(WORD_SIZE);
-                    let size = (bytes.len() / element_size) as isize;
-
-                    let mut elements = vec![];
-
-                    for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
-                        let el = bytes.offset(element_size * (i as usize)).get_value(ty);
-                        elements.push(el.to_string());
-                    }
-
-                    let extra_values = size - MAX_CONSECUTIVE_VALUES;
-
-                    format!(
-                        "[{}{}]",
-                        elements.join(", "),
-                        if extra_values > 0 {
-                            format!(", +{} more", extra_values)
-                        } else {
-                            "".to_string()
-                        }
-                    )
-                }
+                Value::Aggregate(v) => v.to_string(),
+                Value::Array(v) => v.to_string(),
                 Value::Pointer(p) => p.to_string(),
-                Value::Function(func) => format!("fn {}", func.name),
-                Value::ExternFunction(func) => format!("extern fn {}", func.name),
+                Value::Function(v) => v.to_string(),
+                Value::ExternFunction(v) => v.to_string(),
                 Value::Type(ty) => format!("type {}", ty),
             }
         )
+    }
+}
+
+impl Display for Aggregate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let extra_values = self.elements.len() as isize - MAX_CONSECUTIVE_VALUES;
+
+        write!(
+            f,
+            "{{{}{}}}",
+            self.elements
+                .iter()
+                .take(MAX_CONSECUTIVE_VALUES as usize)
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            if extra_values > 0 {
+                format!(", +{} more", extra_values)
+            } else {
+                "".to_string()
+            }
+        )
+    }
+}
+
+impl Display for Array {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let bytes = &self.bytes;
+
+        let ty = self.ty.inner();
+        let element_size = ty.size_of(WORD_SIZE);
+        let size = (bytes.len() / element_size) as isize;
+
+        let mut elements = vec![];
+
+        for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
+            let el = bytes.offset(element_size * (i as usize)).get_value(ty);
+            elements.push(el.to_string());
+        }
+
+        let extra_values = size - MAX_CONSECUTIVE_VALUES;
+
+        write!(
+            f,
+            "[{}{}]",
+            elements.join(", "),
+            if extra_values > 0 {
+                format!(", +{} more", extra_values)
+            } else {
+                "".to_string()
+            }
+        )
+    }
+}
+
+impl Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fn {}", self.name)
+    }
+}
+
+impl Display for ExternFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "extern fn {}", self.name)
     }
 }
 
@@ -811,54 +833,11 @@ impl Display for Pointer {
                     Pointer::F32(v) => format!("f32 {}", **v),
                     Pointer::F64(v) => format!("f64 {}", **v),
                     Pointer::Bool(v) => format!("bool {}", **v),
-                    Pointer::Aggregate(v) => {
-                        let extra_values = (**v).elements.len() as isize - MAX_CONSECUTIVE_VALUES;
-
-                        format!(
-                            "{{{}{}}}",
-                            (**v)
-                                .elements
-                                .iter()
-                                .take(MAX_CONSECUTIVE_VALUES as usize)
-                                .map(|v| v.to_string())
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            if extra_values > 0 {
-                                format!(", +{} more", extra_values)
-                            } else {
-                                "".to_string()
-                            }
-                        )
-                    }
-                    Pointer::Array(v) => {
-                        let bytes = &(**v).bytes;
-
-                        let ty = (**v).ty.inner();
-                        let element_size = ty.size_of(WORD_SIZE);
-                        let size = (bytes.len() / element_size) as isize;
-
-                        let mut elements = vec![];
-
-                        for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
-                            let el = bytes.offset(element_size * (i as usize)).get_value(ty);
-                            elements.push(el.to_string());
-                        }
-
-                        let extra_values = size - MAX_CONSECUTIVE_VALUES;
-
-                        format!(
-                            "[{}{}]",
-                            elements.join(", "),
-                            if extra_values > 0 {
-                                format!(", +{} more", extra_values)
-                            } else {
-                                "".to_string()
-                            }
-                        )
-                    }
+                    Pointer::Aggregate(v) => (**v).to_string(),
+                    Pointer::Array(v) => (**v).to_string(),
                     Pointer::Pointer(p) => (**p).to_string(),
-                    Pointer::Function(func) => format!("fn {}", (**func).name),
-                    Pointer::ExternFunction(func) => format!("extern fn {}", (**func).name),
+                    Pointer::Function(v) => (**v).to_string(),
+                    Pointer::ExternFunction(v) => (**v).to_string(),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }
             }
