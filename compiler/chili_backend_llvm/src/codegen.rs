@@ -663,6 +663,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     let ty = expr.ty.normalize(self.tycx);
                     self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref)
                 }
+                ast::BuiltinKind::StartWorkspace(_) => self.gen_unit(),
             },
             ast::ExprKind::Function(func) => {
                 let function = self.gen_fn(state.module_info, func, Some(state.clone()));

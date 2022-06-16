@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Scopes<K: Hash + Eq, V> {
     inner: Vec<HashMap<K, V>>,
 }

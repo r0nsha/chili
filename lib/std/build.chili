@@ -1,3 +1,5 @@
+let intrinsics = @import("intrinsics");
+
 pub let Workspace = struct {
     name: str,
     build_options: BuildOptions
@@ -21,3 +23,7 @@ pub let BuildTarget_windows: BuildTarget = 2;
 pub let OptLevel = u8;
 pub let OptLevel_debug: OptLevel = 0;
 pub let OptLevel_release: OptLevel = 1;
+
+pub let start_workspace = fn(workspace: Workspace) {
+    intrinsics.start_workspace(workspace);
+};

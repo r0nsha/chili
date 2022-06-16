@@ -163,7 +163,7 @@ impl Display for ConstValue {
                         .join(", "),
                 ),
                 ConstValue::Struct(fields) => format!(
-                    "{{{}}}",
+                    "{{ {} }}",
                     fields
                         .iter()
                         .map(|(name, el)| format!("{}: {}", name, el.value.to_string()))

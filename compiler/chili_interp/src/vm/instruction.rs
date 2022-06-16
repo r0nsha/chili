@@ -31,6 +31,7 @@ pub enum Instruction {
     Jmpf(i32),
     Return,
     Call(u32),
+    Intrinsic(Intrinsic),
     GetGlobal(u32),
     GetGlobalPtr(u32),
     SetGlobal(u32),
@@ -73,6 +74,23 @@ pub enum CastInstruction {
     Ptr(ValueKind),
 }
 
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum Intrinsic {
+    StartWorkspace,
+}
+
+impl Display for Intrinsic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Intrinsic::StartWorkspace => "start_workspace",
+            }
+        )
+    }
+}
+
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -106,6 +124,7 @@ impl Display for Instruction {
                 Instruction::Jmpf(offset) => format!("jmpf {}", offset),
                 Instruction::Return => "return".to_string(),
                 Instruction::Call(arg_count) => format!("call {}", arg_count),
+                Instruction::Intrinsic(intrinsic) => format!("intrinsic {}", intrinsic),
                 Instruction::GetGlobal(slot) => format!("get_global ${}", slot),
                 Instruction::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
                 Instruction::SetGlobal(slot) => format!("set_global ${}", slot),

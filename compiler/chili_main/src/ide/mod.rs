@@ -261,10 +261,11 @@ impl<'a> CollectHints<'a> for ast::Expr {
             ast::ExprKind::Cast(t) => t.expr.collect_hints(sess),
             ast::ExprKind::Builtin(b) => match b {
                 ast::BuiltinKind::Import(_) | ast::BuiltinKind::LangItem(_) => (),
-                ast::BuiltinKind::SizeOf(e)
-                | ast::BuiltinKind::AlignOf(e)
-                | ast::BuiltinKind::Run(e, _) => e.collect_hints(sess),
-                ast::BuiltinKind::Panic(e) => e.collect_hints(sess),
+                ast::BuiltinKind::SizeOf(expr)
+                | ast::BuiltinKind::AlignOf(expr)
+                | ast::BuiltinKind::StartWorkspace(expr)
+                | ast::BuiltinKind::Run(expr, _) => expr.collect_hints(sess),
+                ast::BuiltinKind::Panic(expr) => expr.collect_hints(sess),
             },
             ast::ExprKind::Function(f) => {
                 f.sig.collect_hints(sess);

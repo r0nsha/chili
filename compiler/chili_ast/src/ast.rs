@@ -310,6 +310,7 @@ pub enum BuiltinKind {
     AlignOf(Box<Expr>),
     Panic(Option<Box<Expr>>),
     Run(Box<Expr>, Option<ConstValue>), // 1. expression to run | 2. the expression's result
+    StartWorkspace(Box<Expr>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -478,6 +479,7 @@ pub struct Binding {
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
     Normal,
+    Builtin,
     Extern(Option<ExternLibrary>),
 }
 
@@ -498,6 +500,7 @@ impl Display for BindingKind {
             "{}",
             match self {
                 BindingKind::Normal => "normal",
+                BindingKind::Builtin => "builtin",
                 BindingKind::Extern(_) => "extern",
             }
         )

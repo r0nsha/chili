@@ -19,6 +19,9 @@ impl<'a> From<Value> for WorkspaceValue<'a> {
 pub struct BuildOptionsValue<'a> {
     input_file: &'a str,
     output_file: &'a str,
+    target: BuildTargetValue,
+    opt_level: OptLevelValue,
+    run_when_done: bool,
 }
 
 impl<'a> From<Value> for BuildOptionsValue<'a> {

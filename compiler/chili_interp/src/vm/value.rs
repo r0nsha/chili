@@ -755,7 +755,7 @@ impl Display for Aggregate {
 
         write!(
             f,
-            "{{{}{}}}",
+            "{{ {}{} }}",
             self.elements
                 .iter()
                 .take(MAX_CONSECUTIVE_VALUES as usize)

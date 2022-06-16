@@ -101,6 +101,7 @@ pub enum TokenKind {
     Let,
     Fn,
     Extern,
+    Builtin,
     Pub,
     Mut,
     In,
@@ -189,6 +190,7 @@ impl TokenKind {
             Let => "let",
             Fn => "fn",
             Extern => "extern",
+            Builtin => "builtin",
             Pub => "pub",
             Mut => "mut",
             In => "in",
@@ -212,6 +214,7 @@ impl TokenKind {
 
     pub fn is_expr_start(&self) -> bool {
         use TokenKind::*;
+
         matches!(
             self,
             At | OpenParen
@@ -234,6 +237,7 @@ impl TokenKind {
                 | Let
                 | Fn
                 | Extern
+                | Builtin
                 | Pub
                 | Struct
                 | Union
@@ -250,28 +254,29 @@ impl TokenKind {
         )
     }
 
-    pub fn is_expr_end(&self) -> bool {
-        use TokenKind::*;
-        matches!(
-            self,
-            Semicolon
-                | CloseParen
-                | CloseCurly
-                | CloseBracket
-                | QuestionMark
-                | Break
-                | Continue
-                | Return
-                | Placeholder
-                | Ident(_)
-                | Nil
-                | True
-                | False
-                | Int(_)
-                | Float(_)
-                | Str(_)
-                | Char(_)
-                | Eof
-        )
-    }
+    // pub fn is_expr_end(&self) -> bool {
+    //     use TokenKind::*;
+
+    //     matches!(
+    //         self,
+    //         Semicolon
+    //             | CloseParen
+    //             | CloseCurly
+    //             | CloseBracket
+    //             | QuestionMark
+    //             | Break
+    //             | Continue
+    //             | Return
+    //             | Placeholder
+    //             | Ident(_)
+    //             | Nil
+    //             | True
+    //             | False
+    //             | Int(_)
+    //             | Float(_)
+    //             | Str(_)
+    //             | Char(_)
+    //             | Eof
+    //     )
+    // }
 }

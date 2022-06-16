@@ -16,7 +16,11 @@ let build = fn() {
 	};
 
 	println("Hello from build file");
-	// @workspace_start(workspace);
+
+	start_workspace(Workspace {
+		name: "hello",
+		build_options
+	});
 };
 
 @run(build());

@@ -174,7 +174,8 @@ impl<'a> Substitute<'a> for ast::Expr {
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr, _) => expr.substitute(sess),
+                | ast::BuiltinKind::Run(expr, _)
+                | ast::BuiltinKind::StartWorkspace(expr) => expr.substitute(sess),
                 ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
                 ast::BuiltinKind::Import(_) | ast::BuiltinKind::LangItem(_) => (),
             },

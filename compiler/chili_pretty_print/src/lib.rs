@@ -253,6 +253,11 @@ impl PrintTree for ast::Expr {
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
+                    ast::BuiltinKind::StartWorkspace(expr) => {
+                        b.begin_child("@start_workspace".to_string());
+                        expr.print_tree(b, workspace, tycx);
+                        b.end_child();
+                    }
                 };
             }
             ast::ExprKind::Function(closure) => {

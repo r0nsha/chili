@@ -64,7 +64,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|fn|extern|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|fn|extern|builtin|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -154,23 +154,26 @@
               "name": "keyword.other.chili"
             },
             "3": {
-              "name": "storage.modifier.chili"
+              "name": "keyword.other.chili"
             },
             "4": {
-              "name": "string.quoted.double.chili"
+              "name": "keyword.other.chili"
             },
             "5": {
-              "name": "storage.modifier.chili"
+              "name": "string.quoted.double.chili"
             },
             "6": {
+              "name": "storage.modifier.chili"
+            },
+            "7": {
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(let\\s*)(extern\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*)?(let\\s*)((extern|builtin)\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "name": "support.function.builtin.chili",
-          "match": "@[_a-zA-Z][_a-zA-Z0-9]*"
+          "match": "[_a-zA-Z][_a-zA-Z0-9]*!"
         },
         {
           "comment": "function expression",

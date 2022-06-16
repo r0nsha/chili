@@ -5,14 +5,14 @@ mod sess;
 mod type_limits;
 
 use chili_ast::{
-    ast,
+    ast::{self, BindingKind},
     pattern::{HybridPattern, Pattern},
     workspace::Workspace,
 };
 use chili_error::diagnostic::{Diagnostic, Label};
 use chili_infer::{normalize::Normalize, ty_ctx::TyCtx};
 use chili_span::Span;
-use common::{build_options::CodegenOptions, scopes::Scopes};
+use common::scopes::Scopes;
 use sess::{InitState, LintSess};
 
 pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) {
@@ -103,7 +103,9 @@ impl Lint for ast::Ast {
 
 impl Lint for ast::Binding {
     fn lint(&self, sess: &mut LintSess) {
-        let init_state = if self.expr.is_some() {
+        let init_state = if self.expr.is_some()
+            || matches!(self.kind, BindingKind::Extern(_) | BindingKind::Builtin)
+        {
             InitState::Init
         } else {
             InitState::NotInit
@@ -169,9 +171,10 @@ impl Lint for ast::Expr {
             ast::ExprKind::Builtin(b) => match b {
                 ast::BuiltinKind::Import(_) => (),
                 ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
-                ast::BuiltinKind::SizeOf(e)
-                | ast::BuiltinKind::AlignOf(e)
-                | ast::BuiltinKind::Run(e, _) => e.lint(sess),
+                ast::BuiltinKind::SizeOf(expr)
+                | ast::BuiltinKind::AlignOf(expr)
+                | ast::BuiltinKind::Run(expr, _)
+                | ast::BuiltinKind::StartWorkspace(expr) => expr.lint(sess),
                 ast::BuiltinKind::Panic(e) => e.lint(sess),
             },
             ast::ExprKind::Function(f) => {

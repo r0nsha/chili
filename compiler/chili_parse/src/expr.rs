@@ -504,6 +504,7 @@ impl Parser {
             "lang_item" => BuiltinKind::LangItem(require!(self, Str(_), "string")?.symbol()),
             "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
             "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
+            "start_workspace" => BuiltinKind::StartWorkspace(Box::new(self.parse_expr()?)),
             "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {
                 None
             } else {

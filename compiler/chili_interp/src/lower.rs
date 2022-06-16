@@ -76,6 +76,7 @@ impl Lower for ast::Expr {
                     code.push(Instruction::Panic);
                 }
                 ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
+                ast::BuiltinKind::StartWorkspace(expr) => todo!("start workspace"),
                 ast::BuiltinKind::Import(_) => sess.push_const_unit(code),
                 ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
             },
@@ -179,6 +180,9 @@ impl Lower for ast::Expr {
                                 Instruction::Peek(slot)
                             });
                         } else {
+                            println!("{}", ident.symbol);
+                            println!("1");
+
                             let slot = sess
                                 .get_global(id)
                                 .unwrap_or_else(|| find_and_lower_top_level_binding(id, sess))
@@ -1211,11 +1215,12 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
 }
 
 fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
-    if let Some(binding) = sess.typed_ast.get_binding(id) {
-        lower_top_level_binding(binding, id, sess)
-    } else {
-        panic!("binding not found: {:?}", id)
-    }
+    let binding = sess
+        .typed_ast
+        .get_binding(id)
+        .unwrap_or_else(|| panic!("binding not found: {:?}", id));
+
+    lower_top_level_binding(binding, id, sess)
 }
 
 fn lower_top_level_binding(
@@ -1223,6 +1228,7 @@ fn lower_top_level_binding(
     desired_id: BindingInfoId,
     sess: &mut InterpSess,
 ) -> usize {
+    println!("{}", binding.pattern);
     // insert a temporary value, since the global will be computed at the start of the vm's execution
 
     sess.env_stack.push((binding.module_id, Env::default()));

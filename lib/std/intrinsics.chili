@@ -1,0 +1,3 @@
+let { Workspace } = @import("build");
+
+pub let builtin start_workspace: fn(workspace: Workspace) -> ();

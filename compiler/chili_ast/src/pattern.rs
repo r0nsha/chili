@@ -112,13 +112,13 @@ impl Display for Pattern {
             "{}",
             match self {
                 Pattern::Symbol(pat) => pat.to_string(),
-                Pattern::StructUnpack(pat) => format!("{{{}}}", pat),
+                Pattern::StructUnpack(pat) => format!("{{ {} }}", pat),
                 Pattern::TupleUnpack(pat) => format!("({})", pat),
                 Pattern::Hybrid(pat) => format!(
                     "{} @ {}",
                     pat.symbol,
                     match &pat.unpack {
-                        UnpackPatternKind::Struct(pat) => format!("{{{}}}", pat),
+                        UnpackPatternKind::Struct(pat) => format!("{{ {} }}", pat),
                         UnpackPatternKind::Tuple(pat) => format!("({})", pat),
                     }
                 ),

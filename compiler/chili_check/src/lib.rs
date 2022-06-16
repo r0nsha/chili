@@ -7,7 +7,7 @@ mod import;
 mod top_level;
 
 use chili_ast::{
-    ast::{self, TypedAst},
+    ast::{self, BindingKind, TypedAst},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
@@ -378,6 +378,23 @@ impl Check for ast::Binding {
             sess.tycx.var(self.pattern.span())
         };
 
+        if let ast::BindingKind::Builtin = &self.kind {
+            let pattern = self.pattern.as_symbol_ref();
+
+            sess.bind_symbol(
+                env,
+                pattern.symbol,
+                self.visibility,
+                self.ty,
+                None,
+                pattern.is_mutable,
+                ast::BindingKind::Builtin,
+                pattern.span,
+            )?;
+
+            return Ok(Res::new(self.ty));
+        }
+
         let const_value = if let Some(expr) = &mut self.expr {
             let res = expr.check(sess, env, Some(self.ty))?;
 
@@ -428,7 +445,7 @@ impl Check for ast::Binding {
             && !is_type_or_module
             && !is_any_pattern_mut
             && const_value.is_none()
-            && !self.kind.is_extern()
+            && !matches!(self.kind, BindingKind::Extern(_) | BindingKind::Builtin)
         {
             return Err(Diagnostic::error()
                 .with_message(format!("immutable top level binding must be constant"))
@@ -826,6 +843,54 @@ impl Check for ast::Expr {
                     if let Some(expr) = expr {
                         expr.check(sess, env, None)?;
                     }
+                    Ok(Res::new(sess.tycx.common_types.unit))
+                }
+                ast::BuiltinKind::StartWorkspace(expr) => {
+                    // Note (Ron): can we somehow expect `std.build.Workspace` here?
+                    let res = expr.check(sess, env, None)?;
+
+                    let ty = res.ty.normalize(&sess.tycx);
+
+                    // TODO: this code could become more readable...
+                    let ty_diag = || {
+                        Diagnostic::error()
+                            .with_message("argument must be a compile-time known constant")
+                            .with_label(Label::primary(expr.span, "not a constant"))
+                    };
+
+                    match ty {
+                        TyKind::Struct(st) => {
+                            if let Some(binding_info) = sess
+                                .workspace
+                                .module_infos
+                                .iter()
+                                .position(|(_, m)| m.name == "std.build")
+                                .map(ModuleId::from)
+                                .and_then(|std_build_module_id| {
+                                    sess.workspace.binding_infos.iter().find(|(_, b)| {
+                                        b.module_id == std_build_module_id
+                                            && b.symbol == "Workspace"
+                                            && b.scope_level.is_global()
+                                    })
+                                })
+                                .map(|(_, b)| b)
+                            {
+                                if st.binding_info_id != binding_info.id {
+                                    return Err(ty_diag());
+                                }
+                            } else {
+                                return Err(ty_diag());
+                            }
+                        }
+                        _ => return Err(ty_diag()),
+                    }
+
+                    if !matches!(res.const_value, Some(ConstValue::Struct(_))) {
+                        return Err(Diagnostic::error()
+                            .with_message("argument must be a compile-time known constant")
+                            .with_label(Label::primary(expr.span, "not a constant")));
+                    }
+
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
@@ -2007,18 +2072,30 @@ impl Check for ast::Expr {
                     ));
                 }
 
-                Ok(Res::new_const(
-                    sess.tycx.bound(struct_ty.clone().create_type(), self.span),
-                    ConstValue::Type(sess.tycx.bound(struct_ty, self.span)),
-                ))
+                let ty = sess.tycx.bound(struct_ty.clone().create_type(), self.span);
+                let const_value = ConstValue::Type(sess.tycx.bound(struct_ty, self.span));
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::FunctionType(sig) => {
                 let res = sig.check(sess, env, expected_ty)?;
 
-                Ok(Res::new_const(
-                    sess.tycx.bound(res.ty.as_kind().create_type(), self.span),
-                    ConstValue::Type(res.ty),
-                ))
+                let ty = sess.tycx.bound(res.ty.as_kind().create_type(), self.span);
+                let const_value = ConstValue::Type(res.ty);
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
                 Some(&ty) => Ok(Res::new_const(

@@ -15,6 +15,8 @@ impl Parser {
 
             let binding = if eat!(self, Extern) {
                 self.parse_extern(visibility, start_span)?
+            } else if eat!(self, Builtin) {
+                self.parse_builtin_binding(visibility, start_span)?
             } else {
                 self.parse_binding(visibility, true)?
             };

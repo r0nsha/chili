@@ -15,6 +15,7 @@ mod cast;
 pub mod display;
 mod index;
 pub mod instruction;
+mod intrinsics;
 mod stack;
 pub mod value;
 
@@ -324,6 +325,7 @@ impl<'vm> VM<'vm> {
                         _ => panic!("tried to call uncallable value `{}`", value.to_string()),
                     }
                 }
+                Instruction::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
                 Instruction::GetGlobal(slot) => {
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
