@@ -479,7 +479,7 @@ pub struct Binding {
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
     Normal,
-    Builtin,
+    Intrinsic(Intrinsic),
     Extern(Option<ExternLibrary>),
 }
 
@@ -500,10 +500,24 @@ impl Display for BindingKind {
             "{}",
             match self {
                 BindingKind::Normal => "normal",
-                BindingKind::Builtin => "builtin",
+                BindingKind::Intrinsic(_) => "intrinsic",
                 BindingKind::Extern(_) => "extern",
             }
         )
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Intrinsic {
+    StartWorkspace,
+}
+
+impl Intrinsic {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "start_workspace" => Some(Intrinsic::StartWorkspace),
+            _ => None,
+        }
     }
 }
 

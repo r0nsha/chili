@@ -322,10 +322,10 @@ impl<'vm> VM<'vm> {
 
                             self.next();
                         }
+                        Value::IntrinsicFunction(func) => self.dispatch_intrinsic(*func),
                         _ => panic!("tried to call uncallable value `{}`", value.to_string()),
                     }
                 }
-                Instruction::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
                 Instruction::GetGlobal(slot) => {
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),

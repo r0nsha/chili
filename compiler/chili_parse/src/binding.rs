@@ -1,11 +1,12 @@
 use crate::*;
 use chili_ast::{
-    ast::{Binding, BindingKind, Visibility},
+    ast::{Binding, BindingKind, Intrinsic, Visibility},
     path::RelativeTo,
     pattern::{Pattern, SymbolPattern},
     ty::Ty,
     workspace::{BindingInfoId, ModuleId},
 };
+use chili_error::diagnostic::Label;
 use chili_span::To;
 
 impl Parser {
@@ -112,6 +113,13 @@ impl Parser {
         start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
         let id = require!(self, Ident(_), "an identifier")?;
+        let symbol = id.symbol();
+
+        let intrinsic = Intrinsic::from_str(&symbol).ok_or_else(|| {
+            Diagnostic::error()
+                .with_message(format!("unknown intrinsic `{}`", symbol))
+                .with_label(Label::primary(id.span, "unknown intrinsic"))
+        })?;
 
         let pattern = Pattern::Symbol(SymbolPattern {
             id: BindingInfoId::unknown(),
@@ -129,7 +137,7 @@ impl Parser {
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
             visibility,
-            kind: ast::BindingKind::Builtin,
+            kind: ast::BindingKind::Intrinsic(intrinsic),
             pattern,
             ty: Ty::unknown(),
             ty_expr: Some(ty_expr),

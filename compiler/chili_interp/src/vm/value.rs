@@ -245,6 +245,7 @@ impl_value! {
     Pointer(Pointer),
     Function(Function),
     ExternFunction(ExternFunction),
+    IntrinsicFunction(IntrinsicFunction),
     Type(TyKind),
 }
 
@@ -285,6 +286,23 @@ pub struct ExternFunction {
     pub param_tys: Vec<TyKind>,
     pub return_ty: TyKind,
     pub variadic: bool,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum IntrinsicFunction {
+    StartWorkspace,
+}
+
+impl Display for IntrinsicFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                IntrinsicFunction::StartWorkspace => "start_workspace",
+            }
+        )
+    }
 }
 
 impl From<&TyKind> for ValueKind {
@@ -568,7 +586,8 @@ impl Value {
                 name: f.name,
             })),
             Self::Pointer(_) => Err("pointer"),
-            Self::ExternFunction(_) => Err("function"),
+            Self::ExternFunction(_) => Err("extern function"),
+            Self::IntrinsicFunction(_) => Err("intrinsic function"),
         }
     }
 }
@@ -743,6 +762,7 @@ impl Display for Value {
                 Value::Pointer(p) => p.to_string(),
                 Value::Function(v) => v.to_string(),
                 Value::ExternFunction(v) => v.to_string(),
+                Value::IntrinsicFunction(v) => v.to_string(),
                 Value::Type(ty) => format!("type {}", ty),
             }
         )
@@ -838,6 +858,7 @@ impl Display for Pointer {
                     Pointer::Pointer(p) => (**p).to_string(),
                     Pointer::Function(v) => (**v).to_string(),
                     Pointer::ExternFunction(v) => (**v).to_string(),
+                    Pointer::IntrinsicFunction(v) => (**v).to_string(),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }
             }

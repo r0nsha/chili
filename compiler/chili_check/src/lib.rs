@@ -378,21 +378,27 @@ impl Check for ast::Binding {
             sess.tycx.var(self.pattern.span())
         };
 
-        if let ast::BindingKind::Builtin = &self.kind {
-            let pattern = self.pattern.as_symbol_ref();
+        if let ast::BindingKind::Intrinsic(_) = &self.kind {
+            if let Pattern::Symbol(pattern) = &mut self.pattern {
+                let id = sess.bind_symbol(
+                    env,
+                    pattern.symbol,
+                    self.visibility,
+                    self.ty,
+                    None,
+                    pattern.is_mutable,
+                    self.kind.clone(),
+                    pattern.span,
+                )?;
 
-            sess.bind_symbol(
-                env,
-                pattern.symbol,
-                self.visibility,
-                self.ty,
-                None,
-                pattern.is_mutable,
-                ast::BindingKind::Builtin,
-                pattern.span,
-            )?;
+                pattern.id = id;
 
-            return Ok(Res::new(self.ty));
+                sess.new_typed_ast.bindings.push(self.clone());
+
+                return Ok(Res::new(self.ty));
+            } else {
+                panic!();
+            }
         }
 
         let const_value = if let Some(expr) = &mut self.expr {
@@ -445,7 +451,10 @@ impl Check for ast::Binding {
             && !is_type_or_module
             && !is_any_pattern_mut
             && const_value.is_none()
-            && !matches!(self.kind, BindingKind::Extern(_) | BindingKind::Builtin)
+            && !matches!(
+                self.kind,
+                BindingKind::Extern(_) | BindingKind::Intrinsic(_)
+            )
         {
             return Err(Diagnostic::error()
                 .with_message(format!("immutable top level binding must be constant"))
@@ -1639,10 +1648,17 @@ impl Check for ast::Expr {
                             .with_label(Label::primary(self.span, "can't capture")));
                     }
 
-                    Ok(Res::new_maybe_const(
-                        binding_info.ty,
-                        binding_info.const_value.clone(),
-                    ))
+                    let ty = binding_info.ty;
+
+                    if let Some(const_value) = &binding_info.const_value {
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_value.clone()),
+                            ty,
+                            self.span,
+                        );
+                    }
+
+                    Ok(Res::new_maybe_const(ty, binding_info.const_value.clone()))
                 }
                 None => {
                     // this is either a top level binding, a builtin binding, or it doesn't exist
@@ -1656,6 +1672,14 @@ impl Check for ast::Expr {
                     )?;
 
                     ident.binding_info_id = id;
+
+                    if let Some(const_value) = &res.const_value {
+                        *self = ast::Expr::typed(
+                            ast::ExprKind::ConstValue(const_value.clone()),
+                            res.ty,
+                            self.span,
+                        );
+                    }
 
                     Ok(res)
                 }
@@ -1950,19 +1974,33 @@ impl Check for ast::Expr {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
-                Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type(), self.span),
-                    ConstValue::Type(sess.tycx.bound(kind.clone(), self.span)),
-                ))
+
+                let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
+                let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
-                Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type(), self.span),
-                    ConstValue::Type(sess.tycx.bound(kind, self.span)),
-                ))
+
+                let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
+                let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::ArrayType(ast::ArrayType { inner, size }) => {
                 let inner_res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
@@ -1980,19 +2018,32 @@ impl Check for ast::Expr {
 
                 let kind = TyKind::Array(Box::new(inner_ty.into()), size_value as usize);
 
-                Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type(), self.span),
-                    ConstValue::Type(sess.tycx.bound(kind, self.span)),
-                ))
+                let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
+                let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
-                Ok(Res::new_const(
-                    sess.tycx.bound(kind.clone().create_type(), self.span),
-                    ConstValue::Type(sess.tycx.bound(kind, self.span)),
-                ))
+
+                let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
+                let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::StructType(st) => {
                 st.name = if st.name.is_empty() {
@@ -2098,20 +2149,33 @@ impl Check for ast::Expr {
                 Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::SelfType => match sess.self_types.last() {
-                Some(&ty) => Ok(Res::new_const(
-                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
-                    ConstValue::Type(ty),
-                )),
+                Some(&ty) => {
+                    let ty = sess.tycx.bound(ty.as_kind().create_type(), self.span);
+                    let const_value = ConstValue::Type(ty);
+
+                    *self = ast::Expr::typed(
+                        ast::ExprKind::ConstValue(const_value.clone()),
+                        ty,
+                        self.span,
+                    );
+
+                    Ok(Res::new_const(ty, const_value))
+                }
                 None => Err(Diagnostic::error()
                     .with_message("`Self` is only available within struct types")
                     .with_label(Label::primary(self.span, "`Self` is invalid here"))),
             },
             ast::ExprKind::Placeholder => {
                 let ty = sess.tycx.var(self.span);
-                Ok(Res::new_const(
-                    sess.tycx.bound(ty.as_kind().create_type(), self.span),
-                    ConstValue::Type(ty),
-                ))
+                let const_value = ConstValue::Type(ty);
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::ConstValue(const_value) => const_value.check(sess, env, expected_ty),
             ast::ExprKind::Error => Ok(Res::new(sess.tycx.var(self.span))),

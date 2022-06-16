@@ -104,8 +104,10 @@ impl Lint for ast::Ast {
 impl Lint for ast::Binding {
     fn lint(&self, sess: &mut LintSess) {
         let init_state = if self.expr.is_some()
-            || matches!(self.kind, BindingKind::Extern(_) | BindingKind::Builtin)
-        {
+            || matches!(
+                self.kind,
+                BindingKind::Extern(_) | BindingKind::Intrinsic(_)
+            ) {
             InitState::Init
         } else {
             InitState::NotInit

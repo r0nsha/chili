@@ -1,9 +1,9 @@
-use super::{instruction::Intrinsic, VM};
+use super::{value::IntrinsicFunction, VM};
 
 impl<'vm> VM<'vm> {
-    pub(super) fn dispatch_intrinsic(&mut self, intrinsic: Intrinsic) {
+    pub(super) fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
         match intrinsic {
-            Intrinsic::StartWorkspace => todo!("interp start_workspace"),
+            IntrinsicFunction::StartWorkspace => todo!("interp start_workspace"),
         }
     }
 }
