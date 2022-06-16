@@ -38,7 +38,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let panic_info_llvm_type = panic_type.params.first().unwrap().llvm_type(self);
 
-        let program = self.gen_global_str("panic_program", "main", true);
+        let program = self.gen_global_str("panic_program", self.workspace.name.as_ref(), true);
 
         let file_path = self.gen_global_str("panic_file_path", state.module_info.file_path, true);
 

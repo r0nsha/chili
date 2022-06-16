@@ -1,3 +1,5 @@
+use std::env;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetPlatform {
     Windows386,
@@ -163,6 +165,14 @@ impl TargetPlatform {
                 target_triplet: "wasm32-wasi-js",
                 target_data_layout: "",
             },
+        }
+    }
+
+    pub fn current() -> Result<Self, &'static str> {
+        match env::consts::OS {
+            "linux" => Ok(Self::LinuxAmd64),
+            "windows" => Ok(Self::WindowsAmd64),
+            os => Err(os),
         }
     }
 }

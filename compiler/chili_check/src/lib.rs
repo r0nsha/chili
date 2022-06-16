@@ -156,7 +156,13 @@ pub(crate) struct FunctionFrame {
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn new(workspace: &'s mut Workspace, old_asts: &'s Vec<ast::Ast>) -> Self {
-        let target_metrics = workspace.build_options.target_platform.metrics();
+        let target_metrics = workspace
+            .build_options
+            .target_platform
+            .as_ref()
+            .unwrap()
+            .metrics();
+
         Self {
             workspace,
             target_metrics,
@@ -469,7 +475,7 @@ impl Check for ast::Binding {
                         // Tag it as the entry function
                         // Requirements:
                         // - Is declared in the root module
-                        // - Its name is "main"
+                        // - Its name is the same as the required `entry_point_function_name`
                         if sess.workspace.entry_point_function_id.is_none()
                             && self.module_id == sess.workspace.root_module_id
                             && pattern.symbol

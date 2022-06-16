@@ -6,21 +6,21 @@ pub struct BuildOptions {
     /// The root source file input from the user
     pub source_file: PathBuf,
 
-    /// The target platform, including os and arch
-    pub target_platform: TargetPlatform,
+    /// The target platform, including os and arch.
+    /// If this is None, the target platform will be the current one, and codegen is skipped
+    pub target_platform: Option<TargetPlatform>,
 
     /// The overall codegen optimization level
     pub opt_level: OptLevel,
 
-    /// Prints information verbosely, for example: timings
-    pub verbose: bool,
-
     pub diagnostic_options: DiagnosticOptions,
-
     pub codegen_options: CodegenOptions,
 
     /// Additional search paths for imports
     pub include_paths: Vec<PathBuf>,
+
+    /// Prints information verbosely, for example: timings
+    pub verbose: bool,
 }
 
 impl BuildOptions {
@@ -29,7 +29,7 @@ impl BuildOptions {
     }
 
     pub fn need_entry_point_function(&self) -> bool {
-        match &self.target_platform {
+        self.target_platform.as_ref().map_or(false, |t| match t {
             TargetPlatform::Windows386
             | TargetPlatform::WindowsAmd64
             | TargetPlatform::Linux386
@@ -44,12 +44,12 @@ impl BuildOptions {
             TargetPlatform::FreestandingWasm32
             | TargetPlatform::JsWasm32
             | TargetPlatform::WasiWasm32 => false,
-        }
+        })
     }
 
     pub fn entry_point_function_name(&self) -> Option<&'static str> {
         self.need_entry_point_function()
-            .then(|| match &self.target_platform {
+            .then(|| match self.target_platform.as_ref().unwrap() {
                 TargetPlatform::Windows386
                 | TargetPlatform::WindowsAmd64
                 | TargetPlatform::Linux386

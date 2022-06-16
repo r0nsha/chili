@@ -6,12 +6,18 @@ pub let Workspace = struct {
 pub let BuildOptions = struct {
     input_file: str,
     output_file: str,
-    target: BuildTarget,
-    release: bool,
-    run_when_done: bool
+    // target: BuildTarget,
+    // opt_level: OptLevel,
+    // run_when_done: bool
 };
 
+// TODO: turn into enum
 pub let BuildTarget = u8;
-pub let BUILD_TARGET_AUTO: BuildTarget = 0;
-pub let BUILD_TARGET_LINUX: BuildTarget = 1;
-pub let BUILD_TARGET_WINDOWS: BuildTarget = 2;
+pub let BuildTarget_auto: BuildTarget = 0;
+pub let BuildTarget_linux: BuildTarget = 1;
+pub let BuildTarget_windows: BuildTarget = 2;
+
+// TODO: turn into enum
+pub let OptLevel = u8;
+pub let OptLevel_debug: OptLevel = 0;
+pub let OptLevel_release: OptLevel = 1;

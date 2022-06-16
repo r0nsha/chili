@@ -5,9 +5,9 @@ let build = fn() {
 	let build_options = BuildOptions {
         input_file: "src/main.chili",
         output_file: "out/main",
-        target: BUILD_TARGET_AUTO,
-        release: false,
-        run_when_done: false,
+        // target: BuildTarget_auto,
+        // opt_level: OptLevel_debug,
+        // run_when_done: false,
 	};
 
 	let workspace = Workspace {

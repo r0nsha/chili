@@ -13,6 +13,7 @@ use num_format::{Locale, ToFormattedString};
 use path_absolutize::*;
 
 pub fn start_workspace(
+    name: String,
     build_options: BuildOptions,
 ) -> (Workspace, Option<TyCtx>, Option<TypedAst>) {
     // Set up workspace
@@ -22,7 +23,7 @@ pub fn start_workspace(
     let root_dir = absolute_path.parent().unwrap().to_path_buf();
     let std_dir = chili_ast::compiler_info::std_module_root_dir();
 
-    let mut workspace = Workspace::new(build_options.clone(), root_dir, std_dir);
+    let mut workspace = Workspace::new(name, build_options.clone(), root_dir, std_dir);
 
     let all_sw = if workspace.build_options.verbose {
         Some(Stopwatch::start_new("time"))

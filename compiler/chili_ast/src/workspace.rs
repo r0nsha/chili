@@ -16,6 +16,8 @@ use std::{
 use ustr::{ustr, Ustr};
 
 pub struct Workspace {
+    pub name: String,
+
     // The build options, either passed by the user, or inferred from the host machine
     pub build_options: BuildOptions,
 
@@ -44,22 +46,6 @@ pub struct Workspace {
 
     // Extern libraries needed to be linked. Resolved during name resolution
     pub extern_libraries: HashSet<ExternLibrary>,
-}
-
-impl Workspace {
-    pub fn new(build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
-        Self {
-            diagnostics: Diagnostics::new(),
-            build_options,
-            root_dir,
-            std_dir,
-            module_infos: Default::default(),
-            root_module_id: Default::default(),
-            binding_infos: Default::default(),
-            entry_point_function_id: None,
-            extern_libraries: Default::default(),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -132,6 +118,26 @@ bitflags! {
 }
 
 impl Workspace {
+    pub fn new(
+        name: String,
+        build_options: BuildOptions,
+        root_dir: PathBuf,
+        std_dir: PathBuf,
+    ) -> Self {
+        Self {
+            name,
+            diagnostics: Diagnostics::new(),
+            build_options,
+            root_dir,
+            std_dir,
+            module_infos: Default::default(),
+            root_module_id: Default::default(),
+            binding_infos: Default::default(),
+            entry_point_function_id: None,
+            extern_libraries: Default::default(),
+        }
+    }
+
     pub fn emit_diagnostics(&self) {
         match &self.build_options.diagnostic_options {
             DiagnosticOptions::Emit { no_color } => {

@@ -56,7 +56,12 @@ pub fn codegen<'w>(
     );
     let builder = context.create_builder();
 
-    let target_metrics = workspace.build_options.target_platform.metrics();
+    let target_metrics = workspace
+        .build_options
+        .target_platform
+        .as_ref()
+        .unwrap()
+        .metrics();
 
     let target_machine = get_target_machine(&target_metrics);
     module.set_data_layout(&target_machine.get_target_data().get_data_layout());

@@ -7,10 +7,7 @@ use common::{
     },
     target::TargetPlatform,
 };
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -129,11 +126,17 @@ pub fn start_cli() {
 
             let build_options = BuildOptions {
                 source_file: PathBuf::from(file),
-                target_platform: match args.target {
-                    Target::Current => get_current_target_platform(),
+                target_platform: Some(match args.target {
+                    Target::Current => match TargetPlatform::current() {
+                        Ok(t) => t,
+                        Err(os) => {
+                            print_err(&format!("targeting unsupported platform: {}", os));
+                            std::process::exit(1);
+                        }
+                    },
                     Target::Windows => TargetPlatform::WindowsAmd64,
                     Target::Linux => TargetPlatform::LinuxAmd64,
-                },
+                }),
                 opt_level: if args.release {
                     OptLevel::Release
                 } else {
@@ -145,7 +148,7 @@ pub fn start_cli() {
                 include_paths: get_include_paths(&args.include_paths),
             };
 
-            start_workspace(build_options);
+            start_workspace("__TEST__".to_string(), build_options);
         }
         Err(e) => print_err(&e),
     }
@@ -156,7 +159,13 @@ fn run_check(args: CheckArgs) {
         Ok(file) => {
             let build_options = BuildOptions {
                 source_file: PathBuf::from(file),
-                target_platform: get_current_target_platform(),
+                target_platform: match TargetPlatform::current() {
+                    Ok(t) => Some(t),
+                    Err(os) => {
+                        print_err(&format!("targeting unsupported platform: {}", os));
+                        std::process::exit(1);
+                    }
+                },
                 opt_level: OptLevel::Debug,
                 verbose: false,
                 diagnostic_options: DiagnosticOptions::DontEmit,
@@ -164,7 +173,8 @@ fn run_check(args: CheckArgs) {
                 include_paths: get_include_paths(&args.include_paths),
             };
 
-            let (workspace, tycx, typed_ast) = start_workspace(build_options);
+            let (workspace, tycx, typed_ast) =
+                start_workspace("__TEST__".to_string(), build_options);
 
             if args.diagnostics {
                 ide::diagnostics(&workspace, tycx.as_ref(), typed_ast.as_ref());
@@ -175,17 +185,6 @@ fn run_check(args: CheckArgs) {
             }
         }
         Err(e) => print_err(&e),
-    }
-}
-
-fn get_current_target_platform() -> TargetPlatform {
-    match env::consts::OS {
-        "linux" => TargetPlatform::LinuxAmd64,
-        "windows" => TargetPlatform::WindowsAmd64,
-        os => {
-            print_err(&format!("targeting unsupported platform: {}", os));
-            std::process::exit(1);
-        }
     }
 }
 
