@@ -8,7 +8,7 @@ pub struct BuildOptions {
 
     /// The target platform, including os and arch.
     /// If this is None, the target platform will be the current one, and codegen is skipped
-    pub target_platform: Option<TargetPlatform>,
+    pub target_platform: TargetPlatform,
 
     /// The overall codegen optimization level
     pub opt_level: OptLevel,
@@ -29,27 +29,25 @@ impl BuildOptions {
     }
 
     pub fn need_entry_point_function(&self) -> bool {
-        self.target_platform.as_ref().map_or(false, |t| match t {
-            TargetPlatform::Windows386
-            | TargetPlatform::WindowsAmd64
-            | TargetPlatform::Linux386
-            | TargetPlatform::LinuxAmd64
-            | TargetPlatform::LinuxArm64
-            | TargetPlatform::DarwinAmd64
-            | TargetPlatform::DarwinArm64
-            | TargetPlatform::FreeBSD386
-            | TargetPlatform::FreeBSDAmd64
-            | TargetPlatform::EssenceAmd64 => true,
-
-            TargetPlatform::FreestandingWasm32
-            | TargetPlatform::JsWasm32
-            | TargetPlatform::WasiWasm32 => false,
-        })
+        matches!(self.codegen_options, CodegenOptions::Vm)
+            && matches!(
+                self.target_platform,
+                TargetPlatform::Windows386
+                    | TargetPlatform::WindowsAmd64
+                    | TargetPlatform::Linux386
+                    | TargetPlatform::LinuxAmd64
+                    | TargetPlatform::LinuxArm64
+                    | TargetPlatform::DarwinAmd64
+                    | TargetPlatform::DarwinArm64
+                    | TargetPlatform::FreeBSD386
+                    | TargetPlatform::FreeBSDAmd64
+                    | TargetPlatform::EssenceAmd64
+            )
     }
 
     pub fn entry_point_function_name(&self) -> Option<&'static str> {
         self.need_entry_point_function()
-            .then(|| match self.target_platform.as_ref().unwrap() {
+            .then(|| match &self.target_platform {
                 TargetPlatform::Windows386
                 | TargetPlatform::WindowsAmd64
                 | TargetPlatform::Linux386
@@ -90,7 +88,8 @@ pub enum DiagnosticOptions {
 
 #[derive(Debug, Clone)]
 pub enum CodegenOptions {
-    Enabled(EnabledCodegenOptions),
+    Codegen(EnabledCodegenOptions),
+    Vm,
     Skip,
 }
 

@@ -11,7 +11,8 @@ use chili_ast::{
 };
 use chili_error::diagnostic::{Diagnostic, Label};
 use chili_infer::{normalize::Normalize, ty_ctx::TyCtx};
-use common::scopes::Scopes;
+use chili_span::Span;
+use common::{build_options::CodegenOptions, scopes::Scopes};
 use sess::{InitState, LintSess};
 
 pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) {
@@ -31,30 +32,38 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
 
     // Check that an entry point function exists
     // TODO (Ron): This won't be relevant for future targets like WASM, DLLs and libraries
-    if let Some(binding_info) = workspace.entry_point_function() {
-        let ty = binding_info.ty.normalize(tycx).into_fn();
+    if !workspace.build_options.need_entry_point_function() {
+        if let Some(binding_info) = workspace.entry_point_function() {
+            let ty = binding_info.ty.normalize(tycx).into_fn();
 
-        // if this is the main function, check its type matches a fn() -> [unit | never]
-        if !(ty.ret.is_unit() || ty.ret.is_never()) || !ty.params.is_empty() || ty.varargs.is_some()
-        {
+            // if this is the main function, check its type matches a fn() -> [unit | never]
+            if !(ty.ret.is_unit() || ty.ret.is_never())
+                || !ty.params.is_empty()
+                || ty.varargs.is_some()
+            {
+                workspace.diagnostics.push(
+                    Diagnostic::error()
+                        .with_message(format!(
+                            "entry point function `main` has type `{}`, expected `fn() -> ()`",
+                            ty
+                        ))
+                        .with_label(Label::primary(
+                            binding_info.span,
+                            "invalid type of entry point function",
+                        )),
+                );
+            }
+        } else if workspace.build_options.need_entry_point_function() {
             workspace.diagnostics.push(
                 Diagnostic::error()
-                    .with_message(format!(
-                        "entry point function `main` has type `{}`, expected `fn() -> ()`",
-                        ty
-                    ))
+                    .with_message("entry point function `main` is not defined")
                     .with_label(Label::primary(
-                        binding_info.span,
-                        "invalid type of entry point function",
-                    )),
+                        Span::initial(workspace.get_root_module_info().file_id),
+                        "",
+                    ))
+                    .with_note("define function `let main = fn() {}` in your entry file"),
             );
         }
-    } else if workspace.build_options.need_entry_point_function() {
-        workspace.diagnostics.push(
-            Diagnostic::error()
-                .with_message("entry point function `main` is not defined")
-                .with_note("define function `let main = fn() {}` in your entry file"),
-        );
     }
 }
 

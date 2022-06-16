@@ -15,7 +15,7 @@ let build = fn() {
 		build_options
 	};
 
-	println("Hello World");
+	println("Hello from build file");
 	// @workspace_start(workspace);
 };
 

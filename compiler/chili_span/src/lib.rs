@@ -18,6 +18,10 @@ impl Span {
         }
     }
 
+    pub fn initial(file_id: FileId) -> Self {
+        Self::new(file_id, Position::initial(), EndPosition::initial())
+    }
+
     pub fn unknown() -> Self {
         Self::new(usize::MAX, Default::default(), Default::default())
     }

@@ -91,7 +91,7 @@ pub fn start_workspace(
 
     // Code generation
     match &workspace.build_options.codegen_options {
-        CodegenOptions::Enabled(codegen_options) => {
+        CodegenOptions::Codegen(codegen_options) => {
             let executable_path =
                 chili_backend_llvm::codegen(&workspace, &tycx, &typed_ast, codegen_options);
 

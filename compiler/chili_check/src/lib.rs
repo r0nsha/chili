@@ -156,12 +156,7 @@ pub(crate) struct FunctionFrame {
 
 impl<'s> CheckSess<'s> {
     pub(crate) fn new(workspace: &'s mut Workspace, old_asts: &'s Vec<ast::Ast>) -> Self {
-        let target_metrics = workspace
-            .build_options
-            .target_platform
-            .as_ref()
-            .unwrap()
-            .metrics();
+        let target_metrics = workspace.build_options.target_platform.metrics();
 
         Self {
             workspace,

@@ -2,9 +2,7 @@ use crate::{build::start_workspace, ide};
 use clap::*;
 use colored::Colorize;
 use common::{
-    build_options::{
-        BuildOptions, CodegenOptions, DiagnosticOptions, EnabledCodegenOptions, OptLevel,
-    },
+    build_options::{BuildOptions, CodegenOptions, DiagnosticOptions, OptLevel},
     target::TargetPlatform,
 };
 use std::path::{Path, PathBuf};
@@ -114,29 +112,9 @@ pub fn start_cli() {
                 no_color: args.no_color,
             };
 
-            let codegen_options = args
-                .no_codegen
-                .then(|| CodegenOptions::Skip)
-                .unwrap_or_else(|| {
-                    CodegenOptions::Enabled(EnabledCodegenOptions {
-                        emit_llvm_ir: args.emit_llvm_ir,
-                        run_when_done: run,
-                    })
-                });
-
             let build_options = BuildOptions {
                 source_file: PathBuf::from(file),
-                target_platform: Some(match args.target {
-                    Target::Current => match TargetPlatform::current() {
-                        Ok(t) => t,
-                        Err(os) => {
-                            print_err(&format!("targeting unsupported platform: {}", os));
-                            std::process::exit(1);
-                        }
-                    },
-                    Target::Windows => TargetPlatform::WindowsAmd64,
-                    Target::Linux => TargetPlatform::LinuxAmd64,
-                }),
+                target_platform: current_target_platform(),
                 opt_level: if args.release {
                     OptLevel::Release
                 } else {
@@ -144,7 +122,7 @@ pub fn start_cli() {
                 },
                 verbose: args.verbose,
                 diagnostic_options,
-                codegen_options,
+                codegen_options: CodegenOptions::Skip,
                 include_paths: get_include_paths(&args.include_paths),
             };
 
@@ -159,13 +137,7 @@ fn run_check(args: CheckArgs) {
         Ok(file) => {
             let build_options = BuildOptions {
                 source_file: PathBuf::from(file),
-                target_platform: match TargetPlatform::current() {
-                    Ok(t) => Some(t),
-                    Err(os) => {
-                        print_err(&format!("targeting unsupported platform: {}", os));
-                        std::process::exit(1);
-                    }
-                },
+                target_platform: current_target_platform(),
                 opt_level: OptLevel::Debug,
                 verbose: false,
                 diagnostic_options: DiagnosticOptions::DontEmit,
@@ -197,6 +169,16 @@ fn get_file_path(input_file: &str) -> Result<&str, String> {
         Err(format!("`{}` is not a file", input_file))
     } else {
         Ok(input_file)
+    }
+}
+
+fn current_target_platform() -> TargetPlatform {
+    match TargetPlatform::current() {
+        Ok(t) => t,
+        Err(os) => {
+            print_err(&format!("targeting unsupported platform: {}", os));
+            std::process::exit(1);
+        }
     }
 }
 

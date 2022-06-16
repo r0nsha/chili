@@ -1,6 +1,6 @@
 use crate::{interp_expr, top_level::CheckTopLevel, Check, CheckResult, CheckSess, Res};
 use chili_ast::{ast, ty::TyKind};
-use chili_span::{EndPosition, Position, Span};
+use chili_span::Span;
 use std::path::Path;
 
 #[inline]
@@ -22,10 +22,9 @@ pub(crate) fn check_ast(sess: &mut CheckSess, ast: &ast::Ast) -> CheckResult {
     } else {
         let module_id = ast.module_id;
 
-        let module_type = sess.tycx.bound(
-            TyKind::Module(module_id),
-            Span::new(ast.file_id, Position::initial(), EndPosition::initial()),
-        );
+        let module_type = sess
+            .tycx
+            .bound(TyKind::Module(module_id), Span::initial(ast.file_id));
 
         sess.checked_modules.insert(ast.module_id, module_type);
 
