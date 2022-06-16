@@ -1,19 +1,47 @@
-[workspace]
-members = [
-    "compiler/common",
-    "compiler/chili_span",
-    "compiler/chili_error",
-    "compiler/chili_ast",
-    "compiler/chili_pretty_print",
-    "compiler/chili_token",
-    "compiler/chili_parse",
-    "compiler/chili_astgen",
-    "compiler/chili_infer",
-    "compiler/chili_interp",
-    "compiler/chili_check",
-    "compiler/chili_lint",
-    "compiler/chili_backend_llvm",
-    "compiler/chili_driver",
-    "compiler/chili_main",
-]
-exclude = ["./vendor/libffi-rs"]
+[package]
+name = "chili"
+version = "0.1.0"
+edition = "2021"
+exclude = ["vendor/inkwell", "vendor/libffi-rs"]
+
+[[bin]]
+name = "chili"
+path = "src/main.rs"
+
+[dependencies]
+paste = "1.0.7"
+strum_macros = "0.23.1"
+ptree = "0.4.0"
+ustr = "0.8.1"
+path-absolutize = "3.0.11"
+bitflags = "1.3.2"
+indexmap = "1.8.2"
+slab = "0.4.5"
+parking_lot = "0.12.1"
+threadpool = "1.8.1"
+num_cpus = "1.13.1"
+execute = "0.2.9"
+colored = "2.0.0"
+num-format = "0.4.0"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+libloading = "0.7.1"
+byteorder = "1.4.3"
+bumpalo = "3.9.1"
+clap = { version = "3.1.9", features = ["derive"] }
+serde = "1.0.137"
+serde_json = "1.0.81"
+unicode-xid = "0.2.2"
+unindent = "0.1.7"
+stopwatch = "0.0.7"
+
+inkwell = { path = "vendor/inkwell", features = ["llvm12-0"] }
+
+[target.'cfg(windows)'.dependencies]
+libffi = { path = "vendor/libffi-rs/libffi-rs" }
+
+[target.'cfg(unix)'.dependencies]
+libffi = { path = "vendor/libffi-rs/libffi-rs", features = ["system"] }
+
+[build-dependencies]
+fs_extra = "1.2.0"

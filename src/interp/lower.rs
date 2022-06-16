@@ -1,0 +1,1532 @@
+use super::{
+    interp::{Env, InterpSess},
+    vm::{
+        byte_seq::{ByteSeq, PutValue},
+        instruction::{CastInstruction, CompiledCode, Instruction},
+        value::{Aggregate, Array, ExternFunction, Function, IntrinsicFunction, Value, ValueKind},
+    },
+    IS_64BIT, WORD_SIZE,
+};
+use crate::ast::{
+    ast::{self, Intrinsic},
+    const_value::ConstValue,
+    pattern::{Pattern, UnpackPattern, UnpackPatternKind},
+    ty::{
+        align::AlignOf, size::SizeOf, FloatTy, FunctionTy, InferTy, IntTy, StructTy, Ty, TyKind,
+        UintTy,
+    },
+    workspace::BindingInfoId,
+};
+use crate::common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
+use crate::infer::normalize::Normalize;
+use ustr::{ustr, Ustr};
+
+#[derive(Clone, Copy)]
+pub struct LowerContext {
+    pub take_ptr: bool,
+}
+
+pub trait Lower {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext);
+}
+
+impl Lower for ast::Expr {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        match &self.kind {
+            ast::ExprKind::Binding(binding) => {
+                lower_local_binding(binding, sess, code);
+            }
+            ast::ExprKind::Defer(_) => {
+                sess.push_const_unit(code);
+            }
+            ast::ExprKind::Assign(assign) => {
+                assign
+                    .rvalue
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                assign
+                    .lvalue
+                    .lower(sess, code, LowerContext { take_ptr: true });
+
+                code.push(Instruction::Assign);
+
+                sess.push_const_unit(code);
+            }
+            ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
+            ast::ExprKind::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
+                    TyKind::Type(ty) => {
+                        sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
+                    }
+                    ty => unreachable!("got {}", ty),
+                },
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
+                    TyKind::Type(ty) => {
+                        sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
+                    }
+                    ty => unreachable!("got {}", ty),
+                },
+                ast::BuiltinKind::Panic(expr) => {
+                    if let Some(expr) = expr {
+                        expr.lower(sess, code, ctx);
+                    } else {
+                        sess.push_const(code, ustr("").into());
+                    }
+
+                    code.push(Instruction::Panic);
+                }
+                ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
+                ast::BuiltinKind::StartWorkspace(_) => todo!("start workspace"),
+                ast::BuiltinKind::Import(_) => sess.push_const_unit(code),
+                ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
+            },
+            ast::ExprKind::Function(func) => func.lower(sess, code, ctx),
+            ast::ExprKind::While(while_) => {
+                while_.lower(sess, code, LowerContext { take_ptr: false })
+            }
+            ast::ExprKind::For(for_) => for_.lower(sess, code, ctx),
+            ast::ExprKind::Break(term) => {
+                lower_deferred(&term.deferred, sess, code);
+                code.push(Instruction::Jmp(INVALID_BREAK_JMP_OFFSET));
+            }
+            ast::ExprKind::Continue(term) => {
+                lower_deferred(&term.deferred, sess, code);
+                code.push(Instruction::Jmp(INVALID_CONTINUE_JMP_OFFSET));
+            }
+            ast::ExprKind::Return(ret) => {
+                lower_deferred(&ret.deferred, sess, code);
+
+                if let Some(expr) = &ret.expr {
+                    expr.lower(sess, code, ctx);
+                } else {
+                    sess.push_const_unit(code);
+                }
+
+                code.push(Instruction::Return);
+            }
+            ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
+            ast::ExprKind::Block(block) => lower_block(block, sess, code, ctx),
+            ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
+            ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
+            ast::ExprKind::Subscript(sub) => sub.lower(sess, code, ctx),
+            ast::ExprKind::Slice(slice) => slice.lower(sess, code, ctx),
+            ast::ExprKind::Call(call) => call.lower(sess, code, ctx),
+            ast::ExprKind::MemberAccess(access) => {
+                access.expr.lower(sess, code, ctx);
+
+                match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
+                    TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
+                        let index = access.member.parse::<usize>().unwrap();
+
+                        code.push(if ctx.take_ptr {
+                            Instruction::ConstIndexPtr(index as u32)
+                        } else {
+                            Instruction::ConstIndex(index as u32)
+                        });
+                    }
+                    TyKind::Struct(st) => {
+                        let index = st.find_field_position(access.member).unwrap();
+
+                        code.push(if ctx.take_ptr {
+                            Instruction::ConstIndexPtr(index as u32)
+                        } else {
+                            Instruction::ConstIndex(index as u32)
+                        });
+                    }
+                    TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
+                        let index = partial
+                            .iter()
+                            .position(|(field, _)| *field == access.member)
+                            .unwrap();
+
+                        code.push(if ctx.take_ptr {
+                            Instruction::ConstIndexPtr(index as u32)
+                        } else {
+                            Instruction::ConstIndex(index as u32)
+                        });
+                    }
+                    TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                        code.push(Instruction::Pop);
+                        sess.push_const(code, Value::Uint(*size as usize));
+                    }
+                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                        code.push(Instruction::ConstIndex(1));
+                    }
+                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
+                        code.push(Instruction::ConstIndex(0));
+                    }
+                    TyKind::Module(module_id) => {
+                        let id = sess.find_symbol(*module_id, access.member);
+                        let slot = find_and_lower_top_level_binding(id, sess);
+                        code.push(Instruction::GetGlobal(slot as u32));
+                    }
+                    ty => panic!("invalid type `{}` or member `{}`", ty, access.member),
+                }
+            }
+            ast::ExprKind::Ident(ident) => {
+                let id = ident.binding_info_id;
+
+                assert!(id != BindingInfoId::unknown(), "{}", ident.symbol);
+
+                match self.ty.normalize(sess.tycx) {
+                    // Note (Ron): We do nothing with modules, since they are not an actual value
+                    TyKind::Module(_) => (),
+                    _ => {
+                        if let Some(slot) = sess.env().value(id) {
+                            let slot = *slot as i32;
+                            code.push(if ctx.take_ptr {
+                                Instruction::PeekPtr(slot)
+                            } else {
+                                Instruction::Peek(slot)
+                            });
+                        } else {
+                            let slot = sess
+                                .get_global(id)
+                                .unwrap_or_else(|| find_and_lower_top_level_binding(id, sess))
+                                as u32;
+
+                            code.push(if ctx.take_ptr {
+                                Instruction::GetGlobalPtr(slot)
+                            } else {
+                                Instruction::GetGlobal(slot)
+                            });
+                        }
+                    }
+                }
+            }
+            ast::ExprKind::ArrayLiteral(lit) => {
+                let ty = self.ty.normalize(sess.tycx);
+                let inner_ty_size = ty.inner().size_of(WORD_SIZE);
+
+                match &lit.kind {
+                    ast::ArrayLiteralKind::List(elements) => {
+                        sess.push_const(code, Value::Type(ty));
+                        code.push(Instruction::ArrayAlloc(
+                            (elements.len() * inner_ty_size) as u32,
+                        ));
+
+                        for (index, element) in elements.iter().enumerate() {
+                            element.lower(sess, code, LowerContext { take_ptr: false });
+                            code.push(Instruction::ArrayPut((index * inner_ty_size) as u32));
+                        }
+                    }
+                    ast::ArrayLiteralKind::Fill { len: _, expr } => {
+                        let size = if let TyKind::Array(_, size) = ty {
+                            size
+                        } else {
+                            panic!()
+                        };
+
+                        sess.push_const(code, Value::Type(ty));
+                        code.push(Instruction::ArrayAlloc((size * inner_ty_size) as u32));
+
+                        expr.lower(sess, code, LowerContext { take_ptr: false });
+
+                        code.push(Instruction::ArrayFill(size as u32));
+                    }
+                }
+            }
+            ast::ExprKind::TupleLiteral(lit) => {
+                code.push(Instruction::AggregateAlloc);
+
+                for element in lit.elements.iter() {
+                    element.lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::AggregatePush);
+                }
+            }
+            ast::ExprKind::StructLiteral(lit) => {
+                code.push(Instruction::AggregateAlloc);
+
+                let ty = self.ty.normalize(sess.tycx);
+                let ty = ty.as_struct();
+
+                let mut ordered_fields = lit.fields.clone();
+
+                ordered_fields.sort_by(|f1, f2| {
+                    let index_1 = ty.find_field_position(f1.symbol).unwrap();
+                    let index_2 = ty.find_field_position(f2.symbol).unwrap();
+                    index_1.cmp(&index_2)
+                });
+
+                for field in ordered_fields.iter() {
+                    field
+                        .expr
+                        .lower(sess, code, LowerContext { take_ptr: false });
+                    code.push(Instruction::AggregatePush);
+                }
+            }
+            ast::ExprKind::Literal(_) => {
+                panic!("Literal expression should have been lowered to a ConstValue")
+            }
+            ast::ExprKind::PointerType(_)
+            | ast::ExprKind::MultiPointerType(_)
+            | ast::ExprKind::ArrayType(_)
+            | ast::ExprKind::SliceType(_)
+            | ast::ExprKind::SelfType
+            | ast::ExprKind::Placeholder
+            | ast::ExprKind::StructType(_) => {
+                panic!("unexpected type expression, should have been lowered to a ConstValue")
+            }
+            ast::ExprKind::FunctionType(sig) => {
+                sig.lower(sess, code, LowerContext { take_ptr: false })
+            }
+            ast::ExprKind::ConstValue(const_value) => {
+                let value = const_value_to_value(const_value, self.ty, sess);
+                sess.push_const(code, value);
+            }
+            ast::ExprKind::Error => panic!("got an Error expression"),
+        }
+    }
+}
+
+fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut CompiledCode) {
+    match &binding.kind {
+        ast::BindingKind::Extern(_) => {
+            let ty = binding.ty.normalize(sess.tycx);
+
+            match &ty {
+                TyKind::Function(func_ty) => {
+                    let pattern = binding.pattern.as_symbol_ref();
+
+                    let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
+                    sess.push_const(code, Value::ExternFunction(extern_func));
+
+                    sess.add_local(code, pattern.id);
+
+                    code.push(Instruction::SetLocal(code.locals as i32));
+                }
+                _ => todo!("lower extern variables"),
+            }
+        }
+        ast::BindingKind::Intrinsic(intrinsic) => {
+            let pattern = binding.pattern.as_symbol_ref();
+
+            let intrinsic_func = match intrinsic {
+                Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+            };
+            sess.push_const(code, Value::IntrinsicFunction(intrinsic_func));
+
+            sess.add_local(code, pattern.id);
+
+            code.push(Instruction::SetLocal(code.locals as i32));
+        }
+        ast::BindingKind::Normal => {
+            if let Some(expr) = &binding.expr {
+                expr.lower(sess, code, LowerContext { take_ptr: false });
+            }
+
+            match &binding.pattern {
+                Pattern::Symbol(pattern) => {
+                    sess.add_local(code, pattern.id);
+
+                    if binding.expr.is_some() {
+                        code.push(Instruction::SetLocal(code.locals as i32));
+                    }
+                }
+                Pattern::StructUnpack(pattern) => {
+                    let ty = binding.ty.normalize(sess.tycx);
+
+                    match ty.maybe_deref_once() {
+                        TyKind::Module(_) => lower_local_module_unpack(pattern, sess, code),
+                        TyKind::Struct(struct_ty) => {
+                            lower_local_struct_unpack(pattern, &struct_ty, sess, code)
+                        }
+                        _ => panic!("{}", ty),
+                    }
+                }
+                Pattern::TupleUnpack(pattern) => lower_local_tuple_unpack(pattern, sess, code),
+                Pattern::Hybrid(pattern) => {
+                    if !pattern.symbol.ignore {
+                        sess.add_local(code, pattern.symbol.id);
+
+                        if binding.expr.is_some() {
+                            code.push(Instruction::Copy(0));
+                            code.push(Instruction::SetLocal(code.locals as i32));
+                        }
+                    }
+
+                    match &pattern.unpack {
+                        UnpackPatternKind::Struct(pattern) => {
+                            let ty = binding.ty.normalize(sess.tycx);
+
+                            match ty.maybe_deref_once() {
+                                TyKind::Module(_) => lower_local_module_unpack(pattern, sess, code),
+                                TyKind::Struct(struct_ty) => {
+                                    lower_local_struct_unpack(pattern, &struct_ty, sess, code)
+                                }
+                                _ => panic!("{}", ty),
+                            }
+                        }
+                        UnpackPatternKind::Tuple(pattern) => {
+                            lower_local_tuple_unpack(pattern, sess, code)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    sess.push_const_unit(code);
+}
+
+fn lower_local_module_unpack(
+    pattern: &UnpackPattern,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+) {
+    for pattern in pattern.symbols.iter() {
+        if pattern.ignore {
+            continue;
+        }
+
+        let redirect_id = sess
+            .workspace
+            .get_binding_info(pattern.id)
+            .unwrap()
+            .redirects_to
+            .unwrap();
+
+        let slot = sess
+            .get_global(redirect_id)
+            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
+            as u32;
+
+        code.push(Instruction::GetGlobal(slot as u32));
+        sess.add_local(code, pattern.id);
+        code.push(Instruction::SetLocal(code.locals as i32));
+    }
+}
+
+fn lower_local_struct_unpack(
+    pattern: &UnpackPattern,
+    struct_ty: &StructTy,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+
+        code.push(Instruction::ConstIndex(field_index as u32));
+        sess.add_local(code, pattern.id);
+        code.push(Instruction::SetLocal(code.locals as i32));
+    }
+}
+
+fn lower_local_tuple_unpack(
+    pattern: &UnpackPattern,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        code.push(Instruction::ConstIndex(index as u32));
+        sess.add_local(code, pattern.id);
+        code.push(Instruction::SetLocal(code.locals as i32));
+    }
+}
+
+impl Lower for ast::Cast {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        self.expr
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        match self.target_ty.normalize(sess.tycx) {
+            TyKind::Never | TyKind::Unit | TyKind::Bool => (),
+            TyKind::Int(ty) => {
+                code.push(match ty {
+                    IntTy::I8 => Instruction::Cast(CastInstruction::I8),
+                    IntTy::I16 => Instruction::Cast(CastInstruction::I16),
+                    IntTy::I32 => Instruction::Cast(CastInstruction::I32),
+                    IntTy::I64 => Instruction::Cast(CastInstruction::I64),
+                    IntTy::Int => Instruction::Cast(CastInstruction::Int),
+                });
+            }
+            TyKind::Uint(ty) => {
+                code.push(match ty {
+                    UintTy::U8 => Instruction::Cast(CastInstruction::U8),
+                    UintTy::U16 => Instruction::Cast(CastInstruction::U16),
+                    UintTy::U32 => Instruction::Cast(CastInstruction::U32),
+                    UintTy::U64 => Instruction::Cast(CastInstruction::U64),
+                    UintTy::Uint => Instruction::Cast(CastInstruction::Uint),
+                });
+            }
+            TyKind::Float(ty) => {
+                code.push(match ty {
+                    FloatTy::F16 | FloatTy::F32 => Instruction::Cast(CastInstruction::F32),
+                    FloatTy::F64 => Instruction::Cast(CastInstruction::F64),
+                    FloatTy::Float => Instruction::Cast(if IS_64BIT {
+                        CastInstruction::F64
+                    } else {
+                        CastInstruction::F32
+                    }),
+                });
+            }
+            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+                let cast_inst = CastInstruction::Ptr(ValueKind::from(ty.as_ref()));
+                code.push(Instruction::Cast(cast_inst));
+            }
+            TyKind::Slice(_, _) => {
+                let expr_ty = self.expr.ty.normalize(sess.tycx);
+                let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
+
+                code.push(Instruction::AggregateAlloc);
+
+                self.expr.lower(sess, code, LowerContext { take_ptr: true });
+
+                // calculate the new slice's offset
+                sess.push_const(code, Value::Uint(0));
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::Offset);
+
+                code.push(Instruction::AggregatePush);
+
+                // calculate the slice length, by doing `high - low`
+                match expr_ty.maybe_deref_once() {
+                    TyKind::Array(_, len) => {
+                        sess.push_const(code, Value::Uint(len));
+                    }
+                    ty => unreachable!("unexpected type `{}`", ty),
+                }
+
+                sess.push_const(code, Value::Uint(0));
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
+            }
+            TyKind::Infer(_, InferTy::AnyInt) => {
+                code.push(Instruction::Cast(CastInstruction::Int));
+            }
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                code.push(Instruction::Cast(if IS_64BIT {
+                    CastInstruction::F64
+                } else {
+                    CastInstruction::F32
+                }));
+            }
+            ty => panic!("invalid ty {}", ty),
+        }
+    }
+}
+
+impl Lower for ast::Function {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        if let Some(id) = self.id {
+            let binding_info = sess.workspace.get_binding_info(id).unwrap();
+            if binding_info.scope_level.is_global() {
+                sess.insert_global(id, Value::unit());
+            }
+        }
+
+        sess.env_mut().push_scope();
+
+        let mut func_code = CompiledCode::new();
+
+        // set up function parameters
+        let mut param_offset = -(self.sig.params.len() as i16);
+
+        for param in self.sig.params.iter() {
+            match &param.pattern {
+                Pattern::Symbol(pattern) => {
+                    if !pattern.ignore {
+                        sess.env_mut().insert(pattern.id, param_offset);
+                    }
+                }
+                Pattern::StructUnpack(pattern) => {
+                    let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
+                    let ty = ty.as_struct();
+
+                    for pattern in pattern.symbols.iter() {
+                        if pattern.ignore {
+                            continue;
+                        }
+
+                        let field_index = ty.find_field_position(pattern.symbol).unwrap();
+                        // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+                        func_code.push(Instruction::Peek(param_offset as i32));
+                        func_code.push(Instruction::ConstIndex(field_index as u32));
+                        sess.add_local(&mut func_code, pattern.id);
+                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                    }
+                }
+                Pattern::TupleUnpack(pattern) => {
+                    for (index, pattern) in pattern.symbols.iter().enumerate() {
+                        if pattern.ignore {
+                            continue;
+                        }
+
+                        func_code.push(Instruction::PeekPtr(param_offset as i32));
+                        func_code.push(Instruction::ConstIndex(index as u32));
+                        sess.add_local(&mut func_code, pattern.id);
+                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                    }
+                }
+                Pattern::Hybrid(pattern) => {
+                    if !pattern.symbol.ignore {
+                        sess.env_mut().insert(pattern.symbol.id, param_offset);
+                    }
+
+                    match &pattern.unpack {
+                        UnpackPatternKind::Struct(pattern) => {
+                            let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
+                            let ty = ty.as_struct();
+
+                            for pattern in pattern.symbols.iter() {
+                                if pattern.ignore {
+                                    continue;
+                                }
+
+                                let field_index = ty.find_field_position(pattern.symbol).unwrap();
+                                // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+                                func_code.push(Instruction::Peek(param_offset as i32));
+                                func_code.push(Instruction::ConstIndex(field_index as u32));
+                                sess.add_local(&mut func_code, pattern.id);
+                                func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                            }
+                        }
+                        UnpackPatternKind::Tuple(pattern) => {
+                            for (index, pattern) in pattern.symbols.iter().enumerate() {
+                                if pattern.ignore {
+                                    continue;
+                                }
+
+                                func_code.push(Instruction::PeekPtr(param_offset as i32));
+                                func_code.push(Instruction::ConstIndex(index as u32));
+                                sess.add_local(&mut func_code, pattern.id);
+                                func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                            }
+                        }
+                    }
+                }
+            }
+            param_offset += 1;
+        }
+
+        lower_block(
+            &self.body,
+            sess,
+            &mut func_code,
+            LowerContext { take_ptr: false },
+        );
+
+        if !func_code.instructions.ends_with(&[Instruction::Return]) {
+            func_code.push(Instruction::Return);
+        }
+
+        sess.env_mut().pop_scope();
+
+        let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
+
+        let func = Function {
+            id: self.id.unwrap(),
+            name: self.sig.name,
+            arg_types: sig_ty.params,
+            return_type: *sig_ty.ret,
+            code: func_code,
+        };
+
+        let slot = sess.push_const(code, Value::Function(func));
+
+        sess.interp.functions.insert(self.id.unwrap(), slot);
+    }
+}
+
+impl Lower for ast::FunctionSig {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        match &self.kind {
+            ast::FunctionKind::Orphan => {
+                // lowering a non-extern function signature is a no-op (until types will be considered values)
+            }
+            ast::FunctionKind::Extern { lib: Some(lib) } => {
+                let func_ty = self.ty.normalize(sess.tycx).into_fn();
+
+                let extern_func = ExternFunction {
+                    lib_path: ustr(&lib.path()),
+                    name: self.name,
+                    param_tys: func_ty.params,
+                    return_ty: *func_ty.ret,
+                    variadic: self.varargs.is_some(),
+                };
+
+                sess.push_const(code, Value::ExternFunction(extern_func));
+            }
+            ast::FunctionKind::Extern { lib: None } => {
+                // TODO: raise proper diagnostic
+                panic!("cannot interpret extern function without specifying a library. TODO: proper diagnostic")
+            }
+        }
+    }
+}
+
+impl Lower for ast::Call {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        for arg in self.args.iter() {
+            arg.lower(sess, code, LowerContext { take_ptr: false });
+        }
+        self.callee
+            .lower(sess, code, LowerContext { take_ptr: false });
+        code.push(Instruction::Call(self.args.len() as u32));
+    }
+}
+
+impl Lower for ast::For {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        // lower iterator index
+        sess.push_const(code, Value::Uint(0));
+
+        sess.add_local(
+            code,
+            self.index_binding
+                .as_ref()
+                .map_or(BindingInfoId::unknown(), |x| x.id),
+        );
+
+        let iter_index_slot = code.locals as i32;
+        code.push(Instruction::SetLocal(iter_index_slot));
+
+        match &self.iterator {
+            ast::ForIter::Range(start, end) => {
+                start.lower(sess, code, ctx);
+
+                sess.add_local(code, self.iter_binding.id);
+                let iter_slot = code.locals as i32;
+                code.push(Instruction::SetLocal(iter_slot));
+
+                // calculate the end index
+                end.lower(sess, code, ctx);
+
+                // lower the condition
+                let loop_start = code.push(Instruction::Peek(iter_slot));
+                code.push(Instruction::Copy(1));
+                code.push(Instruction::LtEq);
+
+                let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+
+                let block_start_pos = code.instructions.len();
+
+                lower_block(&self.block, sess, code, LowerContext { take_ptr: false });
+
+                code.push(Instruction::Pop);
+
+                // increment the iterator
+                let continue_pos = code.push(Instruction::PeekPtr(iter_slot));
+                code.push(Instruction::Increment);
+
+                // increment the index
+                code.push(Instruction::PeekPtr(iter_index_slot));
+                code.push(Instruction::Increment);
+
+                let offset = code.instructions.len() - loop_start;
+                code.push(Instruction::Jmp(-(offset as i32)));
+
+                patch_jmp(code, exit_jmp);
+                patch_loop_terminators(code, block_start_pos, continue_pos);
+
+                // pop the end index
+                code.push(Instruction::Pop);
+            }
+            ast::ForIter::Value(value) => {
+                let value_ty = value.ty.normalize(sess.tycx).maybe_deref_once();
+
+                value.lower(sess, code, ctx);
+
+                // set the iterated value to a hidden local, in order to avoid unnecessary copies
+                code.locals += 1;
+                let value_slot = code.locals as i32;
+                code.push(Instruction::SetLocal(value_slot));
+
+                // calculate the end index
+                match value_ty {
+                    TyKind::Array(_, len) => {
+                        sess.push_const(code, Value::Uint(len));
+                    }
+                    TyKind::Slice(..) => {
+                        code.push(Instruction::PeekPtr(value_slot));
+                        code.push(Instruction::ConstIndex(1));
+                    }
+                    ty => unreachable!("unexpected type `{}`", ty),
+                };
+
+                if value_ty.is_slice() {
+                    code.push(Instruction::Peek(value_slot));
+                    code.push(Instruction::ConstIndex(0));
+                    code.push(Instruction::SetLocal(value_slot));
+                }
+
+                // lower the condition
+                let loop_start = code.push(Instruction::Copy(0));
+                code.push(Instruction::Peek(iter_index_slot));
+                code.push(Instruction::Gt);
+
+                let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+
+                // move the iterator to the current index
+
+                code.push(if value_ty.is_slice() {
+                    Instruction::Peek(value_slot)
+                } else {
+                    Instruction::PeekPtr(value_slot)
+                });
+
+                code.push(Instruction::Peek(iter_index_slot));
+                sess.push_const(code, Value::Uint(value_ty.inner().size_of(WORD_SIZE)));
+                code.push(Instruction::Mul);
+                code.push(Instruction::Index);
+
+                sess.add_local(code, self.iter_binding.id);
+                let iter_slot = code.locals as i32;
+                code.push(Instruction::SetLocal(iter_slot));
+
+                let block_start_pos = code.instructions.len();
+
+                lower_block(&self.block, sess, code, LowerContext { take_ptr: false });
+
+                code.push(Instruction::Pop);
+
+                let continue_pos = code.instructions.len() - 1;
+
+                // increment the index
+                code.push(Instruction::PeekPtr(iter_index_slot));
+                code.push(Instruction::Increment);
+
+                let offset = code.instructions.len() - loop_start;
+                code.push(Instruction::Jmp(-(offset as i32)));
+
+                patch_jmp(code, exit_jmp);
+                patch_loop_terminators(code, block_start_pos, continue_pos);
+
+                // pop the end index
+                code.push(Instruction::Pop);
+            }
+        }
+
+        sess.push_const_unit(code);
+    }
+}
+
+impl Lower for ast::While {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        let loop_start = code.instructions.len();
+
+        self.cond
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+
+        let block_start_pos = code.instructions.len();
+
+        lower_block(&self.block, sess, code, LowerContext { take_ptr: false });
+
+        code.push(Instruction::Pop);
+
+        let offset = code.instructions.len() - loop_start;
+        code.push(Instruction::Jmp(-(offset as i32)));
+
+        patch_jmp(code, exit_jmp);
+        patch_loop_terminators(code, block_start_pos, loop_start);
+
+        sess.push_const_unit(code);
+    }
+}
+
+impl Lower for ast::If {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        self.cond
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        let else_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+
+        self.then
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        let exit_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
+
+        patch_jmp(code, else_jmp);
+
+        if let Some(otherwise) = &self.otherwise {
+            otherwise.lower(sess, code, LowerContext { take_ptr: false });
+        } else {
+            sess.push_const_unit(code);
+        }
+
+        patch_jmp(code, exit_jmp);
+    }
+}
+
+impl Lower for ast::Binary {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        self.lhs.lower(sess, code, LowerContext { take_ptr: false });
+        self.rhs.lower(sess, code, LowerContext { take_ptr: false });
+        code.push(self.op.into());
+    }
+}
+
+impl Lower for ast::Unary {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        self.lhs.lower(
+            sess,
+            code,
+            match self.op {
+                ast::UnaryOp::Ref(_) => LowerContext { take_ptr: true },
+                ast::UnaryOp::Deref => ctx,
+                ast::UnaryOp::Neg | ast::UnaryOp::Plus | ast::UnaryOp::Not => {
+                    LowerContext { take_ptr: false }
+                }
+            },
+        );
+
+        // Note (Ron): Ref isn't a real instruction in the VM's context, so we don't push it
+        match self.op {
+            ast::UnaryOp::Ref(_) => (),
+            _ => {
+                code.push(self.op.into());
+            }
+        }
+    }
+}
+
+impl Lower for ast::Subscript {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        self.expr.lower(sess, code, LowerContext { take_ptr: true });
+
+        let expr_ty = self.expr.ty.normalize(sess.tycx);
+
+        if expr_ty.is_slice() {
+            code.push(Instruction::ConstIndex(0));
+        }
+
+        self.index
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        // match expr_ty {
+        //     TyKind::Array(inner, _)
+        //     | TyKind::Pointer(inner, _)
+        //     | TyKind::MultiPointer(inner, _) => {
+        // if this is a pointer offset, we need to multiply the index by the pointer size
+        sess.push_const(code, Value::Uint(expr_ty.inner().size_of(WORD_SIZE)));
+        code.push(Instruction::Mul);
+        //     }
+        //     _ => (),
+        // }
+
+        code.push(if ctx.take_ptr {
+            Instruction::IndexPtr
+        } else {
+            Instruction::Index
+        });
+    }
+}
+
+fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess) -> Value {
+    let ty = ty.normalize(sess.tycx);
+
+    match const_value {
+        ConstValue::Unit(_) => Value::unit(),
+        ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tycx)),
+        ConstValue::Bool(v) => Value::Bool(*v),
+        ConstValue::Int(v) => match ty {
+            TyKind::Int(int_ty) => match int_ty {
+                IntTy::I8 => Value::I8(*v as _),
+                IntTy::I16 => Value::I16(*v as _),
+                IntTy::I32 => Value::I32(*v as _),
+                IntTy::I64 => Value::I64(*v as _),
+                IntTy::Int => Value::Int(*v as _),
+            },
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Value::U8(*v as _),
+                UintTy::U16 => Value::U16(*v as _),
+                UintTy::U32 => Value::U32(*v as _),
+                UintTy::U64 => Value::U64(*v as _),
+                UintTy::Uint => Value::Uint(*v as _),
+            },
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                FloatTy::F64 => Value::F64(*v as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            TyKind::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Uint(v) => match ty {
+            TyKind::Int(int_ty) => match int_ty {
+                IntTy::I8 => Value::I8(*v as _),
+                IntTy::I16 => Value::I16(*v as _),
+                IntTy::I32 => Value::I32(*v as _),
+                IntTy::I64 => Value::I64(*v as _),
+                IntTy::Int => Value::Int(*v as _),
+            },
+            TyKind::Uint(ty) => match ty {
+                UintTy::U8 => Value::U8(*v as _),
+                UintTy::U16 => Value::U16(*v as _),
+                UintTy::U32 => Value::U32(*v as _),
+                UintTy::U64 => Value::U64(*v as _),
+                UintTy::Uint => Value::Uint(*v as _),
+            },
+            TyKind::Float(ty) => match ty {
+                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                FloatTy::F64 => Value::F64(*v as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            TyKind::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Float(v) => match ty {
+            TyKind::Float(float_ty) => match float_ty {
+                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
+                FloatTy::F64 => Value::F64(*v as _),
+                FloatTy::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            TyKind::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Str(v) => Value::from(*v),
+        ConstValue::Tuple(elements) => Value::Aggregate(Aggregate {
+            elements: elements
+                .iter()
+                .map(|el| const_value_to_value(&el.value, el.ty, sess))
+                .collect(),
+            ty,
+        }),
+        ConstValue::Struct(fields) => Value::Aggregate(Aggregate {
+            elements: fields
+                .values()
+                .map(|el| const_value_to_value(&el.value, el.ty, sess))
+                .collect(),
+            ty,
+        }),
+        ConstValue::Array(array) => {
+            let array_len = array.values.len();
+
+            let el_ty = array.element_ty;
+            let el_ty_kind = el_ty.normalize(sess.tycx);
+            let el_size = el_ty_kind.size_of(WORD_SIZE);
+
+            let mut bytes = ByteSeq::new(array_len * el_size);
+
+            for (index, const_value) in array.values.iter().enumerate() {
+                let value = const_value_to_value(const_value, el_ty, sess);
+
+                bytes.offset_mut(index * el_size).put_value(&value);
+            }
+
+            Value::Array(Array {
+                bytes,
+                ty: TyKind::Array(Box::new(el_ty_kind), array_len),
+            })
+        }
+        ConstValue::Function(f) => {
+            let fn_slot = match sess.interp.functions.get(&f.id) {
+                Some(slot) => *slot,
+                None => {
+                    find_and_lower_top_level_binding(f.id, sess);
+                    sess.interp.functions[&f.id]
+                }
+            };
+
+            // let fn_slot = sess.interp.functions.get(&f.id).unwrap();
+            sess.interp.constants[fn_slot].clone()
+        }
+    }
+}
+
+impl Lower for ast::Slice {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        let expr_ty = self.expr.ty.normalize(sess.tycx);
+        let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
+
+        // lower `low`, or push a 0
+        fn lower_low(sess: &mut InterpSess, code: &mut CompiledCode, low: &Option<Box<ast::Expr>>) {
+            if let Some(low) = low {
+                low.lower(sess, code, LowerContext { take_ptr: false });
+            } else {
+                sess.push_const(code, Value::Uint(0));
+            }
+        }
+
+        // lower `high`, or push the expression's length
+        fn lower_high(
+            sess: &mut InterpSess,
+            code: &mut CompiledCode,
+            high: &Option<Box<ast::Expr>>,
+            expr_ty: &TyKind,
+        ) {
+            if let Some(high) = high {
+                high.lower(sess, code, LowerContext { take_ptr: false });
+            } else {
+                match expr_ty {
+                    TyKind::Array(_, len) => {
+                        sess.push_const(code, Value::Uint(*len));
+                    }
+                    TyKind::Slice(..) => {
+                        code.push(Instruction::Roll(1));
+                    }
+                    ty => unreachable!("unexpected type `{}`", ty),
+                }
+            }
+        }
+
+        match expr_ty {
+            TyKind::Array(..) => {
+                code.push(Instruction::AggregateAlloc);
+
+                self.expr.lower(sess, code, LowerContext { take_ptr: true });
+
+                // calculate the new slice's offset
+                lower_low(sess, code, &self.low);
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::Offset);
+
+                code.push(Instruction::AggregatePush);
+
+                // calculate the slice length, by doing `high - low`
+                lower_high(sess, code, &self.high, &expr_ty);
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
+            }
+            TyKind::Slice(..) => {
+                self.expr
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                code.push(Instruction::Copy(0));
+                code.push(Instruction::ConstIndex(1));
+                code.push(Instruction::Roll(1));
+                code.push(Instruction::ConstIndex(0));
+
+                code.push(Instruction::AggregateAlloc);
+
+                code.push(Instruction::Roll(1));
+
+                // calculate the new slice's offset
+                lower_low(sess, code, &self.low);
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::Offset);
+
+                code.push(Instruction::AggregatePush);
+
+                // calculate the slice length, by doing `high - low`
+                lower_high(sess, code, &self.high, &expr_ty);
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
+            }
+            TyKind::Pointer(..) | TyKind::MultiPointer(..) => {
+                code.push(Instruction::AggregateAlloc);
+
+                self.expr
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                lower_low(sess, code, &self.low);
+                sess.push_const(code, Value::Uint(inner_ty_size));
+                code.push(Instruction::Mul);
+                code.push(Instruction::Offset);
+
+                code.push(Instruction::AggregatePush);
+
+                lower_high(sess, code, &self.high, &expr_ty);
+                lower_low(sess, code, &self.low);
+                code.push(Instruction::Sub);
+
+                code.push(Instruction::AggregatePush);
+            }
+            _ => panic!("unexpected type {}", expr_ty),
+        }
+    }
+}
+
+const INVALID_JMP_OFFSET: i32 = i32::MAX;
+const INVALID_BREAK_JMP_OFFSET: i32 = i32::MAX - 1;
+const INVALID_CONTINUE_JMP_OFFSET: i32 = i32::MAX - 2;
+
+fn patch_jmp(code: &mut CompiledCode, inst_pos: usize) {
+    let target_offset = (code.instructions.len() - inst_pos) as i32;
+
+    match &mut code.instructions[inst_pos] {
+        Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset)
+            if *offset == INVALID_JMP_OFFSET =>
+        {
+            *offset = target_offset
+        }
+        _ => panic!("instruction at address {} is not a jmp", inst_pos),
+    };
+}
+
+// patch all break/continue jmp instructions
+fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, continue_pos: usize) {
+    let len = code.instructions.len();
+
+    for inst_pos in block_start_pos..len {
+        if let Instruction::Jmp(offset) = &mut code.instructions[inst_pos] {
+            if *offset == INVALID_BREAK_JMP_OFFSET {
+                *offset = (len - inst_pos) as i32;
+            }
+            if *offset == INVALID_CONTINUE_JMP_OFFSET {
+                *offset = continue_pos as i32 - inst_pos as i32;
+            }
+        };
+    }
+}
+
+fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
+    let binding = sess
+        .typed_ast
+        .get_binding(id)
+        .unwrap_or_else(|| panic!("binding not found: {:?}", id));
+
+    lower_top_level_binding(binding, id, sess)
+}
+
+fn lower_top_level_binding(
+    binding: &ast::Binding,
+    desired_id: BindingInfoId,
+    sess: &mut InterpSess,
+) -> usize {
+    // insert a temporary value, since the global will be computed at the start of the vm's execution
+
+    sess.env_stack.push((binding.module_id, Env::default()));
+
+    let mut code = CompiledCode::new();
+
+    let desired_slot = match &binding.kind {
+        ast::BindingKind::Extern(_) => {
+            let ty = binding.ty.normalize(sess.tycx);
+
+            match &ty {
+                TyKind::Function(func_ty) => {
+                    let pattern = binding.pattern.as_symbol_ref();
+
+                    let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
+
+                    let slot = sess.insert_global(pattern.id, Value::ExternFunction(extern_func));
+                    code.push(Instruction::SetGlobal(slot as u32));
+
+                    slot
+                }
+                _ => todo!("lower extern variables"),
+            }
+        }
+        ast::BindingKind::Intrinsic(intrinsic) => {
+            let pattern = binding.pattern.as_symbol_ref();
+
+            let intrinsic_func = match intrinsic {
+                Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+            };
+
+            let slot = sess.insert_global(pattern.id, Value::IntrinsicFunction(intrinsic_func));
+            code.push(Instruction::SetGlobal(slot as u32));
+
+            slot
+        }
+        ast::BindingKind::Normal => {
+            binding
+                .expr
+                .as_ref()
+                .unwrap()
+                .lower(sess, &mut code, LowerContext { take_ptr: false });
+
+            sess.env_stack.pop();
+
+            let mut desired_slot = usize::MAX;
+
+            match &binding.pattern {
+                Pattern::Symbol(pattern) => {
+                    let slot = sess.insert_global(pattern.id, Value::unit());
+                    code.push(Instruction::SetGlobal(slot as u32));
+
+                    if pattern.id == desired_id {
+                        desired_slot = slot;
+                    }
+                }
+                Pattern::StructUnpack(pattern) => {
+                    let ty = binding.ty.normalize(sess.tycx);
+
+                    match ty.maybe_deref_once() {
+                        TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                            pattern,
+                            desired_id,
+                            &mut desired_slot,
+                            &mut code,
+                            sess,
+                        ),
+                        TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                            pattern,
+                            &struct_ty,
+                            desired_id,
+                            &mut desired_slot,
+                            &mut code,
+                            sess,
+                        ),
+                        _ => panic!("{}", ty),
+                    }
+                }
+                Pattern::TupleUnpack(pattern) => lower_top_level_binding_tuple_unpack(
+                    pattern,
+                    desired_id,
+                    &mut desired_slot,
+                    &mut code,
+                    sess,
+                ),
+                Pattern::Hybrid(pattern) => {
+                    if !pattern.symbol.ignore {
+                        let slot = sess.insert_global(pattern.symbol.id, Value::unit());
+                        code.push(Instruction::Copy(0));
+                        code.push(Instruction::SetGlobal(slot as u32));
+
+                        if pattern.symbol.id == desired_id {
+                            desired_slot = slot;
+                        }
+                    }
+
+                    match &pattern.unpack {
+                        UnpackPatternKind::Struct(pattern) => {
+                            let ty = binding.ty.normalize(sess.tycx);
+
+                            match ty.maybe_deref_once() {
+                                TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                                    pattern,
+                                    desired_id,
+                                    &mut desired_slot,
+                                    &mut code,
+                                    sess,
+                                ),
+                                TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                                    pattern,
+                                    &struct_ty,
+                                    desired_id,
+                                    &mut desired_slot,
+                                    &mut code,
+                                    sess,
+                                ),
+                                _ => panic!("{}", ty),
+                            }
+                        }
+                        UnpackPatternKind::Tuple(pattern) => lower_top_level_binding_tuple_unpack(
+                            pattern,
+                            desired_id,
+                            &mut desired_slot,
+                            &mut code,
+                            sess,
+                        ),
+                    }
+                }
+            }
+
+            code.push(Instruction::Return);
+
+            sess.evaluated_globals.push(code);
+
+            assert!(desired_slot != usize::MAX);
+
+            desired_slot
+        }
+    };
+
+    desired_slot
+}
+
+fn lower_top_level_binding_module_unpack(
+    pattern: &UnpackPattern,
+    desired_id: BindingInfoId,
+    desired_slot: &mut usize,
+    code: &mut CompiledCode,
+    sess: &mut InterpSess,
+) {
+    for pattern in pattern.symbols.iter() {
+        if pattern.ignore {
+            continue;
+        }
+
+        let redirect_id = sess
+            .workspace
+            .get_binding_info(pattern.id)
+            .unwrap()
+            .redirects_to
+            .unwrap();
+
+        let slot = sess
+            .get_global(redirect_id)
+            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
+            as u32;
+
+        code.push(Instruction::GetGlobal(slot as u32));
+
+        let slot = sess.insert_global(pattern.id, Value::unit());
+        code.push(Instruction::SetGlobal(slot as u32));
+
+        if pattern.id == desired_id {
+            *desired_slot = slot;
+        }
+    }
+}
+
+fn lower_top_level_binding_struct_unpack(
+    pattern: &UnpackPattern,
+    struct_ty: &StructTy,
+    desired_id: BindingInfoId,
+    desired_slot: &mut usize,
+    code: &mut CompiledCode,
+    sess: &mut InterpSess,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+
+        code.push(Instruction::ConstIndex(field_index as u32));
+        let slot = sess.insert_global(pattern.id, Value::unit());
+        code.push(Instruction::SetGlobal(slot as u32));
+
+        if pattern.id == desired_id {
+            *desired_slot = slot;
+        }
+    }
+}
+
+fn lower_top_level_binding_tuple_unpack(
+    pattern: &UnpackPattern,
+    desired_id: BindingInfoId,
+    desired_slot: &mut usize,
+    code: &mut CompiledCode,
+    sess: &mut InterpSess,
+) {
+    let last_index = pattern.symbols.len() - 1;
+
+    for (index, pattern) in pattern.symbols.iter().enumerate() {
+        if pattern.ignore {
+            continue;
+        }
+
+        if index < last_index {
+            code.push(Instruction::Copy(0));
+        }
+
+        code.push(Instruction::ConstIndex(index as u32));
+        let slot = sess.insert_global(pattern.id, Value::unit());
+        code.push(Instruction::SetGlobal(slot as u32));
+
+        if pattern.id == desired_id {
+            *desired_slot = slot;
+        }
+    }
+}
+
+fn lower_block(
+    block: &ast::Block,
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+    ctx: LowerContext,
+) {
+    sess.env_mut().push_scope();
+
+    for (index, expr) in block.exprs.iter().enumerate() {
+        let is_last = index == block.exprs.len() - 1;
+
+        expr.lower(
+            sess,
+            code,
+            if is_last {
+                ctx
+            } else {
+                LowerContext { take_ptr: false }
+            },
+        );
+
+        if !is_last || !block.yields {
+            code.push(Instruction::Pop);
+        }
+    }
+
+    lower_deferred(&block.deferred, sess, code);
+
+    if block.exprs.is_empty() || !block.yields {
+        sess.push_const_unit(code);
+    }
+
+    sess.env_mut().pop_scope();
+}
+
+fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut CompiledCode) {
+    for expr in deferred.iter() {
+        expr.lower(sess, code, LowerContext { take_ptr: false });
+        code.push(Instruction::Pop);
+    }
+}
+
+fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionTy) -> ExternFunction {
+    ExternFunction {
+        lib_path: ustr(&func_ty.extern_lib.as_ref().unwrap().path()),
+        name,
+        param_tys: func_ty.params.clone(),
+        return_ty: *func_ty.ret.clone(),
+        variadic: func_ty.varargs.is_some(),
+    }
+}
