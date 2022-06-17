@@ -157,11 +157,12 @@ pub struct FunctionFrame {
 impl<'s> CheckSess<'s> {
     pub fn new(workspace: &'s mut Workspace, old_asts: &'s Vec<ast::Ast>) -> Self {
         let target_metrics = workspace.build_options.target_platform.metrics();
+        let interp = Interp::new(workspace.build_options.clone());
 
         Self {
             workspace,
             target_metrics,
-            interp: Interp::new(),
+            interp,
             tycx: TyCtx::default(),
             old_asts,
             new_typed_ast: ast::TypedAst::default(),
@@ -497,16 +498,20 @@ impl Check for ast::Binding {
                         // Requirements:
                         // - Is declared in the root module
                         // - Its name is the same as the required `entry_point_function_name`
-                        if sess.workspace.entry_point_function_id.is_none()
-                            && self.module_id == sess.workspace.root_module_id
-                            && pattern.symbol
-                                == sess
-                                    .workspace
-                                    .build_options
-                                    .entry_point_function_name()
-                                    .unwrap()
-                        {
-                            sess.workspace.entry_point_function_id = Some(pattern.id);
+                        if let Some(_) = sess.workspace.entry_point_function_id {
+                            // TODO: emit error that we can't have two entry point functions
+                        } else {
+                            if self.module_id == sess.workspace.root_module_id
+                                && env.scope_level().is_global()
+                                && pattern.symbol
+                                    == sess
+                                        .workspace
+                                        .build_options
+                                        .entry_point_function_name()
+                                        .unwrap()
+                            {
+                                sess.workspace.entry_point_function_id = Some(pattern.id);
+                            }
                         }
                     }
                 }

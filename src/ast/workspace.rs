@@ -13,7 +13,7 @@ use std::{
     collections::HashSet,
     path::{Path, PathBuf},
 };
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
 pub struct Workspace {
     pub name: String,
@@ -112,8 +112,6 @@ bitflags! {
     pub struct BindingInfoFlags : u8 {
         // whether this binding is a builtin type, such as u8, i32, int, etc...
         const BUILTIN_TYPE = 1 << 0;
-        // whether to codegen this binding or not
-        const SHOULD_CODEGEN = 1 << 1;
     }
 }
 
@@ -207,16 +205,6 @@ impl Workspace {
     pub fn entry_point_function(&self) -> Option<&BindingInfo> {
         self.entry_point_function_id
             .and_then(|id| self.get_binding_info(id))
-    }
-}
-
-impl BindingInfo {
-    pub fn qualified_name(&self) -> Ustr {
-        ustr(&format!("{}.{}", self.scope_name, self.symbol))
-    }
-
-    pub fn should_codegen(&self) -> bool {
-        self.flags.contains(BindingInfoFlags::SHOULD_CODEGEN)
     }
 }
 

@@ -31,8 +31,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
     sess.init_scopes.pop_scope();
 
     // Check that an entry point function exists
-    // TODO (Ron): This won't be relevant for future targets like WASM, DLLs and libraries
-    if !workspace.build_options.need_entry_point_function() {
+    if workspace.build_options.need_entry_point_function() {
         if let Some(binding_info) = workspace.entry_point_function() {
             let ty = binding_info.ty.normalize(tycx).into_fn();
 
@@ -53,7 +52,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
                         )),
                 );
             }
-        } else if workspace.build_options.need_entry_point_function() {
+        } else {
             workspace.diagnostics.push(
                 Diagnostic::error()
                     .with_message("entry point function `main` is not defined")

@@ -128,8 +128,7 @@ pub struct LoopBlock<'ctx> {
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn start(&mut self) {
-        let ep_id = self.workspace.entry_point_function_id.unwrap();
-        self.gen_top_level_binding(ep_id);
+        self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
         self.gen_entry_point_function();
     }
 

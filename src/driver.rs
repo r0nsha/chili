@@ -11,17 +11,15 @@ use crate::{
 };
 use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
-use path_absolutize::*;
 use std::process::Command;
 
 pub type StartWorkspaceResult = (Workspace, Option<TyCtx>, Option<TypedAst>);
 
 pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorkspaceResult {
     // Set up workspace
-    let source_path = build_options.source_path();
-    let absolute_path = source_path.absolutize().unwrap();
+    let source_file = &build_options.source_file;
 
-    let root_dir = absolute_path.parent().unwrap().to_path_buf();
+    let root_dir = source_file.parent().unwrap().to_path_buf();
     let std_dir = crate::ast::compiler_info::std_module_root_dir();
 
     let mut workspace = Workspace::new(name, build_options.clone(), root_dir, std_dir);
@@ -33,10 +31,10 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     };
 
     // Check that root file exists
-    if !source_path.exists() {
+    if !source_file.exists() {
         workspace.diagnostics.push(
             Diagnostic::error()
-                .with_message(format!("file `{}` doesn't exist", source_path.display())),
+                .with_message(format!("file `{}` doesn't exist", source_file.display())),
         );
 
         workspace.emit_diagnostics();
@@ -50,7 +48,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
                 Some(result) => result,
                 None => {
                     workspace.emit_diagnostics();
-                    return (workspace, None,None);
+                    return (workspace, None, None);
                 }
             }
         }

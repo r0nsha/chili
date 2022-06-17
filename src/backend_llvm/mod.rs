@@ -50,7 +50,7 @@ pub fn codegen<'w>(
     let module = context.create_module(
         workspace
             .build_options
-            .source_path()
+            .source_file
             .file_stem()
             .unwrap()
             .to_str()
@@ -87,7 +87,7 @@ pub fn codegen<'w>(
     };
 
     if codegen_options.emit_llvm_ir {
-        dump_ir(&module, workspace.build_options.source_path());
+        dump_ir(&module, &workspace.build_options.source_file);
     }
 
     let executable_path = build_executable(
@@ -178,7 +178,7 @@ fn build_executable(
     module: &Module,
     extern_libraries: &HashSet<ast::ExternLibrary>,
 ) -> String {
-    let source_path = build_options.source_path();
+    let source_path = &build_options.source_file;
 
     let object_file = if target_metrics.os == Os::Windows {
         source_path.with_extension("obj")

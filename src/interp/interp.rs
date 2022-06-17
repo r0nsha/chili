@@ -8,13 +8,16 @@ use super::{
         Constants, Globals, VM,
     },
 };
-use crate::ast::{
-    ast,
-    ty::TyKind,
-    workspace::{BindingInfoId, ModuleId, Workspace},
-};
 use crate::common::scopes::Scopes;
 use crate::infer::ty_ctx::TyCtx;
+use crate::{
+    ast::{
+        ast,
+        ty::TyKind,
+        workspace::{BindingInfoId, ModuleId, Workspace},
+    },
+    common::build_options::BuildOptions,
+};
 use std::collections::HashMap;
 use ustr::{ustr, Ustr};
 
@@ -28,23 +31,19 @@ pub struct Interp {
     pub constants: Constants,
     pub functions: HashMap<BindingInfoId, usize>,
     pub ffi: Ffi,
+    pub build_options: BuildOptions,
 
     bindings_to_globals: HashMap<BindingInfoId, usize>,
 }
 
-impl Default for Interp {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Interp {
-    pub fn new() -> Self {
+    pub fn new(build_options: BuildOptions) -> Self {
         Self {
             globals: vec![],
             constants: vec![Value::unit()],
             functions: HashMap::new(),
             ffi: Ffi::new(),
+            build_options,
             bindings_to_globals: HashMap::new(),
         }
     }

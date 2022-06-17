@@ -24,25 +24,27 @@ pub struct BuildOptions {
 }
 
 impl BuildOptions {
-    pub fn source_path(&self) -> &Path {
-        Path::new(&self.source_file)
+    pub fn root_dir(&self) -> &Path {
+        self.source_file.parent().unwrap()
     }
 
     pub fn need_entry_point_function(&self) -> bool {
-        matches!(self.codegen_options, CodegenOptions::Vm)
-            && matches!(
-                self.target_platform,
-                TargetPlatform::Windows386
-                    | TargetPlatform::WindowsAmd64
-                    | TargetPlatform::Linux386
-                    | TargetPlatform::LinuxAmd64
-                    | TargetPlatform::LinuxArm64
-                    | TargetPlatform::DarwinAmd64
-                    | TargetPlatform::DarwinArm64
-                    | TargetPlatform::FreeBSD386
-                    | TargetPlatform::FreeBSDAmd64
-                    | TargetPlatform::EssenceAmd64
-            )
+        matches!(
+            self.codegen_options,
+            CodegenOptions::Codegen(_) | CodegenOptions::Skip
+        ) && matches!(
+            self.target_platform,
+            TargetPlatform::Windows386
+                | TargetPlatform::WindowsAmd64
+                | TargetPlatform::Linux386
+                | TargetPlatform::LinuxAmd64
+                | TargetPlatform::LinuxArm64
+                | TargetPlatform::DarwinAmd64
+                | TargetPlatform::DarwinArm64
+                | TargetPlatform::FreeBSD386
+                | TargetPlatform::FreeBSDAmd64
+                | TargetPlatform::EssenceAmd64
+        )
     }
 
     pub fn entry_point_function_name(&self) -> Option<&'static str> {

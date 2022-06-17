@@ -20,6 +20,7 @@ use crate::common::{
 };
 use clap::*;
 use colored::Colorize;
+use path_absolutize::Absolutize;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
@@ -133,7 +134,7 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
-                    codegen_options: CodegenOptions::Skip,
+                    codegen_options: CodegenOptions::Vm,
                     include_paths: get_include_paths(&args.include_paths),
                 };
 
@@ -143,40 +144,6 @@ fn cli() {
         },
         Action::Check(args) => run_check(args),
     };
-
-    // let (run, args) = match cli.action {
-    //     Action::Build(args) => (false, args),
-    //     Action::Run(args) => (true, args),
-    //     Action::Check(args) => {
-    //         run_check(args);
-    //         return;
-    //     }
-    // };
-
-    // match get_file_path(&args.input) {
-    //     Ok(source_file) => {
-    //         let diagnostic_options = DiagnosticOptions::Emit {
-    //             no_color: args.no_color,
-    //         };
-
-    //         let build_options = BuildOptions {
-    //             source_file,
-    //             target_platform: current_target_platform(),
-    //             opt_level: if args.release {
-    //                 OptLevel::Release
-    //             } else {
-    //                 OptLevel::Debug
-    //             },
-    //             verbose: args.verbose,
-    //             diagnostic_options,
-    //             codegen_options: CodegenOptions::Skip,
-    //             include_paths: get_include_paths(&args.include_paths),
-    //         };
-
-    //         start_workspace("__TEST__".to_string(), build_options);
-    //     }
-    //     Err(e) => print_err(&e),
-    // }
 }
 
 fn run_check(args: CheckArgs) {
@@ -208,7 +175,7 @@ fn run_check(args: CheckArgs) {
 }
 
 fn get_file_path(input_file: &str) -> Result<PathBuf, String> {
-    let path = Path::new(input_file);
+    let path = Path::new(input_file).absolutize().unwrap();
 
     if !path.exists() {
         Err(format!("input file `{}` doesn't exist", input_file))
