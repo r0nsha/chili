@@ -17,32 +17,32 @@ pub trait IntoLlvmType<'cg, 'ctx> {
     fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx>;
 }
 
-impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Ty {
+impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TypeId {
     fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
         let kind = self.normalize(cg.tycx);
         kind.llvm_type(cg)
     }
 }
 
-impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
+impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Type {
     fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
         match self {
-            TyKind::Bool => cg.context.bool_type().into(),
-            TyKind::Int(inner) => match inner {
+            Type::Bool => cg.context.bool_type().into(),
+            Type::Int(inner) => match inner {
                 IntTy::I8 => cg.context.i8_type().into(),
                 IntTy::I16 => cg.context.i16_type().into(),
                 IntTy::I32 => cg.context.i32_type().into(),
                 IntTy::I64 => cg.context.i64_type().into(),
                 IntTy::Int => cg.ptr_sized_int_type.into(),
             },
-            TyKind::Uint(inner) => match inner {
+            Type::Uint(inner) => match inner {
                 UintTy::U8 => cg.context.i8_type().into(),
                 UintTy::U16 => cg.context.i16_type().into(),
                 UintTy::U32 => cg.context.i32_type().into(),
                 UintTy::U64 => cg.context.i64_type().into(),
                 UintTy::Uint => cg.ptr_sized_int_type.into(),
             },
-            TyKind::Float(inner) => match inner {
+            Type::Float(inner) => match inner {
                 FloatTy::F16 => cg.context.f16_type().into(),
                 FloatTy::F32 => cg.context.f32_type().into(),
                 FloatTy::F64 => cg.context.f64_type().into(),
@@ -53,17 +53,15 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
                 }
                 .into(),
             },
-            TyKind::Pointer(inner, _) | TyKind::MultiPointer(inner, ..) => {
+            Type::Pointer(inner, _) | Type::MultiPointer(inner, ..) => {
                 let ty = inner.llvm_type(cg);
                 ty.ptr_type(AddressSpace::Generic).into()
             }
-            TyKind::Type(_) | TyKind::Unit | TyKind::Never | TyKind::Module { .. } => {
-                cg.unit_type()
-            }
-            TyKind::Function(func) => cg.fn_type(func).ptr_type(AddressSpace::Generic).into(),
-            TyKind::Array(inner, size) => inner.llvm_type(cg).array_type(*size as u32).into(),
-            TyKind::Slice(inner, ..) => cg.slice_type(inner),
-            TyKind::Tuple(tys) => cg
+            Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => cg.unit_type(),
+            Type::Function(func) => cg.fn_type(func).ptr_type(AddressSpace::Generic).into(),
+            Type::Array(inner, size) => inner.llvm_type(cg).array_type(*size as u32).into(),
+            Type::Slice(inner, ..) => cg.slice_type(inner),
+            Type::Tuple(tys) => cg
                 .context
                 .struct_type(
                     &tys.iter()
@@ -72,7 +70,7 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TyKind {
                     false,
                 )
                 .into(),
-            TyKind::Struct(struct_ty) => {
+            Type::Struct(struct_ty) => {
                 let struct_type = if struct_ty.name.is_empty() {
                     cg.create_anonymous_struct_type(struct_ty)
                 } else {
@@ -97,7 +95,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub fn slice_type(&mut self, element_ty: &TyKind) -> BasicTypeEnum<'ctx> {
+    pub fn slice_type(&mut self, element_ty: &Type) -> BasicTypeEnum<'ctx> {
         self.context
             .struct_type(
                 &[

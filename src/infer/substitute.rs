@@ -39,9 +39,9 @@ struct Sess<'a> {
     tycx: &'a mut TyCtx,
 
     // map of Ty -> Set of reduced expression spans that couldn't be inferred because of the key ty
-    erroneous_types: HashMap<Ty, Vec<Span>>,
+    erroneous_types: HashMap<TypeId, Vec<Span>>,
 
-    used_types: HashSet<Ty>,
+    used_types: HashSet<TypeId>,
 }
 
 impl<'a> Sess<'a> {
@@ -74,7 +74,12 @@ impl<'a> Sess<'a> {
     }
 
     fn make_all_types_concrete(&mut self) {
-        let tys: Vec<Ty> = self.tycx.bindings.iter().map(|(ty, _)| Ty(ty)).collect();
+        let tys: Vec<TypeId> = self
+            .tycx
+            .bindings
+            .iter()
+            .map(|(ty, _)| TypeId(ty))
+            .collect();
         for ty in tys {
             let concrete_type = ty.concrete(&self.tycx);
             self.tycx.bind_ty(ty, concrete_type);
@@ -271,7 +276,7 @@ trait SubstituteTy<'a> {
     fn substitute(&self, sess: &mut Sess<'a>, span: Span);
 }
 
-impl<'a> SubstituteTy<'a> for Ty {
+impl<'a> SubstituteTy<'a> for TypeId {
     fn substitute(&self, sess: &mut Sess<'a>, span: Span) {
         sess.used_types.insert(*self);
 
@@ -279,7 +284,7 @@ impl<'a> SubstituteTy<'a> for Ty {
 
         // Check if any type variables are left after normalization
         // (normalization = reducing the type variable to its concrete type, recursively)
-        let mut free_types: HashSet<Ty> = Default::default();
+        let mut free_types: HashSet<TypeId> = Default::default();
         extract_free_type_vars(&ty, &mut free_types);
 
         if free_types.is_empty() {
@@ -300,12 +305,12 @@ impl<'a> SubstituteTy<'a> for Ty {
     }
 }
 
-fn extract_free_type_vars(ty: &TyKind, free_types: &mut HashSet<Ty>) {
+fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
     match ty {
-        TyKind::Var(var) => {
+        Type::Var(var) => {
             free_types.insert(*var);
         }
-        TyKind::Function(f) => {
+        Type::Function(f) => {
             f.params
                 .iter()
                 .for_each(|p| extract_free_type_vars(p, free_types));
@@ -316,19 +321,19 @@ fn extract_free_type_vars(ty: &TyKind, free_types: &mut HashSet<Ty>) {
                 extract_free_type_vars(ty, free_types);
             }
         }
-        TyKind::Pointer(ty, _)
-        | TyKind::MultiPointer(ty, _)
-        | TyKind::Array(ty, _)
-        | TyKind::Slice(ty, _) => extract_free_type_vars(ty, free_types),
-        TyKind::Tuple(tys) | TyKind::Infer(_, InferTy::PartialTuple(tys)) => tys
+        Type::Pointer(ty, _)
+        | Type::MultiPointer(ty, _)
+        | Type::Array(ty, _)
+        | Type::Slice(ty, _) => extract_free_type_vars(ty, free_types),
+        Type::Tuple(tys) | Type::Infer(_, InferTy::PartialTuple(tys)) => tys
             .iter()
             .for_each(|t| extract_free_type_vars(t, free_types)),
-        TyKind::Struct(StructTy { fields, .. }) => {
+        Type::Struct(StructTy { fields, .. }) => {
             fields
                 .iter()
                 .for_each(|f| extract_free_type_vars(&f.ty, free_types));
         }
-        TyKind::Infer(_, InferTy::PartialStruct(fields)) => {
+        Type::Infer(_, InferTy::PartialStruct(fields)) => {
             fields
                 .iter()
                 .for_each(|(_, ty)| extract_free_type_vars(ty, free_types));

@@ -86,7 +86,7 @@ impl Ffi {
         let symbol = self.load_symbol(func.lib_path, func.name);
 
         let mut function = if func.variadic {
-            let variadic_arg_types: Vec<TyKind> = args
+            let variadic_arg_types: Vec<Type> = args
                 .iter()
                 .skip(func.param_tys.len())
                 .map(Value::get_ty_kind)
@@ -106,11 +106,11 @@ impl Ffi {
 #[derive(Debug)]
 struct FfiFunction {
     cif: Cif,
-    arg_types: Vec<TyKind>,
+    arg_types: Vec<Type>,
 }
 
 impl FfiFunction {
-    unsafe fn new(arg_types: &[TyKind], return_type: &TyKind) -> Self {
+    unsafe fn new(arg_types: &[Type], return_type: &Type) -> Self {
         let cif_return_type: Type = return_type.as_ffi_type();
         let cif_arg_types: Vec<Type> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
         let cif = Cif::new(cif_arg_types, cif_return_type);
@@ -122,12 +122,12 @@ impl FfiFunction {
     }
 
     unsafe fn new_variadic(
-        arg_types: &[TyKind],
-        variadic_arg_types: &[TyKind],
-        return_type: &TyKind,
+        arg_types: &[Type],
+        variadic_arg_types: &[Type],
+        return_type: &Type,
     ) -> Self {
         let cif_return_type: Type = return_type.as_ffi_type();
-        let arg_types: Vec<TyKind> = arg_types
+        let arg_types: Vec<Type> = arg_types
             .iter()
             .chain(variadic_arg_types.iter())
             .cloned()
@@ -287,11 +287,11 @@ trait AsFfiType {
     unsafe fn as_ffi_type(&self) -> Type;
 }
 
-impl AsFfiType for TyKind {
+impl AsFfiType for Type {
     unsafe fn as_ffi_type(&self) -> Type {
         match self {
-            TyKind::Bool => Type::u8(),
-            TyKind::Int(ty) => match ty {
+            Type::Bool => Type::u8(),
+            Type::Int(ty) => match ty {
                 IntTy::I8 => Type::i8(),
                 IntTy::I16 => Type::i16(),
                 IntTy::I32 => Type::i32(),
@@ -304,7 +304,7 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Type::u8(),
                 UintTy::U16 => Type::u16(),
                 UintTy::U32 => Type::u32(),
@@ -317,7 +317,7 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => Type::f32(),
                 FloatTy::F64 => Type::f64(),
                 FloatTy::Float => {
@@ -328,17 +328,17 @@ impl AsFfiType for TyKind {
                     }
                 }
             },
-            TyKind::Unit
-            | TyKind::Pointer(_, _)
-            | TyKind::MultiPointer(_, _)
-            | TyKind::Function(_)
-            | TyKind::Array(_, _) => Type::pointer(),
-            TyKind::Slice(_, _) => Type::structure([Type::pointer(), Type::usize()]),
-            TyKind::Tuple(tuple_elements) => {
+            Type::Unit
+            | Type::Pointer(_, _)
+            | Type::MultiPointer(_, _)
+            | Type::Function(_)
+            | Type::Array(_, _) => Type::pointer(),
+            Type::Slice(_, _) => Type::structure([Type::pointer(), Type::usize()]),
+            Type::Tuple(tuple_elements) => {
                 Type::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
             }
-            TyKind::Struct(st) => Type::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
-            TyKind::Infer(_, ty) => match ty {
+            Type::Struct(st) => Type::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
+            Type::Infer(_, ty) => match ty {
                 InferTy::AnyInt => {
                     if IS_64BIT {
                         Type::i64()
@@ -356,7 +356,7 @@ impl AsFfiType for TyKind {
                 InferTy::PartialStruct(_) => todo!(),
                 InferTy::PartialTuple(_) => todo!(),
             },
-            TyKind::Never => Type::void(),
+            Type::Never => Type::void(),
             _ => panic!("invalid type {}", self),
         }
     }

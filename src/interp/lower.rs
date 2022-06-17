@@ -12,7 +12,7 @@ use crate::ast::{
     const_value::ConstValue,
     pattern::{Pattern, UnpackPattern, UnpackPatternKind},
     ty::{
-        align::AlignOf, size::SizeOf, FloatTy, FunctionTy, InferTy, IntTy, StructTy, Ty, TyKind,
+        align::AlignOf, size::SizeOf, FloatTy, FunctionTy, InferTy, IntTy, StructTy, Type, TypeId,
         UintTy,
     },
     workspace::BindingInfoId,
@@ -55,13 +55,13 @@ impl Lower for ast::Expr {
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(builtin) => match builtin {
                 ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
-                    TyKind::Type(ty) => {
+                    Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
                 ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
-                    TyKind::Type(ty) => {
+                    Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
@@ -115,7 +115,7 @@ impl Lower for ast::Expr {
                 access.expr.lower(sess, code, ctx);
 
                 match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
-                    TyKind::Tuple(_) | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
+                    Type::Tuple(_) | Type::Infer(_, InferTy::PartialTuple(_)) => {
                         let index = access.member.parse::<usize>().unwrap();
 
                         code.push(if ctx.take_ptr {
@@ -124,7 +124,7 @@ impl Lower for ast::Expr {
                             Instruction::ConstIndex(index as u32)
                         });
                     }
-                    TyKind::Struct(st) => {
+                    Type::Struct(st) => {
                         let index = st.find_field_position(access.member).unwrap();
 
                         code.push(if ctx.take_ptr {
@@ -133,7 +133,7 @@ impl Lower for ast::Expr {
                             Instruction::ConstIndex(index as u32)
                         });
                     }
-                    TyKind::Infer(_, InferTy::PartialStruct(partial)) => {
+                    Type::Infer(_, InferTy::PartialStruct(partial)) => {
                         let index = partial
                             .iter()
                             .position(|(field, _)| *field == access.member)
@@ -145,17 +145,17 @@ impl Lower for ast::Expr {
                             Instruction::ConstIndex(index as u32)
                         });
                     }
-                    TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                    Type::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::Pop);
                         sess.push_const(code, Value::Uint(*size as usize));
                     }
-                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                    Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         code.push(Instruction::ConstIndex(1));
                     }
-                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
+                    Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_DATA => {
                         code.push(Instruction::ConstIndex(0));
                     }
-                    TyKind::Module(module_id) => {
+                    Type::Module(module_id) => {
                         let id = sess.find_symbol(*module_id, access.member);
                         let slot = find_and_lower_top_level_binding(id, sess);
                         code.push(Instruction::GetGlobal(slot as u32));
@@ -170,7 +170,7 @@ impl Lower for ast::Expr {
 
                 match self.ty.normalize(sess.tycx) {
                     // Note (Ron): We do nothing with modules, since they are not an actual value
-                    TyKind::Module(_) => (),
+                    Type::Module(_) => (),
                     _ => {
                         if let Some(slot) = sess.env().value(id) {
                             let slot = *slot as i32;
@@ -211,7 +211,7 @@ impl Lower for ast::Expr {
                         }
                     }
                     ast::ArrayLiteralKind::Fill { len: _, expr } => {
-                        let size = if let TyKind::Array(_, size) = ty {
+                        let size = if let Type::Array(_, size) = ty {
                             size
                         } else {
                             panic!()
@@ -285,7 +285,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
             let ty = binding.ty.normalize(sess.tycx);
 
             match &ty {
-                TyKind::Function(func_ty) => {
+                Type::Function(func_ty) => {
                     let pattern = binding.pattern.as_symbol_ref();
 
                     let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
@@ -327,8 +327,8 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                     let ty = binding.ty.normalize(sess.tycx);
 
                     match ty.maybe_deref_once() {
-                        TyKind::Module(_) => lower_local_module_unpack(pattern, sess, code),
-                        TyKind::Struct(struct_ty) => {
+                        Type::Module(_) => lower_local_module_unpack(pattern, sess, code),
+                        Type::Struct(struct_ty) => {
                             lower_local_struct_unpack(pattern, &struct_ty, sess, code)
                         }
                         _ => panic!("{}", ty),
@@ -350,8 +350,8 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                             let ty = binding.ty.normalize(sess.tycx);
 
                             match ty.maybe_deref_once() {
-                                TyKind::Module(_) => lower_local_module_unpack(pattern, sess, code),
-                                TyKind::Struct(struct_ty) => {
+                                Type::Module(_) => lower_local_module_unpack(pattern, sess, code),
+                                Type::Struct(struct_ty) => {
                                     lower_local_struct_unpack(pattern, &struct_ty, sess, code)
                                 }
                                 _ => panic!("{}", ty),
@@ -450,8 +450,8 @@ impl Lower for ast::Cast {
             .lower(sess, code, LowerContext { take_ptr: false });
 
         match self.target_ty.normalize(sess.tycx) {
-            TyKind::Never | TyKind::Unit | TyKind::Bool => (),
-            TyKind::Int(ty) => {
+            Type::Never | Type::Unit | Type::Bool => (),
+            Type::Int(ty) => {
                 code.push(match ty {
                     IntTy::I8 => Instruction::Cast(CastInstruction::I8),
                     IntTy::I16 => Instruction::Cast(CastInstruction::I16),
@@ -460,7 +460,7 @@ impl Lower for ast::Cast {
                     IntTy::Int => Instruction::Cast(CastInstruction::Int),
                 });
             }
-            TyKind::Uint(ty) => {
+            Type::Uint(ty) => {
                 code.push(match ty {
                     UintTy::U8 => Instruction::Cast(CastInstruction::U8),
                     UintTy::U16 => Instruction::Cast(CastInstruction::U16),
@@ -469,7 +469,7 @@ impl Lower for ast::Cast {
                     UintTy::Uint => Instruction::Cast(CastInstruction::Uint),
                 });
             }
-            TyKind::Float(ty) => {
+            Type::Float(ty) => {
                 code.push(match ty {
                     FloatTy::F16 | FloatTy::F32 => Instruction::Cast(CastInstruction::F32),
                     FloatTy::F64 => Instruction::Cast(CastInstruction::F64),
@@ -480,11 +480,11 @@ impl Lower for ast::Cast {
                     }),
                 });
             }
-            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => {
                 let cast_inst = CastInstruction::Ptr(ValueKind::from(ty.as_ref()));
                 code.push(Instruction::Cast(cast_inst));
             }
-            TyKind::Slice(_, _) => {
+            Type::Slice(_, _) => {
                 let expr_ty = self.expr.ty.normalize(sess.tycx);
                 let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
 
@@ -502,7 +502,7 @@ impl Lower for ast::Cast {
 
                 // calculate the slice length, by doing `high - low`
                 match expr_ty.maybe_deref_once() {
-                    TyKind::Array(_, len) => {
+                    Type::Array(_, len) => {
                         sess.push_const(code, Value::Uint(len));
                     }
                     ty => unreachable!("unexpected type `{}`", ty),
@@ -513,10 +513,10 @@ impl Lower for ast::Cast {
 
                 code.push(Instruction::AggregatePush);
             }
-            TyKind::Infer(_, InferTy::AnyInt) => {
+            Type::Infer(_, InferTy::AnyInt) => {
                 code.push(Instruction::Cast(CastInstruction::Int));
             }
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferTy::AnyFloat) => {
                 code.push(Instruction::Cast(if IS_64BIT {
                     CastInstruction::F64
                 } else {
@@ -756,10 +756,10 @@ impl Lower for ast::For {
 
                 // calculate the end index
                 match value_ty {
-                    TyKind::Array(_, len) => {
+                    Type::Array(_, len) => {
                         sess.push_const(code, Value::Uint(len));
                     }
-                    TyKind::Slice(..) => {
+                    Type::Slice(..) => {
                         code.push(Instruction::PeekPtr(value_slot));
                         code.push(Instruction::ConstIndex(1));
                     }
@@ -936,7 +936,7 @@ impl Lower for ast::Subscript {
     }
 }
 
-fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess) -> Value {
+fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpSess) -> Value {
     let ty = ty.normalize(sess.tycx);
 
     match const_value {
@@ -944,21 +944,21 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
         ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tycx)),
         ConstValue::Bool(v) => Value::Bool(*v),
         ConstValue::Int(v) => match ty {
-            TyKind::Int(int_ty) => match int_ty {
+            Type::Int(int_ty) => match int_ty {
                 IntTy::I8 => Value::I8(*v as _),
                 IntTy::I16 => Value::I16(*v as _),
                 IntTy::I32 => Value::I32(*v as _),
                 IntTy::I64 => Value::I64(*v as _),
                 IntTy::Int => Value::Int(*v as _),
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Value::U8(*v as _),
                 UintTy::U16 => Value::U16(*v as _),
                 UintTy::U32 => Value::U32(*v as _),
                 UintTy::U64 => Value::U64(*v as _),
                 UintTy::Uint => Value::Uint(*v as _),
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
                 FloatTy::F64 => Value::F64(*v as _),
                 FloatTy::Float => {
@@ -969,8 +969,8 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
                     }
                 }
             },
-            TyKind::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)
                 } else {
@@ -980,21 +980,21 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
             _ => panic!("invalid ty {}", ty),
         },
         ConstValue::Uint(v) => match ty {
-            TyKind::Int(int_ty) => match int_ty {
+            Type::Int(int_ty) => match int_ty {
                 IntTy::I8 => Value::I8(*v as _),
                 IntTy::I16 => Value::I16(*v as _),
                 IntTy::I32 => Value::I32(*v as _),
                 IntTy::I64 => Value::I64(*v as _),
                 IntTy::Int => Value::Int(*v as _),
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Value::U8(*v as _),
                 UintTy::U16 => Value::U16(*v as _),
                 UintTy::U32 => Value::U32(*v as _),
                 UintTy::U64 => Value::U64(*v as _),
                 UintTy::Uint => Value::Uint(*v as _),
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
                 FloatTy::F64 => Value::F64(*v as _),
                 FloatTy::Float => {
@@ -1005,8 +1005,8 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
                     }
                 }
             },
-            TyKind::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)
                 } else {
@@ -1016,7 +1016,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
             _ => panic!("invalid ty {}", ty),
         },
         ConstValue::Float(v) => match ty {
-            TyKind::Float(float_ty) => match float_ty {
+            Type::Float(float_ty) => match float_ty {
                 FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
                 FloatTy::F64 => Value::F64(*v as _),
                 FloatTy::Float => {
@@ -1027,7 +1027,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
                     }
                 }
             },
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)
                 } else {
@@ -1068,7 +1068,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: Ty, sess: &mut InterpSess)
 
             Value::Array(Array {
                 bytes,
-                ty: TyKind::Array(Box::new(el_ty_kind), array_len),
+                ty: Type::Array(Box::new(el_ty_kind), array_len),
             })
         }
         ConstValue::Function(f) => {
@@ -1105,16 +1105,16 @@ impl Lower for ast::Slice {
             sess: &mut InterpSess,
             code: &mut CompiledCode,
             high: &Option<Box<ast::Expr>>,
-            expr_ty: &TyKind,
+            expr_ty: &Type,
         ) {
             if let Some(high) = high {
                 high.lower(sess, code, LowerContext { take_ptr: false });
             } else {
                 match expr_ty {
-                    TyKind::Array(_, len) => {
+                    Type::Array(_, len) => {
                         sess.push_const(code, Value::Uint(*len));
                     }
-                    TyKind::Slice(..) => {
+                    Type::Slice(..) => {
                         code.push(Instruction::Roll(1));
                     }
                     ty => unreachable!("unexpected type `{}`", ty),
@@ -1123,7 +1123,7 @@ impl Lower for ast::Slice {
         }
 
         match expr_ty {
-            TyKind::Array(..) => {
+            Type::Array(..) => {
                 code.push(Instruction::AggregateAlloc);
 
                 self.expr.lower(sess, code, LowerContext { take_ptr: true });
@@ -1143,7 +1143,7 @@ impl Lower for ast::Slice {
 
                 code.push(Instruction::AggregatePush);
             }
-            TyKind::Slice(..) => {
+            Type::Slice(..) => {
                 self.expr
                     .lower(sess, code, LowerContext { take_ptr: false });
 
@@ -1171,7 +1171,7 @@ impl Lower for ast::Slice {
 
                 code.push(Instruction::AggregatePush);
             }
-            TyKind::Pointer(..) | TyKind::MultiPointer(..) => {
+            Type::Pointer(..) | Type::MultiPointer(..) => {
                 code.push(Instruction::AggregateAlloc);
 
                 self.expr
@@ -1249,7 +1249,7 @@ fn lower_top_level_binding(
             let ty = binding.ty.normalize(sess.tycx);
 
             match &ty {
-                TyKind::Function(func_ty) => {
+                Type::Function(func_ty) => {
                     let pattern = binding.pattern.as_symbol_ref();
 
                     let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
@@ -1294,14 +1294,14 @@ fn lower_top_level_binding(
                     let ty = binding.ty.normalize(sess.tycx);
 
                     match ty.maybe_deref_once() {
-                        TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                        Type::Module(_) => lower_top_level_binding_module_unpack(
                             pattern,
                             desired_id,
                             &mut desired_slot,
                             &mut code,
                             sess,
                         ),
-                        TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                        Type::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
                             pattern,
                             &struct_ty,
                             desired_id,
@@ -1335,14 +1335,14 @@ fn lower_top_level_binding(
                             let ty = binding.ty.normalize(sess.tycx);
 
                             match ty.maybe_deref_once() {
-                                TyKind::Module(_) => lower_top_level_binding_module_unpack(
+                                Type::Module(_) => lower_top_level_binding_module_unpack(
                                     pattern,
                                     desired_id,
                                     &mut desired_slot,
                                     &mut code,
                                     sess,
                                 ),
-                                TyKind::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
+                                Type::Struct(struct_ty) => lower_top_level_binding_struct_unpack(
                                     pattern,
                                     &struct_ty,
                                     desired_id,

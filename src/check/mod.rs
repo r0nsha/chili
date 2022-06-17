@@ -12,7 +12,7 @@ use crate::ast::{
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
         FunctionTy, FunctionTyVarargs, InferTy, PartialStructTy, StructTy, StructTyField,
-        StructTyKind, Ty, TyKind,
+        StructTyKind, Type, TypeId,
     },
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -82,28 +82,25 @@ pub fn check(
     Ok((sess.new_typed_ast, sess.tycx))
 }
 
-fn ty_is_extern(ty: &TyKind) -> bool {
+fn ty_is_extern(ty: &Type) -> bool {
     match ty {
-        TyKind::Never
-        | TyKind::Unit
-        | TyKind::Bool
-        | TyKind::Int(_)
-        | TyKind::Uint(_)
-        | TyKind::Float(_) => true,
+        Type::Never | Type::Unit | Type::Bool | Type::Int(_) | Type::Uint(_) | Type::Float(_) => {
+            true
+        }
 
-        TyKind::Module(_)
-        | TyKind::Type(_)
-        | TyKind::AnyType
-        | TyKind::Var(_)
-        | TyKind::Infer(_, _)
-        | TyKind::Unknown => false,
+        Type::Module(_)
+        | Type::Type(_)
+        | Type::AnyType
+        | Type::Var(_)
+        | Type::Infer(_, _)
+        | Type::Unknown => false,
 
-        TyKind::Pointer(inner, _)
-        | TyKind::MultiPointer(inner, _)
-        | TyKind::Array(inner, _)
-        | TyKind::Slice(inner, _) => ty_is_extern(inner),
+        Type::Pointer(inner, _)
+        | Type::MultiPointer(inner, _)
+        | Type::Array(inner, _)
+        | Type::Slice(inner, _) => ty_is_extern(inner),
 
-        TyKind::Function(f) => {
+        Type::Function(f) => {
             ty_is_extern(&f.ret)
                 && f.varargs
                     .as_ref()
@@ -111,9 +108,9 @@ fn ty_is_extern(ty: &TyKind) -> bool {
                 && f.params.iter().all(ty_is_extern)
         }
 
-        TyKind::Tuple(tys) => tys.iter().all(ty_is_extern),
+        Type::Tuple(tys) => tys.iter().all(ty_is_extern),
 
-        TyKind::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
+        Type::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
     }
 }
 
@@ -130,7 +127,7 @@ pub struct CheckSess<'s> {
 
     // The new typed ast being generated
     pub new_typed_ast: ast::TypedAst,
-    pub checked_modules: HashMap<ModuleId, Ty>,
+    pub checked_modules: HashMap<ModuleId, TypeId>,
 
     // Information that's relevant for the global context
     pub global_scopes: HashMap<ModuleId, Scope>,
@@ -140,7 +137,7 @@ pub struct CheckSess<'s> {
     pub function_frames: Vec<FunctionFrame>,
 
     // Stack of `Self` types
-    pub self_types: Vec<Ty>,
+    pub self_types: Vec<TypeId>,
 
     // The current loop (while/for) depth
     // 0 meaning we are not in a loop, > 1 means we are in a loop
@@ -149,7 +146,7 @@ pub struct CheckSess<'s> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct FunctionFrame {
-    return_ty: Ty,
+    return_ty: TypeId,
     return_ty_span: Span,
     scope_level: ScopeLevel,
 }
@@ -212,9 +209,9 @@ impl<'s> CheckSess<'s> {
     pub fn extract_const_type(
         &self,
         const_value: Option<ConstValue>,
-        ty: Ty,
+        ty: TypeId,
         span: Span,
-    ) -> DiagnosticResult<Ty> {
+    ) -> DiagnosticResult<TypeId> {
         match const_value {
             Some(v) => {
                 if let ConstValue::Type(t) = v {
@@ -230,7 +227,7 @@ impl<'s> CheckSess<'s> {
     pub fn extract_const_int(
         &mut self,
         value: Option<ConstValue>,
-        ty: Ty,
+        ty: TypeId,
         span: Span,
     ) -> DiagnosticResult<i64> {
         match &value {
@@ -254,7 +251,7 @@ impl<'s> CheckSess<'s> {
     }
 
     fn add_builtin_types(&mut self) {
-        let mk = |sess: &mut CheckSess, symbol: &str, ty: Ty| {
+        let mk = |sess: &mut CheckSess, symbol: &str, ty: TypeId| {
             let symbol = ustr(symbol);
 
             let id = sess.workspace.add_binding_info(PartialBindingInfo {
@@ -322,23 +319,23 @@ pub type CheckResult = DiagnosticResult<Res>;
 
 #[derive(Debug)]
 pub struct Res {
-    ty: Ty,
+    ty: TypeId,
     const_value: Option<ConstValue>,
 }
 
 impl Res {
-    pub fn new(ty: Ty) -> Self {
+    pub fn new(ty: TypeId) -> Self {
         Self {
             ty,
             const_value: None,
         }
     }
 
-    pub fn new_maybe_const(ty: Ty, const_value: Option<ConstValue>) -> Self {
+    pub fn new_maybe_const(ty: TypeId, const_value: Option<ConstValue>) -> Self {
         Self { ty, const_value }
     }
 
-    pub fn new_const(ty: Ty, const_value: ConstValue) -> Self {
+    pub fn new_const(ty: TypeId, const_value: ConstValue) -> Self {
         Self {
             ty,
             const_value: Some(const_value),
@@ -354,7 +351,7 @@ where
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TypeId>,
     ) -> CheckResult;
 }
 
@@ -363,7 +360,7 @@ impl Check for ast::Binding {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<Ty>,
+        _expected_ty: Option<TypeId>,
     ) -> CheckResult {
         self.module_id = env.module_id();
 
@@ -542,7 +539,7 @@ impl Check for ast::Function {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let sig_res = self.sig.check(sess, env, expected_ty)?;
         let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
@@ -633,7 +630,7 @@ impl Check for ast::FunctionSig {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let mut ty_params = vec![];
         let mut param_map = UstrMap::default();
@@ -664,7 +661,7 @@ impl Check for ast::FunctionSig {
             // parent type is a function with 1 parameter, add an implicit `it` parameter
             if let Some(ty) = expected_ty {
                 match ty.normalize(&sess.tycx) {
-                    TyKind::Function(f) => {
+                    Type::Function(f) => {
                         if f.params.len() == 1 {
                             let symbol = ustr("it");
 
@@ -722,7 +719,7 @@ impl Check for ast::FunctionSig {
         };
 
         self.ty = sess.tycx.bound(
-            TyKind::Function(FunctionTy {
+            Type::Function(FunctionTy {
                 params: ty_params,
                 ret: Box::new(ret.into()),
                 varargs,
@@ -746,7 +743,7 @@ impl Check for ast::Expr {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let res = match &mut self.kind {
             ast::ExprKind::Binding(binding) => {
@@ -873,7 +870,7 @@ impl Check for ast::Expr {
                     };
 
                     match ty {
-                        TyKind::Struct(st) => {
+                        Type::Struct(st) => {
                             if let Some(binding_info) = sess
                                 .workspace
                                 .module_infos
@@ -982,7 +979,7 @@ impl Check for ast::Expr {
                         let ty = res.ty.normalize(&sess.tycx);
 
                         match ty.maybe_deref_once() {
-                            TyKind::Array(inner, ..) | TyKind::Slice(inner, ..) => {
+                            Type::Array(inner, ..) | Type::Slice(inner, ..) => {
                                 sess.tycx.bound(*inner, value.span)
                             }
                             _ => {
@@ -1243,7 +1240,7 @@ impl Check for ast::Expr {
                 match unary.op {
                     ast::UnaryOp::Ref(is_mutable) => {
                         let ty = sess.tycx.bound(
-                            TyKind::Pointer(Box::new(res.ty.into()), is_mutable),
+                            Type::Pointer(Box::new(res.ty.into()), is_mutable),
                             unary.span,
                         );
                         Ok(Res::new(ty))
@@ -1253,7 +1250,7 @@ impl Check for ast::Expr {
 
                         let ptr_ty = sess
                             .tycx
-                            .bound(TyKind::Pointer(Box::new(pointee.into()), false), unary.span);
+                            .bound(Type::Pointer(Box::new(pointee.into()), false), unary.span);
 
                         res.ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
                             &sess.tycx,
@@ -1358,7 +1355,7 @@ impl Check for ast::Expr {
                 let const_value = if let Some(ConstValue::Int(const_index)) = index_res.const_value
                 {
                     // compile-time array bounds check
-                    if let TyKind::Array(_, size) = kind_deref {
+                    if let Type::Array(_, size) = kind_deref {
                         if const_index < 0 || const_index >= size as _ {
                             let msg = format!(
                                 "index out of array bounds - expected 0 to {}, but found {}",
@@ -1381,9 +1378,9 @@ impl Check for ast::Expr {
                 };
 
                 match kind_deref {
-                    TyKind::Array(inner, ..)
-                    | TyKind::Slice(inner, ..)
-                    | TyKind::MultiPointer(inner, ..) => {
+                    Type::Array(inner, ..)
+                    | Type::Slice(inner, ..)
+                    | Type::MultiPointer(inner, ..) => {
                         let ty = sess.tycx.bound(*inner, self.span);
 
                         if let Some(const_value) = &const_value {
@@ -1442,8 +1439,8 @@ impl Check for ast::Expr {
 
                 let (result_ty, is_mutable) = match expr_ty {
                     // TODO: this is immutable even if the array is mutable
-                    TyKind::Array(inner, ..) => (inner, sess.is_mutable(&slice.expr.kind)),
-                    TyKind::Slice(inner, is_mutable) | TyKind::MultiPointer(inner, is_mutable) => {
+                    Type::Array(inner, ..) => (inner, sess.is_mutable(&slice.expr.kind)),
+                    Type::Slice(inner, is_mutable) | Type::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
                     }
                     _ => {
@@ -1458,7 +1455,7 @@ impl Check for ast::Expr {
 
                 let ty = sess
                     .tycx
-                    .bound(TyKind::Slice(result_ty, is_mutable), self.span);
+                    .bound(Type::Slice(result_ty, is_mutable), self.span);
 
                 Ok(Res::new(ty))
             }
@@ -1470,9 +1467,9 @@ impl Check for ast::Expr {
 
                 // if the accessed expression's type is not resolved yet - try unifying it with a partial type
                 match res.ty.normalize(&sess.tycx) {
-                    TyKind::Var(_)
-                    | TyKind::Infer(_, InferTy::PartialStruct(_))
-                    | TyKind::Infer(_, InferTy::PartialTuple(_)) => {
+                    Type::Var(_)
+                    | Type::Infer(_, InferTy::PartialStruct(_))
+                    | Type::Infer(_, InferTy::PartialTuple(_)) => {
                         // if this parsing operation succeeds, this is a tuple member access - `tup.0`
                         // otherwise, this is a struct field access - `strct.field`
 
@@ -1481,13 +1478,13 @@ impl Check for ast::Expr {
                             Ok(index) => {
                                 let elements = repeat_with(|| sess.tycx.var(self.span))
                                     .take(index + 1)
-                                    .map(TyKind::Var)
-                                    .collect::<Vec<TyKind>>();
+                                    .map(Type::Var)
+                                    .collect::<Vec<Type>>();
                                 sess.tycx.partial_tuple(elements, self.span)
                             }
                             Err(_) => {
                                 let fields =
-                                    IndexMap::from([(access.member, TyKind::Var(member_ty))]);
+                                    IndexMap::from([(access.member, Type::Var(member_ty))]);
                                 sess.tycx.partial_struct(PartialStructTy(fields), self.span)
                             }
                         };
@@ -1506,8 +1503,8 @@ impl Check for ast::Expr {
                 let kind = res.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
-                    ty @ TyKind::Tuple(elements)
-                    | ty @ TyKind::Infer(_, InferTy::PartialTuple(elements)) => {
+                    ty @ Type::Tuple(elements)
+                    | ty @ Type::Infer(_, InferTy::PartialTuple(elements)) => {
                         match member_tuple_index {
                             Ok(index) => match elements.get(index) {
                                 Some(field_ty) => {
@@ -1539,7 +1536,7 @@ impl Check for ast::Expr {
                             )),
                         }
                     }
-                    ty @ TyKind::Struct(st) => match st.find_field(access.member) {
+                    ty @ Type::Struct(st) => match st.find_field(access.member) {
                         Some(field) => {
                             let const_value =
                                 if let Some(ConstValue::Struct(const_fields)) = &res.const_value {
@@ -1559,7 +1556,7 @@ impl Check for ast::Expr {
                             ty.display(&sess.tycx),
                         )),
                     },
-                    ty @ TyKind::Infer(_, InferTy::PartialStruct(partial_struct)) => {
+                    ty @ Type::Infer(_, InferTy::PartialStruct(partial_struct)) => {
                         match partial_struct.get(&access.member) {
                             Some(field_ty) => {
                                 let const_value = if let Some(ConstValue::Struct(const_fields)) =
@@ -1582,10 +1579,10 @@ impl Check for ast::Expr {
                             )),
                         }
                     }
-                    TyKind::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => Ok(
+                    Type::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => Ok(
                         Res::new_const(sess.tycx.common_types.uint, ConstValue::Int(*size as _)),
                     ),
-                    TyKind::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                    Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         let const_value = if let Some(ConstValue::Str(s)) = &res.const_value {
                             Some(ConstValue::Uint(s.len() as _))
                         } else {
@@ -1597,15 +1594,15 @@ impl Check for ast::Expr {
                             const_value,
                         ))
                     }
-                    TyKind::Slice(inner, is_mutable)
+                    Type::Slice(inner, is_mutable)
                         if access.member.as_str() == BUILTIN_FIELD_DATA =>
                     {
                         Ok(Res::new(sess.tycx.bound(
-                            TyKind::MultiPointer(inner.clone(), *is_mutable),
+                            Type::MultiPointer(inner.clone(), *is_mutable),
                             self.span,
                         )))
                     }
-                    TyKind::Module(module_id) => {
+                    Type::Module(module_id) => {
                         let (res, _) = sess.check_top_level_symbol(
                             CallerInfo {
                                 module_id: env.module_id(),
@@ -1719,7 +1716,7 @@ impl Check for ast::Expr {
                     }
 
                     let ty = sess.tycx.bound(
-                        TyKind::Array(Box::new(element_ty.into()), elements.len()),
+                        Type::Array(Box::new(element_ty.into()), elements.len()),
                         self.span,
                     );
 
@@ -1757,7 +1754,7 @@ impl Check for ast::Expr {
                     let res = expr.check(sess, env, None)?;
 
                     let ty = sess.tycx.bound(
-                        TyKind::Array(Box::new(res.ty.into()), array_len as _),
+                        Type::Array(Box::new(res.ty.into()), array_len as _),
                         self.span,
                     );
 
@@ -1822,7 +1819,7 @@ impl Check for ast::Expr {
 
                     if is_tuple_type {
                         // unwrap element type constants
-                        let element_tys: Vec<TyKind> = elements_res
+                        let element_tys: Vec<Type> = elements_res
                             .iter()
                             .map(|res| {
                                 res.const_value
@@ -1834,7 +1831,7 @@ impl Check for ast::Expr {
                             })
                             .collect();
 
-                        let kind = TyKind::Tuple(element_tys);
+                        let kind = Type::Tuple(element_tys);
 
                         let ty = sess.tycx.bound(kind.clone(), self.span);
 
@@ -1851,12 +1848,12 @@ impl Check for ast::Expr {
                             const_value,
                         ))
                     } else {
-                        let element_tys: Vec<Ty> = lit.elements.iter().map(|e| e.ty).collect();
+                        let element_tys: Vec<TypeId> = lit.elements.iter().map(|e| e.ty).collect();
 
-                        let element_ty_kinds: Vec<TyKind> =
+                        let element_ty_kinds: Vec<Type> =
                             element_tys.iter().map(|ty| ty.as_kind()).collect();
 
-                        let kind = TyKind::Tuple(element_ty_kinds.clone());
+                        let kind = Type::Tuple(element_ty_kinds.clone());
 
                         let ty = sess.tycx.bound(kind.clone(), self.span);
 
@@ -1879,10 +1876,10 @@ impl Check for ast::Expr {
                         Ok(Res::new_const(ty, const_value))
                     }
                 } else {
-                    let element_tys: Vec<TyKind> =
+                    let element_tys: Vec<Type> =
                         lit.elements.iter().map(|e| e.ty.as_kind()).collect();
 
-                    let kind = TyKind::Tuple(element_tys);
+                    let kind = Type::Tuple(element_tys);
 
                     let ty = sess.tycx.bound(kind.clone(), self.span);
 
@@ -1900,7 +1897,7 @@ impl Check for ast::Expr {
                         let kind = ty.normalize(&sess.tycx);
 
                         match kind {
-                            TyKind::Struct(struct_ty) => check_named_struct_literal(
+                            Type::Struct(struct_ty) => check_named_struct_literal(
                                 sess,
                                 env,
                                 struct_ty,
@@ -1924,7 +1921,7 @@ impl Check for ast::Expr {
                         Some(ty) => {
                             let kind = ty.normalize(&sess.tycx);
                             match kind {
-                                TyKind::Struct(struct_ty) => check_named_struct_literal(
+                                Type::Struct(struct_ty) => check_named_struct_literal(
                                     sess,
                                     env,
                                     struct_ty,
@@ -1978,7 +1975,7 @@ impl Check for ast::Expr {
             ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
-                let kind = TyKind::Pointer(Box::new(inner_kind.into()), *is_mutable);
+                let kind = Type::Pointer(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
@@ -1994,7 +1991,7 @@ impl Check for ast::Expr {
             ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
-                let kind = TyKind::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
+                let kind = Type::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
@@ -2021,7 +2018,7 @@ impl Check for ast::Expr {
                     return Err(TypeError::negative_array_len(size.span, size_value));
                 }
 
-                let kind = TyKind::Array(Box::new(inner_ty.into()), size_value as usize);
+                let kind = Type::Array(Box::new(inner_ty.into()), size_value as usize);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
@@ -2037,7 +2034,7 @@ impl Check for ast::Expr {
             ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
-                let kind = TyKind::Slice(Box::new(inner_kind.into()), *is_mutable);
+                let kind = Type::Slice(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
@@ -2059,7 +2056,7 @@ impl Check for ast::Expr {
 
                 // the struct's main type variable
                 let struct_ty_var = sess.tycx.bound(
-                    TyKind::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind)),
+                    Type::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind)),
                     self.span,
                 );
 
@@ -2111,7 +2108,7 @@ impl Check for ast::Expr {
 
                 sess.self_types.pop();
 
-                let struct_ty = TyKind::Struct(StructTy {
+                let struct_ty = Type::Struct(StructTy {
                     name: st.name,
                     binding_info_id: st.binding_info_id,
                     kind: st.kind,
@@ -2197,12 +2194,12 @@ impl Check for ast::Call {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<Ty>,
+        _expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let callee_res = self.callee.check(sess, env, None)?;
 
         match callee_res.ty.normalize(&sess.tycx) {
-            TyKind::Function(fn_ty) => {
+            Type::Function(fn_ty) => {
                 let arg_mismatch = match &fn_ty.varargs {
                     Some(_) if self.args.len() < fn_ty.params.len() => true,
                     None if self.args.len() != fn_ty.params.len() => true,
@@ -2265,7 +2262,7 @@ impl Check for ast::Call {
 
                 let return_ty = sess.tycx.var(self.span);
 
-                let inferred_fn_ty = TyKind::Function(FunctionTy {
+                let inferred_fn_ty = Type::Function(FunctionTy {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
                     varargs: None,
@@ -2291,7 +2288,7 @@ impl Check for ast::Cast {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let res = self.expr.check(sess, env, None)?;
 
@@ -2333,7 +2330,7 @@ impl Check for ast::Block {
         &mut self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<Ty>,
+        expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let mut res = Res::new(sess.tycx.common_types.unit);
 
@@ -2377,7 +2374,7 @@ impl Check for ConstValue {
         &mut self,
         _sess: &mut CheckSess,
         _env: &mut Env,
-        _expected_ty: Option<Ty>,
+        _expected_ty: Option<TypeId>,
     ) -> CheckResult {
         todo!("check: const value")
     }
@@ -2433,7 +2430,7 @@ fn check_named_struct_literal(
                 return Err(TypeError::invalid_struct_field(
                     field.span,
                     field.symbol,
-                    TyKind::Struct(struct_ty).display(&sess.tycx),
+                    Type::Struct(struct_ty).display(&sess.tycx),
                 ));
             }
         }
@@ -2479,11 +2476,11 @@ fn check_named_struct_literal(
         let const_value = ConstValue::Struct(const_value_fields);
 
         Ok(Res::new_const(
-            sess.tycx.bound(TyKind::Struct(struct_ty), span),
+            sess.tycx.bound(Type::Struct(struct_ty), span),
             const_value,
         ))
     } else {
-        Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
+        Ok(Res::new(sess.tycx.bound(Type::Struct(struct_ty), span)))
     }
 }
 
@@ -2546,11 +2543,11 @@ fn check_anonymous_struct_literal(
         let const_value = ConstValue::Struct(const_value_fields);
 
         Ok(Res::new_const(
-            sess.tycx.bound(TyKind::Struct(struct_ty), span),
+            sess.tycx.bound(Type::Struct(struct_ty), span),
             const_value,
         ))
     } else {
-        Ok(Res::new(sess.tycx.bound(TyKind::Struct(struct_ty), span)))
+        Ok(Res::new(sess.tycx.bound(Type::Struct(struct_ty), span)))
     }
 }
 

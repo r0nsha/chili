@@ -1,7 +1,7 @@
 use super::*;
 use crate::ast::{
     ast::{Expr, ExprKind, Function, FunctionParam, FunctionSig, FunctionVarargs},
-    ty::Ty,
+    ty::TypeId,
 };
 use crate::error::{DiagnosticResult, SyntaxError};
 use crate::span::To;
@@ -111,7 +111,7 @@ impl Parser {
                 FunctionParam {
                     pattern,
                     ty_expr: ty,
-                    ty: Ty::unknown(),
+                    ty: TypeId::unknown(),
                 }
             },
             ", or )"

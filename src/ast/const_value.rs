@@ -1,6 +1,6 @@
 use super::{
     ast::{self, LiteralKind},
-    ty::Ty,
+    ty::TypeId,
     workspace::BindingInfoId,
 };
 use indexmap::IndexMap;
@@ -87,7 +87,7 @@ macro_rules! impl_value {
 
 impl_value! {
     Unit(()),
-    Type(Ty),
+    Type(TypeId),
     Bool(bool),
     Int(i64),
     Uint(u64),
@@ -104,13 +104,13 @@ pub type ConstStruct = IndexMap<Ustr, ConstElement>;
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstElement {
     pub value: ConstValue,
-    pub ty: Ty,
+    pub ty: TypeId,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstArray {
     pub values: Vec<ConstValue>,
-    pub element_ty: Ty,
+    pub element_ty: TypeId,
 }
 
 #[derive(Debug, PartialEq, Clone)]

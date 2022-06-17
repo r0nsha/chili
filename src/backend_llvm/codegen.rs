@@ -271,7 +271,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
-        ty: &TyKind,
+        ty: &Type,
         expr: &Option<ast::Expr>,
     ) {
         if ty.is_type() {
@@ -286,10 +286,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
             }
             Pattern::StructUnpack(pattern) => match ty.maybe_deref_once() {
-                TyKind::Module(_) => {
+                Type::Module(_) => {
                     self.gen_binding_module_unpack_pattern(state, pattern);
                 }
-                TyKind::Struct(struct_ty) => {
+                Type::Struct(struct_ty) => {
                     let ptr =
                         self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
 
@@ -304,11 +304,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             Pattern::Hybrid(pattern) => match &pattern.unpack {
                 UnpackPatternKind::Struct(unpack) => match ty.maybe_deref_once() {
-                    TyKind::Module(_) => {
+                    Type::Module(_) => {
                         self.gen_local_and_store_expr(state, pattern.symbol.id, &expr, ty);
                         self.gen_binding_module_unpack_pattern(state, unpack);
                     }
-                    TyKind::Struct(struct_ty) => {
+                    Type::Struct(struct_ty) => {
                         let ptr =
                             self.gen_local_and_store_expr(state, pattern.symbol.id, &expr, ty);
 
@@ -351,7 +351,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
-        ty: &TyKind,
+        ty: &Type,
         struct_ty: &StructTy,
         ptr: PointerValue<'ctx>,
     ) {
@@ -382,7 +382,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
-        ty: &TyKind,
+        ty: &Type,
         ptr: PointerValue<'ctx>,
     ) {
         let llvm_type = Some(ty.llvm_type(self));
@@ -410,7 +410,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
-        ty: &TyKind,
+        ty: &Type,
         value: BasicValueEnum<'ctx>,
     ) {
         match pattern {
@@ -448,7 +448,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
-        ty: &TyKind,
+        ty: &Type,
         value: BasicValueEnum<'ctx>,
     ) {
         let struct_ty = ty.maybe_deref_once().into_struct();
@@ -485,7 +485,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
-        ty: &TyKind,
+        ty: &Type,
         value: BasicValueEnum<'ctx>,
     ) {
         for i in 0..pattern.symbols.len() {
@@ -517,7 +517,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         id: BindingInfoId,
-        ty: &TyKind,
+        ty: &Type,
     ) -> PointerValue<'ctx> {
         let ty = ty.llvm_type(self);
         let ptr = self.build_alloca_named(state, ty, id);
@@ -641,11 +641,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     panic!("unexpected lang_item builtin: {}", item)
                 }
                 ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
-                    TyKind::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
+                    Type::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
                 ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
-                    TyKind::Type(ty) => ty.llvm_type(self).align_of().into(),
+                    Type::Type(ty) => ty.llvm_type(self).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
                 ast::BuiltinKind::Panic(msg_expr) => {
@@ -717,10 +717,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     ast::ForIter::Value(value, ..) => {
                         let start = self.ptr_sized_int_type.const_zero();
                         let end = match value.ty.normalize(self.tycx).maybe_deref_once() {
-                            TyKind::Array(_, len) => {
+                            Type::Array(_, len) => {
                                 self.ptr_sized_int_type.const_int(len as u64, false)
                             }
-                            TyKind::Slice(..) => {
+                            Type::Slice(..) => {
                                 let agg = self.gen_expr(state, value, true);
                                 self.gen_load_slice_len(agg)
                             }
@@ -868,9 +868,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let ty = sub.expr.ty.normalize(self.tycx);
 
                 let len = match ty.maybe_deref_once() {
-                    TyKind::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
-                    TyKind::Slice(..) => Some(self.gen_load_slice_len(value)),
-                    TyKind::MultiPointer(..) => None,
+                    Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
+                    Type::Slice(..) => Some(self.gen_load_slice_len(value)),
+                    Type::MultiPointer(..) => None,
                     ty => unreachable!("got {}", ty),
                 };
 
@@ -887,12 +887,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let ty = slice.expr.ty.normalize(self.tycx);
 
                 let data = match ty {
-                    TyKind::Slice(..) => {
+                    Type::Slice(..) => {
                         let data = self.gen_load_slice_data(ptr.into());
                         self.build_load(data.into()).into_pointer_value()
                     }
-                    TyKind::MultiPointer(..) => self.build_load(ptr.into()).into_pointer_value(),
-                    TyKind::Array(..) => ptr,
+                    Type::MultiPointer(..) => self.build_load(ptr.into()).into_pointer_value(),
+                    Type::Array(..) => ptr,
                     _ => unreachable!("got {}", ty),
                 };
 
@@ -908,8 +908,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let high = match &slice.high {
                     Some(high) => self.gen_expr(state, high, true).into_int_value(),
                     None => match ty {
-                        TyKind::Array(_, len) => low.get_type().const_int(len as u64, false),
-                        TyKind::Slice(..) => self.gen_load_slice_len(ptr.into()),
+                        Type::Array(_, len) => low.get_type().const_int(len as u64, false),
+                        Type::Slice(..) => self.gen_load_slice_len(ptr.into()),
                         _ => unreachable!(),
                     },
                 };
@@ -917,11 +917,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_runtime_check_slice_end_before_start(state, low, high, expr.span);
 
                 let len = match ty {
-                    TyKind::Slice(..) => Some(self.gen_load_slice_len(ptr.into())),
-                    TyKind::Array(_, size) => {
+                    Type::Slice(..) => Some(self.gen_load_slice_len(ptr.into())),
+                    Type::Array(_, size) => {
                         Some(self.ptr_sized_int_type.const_int(size as _, false))
                     }
-                    TyKind::MultiPointer(..) => None,
+                    Type::MultiPointer(..) => None,
                     _ => unreachable!("got {}", ty),
                 };
 
@@ -961,12 +961,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let derefed_ty = accessed_ty.maybe_deref_once();
                 let value = match derefed_ty {
-                    TyKind::Tuple(_) => {
+                    Type::Tuple(_) => {
                         let index = access.member.parse::<usize>().unwrap();
                         let llvm_ty = Some(derefed_ty.llvm_type(self));
                         self.gen_struct_access(value, index as u32, llvm_ty)
                     }
-                    TyKind::Struct(ref struct_ty) => {
+                    Type::Struct(ref struct_ty) => {
                         let struct_llvm_ty = Some(derefed_ty.llvm_type(self));
 
                         if struct_ty.is_union() {
@@ -987,18 +987,18 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             self.gen_struct_access(value, field_index as u32, struct_llvm_ty)
                         }
                     }
-                    TyKind::Array(_, len) => match access.member.as_str() {
+                    Type::Array(_, len) => match access.member.as_str() {
                         BUILTIN_FIELD_LEN => {
                             self.ptr_sized_int_type.const_int(len as _, false).into()
                         }
                         _ => unreachable!("got field `{}`", access.member),
                     },
-                    TyKind::Slice(..) => match access.member.as_str() {
+                    Type::Slice(..) => match access.member.as_str() {
                         BUILTIN_FIELD_LEN => self.gen_load_slice_len(value).into(),
                         BUILTIN_FIELD_DATA => self.gen_load_slice_data(value).into(),
                         _ => unreachable!("got field `{}`", access.member),
                     },
-                    TyKind::Module(module_id) => {
+                    Type::Module(module_id) => {
                         let id = self
                             .workspace
                             .binding_infos
@@ -1060,7 +1060,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .collect();
 
                         let size = match &ty {
-                            TyKind::Array(_, size) => *size,
+                            Type::Array(_, size) => *size,
                             _ => unreachable!("got ty `{}`", ty),
                         };
 
@@ -1258,7 +1258,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: Option<&CodegenState<'ctx>>,
         const_value: &ConstValue,
-        ty: &TyKind,
+        ty: &Type,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         match const_value {
@@ -1347,7 +1347,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         id: BindingInfoId,
         expr: &Option<ast::Expr>,
-        ty: &TyKind,
+        ty: &Type,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
             let value = self.gen_expr(state, expr, true);
@@ -1363,7 +1363,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         expr: &Box<ast::Expr>,
-        target_ty: &Ty,
+        target_ty: &TypeId,
     ) -> BasicValueEnum<'ctx> {
         let value = self.gen_expr(state, expr, true);
         self.gen_cast_inner(
@@ -1378,8 +1378,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         value: BasicValueEnum<'ctx>,
-        from_ty: &TyKind,
-        target_ty: &TyKind,
+        from_ty: &Type,
+        target_ty: &Type,
     ) -> BasicValueEnum<'ctx> {
         if from_ty == target_ty {
             return value;
@@ -1390,16 +1390,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let cast_type = target_ty.llvm_type(self);
 
         match (from_ty, target_ty) {
-            (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::Uint(_)) => self
+            (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => self
                 .builder
                 .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
-            (TyKind::Int(_) | TyKind::Uint(_), TyKind::Int(_) | TyKind::Uint(_)) => self
+            (Type::Int(_) | Type::Uint(_), Type::Int(_) | Type::Uint(_)) => self
                 .builder
                 .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
 
-            (TyKind::Int(_), TyKind::Float(_)) => self
+            (Type::Int(_), Type::Float(_)) => self
                 .builder
                 .build_signed_int_to_float(
                     value.into_int_value(),
@@ -1408,7 +1408,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (TyKind::Uint(_), TyKind::Float(_)) => self
+            (Type::Uint(_), Type::Float(_)) => self
                 .builder
                 .build_unsigned_int_to_float(
                     value.into_int_value(),
@@ -1417,7 +1417,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (TyKind::Float(_), TyKind::Int(_)) => self
+            (Type::Float(_), Type::Int(_)) => self
                 .builder
                 .build_float_to_signed_int(
                     value.into_float_value(),
@@ -1425,7 +1425,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     INST_NAME,
                 )
                 .into(),
-            (TyKind::Float(_), TyKind::Uint(_)) => self
+            (Type::Float(_), Type::Uint(_)) => self
                 .builder
                 .build_float_to_unsigned_int(
                     value.into_float_value(),
@@ -1433,7 +1433,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     INST_NAME,
                 )
                 .into(),
-            (TyKind::Float(_), TyKind::Float(_)) => self
+            (Type::Float(_), Type::Float(_)) => self
                 .builder
                 .build_float_cast(
                     value.into_float_value(),
@@ -1443,8 +1443,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             (
-                TyKind::Pointer(..) | TyKind::MultiPointer(..),
-                TyKind::Pointer(..) | TyKind::MultiPointer(..),
+                Type::Pointer(..) | Type::MultiPointer(..),
+                Type::Pointer(..) | Type::MultiPointer(..),
             ) => self
                 .builder
                 .build_pointer_cast(
@@ -1455,7 +1455,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             // pointer <=> int | uint
-            (TyKind::Pointer(..), TyKind::Int(..) | TyKind::Uint(..)) => self
+            (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => self
                 .builder
                 .build_ptr_to_int(
                     value.into_pointer_value(),
@@ -1465,7 +1465,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into(),
 
             // int | uint <=> pointer
-            (TyKind::Int(..) | TyKind::Uint(..), TyKind::Pointer(..)) => self
+            (Type::Int(..) | Type::Uint(..), Type::Pointer(..)) => self
                 .builder
                 .build_int_to_ptr(
                     value.into_int_value(),
@@ -1474,8 +1474,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 )
                 .into(),
 
-            (TyKind::Pointer(t, _), TyKind::Slice(t_slice, ..)) => match t.as_ref() {
-                TyKind::Array(_, size) => {
+            (Type::Pointer(t, _), Type::Slice(t_slice, ..)) => match t.as_ref() {
+                Type::Array(_, size) => {
                     let slice_ty = self.slice_type(t_slice);
                     let ptr = self.build_alloca(state, slice_ty);
 

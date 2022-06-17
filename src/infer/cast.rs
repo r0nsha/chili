@@ -5,71 +5,69 @@ pub trait CanCast<T> {
     fn can_cast(&self, to: &T) -> bool;
 }
 
-impl CanCast<TyKind> for TyKind {
-    fn can_cast(&self, to: &TyKind) -> bool {
+impl CanCast<Type> for Type {
+    fn can_cast(&self, to: &Type) -> bool {
         self == to
             || match (self, to) {
-                (TyKind::Bool, TyKind::Int(_)) | (TyKind::Bool, TyKind::Uint(_)) => true,
+                (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => true,
 
-                (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyInt))
-                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Int(_))
-                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Uint(_))
-                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat))
-                | (TyKind::Infer(_, InferTy::AnyInt), TyKind::Float(_)) => true,
+                (Type::Infer(_, InferTy::AnyInt), Type::Infer(_, InferTy::AnyInt))
+                | (Type::Infer(_, InferTy::AnyInt), Type::Int(_))
+                | (Type::Infer(_, InferTy::AnyInt), Type::Uint(_))
+                | (Type::Infer(_, InferTy::AnyInt), Type::Infer(_, InferTy::AnyFloat))
+                | (Type::Infer(_, InferTy::AnyInt), Type::Float(_)) => true,
 
-                (TyKind::Int(_), TyKind::Int(_))
-                | (TyKind::Int(_), TyKind::Uint(_))
-                | (TyKind::Int(_), TyKind::Infer(_, InferTy::AnyFloat))
-                | (TyKind::Int(_), TyKind::Float(_)) => true,
+                (Type::Int(_), Type::Int(_))
+                | (Type::Int(_), Type::Uint(_))
+                | (Type::Int(_), Type::Infer(_, InferTy::AnyFloat))
+                | (Type::Int(_), Type::Float(_)) => true,
 
-                (TyKind::Uint(_), TyKind::Int(_))
-                | (TyKind::Uint(_), TyKind::Uint(_))
-                | (TyKind::Uint(_), TyKind::Float(_)) => true,
+                (Type::Uint(_), Type::Int(_))
+                | (Type::Uint(_), Type::Uint(_))
+                | (Type::Uint(_), Type::Float(_)) => true,
 
-                (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt))
-                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Int(_))
-                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Uint(_))
-                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyFloat))
-                | (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Float(_)) => true,
+                (Type::Infer(_, InferTy::AnyFloat), Type::Infer(_, InferTy::AnyInt))
+                | (Type::Infer(_, InferTy::AnyFloat), Type::Int(_))
+                | (Type::Infer(_, InferTy::AnyFloat), Type::Uint(_))
+                | (Type::Infer(_, InferTy::AnyFloat), Type::Infer(_, InferTy::AnyFloat))
+                | (Type::Infer(_, InferTy::AnyFloat), Type::Float(_)) => true,
 
-                (TyKind::Float(_), TyKind::Int(_))
-                | (TyKind::Float(_), TyKind::Uint(_))
-                | (TyKind::Float(_), TyKind::Float(_)) => true,
+                (Type::Float(_), Type::Int(_))
+                | (Type::Float(_), Type::Uint(_))
+                | (Type::Float(_), Type::Float(_)) => true,
 
-                (TyKind::Pointer(..), TyKind::Pointer(..)) => true,
+                (Type::Pointer(..), Type::Pointer(..)) => true,
 
-                (TyKind::Pointer(..), TyKind::Int(..))
-                | (TyKind::Pointer(..), TyKind::Uint(..)) => true,
+                (Type::Pointer(..), Type::Int(..)) | (Type::Pointer(..), Type::Uint(..)) => true,
 
-                (TyKind::Int(..), TyKind::Pointer(..))
-                | (TyKind::Uint(..), TyKind::Pointer(..)) => true,
+                (Type::Int(..), Type::Pointer(..)) | (Type::Uint(..), Type::Pointer(..)) => true,
 
-                (TyKind::Pointer(t1, from_mutable), TyKind::MultiPointer(t2, to_mutable))
-                | (TyKind::MultiPointer(t1, to_mutable), TyKind::Pointer(t2, from_mutable))
+                (Type::Pointer(t1, from_mutable), Type::MultiPointer(t2, to_mutable))
+                | (Type::MultiPointer(t1, to_mutable), Type::Pointer(t2, from_mutable))
                     if t1 == t2 && can_coerce_mut(*from_mutable, *to_mutable) =>
                 {
                     true
                 }
 
-                (TyKind::Pointer(t, from_mutable), TyKind::MultiPointer(t_ptr, to_mutable))
+                (Type::Pointer(t, from_mutable), Type::MultiPointer(t_ptr, to_mutable))
                     if can_coerce_mut(*from_mutable, *to_mutable) =>
                 {
                     match t.as_ref() {
-                        TyKind::Array(t_array, ..) => t_array == t_ptr,
+                        Type::Array(t_array, ..) => t_array == t_ptr,
                         _ => false,
                     }
                 }
 
-                (TyKind::Pointer(t, from_mutable), TyKind::Slice(t_slice, to_mutable))
+                (Type::Pointer(t, from_mutable), Type::Slice(t_slice, to_mutable))
                     if can_coerce_mut(*from_mutable, *to_mutable) =>
                 {
                     match t.as_ref() {
-                        TyKind::Array(t_array, ..) => t_array == t_slice,
+                        Type::Array(t_array, ..) => t_array == t_slice,
                         _ => false,
                     }
                 }
 
-                (TyKind::Var(_), _) | (_, TyKind::Var(_)) => true,
+                (Type::Var(_), _) | (_, Type::Var(_)) => true,
 
                 _ => false,
             }

@@ -2,7 +2,7 @@ use super::{
     super::{IS_64BIT, WORD_SIZE},
     value::{Pointer, Value},
 };
-use crate::ast::ty::{FloatTy, InferTy, IntTy, TyKind, UintTy};
+use crate::ast::ty::{FloatTy, InferTy, IntTy, Type, UintTy};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Debug, Clone)]
@@ -106,21 +106,21 @@ impl PutValue for [u8] {
 }
 
 pub trait GetValue {
-    fn get_value(&self, ty: &TyKind) -> Value;
+    fn get_value(&self, ty: &Type) -> Value;
 }
 
 impl GetValue for ByteSeq {
-    fn get_value(&self, ty: &TyKind) -> Value {
+    fn get_value(&self, ty: &Type) -> Value {
         self.as_ref().get_value(ty)
     }
 }
 
 impl GetValue for [u8] {
-    fn get_value(&self, ty: &TyKind) -> Value {
+    fn get_value(&self, ty: &Type) -> Value {
         match ty {
-            TyKind::Never | TyKind::Unit => Value::unit(), // these types' sizes are zero self.as_ref().inner
-            TyKind::Bool => Value::Bool(self.as_ref().read_u8().unwrap() != 0),
-            TyKind::Int(ty) => match ty {
+            Type::Never | Type::Unit => Value::unit(), // these types' sizes are zero self.as_ref().inner
+            Type::Bool => Value::Bool(self.as_ref().read_u8().unwrap() != 0),
+            Type::Int(ty) => match ty {
                 IntTy::I8 => Value::I8(self.as_ref().read_i8().unwrap()),
                 IntTy::I16 => Value::I16(self.as_ref().read_i16::<NativeEndian>().unwrap()),
                 IntTy::I32 => Value::I32(self.as_ref().read_i32::<NativeEndian>().unwrap()),
@@ -129,7 +129,7 @@ impl GetValue for [u8] {
                     Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
                 }
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Value::U8(self.as_ref().read_u8().unwrap()),
                 UintTy::U16 => Value::U16(self.as_ref().read_u16::<NativeEndian>().unwrap()),
                 UintTy::U32 => Value::U32(self.as_ref().read_u32::<NativeEndian>().unwrap()),
@@ -138,7 +138,7 @@ impl GetValue for [u8] {
                     Value::Uint(self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as usize)
                 }
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => {
                     Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
                 }
@@ -151,20 +151,20 @@ impl GetValue for [u8] {
                     }
                 }
             },
-            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => {
                 Value::Pointer(Pointer::from_type_and_ptr(
                     ty,
                     self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
                 ))
             }
-            TyKind::Array(_, _) => todo!(),
-            TyKind::Slice(_, _) => todo!(),
-            TyKind::Tuple(_) => todo!(),
-            TyKind::Struct(_) => todo!(),
-            TyKind::Infer(_, InferTy::AnyInt) => {
+            Type::Array(_, _) => todo!(),
+            Type::Slice(_, _) => todo!(),
+            Type::Tuple(_) => todo!(),
+            Type::Struct(_) => todo!(),
+            Type::Infer(_, InferTy::AnyInt) => {
                 Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
             }
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap())
                 } else {

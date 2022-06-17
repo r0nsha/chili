@@ -1,4 +1,4 @@
-use crate::ast::{ast, ty::TyKind, workspace::Workspace};
+use crate::ast::{ast, ty::Type, workspace::Workspace};
 use crate::infer::{display::DisplayTy, ty_ctx::TyCtx};
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
@@ -146,7 +146,7 @@ impl PrintTree for ast::Block {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         let ty = match self.exprs.last() {
             Some(e) => tycx.ty_kind(e.ty),
-            None => TyKind::Unit,
+            None => Type::Unit,
         };
         b.begin_child(format!("block <{}>", ty));
         self.exprs.print_tree(b, workspace, tycx);

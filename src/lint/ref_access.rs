@@ -1,7 +1,7 @@
 use super::sess::LintSess;
 use crate::ast::{
     ast,
-    ty::TyKind,
+    ty::Type,
     workspace::{BindingInfo, BindingInfoId, ModuleId},
 };
 use crate::error::diagnostic::{Diagnostic, Label};
@@ -10,7 +10,7 @@ use crate::span::Span;
 use ustr::Ustr;
 
 enum RefAccessErr {
-    ImmutableReference { ty: TyKind, span: Span },
+    ImmutableReference { ty: Type, span: Span },
     ImmutableBinding { id: BindingInfoId, span: Span },
 }
 
@@ -64,14 +64,14 @@ impl<'s> LintSess<'s> {
             ast::ExprKind::MemberAccess(access) => {
                 match self.check_expr_can_be_mutably_referenced_inner(expr, true) {
                     Ok(_) => match ty {
-                        TyKind::Tuple(tys) => {
+                        Type::Tuple(tys) => {
                             let index = access.member.parse::<usize>().unwrap();
                             let ty = tys[index].normalize(self.tycx);
 
                             match ty {
-                                TyKind::Slice(_, is_mutable)
-                                | TyKind::MultiPointer(_, is_mutable)
-                                | TyKind::Pointer(_, is_mutable)
+                                Type::Slice(_, is_mutable)
+                                | Type::MultiPointer(_, is_mutable)
+                                | Type::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -82,7 +82,7 @@ impl<'s> LintSess<'s> {
                                 _ => Ok(()),
                             }
                         }
-                        TyKind::Struct(struct_ty) => {
+                        Type::Struct(struct_ty) => {
                             let ty = struct_ty
                                 .fields
                                 .iter()
@@ -91,9 +91,9 @@ impl<'s> LintSess<'s> {
                                 .unwrap();
 
                             match ty {
-                                TyKind::Slice(_, is_mutable)
-                                | TyKind::MultiPointer(_, is_mutable)
-                                | TyKind::Pointer(_, is_mutable)
+                                Type::Slice(_, is_mutable)
+                                | Type::MultiPointer(_, is_mutable)
+                                | Type::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -104,15 +104,15 @@ impl<'s> LintSess<'s> {
                                 _ => Ok(()),
                             }
                         }
-                        TyKind::Module(module_id) => {
+                        Type::Module(module_id) => {
                             let binding_info =
                                 self.find_binding_info_in_module(module_id, access.member);
                             let ty = binding_info.ty.normalize(self.tycx);
 
                             match ty {
-                                TyKind::Slice(_, is_mutable)
-                                | TyKind::MultiPointer(_, is_mutable)
-                                | TyKind::Pointer(_, is_mutable)
+                                Type::Slice(_, is_mutable)
+                                | Type::MultiPointer(_, is_mutable)
+                                | Type::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -139,9 +139,9 @@ impl<'s> LintSess<'s> {
             }
             ast::ExprKind::Ident(ident) => {
                 match ty {
-                    TyKind::Slice(_, is_mutable)
-                    | TyKind::MultiPointer(_, is_mutable)
-                    | TyKind::Pointer(_, is_mutable) => {
+                    Type::Slice(_, is_mutable)
+                    | Type::MultiPointer(_, is_mutable)
+                    | Type::Pointer(_, is_mutable) => {
                         if is_mutable && is_direct_ref {
                             return Ok(());
                         } else {

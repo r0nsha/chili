@@ -13,7 +13,7 @@ use crate::infer::ty_ctx::TyCtx;
 use crate::{
     ast::{
         ast,
-        ty::TyKind,
+        ty::Type,
         workspace::{BindingInfoId, ModuleId, Workspace},
     },
     common::build_options::BuildOptions,
@@ -111,7 +111,7 @@ impl<'i> InterpSess<'i> {
             id: BindingInfoId::unknown(),
             name: ustr("__vm_start"),
             arg_types: vec![],
-            return_type: TyKind::Unit,
+            return_type: Type::Unit,
             code: start_code,
         };
 
@@ -130,7 +130,7 @@ impl<'i> InterpSess<'i> {
                 id: BindingInfoId::unknown(),
                 name: ustr(&format!("global_init_{}", i)),
                 arg_types: vec![],
-                return_type: TyKind::Unit,
+                return_type: Type::Unit,
                 code: global_eval_code.clone(),
             }));
             init_instructions.push(Instruction::PushConst(const_slot as u32));

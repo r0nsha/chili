@@ -1,21 +1,21 @@
 use super::*;
 use std::fmt::{self, Display};
 
-impl fmt::Display for Ty {
+impl fmt::Display for TypeId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "???")
     }
 }
 
-impl Display for TyKind {
+impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                TyKind::Unit => "()".to_string(),
-                TyKind::Bool => "bool".to_string(),
-                TyKind::Int(inner) => match inner {
+                Type::Unit => "()".to_string(),
+                Type::Bool => "bool".to_string(),
+                Type::Int(inner) => match inner {
                     IntTy::I8 => "i8",
                     IntTy::I16 => "i16",
                     IntTy::I32 => "i32",
@@ -23,7 +23,7 @@ impl Display for TyKind {
                     IntTy::Int => "int",
                 }
                 .to_string(),
-                TyKind::Uint(inner) => match inner {
+                Type::Uint(inner) => match inner {
                     UintTy::U8 => "u8",
                     UintTy::U16 => "u16",
                     UintTy::U32 => "u32",
@@ -31,37 +31,37 @@ impl Display for TyKind {
                     UintTy::Uint => "uint",
                 }
                 .to_string(),
-                TyKind::Float(inner) => match inner {
+                Type::Float(inner) => match inner {
                     FloatTy::F16 => "f16",
                     FloatTy::F32 => "f32",
                     FloatTy::F64 => "f64",
                     FloatTy::Float => "float",
                 }
                 .to_string(),
-                TyKind::Pointer(ty, is_mutable) =>
+                Type::Pointer(ty, is_mutable) =>
                     format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
-                TyKind::MultiPointer(ty, is_mutable) =>
+                Type::MultiPointer(ty, is_mutable) =>
                     format!("[*{}]{}", if *is_mutable { "mut" } else { "" }, ty),
-                TyKind::Function(func) => func.to_string(),
-                TyKind::Array(inner, size) => format!("[{}]{}", size, inner),
-                TyKind::Slice(inner, is_mutable) =>
+                Type::Function(func) => func.to_string(),
+                Type::Array(inner, size) => format!("[{}]{}", size, inner),
+                Type::Slice(inner, is_mutable) =>
                     format!("[{}]{}", if *is_mutable { "mut " } else { "" }, inner,),
-                TyKind::Tuple(tys) | TyKind::Infer(_, InferTy::PartialTuple(tys)) => format!(
+                Type::Tuple(tys) | Type::Infer(_, InferTy::PartialTuple(tys)) => format!(
                     "({})",
                     tys.iter()
                         .map(|t| t.to_string())
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
-                TyKind::Struct(ty) => ty.to_string(),
-                TyKind::Type(_) | TyKind::AnyType => "type".to_string(),
-                TyKind::Module(_) => "[module]".to_string(),
-                TyKind::Never => "never".to_string(),
-                TyKind::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),
-                TyKind::Infer(_, InferTy::AnyInt) => "[integer]".to_string(),
-                TyKind::Infer(_, InferTy::AnyFloat) => "[float]".to_string(),
-                TyKind::Var(v) => v.to_string(),
-                TyKind::Unknown => "???".to_string(),
+                Type::Struct(ty) => ty.to_string(),
+                Type::Type(_) | Type::AnyType => "type".to_string(),
+                Type::Module(_) => "[module]".to_string(),
+                Type::Never => "never".to_string(),
+                Type::Infer(_, InferTy::PartialStruct(ty)) => ty.to_string(),
+                Type::Infer(_, InferTy::AnyInt) => "[integer]".to_string(),
+                Type::Infer(_, InferTy::AnyFloat) => "[float]".to_string(),
+                Type::Var(v) => v.to_string(),
+                Type::Unknown => "???".to_string(),
             }
         )
     }

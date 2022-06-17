@@ -13,7 +13,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_struct_literal_named(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        ty: &TyKind,
+        ty: &Type,
         fields: &[ast::StructLiteralField],
         deref: bool,
     ) -> BasicValueEnum<'ctx> {

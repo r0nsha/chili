@@ -89,7 +89,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             };
 
             let param_ty = match param.ty.normalize(self.tycx) {
-                TyKind::Type(inner) => *inner,
+                Type::Type(inner) => *inner,
                 t => t,
             };
 
@@ -182,7 +182,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         call: &ast::Call,
-        result_ty: Ty,
+        result_ty: TypeId,
     ) -> BasicValueEnum<'ctx> {
         let fn_ty = call.callee.ty.normalize(self.tycx).into_fn();
         let mut args = vec![];
@@ -225,7 +225,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         callee: impl Into<CallableValue<'ctx>>,
         callee_ty: &FunctionTy,
         args: Vec<BasicValueEnum<'ctx>>,
-        result_ty: &TyKind,
+        result_ty: &Type,
     ) -> BasicValueEnum<'ctx> {
         let abi_fn = self.get_abi_compliant_fn(callee_ty);
 

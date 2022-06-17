@@ -7,7 +7,7 @@ use crate::ast::{
     ast,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
-    ty::{InferTy, PartialStructTy, Ty, TyKind},
+    ty::{InferTy, PartialStructTy, Type, TypeId},
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use crate::error::{
@@ -51,7 +51,7 @@ impl<'s> CheckSess<'s> {
         env: &mut Env,
         symbol: Ustr,
         visibility: ast::Visibility,
-        ty: Ty,
+        ty: TypeId,
         const_value: Option<ConstValue>,
         is_mutable: bool,
         kind: ast::BindingKind,
@@ -101,7 +101,7 @@ impl<'s> CheckSess<'s> {
         env: &mut Env,
         pattern: &mut SymbolPattern,
         visibility: ast::Visibility,
-        ty: Ty,
+        ty: TypeId,
         const_value: Option<ConstValue>,
         kind: &ast::BindingKind,
     ) -> DiagnosticResult<()> {
@@ -130,7 +130,7 @@ impl<'s> CheckSess<'s> {
         env: &mut Env,
         pattern: &mut Pattern,
         visibility: ast::Visibility,
-        ty: Ty,
+        ty: TypeId,
         const_value: Option<ConstValue>,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
@@ -198,13 +198,13 @@ impl<'s> CheckSess<'s> {
         env: &mut Env,
         unpack_pattern: &mut UnpackPattern,
         visibility: ast::Visibility,
-        ty: Ty,
+        ty: TypeId,
         const_value: Option<ConstValue>,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tycx) {
-            TyKind::Module(module_id) => {
+            Type::Module(module_id) => {
                 for pattern in unpack_pattern.symbols.iter_mut() {
                     if pattern.ignore {
                         continue;
@@ -348,7 +348,7 @@ impl<'s> CheckSess<'s> {
 
                 if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
                     match ty_kind.maybe_deref_once() {
-                        TyKind::Struct(struct_ty) => {
+                        Type::Struct(struct_ty) => {
                             for field in struct_ty.fields.iter() {
                                 if unpack_pattern
                                     .symbols
@@ -387,7 +387,7 @@ impl<'s> CheckSess<'s> {
                                 unpack_pattern.symbols.push(field_pattern);
                             }
                         }
-                        TyKind::Infer(_, InferTy::PartialStruct(_)) => {
+                        Type::Infer(_, InferTy::PartialStruct(_)) => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot use wildcard unpack on partial struct type - {}",
@@ -422,7 +422,7 @@ impl<'s> CheckSess<'s> {
         env: &mut Env,
         pattern: &mut UnpackPattern,
         visibility: ast::Visibility,
-        ty: Ty,
+        ty: TypeId,
         const_value: Option<ConstValue>,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
@@ -431,7 +431,7 @@ impl<'s> CheckSess<'s> {
             .symbols
             .iter()
             .map(|symbol| self.tycx.var(symbol.span).as_kind())
-            .collect::<Vec<TyKind>>();
+            .collect::<Vec<Type>>();
 
         let partial_tuple = self.tycx.partial_tuple(elements.clone(), pattern.span);
 

@@ -5,11 +5,11 @@ use indexmap::IndexMap;
 use ustr::ustr;
 
 pub trait Normalize {
-    fn normalize(&self, tycx: &TyCtx) -> TyKind;
+    fn normalize(&self, tycx: &TyCtx) -> Type;
 }
 
-impl Normalize for Ty {
-    fn normalize(&self, tycx: &TyCtx) -> TyKind {
+impl Normalize for TypeId {
+    fn normalize(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_info_id: Default::default(),
             concrete: false,
@@ -18,8 +18,8 @@ impl Normalize for Ty {
     }
 }
 
-impl Normalize for TyKind {
-    fn normalize(&self, tycx: &TyCtx) -> TyKind {
+impl Normalize for Type {
+    fn normalize(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_info_id: Default::default(),
             concrete: false,
@@ -29,11 +29,11 @@ impl Normalize for TyKind {
 }
 
 pub trait Concrete {
-    fn concrete(&self, tycx: &TyCtx) -> TyKind;
+    fn concrete(&self, tycx: &TyCtx) -> Type;
 }
 
-impl Concrete for Ty {
-    fn concrete(&self, tycx: &TyCtx) -> TyKind {
+impl Concrete for TypeId {
+    fn concrete(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_info_id: Default::default(),
             concrete: true,
@@ -42,8 +42,8 @@ impl Concrete for Ty {
     }
 }
 
-impl Concrete for TyKind {
-    fn concrete(&self, tycx: &TyCtx) -> TyKind {
+impl Concrete for Type {
+    fn concrete(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_info_id: Default::default(),
             concrete: true,
@@ -58,7 +58,7 @@ struct NormalizeCtx {
 }
 
 impl NormalizeCtx {
-    fn normalize_ty(&mut self, tycx: &TyCtx, ty: Ty) -> TyKind {
+    fn normalize_ty(&mut self, tycx: &TyCtx, ty: TypeId) -> Type {
         match tycx.value_of(ty) {
             InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
             InferenceValue::AnyInt => self.normalize_anyint(ty),
@@ -67,17 +67,17 @@ impl NormalizeCtx {
                 let elements = elements
                     .iter()
                     .map(|el| self.normalize_kind(tycx, el))
-                    .collect::<Vec<TyKind>>();
+                    .collect::<Vec<Type>>();
 
                 if self.concrete {
-                    TyKind::Tuple(elements)
+                    Type::Tuple(elements)
                 } else {
-                    TyKind::Infer(ty, InferTy::PartialTuple(elements))
+                    Type::Infer(ty, InferTy::PartialTuple(elements))
                 }
             }
             InferenceValue::PartialStruct(st) => {
                 if self.concrete {
-                    TyKind::Struct(StructTy {
+                    Type::Struct(StructTy {
                         name: ustr(""),
                         binding_info_id: BindingInfoId::unknown(),
                         fields: st
@@ -91,7 +91,7 @@ impl NormalizeCtx {
                         kind: StructTyKind::Struct,
                     })
                 } else {
-                    TyKind::Infer(
+                    Type::Infer(
                         ty,
                         InferTy::PartialStruct(PartialStructTy(
                             st.iter()
@@ -105,10 +105,10 @@ impl NormalizeCtx {
         }
     }
 
-    fn normalize_kind(&mut self, tycx: &TyCtx, kind: &TyKind) -> TyKind {
+    fn normalize_kind(&mut self, tycx: &TyCtx, kind: &Type) -> Type {
         match kind {
-            TyKind::Var(ty) => self.normalize_ty(tycx, *ty),
-            TyKind::Function(f) => TyKind::Function(FunctionTy {
+            Type::Var(ty) => self.normalize_ty(tycx, *ty),
+            Type::Function(f) => Type::Function(FunctionTy {
                 params: f
                     .params
                     .iter()
@@ -122,24 +122,20 @@ impl NormalizeCtx {
                 }),
                 extern_lib: f.extern_lib.clone(),
             }),
-            TyKind::Pointer(inner, a) => {
-                TyKind::Pointer(Box::new(self.normalize_kind(tycx, inner)), *a)
+            Type::Pointer(inner, a) => {
+                Type::Pointer(Box::new(self.normalize_kind(tycx, inner)), *a)
             }
-            TyKind::MultiPointer(inner, a) => {
-                TyKind::MultiPointer(Box::new(self.normalize_kind(tycx, inner)), *a)
+            Type::MultiPointer(inner, a) => {
+                Type::MultiPointer(Box::new(self.normalize_kind(tycx, inner)), *a)
             }
-            TyKind::Array(inner, a) => {
-                TyKind::Array(Box::new(self.normalize_kind(tycx, inner)), *a)
-            }
-            TyKind::Slice(inner, a) => {
-                TyKind::Slice(Box::new(self.normalize_kind(tycx, inner)), *a)
-            }
-            TyKind::Tuple(tys) => TyKind::Tuple(
+            Type::Array(inner, a) => Type::Array(Box::new(self.normalize_kind(tycx, inner)), *a),
+            Type::Slice(inner, a) => Type::Slice(Box::new(self.normalize_kind(tycx, inner)), *a),
+            Type::Tuple(tys) => Type::Tuple(
                 tys.iter()
                     .map(|kind| self.normalize_kind(tycx, kind))
                     .collect(),
             ),
-            TyKind::Struct(st) => {
+            Type::Struct(st) => {
                 if st.binding_info_id != Default::default()
                     && st.binding_info_id == self.parent_binding_info_id
                 {
@@ -148,7 +144,7 @@ impl NormalizeCtx {
                     let old_id = self.parent_binding_info_id;
                     self.parent_binding_info_id = st.binding_info_id;
 
-                    let st = TyKind::Struct(StructTy {
+                    let st = Type::Struct(StructTy {
                         name: st.name,
                         binding_info_id: st.binding_info_id,
                         fields: st
@@ -168,19 +164,19 @@ impl NormalizeCtx {
                     st
                 }
             }
-            TyKind::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
-            TyKind::Infer(ty, InferTy::AnyInt) => self.normalize_anyint(*ty),
-            TyKind::Infer(ty, InferTy::AnyFloat) => self.normalize_anyfloat(*ty),
-            TyKind::Infer(ty, InferTy::PartialTuple(elements)) => {
+            Type::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
+            Type::Infer(ty, InferTy::AnyInt) => self.normalize_anyint(*ty),
+            Type::Infer(ty, InferTy::AnyFloat) => self.normalize_anyfloat(*ty),
+            Type::Infer(ty, InferTy::PartialTuple(elements)) => {
                 let elements = elements
                     .iter()
                     .map(|el| self.normalize_kind(tycx, el))
-                    .collect::<Vec<TyKind>>();
+                    .collect::<Vec<Type>>();
 
                 if self.concrete {
-                    TyKind::Tuple(elements)
+                    Type::Tuple(elements)
                 } else {
-                    TyKind::Infer(
+                    Type::Infer(
                         *ty,
                         InferTy::PartialTuple(
                             elements
@@ -191,9 +187,9 @@ impl NormalizeCtx {
                     )
                 }
             }
-            TyKind::Infer(ty, InferTy::PartialStruct(st)) => {
+            Type::Infer(ty, InferTy::PartialStruct(st)) => {
                 if self.concrete {
-                    TyKind::Struct(StructTy {
+                    Type::Struct(StructTy {
                         name: ustr(""),
                         binding_info_id: BindingInfoId::unknown(),
                         fields: st
@@ -207,7 +203,7 @@ impl NormalizeCtx {
                         kind: StructTyKind::Struct,
                     })
                 } else {
-                    TyKind::Infer(
+                    Type::Infer(
                         *ty,
                         InferTy::PartialStruct(PartialStructTy(IndexMap::from_iter(
                             st.iter()
@@ -220,19 +216,19 @@ impl NormalizeCtx {
         }
     }
 
-    fn normalize_anyint(&self, ty: Ty) -> TyKind {
+    fn normalize_anyint(&self, ty: TypeId) -> Type {
         if self.concrete {
-            TyKind::Int(IntTy::Int)
+            Type::Int(IntTy::Int)
         } else {
-            TyKind::Infer(ty, InferTy::AnyInt)
+            Type::Infer(ty, InferTy::AnyInt)
         }
     }
 
-    fn normalize_anyfloat(&self, ty: Ty) -> TyKind {
+    fn normalize_anyfloat(&self, ty: TypeId) -> Type {
         if self.concrete {
-            TyKind::Float(FloatTy::Float)
+            Type::Float(FloatTy::Float)
         } else {
-            TyKind::Infer(ty, InferTy::AnyFloat)
+            Type::Infer(ty, InferTy::AnyFloat)
         }
     }
 }

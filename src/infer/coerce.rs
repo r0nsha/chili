@@ -16,25 +16,21 @@ pub enum CoercionResult {
 }
 
 trait Coerce {
-    fn coerce(&self, to: &TyKind, word_size: usize) -> CoercionResult;
+    fn coerce(&self, to: &Type, word_size: usize) -> CoercionResult;
 }
 
-impl Coerce for TyKind {
-    fn coerce(&self, to: &TyKind, word_size: usize) -> CoercionResult {
+impl Coerce for Type {
+    fn coerce(&self, to: &Type, word_size: usize) -> CoercionResult {
         use CoercionResult::*;
 
         let (left, right) = (self, to);
 
         match (left, right) {
-            (TyKind::Infer(_, InferTy::AnyInt), TyKind::Infer(_, InferTy::AnyFloat)) => {
-                CoerceToRight
-            }
-            (TyKind::Infer(_, InferTy::AnyFloat), TyKind::Infer(_, InferTy::AnyInt)) => {
-                CoerceToLeft
-            }
+            (Type::Infer(_, InferTy::AnyInt), Type::Infer(_, InferTy::AnyFloat)) => CoerceToRight,
+            (Type::Infer(_, InferTy::AnyFloat), Type::Infer(_, InferTy::AnyInt)) => CoerceToLeft,
 
             // * int -> same or bigger int
-            (TyKind::Int(left), TyKind::Int(right)) => {
+            (Type::Int(left), Type::Int(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -43,7 +39,7 @@ impl Coerce for TyKind {
             }
 
             // * int -> same or bigger uint
-            (TyKind::Int(left), TyKind::Uint(right)) => {
+            (Type::Int(left), Type::Uint(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -52,7 +48,7 @@ impl Coerce for TyKind {
             }
 
             // * uint -> same or bigger uint
-            (TyKind::Uint(left), TyKind::Uint(right)) => {
+            (Type::Uint(left), Type::Uint(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -61,7 +57,7 @@ impl Coerce for TyKind {
             }
 
             // * uint -> same or bigger int
-            (TyKind::Uint(left), TyKind::Int(right)) => {
+            (Type::Uint(left), Type::Int(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -70,7 +66,7 @@ impl Coerce for TyKind {
             }
 
             // * float -> same or bigger float
-            (TyKind::Float(left), TyKind::Float(right)) => {
+            (Type::Float(left), Type::Float(right)) => {
                 if left.size_of(word_size) <= right.size_of(word_size) {
                     CoerceToRight
                 } else {
@@ -79,11 +75,11 @@ impl Coerce for TyKind {
             }
 
             // * array[N] of T -> slice of T
-            (TyKind::Pointer(t, lmut), TyKind::Slice(t_slice, rmut))
+            (Type::Pointer(t, lmut), Type::Slice(t_slice, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Type::Array(t_array, ..) => {
                         if t_array == t_slice {
                             CoerceToRight
                         } else {
@@ -95,11 +91,11 @@ impl Coerce for TyKind {
             }
 
             // * slice of T <- array[N] of T
-            (TyKind::Slice(t_slice, lmut), TyKind::Pointer(t, rmut))
+            (Type::Slice(t_slice, lmut), Type::Pointer(t, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Type::Array(t_array, ..) => {
                         if t_array == t_slice {
                             CoerceToLeft
                         } else {
@@ -111,11 +107,11 @@ impl Coerce for TyKind {
             }
 
             // * array[N] of T -> multi-pointer of T
-            (TyKind::Pointer(t, lmut), TyKind::MultiPointer(t_ptr, rmut))
+            (Type::Pointer(t, lmut), Type::MultiPointer(t_ptr, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Type::Array(t_array, ..) => {
                         if t_array == t_ptr {
                             CoerceToRight
                         } else {
@@ -127,11 +123,11 @@ impl Coerce for TyKind {
             }
 
             // * multi-pointer of T <- array[N] of T
-            (TyKind::MultiPointer(t_ptr, lmut), TyKind::Pointer(t, rmut))
+            (Type::MultiPointer(t_ptr, lmut), Type::Pointer(t, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
-                    TyKind::Array(t_array, ..) => {
+                    Type::Array(t_array, ..) => {
                         if t_array == t_ptr {
                             CoerceToLeft
                         } else {
@@ -147,7 +143,7 @@ impl Coerce for TyKind {
     }
 }
 
-fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: TyKind) {
+fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: Type) {
     let target_ty = tycx.bound(to, expr.span);
     *expr = ast::Expr::typed(
         ast::ExprKind::Cast(ast::Cast {

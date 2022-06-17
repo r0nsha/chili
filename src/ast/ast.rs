@@ -64,7 +64,7 @@ impl TypedAst {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expr {
     pub kind: ExprKind,
-    pub ty: Ty,
+    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -77,7 +77,7 @@ impl Expr {
         }
     }
 
-    pub fn typed(kind: ExprKind, ty: Ty, span: Span) -> Self {
+    pub fn typed(kind: ExprKind, ty: TypeId, span: Span) -> Self {
         Self { kind, ty, span }
     }
 
@@ -293,7 +293,7 @@ pub enum LiteralKind {
 }
 
 impl LiteralKind {
-    pub fn into_expr(self, ty: Ty, span: Span) -> Expr {
+    pub fn into_expr(self, ty: TypeId, span: Span) -> Expr {
         Expr {
             kind: ExprKind::Literal(Literal { kind: self, span }),
             ty,
@@ -323,7 +323,7 @@ pub struct Assign {
 pub struct Cast {
     pub ty_expr: Option<Box<Expr>>,
     pub expr: Box<Expr>,
-    pub target_ty: Ty,
+    pub target_ty: TypeId,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -360,7 +360,7 @@ pub struct FunctionSig {
     pub ret: Option<Box<Expr>>,
     pub varargs: Option<FunctionVarargs>,
     pub kind: FunctionKind,
-    pub ty: Ty,
+    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -375,7 +375,7 @@ pub struct FunctionVarargs {
 pub struct FunctionParam {
     pub pattern: Pattern,
     pub ty_expr: Option<Box<Expr>>,
-    pub ty: Ty,
+    pub ty: TypeId,
 }
 
 impl ToString for FunctionParam {
@@ -471,7 +471,7 @@ pub struct Binding {
     pub kind: BindingKind,
     pub pattern: Pattern,
     pub ty_expr: Option<Expr>,
-    pub ty: Ty,
+    pub ty: TypeId,
     pub expr: Option<Expr>,
     pub span: Span,
 }

@@ -1,11 +1,11 @@
 use super::sess::LintSess;
-use crate::ast::{ast, ty::TyKind, workspace::BindingInfoId};
+use crate::ast::{ast, ty::Type, workspace::BindingInfoId};
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::{display::DisplayTy, normalize::Normalize};
 use crate::span::Span;
 
 pub enum LvalueAccessErr {
-    ImmutableReference { ty: TyKind, span: Span },
+    ImmutableReference { ty: Type, span: Span },
     ImmutableIdent { id: BindingInfoId, span: Span },
     InvalidLvalue,
 }
@@ -63,7 +63,7 @@ impl<'s> LintSess<'s> {
                 ast::UnaryOp::Deref => {
                     let ty = unary.lhs.ty.normalize(self.tycx);
 
-                    if let TyKind::Pointer(_, is_mutable) = ty {
+                    if let Type::Pointer(_, is_mutable) = ty {
                         if is_mutable {
                             Ok(())
                         } else {
@@ -88,9 +88,9 @@ impl<'s> LintSess<'s> {
 
                 let ty = expr.ty.normalize(self.tycx);
                 match ty {
-                    TyKind::Pointer(_, is_mutable)
-                    | TyKind::MultiPointer(_, is_mutable)
-                    | TyKind::Slice(_, is_mutable) => {
+                    Type::Pointer(_, is_mutable)
+                    | Type::MultiPointer(_, is_mutable)
+                    | Type::Slice(_, is_mutable) => {
                         if is_mutable {
                             Ok(())
                         } else {

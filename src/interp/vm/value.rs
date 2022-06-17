@@ -6,7 +6,7 @@ use super::{
 };
 use crate::ast::{
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, TyKind, UintTy},
+    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Type, UintTy},
     workspace::BindingInfoId,
 };
 use crate::infer::ty_ctx::TyCtx;
@@ -244,13 +244,13 @@ impl_value! {
     Function(Function),
     ExternFunction(ExternFunction),
     IntrinsicFunction(IntrinsicFunction),
-    Type(TyKind),
+    Type(Type),
 }
 
 #[derive(Debug)]
 pub struct Aggregate {
     pub elements: Vec<Value>,
-    pub ty: TyKind,
+    pub ty: Type,
 }
 
 impl Clone for Aggregate {
@@ -278,15 +278,15 @@ impl Aggregate {
 #[derive(Debug, Clone)]
 pub struct Array {
     pub bytes: ByteSeq,
-    pub ty: TyKind,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
     pub id: BindingInfoId,
     pub name: Ustr,
-    pub arg_types: Vec<TyKind>,
-    pub return_type: TyKind,
+    pub arg_types: Vec<Type>,
+    pub return_type: Type,
     pub code: CompiledCode,
 }
 
@@ -294,8 +294,8 @@ pub struct Function {
 pub struct ExternFunction {
     pub lib_path: Ustr,
     pub name: Ustr,
-    pub param_tys: Vec<TyKind>,
-    pub return_ty: TyKind,
+    pub param_tys: Vec<Type>,
+    pub return_ty: Type,
     pub variadic: bool,
 }
 
@@ -316,26 +316,26 @@ impl Display for IntrinsicFunction {
     }
 }
 
-impl From<&TyKind> for ValueKind {
-    fn from(ty: &TyKind) -> Self {
+impl From<&Type> for ValueKind {
+    fn from(ty: &Type) -> Self {
         match ty {
-            TyKind::Never | TyKind::Unit => ValueKind::Aggregate,
-            TyKind::Bool => ValueKind::Bool,
-            TyKind::Int(ty) => match ty {
+            Type::Never | Type::Unit => ValueKind::Aggregate,
+            Type::Bool => ValueKind::Bool,
+            Type::Int(ty) => match ty {
                 IntTy::I8 => Self::I8,
                 IntTy::I16 => Self::I16,
                 IntTy::I32 => Self::I32,
                 IntTy::I64 => Self::I64,
                 IntTy::Int => Self::Int,
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Self::U8,
                 UintTy::U16 => Self::U16,
                 UintTy::U32 => Self::U32,
                 UintTy::U64 => Self::U64,
                 UintTy::Uint => Self::Uint,
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => Self::F32,
                 FloatTy::F64 => Self::F64,
                 FloatTy::Float => {
@@ -346,29 +346,27 @@ impl From<&TyKind> for ValueKind {
                     }
                 }
             },
-            TyKind::Pointer(_, _) | TyKind::MultiPointer(_, _) => Self::Pointer,
-            TyKind::Function(f) => {
+            Type::Pointer(_, _) | Type::MultiPointer(_, _) => Self::Pointer,
+            Type::Function(f) => {
                 if f.extern_lib.is_some() {
                     Self::ExternFunction
                 } else {
                     Self::Function
                 }
             }
-            TyKind::Array(_, _) => Self::Array,
-            TyKind::Slice(_, _) | TyKind::Tuple(_) | TyKind::Struct(_) => Self::Aggregate,
-            TyKind::Module(_) => panic!(),
-            TyKind::Type(_) => Self::Type,
-            TyKind::Infer(_, InferTy::AnyInt) => Self::Int,
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Array(_, _) => Self::Array,
+            Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => Self::Aggregate,
+            Type::Module(_) => panic!(),
+            Type::Type(_) => Self::Type,
+            Type::Infer(_, InferTy::AnyInt) => Self::Int,
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Self::F64
                 } else {
                     Self::F32
                 }
             }
-            TyKind::Infer(_, InferTy::PartialStruct(_) | InferTy::PartialTuple(_)) => {
-                Self::Aggregate
-            }
+            Type::Infer(_, InferTy::PartialStruct(_) | InferTy::PartialTuple(_)) => Self::Aggregate,
             _ => panic!("invalid type {}", ty),
         }
     }
@@ -378,29 +376,29 @@ impl Value {
     pub fn unit() -> Self {
         Value::Aggregate(Aggregate {
             elements: Vec::with_capacity(0),
-            ty: TyKind::Unit,
+            ty: Type::Unit,
         })
     }
 
-    pub unsafe fn from_type_and_ptr(ty: &TyKind, ptr: RawPointer) -> Self {
+    pub unsafe fn from_type_and_ptr(ty: &Type, ptr: RawPointer) -> Self {
         match ty {
-            TyKind::Never | TyKind::Unit => Self::unit(),
-            TyKind::Bool => Self::Bool(*(ptr as *mut bool)),
-            TyKind::Int(ty) => match ty {
+            Type::Never | Type::Unit => Self::unit(),
+            Type::Bool => Self::Bool(*(ptr as *mut bool)),
+            Type::Int(ty) => match ty {
                 IntTy::I8 => Self::I8(*(ptr as *mut i8)),
                 IntTy::I16 => Self::I16(*(ptr as *mut i16)),
                 IntTy::I32 => Self::I32(*(ptr as *mut i32)),
                 IntTy::I64 => Self::I64(*(ptr as *mut i64)),
                 IntTy::Int => Self::Int(*(ptr as *mut isize)),
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Self::U8(*(ptr as *mut u8)),
                 UintTy::U16 => Self::U16(*(ptr as *mut u16)),
                 UintTy::U32 => Self::U32(*(ptr as *mut u32)),
                 UintTy::U64 => Self::U64(*(ptr as *mut u64)),
                 UintTy::Uint => Self::Uint(*(ptr as *mut usize)),
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => Self::F32(*(ptr as *mut f32)),
                 FloatTy::F64 => Self::F64(*(ptr as *mut f64)),
                 FloatTy::Float => {
@@ -411,17 +409,17 @@ impl Value {
                     }
                 }
             },
-            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
+            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => {
                 Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
             }
-            TyKind::Function(_) => todo!(),
-            TyKind::Array(inner, size) => Self::Array(Array {
+            Type::Function(_) => todo!(),
+            Type::Array(inner, size) => Self::Array(Array {
                 bytes: ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE)),
                 ty: ty.clone(),
             }),
-            TyKind::Slice(_, _) => todo!(),
-            TyKind::Tuple(_) => todo!(),
-            TyKind::Struct(struct_ty) => {
+            Type::Slice(_, _) => todo!(),
+            Type::Tuple(_) => todo!(),
+            Type::Struct(struct_ty) => {
                 let mut elements = Vec::with_capacity(struct_ty.fields.len());
                 let align = struct_ty.align_of(WORD_SIZE);
 
@@ -436,37 +434,37 @@ impl Value {
                     ty: ty.clone(),
                 })
             }
-            TyKind::Infer(_, InferTy::AnyInt) => Self::Int(*(ptr as *mut isize)),
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferTy::AnyInt) => Self::Int(*(ptr as *mut isize)),
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Self::F64(*(ptr as *mut f64))
                 } else {
                     Self::F32(*(ptr as *mut f32))
                 }
             }
-            TyKind::Infer(_, _) => todo!(),
+            Type::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
         }
     }
 
-    pub fn get_ty_kind(&self) -> TyKind {
+    pub fn get_ty_kind(&self) -> Type {
         match self {
-            Self::I8(_) => TyKind::Int(IntTy::I8),
-            Self::I16(_) => TyKind::Int(IntTy::I16),
-            Self::I32(_) => TyKind::Int(IntTy::I32),
-            Self::I64(_) => TyKind::Int(IntTy::I64),
-            Self::Int(_) => TyKind::Int(IntTy::Int),
-            Self::U8(_) => TyKind::Uint(UintTy::U8),
-            Self::U16(_) => TyKind::Uint(UintTy::U16),
-            Self::U32(_) => TyKind::Uint(UintTy::U32),
-            Self::U64(_) => TyKind::Uint(UintTy::U64),
-            Self::Uint(_) => TyKind::Uint(UintTy::Uint),
-            Self::F32(_) => TyKind::Float(FloatTy::F32),
-            Self::F64(_) => TyKind::Float(FloatTy::F64),
-            Self::Bool(_) => TyKind::Bool,
+            Self::I8(_) => Type::Int(IntTy::I8),
+            Self::I16(_) => Type::Int(IntTy::I16),
+            Self::I32(_) => Type::Int(IntTy::I32),
+            Self::I64(_) => Type::Int(IntTy::I64),
+            Self::Int(_) => Type::Int(IntTy::Int),
+            Self::U8(_) => Type::Uint(UintTy::U8),
+            Self::U16(_) => Type::Uint(UintTy::U16),
+            Self::U32(_) => Type::Uint(UintTy::U32),
+            Self::U64(_) => Type::Uint(UintTy::U64),
+            Self::Uint(_) => Type::Uint(UintTy::Uint),
+            Self::F32(_) => Type::Float(FloatTy::F32),
+            Self::F64(_) => Type::Float(FloatTy::F64),
+            Self::Bool(_) => Type::Bool,
             Self::Aggregate(agg) => agg.ty.clone(),
             Self::Array(arr) => arr.ty.clone(),
-            Self::Pointer(p) => TyKind::Pointer(Box::new(p.get_ty_kind()), true),
+            Self::Pointer(p) => Type::Pointer(Box::new(p.get_ty_kind()), true),
             Self::Function(_) => todo!(),
             _ => panic!(),
         }
@@ -475,7 +473,7 @@ impl Value {
     pub fn try_into_const_value(
         self,
         tycx: &mut TyCtx,
-        ty: &TyKind,
+        ty: &Type,
         eval_span: Span,
     ) -> Result<ConstValue, &'static str> {
         match self {
@@ -494,9 +492,9 @@ impl Value {
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
             Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
             Self::Aggregate(agg) => match ty {
-                TyKind::Unit => Ok(ConstValue::Unit(())),
-                TyKind::Slice(inner, _) => {
-                    if matches!(inner.as_ref(), TyKind::Uint(UintTy::U8)) {
+                Type::Unit => Ok(ConstValue::Unit(())),
+                Type::Slice(inner, _) => {
+                    if matches!(inner.as_ref(), Type::Uint(UintTy::U8)) {
                         let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;
                         let len = *agg.elements[1].as_uint();
                         let slice = unsafe { slice::from_raw_parts(data, len) };
@@ -506,7 +504,7 @@ impl Value {
                         Err("slice")
                     }
                 }
-                TyKind::Tuple(elements) => {
+                Type::Tuple(elements) => {
                     let mut values = Vec::with_capacity(agg.elements.len());
 
                     for (value, ty) in agg.elements.iter().zip(elements) {
@@ -519,7 +517,7 @@ impl Value {
 
                     Ok(ConstValue::Tuple(values))
                 }
-                TyKind::Struct(struct_ty) => {
+                Type::Struct(struct_ty) => {
                     let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
                     for (value, field) in agg.elements.iter().zip(struct_ty.fields.iter()) {
@@ -537,7 +535,7 @@ impl Value {
 
                     Ok(ConstValue::Struct(fields))
                 }
-                TyKind::Infer(_, InferTy::PartialTuple(elements)) => {
+                Type::Infer(_, InferTy::PartialTuple(elements)) => {
                     let mut values = Vec::with_capacity(agg.elements.len());
 
                     for (value, ty) in agg.elements.iter().zip(elements) {
@@ -550,7 +548,7 @@ impl Value {
 
                     Ok(ConstValue::Tuple(values))
                 }
-                TyKind::Infer(_, InferTy::PartialStruct(struct_ty)) => {
+                Type::Infer(_, InferTy::PartialStruct(struct_ty)) => {
                     let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
                     for (value, (name, ty)) in agg.elements.iter().zip(struct_ty.iter()) {
@@ -572,7 +570,7 @@ impl Value {
                 ),
             },
             Self::Array(array) => {
-                let (el_ty, array_len) = if let TyKind::Array(el_ty, len) = array.ty {
+                let (el_ty, array_len) = if let Type::Array(el_ty, len) = array.ty {
                     (el_ty, len)
                 } else {
                     panic!()
@@ -610,7 +608,7 @@ impl From<Ustr> for Value {
                 Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)),
                 Value::Uint(s.len()),
             ],
-            ty: TyKind::str(),
+            ty: Type::str(),
         })
     }
 }
@@ -619,29 +617,29 @@ impl Pointer {
     pub fn unit() -> Self {
         Pointer::Aggregate(&mut Aggregate {
             elements: Vec::with_capacity(0),
-            ty: TyKind::Unit,
+            ty: Type::Unit,
         })
     }
 
-    pub fn from_type_and_ptr(ty: &TyKind, ptr: RawPointer) -> Self {
+    pub fn from_type_and_ptr(ty: &Type, ptr: RawPointer) -> Self {
         match ty {
-            TyKind::Never | TyKind::Unit => Self::U8(ptr as _),
-            TyKind::Bool => Self::Bool(ptr as _),
-            TyKind::Int(ty) => match ty {
+            Type::Never | Type::Unit => Self::U8(ptr as _),
+            Type::Bool => Self::Bool(ptr as _),
+            Type::Int(ty) => match ty {
                 IntTy::I8 => Self::I8(ptr as _),
                 IntTy::I16 => Self::I16(ptr as _),
                 IntTy::I32 => Self::I32(ptr as _),
                 IntTy::I64 => Self::I64(ptr as _),
                 IntTy::Int => Self::Int(ptr as _),
             },
-            TyKind::Uint(ty) => match ty {
+            Type::Uint(ty) => match ty {
                 UintTy::U8 => Self::U8(ptr as _),
                 UintTy::U16 => Self::U16(ptr as _),
                 UintTy::U32 => Self::U32(ptr as _),
                 UintTy::U64 => Self::U64(ptr as _),
                 UintTy::Uint => Self::Uint(ptr as _),
             },
-            TyKind::Float(ty) => match ty {
+            Type::Float(ty) => match ty {
                 FloatTy::F16 | FloatTy::F32 => Self::F32(ptr as _),
                 FloatTy::F64 => Self::F64(ptr as _),
                 FloatTy::Float => {
@@ -652,11 +650,9 @@ impl Pointer {
                     }
                 }
             },
-            TyKind::Pointer(ty, _) | TyKind::MultiPointer(ty, _) => {
-                Self::from_type_and_ptr(ty, ptr)
-            }
-            TyKind::Function(_) => todo!(),
-            TyKind::Array(inner, size) => {
+            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
+            Type::Function(_) => todo!(),
+            Type::Array(inner, size) => {
                 let bytes = unsafe {
                     ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))
                 };
@@ -668,41 +664,41 @@ impl Pointer {
 
                 Self::Array(Box::leak(array) as *mut Array)
             }
-            TyKind::Slice(_, _) => todo!(),
-            TyKind::Tuple(_) => todo!(),
-            TyKind::Struct(_) => todo!(),
-            TyKind::Infer(_, InferTy::AnyInt) => Self::Int(ptr as _),
-            TyKind::Infer(_, InferTy::AnyFloat) => {
+            Type::Slice(_, _) => todo!(),
+            Type::Tuple(_) => todo!(),
+            Type::Struct(_) => todo!(),
+            Type::Infer(_, InferTy::AnyInt) => Self::Int(ptr as _),
+            Type::Infer(_, InferTy::AnyFloat) => {
                 if IS_64BIT {
                     Self::F32(ptr as _)
                 } else {
                     Self::F64(ptr as _)
                 }
             }
-            TyKind::Infer(_, _) => todo!(),
+            Type::Infer(_, _) => todo!(),
             _ => panic!("invalid type {}", ty),
         }
     }
 
-    pub fn get_ty_kind(&self) -> TyKind {
+    pub fn get_ty_kind(&self) -> Type {
         match self {
-            Self::I8(_) => TyKind::Int(IntTy::I8),
-            Self::I16(_) => TyKind::Int(IntTy::I16),
-            Self::I32(_) => TyKind::Int(IntTy::I32),
-            Self::I64(_) => TyKind::Int(IntTy::I64),
-            Self::Int(_) => TyKind::Int(IntTy::Int),
-            Self::U8(_) => TyKind::Uint(UintTy::U8),
-            Self::U16(_) => TyKind::Uint(UintTy::U16),
-            Self::U32(_) => TyKind::Uint(UintTy::U32),
-            Self::U64(_) => TyKind::Uint(UintTy::U64),
-            Self::Uint(_) => TyKind::Uint(UintTy::Uint),
-            Self::F32(_) => TyKind::Float(FloatTy::F32),
-            Self::F64(_) => TyKind::Float(FloatTy::F64),
-            Self::Bool(_) => TyKind::Bool,
+            Self::I8(_) => Type::Int(IntTy::I8),
+            Self::I16(_) => Type::Int(IntTy::I16),
+            Self::I32(_) => Type::Int(IntTy::I32),
+            Self::I64(_) => Type::Int(IntTy::I64),
+            Self::Int(_) => Type::Int(IntTy::Int),
+            Self::U8(_) => Type::Uint(UintTy::U8),
+            Self::U16(_) => Type::Uint(UintTy::U16),
+            Self::U32(_) => Type::Uint(UintTy::U32),
+            Self::U64(_) => Type::Uint(UintTy::U64),
+            Self::Uint(_) => Type::Uint(UintTy::Uint),
+            Self::F32(_) => Type::Float(FloatTy::F32),
+            Self::F64(_) => Type::Float(FloatTy::F64),
+            Self::Bool(_) => Type::Bool,
             Self::Aggregate(_) => todo!(),
-            Self::Pointer(p) => TyKind::Pointer(
+            Self::Pointer(p) => Type::Pointer(
                 if p.is_null() {
-                    Box::new(TyKind::Uint(UintTy::U8))
+                    Box::new(Type::Uint(UintTy::U8))
                 } else {
                     Box::new(unsafe { &**p }.get_ty_kind())
                 },

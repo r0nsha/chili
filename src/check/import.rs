@@ -1,5 +1,5 @@
 use super::{interp_expr, top_level::CheckTopLevel, Check, CheckResult, CheckSess, Res};
-use crate::ast::{ast, ty::TyKind};
+use crate::ast::{ast, ty::Type};
 use crate::span::Span;
 use std::path::Path;
 
@@ -24,7 +24,7 @@ pub fn check_ast(sess: &mut CheckSess, ast: &ast::Ast) -> CheckResult {
 
         let module_type = sess
             .tycx
-            .bound(TyKind::Module(module_id), Span::initial(ast.file_id));
+            .bound(Type::Module(module_id), Span::initial(ast.file_id));
 
         sess.checked_modules.insert(ast.module_id, module_type);
 

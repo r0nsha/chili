@@ -25,14 +25,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::UnaryOp::Neg => match ty {
-                TyKind::Int(_) => self
+                Type::Int(_) => self
                     .builder
                     .build_int_neg(
                         self.gen_expr(state, &unary.lhs, true).into_int_value(),
                         "sneg",
                     )
                     .into(),
-                TyKind::Float(_) => self
+                Type::Float(_) => self
                     .builder
                     .build_float_neg(
                         self.gen_expr(state, &unary.lhs, true).into_float_value(),
@@ -45,8 +45,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::UnaryOp::Not => {
                 let value = self.gen_expr(state, &unary.lhs, true).into_int_value();
                 match ty {
-                    TyKind::Int(_) | TyKind::Uint(_) => self.builder.build_not(value, "not").into(),
-                    TyKind::Bool => self
+                    Type::Int(_) | Type::Uint(_) => self.builder.build_not(value, "not").into(),
+                    Type::Bool => self
                         .builder
                         .build_int_compare(
                             IntPredicate::EQ,

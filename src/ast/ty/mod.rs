@@ -12,50 +12,50 @@ use std::ops::{Deref, DerefMut};
 use ustr::{ustr, Ustr};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct Ty(pub usize);
+pub struct TypeId(pub usize);
 
-impl Default for Ty {
+impl Default for TypeId {
     fn default() -> Self {
         Self(usize::MAX)
     }
 }
 
-impl From<Ty> for TyKind {
-    fn from(val: Ty) -> Self {
-        TyKind::Var(val)
+impl From<TypeId> for Type {
+    fn from(val: TypeId) -> Self {
+        Type::Var(val)
     }
 }
 
-impl Ty {
+impl TypeId {
     pub fn unknown() -> Self {
         Default::default()
     }
 
-    pub fn as_kind(&self) -> TyKind {
+    pub fn as_kind(&self) -> Type {
         (*self).into()
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TyKind {
+pub enum Type {
     Never,
     Unit,
     Bool,
     Int(IntTy),
     Uint(UintTy),
     Float(FloatTy),
-    Pointer(Box<TyKind>, bool),
-    MultiPointer(Box<TyKind>, bool),
+    Pointer(Box<Type>, bool),
+    MultiPointer(Box<Type>, bool),
     Function(FunctionTy),
-    Array(Box<TyKind>, usize),
-    Slice(Box<TyKind>, bool),
-    Tuple(Vec<TyKind>),
+    Array(Box<Type>, usize),
+    Slice(Box<Type>, bool),
+    Tuple(Vec<Type>),
     Struct(StructTy),
     Module(ModuleId),
-    Type(Box<TyKind>),
+    Type(Box<Type>),
     AnyType,
-    Var(Ty),
-    Infer(Ty, InferTy),
+    Var(TypeId),
+    Infer(TypeId, InferTy),
     Unknown,
 }
 
@@ -64,7 +64,7 @@ pub enum InferTy {
     AnyInt,
     AnyFloat,
     PartialStruct(PartialStructTy),
-    PartialTuple(Vec<TyKind>),
+    PartialTuple(Vec<Type>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -113,15 +113,15 @@ impl Default for FloatTy {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTy {
-    pub params: Vec<TyKind>,
-    pub ret: Box<TyKind>,
+    pub params: Vec<Type>,
+    pub ret: Box<Type>,
     pub varargs: Option<Box<FunctionTyVarargs>>,
     pub extern_lib: Option<ExternLibrary>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTyVarargs {
-    pub ty: Option<TyKind>,
+    pub ty: Option<Type>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -143,10 +143,10 @@ impl StructTy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct PartialStructTy(pub IndexMap<Ustr, TyKind>);
+pub struct PartialStructTy(pub IndexMap<Ustr, Type>);
 
 impl Deref for PartialStructTy {
-    type Target = IndexMap<Ustr, TyKind>;
+    type Target = IndexMap<Ustr, Type>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -177,9 +177,9 @@ impl PartialStructTy {
     }
 }
 
-impl From<StructTy> for TyKind {
+impl From<StructTy> for Type {
     fn from(ty: StructTy) -> Self {
-        TyKind::Struct(ty)
+        Type::Struct(ty)
     }
 }
 
@@ -231,12 +231,12 @@ impl StructTy {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructTyField {
     pub symbol: Ustr,
-    pub ty: TyKind,
+    pub ty: Type,
     pub span: Span,
 }
 
 impl StructTyField {
-    pub fn temp(ty: TyKind) -> Self {
+    pub fn temp(ty: Type) -> Self {
         Self {
             symbol: ustr(""),
             ty,
@@ -245,34 +245,34 @@ impl StructTyField {
     }
 }
 
-impl From<TyKind> for String {
-    fn from(val: TyKind) -> Self {
+impl From<Type> for String {
+    fn from(val: Type) -> Self {
         val.to_string()
     }
 }
 
-impl TyKind {
-    pub fn inner(&self) -> &TyKind {
+impl Type {
+    pub fn inner(&self) -> &Type {
         match self {
-            TyKind::Pointer(inner, _)
-            | TyKind::MultiPointer(inner, _)
-            | TyKind::Array(inner, _)
-            | TyKind::Slice(inner, _)
-            | TyKind::Type(inner) => inner,
+            Type::Pointer(inner, _)
+            | Type::MultiPointer(inner, _)
+            | Type::Array(inner, _)
+            | Type::Slice(inner, _)
+            | Type::Type(inner) => inner,
             _ => panic!("type {} doesn't have an inner type", self),
         }
     }
 
     pub fn is_type(&self) -> bool {
-        matches!(self, TyKind::Type(_) | TyKind::AnyType)
+        matches!(self, Type::Type(_) | Type::AnyType)
     }
 
     pub fn is_anytype(&self) -> bool {
-        matches!(self, TyKind::AnyType)
+        matches!(self, Type::AnyType)
     }
 
     pub fn is_module(&self) -> bool {
-        matches!(self, TyKind::Module(_))
+        matches!(self, Type::Module(_))
     }
 
     pub fn is_number(&self) -> bool {
@@ -288,71 +288,71 @@ impl TyKind {
     }
 
     pub fn is_anyint(&self) -> bool {
-        matches!(self, TyKind::Infer(_, InferTy::AnyInt))
+        matches!(self, Type::Infer(_, InferTy::AnyInt))
     }
 
     pub fn is_anyfloat(&self) -> bool {
-        matches!(self, TyKind::Infer(_, InferTy::AnyFloat))
+        matches!(self, Type::Infer(_, InferTy::AnyFloat))
     }
 
     pub fn is_int(&self) -> bool {
-        matches!(self, TyKind::Int(_))
+        matches!(self, Type::Int(_))
     }
 
     pub fn is_uint(&self) -> bool {
-        matches!(self, TyKind::Uint(_))
+        matches!(self, Type::Uint(_))
     }
 
     pub fn is_float(&self) -> bool {
-        matches!(self, TyKind::Float(_))
+        matches!(self, Type::Float(_))
     }
 
     pub fn is_pointer(&self) -> bool {
-        matches!(self, TyKind::Pointer(..))
+        matches!(self, Type::Pointer(..))
     }
 
     pub fn is_multi_pointer(&self) -> bool {
-        matches!(self, TyKind::MultiPointer(..))
+        matches!(self, Type::MultiPointer(..))
     }
 
     pub fn is_any_pointer(&self) -> bool {
-        matches!(self, TyKind::Pointer(..) | TyKind::MultiPointer(..))
+        matches!(self, Type::Pointer(..) | Type::MultiPointer(..))
     }
 
     pub fn is_bool(&self) -> bool {
-        matches!(self, TyKind::Bool)
+        matches!(self, Type::Bool)
     }
 
     pub fn is_fn(&self) -> bool {
-        matches!(self, TyKind::Function(..))
+        matches!(self, Type::Function(..))
     }
 
     pub fn is_var(&self) -> bool {
-        matches!(self, TyKind::Var(..))
+        matches!(self, Type::Var(..))
     }
 
     pub fn is_array(&self) -> bool {
-        matches!(self, TyKind::Array(..))
+        matches!(self, Type::Array(..))
     }
 
     pub fn is_slice(&self) -> bool {
-        matches!(self, TyKind::Slice(..))
+        matches!(self, Type::Slice(..))
     }
 
     pub fn is_unknown(&self) -> bool {
-        matches!(self, TyKind::Unknown)
+        matches!(self, Type::Unknown)
     }
 
     pub fn is_unit(&self) -> bool {
-        matches!(self, TyKind::Unit)
+        matches!(self, Type::Unit)
     }
 
     pub fn is_never(&self) -> bool {
-        matches!(self, TyKind::Never)
+        matches!(self, Type::Never)
     }
 
     pub fn is_struct(&self) -> bool {
-        matches!(self, TyKind::Struct(_))
+        matches!(self, Type::Struct(_))
     }
 
     pub fn is_aggregate(&self) -> bool {
@@ -361,66 +361,66 @@ impl TyKind {
 
     pub fn as_struct(&self) -> &StructTy {
         match self {
-            TyKind::Struct(ty) => ty,
+            Type::Struct(ty) => ty,
             _ => panic!("expected struct, got {:?}", self),
         }
     }
 
     pub fn into_struct(self) -> StructTy {
         match self {
-            TyKind::Struct(ty) => ty,
+            Type::Struct(ty) => ty,
             _ => panic!("expected struct, got {:?}", self),
         }
     }
 
     pub fn as_fn(&self) -> &FunctionTy {
         match self {
-            TyKind::Function(ty) => ty,
+            Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }
 
     pub fn into_fn(self) -> FunctionTy {
         match self {
-            TyKind::Function(ty) => ty,
+            Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }
 
-    pub fn raw_pointer(is_mutable: bool) -> TyKind {
-        TyKind::Pointer(Box::new(TyKind::Int(IntTy::I8)), is_mutable)
+    pub fn raw_pointer(is_mutable: bool) -> Type {
+        Type::Pointer(Box::new(Type::Int(IntTy::I8)), is_mutable)
     }
 
-    pub fn str() -> TyKind {
-        TyKind::Slice(Box::new(TyKind::char()), false)
+    pub fn str() -> Type {
+        Type::Slice(Box::new(Type::char()), false)
     }
 
-    pub fn char() -> TyKind {
-        TyKind::Uint(UintTy::U8)
+    pub fn char() -> Type {
+        Type::Uint(UintTy::U8)
     }
 
-    pub fn create_type(self) -> TyKind {
-        TyKind::Type(Box::new(self))
+    pub fn create_type(self) -> Type {
+        Type::Type(Box::new(self))
     }
 
-    pub fn element_type(&self) -> Option<&TyKind> {
+    pub fn element_type(&self) -> Option<&Type> {
         match self {
-            TyKind::Pointer(inner, _)
-            | TyKind::MultiPointer(inner, _)
-            | TyKind::Array(inner, _)
-            | TyKind::Slice(inner, _)
-            | TyKind::Type(inner) => Some(inner),
+            Type::Pointer(inner, _)
+            | Type::MultiPointer(inner, _)
+            | Type::Array(inner, _)
+            | Type::Slice(inner, _)
+            | Type::Type(inner) => Some(inner),
             _ => None,
         }
     }
 
-    pub fn pointer_type(self, mutable: bool) -> TyKind {
-        TyKind::Pointer(Box::new(self), mutable)
+    pub fn pointer_type(self, mutable: bool) -> Type {
+        Type::Pointer(Box::new(self), mutable)
     }
 
-    pub fn maybe_deref_once(&self) -> TyKind {
+    pub fn maybe_deref_once(&self) -> Type {
         match self {
-            TyKind::Pointer(inner, _) => inner.as_ref().clone(),
+            Type::Pointer(inner, _) => inner.as_ref().clone(),
             _ => self.clone(),
         }
     }

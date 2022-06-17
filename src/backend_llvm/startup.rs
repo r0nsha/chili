@@ -75,12 +75,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         // };
         let startup_fn_type = FunctionTy {
             params: vec![
-                TyKind::Uint(UintTy::U32),
-                TyKind::Uint(UintTy::U8)
+                Type::Uint(UintTy::U32),
+                Type::Uint(UintTy::U8)
                     .pointer_type(false)
                     .pointer_type(false),
             ],
-            ret: Box::new(TyKind::Uint(UintTy::U32)),
+            ret: Box::new(Type::Uint(UintTy::U32)),
             varargs: None,
             extern_lib: None,
         };

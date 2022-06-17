@@ -1,12 +1,12 @@
-use crate::ast::ty::{PartialStructTy, TyKind};
+use crate::ast::ty::{PartialStructTy, Type};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InferenceValue {
-    Bound(TyKind),
+    Bound(Type),
     AnyInt,
     AnyFloat,
-    PartialTuple(Vec<TyKind>),
+    PartialTuple(Vec<Type>),
     PartialStruct(PartialStructTy),
     Unbound,
 }
@@ -20,8 +20,7 @@ impl fmt::Display for InferenceValue {
                 InferenceValue::Bound(t) => t.to_string(),
                 InferenceValue::AnyInt => "[integer]".to_string(),
                 InferenceValue::AnyFloat => "[float]".to_string(),
-                InferenceValue::PartialTuple(elements) =>
-                    TyKind::Tuple(elements.clone()).to_string(),
+                InferenceValue::PartialTuple(elements) => Type::Tuple(elements.clone()).to_string(),
                 InferenceValue::PartialStruct(partial) => partial.to_string(),
                 InferenceValue::Unbound => "unbound".to_string(),
             }
@@ -32,7 +31,7 @@ impl fmt::Display for InferenceValue {
 impl InferenceValue {
     pub fn is_concrete(&self) -> bool {
         match self {
-            InferenceValue::Bound(TyKind::Var(_)) => false,
+            InferenceValue::Bound(Type::Var(_)) => false,
             InferenceValue::Bound(_) => true,
             _ => false,
         }

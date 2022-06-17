@@ -3,7 +3,7 @@ mod util;
 
 use crate::ast::{
     ast::{self, TypedAst},
-    ty::TyKind,
+    ty::Type,
     workspace::Workspace,
 };
 use crate::error::diagnostic::DiagnosticSeverity;
@@ -83,7 +83,7 @@ pub fn goto_definition(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usiz
         if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
             if let Some(tycx) = tycx {
                 match binding_info.ty.normalize(tycx) {
-                    TyKind::Module(module_id) => {
+                    Type::Module(module_id) => {
                         let module_info = workspace.get_module_info(module_id).unwrap();
 
                         let span = Span {
@@ -184,7 +184,7 @@ impl<'a> CollectHints<'a> for ast::Binding {
             let ty = self.ty.normalize(sess.tycx);
 
             match ty {
-                TyKind::Function(_) | TyKind::Module(_) | TyKind::Type(_) | TyKind::AnyType => (),
+                Type::Function(_) | Type::Module(_) | Type::Type(_) | Type::AnyType => (),
                 _ => sess.push_hint(self.pattern.span(), ty.to_string(), HintKind::Binding),
             }
         }
@@ -231,7 +231,7 @@ impl<'a> CollectHints<'a> for ast::FunctionSig {
         } else {
             let ret_ty = &self.ty.normalize(sess.tycx).into_fn().ret;
             match ret_ty.as_ref() {
-                TyKind::Unit => (),
+                Type::Unit => (),
                 _ => sess.push_hint(self.span, ret_ty.to_string(), HintKind::ReturnType),
             }
         }

@@ -6,32 +6,32 @@ pub trait SizeOf {
     fn size_of(&self, word_size: usize) -> usize;
 }
 
-impl SizeOf for TyKind {
+impl SizeOf for Type {
     fn size_of(&self, word_size: usize) -> usize {
         match self {
-            TyKind::Unit => 0,
-            TyKind::Bool => 1,
-            TyKind::Int(ty) => ty.size_of(word_size),
-            TyKind::Uint(ty) => ty.size_of(word_size),
-            TyKind::Float(ty) => ty.size_of(word_size),
-            TyKind::Pointer(..) | TyKind::MultiPointer(..) | TyKind::Function(..) => word_size,
-            TyKind::Array(ty, len) => ty.size_of(word_size) * len,
-            TyKind::Slice(..) => StructTy::temp(
+            Type::Unit => 0,
+            Type::Bool => 1,
+            Type::Int(ty) => ty.size_of(word_size),
+            Type::Uint(ty) => ty.size_of(word_size),
+            Type::Float(ty) => ty.size_of(word_size),
+            Type::Pointer(..) | Type::MultiPointer(..) | Type::Function(..) => word_size,
+            Type::Array(ty, len) => ty.size_of(word_size) * len,
+            Type::Slice(..) => StructTy::temp(
                 vec![
-                    StructTyField::temp(TyKind::raw_pointer(false)),
-                    StructTyField::temp(TyKind::Uint(UintTy::Uint)),
+                    StructTyField::temp(Type::raw_pointer(false)),
+                    StructTyField::temp(Type::Uint(UintTy::Uint)),
                 ],
                 StructTyKind::Struct,
             )
             .size_of(word_size),
-            TyKind::Tuple(tys) => StructTy::temp(
+            Type::Tuple(tys) => StructTy::temp(
                 tys.iter().map(|t| StructTyField::temp(t.clone())).collect(),
                 StructTyKind::Struct,
             )
             .size_of(word_size),
-            TyKind::Struct(s) => s.size_of(word_size),
-            TyKind::Infer(_, InferTy::AnyInt) => IntTy::Int.size_of(word_size),
-            TyKind::Infer(_, InferTy::AnyFloat) => FloatTy::Float.size_of(word_size),
+            Type::Struct(s) => s.size_of(word_size),
+            Type::Infer(_, InferTy::AnyInt) => IntTy::Int.size_of(word_size),
+            Type::Infer(_, InferTy::AnyFloat) => FloatTy::Float.size_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }

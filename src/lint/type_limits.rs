@@ -2,7 +2,7 @@ use super::sess::LintSess;
 use crate::ast::{
     ast,
     const_value::ConstValue,
-    ty::{IntTy, Ty, TyKind, UintTy},
+    ty::{IntTy, Type, TypeId, UintTy},
 };
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::normalize::Normalize;
@@ -14,13 +14,13 @@ impl<'s> LintSess<'s> {
         if let ast::ExprKind::ConstValue(const_value) = &e.kind {
             match const_value {
                 ConstValue::Int(value) => match &e.ty.normalize(self.tycx) {
-                    TyKind::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
-                    TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
+                    Type::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
+                    Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
                     _ => (),
                 },
                 ConstValue::Uint(value) => match &e.ty.normalize(self.tycx) {
-                    TyKind::Int(int_ty) => self.check_int_limits(int_ty, *value as _, e),
-                    TyKind::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, e),
+                    Type::Int(int_ty) => self.check_int_limits(int_ty, *value as _, e),
+                    Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, e),
                     _ => (),
                 },
                 _ => (),
@@ -78,7 +78,7 @@ fn uint_ty_range(uint_ty: UintTy) -> (u64, u64) {
 
 fn overflow_err<V: Copy + Display, M: Copy + Display>(
     value: V,
-    ty: &Ty,
+    ty: &TypeId,
     min: M,
     max: M,
     span: Span,

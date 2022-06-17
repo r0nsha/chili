@@ -1,7 +1,7 @@
 use super::{
     ast::{BindingKind, ExternLibrary, Visibility},
     const_value::ConstValue,
-    ty::Ty,
+    ty::TypeId,
 };
 use crate::common::build_options::{BuildOptions, DiagnosticOptions};
 use crate::error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
@@ -57,7 +57,7 @@ pub struct BindingInfo {
     // the symbol(name) used for the binding
     pub symbol: Ustr,
     pub visibility: Visibility,
-    pub ty: Ty,
+    pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     // what kind of access the binding has
     pub is_mutable: bool,
@@ -78,7 +78,7 @@ pub struct PartialBindingInfo {
     pub module_id: ModuleId,
     pub symbol: Ustr,
     pub visibility: Visibility,
-    pub ty: Ty,
+    pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     pub is_mutable: bool,
     pub kind: BindingKind,
