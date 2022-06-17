@@ -202,6 +202,8 @@ fn build_executable(
         link(target_metrics, &executable_file, &object_file,&extern_libraries,)
     };
 
+    let _ = std::fs::remove_file(object_file);
+
     executable_file
         .absolutize()
         .unwrap()

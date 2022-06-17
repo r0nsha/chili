@@ -10,7 +10,7 @@ pub let BuildOptions = struct {
     output_file: str,
     target: BuildTarget,
     opt_level: OptLevel,
-    run_when_done: bool
+    run_executable: bool
 };
 
 // TODO: turn into enum

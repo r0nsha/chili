@@ -13,7 +13,21 @@ use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
 use std::process::Command;
 
-pub type StartWorkspaceResult = (Workspace, Option<TyCtx>, Option<TypedAst>);
+pub struct StartWorkspaceResult {
+    pub workspace: Workspace,
+    pub tycx: Option<TyCtx>,
+    pub typed_ast: Option<TypedAst>,
+}
+
+impl StartWorkspaceResult {
+    pub fn new(workspace: Workspace, tycx: Option<TyCtx>, typed_ast: Option<TypedAst>) -> Self {
+        Self {
+            workspace,
+            tycx,
+            typed_ast,
+        }
+    }
+}
 
 pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorkspaceResult {
     // Set up workspace
@@ -39,7 +53,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
         workspace.emit_diagnostics();
 
-        return (workspace, None, None);
+        return StartWorkspaceResult::new(workspace, None, None);
     }
 
     // Parse all source files into ast's
@@ -48,7 +62,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
                 Some(result) => result,
                 None => {
                     workspace.emit_diagnostics();
-                    return (workspace, None, None);
+                    return  StartWorkspaceResult::new(workspace, None, None);
                 }
             }
         }
@@ -56,7 +70,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return (workspace, None, None);
+        return StartWorkspaceResult::new(workspace, None, None);
     }
 
     // Type inference, type checking, static analysis, const folding, etc..
@@ -66,14 +80,14 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
             Err((tycx, typed_ast, diagnostic)) => {
                 workspace.diagnostics.push(diagnostic);
                 workspace.emit_diagnostics();
-                return (workspace, Some(tycx), Some(typed_ast));
+                return  StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
             }
         }
     };
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return (workspace, Some(tycx), Some(typed_ast));
+        return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
     }
 
     // Lint - does auxillary checks which are not required for compilation
@@ -83,7 +97,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return (workspace, Some(tycx), Some(typed_ast));
+        return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
     }
 
     // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
@@ -98,7 +112,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
             }
 
-            if codegen_options.run_when_done {
+            if codegen_options.run_executable {
                 Command::new(&executable_path)
                     .spawn()
                     .ok()
@@ -112,7 +126,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         }
     }
 
-    (workspace, Some(tycx), Some(typed_ast))
+    StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast))
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {

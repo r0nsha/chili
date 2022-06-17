@@ -2,8 +2,8 @@ use super::vm::value::Value;
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceValue<'a> {
-    name: &'a str,
-    build_options: BuildOptionsValue<'a>,
+    pub name: &'a str,
+    pub build_options: BuildOptionsValue<'a>,
 }
 
 impl<'a> From<&'a Value> for WorkspaceValue<'a> {
@@ -22,11 +22,11 @@ impl<'a> From<&'a Value> for WorkspaceValue<'a> {
 
 #[derive(Debug, Clone)]
 pub struct BuildOptionsValue<'a> {
-    input_file: &'a str,
-    output_file: &'a str,
-    target: BuildTargetValue,
-    opt_level: OptLevelValue,
-    run_when_done: bool,
+    pub input_file: &'a str,
+    pub output_file: &'a str,
+    pub target: BuildTargetValue,
+    pub opt_level: OptLevelValue,
+    pub run_executable: bool,
 }
 
 impl<'a> From<&'a Value> for BuildOptionsValue<'a> {
@@ -37,14 +37,14 @@ impl<'a> From<&'a Value> for BuildOptionsValue<'a> {
         let output_file = unsafe { aggregate.elements[1].as_aggregate().as_str() };
         let target = BuildTargetValue::from(&aggregate.elements[2]);
         let opt_level = OptLevelValue::from(&aggregate.elements[3]);
-        let run_when_done = *aggregate.elements[4].as_bool();
+        let run_executable = *aggregate.elements[4].as_bool();
 
         Self {
             input_file,
             output_file,
             target,
             opt_level,
-            run_when_done,
+            run_executable,
         }
     }
 }

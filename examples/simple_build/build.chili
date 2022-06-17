@@ -8,7 +8,7 @@ let build = fn() {
         output_file: "out/main",
         target: BuildTarget_auto,
         opt_level: OptLevel_debug,
-        run_when_done: false,
+        run_executable: true,
 	};
 
 	let workspace = Workspace {

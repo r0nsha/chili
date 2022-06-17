@@ -29,22 +29,20 @@ impl BuildOptions {
     }
 
     pub fn need_entry_point_function(&self) -> bool {
-        matches!(
-            self.codegen_options,
-            CodegenOptions::Codegen(_) | CodegenOptions::Skip
-        ) && matches!(
-            self.target_platform,
-            TargetPlatform::Windows386
-                | TargetPlatform::WindowsAmd64
-                | TargetPlatform::Linux386
-                | TargetPlatform::LinuxAmd64
-                | TargetPlatform::LinuxArm64
-                | TargetPlatform::DarwinAmd64
-                | TargetPlatform::DarwinArm64
-                | TargetPlatform::FreeBSD386
-                | TargetPlatform::FreeBSDAmd64
-                | TargetPlatform::EssenceAmd64
-        )
+        matches!(self.codegen_options, CodegenOptions::Codegen(_))
+            && matches!(
+                self.target_platform,
+                TargetPlatform::Windows386
+                    | TargetPlatform::WindowsAmd64
+                    | TargetPlatform::Linux386
+                    | TargetPlatform::LinuxAmd64
+                    | TargetPlatform::LinuxArm64
+                    | TargetPlatform::DarwinAmd64
+                    | TargetPlatform::DarwinArm64
+                    | TargetPlatform::FreeBSD386
+                    | TargetPlatform::FreeBSDAmd64
+                    | TargetPlatform::EssenceAmd64
+            )
     }
 
     pub fn entry_point_function_name(&self) -> Option<&'static str> {
@@ -91,12 +89,11 @@ pub enum DiagnosticOptions {
 #[derive(Debug, Clone)]
 pub enum CodegenOptions {
     Codegen(EnabledCodegenOptions),
-    Vm,
     Skip,
 }
 
 #[derive(Debug, Clone)]
 pub struct EnabledCodegenOptions {
     pub emit_llvm_ir: bool,
-    pub run_when_done: bool,
+    pub run_executable: bool,
 }

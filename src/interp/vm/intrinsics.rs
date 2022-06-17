@@ -8,7 +8,10 @@ use crate::{
         build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptLevel},
         target::TargetPlatform,
     },
-    interp::{vm::value::Value, workspace::WorkspaceValue},
+    interp::{
+        vm::value::Value,
+        workspace::{BuildTargetValue, OptLevelValue, WorkspaceValue},
+    },
 };
 
 impl<'vm> VM<'vm> {
@@ -18,31 +21,32 @@ impl<'vm> VM<'vm> {
                 let value = self.stack.pop();
                 let workspace = WorkspaceValue::from(&value);
 
-                dbg!(&workspace);
-
-                // TODO
-                let source_file = PathBuf::from("src/main.chili")
+                let source_file = PathBuf::from(workspace.build_options.input_file)
                     .absolutize_from(self.interp.build_options.root_dir())
                     .unwrap()
                     .to_path_buf();
 
                 let build_options = BuildOptions {
                     source_file,
-                    target_platform: TargetPlatform::current().unwrap(), // TODO
-                    opt_level: OptLevel::Debug,                          // TODO
+                    target_platform: match &workspace.build_options.target {
+                        BuildTargetValue::Auto => TargetPlatform::current().unwrap(),
+                        BuildTargetValue::Linux => TargetPlatform::LinuxAmd64,
+                        BuildTargetValue::Windows => TargetPlatform::WindowsAmd64,
+                    },
+                    opt_level: match &workspace.build_options.opt_level {
+                        OptLevelValue::Debug => OptLevel::Debug,
+                        OptLevelValue::Release => OptLevel::Release,
+                    },
                     verbose: self.interp.build_options.verbose,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
                     codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
                         emit_llvm_ir: false,
-                        run_when_done: true, // TODO
+                        run_executable: workspace.build_options.run_executable,
                     }),
                     include_paths: vec![],
                 };
 
-                crate::driver::start_workspace(
-                    "__TEST_____".to_string(), // TODO
-                    build_options,
-                );
+                crate::driver::start_workspace(workspace.name.to_string(), build_options);
 
                 self.stack.push(Value::unit());
                 self.next();

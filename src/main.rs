@@ -126,6 +126,7 @@ fn cli() {
     match args.action {
         Action::Build(args) | Action::Run(args) => match get_file_path(&args.input) {
             Ok(source_file) => {
+                let name = get_workspace_name(&source_file);
                 let build_options = BuildOptions {
                     source_file,
                     target_platform: current_target_platform(),
@@ -134,44 +135,51 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
-                    codegen_options: CodegenOptions::Vm,
+                    codegen_options: CodegenOptions::Skip,
                     include_paths: get_include_paths(&args.include_paths),
                 };
 
-                driver::start_workspace("__TEST__".to_string(), build_options);
+                driver::start_workspace(name, build_options);
             }
             Err(e) => print_err(&e),
         },
-        Action::Check(args) => run_check(args),
+        Action::Check(args) => match get_file_path(&args.input) {
+            Ok(source_file) => {
+                let name = get_workspace_name(&source_file);
+                let build_options = BuildOptions {
+                    source_file,
+                    target_platform: current_target_platform(),
+                    opt_level: OptLevel::Debug,
+                    verbose: false,
+                    diagnostic_options: DiagnosticOptions::DontEmit,
+                    codegen_options: CodegenOptions::Skip,
+                    include_paths: get_include_paths(&args.include_paths),
+                };
+
+                let result = driver::start_workspace(name, build_options);
+
+                if args.diagnostics {
+                    ide::diagnostics(
+                        &result.workspace,
+                        result.tycx.as_ref(),
+                        result.typed_ast.as_ref(),
+                    );
+                } else if let Some(offset) = args.hover_info {
+                    ide::hover_info(&result.workspace, result.tycx.as_ref(), offset);
+                } else if let Some(offset) = args.goto_def {
+                    ide::goto_definition(&result.workspace, result.tycx.as_ref(), offset);
+                }
+            }
+            Err(e) => print_err(&e),
+        },
     };
 }
 
-fn run_check(args: CheckArgs) {
-    match get_file_path(&args.input) {
-        Ok(source_file) => {
-            let build_options = BuildOptions {
-                source_file,
-                target_platform: current_target_platform(),
-                opt_level: OptLevel::Debug,
-                verbose: false,
-                diagnostic_options: DiagnosticOptions::DontEmit,
-                codegen_options: CodegenOptions::Skip,
-                include_paths: get_include_paths(&args.include_paths),
-            };
-
-            let (workspace, tycx, typed_ast) =
-                driver::start_workspace("__TEST__".to_string(), build_options);
-
-            if args.diagnostics {
-                ide::diagnostics(&workspace, tycx.as_ref(), typed_ast.as_ref());
-            } else if let Some(offset) = args.hover_info {
-                ide::hover_info(&workspace, tycx.as_ref(), offset);
-            } else if let Some(offset) = args.goto_def {
-                ide::goto_definition(&workspace, tycx.as_ref(), offset);
-            }
-        }
-        Err(e) => print_err(&e),
-    }
+fn get_workspace_name(source_file: &Path) -> String {
+    source_file
+        .file_stem()
+        .map_or("root", |p| p.to_str().unwrap())
+        .to_string()
 }
 
 fn get_file_path(input_file: &str) -> Result<PathBuf, String> {
