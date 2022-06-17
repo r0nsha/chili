@@ -1,6 +1,8 @@
 use super::{inference_value::InferenceValue, normalize::Normalize};
-use crate::ast::ty::*;
-use crate::span::Span;
+use crate::{
+    ast::ty::{FloatType, IntType, PartialStructType, Type, TypeId, UintType},
+    span::Span,
+};
 use slab::Slab;
 
 pub struct TyCtx {
@@ -50,7 +52,7 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn partial_struct(&mut self, partial_struct: PartialStructTy, span: Span) -> TypeId {
+    pub fn partial_struct(&mut self, partial_struct: PartialStructType, span: Span) -> TypeId {
         self.insert(InferenceValue::PartialStruct(partial_struct), Some(span))
     }
 
@@ -139,34 +141,32 @@ impl CommonTypes {
         bindings: &mut Slab<InferenceValue>,
         binding_spans: &mut Slab<Option<Span>>,
     ) -> Self {
-        use Type::*;
-
         let mut mk = |kind| {
             binding_spans.insert(None);
             TypeId(bindings.insert(InferenceValue::Bound(kind)))
         };
 
         Self {
-            unknown: mk(Unknown),
-            unit: mk(Unit),
-            bool: mk(Bool),
-            i8: mk(Int(IntTy::I8)),
-            i16: mk(Int(IntTy::I16)),
-            i32: mk(Int(IntTy::I32)),
-            i64: mk(Int(IntTy::I64)),
-            int: mk(Int(IntTy::Int)),
-            u8: mk(Uint(UintTy::U8)),
-            u16: mk(Uint(UintTy::U16)),
-            u32: mk(Uint(UintTy::U32)),
-            u64: mk(Uint(UintTy::U64)),
-            uint: mk(Uint(UintTy::Uint)),
-            f16: mk(Float(FloatTy::F16)),
-            f32: mk(Float(FloatTy::F32)),
-            f64: mk(Float(FloatTy::F64)),
-            float: mk(Float(FloatTy::Float)),
+            unknown: mk(Type::Unknown),
+            unit: mk(Type::Unit),
+            bool: mk(Type::Bool),
+            i8: mk(Type::Int(IntType::I8)),
+            i16: mk(Type::Int(IntType::I16)),
+            i32: mk(Type::Int(IntType::I32)),
+            i64: mk(Type::Int(IntType::I64)),
+            int: mk(Type::Int(IntType::Int)),
+            u8: mk(Type::Uint(UintType::U8)),
+            u16: mk(Type::Uint(UintType::U16)),
+            u32: mk(Type::Uint(UintType::U32)),
+            u64: mk(Type::Uint(UintType::U64)),
+            uint: mk(Type::Uint(UintType::Uint)),
+            f16: mk(Type::Float(FloatType::F16)),
+            f32: mk(Type::Float(FloatType::F32)),
+            f64: mk(Type::Float(FloatType::F64)),
+            float: mk(Type::Float(FloatType::Float)),
             str: mk(Type::str()),
-            never: mk(Never),
-            anytype: mk(AnyType),
+            never: mk(Type::Never),
+            anytype: mk(Type::AnyType),
         }
     }
 }

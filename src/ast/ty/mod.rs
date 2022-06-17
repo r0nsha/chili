@@ -41,16 +41,16 @@ pub enum Type {
     Never,
     Unit,
     Bool,
-    Int(IntTy),
-    Uint(UintTy),
-    Float(FloatTy),
+    Int(IntType),
+    Uint(UintType),
+    Float(FloatType),
     Pointer(Box<Type>, bool),
     MultiPointer(Box<Type>, bool),
-    Function(FunctionTy),
+    Function(FunctionType),
     Array(Box<Type>, usize),
     Slice(Box<Type>, bool),
     Tuple(Vec<Type>),
-    Struct(StructTy),
+    Struct(StructType),
     Module(ModuleId),
     Type(Box<Type>),
     AnyType,
@@ -63,12 +63,12 @@ pub enum Type {
 pub enum InferTy {
     AnyInt,
     AnyFloat,
-    PartialStruct(PartialStructTy),
+    PartialStruct(PartialStructType),
     PartialTuple(Vec<Type>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum IntTy {
+pub enum IntType {
     I8,
     I16,
     I32,
@@ -76,14 +76,14 @@ pub enum IntTy {
     Int,
 }
 
-impl Default for IntTy {
+impl Default for IntType {
     fn default() -> Self {
-        IntTy::I32
+        IntType::I32
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum UintTy {
+pub enum UintType {
     U8,
     U16,
     U32,
@@ -91,49 +91,49 @@ pub enum UintTy {
     Uint,
 }
 
-impl Default for UintTy {
+impl Default for UintType {
     fn default() -> Self {
-        UintTy::U32
+        UintType::U32
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum FloatTy {
+pub enum FloatType {
     F16,
     F32,
     F64,
     Float,
 }
 
-impl Default for FloatTy {
+impl Default for FloatType {
     fn default() -> Self {
-        FloatTy::F32
+        FloatType::F32
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FunctionTy {
+pub struct FunctionType {
     pub params: Vec<Type>,
     pub ret: Box<Type>,
-    pub varargs: Option<Box<FunctionTyVarargs>>,
+    pub varargs: Option<Box<FunctionTypeVarargs>>,
     pub extern_lib: Option<ExternLibrary>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FunctionTyVarargs {
+pub struct FunctionTypeVarargs {
     pub ty: Option<Type>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct StructTy {
+pub struct StructType {
     pub name: Ustr,
     pub binding_info_id: BindingInfoId,
-    pub fields: Vec<StructTyField>,
-    pub kind: StructTyKind,
+    pub fields: Vec<StructTypeField>,
+    pub kind: StructTypeKind,
 }
 
-impl StructTy {
-    pub fn find_field(&self, field: Ustr) -> Option<&StructTyField> {
+impl StructType {
+    pub fn find_field(&self, field: Ustr) -> Option<&StructTypeField> {
         self.fields.iter().find(|f| f.symbol == field)
     }
 
@@ -143,9 +143,9 @@ impl StructTy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct PartialStructTy(pub IndexMap<Ustr, Type>);
+pub struct PartialStructType(pub IndexMap<Ustr, Type>);
 
-impl Deref for PartialStructTy {
+impl Deref for PartialStructType {
     type Target = IndexMap<Ustr, Type>;
 
     fn deref(&self) -> &Self::Target {
@@ -153,59 +153,59 @@ impl Deref for PartialStructTy {
     }
 }
 
-impl DerefMut for PartialStructTy {
+impl DerefMut for PartialStructType {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl PartialStructTy {
-    pub fn into_struct(&self) -> StructTy {
-        StructTy {
+impl PartialStructType {
+    pub fn into_struct(&self) -> StructType {
+        StructType {
             name: ustr(""),
             binding_info_id: Default::default(),
             fields: self
                 .iter()
-                .map(|(&symbol, ty)| StructTyField {
+                .map(|(&symbol, ty)| StructTypeField {
                     symbol,
                     ty: ty.clone(),
                     span: Span::unknown(),
                 })
                 .collect(),
-            kind: StructTyKind::Struct,
+            kind: StructTypeKind::Struct,
         }
     }
 }
 
-impl From<StructTy> for Type {
-    fn from(ty: StructTy) -> Self {
+impl From<StructType> for Type {
+    fn from(ty: StructType) -> Self {
         Type::Struct(ty)
     }
 }
 
-impl StructTy {
+impl StructType {
     pub fn is_struct(&self) -> bool {
-        matches!(self.kind, StructTyKind::Struct)
+        matches!(self.kind, StructTypeKind::Struct)
     }
 
     pub fn is_packed_struct(&self) -> bool {
-        matches!(self.kind, StructTyKind::PackedStruct)
+        matches!(self.kind, StructTypeKind::PackedStruct)
     }
 
     pub fn is_union(&self) -> bool {
-        matches!(self.kind, StructTyKind::Union)
+        matches!(self.kind, StructTypeKind::Union)
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum StructTyKind {
+pub enum StructTypeKind {
     Struct,
     PackedStruct,
     Union,
 }
 
-impl StructTy {
-    pub fn opaque(name: Ustr, binding_info_id: BindingInfoId, kind: StructTyKind) -> Self {
+impl StructType {
+    pub fn opaque(name: Ustr, binding_info_id: BindingInfoId, kind: StructTypeKind) -> Self {
         Self {
             name,
             binding_info_id,
@@ -214,7 +214,7 @@ impl StructTy {
         }
     }
 
-    pub fn temp(fields: Vec<StructTyField>, kind: StructTyKind) -> Self {
+    pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
         Self {
             name: ustr(""),
             binding_info_id: Default::default(),
@@ -229,13 +229,13 @@ impl StructTy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct StructTyField {
+pub struct StructTypeField {
     pub symbol: Ustr,
     pub ty: Type,
     pub span: Span,
 }
 
-impl StructTyField {
+impl StructTypeField {
     pub fn temp(ty: Type) -> Self {
         Self {
             symbol: ustr(""),
@@ -359,28 +359,28 @@ impl Type {
         self.is_array() || self.is_struct()
     }
 
-    pub fn as_struct(&self) -> &StructTy {
+    pub fn as_struct(&self) -> &StructType {
         match self {
             Type::Struct(ty) => ty,
             _ => panic!("expected struct, got {:?}", self),
         }
     }
 
-    pub fn into_struct(self) -> StructTy {
+    pub fn into_struct(self) -> StructType {
         match self {
             Type::Struct(ty) => ty,
             _ => panic!("expected struct, got {:?}", self),
         }
     }
 
-    pub fn as_fn(&self) -> &FunctionTy {
+    pub fn as_fn(&self) -> &FunctionType {
         match self {
             Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }
 
-    pub fn into_fn(self) -> FunctionTy {
+    pub fn into_fn(self) -> FunctionType {
         match self {
             Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
@@ -388,7 +388,7 @@ impl Type {
     }
 
     pub fn raw_pointer(is_mutable: bool) -> Type {
-        Type::Pointer(Box::new(Type::Int(IntTy::I8)), is_mutable)
+        Type::Pointer(Box::new(Type::Int(IntType::I8)), is_mutable)
     }
 
     pub fn str() -> Type {
@@ -396,7 +396,7 @@ impl Type {
     }
 
     pub fn char() -> Type {
-        Type::Uint(UintTy::U8)
+        Type::Uint(UintType::U8)
     }
 
     pub fn create_type(self) -> Type {

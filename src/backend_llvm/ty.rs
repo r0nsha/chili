@@ -1,17 +1,14 @@
-use std::cmp::Ordering;
-
-use crate::ast::ty::{size::SizeOf, *};
-
-use crate::infer::normalize::Normalize;
-use inkwell::{
-    types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, PointerType},
-    AddressSpace,
-};
-
 use super::{
     abi::{self, AbiFunction, AbiTyKind},
     codegen::Codegen,
 };
+use crate::ast::ty::{size::SizeOf, *};
+use crate::infer::normalize::Normalize;
+use inkwell::{
+    types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},
+    AddressSpace,
+};
+use std::cmp::Ordering;
 
 pub trait IntoLlvmType<'cg, 'ctx> {
     fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx>;
@@ -29,24 +26,24 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Type {
         match self {
             Type::Bool => cg.context.bool_type().into(),
             Type::Int(inner) => match inner {
-                IntTy::I8 => cg.context.i8_type().into(),
-                IntTy::I16 => cg.context.i16_type().into(),
-                IntTy::I32 => cg.context.i32_type().into(),
-                IntTy::I64 => cg.context.i64_type().into(),
-                IntTy::Int => cg.ptr_sized_int_type.into(),
+                IntType::I8 => cg.context.i8_type().into(),
+                IntType::I16 => cg.context.i16_type().into(),
+                IntType::I32 => cg.context.i32_type().into(),
+                IntType::I64 => cg.context.i64_type().into(),
+                IntType::Int => cg.ptr_sized_int_type.into(),
             },
             Type::Uint(inner) => match inner {
-                UintTy::U8 => cg.context.i8_type().into(),
-                UintTy::U16 => cg.context.i16_type().into(),
-                UintTy::U32 => cg.context.i32_type().into(),
-                UintTy::U64 => cg.context.i64_type().into(),
-                UintTy::Uint => cg.ptr_sized_int_type.into(),
+                UintType::U8 => cg.context.i8_type().into(),
+                UintType::U16 => cg.context.i16_type().into(),
+                UintType::U32 => cg.context.i32_type().into(),
+                UintType::U64 => cg.context.i64_type().into(),
+                UintType::Uint => cg.ptr_sized_int_type.into(),
             },
             Type::Float(inner) => match inner {
-                FloatTy::F16 => cg.context.f16_type().into(),
-                FloatTy::F32 => cg.context.f32_type().into(),
-                FloatTy::F64 => cg.context.f64_type().into(),
-                FloatTy::Float => if cg.target_metrics.word_size == 8 {
+                FloatType::F16 => cg.context.f16_type().into(),
+                FloatType::F32 => cg.context.f32_type().into(),
+                FloatType::F64 => cg.context.f64_type().into(),
+                FloatType::Float => if cg.target_metrics.word_size == 8 {
                     cg.context.f64_type()
                 } else {
                     cg.context.f32_type()
@@ -110,7 +107,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             .into()
     }
 
-    pub fn get_abi_compliant_fn(&mut self, f: &FunctionTy) -> AbiFunction<'ctx> {
+    pub fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
         let params: Vec<BasicMetadataTypeEnum> =
             f.params.iter().map(|p| p.llvm_type(self).into()).collect();
 
@@ -121,12 +118,15 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
     }
 
-    pub fn fn_type(&mut self, f: &FunctionTy) -> FunctionType<'ctx> {
+    pub fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
         let abi_compliant_fn_ty = self.get_abi_compliant_fn(f);
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
 
-    pub fn abi_fn_to_type(&mut self, abi_fn: &AbiFunction<'ctx>) -> FunctionType<'ctx> {
+    pub fn abi_fn_to_type(
+        &mut self,
+        abi_fn: &AbiFunction<'ctx>,
+    ) -> inkwell::types::FunctionType<'ctx> {
         let mut offset = 0;
 
         let ret = match abi_fn.ret.kind {
@@ -170,7 +170,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn get_or_create_named_struct_type(
         &mut self,
-        struct_ty: &StructTy,
+        struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
         match self.types.get(&struct_ty.binding_info_id) {
             Some(t) => t.into_struct_type(),
@@ -180,7 +180,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn create_named_struct_type(
         &mut self,
-        struct_ty: &StructTy,
+        struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
         let struct_type = self.context.opaque_struct_type(&struct_ty.name);
         self.types
@@ -192,14 +192,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn create_anonymous_struct_type(
         &mut self,
-        struct_ty: &StructTy,
+        struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
         let fields = self.create_struct_type_fields(struct_ty);
         self.context
             .struct_type(&fields, struct_ty.is_packed_struct())
     }
 
-    fn create_struct_type_fields(&mut self, struct_ty: &StructTy) -> Vec<BasicTypeEnum<'ctx>> {
+    fn create_struct_type_fields(&mut self, struct_ty: &StructType) -> Vec<BasicTypeEnum<'ctx>> {
         if struct_ty.fields.is_empty() {
             vec![]
         } else if struct_ty.is_union() {

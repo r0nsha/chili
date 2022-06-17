@@ -8,7 +8,7 @@ mod postfix_expr;
 mod top_level;
 
 use crate::ast::{
-    ast::{self, ExternLibrary},
+    ast::{self, Expr, ExternLibrary},
     workspace::{ModuleInfo, PartialModuleInfo},
 };
 use crate::error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
@@ -276,5 +276,21 @@ impl Parser {
         };
 
         after_span.with_start(start_pos).with_end(end_pos)
+    }
+}
+
+pub(super) trait Recover {
+    fn recover(self, parser: &mut Parser, span: Span) -> Self;
+}
+
+impl Recover for DiagnosticResult<Expr> {
+    fn recover(self, parser: &mut Parser, span: Span) -> Self {
+        match self {
+            Ok(expr) => Ok(expr),
+            Err(_) => {
+                while !eat!(parser, Semicolon) && parser.is_end() {}
+                Ok(Expr::new(ast::ExprKind::Error(span), span))
+            }
+        }
     }
 }

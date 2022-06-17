@@ -14,7 +14,7 @@ use crate::infer::normalize::Normalize;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
-    types::{AnyType, FunctionType},
+    types::AnyType,
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue,
         PointerValue,
@@ -137,7 +137,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn declare_fn_sig(
         &mut self,
-        ty: &FunctionTy,
+        ty: &FunctionType,
         llvm_name: impl AsRef<str>,
     ) -> FunctionValue<'ctx> {
         let fn_type = self.fn_type(&ty);
@@ -223,7 +223,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         callee: impl Into<CallableValue<'ctx>>,
-        callee_ty: &FunctionTy,
+        callee_ty: &FunctionType,
         args: Vec<BasicValueEnum<'ctx>>,
         result_ty: &Type,
     ) -> BasicValueEnum<'ctx> {
@@ -353,7 +353,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn get_or_add_function(
         &self,
         name: impl AsRef<str>,
-        fn_type: FunctionType<'ctx>,
+        fn_type: inkwell::types::FunctionType<'ctx>,
         linkage: Option<Linkage>,
     ) -> FunctionValue<'ctx> {
         let name = name.as_ref();

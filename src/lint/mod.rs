@@ -170,13 +170,11 @@ impl Lint for ast::Expr {
             }
             ast::ExprKind::Cast(t) => t.expr.lint(sess),
             ast::ExprKind::Builtin(b) => match b {
-                ast::BuiltinKind::Import(_) => (),
-                ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
-                ast::BuiltinKind::SizeOf(expr)
-                | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr, _)
-                | ast::BuiltinKind::StartWorkspace(expr) => expr.lint(sess),
-                ast::BuiltinKind::Panic(e) => e.lint(sess),
+                ast::Builtin::Import(_) => (),
+                ast::Builtin::SizeOf(expr)
+                | ast::Builtin::AlignOf(expr)
+                | ast::Builtin::Run(expr, _) => expr.lint(sess),
+                ast::Builtin::Panic(e) => e.lint(sess),
             },
             ast::ExprKind::Function(f) => {
                 f.body.lint(sess);
@@ -287,7 +285,7 @@ impl Lint for ast::Expr {
             ast::ExprKind::SelfType | ast::ExprKind::ConstValue(_) | ast::ExprKind::Placeholder => {
                 ()
             }
-            ast::ExprKind::Error => panic!("unexpected error node"),
+            ast::ExprKind::Error(_) => panic!("unexpected error node"),
         }
 
         sess.check_type_limits(self);

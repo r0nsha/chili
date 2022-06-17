@@ -11,7 +11,7 @@ use crate::ast::ty::{align::AlignOf, size::SizeOf, *};
 use bumpalo::Bump;
 use libffi::{
     low::{ffi_cif, CodePtr},
-    middle::{Cif, Closure, Type},
+    middle::{Cif, Closure, Type as FfiType},
 };
 use std::{collections::HashMap, ffi::c_void, path::Path};
 use ustr::{ustr, Ustr, UstrMap};
@@ -111,8 +111,8 @@ struct FfiFunction {
 
 impl FfiFunction {
     unsafe fn new(arg_types: &[Type], return_type: &Type) -> Self {
-        let cif_return_type: Type = return_type.as_ffi_type();
-        let cif_arg_types: Vec<Type> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
+        let cif_return_type: FfiType = return_type.as_ffi_type();
+        let cif_arg_types: Vec<FfiType> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
         let cif = Cif::new(cif_arg_types, cif_return_type);
 
         Self {
@@ -126,13 +126,13 @@ impl FfiFunction {
         variadic_arg_types: &[Type],
         return_type: &Type,
     ) -> Self {
-        let cif_return_type: Type = return_type.as_ffi_type();
+        let cif_return_type: FfiType = return_type.as_ffi_type();
         let arg_types: Vec<Type> = arg_types
             .iter()
             .chain(variadic_arg_types.iter())
             .cloned()
             .collect();
-        let cif_arg_types: Vec<Type> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
+        let cif_arg_types: Vec<FfiType> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
         let cif = Cif::new_variadic(cif_arg_types, arg_types.len(), cif_return_type);
 
         Self {
@@ -284,47 +284,47 @@ unsafe extern "C" fn closure_callback(
 }
 
 trait AsFfiType {
-    unsafe fn as_ffi_type(&self) -> Type;
+    unsafe fn as_ffi_type(&self) -> FfiType;
 }
 
 impl AsFfiType for Type {
-    unsafe fn as_ffi_type(&self) -> Type {
+    unsafe fn as_ffi_type(&self) -> FfiType {
         match self {
-            Type::Bool => Type::u8(),
+            Type::Bool => FfiType::u8(),
             Type::Int(ty) => match ty {
-                IntTy::I8 => Type::i8(),
-                IntTy::I16 => Type::i16(),
-                IntTy::I32 => Type::i32(),
-                IntTy::I64 => Type::i64(),
-                IntTy::Int => {
+                IntType::I8 => FfiType::i8(),
+                IntType::I16 => FfiType::i16(),
+                IntType::I32 => FfiType::i32(),
+                IntType::I64 => FfiType::i64(),
+                IntType::Int => {
                     if IS_64BIT {
-                        Type::i64()
+                        FfiType::i64()
                     } else {
-                        Type::i32()
+                        FfiType::i32()
                     }
                 }
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Type::u8(),
-                UintTy::U16 => Type::u16(),
-                UintTy::U32 => Type::u32(),
-                UintTy::U64 => Type::u64(),
-                UintTy::Uint => {
+                UintType::U8 => FfiType::u8(),
+                UintType::U16 => FfiType::u16(),
+                UintType::U32 => FfiType::u32(),
+                UintType::U64 => FfiType::u64(),
+                UintType::Uint => {
                     if IS_64BIT {
-                        Type::u64()
+                        FfiType::u64()
                     } else {
-                        Type::u32()
+                        FfiType::u32()
                     }
                 }
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => Type::f32(),
-                FloatTy::F64 => Type::f64(),
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => FfiType::f32(),
+                FloatType::F64 => FfiType::f64(),
+                FloatType::Float => {
                     if IS_64BIT {
-                        Type::f64()
+                        FfiType::f64()
                     } else {
-                        Type::f32()
+                        FfiType::f32()
                     }
                 }
             },
@@ -332,31 +332,31 @@ impl AsFfiType for Type {
             | Type::Pointer(_, _)
             | Type::MultiPointer(_, _)
             | Type::Function(_)
-            | Type::Array(_, _) => Type::pointer(),
-            Type::Slice(_, _) => Type::structure([Type::pointer(), Type::usize()]),
+            | Type::Array(_, _) => FfiType::pointer(),
+            Type::Slice(_, _) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
             Type::Tuple(tuple_elements) => {
-                Type::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
+                FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
             }
-            Type::Struct(st) => Type::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
+            Type::Struct(st) => FfiType::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
             Type::Infer(_, ty) => match ty {
                 InferTy::AnyInt => {
                     if IS_64BIT {
-                        Type::i64()
+                        FfiType::i64()
                     } else {
-                        Type::i32()
+                        FfiType::i32()
                     }
                 }
                 InferTy::AnyFloat => {
                     if IS_64BIT {
-                        Type::f64()
+                        FfiType::f64()
                     } else {
-                        Type::f32()
+                        FfiType::f32()
                     }
                 }
                 InferTy::PartialStruct(_) => todo!(),
                 InferTy::PartialTuple(_) => todo!(),
             },
-            Type::Never => Type::void(),
+            Type::Never => FfiType::void(),
             _ => panic!("invalid type {}", self),
         }
     }

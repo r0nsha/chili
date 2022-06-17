@@ -1,9 +1,9 @@
 use super::*;
 use crate::ast::{
     ast::{
-        self, BinaryOp, Block, BuiltinKind, Expr, ExprKind, ForIter, NameAndId, UnaryOp, Visibility,
+        self, BinaryOp, Block, Builtin, Expr, ExprKind, ForIter, NameAndId, UnaryOp, Visibility,
     },
-    ty::StructTyKind,
+    ty::StructTypeKind,
 };
 use crate::error::{
     diagnostic::{Diagnostic, Label},
@@ -425,9 +425,9 @@ impl Parser {
 
             require!(self, CloseParen, ")")?;
 
-            StructTyKind::PackedStruct
+            StructTypeKind::PackedStruct
         } else {
-            StructTyKind::Struct
+            StructTypeKind::Struct
         };
 
         require!(self, OpenCurly, "{")?;
@@ -457,7 +457,7 @@ impl Parser {
             ExprKind::StructType(ast::StructType {
                 name,
                 fields,
-                kind: StructTyKind::Union,
+                kind: StructTypeKind::Union,
                 binding_info_id: Default::default(),
             }),
             start_span.to(self.previous_span()),
@@ -494,16 +494,14 @@ impl Parser {
 
         let builtin = match symbol.as_str() {
             "import" => self.parse_builtin_import()?,
-            "lang_item" => BuiltinKind::LangItem(require!(self, Str(_), "string")?.symbol()),
-            "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
-            "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
-            "start_workspace" => BuiltinKind::StartWorkspace(Box::new(self.parse_expr()?)),
-            "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {
+            "size_of" => Builtin::SizeOf(Box::new(self.parse_expr()?)),
+            "align_of" => Builtin::AlignOf(Box::new(self.parse_expr()?)),
+            "panic" => Builtin::Panic(if is!(self, CloseParen) {
                 None
             } else {
                 Some(Box::new(self.parse_expr()?))
             }),
-            "run" => BuiltinKind::Run(Box::new(self.parse_expr()?), None),
+            "run" => Builtin::Run(Box::new(self.parse_expr()?), None),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))

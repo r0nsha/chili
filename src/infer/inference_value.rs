@@ -1,4 +1,4 @@
-use crate::ast::ty::{PartialStructTy, Type};
+use crate::ast::ty::{PartialStructType, Type};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -7,7 +7,7 @@ pub enum InferenceValue {
     AnyInt,
     AnyFloat,
     PartialTuple(Vec<Type>),
-    PartialStruct(PartialStructTy),
+    PartialStruct(PartialStructType),
     Unbound,
 }
 

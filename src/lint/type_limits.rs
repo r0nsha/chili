@@ -2,7 +2,7 @@ use super::sess::LintSess;
 use crate::ast::{
     ast,
     const_value::ConstValue,
-    ty::{IntTy, Type, TypeId, UintTy},
+    ty::{IntType, Type, TypeId, UintType},
 };
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::normalize::Normalize;
@@ -28,7 +28,7 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_int_limits(&mut self, int_ty: &IntTy, value: i64, e: &ast::Expr) {
+    fn check_int_limits(&mut self, int_ty: &IntType, value: i64, e: &ast::Expr) {
         let (min, max) = int_ty_range(*int_ty);
         if value < min || value > max {
             self.workspace
@@ -37,7 +37,7 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_uint_limits(&mut self, uint_ty: &UintTy, value: i64, e: &ast::Expr) {
+    fn check_uint_limits(&mut self, uint_ty: &UintType, value: i64, e: &ast::Expr) {
         let (min, max) = uint_ty_range(*uint_ty);
 
         if value.is_negative() {
@@ -56,23 +56,23 @@ impl<'s> LintSess<'s> {
     }
 }
 
-fn int_ty_range(int_ty: IntTy) -> (i64, i64) {
+fn int_ty_range(int_ty: IntType) -> (i64, i64) {
     match int_ty {
-        IntTy::I8 => (i8::MIN as i64, i8::MAX as i64),
-        IntTy::I16 => (i16::MIN as i64, i16::MAX as i64),
-        IntTy::I32 => (i32::MIN as i64, i32::MAX as i64),
-        IntTy::I64 => (i64::MIN, i64::MAX),
-        IntTy::Int => (isize::MIN as i64, isize::MAX as i64),
+        IntType::I8 => (i8::MIN as i64, i8::MAX as i64),
+        IntType::I16 => (i16::MIN as i64, i16::MAX as i64),
+        IntType::I32 => (i32::MIN as i64, i32::MAX as i64),
+        IntType::I64 => (i64::MIN, i64::MAX),
+        IntType::Int => (isize::MIN as i64, isize::MAX as i64),
     }
 }
 
-fn uint_ty_range(uint_ty: UintTy) -> (u64, u64) {
+fn uint_ty_range(uint_ty: UintType) -> (u64, u64) {
     match uint_ty {
-        UintTy::U8 => (u8::MIN as u64, u8::MAX as u64),
-        UintTy::U16 => (u16::MIN as u64, u16::MAX as u64),
-        UintTy::U32 => (u32::MIN as u64, u32::MAX as u64),
-        UintTy::U64 => (u64::MIN, u64::MAX),
-        UintTy::Uint => (usize::MIN as u64, usize::MAX as u64),
+        UintType::U8 => (u8::MIN as u64, u8::MAX as u64),
+        UintType::U16 => (u16::MIN as u64, u16::MAX as u64),
+        UintType::U32 => (u32::MIN as u64, u32::MAX as u64),
+        UintType::U64 => (u64::MIN, u64::MAX),
+        UintType::Uint => (usize::MIN as u64, usize::MAX as u64),
     }
 }
 

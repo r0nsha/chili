@@ -16,26 +16,26 @@ impl Display for Type {
                 Type::Unit => "()".to_string(),
                 Type::Bool => "bool".to_string(),
                 Type::Int(inner) => match inner {
-                    IntTy::I8 => "i8",
-                    IntTy::I16 => "i16",
-                    IntTy::I32 => "i32",
-                    IntTy::I64 => "i64",
-                    IntTy::Int => "int",
+                    IntType::I8 => "i8",
+                    IntType::I16 => "i16",
+                    IntType::I32 => "i32",
+                    IntType::I64 => "i64",
+                    IntType::Int => "int",
                 }
                 .to_string(),
                 Type::Uint(inner) => match inner {
-                    UintTy::U8 => "u8",
-                    UintTy::U16 => "u16",
-                    UintTy::U32 => "u32",
-                    UintTy::U64 => "u64",
-                    UintTy::Uint => "uint",
+                    UintType::U8 => "u8",
+                    UintType::U16 => "u16",
+                    UintType::U32 => "u32",
+                    UintType::U64 => "u64",
+                    UintType::Uint => "uint",
                 }
                 .to_string(),
                 Type::Float(inner) => match inner {
-                    FloatTy::F16 => "f16",
-                    FloatTy::F32 => "f32",
-                    FloatTy::F64 => "f64",
-                    FloatTy::Float => "float",
+                    FloatType::F16 => "f16",
+                    FloatType::F32 => "f32",
+                    FloatType::F64 => "f64",
+                    FloatType::Float => "float",
                 }
                 .to_string(),
                 Type::Pointer(ty, is_mutable) =>
@@ -67,7 +67,7 @@ impl Display for Type {
     }
 }
 
-impl Display for StructTy {
+impl Display for StructType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.binding_info_id != BindingInfoId::unknown() {
             write!(f, "{}", self.name.as_str())
@@ -76,9 +76,9 @@ impl Display for StructTy {
                 f,
                 "{} {{ {} }}",
                 match self.kind {
-                    StructTyKind::Struct => "struct",
-                    StructTyKind::PackedStruct => "struct(packed)",
-                    StructTyKind::Union => "union",
+                    StructTypeKind::Struct => "struct",
+                    StructTypeKind::PackedStruct => "struct(packed)",
+                    StructTypeKind::Union => "union",
                 },
                 self.fields
                     .iter()
@@ -90,7 +90,7 @@ impl Display for StructTy {
     }
 }
 
-impl Display for PartialStructTy {
+impl Display for PartialStructType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -103,7 +103,7 @@ impl Display for PartialStructTy {
     }
 }
 
-impl Display for FunctionTy {
+impl Display for FunctionType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

@@ -175,12 +175,11 @@ impl<'a> Substitute<'a> for ast::Expr {
             }
             ast::ExprKind::Cast(info) => info.substitute(sess),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::SizeOf(expr)
-                | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr, _)
-                | ast::BuiltinKind::StartWorkspace(expr) => expr.substitute(sess),
-                ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
-                ast::BuiltinKind::Import(_) | ast::BuiltinKind::LangItem(_) => (),
+                ast::Builtin::SizeOf(expr)
+                | ast::Builtin::AlignOf(expr)
+                | ast::Builtin::Run(expr, _) => expr.substitute(sess),
+                ast::Builtin::Panic(expr) => expr.substitute(sess),
+                ast::Builtin::Import(_) => (),
             },
             ast::ExprKind::Function(func) => func.substitute(sess),
             ast::ExprKind::While(while_) => {
@@ -267,7 +266,7 @@ impl<'a> Substitute<'a> for ast::Expr {
             | ast::ExprKind::SelfType
             | ast::ExprKind::ConstValue(_)
             | ast::ExprKind::Placeholder => (),
-            ast::ExprKind::Error => panic!("unexpected error node"),
+            ast::ExprKind::Error(_) => panic!("unexpected error node"),
         }
     }
 }
@@ -328,7 +327,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
         Type::Tuple(tys) | Type::Infer(_, InferTy::PartialTuple(tys)) => tys
             .iter()
             .for_each(|t| extract_free_type_vars(t, free_types)),
-        Type::Struct(StructTy { fields, .. }) => {
+        Type::Struct(StructType { fields, .. }) => {
             fields
                 .iter()
                 .for_each(|f| extract_free_type_vars(&f.ty, free_types));

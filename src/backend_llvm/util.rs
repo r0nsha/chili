@@ -30,7 +30,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .build_global_string_ptr(&value, name)
                 .as_pointer_value();
 
-            let element_ty = Type::Uint(UintTy::U8);
+            let element_ty = Type::Uint(UintType::U8);
             let ty = self.slice_type(&element_ty);
 
             let str_slice_ptr = self.module.add_global(ty, Some(AddressSpace::Generic), "");

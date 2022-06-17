@@ -77,23 +77,23 @@ impl NormalizeCtx {
             }
             InferenceValue::PartialStruct(st) => {
                 if self.concrete {
-                    Type::Struct(StructTy {
+                    Type::Struct(StructType {
                         name: ustr(""),
                         binding_info_id: BindingInfoId::unknown(),
                         fields: st
                             .iter()
-                            .map(|(name, ty)| StructTyField {
+                            .map(|(name, ty)| StructTypeField {
                                 symbol: *name,
                                 ty: self.normalize_kind(tycx, ty),
                                 span: Span::unknown(),
                             })
                             .collect(),
-                        kind: StructTyKind::Struct,
+                        kind: StructTypeKind::Struct,
                     })
                 } else {
                     Type::Infer(
                         ty,
-                        InferTy::PartialStruct(PartialStructTy(
+                        InferTy::PartialStruct(PartialStructType(
                             st.iter()
                                 .map(|(name, ty)| (*name, self.normalize_kind(tycx, ty)))
                                 .collect(),
@@ -108,7 +108,7 @@ impl NormalizeCtx {
     fn normalize_kind(&mut self, tycx: &TyCtx, kind: &Type) -> Type {
         match kind {
             Type::Var(ty) => self.normalize_ty(tycx, *ty),
-            Type::Function(f) => Type::Function(FunctionTy {
+            Type::Function(f) => Type::Function(FunctionType {
                 params: f
                     .params
                     .iter()
@@ -116,7 +116,7 @@ impl NormalizeCtx {
                     .collect(),
                 ret: Box::new(self.normalize_kind(tycx, &f.ret)),
                 varargs: f.varargs.as_ref().map(|v| {
-                    Box::new(FunctionTyVarargs {
+                    Box::new(FunctionTypeVarargs {
                         ty: v.ty.as_ref().map(|ty| self.normalize_kind(tycx, ty)),
                     })
                 }),
@@ -144,13 +144,13 @@ impl NormalizeCtx {
                     let old_id = self.parent_binding_info_id;
                     self.parent_binding_info_id = st.binding_info_id;
 
-                    let st = Type::Struct(StructTy {
+                    let st = Type::Struct(StructType {
                         name: st.name,
                         binding_info_id: st.binding_info_id,
                         fields: st
                             .fields
                             .iter()
-                            .map(|f| StructTyField {
+                            .map(|f| StructTypeField {
                                 symbol: f.symbol,
                                 ty: self.normalize_kind(tycx, &f.ty),
                                 span: f.span,
@@ -189,23 +189,23 @@ impl NormalizeCtx {
             }
             Type::Infer(ty, InferTy::PartialStruct(st)) => {
                 if self.concrete {
-                    Type::Struct(StructTy {
+                    Type::Struct(StructType {
                         name: ustr(""),
                         binding_info_id: BindingInfoId::unknown(),
                         fields: st
                             .iter()
-                            .map(|(name, ty)| StructTyField {
+                            .map(|(name, ty)| StructTypeField {
                                 symbol: *name,
                                 ty: self.normalize_kind(tycx, ty),
                                 span: Span::unknown(),
                             })
                             .collect(),
-                        kind: StructTyKind::Struct,
+                        kind: StructTypeKind::Struct,
                     })
                 } else {
                     Type::Infer(
                         *ty,
-                        InferTy::PartialStruct(PartialStructTy(IndexMap::from_iter(
+                        InferTy::PartialStruct(PartialStructType(IndexMap::from_iter(
                             st.iter()
                                 .map(|(symbol, ty)| (*symbol, self.normalize_kind(tycx, ty))),
                         ))),
@@ -218,7 +218,7 @@ impl NormalizeCtx {
 
     fn normalize_anyint(&self, ty: TypeId) -> Type {
         if self.concrete {
-            Type::Int(IntTy::Int)
+            Type::Int(IntType::Int)
         } else {
             Type::Infer(ty, InferTy::AnyInt)
         }
@@ -226,7 +226,7 @@ impl NormalizeCtx {
 
     fn normalize_anyfloat(&self, ty: TypeId) -> Type {
         if self.concrete {
-            Type::Float(FloatTy::Float)
+            Type::Float(FloatType::Float)
         } else {
             Type::Infer(ty, InferTy::AnyFloat)
         }

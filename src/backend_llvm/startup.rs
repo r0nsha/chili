@@ -73,14 +73,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         //         linkage,
         //     )
         // };
-        let startup_fn_type = FunctionTy {
+        let startup_fn_type = FunctionType {
             params: vec![
-                Type::Uint(UintTy::U32),
-                Type::Uint(UintTy::U8)
+                Type::Uint(UintType::U32),
+                Type::Uint(UintType::U8)
                     .pointer_type(false)
                     .pointer_type(false),
             ],
-            ret: Box::new(Type::Uint(UintTy::U32)),
+            ret: Box::new(Type::Uint(UintType::U32)),
             varargs: None,
             extern_lib: None,
         };

@@ -2,7 +2,7 @@ use super::{
     super::{IS_64BIT, WORD_SIZE},
     value::{Pointer, Value},
 };
-use crate::ast::ty::{FloatTy, InferTy, IntTy, Type, UintTy};
+use crate::ast::ty::{FloatType, InferTy, IntType, Type, UintType};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Debug, Clone)]
@@ -121,29 +121,29 @@ impl GetValue for [u8] {
             Type::Never | Type::Unit => Value::unit(), // these types' sizes are zero self.as_ref().inner
             Type::Bool => Value::Bool(self.as_ref().read_u8().unwrap() != 0),
             Type::Int(ty) => match ty {
-                IntTy::I8 => Value::I8(self.as_ref().read_i8().unwrap()),
-                IntTy::I16 => Value::I16(self.as_ref().read_i16::<NativeEndian>().unwrap()),
-                IntTy::I32 => Value::I32(self.as_ref().read_i32::<NativeEndian>().unwrap()),
-                IntTy::I64 => Value::I64(self.as_ref().read_i64::<NativeEndian>().unwrap()),
-                IntTy::Int => {
+                IntType::I8 => Value::I8(self.as_ref().read_i8().unwrap()),
+                IntType::I16 => Value::I16(self.as_ref().read_i16::<NativeEndian>().unwrap()),
+                IntType::I32 => Value::I32(self.as_ref().read_i32::<NativeEndian>().unwrap()),
+                IntType::I64 => Value::I64(self.as_ref().read_i64::<NativeEndian>().unwrap()),
+                IntType::Int => {
                     Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
                 }
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Value::U8(self.as_ref().read_u8().unwrap()),
-                UintTy::U16 => Value::U16(self.as_ref().read_u16::<NativeEndian>().unwrap()),
-                UintTy::U32 => Value::U32(self.as_ref().read_u32::<NativeEndian>().unwrap()),
-                UintTy::U64 => Value::U64(self.as_ref().read_u64::<NativeEndian>().unwrap()),
-                UintTy::Uint => {
+                UintType::U8 => Value::U8(self.as_ref().read_u8().unwrap()),
+                UintType::U16 => Value::U16(self.as_ref().read_u16::<NativeEndian>().unwrap()),
+                UintType::U32 => Value::U32(self.as_ref().read_u32::<NativeEndian>().unwrap()),
+                UintType::U64 => Value::U64(self.as_ref().read_u64::<NativeEndian>().unwrap()),
+                UintType::Uint => {
                     Value::Uint(self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as usize)
                 }
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => {
+                FloatType::F16 | FloatType::F32 => {
                     Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
                 }
-                FloatTy::F64 => Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap()),
-                FloatTy::Float => {
+                FloatType::F64 => Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap()),
+                FloatType::Float => {
                     if IS_64BIT {
                         Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap())
                     } else {

@@ -11,8 +11,8 @@ use crate::ast::{
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
-        FunctionTy, FunctionTyVarargs, InferTy, PartialStructTy, StructTy, StructTyField,
-        StructTyKind, Type, TypeId,
+        FunctionType, FunctionTypeVarargs, InferTy, PartialStructType, StructType, StructTypeField,
+        StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -713,13 +713,13 @@ impl Check for ast::FunctionSig {
                     .with_label(Label::primary(varargs.span, "missing a type annotation")));
             }
 
-            Some(Box::new(FunctionTyVarargs { ty }))
+            Some(Box::new(FunctionTypeVarargs { ty }))
         } else {
             None
         };
 
         self.ty = sess.tycx.bound(
-            Type::Function(FunctionTy {
+            Type::Function(FunctionType {
                 params: ty_params,
                 ret: Box::new(ret.into()),
                 varargs,
@@ -785,52 +785,13 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::Import(path) => check_import(sess, path),
-                ast::BuiltinKind::LangItem(item) => {
-                    // TODO: Remove this builtin?
-                    let ty = match item.as_str() {
-                        builtin::SYM_UNIT => sess.tycx.common_types.unit,
-                        builtin::SYM_BOOL => sess.tycx.common_types.bool,
-                        builtin::SYM_I8 => sess.tycx.common_types.i8,
-                        builtin::SYM_I16 => sess.tycx.common_types.i16,
-                        builtin::SYM_I32 => sess.tycx.common_types.i32,
-                        builtin::SYM_I64 => sess.tycx.common_types.i64,
-                        builtin::SYM_INT => sess.tycx.common_types.int,
-                        builtin::SYM_U8 => sess.tycx.common_types.u8,
-                        builtin::SYM_U16 => sess.tycx.common_types.u16,
-                        builtin::SYM_U32 => sess.tycx.common_types.u32,
-                        builtin::SYM_U64 => sess.tycx.common_types.u64,
-                        builtin::SYM_UINT => sess.tycx.common_types.uint,
-                        builtin::SYM_F16 => sess.tycx.common_types.f16,
-                        builtin::SYM_F32 => sess.tycx.common_types.f32,
-                        builtin::SYM_F64 => sess.tycx.common_types.f64,
-                        builtin::SYM_FLOAT => sess.tycx.common_types.float,
-                        builtin::SYM_NEVER => sess.tycx.common_types.never,
-                        builtin::SYM_TYPE => sess.tycx.common_types.anytype,
-                        _ => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!("unknown lang item `{}`", item))
-                                .with_label(Label::primary(self.span, "unknown lang item")))
-                        }
-                    };
-
-                    let const_value = ConstValue::Type(ty);
-                    let ty = sess.tycx.bound(ty.as_kind().create_type(), self.span);
-
-                    *self = ast::Expr::typed(
-                        ast::ExprKind::ConstValue(const_value.clone()),
-                        ty,
-                        self.span,
-                    );
-
-                    Ok(Res::new_const(ty, const_value))
-                }
-                ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
+                ast::Builtin::Import(path) => check_import(sess, path),
+                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::BuiltinKind::Run(expr, run_result) => {
+                ast::Builtin::Run(expr, run_result) => {
                     let res = expr.check(sess, env, None)?;
 
                     // TODO (Ron): unwrap interp result into a diagnostic
@@ -850,58 +811,10 @@ impl Check for ast::Expr {
                             .with_label(Label::primary(self.span, "evaluated here"))),
                     }
                 }
-                ast::BuiltinKind::Panic(expr) => {
+                ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.check(sess, env, None)?;
                     }
-                    Ok(Res::new(sess.tycx.common_types.unit))
-                }
-                ast::BuiltinKind::StartWorkspace(expr) => {
-                    // Note (Ron): can we somehow expect `std.build.Workspace` here?
-                    let res = expr.check(sess, env, None)?;
-
-                    let ty = res.ty.normalize(&sess.tycx);
-
-                    // TODO: this code could become more readable...
-                    let ty_diag = || {
-                        Diagnostic::error()
-                            .with_message("argument must be a compile-time known constant")
-                            .with_label(Label::primary(expr.span, "not a constant"))
-                    };
-
-                    match ty {
-                        Type::Struct(st) => {
-                            if let Some(binding_info) = sess
-                                .workspace
-                                .module_infos
-                                .iter()
-                                .position(|(_, m)| m.name == "std.build")
-                                .map(ModuleId::from)
-                                .and_then(|std_build_module_id| {
-                                    sess.workspace.binding_infos.iter().find(|(_, b)| {
-                                        b.module_id == std_build_module_id
-                                            && b.symbol == "Workspace"
-                                            && b.scope_level.is_global()
-                                    })
-                                })
-                                .map(|(_, b)| b)
-                            {
-                                if st.binding_info_id != binding_info.id {
-                                    return Err(ty_diag());
-                                }
-                            } else {
-                                return Err(ty_diag());
-                            }
-                        }
-                        _ => return Err(ty_diag()),
-                    }
-
-                    if !matches!(res.const_value, Some(ConstValue::Struct(_))) {
-                        return Err(Diagnostic::error()
-                            .with_message("argument must be a compile-time known constant")
-                            .with_label(Label::primary(expr.span, "not a constant")));
-                    }
-
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
@@ -1485,7 +1398,8 @@ impl Check for ast::Expr {
                             Err(_) => {
                                 let fields =
                                     IndexMap::from([(access.member, Type::Var(member_ty))]);
-                                sess.tycx.partial_struct(PartialStructTy(fields), self.span)
+                                sess.tycx
+                                    .partial_struct(PartialStructType(fields), self.span)
                             }
                         };
 
@@ -2056,7 +1970,7 @@ impl Check for ast::Expr {
 
                 // the struct's main type variable
                 let struct_ty_var = sess.tycx.bound(
-                    Type::Struct(StructTy::opaque(st.name, st.binding_info_id, st.kind)),
+                    Type::Struct(StructType::opaque(st.name, st.binding_info_id, st.kind)),
                     self.span,
                 );
 
@@ -2097,7 +2011,7 @@ impl Check for ast::Expr {
                         ));
                     }
 
-                    struct_ty_fields.push(StructTyField {
+                    struct_ty_fields.push(StructTypeField {
                         symbol: field.name,
                         ty: ty.into(),
                         span: field.span,
@@ -2108,7 +2022,7 @@ impl Check for ast::Expr {
 
                 sess.self_types.pop();
 
-                let struct_ty = Type::Struct(StructTy {
+                let struct_ty = Type::Struct(StructType {
                     name: st.name,
                     binding_info_id: st.binding_info_id,
                     kind: st.kind,
@@ -2180,7 +2094,7 @@ impl Check for ast::Expr {
                 Ok(Res::new_const(ty, const_value))
             }
             ast::ExprKind::ConstValue(const_value) => const_value.check(sess, env, expected_ty),
-            ast::ExprKind::Error => Ok(Res::new(sess.tycx.var(self.span))),
+            ast::ExprKind::Error(_) => Ok(Res::new(sess.tycx.var(self.span))),
         }?;
 
         self.ty = res.ty;
@@ -2262,7 +2176,7 @@ impl Check for ast::Call {
 
                 let return_ty = sess.tycx.var(self.span);
 
-                let inferred_fn_ty = Type::Function(FunctionTy {
+                let inferred_fn_ty = Type::Function(FunctionType {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
                     varargs: None,
@@ -2384,7 +2298,7 @@ impl Check for ConstValue {
 fn check_named_struct_literal(
     sess: &mut CheckSess,
     env: &mut Env,
-    struct_ty: StructTy,
+    struct_ty: StructType,
     fields: &mut Vec<ast::StructLiteralField>,
     span: Span,
 ) -> CheckResult {
@@ -2498,10 +2412,10 @@ fn check_anonymous_struct_literal(
 
     let mut fields_res: Vec<(Ustr, Res)> = vec![];
 
-    let mut struct_ty = StructTy {
+    let mut struct_ty = StructType {
         name,
         binding_info_id: BindingInfoId::unknown(),
-        kind: StructTyKind::Struct,
+        kind: StructTypeKind::Struct,
         fields: vec![],
     };
 
@@ -2515,7 +2429,7 @@ fn check_anonymous_struct_literal(
 
         let res = field.expr.check(sess, env, None)?;
 
-        struct_ty.fields.push(StructTyField {
+        struct_ty.fields.push(StructTypeField {
             symbol: field.symbol,
             ty: res.ty.into(),
             span: field.span,

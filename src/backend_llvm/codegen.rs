@@ -82,7 +82,7 @@ pub struct Codegen<'cg, 'ctx> {
 pub struct CodegenState<'ctx> {
     pub module_info: ModuleInfo,
     pub function: FunctionValue<'ctx>,
-    pub fn_type: FunctionTy,
+    pub fn_type: FunctionType,
     pub return_ptr: Option<PointerValue<'ctx>>,
     pub loop_blocks: Vec<LoopBlock<'ctx>>,
     pub decl_block: BasicBlock<'ctx>,
@@ -94,7 +94,7 @@ impl<'ctx> CodegenState<'ctx> {
     pub fn new(
         module_info: ModuleInfo,
         function: FunctionValue<'ctx>,
-        fn_type: FunctionTy,
+        fn_type: FunctionType,
         return_ptr: Option<PointerValue<'ctx>>,
         decl_block: BasicBlock<'ctx>,
         entry_block: BasicBlock<'ctx>,
@@ -352,7 +352,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
         ty: &Type,
-        struct_ty: &StructTy,
+        struct_ty: &StructType,
         ptr: PointerValue<'ctx>,
     ) {
         let struct_llvm_type = Some(ty.llvm_type(self));
@@ -636,19 +636,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ast::ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
-                ast::BuiltinKind::LangItem(item) => {
-                    panic!("unexpected lang_item builtin: {}", item)
-                }
-                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::Builtin::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
+                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::BuiltinKind::Panic(msg_expr) => {
+                ast::Builtin::Panic(msg_expr) => {
                     let message = if let Some(msg_expr) = msg_expr {
                         self.gen_expr(state, msg_expr, true)
                     } else {
@@ -658,11 +655,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_panic(state, message, expr.span);
                     self.gen_unit()
                 }
-                ast::BuiltinKind::Run(_, result) => {
+                ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
                     self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref)
                 }
-                ast::BuiltinKind::StartWorkspace(_) => self.gen_unit(),
             },
             ast::ExprKind::Function(func) => {
                 let function = self.gen_fn(state.module_info, func, Some(state.clone()));
@@ -1210,7 +1206,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_const_value(Some(state), const_value, &ty, deref)
             }
 
-            ast::ExprKind::Error => panic!("unexpected error node"),
+            ast::ExprKind::Error(_) => panic!("unexpected error node"),
         };
 
         if expr.ty.normalize(self.tycx).is_never() {

@@ -256,12 +256,11 @@ impl<'a> CollectHints<'a> for ast::Expr {
             }
             ast::ExprKind::Cast(t) => t.expr.collect_hints(sess),
             ast::ExprKind::Builtin(b) => match b {
-                ast::BuiltinKind::Import(_) | ast::BuiltinKind::LangItem(_) => (),
-                ast::BuiltinKind::SizeOf(expr)
-                | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::StartWorkspace(expr)
-                | ast::BuiltinKind::Run(expr, _) => expr.collect_hints(sess),
-                ast::BuiltinKind::Panic(expr) => expr.collect_hints(sess),
+                ast::Builtin::Import(_) => (),
+                ast::Builtin::SizeOf(expr)
+                | ast::Builtin::AlignOf(expr)
+                | ast::Builtin::Run(expr, _) => expr.collect_hints(sess),
+                ast::Builtin::Panic(expr) => expr.collect_hints(sess),
             },
             ast::ExprKind::Function(f) => {
                 f.sig.collect_hints(sess);
@@ -350,7 +349,7 @@ impl<'a> CollectHints<'a> for ast::Expr {
             | ast::ExprKind::SelfType
             | ast::ExprKind::ConstValue(_)
             | ast::ExprKind::Placeholder
-            | ast::ExprKind::Error => (),
+            | ast::ExprKind::Error(_) => (),
         }
     }
 }

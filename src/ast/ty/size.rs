@@ -16,66 +16,68 @@ impl SizeOf for Type {
             Type::Float(ty) => ty.size_of(word_size),
             Type::Pointer(..) | Type::MultiPointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
-            Type::Slice(..) => StructTy::temp(
+            Type::Slice(..) => StructType::temp(
                 vec![
-                    StructTyField::temp(Type::raw_pointer(false)),
-                    StructTyField::temp(Type::Uint(UintTy::Uint)),
+                    StructTypeField::temp(Type::raw_pointer(false)),
+                    StructTypeField::temp(Type::Uint(UintType::Uint)),
                 ],
-                StructTyKind::Struct,
+                StructTypeKind::Struct,
             )
             .size_of(word_size),
-            Type::Tuple(tys) => StructTy::temp(
-                tys.iter().map(|t| StructTyField::temp(t.clone())).collect(),
-                StructTyKind::Struct,
+            Type::Tuple(tys) => StructType::temp(
+                tys.iter()
+                    .map(|t| StructTypeField::temp(t.clone()))
+                    .collect(),
+                StructTypeKind::Struct,
             )
             .size_of(word_size),
             Type::Struct(s) => s.size_of(word_size),
-            Type::Infer(_, InferTy::AnyInt) => IntTy::Int.size_of(word_size),
-            Type::Infer(_, InferTy::AnyFloat) => FloatTy::Float.size_of(word_size),
+            Type::Infer(_, InferTy::AnyInt) => IntType::Int.size_of(word_size),
+            Type::Infer(_, InferTy::AnyFloat) => FloatType::Float.size_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }
 }
 
-impl SizeOf for IntTy {
+impl SizeOf for IntType {
     fn size_of(&self, word_size: usize) -> usize {
         match self {
-            IntTy::I8 => 1,
-            IntTy::I16 => 2,
-            IntTy::I32 => 4,
-            IntTy::I64 => 8,
-            IntTy::Int => word_size as _,
+            IntType::I8 => 1,
+            IntType::I16 => 2,
+            IntType::I32 => 4,
+            IntType::I64 => 8,
+            IntType::Int => word_size as _,
         }
     }
 }
 
-impl SizeOf for UintTy {
+impl SizeOf for UintType {
     fn size_of(&self, word_size: usize) -> usize {
         match self {
-            UintTy::U8 => 1,
-            UintTy::U16 => 2,
-            UintTy::U32 => 4,
-            UintTy::U64 => 8,
-            UintTy::Uint => word_size as _,
+            UintType::U8 => 1,
+            UintType::U16 => 2,
+            UintType::U32 => 4,
+            UintType::U64 => 8,
+            UintType::Uint => word_size as _,
         }
     }
 }
 
-impl SizeOf for FloatTy {
+impl SizeOf for FloatType {
     fn size_of(&self, word_size: usize) -> usize {
         match self {
-            FloatTy::F16 => 2,
-            FloatTy::F32 => 4,
-            FloatTy::F64 => 8,
-            FloatTy::Float => word_size as _,
+            FloatType::F16 => 2,
+            FloatType::F32 => 4,
+            FloatType::F64 => 8,
+            FloatType::Float => word_size as _,
         }
     }
 }
 
-impl SizeOf for StructTy {
+impl SizeOf for StructType {
     fn size_of(&self, word_size: usize) -> usize {
         match self.kind {
-            StructTyKind::Struct => {
+            StructTypeKind::Struct => {
                 let mut offset = 0;
 
                 for field in self.fields.iter() {
@@ -87,8 +89,10 @@ impl SizeOf for StructTy {
                 offset = calculate_align_from_offset(offset, self.align_of(word_size));
                 offset
             }
-            StructTyKind::PackedStruct => self.fields.iter().map(|f| f.ty.size_of(word_size)).sum(),
-            StructTyKind::Union => {
+            StructTypeKind::PackedStruct => {
+                self.fields.iter().map(|f| f.ty.size_of(word_size)).sum()
+            }
+            StructTypeKind::Union => {
                 let max_size = self
                     .fields
                     .iter()

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::ast::{
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    ty::{align::AlignOf, size::SizeOf, FloatTy, InferTy, IntTy, Type, UintTy},
+    ty::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
     workspace::BindingInfoId,
 };
 use crate::infer::ty_ctx::TyCtx;
@@ -322,23 +322,23 @@ impl From<&Type> for ValueKind {
             Type::Never | Type::Unit => ValueKind::Aggregate,
             Type::Bool => ValueKind::Bool,
             Type::Int(ty) => match ty {
-                IntTy::I8 => Self::I8,
-                IntTy::I16 => Self::I16,
-                IntTy::I32 => Self::I32,
-                IntTy::I64 => Self::I64,
-                IntTy::Int => Self::Int,
+                IntType::I8 => Self::I8,
+                IntType::I16 => Self::I16,
+                IntType::I32 => Self::I32,
+                IntType::I64 => Self::I64,
+                IntType::Int => Self::Int,
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Self::U8,
-                UintTy::U16 => Self::U16,
-                UintTy::U32 => Self::U32,
-                UintTy::U64 => Self::U64,
-                UintTy::Uint => Self::Uint,
+                UintType::U8 => Self::U8,
+                UintType::U16 => Self::U16,
+                UintType::U32 => Self::U32,
+                UintType::U64 => Self::U64,
+                UintType::Uint => Self::Uint,
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => Self::F32,
-                FloatTy::F64 => Self::F64,
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => Self::F32,
+                FloatType::F64 => Self::F64,
+                FloatType::Float => {
                     if IS_64BIT {
                         Self::F64
                     } else {
@@ -385,23 +385,23 @@ impl Value {
             Type::Never | Type::Unit => Self::unit(),
             Type::Bool => Self::Bool(*(ptr as *mut bool)),
             Type::Int(ty) => match ty {
-                IntTy::I8 => Self::I8(*(ptr as *mut i8)),
-                IntTy::I16 => Self::I16(*(ptr as *mut i16)),
-                IntTy::I32 => Self::I32(*(ptr as *mut i32)),
-                IntTy::I64 => Self::I64(*(ptr as *mut i64)),
-                IntTy::Int => Self::Int(*(ptr as *mut isize)),
+                IntType::I8 => Self::I8(*(ptr as *mut i8)),
+                IntType::I16 => Self::I16(*(ptr as *mut i16)),
+                IntType::I32 => Self::I32(*(ptr as *mut i32)),
+                IntType::I64 => Self::I64(*(ptr as *mut i64)),
+                IntType::Int => Self::Int(*(ptr as *mut isize)),
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Self::U8(*(ptr as *mut u8)),
-                UintTy::U16 => Self::U16(*(ptr as *mut u16)),
-                UintTy::U32 => Self::U32(*(ptr as *mut u32)),
-                UintTy::U64 => Self::U64(*(ptr as *mut u64)),
-                UintTy::Uint => Self::Uint(*(ptr as *mut usize)),
+                UintType::U8 => Self::U8(*(ptr as *mut u8)),
+                UintType::U16 => Self::U16(*(ptr as *mut u16)),
+                UintType::U32 => Self::U32(*(ptr as *mut u32)),
+                UintType::U64 => Self::U64(*(ptr as *mut u64)),
+                UintType::Uint => Self::Uint(*(ptr as *mut usize)),
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => Self::F32(*(ptr as *mut f32)),
-                FloatTy::F64 => Self::F64(*(ptr as *mut f64)),
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => Self::F32(*(ptr as *mut f32)),
+                FloatType::F64 => Self::F64(*(ptr as *mut f64)),
+                FloatType::Float => {
                     if IS_64BIT {
                         Self::F64(*(ptr as *mut f64))
                     } else {
@@ -449,18 +449,18 @@ impl Value {
 
     pub fn get_ty_kind(&self) -> Type {
         match self {
-            Self::I8(_) => Type::Int(IntTy::I8),
-            Self::I16(_) => Type::Int(IntTy::I16),
-            Self::I32(_) => Type::Int(IntTy::I32),
-            Self::I64(_) => Type::Int(IntTy::I64),
-            Self::Int(_) => Type::Int(IntTy::Int),
-            Self::U8(_) => Type::Uint(UintTy::U8),
-            Self::U16(_) => Type::Uint(UintTy::U16),
-            Self::U32(_) => Type::Uint(UintTy::U32),
-            Self::U64(_) => Type::Uint(UintTy::U64),
-            Self::Uint(_) => Type::Uint(UintTy::Uint),
-            Self::F32(_) => Type::Float(FloatTy::F32),
-            Self::F64(_) => Type::Float(FloatTy::F64),
+            Self::I8(_) => Type::Int(IntType::I8),
+            Self::I16(_) => Type::Int(IntType::I16),
+            Self::I32(_) => Type::Int(IntType::I32),
+            Self::I64(_) => Type::Int(IntType::I64),
+            Self::Int(_) => Type::Int(IntType::Int),
+            Self::U8(_) => Type::Uint(UintType::U8),
+            Self::U16(_) => Type::Uint(UintType::U16),
+            Self::U32(_) => Type::Uint(UintType::U32),
+            Self::U64(_) => Type::Uint(UintType::U64),
+            Self::Uint(_) => Type::Uint(UintType::Uint),
+            Self::F32(_) => Type::Float(FloatType::F32),
+            Self::F64(_) => Type::Float(FloatType::F64),
             Self::Bool(_) => Type::Bool,
             Self::Aggregate(agg) => agg.ty.clone(),
             Self::Array(arr) => arr.ty.clone(),
@@ -494,7 +494,7 @@ impl Value {
             Self::Aggregate(agg) => match ty {
                 Type::Unit => Ok(ConstValue::Unit(())),
                 Type::Slice(inner, _) => {
-                    if matches!(inner.as_ref(), Type::Uint(UintTy::U8)) {
+                    if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
                         let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;
                         let len = *agg.elements[1].as_uint();
                         let slice = unsafe { slice::from_raw_parts(data, len) };
@@ -626,23 +626,23 @@ impl Pointer {
             Type::Never | Type::Unit => Self::U8(ptr as _),
             Type::Bool => Self::Bool(ptr as _),
             Type::Int(ty) => match ty {
-                IntTy::I8 => Self::I8(ptr as _),
-                IntTy::I16 => Self::I16(ptr as _),
-                IntTy::I32 => Self::I32(ptr as _),
-                IntTy::I64 => Self::I64(ptr as _),
-                IntTy::Int => Self::Int(ptr as _),
+                IntType::I8 => Self::I8(ptr as _),
+                IntType::I16 => Self::I16(ptr as _),
+                IntType::I32 => Self::I32(ptr as _),
+                IntType::I64 => Self::I64(ptr as _),
+                IntType::Int => Self::Int(ptr as _),
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Self::U8(ptr as _),
-                UintTy::U16 => Self::U16(ptr as _),
-                UintTy::U32 => Self::U32(ptr as _),
-                UintTy::U64 => Self::U64(ptr as _),
-                UintTy::Uint => Self::Uint(ptr as _),
+                UintType::U8 => Self::U8(ptr as _),
+                UintType::U16 => Self::U16(ptr as _),
+                UintType::U32 => Self::U32(ptr as _),
+                UintType::U64 => Self::U64(ptr as _),
+                UintType::Uint => Self::Uint(ptr as _),
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => Self::F32(ptr as _),
-                FloatTy::F64 => Self::F64(ptr as _),
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => Self::F32(ptr as _),
+                FloatType::F64 => Self::F64(ptr as _),
+                FloatType::Float => {
                     if IS_64BIT {
                         Self::F32(ptr as _)
                     } else {
@@ -682,23 +682,23 @@ impl Pointer {
 
     pub fn get_ty_kind(&self) -> Type {
         match self {
-            Self::I8(_) => Type::Int(IntTy::I8),
-            Self::I16(_) => Type::Int(IntTy::I16),
-            Self::I32(_) => Type::Int(IntTy::I32),
-            Self::I64(_) => Type::Int(IntTy::I64),
-            Self::Int(_) => Type::Int(IntTy::Int),
-            Self::U8(_) => Type::Uint(UintTy::U8),
-            Self::U16(_) => Type::Uint(UintTy::U16),
-            Self::U32(_) => Type::Uint(UintTy::U32),
-            Self::U64(_) => Type::Uint(UintTy::U64),
-            Self::Uint(_) => Type::Uint(UintTy::Uint),
-            Self::F32(_) => Type::Float(FloatTy::F32),
-            Self::F64(_) => Type::Float(FloatTy::F64),
+            Self::I8(_) => Type::Int(IntType::I8),
+            Self::I16(_) => Type::Int(IntType::I16),
+            Self::I32(_) => Type::Int(IntType::I32),
+            Self::I64(_) => Type::Int(IntType::I64),
+            Self::Int(_) => Type::Int(IntType::Int),
+            Self::U8(_) => Type::Uint(UintType::U8),
+            Self::U16(_) => Type::Uint(UintType::U16),
+            Self::U32(_) => Type::Uint(UintType::U32),
+            Self::U64(_) => Type::Uint(UintType::U64),
+            Self::Uint(_) => Type::Uint(UintType::Uint),
+            Self::F32(_) => Type::Float(FloatType::F32),
+            Self::F64(_) => Type::Float(FloatType::F64),
             Self::Bool(_) => Type::Bool,
             Self::Aggregate(_) => todo!(),
             Self::Pointer(p) => Type::Pointer(
                 if p.is_null() {
-                    Box::new(Type::Uint(UintTy::U8))
+                    Box::new(Type::Uint(UintType::U8))
                 } else {
                     Box::new(unsafe { &**p }.get_ty_kind())
                 },

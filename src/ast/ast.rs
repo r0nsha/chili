@@ -110,7 +110,7 @@ pub enum ExprKind {
     Defer(Defer),
     Assign(Assign),
     Cast(Cast),
-    Builtin(BuiltinKind),
+    Builtin(Builtin),
     Function(Function),
     While(While),
     For(For),
@@ -139,7 +139,7 @@ pub enum ExprKind {
     SelfType,
     Placeholder,
     ConstValue(ConstValue),
-    Error,
+    Error(Span),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -227,7 +227,7 @@ pub struct Slice {
 pub struct StructType {
     pub name: Ustr,
     pub fields: Vec<StructTypeField>,
-    pub kind: StructTyKind,
+    pub kind: StructTypeKind,
     pub binding_info_id: BindingInfoId,
 }
 
@@ -303,14 +303,12 @@ impl LiteralKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum BuiltinKind {
+pub enum Builtin {
     Import(PathBuf),
-    LangItem(Ustr),
     SizeOf(Box<Expr>),
     AlignOf(Box<Expr>),
     Panic(Option<Box<Expr>>),
     Run(Box<Expr>, Option<ConstValue>), // 1. expression to run | 2. the expression's result
-    StartWorkspace(Box<Expr>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

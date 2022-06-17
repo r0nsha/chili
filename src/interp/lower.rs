@@ -12,8 +12,8 @@ use crate::ast::{
     const_value::ConstValue,
     pattern::{Pattern, UnpackPattern, UnpackPatternKind},
     ty::{
-        align::AlignOf, size::SizeOf, FloatTy, FunctionTy, InferTy, IntTy, StructTy, Type, TypeId,
-        UintTy,
+        align::AlignOf, size::SizeOf, FloatType, FunctionType, InferTy, IntType, StructType, Type,
+        TypeId, UintType,
     },
     workspace::BindingInfoId,
 };
@@ -54,19 +54,19 @@ impl Lower for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::BuiltinKind::Panic(expr) => {
+                ast::Builtin::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.lower(sess, code, ctx);
                     } else {
@@ -75,10 +75,8 @@ impl Lower for ast::Expr {
 
                     code.push(Instruction::Panic);
                 }
-                ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
-                ast::BuiltinKind::StartWorkspace(_) => todo!("start workspace"),
-                ast::BuiltinKind::Import(_) => sess.push_const_unit(code),
-                ast::BuiltinKind::LangItem(_) => panic!("unexpected lang_item"),
+                ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
+                ast::Builtin::Import(_) => sess.push_const_unit(code),
             },
             ast::ExprKind::Function(func) => func.lower(sess, code, ctx),
             ast::ExprKind::While(while_) => {
@@ -274,7 +272,7 @@ impl Lower for ast::Expr {
                 let value = const_value_to_value(const_value, self.ty, sess);
                 sess.push_const(code, value);
             }
-            ast::ExprKind::Error => panic!("got an Error expression"),
+            ast::ExprKind::Error(_) => panic!("got an Error expression"),
         }
     }
 }
@@ -399,7 +397,7 @@ fn lower_local_module_unpack(
 
 fn lower_local_struct_unpack(
     pattern: &UnpackPattern,
-    struct_ty: &StructTy,
+    struct_ty: &StructType,
     sess: &mut InterpSess,
     code: &mut CompiledCode,
 ) {
@@ -453,27 +451,27 @@ impl Lower for ast::Cast {
             Type::Never | Type::Unit | Type::Bool => (),
             Type::Int(ty) => {
                 code.push(match ty {
-                    IntTy::I8 => Instruction::Cast(CastInstruction::I8),
-                    IntTy::I16 => Instruction::Cast(CastInstruction::I16),
-                    IntTy::I32 => Instruction::Cast(CastInstruction::I32),
-                    IntTy::I64 => Instruction::Cast(CastInstruction::I64),
-                    IntTy::Int => Instruction::Cast(CastInstruction::Int),
+                    IntType::I8 => Instruction::Cast(CastInstruction::I8),
+                    IntType::I16 => Instruction::Cast(CastInstruction::I16),
+                    IntType::I32 => Instruction::Cast(CastInstruction::I32),
+                    IntType::I64 => Instruction::Cast(CastInstruction::I64),
+                    IntType::Int => Instruction::Cast(CastInstruction::Int),
                 });
             }
             Type::Uint(ty) => {
                 code.push(match ty {
-                    UintTy::U8 => Instruction::Cast(CastInstruction::U8),
-                    UintTy::U16 => Instruction::Cast(CastInstruction::U16),
-                    UintTy::U32 => Instruction::Cast(CastInstruction::U32),
-                    UintTy::U64 => Instruction::Cast(CastInstruction::U64),
-                    UintTy::Uint => Instruction::Cast(CastInstruction::Uint),
+                    UintType::U8 => Instruction::Cast(CastInstruction::U8),
+                    UintType::U16 => Instruction::Cast(CastInstruction::U16),
+                    UintType::U32 => Instruction::Cast(CastInstruction::U32),
+                    UintType::U64 => Instruction::Cast(CastInstruction::U64),
+                    UintType::Uint => Instruction::Cast(CastInstruction::Uint),
                 });
             }
             Type::Float(ty) => {
                 code.push(match ty {
-                    FloatTy::F16 | FloatTy::F32 => Instruction::Cast(CastInstruction::F32),
-                    FloatTy::F64 => Instruction::Cast(CastInstruction::F64),
-                    FloatTy::Float => Instruction::Cast(if IS_64BIT {
+                    FloatType::F16 | FloatType::F32 => Instruction::Cast(CastInstruction::F32),
+                    FloatType::F64 => Instruction::Cast(CastInstruction::F64),
+                    FloatType::Float => Instruction::Cast(if IS_64BIT {
                         CastInstruction::F64
                     } else {
                         CastInstruction::F32
@@ -945,23 +943,23 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         ConstValue::Bool(v) => Value::Bool(*v),
         ConstValue::Int(v) => match ty {
             Type::Int(int_ty) => match int_ty {
-                IntTy::I8 => Value::I8(*v as _),
-                IntTy::I16 => Value::I16(*v as _),
-                IntTy::I32 => Value::I32(*v as _),
-                IntTy::I64 => Value::I64(*v as _),
-                IntTy::Int => Value::Int(*v as _),
+                IntType::I8 => Value::I8(*v as _),
+                IntType::I16 => Value::I16(*v as _),
+                IntType::I32 => Value::I32(*v as _),
+                IntType::I64 => Value::I64(*v as _),
+                IntType::Int => Value::Int(*v as _),
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Value::U8(*v as _),
-                UintTy::U16 => Value::U16(*v as _),
-                UintTy::U32 => Value::U32(*v as _),
-                UintTy::U64 => Value::U64(*v as _),
-                UintTy::Uint => Value::Uint(*v as _),
+                UintType::U8 => Value::U8(*v as _),
+                UintType::U16 => Value::U16(*v as _),
+                UintType::U32 => Value::U32(*v as _),
+                UintType::U64 => Value::U64(*v as _),
+                UintType::Uint => Value::Uint(*v as _),
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
-                FloatTy::F64 => Value::F64(*v as _),
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
+                FloatType::F64 => Value::F64(*v as _),
+                FloatType::Float => {
                     if IS_64BIT {
                         Value::F64(*v as _)
                     } else {
@@ -981,23 +979,23 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         },
         ConstValue::Uint(v) => match ty {
             Type::Int(int_ty) => match int_ty {
-                IntTy::I8 => Value::I8(*v as _),
-                IntTy::I16 => Value::I16(*v as _),
-                IntTy::I32 => Value::I32(*v as _),
-                IntTy::I64 => Value::I64(*v as _),
-                IntTy::Int => Value::Int(*v as _),
+                IntType::I8 => Value::I8(*v as _),
+                IntType::I16 => Value::I16(*v as _),
+                IntType::I32 => Value::I32(*v as _),
+                IntType::I64 => Value::I64(*v as _),
+                IntType::Int => Value::Int(*v as _),
             },
             Type::Uint(ty) => match ty {
-                UintTy::U8 => Value::U8(*v as _),
-                UintTy::U16 => Value::U16(*v as _),
-                UintTy::U32 => Value::U32(*v as _),
-                UintTy::U64 => Value::U64(*v as _),
-                UintTy::Uint => Value::Uint(*v as _),
+                UintType::U8 => Value::U8(*v as _),
+                UintType::U16 => Value::U16(*v as _),
+                UintType::U32 => Value::U32(*v as _),
+                UintType::U64 => Value::U64(*v as _),
+                UintType::Uint => Value::Uint(*v as _),
             },
             Type::Float(ty) => match ty {
-                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
-                FloatTy::F64 => Value::F64(*v as _),
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
+                FloatType::F64 => Value::F64(*v as _),
+                FloatType::Float => {
                     if IS_64BIT {
                         Value::F64(*v as _)
                     } else {
@@ -1017,9 +1015,9 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         },
         ConstValue::Float(v) => match ty {
             Type::Float(float_ty) => match float_ty {
-                FloatTy::F16 | FloatTy::F32 => Value::F32(*v as _),
-                FloatTy::F64 => Value::F64(*v as _),
-                FloatTy::Float => {
+                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
+                FloatType::F64 => Value::F64(*v as _),
+                FloatType::Float => {
                     if IS_64BIT {
                         Value::F64(*v as _)
                     } else {
@@ -1413,7 +1411,7 @@ fn lower_top_level_binding_module_unpack(
 
 fn lower_top_level_binding_struct_unpack(
     pattern: &UnpackPattern,
-    struct_ty: &StructTy,
+    struct_ty: &StructType,
     desired_id: BindingInfoId,
     desired_slot: &mut usize,
     code: &mut CompiledCode,
@@ -1512,7 +1510,7 @@ fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut Comp
     }
 }
 
-fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionTy) -> ExternFunction {
+fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionType) -> ExternFunction {
     ExternFunction {
         lib_path: ustr(&func_ty.extern_lib.as_ref().unwrap().path()),
         name,

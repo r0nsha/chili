@@ -7,7 +7,7 @@ use crate::ast::{
     ast,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
-    ty::{InferTy, PartialStructTy, Type, TypeId},
+    ty::{InferTy, PartialStructType, Type, TypeId},
     workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
 };
 use crate::error::{
@@ -300,7 +300,7 @@ impl<'s> CheckSess<'s> {
                 Ok(())
             }
             ty_kind => {
-                let partial_struct = PartialStructTy(IndexMap::from_iter(
+                let partial_struct = PartialStructType(IndexMap::from_iter(
                     unpack_pattern
                         .symbols
                         .iter()
