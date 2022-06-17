@@ -6,6 +6,9 @@ pub struct BuildOptions {
     /// The root source file input from the user
     pub source_file: PathBuf,
 
+    /// Optional output file path
+    pub output_file: Option<PathBuf>,
+
     /// The target platform, including os and arch.
     /// If this is None, the target platform will be the current one, and codegen is skipped
     pub target_platform: TargetPlatform,

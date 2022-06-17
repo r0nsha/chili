@@ -26,8 +26,14 @@ impl<'vm> VM<'vm> {
                     .unwrap()
                     .to_path_buf();
 
+                let output_file = PathBuf::from(workspace.build_options.output_file)
+                    .absolutize_from(self.interp.build_options.root_dir())
+                    .unwrap()
+                    .to_path_buf();
+
                 let build_options = BuildOptions {
                     source_file,
+                    output_file: Some(output_file),
                     target_platform: match &workspace.build_options.target {
                         BuildTargetValue::Auto => TargetPlatform::current().unwrap(),
                         BuildTargetValue::Linux => TargetPlatform::LinuxAmd64,

@@ -97,6 +97,7 @@ fn cli() {
             if args.run {
                 let build_options = BuildOptions {
                     source_file,
+                    output_file: None,
                     target_platform: current_target_platform(),
                     opt_level: OptLevel::Debug,
                     verbose: args.verbose,
@@ -114,6 +115,7 @@ fn cli() {
             } else if args.check {
                 let build_options = BuildOptions {
                     source_file,
+                    output_file: None,
                     target_platform: current_target_platform(),
                     opt_level: OptLevel::Debug,
                     verbose: false,
@@ -138,6 +140,7 @@ fn cli() {
             } else {
                 let build_options = BuildOptions {
                     source_file,
+                    output_file: None,
                     target_platform: current_target_platform(),
                     opt_level: OptLevel::Debug,
                     verbose: args.verbose,

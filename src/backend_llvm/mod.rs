@@ -178,19 +178,24 @@ fn build_executable(
     module: &Module,
     extern_libraries: &HashSet<ast::ExternLibrary>,
 ) -> String {
-    let source_path = &build_options.source_file;
+    let output_path = build_options
+        .output_file
+        .as_ref()
+        .unwrap_or_else(|| &build_options.source_file);
 
     let object_file = if target_metrics.os == Os::Windows {
-        source_path.with_extension("obj")
+        output_path.with_extension("obj")
     } else {
-        source_path.with_extension("o")
+        output_path.with_extension("o")
     };
 
     let executable_file = if target_metrics.os == Os::Windows {
-        source_path.with_extension("exe")
+        output_path.with_extension("exe")
     } else {
-        source_path.with_extension("")
+        output_path.with_extension("")
     };
+
+    let _ = std::fs::create_dir_all(output_path.parent().unwrap());
 
     time! { build_options.verbose, "write obj",
         target_machine
