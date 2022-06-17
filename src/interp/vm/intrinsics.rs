@@ -40,7 +40,10 @@ impl<'vm> VM<'vm> {
                     verbose: self.interp.build_options.verbose,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
                     codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
-                        emit_llvm_ir: false,
+                        emit_llvm_ir: match &self.interp.build_options.codegen_options {
+                            CodegenOptions::Codegen(o) => o.emit_llvm_ir,
+                            CodegenOptions::Skip => false,
+                        },
                         run_executable: workspace.build_options.run_executable,
                     }),
                     include_paths: vec![],

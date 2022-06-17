@@ -20,6 +20,7 @@ use crate::common::{
 };
 use clap::*;
 use colored::Colorize;
+use common::build_options::EnabledCodegenOptions;
 use path_absolutize::Absolutize;
 use std::path::{Path, PathBuf};
 
@@ -32,80 +33,46 @@ use std::path::{Path, PathBuf};
     long_about = "Compiler for the Chili programming language"
 )]
 struct Args {
-    /// The main action the compiler should take
-    #[clap(subcommand)]
-    action: Action,
-}
-
-#[derive(clap::Subcommand, Debug, PartialEq, Eq)]
-enum Action {
-    /// Compile a chili source file, as an executable
-    Build(BuildArgs),
-    /// Same as `build`, but also runs the compiled executable
-    Run(BuildArgs),
-    /// Checks the source file, providing additional flags - mainly for LSP usage
-    Check(CheckArgs),
-}
-
-#[derive(Args, Debug, PartialEq, Eq)]
-struct BuildArgs {
-    /// The main action the compiler should take
+    /// The main action the compiler should take.
     input: String,
 
-    /// Change the build mode to release, disabling runtime safety and enabling optimizations
-    #[clap(long)]
-    release: bool,
-
-    /// Print trace information verbosely
+    /// Print trace information verbosely.
     #[clap(long)]
     verbose: bool,
 
-    /// Emit LLVM IR file
-    #[clap(long)]
-    emit_llvm_ir: bool,
-
-    /// Skip the code generation phase
-    #[clap(long)]
-    no_codegen: bool,
-
-    /// Omit colors from output
+    /// Omit colors from output.
     #[clap(long)]
     no_color: bool,
 
-    /// Specify the target platform. Important: This flag is a placeholder until workspace-based configuration is implemented
-    #[clap(arg_enum, default_value_t = Target::Current)]
-    target: Target,
-
-    /// Additional include paths, separated by ;
+    /// Emit LLVM IR file.
     #[clap(long)]
-    include_paths: Option<String>,
-}
+    emit_llvm_ir: bool,
 
-#[derive(clap::ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
-enum Target {
-    Current,
-    Windows,
-    Linux,
-}
-
-#[derive(Args, Debug, PartialEq, Eq)]
-struct CheckArgs {
-    /// The main action the compiler should take
-    input: String,
-
-    /// Additional include paths, separated by ;
+    /// Additional include paths, separated by ;.
     #[clap(long)]
     include_paths: Option<String>,
 
-    /// Return diagnostics of the input file, and all files imported by it - recursively
+    /// Enables Run mode - which runs the input file using the default options for the current platform.
+    #[clap(long)]
+    run: bool,
+
+    /// Enables Check mode - which only checks the input file, skipping code generation.
+    /// Check mode also enables additionals flags for language support.
+    #[clap(long)]
+    check: bool,
+
+    /// Only available in Check mode.
+    /// Return diagnostics of the input file, and all files imported by it - recursively.
     #[clap(long)]
     diagnostics: bool,
 
-    /// Return the hover info for a given index, in the given input file
+    /// Only available in Check mode.
+    /// Return the hover info for a given index, in the given input file.
     #[clap(long)]
     hover_info: Option<usize>,
 
-    /// Return the hover info for a given index, in the given input file
+    /// Only available in Check mode.
+    /// Return the hover info for a given index, in the given input file.
     #[clap(long)]
     goto_def: Option<usize>,
 }
@@ -123,10 +90,11 @@ fn main() {
 fn cli() {
     let args = Args::parse();
 
-    match args.action {
-        Action::Build(args) | Action::Run(args) => match get_file_path(&args.input) {
-            Ok(source_file) => {
-                let name = get_workspace_name(&source_file);
+    match get_file_path(&args.input) {
+        Ok(source_file) => {
+            let name = get_workspace_name(&source_file);
+
+            if args.run {
                 let build_options = BuildOptions {
                     source_file,
                     target_platform: current_target_platform(),
@@ -135,17 +103,15 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
-                    codegen_options: CodegenOptions::Skip,
+                    codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
+                        emit_llvm_ir: args.emit_llvm_ir,
+                        run_executable: true,
+                    }),
                     include_paths: get_include_paths(&args.include_paths),
                 };
 
                 driver::start_workspace(name, build_options);
-            }
-            Err(e) => print_err(&e),
-        },
-        Action::Check(args) => match get_file_path(&args.input) {
-            Ok(source_file) => {
-                let name = get_workspace_name(&source_file);
+            } else if args.check {
                 let build_options = BuildOptions {
                     source_file,
                     target_platform: current_target_platform(),
@@ -169,10 +135,24 @@ fn cli() {
                 } else if let Some(offset) = args.goto_def {
                     ide::goto_definition(&result.workspace, result.tycx.as_ref(), offset);
                 }
+            } else {
+                let build_options = BuildOptions {
+                    source_file,
+                    target_platform: current_target_platform(),
+                    opt_level: OptLevel::Debug,
+                    verbose: args.verbose,
+                    diagnostic_options: DiagnosticOptions::Emit {
+                        no_color: args.no_color,
+                    },
+                    codegen_options: CodegenOptions::Skip,
+                    include_paths: get_include_paths(&args.include_paths),
+                };
+
+                driver::start_workspace(name, build_options);
             }
-            Err(e) => print_err(&e),
-        },
-    };
+        }
+        Err(e) => print_err(&e),
+    }
 }
 
 fn get_workspace_name(source_file: &Path) -> String {

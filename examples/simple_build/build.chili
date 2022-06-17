@@ -16,8 +16,6 @@ let build = fn() {
 		build_options
 	};
 
-	println("Hello from build file");
-
 	start_workspace(workspace);
 };
 
