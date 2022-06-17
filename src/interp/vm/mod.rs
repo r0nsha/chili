@@ -322,7 +322,11 @@ impl<'vm> VM<'vm> {
 
                             self.next();
                         }
-                        Value::IntrinsicFunction(func) => self.dispatch_intrinsic(*func),
+                        Value::IntrinsicFunction(func) => {
+                            let func = *func;
+                            self.stack.pop();
+                            self.dispatch_intrinsic(func)
+                        }
                         _ => panic!("tried to call uncallable value `{}`", value.to_string()),
                     }
                 }

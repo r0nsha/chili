@@ -1,5 +1,6 @@
 let ? = @import("std/build");
 let { println } = @import("std/fmt");
+let os = @import("std/fmt");
 
 let build = fn() {
 	let build_options = BuildOptions {

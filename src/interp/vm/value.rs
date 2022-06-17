@@ -262,6 +262,19 @@ impl Clone for Aggregate {
     }
 }
 
+impl Aggregate {
+    pub unsafe fn as_slice<T>(&self) -> &[T] {
+        std::slice::from_raw_parts(
+            self.elements[0].as_pointer().as_inner_raw() as *const T,
+            *self.elements[1].as_uint(),
+        )
+    }
+
+    pub unsafe fn as_str(&self) -> &str {
+        std::str::from_utf8(self.as_slice::<u8>()).unwrap()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Array {
     pub bytes: ByteSeq,

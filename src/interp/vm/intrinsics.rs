@@ -8,13 +8,18 @@ use crate::{
         build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptLevel},
         target::TargetPlatform,
     },
-    interp::vm::value::Value,
+    interp::{vm::value::Value, workspace::WorkspaceValue},
 };
 
 impl<'vm> VM<'vm> {
     pub fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
         match intrinsic {
             IntrinsicFunction::StartWorkspace => {
+                let value = self.stack.pop();
+                let workspace = WorkspaceValue::from(&value);
+
+                dbg!(&workspace);
+
                 // TODO
                 let source_file = PathBuf::from("src/main.chili")
                     .absolutize_from(self.interp.build_options.root_dir())
