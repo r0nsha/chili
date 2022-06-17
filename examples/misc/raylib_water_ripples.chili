@@ -94,4 +94,4 @@ let frand = fn(min: f64, max: f64) -> f64 {
 
 let RAND_MAX: uint = 32767
 
-@run(main())
+run!(main())

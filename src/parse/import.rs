@@ -19,11 +19,11 @@ impl Parser {
 
         let absolute_import_path = if path == "~" {
             // import root file
-            // example: @import("~")
+            // example: import!("~")
             cache.root_file.clone()
         } else if path.starts_with("~") {
             // import relative to the root dir
-            // example: @import("~/foo")
+            // example: import!("~/foo")
             let import_path = cache
                 .root_dir
                 .join(PathBuf::from(path.trim_start_matches("~/")))
@@ -37,7 +37,7 @@ impl Parser {
             import_path
         } else if compiler_info::is_std_module_path(&path) {
             // import std root file
-            // example: @import("std")
+            // example: import!("std")
             try_resolve_relative_path(
                 &compiler_info::std_module_root_file(),
                 RelativeTo::Cwd,
@@ -45,7 +45,7 @@ impl Parser {
             )?
         } else if compiler_info::is_std_module_path_start(&path) {
             // import relative to std root dir
-            // example: @import("std/foo/bar")
+            // example: import!("std/foo/bar")
             let trimmed_path = path
                 .trim_start_matches(compiler_info::STD_PREFIX_FW)
                 .trim_start_matches(compiler_info::STD_PREFIX_BK);
@@ -57,7 +57,7 @@ impl Parser {
             try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
         } else {
             // import relative to current dir
-            // example: @import("foo/bar")
+            // example: import!("foo/bar")
             let import_path = PathBuf::from(path).with_extension(compiler_info::SOURCE_FILE_EXT);
             self.search_for_import_path(&cache, &import_path, token.span)?
         };

@@ -253,19 +253,22 @@ impl Parser {
         let expr = if eat!(self, Ident(_)) {
             const SELF_SYMBOL: &str = "Self";
 
-            let token = self.previous();
+            let token = self.previous().clone();
             let symbol = token.symbol();
 
-            let kind = if symbol == SELF_SYMBOL {
-                ExprKind::SelfType
+            if symbol == SELF_SYMBOL {
+                Expr::new(ExprKind::SelfType, token.span)
+            } else if eat!(self, Bang) {
+                self.parse_builtin(symbol, token.span)?
             } else {
-                ExprKind::Ident(ast::Ident {
-                    symbol,
-                    binding_info_id: Default::default(),
-                })
-            };
-
-            Expr::new(kind, token.span)
+                Expr::new(
+                    ExprKind::Ident(ast::Ident {
+                        symbol,
+                        binding_info_id: Default::default(),
+                    }),
+                    token.span,
+                )
+            }
         } else if eat!(self, Placeholder) {
             Expr::new(ExprKind::Placeholder, self.previous_span())
         } else if eat!(self, Star) {
@@ -305,8 +308,6 @@ impl Parser {
                     &format!("an expression, got `{}`", self.peek().lexeme),
                 ));
             }
-        } else if eat!(self, At) {
-            self.parse_builtin()?
         } else if eat!(self, Break | Continue | Return) {
             self.parse_terminator()?
         } else if eat!(
@@ -488,11 +489,7 @@ impl Parser {
         Ok(fields)
     }
 
-    fn parse_builtin(&mut self) -> DiagnosticResult<Expr> {
-        let start_span = self.previous_span();
-        let id_token = require!(self, Ident(_), "an identifier")?;
-        let symbol = id_token.symbol();
-
+    fn parse_builtin(&mut self, symbol: Ustr, start_span: Span) -> DiagnosticResult<Expr> {
         require!(self, OpenParen, "(")?;
 
         let builtin = match symbol.as_str() {
@@ -510,7 +507,7 @@ impl Parser {
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))
-                    .with_label(Label::primary(start_span.to(id_token.span), "")))
+                    .with_label(Label::primary(start_span, "")))
             }
         };
 

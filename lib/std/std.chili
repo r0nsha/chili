@@ -1,5 +1,5 @@
-pub let build = @import("build");
-pub let c = @import("c");
-pub let fmt = @import("fmt");
-pub let panicking = @import("panicking");
-pub let process = @import("process");
+pub let build = import!("build");
+pub let c = import!("c");
+pub let fmt = import!("fmt");
+pub let panicking = import!("panicking");
+pub let process = import!("process");

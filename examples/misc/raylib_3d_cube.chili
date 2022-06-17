@@ -1,6 +1,6 @@
 use raylib.?;
 
-@run(main())
+run!(main())
 
 let main = fn {
 	let width = 1920;

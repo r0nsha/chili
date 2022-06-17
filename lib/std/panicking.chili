@@ -1,4 +1,4 @@
-let { printf, exit } = @import("c");
+let { printf, exit } = import!("c");
 
 let PanicInfo = struct {
     program: str,

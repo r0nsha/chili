@@ -38,4 +38,4 @@ pub let main = fn() {
 	CloseWindow();
 }
 
-@run(main())
+run!(main())

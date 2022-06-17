@@ -24,12 +24,14 @@ impl Parser {
             ast.bindings.push(binding);
 
             Ok(())
-        } else if eat!(self, At) {
-            let token = require!(self, Ident(_), "an identifier")?;
+        } else if eat!(self, Ident(_)) {
+            let token = self.previous().clone();
             let symbol = token.symbol();
 
+            require!(self, Bang, "!")?;
+            require!(self, OpenParen, "(")?;
+
             if symbol == "run" {
-                require!(self, OpenParen, "(")?;
                 let expr = self.parse_expr()?;
                 ast.run_exprs.push(expr);
                 require!(self, CloseParen, ")")?;

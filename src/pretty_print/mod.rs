@@ -225,36 +225,33 @@ impl PrintTree for ast::Expr {
             ast::ExprKind::Builtin(builtin) => {
                 match builtin {
                     ast::BuiltinKind::Import(path) => {
-                        b.add_empty_child(format!("@import(\"{}\")", path.to_str().unwrap()));
+                        b.add_empty_child(format!("import!(\"{}\")", path.to_str().unwrap()));
                     }
                     ast::BuiltinKind::LangItem(item) => {
-                        b.add_empty_child(format!("@lang_item(\"{}\")", item));
+                        b.add_empty_child(format!("lang_item!(\"{}\")", item));
                     }
                     ast::BuiltinKind::SizeOf(expr) => {
-                        b.begin_child("@size_of".to_string());
+                        b.begin_child("size_of!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
                     ast::BuiltinKind::AlignOf(expr) => {
-                        b.begin_child("@align_of".to_string());
+                        b.begin_child("align_of!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
                     ast::BuiltinKind::Run(expr, result) => {
-                        b.begin_child(format!(
-                            "@run (resulted in: {:?})",
-                            result.as_ref().unwrap()
-                        ));
+                        b.begin_child(format!("run!(resulted in: {:?})", result.as_ref().unwrap()));
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
                     ast::BuiltinKind::Panic(expr) => {
-                        b.begin_child("@panic".to_string());
+                        b.begin_child("panic!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
                     ast::BuiltinKind::StartWorkspace(expr) => {
-                        b.begin_child("@start_workspace".to_string());
+                        b.begin_child("start_workspace!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }

@@ -1,4 +1,4 @@
-let intrinsics = @import("intrinsics");
+let intrinsics = import!("intrinsics");
 
 pub let Workspace = struct {
     name: str,

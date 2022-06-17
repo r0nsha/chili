@@ -15,13 +15,6 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn into_id(&self) -> Ustr {
-        match self.kind {
-            TokenKind::Ident(name) => name,
-            _ => unreachable!(),
-        }
-    }
-
     pub fn symbol(&self) -> Ustr {
         match &self.kind {
             TokenKind::Ident(name) => *name,
