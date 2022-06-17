@@ -24,6 +24,9 @@ pub struct BuildOptions {
 
     /// Prints information verbosely, for example: timings
     pub verbose: bool,
+
+    /// Prints information verbosely, for example: timings
+    pub check_mode: bool,
 }
 
 impl BuildOptions {

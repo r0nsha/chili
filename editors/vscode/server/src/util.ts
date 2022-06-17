@@ -92,7 +92,7 @@ export async function runCompiler(
   let stdout = "";
 
   try {
-    const output = await exec(`chili check ${tmpFile.name} ${flags}`);
+    const output = await exec(`chili ${tmpFile.name} --check ${flags}`);
     // console.log(output);
     if (output.stderr != null && output.stderr != "") {
       console.error(output.stderr);

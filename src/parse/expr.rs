@@ -140,7 +140,18 @@ impl Parser {
         while !eat!(self, CloseCurly) && !self.is_end() {
             self.skip_semicolons();
 
-            exprs.push(self.parse_expr_with_res(Restrictions::STMT_EXPR)?);
+            let expr = self
+                .parse_expr_with_res(Restrictions::STMT_EXPR)
+                .unwrap_or_else(|diag| {
+                    let span = self.previous_span();
+
+                    self.cache.lock().diagnostics.push(diag);
+                    self.skip_until_recovery_point();
+
+                    Expr::new(ast::ExprKind::Error(span), span)
+                });
+
+            exprs.push(expr);
 
             if eat!(self, Semicolon) {
                 yields = false;
@@ -152,7 +163,11 @@ impl Parser {
                 continue;
             } else {
                 let span = Parser::get_missing_delimiter_span(self.previous_span());
-                return Err(SyntaxError::expected(span, "; or }"));
+                self.cache
+                    .lock()
+                    .diagnostics
+                    .push(SyntaxError::expected(span, "; or }"));
+                self.skip_until_recovery_point();
             }
         }
 

@@ -794,21 +794,26 @@ impl Check for ast::Expr {
                 ast::Builtin::Run(expr, run_result) => {
                     let res = expr.check(sess, env, None)?;
 
-                    // TODO (Ron): unwrap interp result into a diagnostic
-                    let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
-                    let ty = res.ty.normalize(&sess.tycx);
+                    if sess.workspace.build_options.check_mode {
+                        Ok(Res::new(res.ty))
+                    } else {
+                        // TODO (Ron): unwrap interp result into a diagnostic
+                        let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
 
-                    match interp_value.try_into_const_value(&mut sess.tycx, &ty, self.span) {
-                        Ok(const_value) => {
-                            *run_result = Some(const_value.clone());
-                            Ok(Res::new_const(res.ty, const_value))
+                        let ty = res.ty.normalize(&sess.tycx);
+
+                        match interp_value.try_into_const_value(&mut sess.tycx, &ty, self.span) {
+                            Ok(const_value) => {
+                                *run_result = Some(const_value.clone());
+                                Ok(Res::new_const(res.ty, const_value))
+                            }
+                            Err(value_str) => Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "compile-time evaluation cannot result in `{}`",
+                                    value_str,
+                                ))
+                                .with_label(Label::primary(self.span, "evaluated here"))),
                         }
-                        Err(value_str) => Err(Diagnostic::error()
-                            .with_message(format!(
-                                "compile-time evaluation cannot result in `{}`",
-                                value_str,
-                            ))
-                            .with_label(Label::primary(self.span, "evaluated here"))),
                     }
                 }
                 ast::Builtin::Panic(expr) => {

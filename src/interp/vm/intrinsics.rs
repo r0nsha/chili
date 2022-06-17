@@ -53,6 +53,7 @@ impl<'vm> VM<'vm> {
                         run_executable: workspace.build_options.run_executable,
                     }),
                     include_paths: vec![],
+                    check_mode: false,
                 };
 
                 crate::driver::start_workspace(workspace.name.to_string(), build_options);

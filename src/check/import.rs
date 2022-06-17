@@ -1,5 +1,6 @@
 use super::{interp_expr, top_level::CheckTopLevel, Check, CheckResult, CheckSess, Res};
 use crate::ast::{ast, ty::Type};
+use crate::common::build_options::CodegenOptions;
 use crate::span::Span;
 use std::path::Path;
 
@@ -45,7 +46,10 @@ pub fn check_ast(sess: &mut CheckSess, ast: &ast::Ast) -> CheckResult {
         for expr in ast.run_exprs.iter() {
             let mut expr = expr.clone();
             sess.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
-            interp_expr(&expr, sess, module_id).unwrap();
+
+            if !sess.workspace.build_options.check_mode {
+                interp_expr(&expr, sess, module_id).unwrap();
+            }
         }
 
         Ok(Res::new(module_type))

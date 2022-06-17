@@ -109,6 +109,7 @@ fn cli() {
                         run_executable: true,
                     }),
                     include_paths: get_include_paths(&args.include_paths),
+                    check_mode: false,
                 };
 
                 driver::start_workspace(name, build_options);
@@ -122,6 +123,7 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::DontEmit,
                     codegen_options: CodegenOptions::Skip,
                     include_paths: get_include_paths(&args.include_paths),
+                    check_mode: true,
                 };
 
                 let result = driver::start_workspace(name, build_options);
@@ -149,6 +151,7 @@ fn cli() {
                     },
                     codegen_options: CodegenOptions::Skip,
                     include_paths: get_include_paths(&args.include_paths),
+                    check_mode: false,
                 };
 
                 driver::start_workspace(name, build_options);

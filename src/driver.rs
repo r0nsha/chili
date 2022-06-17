@@ -68,10 +68,10 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         }
     };
 
-    if workspace.diagnostics.has_errors() {
-        workspace.emit_diagnostics();
-        return StartWorkspaceResult::new(workspace, None, None);
-    }
+    // if workspace.diagnostics.has_errors() {
+    //     workspace.emit_diagnostics();
+    //     return StartWorkspaceResult::new(workspace, None, None);
+    // }
 
     // Type inference, type checking, static analysis, const folding, etc..
     let (typed_ast, tycx) = time! { workspace.build_options.verbose, "check",

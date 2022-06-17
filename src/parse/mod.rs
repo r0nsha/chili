@@ -185,23 +185,7 @@ impl Parser {
         match Lexer::new(file_id, &source).scan() {
             Ok(tokens) => {
                 self.tokens = tokens;
-
-                let mut ast = ast::Ast::new(file_id, self.module_info);
-
-                while !self.is_end() {
-                    if let Err(diag) = self.parse_top_level(&mut ast) {
-                        return ParserResult::Failed(diag);
-                    }
-
-                    if let Err(_) = require!(self, Semicolon, ";") {
-                        let span = Parser::get_missing_delimiter_span(self.previous_span());
-                        return ParserResult::Failed(SyntaxError::expected(span, ";"));
-                    }
-
-                    self.skip_semicolons();
-                }
-
-                ParserResult::NewAst(ast)
+                self.parse_all_top_level(file_id)
             }
             Err(diag) => ParserResult::Failed(diag),
         }
@@ -264,6 +248,13 @@ impl Parser {
     }
 
     #[inline]
+    pub fn skip_until_recovery_point(&mut self) {
+        while !is!(self, Semicolon) && !self.is_end() {
+            self.bump();
+        }
+    }
+
+    #[inline]
     pub fn get_missing_delimiter_span(after_span: Span) -> Span {
         let start_pos = Position {
             index: after_span.end.index,
@@ -278,19 +269,28 @@ impl Parser {
         after_span.with_start(start_pos).with_end(end_pos)
     }
 }
-
-pub(super) trait Recover {
-    fn recover(self, parser: &mut Parser, span: Span) -> Self;
+pub(super) trait Recover<T> {
+    fn recover(self, parser: &mut Parser) -> T;
 }
 
-impl Recover for DiagnosticResult<Expr> {
-    fn recover(self, parser: &mut Parser, span: Span) -> Self {
+impl Recover<Expr> for DiagnosticResult<Expr> {
+    fn recover(self, parser: &mut Parser) -> Expr {
         match self {
-            Ok(expr) => Ok(expr),
+            Ok(expr) => expr,
             Err(_) => {
-                while !eat!(parser, Semicolon) && parser.is_end() {}
-                Ok(Expr::new(ast::ExprKind::Error(span), span))
+                let span = parser.previous_span();
+                parser.skip_until_recovery_point();
+                Expr::new(ast::ExprKind::Error(span), span)
             }
+        }
+    }
+}
+
+impl Recover<()> for DiagnosticResult<()> {
+    fn recover(self, parser: &mut Parser) -> () {
+        match self {
+            Ok(()) => (),
+            Err(_) => parser.skip_until_recovery_point(),
         }
     }
 }
