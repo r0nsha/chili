@@ -3,9 +3,12 @@ use std::path::PathBuf;
 use path_absolutize::Absolutize;
 
 use super::{value::IntrinsicFunction, VM};
-use crate::common::{
-    build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptLevel},
-    target::TargetPlatform,
+use crate::{
+    common::{
+        build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptLevel},
+        target::TargetPlatform,
+    },
+    interp::vm::value::Value,
 };
 
 impl<'vm> VM<'vm> {
@@ -26,18 +29,18 @@ impl<'vm> VM<'vm> {
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
                     codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
                         emit_llvm_ir: false,
-                        run_when_done: false, // TODO
+                        run_when_done: true, // TODO
                     }),
-                    include_paths: self.interp.build_options.include_paths.clone(),
+                    include_paths: vec![],
                 };
 
-                println!("{}", self.interp.build_options.source_file.display());
-                println!("{}", build_options.source_file.display());
-
                 crate::driver::start_workspace(
-                    "__TEST__".to_string(), // TODO
+                    "__TEST_____".to_string(), // TODO
                     build_options,
                 );
+
+                self.stack.push(Value::unit());
+                self.next();
             }
         }
     }

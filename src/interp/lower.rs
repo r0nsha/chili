@@ -1242,11 +1242,7 @@ fn lower_top_level_binding(
     desired_id: BindingInfoId,
     sess: &mut InterpSess,
 ) -> usize {
-    // insert a temporary value, since the global will be computed at the start of the vm's execution
-
     sess.env_stack.push((binding.module_id, Env::default()));
-
-    let mut code = CompiledCode::new();
 
     let desired_slot = match &binding.kind {
         ast::BindingKind::Extern(_) => {
@@ -1258,10 +1254,7 @@ fn lower_top_level_binding(
 
                     let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
 
-                    let slot = sess.insert_global(pattern.id, Value::ExternFunction(extern_func));
-                    code.push(Instruction::SetGlobal(slot as u32));
-
-                    slot
+                    sess.insert_global(pattern.id, Value::ExternFunction(extern_func))
                 }
                 _ => todo!("lower extern variables"),
             }
@@ -1273,12 +1266,11 @@ fn lower_top_level_binding(
                 Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
             };
 
-            let slot = sess.insert_global(pattern.id, Value::IntrinsicFunction(intrinsic_func));
-            code.push(Instruction::SetGlobal(slot as u32));
-
-            slot
+            sess.insert_global(pattern.id, Value::IntrinsicFunction(intrinsic_func))
         }
         ast::BindingKind::Normal => {
+            let mut code = CompiledCode::new();
+
             binding
                 .expr
                 .as_ref()
@@ -1373,14 +1365,13 @@ fn lower_top_level_binding(
             }
 
             code.push(Instruction::Return);
-
             sess.evaluated_globals.push(code);
-
-            assert!(desired_slot != usize::MAX);
 
             desired_slot
         }
     };
+
+    assert!(desired_slot != usize::MAX);
 
     desired_slot
 }
