@@ -39,7 +39,6 @@ use crate::interp::interp::{Interp, InterpResult};
 use crate::span::Span;
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
-use import::{check_ast, check_import};
 use indexmap::IndexMap;
 use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
@@ -176,7 +175,7 @@ impl<'s> CheckSess<'s> {
         self.add_builtin_types();
 
         for ast in self.old_asts.iter() {
-            check_ast(self, ast)?;
+            self.check_ast(ast)?;
         }
 
         Ok(())
@@ -782,7 +781,7 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::Import(path) => check_import(sess, path),
+                ast::Builtin::Import(path) => sess.check_import(path),
                 ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;

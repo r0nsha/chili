@@ -37,10 +37,7 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
         if ast.module_info.file_path.as_str() == root_file_path.to_str().unwrap() {
             workspace.root_module_id = ast.module_id;
         }
-    }
 
-    // Apply module ids to top level expressions, and check for duplicate globals
-    for ast in asts.iter_mut() {
         // let mut defined_symbols = UstrMap::<Span>::default();
 
         ast.bindings.iter_mut().for_each(|binding| {

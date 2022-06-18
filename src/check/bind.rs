@@ -222,15 +222,13 @@ impl<'s> CheckSess<'s> {
                     self.workspace
                         .add_binding_info_use(top_level_symbol_id, pattern.span);
 
-                    pattern.id = self.bind_symbol(
+                    self.bind_symbol_pattern(
                         env,
-                        pattern.alias.unwrap_or(pattern.symbol),
+                        pattern,
                         visibility,
                         res.ty,
                         res.const_value,
-                        pattern.is_mutable,
-                        kind.clone(),
-                        pattern.span,
+                        kind,
                     )?;
 
                     self.workspace
