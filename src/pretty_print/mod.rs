@@ -4,6 +4,7 @@ use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };
 
+#[allow(unused)]
 pub fn print_typed_ast(typed_ast: &ast::TypedAst, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();
@@ -30,6 +31,7 @@ pub fn print_typed_ast(typed_ast: &ast::TypedAst, workspace: &Workspace, tycx: &
     println!();
 }
 
+#[allow(unused)]
 pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();

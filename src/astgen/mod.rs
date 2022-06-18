@@ -3,9 +3,7 @@ use crate::ast::{
     path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
     workspace::{PartialModuleInfo, Workspace},
 };
-use crate::error::SyntaxError;
 use crate::parse::{spawn_parser, ParserCache, ParserResult};
-use crate::span::Span;
 use parking_lot::Mutex;
 use std::{
     collections::HashSet,
@@ -13,7 +11,7 @@ use std::{
     sync::{mpsc::channel, Arc},
 };
 use threadpool::ThreadPool;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::ustr;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AstGenerationStats {

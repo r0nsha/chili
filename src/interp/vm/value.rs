@@ -614,6 +614,7 @@ impl From<Ustr> for Value {
 }
 
 impl Pointer {
+    #[allow(unused)]
     pub fn unit() -> Self {
         Pointer::Aggregate(&mut Aggregate {
             elements: Vec::with_capacity(0),

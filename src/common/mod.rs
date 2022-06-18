@@ -14,6 +14,7 @@ pub struct Stopwatch<'s> {
 }
 
 impl<'s> Stopwatch<'s> {
+    #[allow(unused)]
     pub fn new(label: &'s str) -> Self {
         Self {
             label,
@@ -28,6 +29,7 @@ impl<'s> Stopwatch<'s> {
         }
     }
 
+    #[allow(unused)]
     pub fn start(&mut self) {
         self.sw.start();
     }

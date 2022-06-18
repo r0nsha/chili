@@ -2,22 +2,46 @@ use std::env;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetPlatform {
+    #[allow(unused)]
     Windows386,
+
     WindowsAmd64,
+
+    #[allow(unused)]
     Linux386,
+
     LinuxAmd64,
+
+    #[allow(unused)]
     LinuxArm64,
+
+    #[allow(unused)]
     DarwinAmd64,
+
+    #[allow(unused)]
     DarwinArm64,
+
+    #[allow(unused)]
     FreeBSD386,
+
+    #[allow(unused)]
     FreeBSDAmd64,
+
+    #[allow(unused)]
     EssenceAmd64,
+
+    #[allow(unused)]
     FreestandingWasm32,
+
+    #[allow(unused)]
     JsWasm32,
+
+    #[allow(unused)]
     WasiWasm32,
 }
 
 impl TargetPlatform {
+    #[allow(unused)]
     pub fn is_windows(&self) -> bool {
         matches!(
             self,
@@ -25,6 +49,7 @@ impl TargetPlatform {
         )
     }
 
+    #[allow(unused)]
     pub fn is_linux(&self) -> bool {
         matches!(
             self,
@@ -32,6 +57,7 @@ impl TargetPlatform {
         )
     }
 
+    #[allow(unused)]
     pub fn is_darwin(&self) -> bool {
         matches!(
             self,
@@ -39,6 +65,7 @@ impl TargetPlatform {
         )
     }
 
+    #[allow(unused)]
     pub fn is_free_bsd(&self) -> bool {
         matches!(
             self,
@@ -46,10 +73,12 @@ impl TargetPlatform {
         )
     }
 
+    #[allow(unused)]
     pub fn is_essence(&self) -> bool {
         matches!(self, TargetPlatform::EssenceAmd64)
     }
 
+    #[allow(unused)]
     pub fn is_wasm(&self) -> bool {
         matches!(
             self,
@@ -200,6 +229,7 @@ pub enum Os {
 }
 
 impl Os {
+    #[allow(unused)]
     pub fn name(&self) -> &'static str {
         match self {
             Os::Windows => "windows",
@@ -234,6 +264,7 @@ impl Arch {
         }
     }
 
+    #[allow(unused)]
     pub fn endianness(&self) -> Endianness {
         match self {
             Arch::Amd64 | Arch::_386 | Arch::Arm64 | Arch::Wasm32 | Arch::Wasm64 => {
@@ -243,12 +274,14 @@ impl Arch {
     }
 }
 
+#[allow(unused)]
 pub enum Endianness {
     Little,
     Big,
 }
 
 impl Endianness {
+    #[allow(unused)]
     pub fn name(&self) -> &str {
         match self {
             Endianness::Little => "little",

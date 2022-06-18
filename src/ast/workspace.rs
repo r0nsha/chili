@@ -313,6 +313,7 @@ impl ScopeLevel {
         matches!(self, ScopeLevel::Global)
     }
 
+    #[allow(unused)]
     pub fn index(&self) -> usize {
         match self {
             ScopeLevel::Global => 0,
