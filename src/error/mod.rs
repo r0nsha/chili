@@ -46,10 +46,6 @@ impl Diagnostics {
         self.items.extend(diagnostics);
     }
 
-    pub fn count(&self) -> usize {
-        self.items.len()
-    }
-
     pub fn error_count(&self) -> usize {
         self.items
             .iter()
@@ -79,34 +75,10 @@ impl LexerError {
 pub struct SyntaxError;
 
 impl SyntaxError {
-    pub fn unknown_keyword(keyword: String, span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("unknown keyword `{}`", keyword))
-            .with_label(Label::primary(span, ""))
-    }
-
     pub fn expected(span: Span, expectation: &str) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("expected {}", expectation))
             .with_label(Label::primary(span, ""))
-    }
-
-    pub fn illegal_fn_call(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("illegal function call")
-            .with_label(Label::primary(span, "not callable"))
-    }
-
-    pub fn unreachable(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("unreachable expression")
-            .with_label(Label::primary(span, "unreachable"))
-    }
-
-    pub fn uninit_var(name: String, span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("variable `{}` must be initialized", name))
-            .with_label(Label::primary(span, "not initialized"))
     }
 
     pub fn struct_field_specified_more_than_once(span: Span, name: String) -> Diagnostic {
@@ -176,12 +148,6 @@ impl TypeError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn circular_type(span: Span, ty_name: &str) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("recursive type `{}` has infinite size", ty_name))
-            .with_label(Label::primary(span, ""))
-    }
-
     pub fn tuple_field_out_of_bounds(
         span: Span,
         field: &str,
@@ -208,120 +174,10 @@ impl TypeError {
             ))
     }
 
-    pub fn struct_unpack_on_invalid_type(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot use struct unpack on type `{}`", ty))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn tuple_unpack_on_invalid_type(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot use tuple unpack on type `{}`", ty))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn too_many_unpack_variables(
-        span: Span,
-        ty: String,
-        expected_len: usize,
-        actual_len: usize,
-    ) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!(
-                "too many variables in unpack for type `{}`, expected {} got {}",
-                ty, expected_len, actual_len
-            ))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn duplicate_unpack_field(span: Span, field: Ustr) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!(
-                "field `{}` is defined more than once in unpack",
-                field
-            ))
-            .with_label(Label::primary(span, ""))
-    }
-
     pub fn invalid_struct_field(span: Span, field: Ustr, ty: String) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("no field `{}` on type `{}`", field, ty))
             .with_label(Label::primary(span, ""))
-    }
-
-    pub fn member_access_on_invalid_type(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("type `{}` has no members", ty))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn type_mismatch(span: Span, expected: String, actual: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!(
-                "mismatched types - expected `{}`, found `{}`",
-                expected, actual
-            ))
-            .with_label(Label::primary(span, format!("expected {}", expected)))
-    }
-
-    pub fn invalid_cast(span: Span, from: String, to: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("cannot cast from `{}` to `{}`", from, to))
-            .with_label(Label::primary(span, format!("invalid cast to `{}`", to)))
-    }
-
-    pub fn undefined_type(span: Span, name: Ustr) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("undefined type `{}`", name))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn undefined_self_type(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("cannot find type `Self` in this scope. `Self` is only available in type definitions".to_string())
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn not_a_callable_type(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("expression is not callable")
-            .with_label(Label::primary(span, "not callable"))
-    }
-
-    pub fn invalid_ty_in_condition(span: Span, ty: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("expected type `bool`, found `{}`", ty))
-            .with_label(Label::primary(span, ""))
-    }
-
-    pub fn struct_call_arity_mismatch(
-        span: Span,
-        expected: usize,
-        actual: usize,
-        missing: Vec<Ustr>,
-    ) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!(
-                "struct expects {} field{}, but {} {} supplied. missing: {}",
-                expected,
-                if expected > 1 { "s" } else { "" },
-                actual,
-                if actual > 1 { "were" } else { "was" },
-                missing
-                    .iter()
-                    .map(|m| m.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            ))
-            .with_label(Label::primary(
-                span,
-                format!(
-                    "expected {} field{}, got {}",
-                    expected,
-                    if expected > 1 { "s" } else { "" },
-                    actual
-                ),
-            ))
     }
 
     pub fn expected(span: Span, ty: String, expectation: &str) -> Diagnostic {

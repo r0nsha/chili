@@ -1,7 +1,5 @@
 use crate::span::Span;
 
-pub type DiagnosticCode = String;
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DiagnosticSeverity {
     Error,

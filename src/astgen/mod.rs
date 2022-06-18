@@ -120,19 +120,19 @@ fn generate_ast_inner(
     )
 }
 
-fn check_duplicate_global_symbol(
-    workspace: &mut Workspace,
-    defined_symbols: &mut UstrMap<Span>,
-    symbol: Ustr,
-    span: Span,
-) {
-    if let Some(already_defined_span) = defined_symbols.get(&symbol) {
-        workspace.diagnostics.push(SyntaxError::duplicate_symbol(
-            *already_defined_span,
-            span,
-            symbol,
-        ));
-    } else {
-        defined_symbols.insert(symbol, span);
-    }
-}
+// fn check_duplicate_global_symbol(
+//     workspace: &mut Workspace,
+//     defined_symbols: &mut UstrMap<Span>,
+//     symbol: Ustr,
+//     span: Span,
+// ) {
+//     if let Some(already_defined_span) = defined_symbols.get(&symbol) {
+//         workspace.diagnostics.push(SyntaxError::duplicate_symbol(
+//             *already_defined_span,
+//             span,
+//             symbol,
+//         ));
+//     } else {
+//         defined_symbols.insert(symbol, span);
+//     }
+// }

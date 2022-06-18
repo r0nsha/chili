@@ -100,6 +100,7 @@ impl TyCtx {
         self.bindings[var.0] = value;
     }
 
+    #[allow(unused)]
     pub fn print_all_bindings(&self, only_concrete: bool) {
         for (i, b) in self.bindings.iter() {
             if !only_concrete || b.is_concrete() {
@@ -108,6 +109,7 @@ impl TyCtx {
         }
     }
 
+    #[allow(unused)]
     pub fn print_binding(&self, ty: TypeId) {
         println!("'{} :: {}", ty.0, self.bindings[ty.0]);
     }
