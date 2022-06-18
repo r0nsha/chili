@@ -59,7 +59,7 @@ impl<'s> CheckSess<'s> {
             .old_asts
             .iter()
             .find(|ast| ast.module_id == module_id)
-            .expect(&format!("{:?}", module_id));
+            .unwrap_or_else(|| panic!("{:?}", module_id));
 
         let (res, id) = if let Some(binding) = ast
             .bindings

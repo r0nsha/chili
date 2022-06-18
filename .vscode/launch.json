@@ -7,23 +7,23 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'chilic'",
+      "name": "Debug executable 'chili'",
       "cargo": {
-        "args": ["build", "--bin=chilic", "--package=chili_main"],
+        "args": ["build", "--bin=chili", "--package=chili"],
         "filter": {
           "name": "chili",
           "kind": "bin"
         }
       },
-      "args": ["run", "./examples/main.chili"],
+      "args": ["./examples/playground/build.chili", "--run"],
       "cwd": "${workspaceFolder}"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'chilic'",
+      "name": "Debug unit tests in executable 'chili'",
       "cargo": {
-        "args": ["test", "--no-run", "--bin=chilic", "--package=chili_main"],
+        "args": ["test", "--no-run", "--bin=chili", "--package=chili"],
         "filter": {
           "name": "chili",
           "kind": "bin"
