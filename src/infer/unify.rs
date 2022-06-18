@@ -59,19 +59,27 @@ impl UnifyTy<Type> for Type {
             }
 
             (Type::Function(f1), Type::Function(f2)) => {
+                for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
+                    p1.unify(p2, tycx)?;
+                }
+
                 f1.ret.unify(f2.ret.as_ref(), tycx)?;
 
-                if f1.params.len() != f2.params.len()
-                    && f1.varargs.is_none()
-                    && f2.varargs.is_none()
-                {
-                    Err(UnifyTyErr::Mismatch)
-                } else {
-                    for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
-                        p1.unify(p2, tycx)?;
+                match (&f1.varargs, &f2.varargs) {
+                    (Some(v1), Some(v2)) => match (&v1.ty, &v2.ty) {
+                        (Some(vt1), Some(vt2)) => vt1.unify(vt2, tycx)?,
+                        (None, None) => (),
+                        _ => return Err(UnifyTyErr::Mismatch),
+                    },
+                    (None, None) => {
+                        if f1.params.len() != f2.params.len() {
+                            return Err(UnifyTyErr::Mismatch);
+                        }
                     }
-                    Ok(())
+                    _ => return Err(UnifyTyErr::Mismatch),
                 }
+
+                Ok(())
             }
 
             (Type::Array(t1, s1), Type::Array(t2, s2)) => {

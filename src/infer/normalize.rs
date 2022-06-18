@@ -120,7 +120,7 @@ impl NormalizeCtx {
                         ty: v.ty.as_ref().map(|ty| self.normalize_kind(tycx, ty)),
                     })
                 }),
-                extern_lib: f.extern_lib.clone(),
+                kind: f.kind.clone(),
             }),
             Type::Pointer(inner, a) => {
                 Type::Pointer(Box::new(self.normalize_kind(tycx, inner)), *a)

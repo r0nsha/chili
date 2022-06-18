@@ -723,10 +723,7 @@ impl Check for ast::FunctionSig {
                 params: ty_params,
                 ret: Box::new(ret.into()),
                 varargs,
-                extern_lib: match &self.kind {
-                    ast::FunctionKind::Extern { lib } => lib.clone(),
-                    _ => None,
-                },
+                kind: self.kind.clone(),
             }),
             self.span,
         );
@@ -2185,7 +2182,7 @@ impl Check for ast::Call {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
                     varargs: None,
-                    extern_lib: None,
+                    kind: ast::FunctionKind::Orphan,
                 });
 
                 ty.unify(&inferred_fn_ty, &mut sess.tycx).or_report_err(

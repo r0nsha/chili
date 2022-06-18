@@ -382,10 +382,11 @@ impl ToString for FunctionParam {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FunctionKind {
     Orphan,
     Extern { lib: Option<ExternLibrary> },
+    Intrinsic(Intrinsic),
 }
 
 impl FunctionKind {
@@ -395,6 +396,10 @@ impl FunctionKind {
 
     pub fn is_extern(&self) -> bool {
         matches!(self, FunctionKind::Extern { .. })
+    }
+
+    pub fn is_intrinsic(&self) -> bool {
+        matches!(self, FunctionKind::Intrinsic(_))
     }
 }
 
@@ -505,7 +510,7 @@ impl Display for BindingKind {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Intrinsic {
     StartWorkspace,
 }
@@ -516,6 +521,18 @@ impl Intrinsic {
             "start_workspace" => Some(Intrinsic::StartWorkspace),
             _ => None,
         }
+    }
+}
+
+impl Display for Intrinsic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Intrinsic::StartWorkspace => "start_workspace",
+            }
+        )
     }
 }
 

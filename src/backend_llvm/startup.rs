@@ -82,7 +82,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ],
             ret: Box::new(Type::Uint(UintType::U32)),
             varargs: None,
-            extern_lib: None,
+            kind: ast::FunctionKind::Orphan,
         };
 
         let function = self.module.add_function(

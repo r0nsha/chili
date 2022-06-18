@@ -3,7 +3,7 @@ pub mod display;
 pub mod size;
 
 use super::{
-    ast::ExternLibrary,
+    ast::FunctionKind,
     workspace::{BindingInfoId, ModuleId},
 };
 use crate::span::Span;
@@ -116,7 +116,7 @@ pub struct FunctionType {
     pub params: Vec<Type>,
     pub ret: Box<Type>,
     pub varargs: Option<Box<FunctionTypeVarargs>>,
-    pub extern_lib: Option<ExternLibrary>,
+    pub kind: FunctionKind,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

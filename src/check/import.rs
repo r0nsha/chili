@@ -1,6 +1,5 @@
 use super::{interp_expr, top_level::CheckTopLevel, Check, CheckResult, CheckSess, Res};
 use crate::ast::{ast, ty::Type};
-use crate::common::build_options::CodegenOptions;
 use crate::span::Span;
 use std::path::Path;
 

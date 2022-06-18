@@ -1,8 +1,4 @@
-use super::{
-    ast::{self, LiteralKind},
-    ty::TypeId,
-    workspace::BindingInfoId,
-};
+use super::{ast, ty::TypeId, workspace::BindingInfoId};
 use indexmap::IndexMap;
 use paste::paste;
 use std::fmt::{self, Display};
@@ -119,8 +115,8 @@ pub struct ConstFunction {
     pub name: Ustr,
 }
 
-impl From<LiteralKind> for ConstValue {
-    fn from(lit: LiteralKind) -> Self {
+impl From<ast::LiteralKind> for ConstValue {
+    fn from(lit: ast::LiteralKind) -> Self {
         match lit {
             ast::LiteralKind::Nil => panic!("nil is deprecated"),
             ast::LiteralKind::Bool(v) => ConstValue::Bool(v),

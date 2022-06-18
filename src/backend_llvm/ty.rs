@@ -183,8 +183,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
         let struct_type = self.context.opaque_struct_type(&struct_ty.name);
+
         self.types
             .insert(struct_ty.binding_info_id, struct_type.into());
+
         let fields = self.create_struct_type_fields(struct_ty);
         struct_type.set_body(&fields, struct_ty.is_packed_struct());
         struct_type

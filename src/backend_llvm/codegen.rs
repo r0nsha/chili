@@ -1,4 +1,5 @@
 use super::ty::IntoLlvmType;
+use super::util::LlvmName;
 use super::{
     abi::{align_of, size_of},
     util::is_a_load_inst,
@@ -140,31 +141,66 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         if let Some(binding) = self.typed_ast.get_binding(id) {
             let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
 
-            if binding.kind.is_extern() {
-                let function = self.declare_fn_sig(
-                    binding.ty.normalize(self.tycx).as_fn(),
-                    binding.pattern.as_symbol_ref().symbol,
-                );
-                let decl = CodegenDecl::Function(function);
-                self.global_decls.insert(id, decl);
-                decl
-            } else {
-                binding
-                    .expr
-                    .as_ref()
-                    .map(|expr| match &expr.kind {
-                        ast::ExprKind::Function(func) => {
-                            let function = self.gen_fn(module_info, func, None);
-                            let decl = CodegenDecl::Function(function);
-                            self.global_decls.insert(id, decl);
-                            decl
+            match &binding.kind {
+                ast::BindingKind::Normal => {
+                    if let Some(expr) = &binding.expr {
+                        match &expr.kind {
+                            ast::ExprKind::Function(func) => {
+                                let function = self.gen_fn(module_info, func, None);
+                                let decl = CodegenDecl::Function(function);
+                                self.global_decls.insert(id, decl);
+                                decl
+                            }
+                            _ => self.declare_global(id, binding),
                         }
-                        _ => self.declare_global(id, binding),
-                    })
-                    .unwrap_or_else(|| self.declare_global(id, binding))
+                    } else {
+                        self.declare_global(id, binding)
+                    }
+                }
+                ast::BindingKind::Intrinsic(intrinsic) => {
+                    self.gen_intrinsic(module_info, id, binding, intrinsic)
+                }
+                ast::BindingKind::Extern(_) => {
+                    let function = self.declare_fn_sig(
+                        binding.ty.normalize(self.tycx).as_fn(),
+                        binding.pattern.as_symbol_ref().symbol,
+                    );
+
+                    let decl = CodegenDecl::Function(function);
+                    self.global_decls.insert(id, decl);
+
+                    decl
+                }
             }
         } else {
             panic!("{:?}", id)
+        }
+    }
+
+    fn gen_intrinsic(
+        &mut self,
+        module_info: ModuleInfo,
+        id: BindingInfoId,
+        binding: &ast::Binding,
+        intrinsic: &ast::Intrinsic,
+    ) -> CodegenDecl<'ctx> {
+        match intrinsic {
+            ast::Intrinsic::StartWorkspace => {
+                let function = self.declare_fn_sig(
+                    binding.ty.normalize(self.tycx).as_fn(),
+                    binding.pattern.as_symbol_ref().llvm_name(module_info.name),
+                );
+
+                // let entry_block = self.context.append_basic_block(function, "entry");
+
+                // self.builder.position_at_end(entry_block);
+                // self.builder.build_return(Some(&self.gen_unit()));
+
+                let decl = CodegenDecl::Function(function);
+                self.global_decls.insert(id, decl);
+
+                decl
+            }
         }
     }
 
@@ -851,7 +887,10 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .expr
                     .as_ref()
                     .map(|expr| self.gen_expr(state, expr, true));
-                self.gen_return(state, value, &ret.deferred)
+
+                self.gen_return(state, value, &ret.deferred);
+
+                self.gen_unit()
             }
             ast::ExprKind::If(if_) => self.gen_if_expr(state, if_),
             ast::ExprKind::Block(block) => self.gen_block(state, block, deref),
@@ -1497,11 +1536,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         value: Option<BasicValueEnum<'ctx>>,
         deferred: &[ast::Expr],
-    ) -> BasicValueEnum<'ctx> {
+    ) {
         let abi_fn = self.get_abi_compliant_fn(&state.fn_type);
 
         if abi_fn.ret.kind.is_indirect() {
             let return_ptr = state.return_ptr.unwrap();
+
             match value {
                 Some(value) => {
                     let size = size_of(abi_fn.ret.ty, self.target_metrics.word_size);
@@ -1525,15 +1565,16 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.builder.build_return(None);
         } else {
             let value = value.unwrap_or_else(|| self.gen_unit());
+
             let value = self.build_transmute(
                 state,
                 value,
                 state.function.get_type().get_return_type().unwrap(),
             );
+
             self.gen_expr_list(state, deferred);
+
             self.builder.build_return(Some(&value));
         }
-
-        self.gen_unit()
     }
 }

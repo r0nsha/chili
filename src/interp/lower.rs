@@ -651,8 +651,8 @@ impl Lower for ast::Function {
 impl Lower for ast::FunctionSig {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         match &self.kind {
-            ast::FunctionKind::Orphan => {
-                // lowering a non-extern function signature is a no-op (until types will be considered values)
+            ast::FunctionKind::Orphan | ast::FunctionKind::Intrinsic(_) => {
+                // lowering a non-extern function signature is a noop
             }
             ast::FunctionKind::Extern { lib: Some(lib) } => {
                 let func_ty = self.ty.normalize(sess.tycx).into_fn();
@@ -1511,8 +1511,13 @@ fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut Comp
 }
 
 fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionType) -> ExternFunction {
+    let lib_path = match &func_ty.kind {
+        ast::FunctionKind::Extern { lib } => lib.as_ref().unwrap().path(),
+        _ => panic!(),
+    };
+
     ExternFunction {
-        lib_path: ustr(&func_ty.extern_lib.as_ref().unwrap().path()),
+        lib_path: ustr(&lib_path),
         name,
         param_tys: func_ty.params.clone(),
         return_ty: *func_ty.ret.clone(),

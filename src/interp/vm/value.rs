@@ -348,7 +348,7 @@ impl From<&Type> for ValueKind {
             },
             Type::Pointer(_, _) | Type::MultiPointer(_, _) => Self::Pointer,
             Type::Function(f) => {
-                if f.extern_lib.is_some() {
+                if f.kind.is_extern() {
                     Self::ExternFunction
                 } else {
                     Self::Function

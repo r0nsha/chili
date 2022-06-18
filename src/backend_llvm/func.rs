@@ -100,7 +100,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.gen_binding_pattern_with_value(&mut state, &param.pattern, &param_ty, value);
         }
 
-        let return_value: BasicValueEnum = self.gen_block(&mut state, &func.body, true);
+        let return_value = self.gen_block(&mut state, &func.body, true);
 
         if self.current_block().get_terminator().is_none() {
             self.gen_return(&mut state, Some(return_value), &[]);
@@ -184,7 +184,8 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         call: &ast::Call,
         result_ty: TypeId,
     ) -> BasicValueEnum<'ctx> {
-        let fn_ty = call.callee.ty.normalize(self.tycx).into_fn();
+        let callee_ty = call.callee.ty.normalize(self.tycx).into_fn();
+
         let mut args = vec![];
 
         for (index, arg) in call.args.iter().enumerate() {
@@ -213,7 +214,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.gen_fn_call(
             state,
             callable_value,
-            &fn_ty,
+            &callee_ty,
             args,
             &result_ty.normalize(self.tycx),
         )
@@ -268,7 +269,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.build_store(ptr, arg);
 
                         ptr
-                    } else if callee_ty.extern_lib.is_none() {
+                    } else if !callee_ty.kind.is_extern() {
                         self.gen_local_or_load_addr(state, BindingInfoId::unknown(), arg)
                     } else {
                         self.build_copy_value_to_ptr(state, arg, arg_type, 16)
