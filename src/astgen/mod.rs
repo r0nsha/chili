@@ -41,18 +41,18 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
 
     // Apply module ids to top level expressions, and check for duplicate globals
     for ast in asts.iter_mut() {
-        let mut defined_symbols = UstrMap::<Span>::default();
+        // let mut defined_symbols = UstrMap::<Span>::default();
 
         ast.bindings.iter_mut().for_each(|binding| {
             binding.module_id = ast.module_id;
-            for pat in binding.pattern.iter() {
-                check_duplicate_global_symbol(
-                    workspace,
-                    &mut defined_symbols,
-                    pat.symbol,
-                    pat.span,
-                );
-            }
+            // for pat in binding.pattern.iter() {
+            //     check_duplicate_global_symbol(
+            //         workspace,
+            //         &mut defined_symbols,
+            //         pat.symbol,
+            //         pat.span,
+            //     );
+            // }
         });
     }
 

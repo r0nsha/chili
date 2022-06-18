@@ -2276,8 +2276,14 @@ impl Check for ast::Block {
         if self.yields {
             Ok(res)
         } else {
+            let res_ty = res.ty.normalize(&sess.tycx);
+
             Ok(Res::new_const(
-                sess.tycx.common_types.unit,
+                if res_ty.is_never() {
+                    sess.tycx.common_types.never
+                } else {
+                    sess.tycx.common_types.unit
+                },
                 ConstValue::Unit(()),
             ))
         }

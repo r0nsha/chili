@@ -10,7 +10,7 @@ use inkwell::{
 };
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
-    pub fn gen_struct_literal_named(
+    pub fn gen_struct_literal(
         &mut self,
         state: &mut CodegenState<'ctx>,
         ty: &Type,
