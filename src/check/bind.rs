@@ -38,12 +38,8 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn get_symbol(&self, env: &Env, symbol: Ustr) -> Option<BindingInfoId> {
-        if env.scope_level().is_global() {
-            let module_id = env.module_id();
-            self.get_global_symbol(module_id, symbol)
-        } else {
-            env.find_symbol(symbol)
-        }
+        env.find_symbol(symbol)
+            .or_else(|| self.get_global_symbol(env.module_id(), symbol))
     }
 
     pub fn bind_symbol(
@@ -219,6 +215,18 @@ impl<'s> CheckSess<'s> {
                         module_id,
                         pattern.symbol,
                     )?;
+
+                    // Note (Ron 19/06/2022):
+                    // This is a HACK, to avoid binding the same symbol twice.
+                    // When two mutually recursive modules are checking each other,
+                    // the original symbol that started the check cycle is bound twice - causing a false `duplicate symbol error`
+                    if env.scope_level().is_global()
+                        && self
+                            .get_global_symbol(env.module_id(), pattern.symbol)
+                            .is_some()
+                    {
+                        continue;
+                    }
 
                     self.workspace
                         .add_binding_info_use(top_level_symbol_id, pattern.span);

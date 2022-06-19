@@ -272,6 +272,7 @@ impl PartialModuleInfo {
         Self { name, file_path }
     }
 
+    #[allow(unused)]
     pub fn dir(&self) -> &Path {
         Path::new(self.file_path.as_str()).parent().unwrap()
     }

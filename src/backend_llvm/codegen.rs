@@ -1,5 +1,4 @@
 use super::ty::IntoLlvmType;
-use super::util::LlvmName;
 use super::{
     abi::{align_of, size_of},
     util::is_a_load_inst,
@@ -158,7 +157,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                 }
                 ast::BindingKind::Intrinsic(intrinsic) => {
-                    self.gen_intrinsic(module_info, id, binding, intrinsic)
+                    self.gen_intrinsic(id, binding, intrinsic)
                 }
                 ast::BindingKind::Extern(_) => {
                     let function = self.declare_fn_sig(
@@ -179,27 +178,32 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     fn gen_intrinsic(
         &mut self,
-        module_info: ModuleInfo,
         id: BindingInfoId,
         binding: &ast::Binding,
         intrinsic: &ast::Intrinsic,
     ) -> CodegenDecl<'ctx> {
         match intrinsic {
             ast::Intrinsic::StartWorkspace => {
-                let function = self.declare_fn_sig(
-                    binding.ty.normalize(self.tycx).as_fn(),
-                    binding.pattern.as_symbol_ref().llvm_name(module_info.name),
-                );
+                const FUNC_NAME: &str = "intrinsic#start_workspace";
 
-                // let entry_block = self.context.append_basic_block(function, "entry");
+                if let Some(f) = self.module.get_function(FUNC_NAME) {
+                    CodegenDecl::Function(f)
+                } else {
+                    let function = self.declare_fn_sig(
+                        binding.ty.normalize(self.tycx).as_fn(),
+                        "intrinsic#start_workspace",
+                    );
 
-                // self.builder.position_at_end(entry_block);
-                // self.builder.build_return(Some(&self.gen_unit()));
+                    let entry_block = self.context.append_basic_block(function, "entry");
 
-                let decl = CodegenDecl::Function(function);
-                self.global_decls.insert(id, decl);
+                    self.builder.position_at_end(entry_block);
+                    self.builder.build_return(Some(&self.gen_unit()));
 
-                decl
+                    let decl = CodegenDecl::Function(function);
+                    self.global_decls.insert(id, decl);
+
+                    decl
+                }
             }
         }
     }
@@ -243,12 +247,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let global_value = self.add_global_uninit(id, ty, linkage);
 
         let value = if let Some(const_value) = &binding_info.const_value {
-            self.gen_const_value(
-                None,
-                const_value,
-                &self.tycx.ty_kind(binding_info.ty),
-                false,
-            )
+            self.gen_const_value(None, const_value, &self.tycx.ty_kind(binding_info.ty), true)
         } else {
             ty.const_zero()
         };
@@ -693,7 +692,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
                 ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
-                    self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref)
+                    let value =
+                        self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref);
+
+                    if deref {
+                        self.build_load(value)
+                    } else {
+                        value
+                    }
                 }
             },
             ast::ExprKind::Function(func) => {
@@ -1220,12 +1226,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     tuple.into()
                 }
             }
-            ast::ExprKind::StructLiteral(lit) => self.gen_struct_literal_named(
-                state,
-                &expr.ty.normalize(self.tycx),
-                &lit.fields,
-                deref,
-            ),
+            ast::ExprKind::StructLiteral(lit) => {
+                self.gen_struct_literal(state, &expr.ty.normalize(self.tycx), &lit.fields, deref)
+            }
 
             ast::ExprKind::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
@@ -1355,6 +1358,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.context.const_struct(&values, false).into()
+
+                // ty.llvm_type(self)
+                //     .into_struct_type()
+                //     .const_named_struct(&values)
+                //     .into()
             }
             ConstValue::Struct(fields) => {
                 let values = fields
@@ -1365,6 +1373,11 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.context.const_struct(&values, false).into()
+
+                // ty.llvm_type(self)
+                //     .into_struct_type()
+                //     .const_named_struct(&values)
+                //     .into()
             }
             ConstValue::Function(f) => {
                 let decl = match state.and_then(|s| s.scopes.get(f.id)) {

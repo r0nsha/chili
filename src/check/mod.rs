@@ -3,7 +3,6 @@ mod builtin;
 mod const_fold;
 mod defer;
 mod env;
-mod import;
 mod top_level;
 
 use crate::ast::{
@@ -632,9 +631,10 @@ impl Check for ast::FunctionSig {
         expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let mut ty_params = vec![];
-        let mut param_map = UstrMap::default();
 
         if !self.params.is_empty() {
+            let mut defined_params = UstrMap::default();
+
             for param in self.params.iter_mut() {
                 param.ty = if let Some(expr) = &mut param.ty_expr {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
@@ -646,7 +646,8 @@ impl Check for ast::FunctionSig {
                 ty_params.push(param.ty.into());
 
                 for pat in param.pattern.iter() {
-                    if let Some(already_defined_span) = param_map.insert(pat.symbol, pat.span) {
+                    if let Some(already_defined_span) = defined_params.insert(pat.symbol, pat.span)
+                    {
                         return Err(SyntaxError::duplicate_symbol(
                             already_defined_span,
                             pat.span,

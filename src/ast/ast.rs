@@ -51,6 +51,11 @@ impl TypedAst {
             .map(|idx| &self.bindings[*idx])
     }
 
+    #[allow(unused)]
+    pub fn has_binding(&self, id: BindingInfoId) -> bool {
+        self.ids_to_bindings.contains_key(&id)
+    }
+
     pub fn push_binding(&mut self, ids: &[BindingInfoId], binding: Binding) {
         self.bindings.push(binding);
         let idx = self.bindings.len() - 1;
