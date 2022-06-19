@@ -8,7 +8,10 @@ use crate::common::mem::calculate_align;
 use inkwell::{
     basic_block::BasicBlock,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, InstructionOpcode, IntValue, PointerValue},
+    values::{
+        BasicValue, BasicValueEnum, GlobalValue, InstructionOpcode, IntValue, PointerValue,
+        StructValue,
+    },
     AddressSpace, IntPredicate,
 };
 use std::mem;
@@ -69,6 +72,34 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_load_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
         let value = self.gen_struct_access(slice, 1, None);
         self.build_load(value).into_int_value()
+    }
+
+    pub fn const_str(&mut self, name: &str, value: &str) -> GlobalValue<'ctx> {
+        self.builder.build_global_string_ptr(value, name)
+    }
+
+    pub fn const_str_slice(&mut self, name: &str, value: impl Into<Ustr>) -> StructValue<'ctx> {
+        let value = value.into();
+        let cached_str = self.static_strs.get(&value).map(|v| *v);
+
+        let ptr = cached_str.unwrap_or_else(|| self.const_str(name, &value).as_pointer_value());
+        let len = self.ptr_sized_int_type.const_int(value.len() as u64, false);
+
+        self.const_slice(ptr, len)
+    }
+
+    #[inline]
+    pub fn const_slice(
+        &mut self,
+        ptr: PointerValue<'ctx>,
+        len: IntValue<'ctx>,
+    ) -> StructValue<'ctx> {
+        self.const_struct(&[ptr.as_basic_value_enum(), len.as_basic_value_enum()])
+    }
+
+    #[inline]
+    pub fn const_struct(&mut self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
+        self.context.const_struct(&values, false)
     }
 
     pub fn gen_slice(

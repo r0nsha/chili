@@ -247,7 +247,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         let global_value = self.add_global_uninit(id, ty, linkage);
 
         let value = if let Some(const_value) = &binding_info.const_value {
-            self.gen_const_value(None, const_value, &self.tycx.ty_kind(binding_info.ty), true)
+            self.gen_const_value(None, const_value, &self.tycx.ty_kind(binding_info.ty))
         } else {
             ty.const_zero()
         };
@@ -692,8 +692,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
                 ast::Builtin::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
-                    let value =
-                        self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty, deref);
+                    let value = self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty);
 
                     if deref {
                         self.build_load(value)
@@ -1001,11 +1000,17 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 };
 
                 let derefed_ty = accessed_ty.maybe_deref_once();
-                let value = match derefed_ty {
+                match derefed_ty {
                     Type::Tuple(_) => {
                         let index = access.member.parse::<usize>().unwrap();
                         let llvm_ty = Some(derefed_ty.llvm_type(self));
-                        self.gen_struct_access(value, index as u32, llvm_ty)
+                        let value = self.gen_struct_access(value, index as u32, llvm_ty);
+
+                        if deref {
+                            self.build_load(value)
+                        } else {
+                            value
+                        }
                     }
                     Type::Struct(ref struct_ty) => {
                         let struct_llvm_ty = Some(derefed_ty.llvm_type(self));
@@ -1016,16 +1021,32 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                                 .iter()
                                 .find(|f| f.symbol == access.member)
                                 .unwrap();
+
                             let field_ty = field.ty.llvm_type(self);
+
                             let casted_ptr = self.builder.build_pointer_cast(
                                 value.into_pointer_value(),
                                 field_ty.ptr_type(AddressSpace::Generic),
                                 "",
                             );
-                            casted_ptr.into()
+
+                            let value = casted_ptr.into();
+
+                            if deref {
+                                self.build_load(value)
+                            } else {
+                                value
+                            }
                         } else {
                             let field_index = struct_ty.find_field_position(access.member).unwrap();
-                            self.gen_struct_access(value, field_index as u32, struct_llvm_ty)
+                            let value =
+                                self.gen_struct_access(value, field_index as u32, struct_llvm_ty);
+
+                            if deref {
+                                self.build_load(value)
+                            } else {
+                                value
+                            }
                         }
                     }
                     Type::Array(_, len) => match access.member.as_str() {
@@ -1036,7 +1057,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     },
                     Type::Slice(..) => match access.member.as_str() {
                         BUILTIN_FIELD_LEN => self.gen_load_slice_len(value).into(),
-                        BUILTIN_FIELD_DATA => self.gen_load_slice_data(value).into(),
+                        BUILTIN_FIELD_DATA => self
+                            .maybe_load_double_pointer(self.gen_load_slice_data(value))
+                            .into(),
                         _ => unreachable!("got field `{}`", access.member),
                     },
                     Type::Module(module_id) => {
@@ -1067,12 +1090,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                         }
                     }
                     _ => unreachable!("invalid ty `{}`", accessed_ty),
-                };
-
-                if deref {
-                    self.build_load(value)
-                } else {
-                    value
                 }
             }
             ast::ExprKind::Ident(ident) => {
@@ -1245,7 +1262,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             ast::ExprKind::ConstValue(const_value) => {
                 let ty = expr.ty.normalize(self.tycx);
-                self.gen_const_value(Some(state), const_value, &ty, deref)
+                self.gen_const_value(Some(state), const_value, &ty)
             }
 
             ast::ExprKind::Error(_) => panic!("unexpected error node"),
@@ -1297,7 +1314,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: Option<&CodegenState<'ctx>>,
         const_value: &ConstValue,
         ty: &Type,
-        deref: bool,
     ) -> BasicValueEnum<'ctx> {
         match const_value {
             ConstValue::Unit(_) | ConstValue::Type(_) => self.gen_unit(),
@@ -1337,14 +1353,14 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .into_float_type()
                 .const_float(*v as f64)
                 .into(),
-            ConstValue::Str(v) => self.gen_global_str("", v.as_str(), deref),
+            ConstValue::Str(v) => self.const_str_slice("", *v).into(),
             ConstValue::Array(array) => {
                 let el_ty = array.element_ty.normalize(self.tycx);
 
                 let values: Vec<BasicValueEnum> = array
                     .values
                     .iter()
-                    .map(|v| self.gen_const_value(state, v, &el_ty, false))
+                    .map(|v| self.gen_const_value(state, v, &el_ty))
                     .collect();
 
                 el_ty.llvm_type(self).const_array(&values).into()
@@ -1352,32 +1368,22 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             ConstValue::Tuple(elements) => {
                 let values = elements
                     .iter()
-                    .map(|el| {
-                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
-                    })
+                    .map(|el| self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx)))
                     .collect::<Vec<BasicValueEnum>>();
 
-                self.context.const_struct(&values, false).into()
-
-                // ty.llvm_type(self)
-                //     .into_struct_type()
-                //     .const_named_struct(&values)
-                //     .into()
+                self.const_struct(&values).into()
             }
             ConstValue::Struct(fields) => {
                 let values = fields
                     .values()
-                    .map(|el| {
-                        self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx), false)
-                    })
+                    .map(|el| self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx)))
                     .collect::<Vec<BasicValueEnum>>();
 
-                self.context.const_struct(&values, false).into()
-
-                // ty.llvm_type(self)
-                //     .into_struct_type()
-                //     .const_named_struct(&values)
-                //     .into()
+                // self.context.const_struct(&values, false).into();
+                ty.llvm_type(self)
+                    .into_struct_type()
+                    .const_named_struct(&values)
+                    .into()
             }
             ConstValue::Function(f) => {
                 let decl = match state.and_then(|s| s.scopes.get(f.id)) {
