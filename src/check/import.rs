@@ -37,7 +37,7 @@ impl<'s> CheckSess<'s> {
                         .iter()
                         .all(|pattern| self.get_global_symbol(module_id, pattern.symbol).is_none())
                 {
-                    binding.clone().check_top_level(self, module_id)?;
+                    binding.clone().check_top_level(self)?;
                 }
             }
 

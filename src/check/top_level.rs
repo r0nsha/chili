@@ -14,14 +14,18 @@ pub trait CheckTopLevel
 where
     Self: Sized,
 {
-    fn check_top_level(&mut self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult;
+    fn check_top_level(&mut self, sess: &mut CheckSess) -> CheckResult;
 }
 
 impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&mut self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult {
-        let res = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
+    fn check_top_level(&mut self, sess: &mut CheckSess) -> CheckResult {
+        let res = sess.with_env(self.module_id, |sess, mut env| {
+            self.check(sess, &mut env, None)
+        })?;
+
         sess.new_typed_ast
             .push_binding(&self.pattern.ids(), self.clone());
+
         Ok(res)
     }
 }
@@ -68,8 +72,7 @@ impl<'s> CheckSess<'s> {
         {
             // this symbol points to a binding
             let mut binding = binding.clone();
-
-            binding.check_top_level(self, ast.module_id)?;
+            binding.check_top_level(self)?;
 
             let desired_pat = binding
                 .pattern

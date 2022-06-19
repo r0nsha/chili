@@ -59,8 +59,9 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<BindingInfoId> {
         let module_id = env.module_id();
         let scope_level = env.scope_level();
+        let is_global = scope_level.is_global();
 
-        if scope_level.is_global() {
+        if is_global {
             // check if there's already a binding with this symbol
             if let Some(id) = self.get_global_symbol(module_id, symbol) {
                 let already_defined = self.workspace.get_binding_info(id).unwrap();
@@ -85,7 +86,7 @@ impl<'s> CheckSess<'s> {
             span,
         });
 
-        if scope_level.is_global() {
+        if is_global {
             // insert the symbol into its module's global scope
             self.insert_global_symbol(module_id, symbol, id);
         } else {
@@ -255,13 +256,13 @@ impl<'s> CheckSess<'s> {
                                     self.new_typed_ast.get_binding(id).unwrap().pattern.clone()
                                 } else {
                                     let mut binding = binding.clone();
-                                    binding.check_top_level(self, ast.module_id)?;
+                                    binding.check_top_level(self)?;
                                     binding.pattern
                                 }
                             }
                             None => {
                                 let mut binding = binding.clone();
-                                binding.check_top_level(self, ast.module_id)?;
+                                binding.check_top_level(self)?;
                                 binding.pattern
                             }
                         };
