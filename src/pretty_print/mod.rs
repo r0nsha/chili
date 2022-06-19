@@ -97,7 +97,7 @@ impl<T: PrintTree> PrintTree for Box<T> {
 
 impl PrintTree for ast::TypedAst {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        for binding in self.bindings.iter() {
+        for (_, binding) in self.bindings.iter() {
             binding.print_tree(b, workspace, tycx);
         }
     }

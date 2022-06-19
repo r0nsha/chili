@@ -63,6 +63,7 @@ pub fn check(
         .new_typed_ast
         .bindings
         .iter()
+        .map(|(_, b)| b)
         .filter(|b| b.kind.is_extern())
     {
         if !ty_is_extern(&binding.ty.normalize(&sess.tycx)) {
@@ -389,7 +390,7 @@ impl Check for ast::Binding {
 
                 pattern.id = id;
 
-                sess.new_typed_ast.bindings.push(self.clone());
+                sess.new_typed_ast.push_binding(&[id], self.clone());
 
                 return Ok(Res::new(self.ty));
             } else {

@@ -144,7 +144,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     fn initialize_globals(&mut self, state: &mut CodegenState<'ctx>) {
-        for binding in self.typed_ast.bindings.iter() {
+        for (_, binding) in self.typed_ast.bindings.iter() {
             // if all patterns are const, then there is no value to generate at runtime - so we skip
             if binding.pattern.iter().all(|p| !p.is_mutable) {
                 continue;

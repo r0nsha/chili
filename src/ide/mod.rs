@@ -46,7 +46,7 @@ pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Optio
             typed_ast
                 .bindings
                 .iter()
-                .for_each(|binding| binding.collect_hints(&mut sess));
+                .for_each(|(_, binding)| binding.collect_hints(&mut sess));
 
             objects.extend(sess.hints.into_iter().map(IdeObject::Hint));
         }

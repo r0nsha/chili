@@ -8,6 +8,7 @@ use super::{
 use crate::error::DiagnosticResult;
 use crate::span::{FileId, Span};
 use crate::token::TokenKind;
+use slab::Slab;
 use std::{
     collections::HashMap,
     ffi::OsStr,
@@ -40,7 +41,8 @@ impl Ast {
 
 #[derive(Default)]
 pub struct TypedAst {
-    pub bindings: Vec<Binding>,
+    pub bindings: Slab<Binding>,
+    pub functions: Slab<Function>,
     ids_to_bindings: HashMap<BindingInfoId, usize>,
 }
 
@@ -57,14 +59,24 @@ impl TypedAst {
     }
 
     pub fn push_binding(&mut self, ids: &[BindingInfoId], binding: Binding) {
-        self.bindings.push(binding);
+        self.bindings.insert(binding);
         let idx = self.bindings.len() - 1;
 
         for id in ids {
             self.ids_to_bindings.insert(*id, idx);
         }
     }
+
+    pub fn get_function(&mut self, id: FunctionId) -> Option<&Function> {
+        self.functions.get(id.inner())
+    }
+
+    pub fn push_function(&mut self, function: Function) -> FunctionId {
+        FunctionId(self.functions.insert(function))
+    }
 }
+
+define_id_type!(FunctionId);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expr {

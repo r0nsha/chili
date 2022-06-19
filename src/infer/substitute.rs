@@ -115,7 +115,7 @@ impl<'a, T: Substitute<'a>> Substitute<'a> for Box<T> {
 
 impl<'a> Substitute<'a> for ast::TypedAst {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.bindings.iter().for_each(|b| b.substitute(sess));
+        self.bindings.iter().for_each(|(_, b)| b.substitute(sess));
     }
 }
 

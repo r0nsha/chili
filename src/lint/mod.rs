@@ -24,7 +24,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
 
     sess.init_scopes.push_scope();
 
-    for binding in typed_ast.bindings.iter() {
+    for (_, binding) in typed_ast.bindings.iter() {
         binding.lint(&mut sess);
     }
 
