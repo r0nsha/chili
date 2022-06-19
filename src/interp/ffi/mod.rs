@@ -2,7 +2,7 @@ use super::{
     vm::{
         byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
-        value::{ExternFunction, Function, Value},
+        value::{ExternFunction, Function, FunctionValue, Value},
         VM,
     },
     IS_64BIT, WORD_SIZE,
@@ -185,24 +185,26 @@ impl FfiFunction {
                 }
                 Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
-                Value::Function(addr) => {
-                    let function = (*vm).interp.functions.get(&addr.id).unwrap();
-                    let ffi_function = FfiFunction::new(&function.arg_types, &function.return_type);
+                Value::Function(addr) => match (*vm).interp.get_function(addr.id).unwrap() {
+                    FunctionValue::Orphan(function) => {
+                        let ffi_function =
+                            FfiFunction::new(&function.arg_types, &function.return_type);
 
-                    let user_data = bump.alloc(ClosureUserData { vm, function });
+                        let user_data = bump.alloc(ClosureUserData { vm, function });
 
-                    let closure =
-                        bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
+                        let closure =
+                            bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
 
-                    let code_ptr =
-                        closure.instantiate_code_ptr::<c_void>() as *const c_void as *mut c_void;
+                        let code_ptr = closure.instantiate_code_ptr::<c_void>() as *const c_void
+                            as *mut c_void;
 
-                    raw_ptr!(code_ptr)
-                }
-                Value::ExternFunction(func) => {
-                    let symbol = ffi.load_symbol(func.lib_path, func.name);
-                    raw_ptr!(symbol)
-                }
+                        raw_ptr!(code_ptr)
+                    }
+                    FunctionValue::Extern(function) => {
+                        let symbol = ffi.load_symbol(function.lib_path, function.name);
+                        raw_ptr!(symbol)
+                    }
+                },
                 _ => panic!("can't pass `{}` through ffi", arg.to_string()),
             };
 

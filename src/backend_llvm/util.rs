@@ -590,15 +590,28 @@ pub trait LlvmName {
 
 impl LlvmName for FunctionSig {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
+        // let module_name
         match &self.kind {
             FunctionTypeKind::Extern { .. } => self.name.to_string(),
-            _ => format!("{}.{}", module_name.as_ref(), self.name),
+            _ => self.name.llvm_name(module_name),
         }
     }
 }
 
 impl LlvmName for SymbolPattern {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        format!("{}.{}", module_name.as_ref(), self.symbol)
+        self.symbol.llvm_name(module_name)
+    }
+}
+
+impl LlvmName for Ustr {
+    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
+        let module_name = module_name.as_ref();
+
+        if module_name == "" {
+            format!("root#{}", self)
+        } else {
+            format!("{}.{}", module_name, self)
+        }
     }
 }

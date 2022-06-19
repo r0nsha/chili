@@ -6,7 +6,7 @@ mod env;
 mod top_level;
 
 use crate::ast::{
-    ast::{self, BindingKind, FunctionId, TypedAst},
+    ast::{self, BindingKind, FunctionId},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
@@ -46,7 +46,7 @@ use ustr::{ustr, Ustr, UstrMap, UstrSet};
 pub fn check(
     workspace: &mut Workspace,
     ast: Vec<ast::Ast>,
-) -> Result<(ast::TypedAst, TyCtx), (TyCtx, TypedAst, Diagnostic)> {
+) -> Result<(ast::TypedAst, TyCtx), (TyCtx, ast::TypedAst, Diagnostic)> {
     let mut sess = CheckSess::new(workspace, &ast);
 
     if let Err(diag) = sess.start() {
@@ -363,11 +363,6 @@ impl Check for ast::Binding {
     ) -> CheckResult {
         self.module_id = env.module_id();
 
-        if let ast::BindingKind::Extern(Some(lib)) = &self.kind {
-            // Collect extern library to be linked later
-            sess.workspace.extern_libraries.insert(lib.clone());
-        }
-
         self.ty = if let Some(ty_expr) = &mut self.ty_expr {
             let res = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
@@ -375,151 +370,198 @@ impl Check for ast::Binding {
             sess.tycx.var(self.pattern.span())
         };
 
-        if let ast::BindingKind::Intrinsic(_) = &self.kind {
-            if let Pattern::Symbol(pattern) = &mut self.pattern {
-                let id = sess.bind_symbol(
+        match &self.kind {
+            BindingKind::Normal => {
+                let const_value = if let Some(expr) = &mut self.expr {
+                    let res = expr.check(sess, env, Some(self.ty))?;
+
+                    res.ty
+                        .unify(&self.ty, &mut sess.tycx)
+                        .or_coerce_expr_into_ty(
+                            expr,
+                            self.ty,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(
+                            &sess.tycx,
+                            self.ty,
+                            self.ty_expr.as_ref().map(|e| e.span),
+                            res.ty,
+                            expr.span,
+                        )?;
+
+                    res.const_value
+                } else {
+                    match &self.pattern {
+                        Pattern::StructUnpack(pat)
+                        | Pattern::TupleUnpack(pat)
+                        | Pattern::Hybrid(HybridPattern {
+                            unpack: UnpackPatternKind::Struct(pat) | UnpackPatternKind::Tuple(pat),
+                            ..
+                        }) => {
+                            return Err(Diagnostic::error()
+                                .with_message("unpack pattern requires a value to unpack")
+                                .with_label(Label::primary(pat.span, "illegal pattern use")));
+                        }
+                        Pattern::Symbol(_) => (),
+                    }
+
+                    None
+                };
+
+                let ty_kind = self.ty.normalize(&sess.tycx);
+
+                let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
+                let is_any_pattern_mut = self.pattern.iter().any(|p| p.is_mutable);
+
+                // Global immutable bindings must resolve to a const value, unless it is:
+                // - of type `type` or `module`
+                // - an extern binding
+                if env.scope_level().is_global()
+                    && !is_type_or_module
+                    && !is_any_pattern_mut
+                    && const_value.is_none()
+                    && !matches!(
+                        self.kind,
+                        BindingKind::Extern(_) | BindingKind::Intrinsic(_)
+                    )
+                {
+                    return Err(Diagnostic::error()
+                        .with_message(format!("immutable top level binding must be constant"))
+                        .with_label(Label::primary(self.pattern.span(), "must be constant"))
+                        .maybe_with_label(self.expr.as_ref().map(|expr| {
+                            Label::secondary(expr.span, "doesn't resolve to a constant value")
+                        })));
+                }
+
+                // Bindings of type `type` and `module` cannot be assigned to mutable bindings
+                if is_type_or_module {
+                    self.pattern
+                        .iter()
+                        .filter(|pat| pat.is_mutable)
+                        .for_each(|pat| {
+                            sess.workspace.diagnostics.push(
+                                Diagnostic::error()
+                                    .with_message(
+                                        "variable of type `type` or `module` must be immutable",
+                                    )
+                                    .with_label(Label::primary(pat.span, "variable is mutable"))
+                                    .with_note("try removing the `mut` from the declaration"),
+                            );
+                        });
+                }
+
+                sess.bind_pattern(
                     env,
-                    pattern.symbol,
+                    &mut self.pattern,
                     self.visibility,
                     self.ty,
-                    None,
-                    pattern.is_mutable,
-                    self.kind.clone(),
-                    pattern.span,
+                    const_value.clone(),
+                    &self.kind,
+                    self.expr
+                        .as_ref()
+                        .map(|e| e.span)
+                        .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
+                        .unwrap_or(self.span),
                 )?;
 
-                pattern.id = id;
-
-                sess.new_typed_ast.push_binding(&[id], self.clone());
-
-                return Ok(Res::new(self.ty));
-            } else {
-                panic!();
-            }
-        }
-
-        let const_value = if let Some(expr) = &mut self.expr {
-            let res = expr.check(sess, env, Some(self.ty))?;
-
-            res.ty
-                .unify(&self.ty, &mut sess.tycx)
-                .or_coerce_expr_into_ty(
-                    expr,
-                    self.ty,
-                    &mut sess.tycx,
-                    sess.target_metrics.word_size,
-                )
-                .or_report_err(
-                    &sess.tycx,
-                    self.ty,
-                    self.ty_expr.as_ref().map(|e| e.span),
-                    res.ty,
-                    expr.span,
-                )?;
-
-            res.const_value
-        } else {
-            match &self.pattern {
-                Pattern::StructUnpack(pat)
-                | Pattern::TupleUnpack(pat)
-                | Pattern::Hybrid(HybridPattern {
-                    unpack: UnpackPatternKind::Struct(pat) | UnpackPatternKind::Tuple(pat),
-                    ..
-                }) => {
-                    return Err(Diagnostic::error()
-                        .with_message("unpack pattern requires a value to unpack")
-                        .with_label(Label::primary(pat.span, "illegal pattern use")));
-                }
-                Pattern::Symbol(_) => (),
-            }
-
-            None
-        };
-
-        let ty_kind = self.ty.normalize(&sess.tycx);
-
-        let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
-        let is_any_pattern_mut = self.pattern.iter().any(|p| p.is_mutable);
-
-        // Global immutable bindings must resolve to a const value, unless it is:
-        // - of type `type` or `module`
-        // - an extern binding
-        if env.scope_level().is_global()
-            && !is_type_or_module
-            && !is_any_pattern_mut
-            && const_value.is_none()
-            && !matches!(
-                self.kind,
-                BindingKind::Extern(_) | BindingKind::Intrinsic(_)
-            )
-        {
-            return Err(Diagnostic::error()
-                .with_message(format!("immutable top level binding must be constant"))
-                .with_label(Label::primary(self.pattern.span(), "must be constant"))
-                .maybe_with_label(self.expr.as_ref().map(|expr| {
-                    Label::secondary(expr.span, "doesn't resolve to a constant value")
-                })));
-        }
-
-        // Bindings of type `type` and `module` cannot be assigned to mutable bindings
-        if is_type_or_module {
-            self.pattern
-                .iter()
-                .filter(|pat| pat.is_mutable)
-                .for_each(|pat| {
-                    sess.workspace.diagnostics.push(
-                        Diagnostic::error()
-                            .with_message("variable of type `type` or `module` must be immutable")
-                            .with_label(Label::primary(pat.span, "variable is mutable"))
-                            .with_note("try removing the `mut` from the declaration"),
-                    );
-                });
-        }
-
-        sess.bind_pattern(
-            env,
-            &mut self.pattern,
-            self.visibility,
-            self.ty,
-            const_value.clone(),
-            &self.kind,
-            self.expr
-                .as_ref()
-                .map(|e| e.span)
-                .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
-                .unwrap_or(self.span),
-        )?;
-
-        // If this binding matches the entry point function's requirements,
-        // Tag it as the entry function
-        // Requirements:
-        // - Is declared in the root module
-        // - It is in global scope
-        // - Its name is the same as the required `entry_point_function_name`
-        if let Some(ConstValue::Function(_)) = &const_value {
-            if let Pattern::Symbol(pattern) = &mut self.pattern {
-                if sess.workspace.build_options.need_entry_point_function()
-                    && self.module_id == sess.workspace.root_module_id
-                    && env.scope_level().is_global()
-                    && pattern.symbol
-                        == sess
-                            .workspace
-                            .build_options
-                            .entry_point_function_name()
-                            .unwrap()
-                {
-                    if let Some(_) = sess.workspace.entry_point_function_id {
-                        // TODO: When attributes are implemented:
-                        // TODO: Emit error that we can't have two entry point functions
-                        // TODO: Also, this should be moved to another place...
-                    } else {
-                        sess.workspace.entry_point_function_id = Some(pattern.id);
+                // If this binding matches the entry point function's requirements,
+                // Tag it as the entry function
+                // Requirements:
+                // - Is declared in the root module
+                // - It is in global scope
+                // - Its name is the same as the required `entry_point_function_name`
+                if let Some(ConstValue::Function(_)) = &const_value {
+                    if let Pattern::Symbol(pattern) = &mut self.pattern {
+                        if sess.workspace.build_options.need_entry_point_function()
+                            && self.module_id == sess.workspace.root_module_id
+                            && env.scope_level().is_global()
+                            && pattern.symbol
+                                == sess
+                                    .workspace
+                                    .build_options
+                                    .entry_point_function_name()
+                                    .unwrap()
+                        {
+                            if let Some(_) = sess.workspace.entry_point_function_id {
+                                // TODO: When attributes are implemented:
+                                // TODO: Emit error that we can't have two entry point functions
+                                // TODO: Also, this should be moved to another place...
+                            } else {
+                                sess.workspace.entry_point_function_id = Some(pattern.id);
+                            }
+                        }
                     }
                 }
+
+                Ok(Res::new_maybe_const(self.ty, const_value))
+            }
+            BindingKind::Intrinsic(_) => {
+                if let Pattern::Symbol(pattern) = &mut self.pattern {
+                    let id = sess.bind_symbol(
+                        env,
+                        pattern.symbol,
+                        self.visibility,
+                        self.ty,
+                        None,
+                        pattern.is_mutable,
+                        self.kind.clone(),
+                        pattern.span,
+                    )?;
+
+                    pattern.id = id;
+
+                    sess.new_typed_ast.push_binding(&[id], self.clone());
+
+                    Ok(Res::new(self.ty))
+                } else {
+                    panic!()
+                }
+            }
+            BindingKind::Extern(lib) => {
+                if let Some(lib) = lib {
+                    // Collect extern library to be linked later
+                    sess.workspace.extern_libraries.insert(lib.clone());
+                }
+
+                let pattern = self.pattern.as_symbol_ref();
+                let name = pattern.symbol;
+
+                let id = sess.new_typed_ast.push_function(ast::Function {
+                    id: FunctionId::unknown(),
+                    module_id: env.module_id(),
+                    ty: self.ty,
+                    kind: ast::FunctionKind::Extern {
+                        name,
+                        lib: lib.clone(),
+                    },
+                });
+
+                let const_value = ConstValue::Function(ConstFunction { id, name });
+
+                sess.bind_pattern(
+                    env,
+                    &mut self.pattern,
+                    self.visibility,
+                    self.ty,
+                    Some(const_value.clone()),
+                    &self.kind,
+                    self.expr
+                        .as_ref()
+                        .map(|e| e.span)
+                        .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
+                        .unwrap_or(self.span),
+                )?;
+
+                self.expr = Some(ast::Expr::new(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    self.span,
+                ));
+
+                Ok(Res::new_const(self.ty, const_value))
             }
         }
-
-        Ok(Res::new_maybe_const(self.ty, const_value))
     }
 }
 
@@ -805,14 +847,10 @@ impl Check for ast::Expr {
 
                 env.pop_scope();
 
-                match &mut sess
-                    .new_typed_ast
+                sess.new_typed_ast
                     .get_function_mut(function.id)
                     .unwrap()
-                    .kind
-                {
-                    ast::FunctionKind::Orphan { body, .. } => *body = Some(function.body.clone()),
-                }
+                    .set_body(function.body.clone());
 
                 let const_value = ConstValue::Function(ConstFunction {
                     id: function.id,

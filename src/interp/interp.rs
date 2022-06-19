@@ -4,7 +4,7 @@ use super::{
     vm::{
         display::dump_bytecode_to_file,
         instruction::{CompiledCode, Instruction},
-        value::{Function, FunctionAddress, Value},
+        value::{ExternFunction, Function, FunctionAddress, FunctionValue, Value},
         Constants, Globals, VM,
     },
 };
@@ -29,7 +29,10 @@ pub enum InterpErr {}
 pub struct Interp {
     pub globals: Globals,
     pub constants: Constants,
+
     pub functions: HashMap<FunctionId, Function>,
+    pub extern_functions: HashMap<FunctionId, ExternFunction>,
+
     pub ffi: Ffi,
     pub build_options: BuildOptions,
 
@@ -42,6 +45,7 @@ impl Interp {
             globals: vec![],
             constants: vec![Value::unit()],
             functions: HashMap::new(),
+            extern_functions: HashMap::new(),
             ffi: Ffi::new(),
             build_options,
             bindings_to_globals: HashMap::new(),
@@ -64,6 +68,13 @@ impl Interp {
             evaluated_globals: vec![],
             lowered_functions: HashSet::new(),
         }
+    }
+
+    pub fn get_function(&self, id: FunctionId) -> Option<FunctionValue> {
+        self.functions
+            .get(&id)
+            .map(FunctionValue::Orphan)
+            .or_else(|| self.extern_functions.get(&id).map(FunctionValue::Extern))
     }
 }
 

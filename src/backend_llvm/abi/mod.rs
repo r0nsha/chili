@@ -115,7 +115,7 @@ pub struct AbiFunction<'ctx> {
 #[derive(Debug, Clone, Copy)]
 pub struct AbiTy<'ctx> {
     pub ty: BasicTypeEnum<'ctx>,
-    pub kind: AbiTyKind,
+    pub kind: AbiType,
     pub cast_to: Option<BasicTypeEnum<'ctx>>,
     pub attr: Option<Attribute>,
     pub align_attr: Option<Attribute>,
@@ -125,7 +125,7 @@ impl<'ctx> AbiTy<'ctx> {
     pub fn direct(ty: BasicTypeEnum<'ctx>) -> Self {
         Self {
             ty,
-            kind: AbiTyKind::Direct,
+            kind: AbiType::Direct,
             cast_to: None,
             attr: None,
             align_attr: None,
@@ -135,7 +135,7 @@ impl<'ctx> AbiTy<'ctx> {
     pub fn indirect(ty: BasicTypeEnum<'ctx>) -> Self {
         Self {
             ty,
-            kind: AbiTyKind::Indirect,
+            kind: AbiType::Indirect,
             cast_to: None,
             attr: None,
             align_attr: None,
@@ -145,7 +145,7 @@ impl<'ctx> AbiTy<'ctx> {
     pub fn ignore(ty: BasicTypeEnum<'ctx>) -> Self {
         Self {
             ty,
-            kind: AbiTyKind::Ignore,
+            kind: AbiType::Ignore,
             cast_to: None,
             attr: None,
             align_attr: None,
@@ -155,7 +155,7 @@ impl<'ctx> AbiTy<'ctx> {
     pub fn indirect_byval(context: &Context, ty: BasicTypeEnum<'ctx>, word_size: usize) -> Self {
         Self {
             ty,
-            kind: AbiTyKind::Indirect,
+            kind: AbiType::Indirect,
             cast_to: None,
             attr: Some(context.create_type_attribute(
                 Attribute::get_named_enum_kind_id("byval"),
@@ -186,31 +186,31 @@ impl<'ctx> AbiTy<'ctx> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum AbiTyKind {
+pub enum AbiType {
     Direct,
     Indirect,
     Ignore,
 }
 
-impl AbiTyKind {
+impl AbiType {
     #[allow(unused)]
     pub fn is_direct(&self) -> bool {
         match self {
-            AbiTyKind::Direct => true,
+            AbiType::Direct => true,
             _ => false,
         }
     }
 
     pub fn is_indirect(&self) -> bool {
         match self {
-            AbiTyKind::Indirect => true,
+            AbiType::Indirect => true,
             _ => false,
         }
     }
 
     pub fn is_ignore(&self) -> bool {
         match self {
-            AbiTyKind::Ignore => true,
+            AbiType::Ignore => true,
             _ => false,
         }
     }

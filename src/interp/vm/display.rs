@@ -1,6 +1,9 @@
 use crate::interp::interp::Interp;
 
-use super::{instruction::CompiledCode, value::Value};
+use super::{
+    instruction::CompiledCode,
+    value::{FunctionValue, Value},
+};
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Write},
@@ -49,24 +52,27 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &CompiledCode) {
 impl PrettyPrint for Value {
     fn pretty_print(&self, interp: &Interp) -> String {
         match self {
-            Value::Function(func) => {
-                format!(
-                    "fn {}\n{}",
-                    if func.name.is_empty() {
-                        "<anon>"
-                    } else {
-                        &func.name
-                    },
-                    interp.functions[&func.id]
-                        .code
-                        .instructions
-                        .iter()
-                        .enumerate()
-                        .map(|(index, inst)| format!("{:06}\t{}", index, inst))
-                        .collect::<Vec<String>>()
-                        .join("\n")
-                )
-            }
+            Value::Function(addr) => match interp.get_function(addr.id).unwrap() {
+                FunctionValue::Orphan(function) => {
+                    format!(
+                        "fn {}\n{}",
+                        if function.name.is_empty() {
+                            "<anon>"
+                        } else {
+                            &function.name
+                        },
+                        function
+                            .code
+                            .instructions
+                            .iter()
+                            .enumerate()
+                            .map(|(index, inst)| format!("{:06}\t{}", index, inst))
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    )
+                }
+                FunctionValue::Extern(_) => self.to_string(),
+            },
             _ => self.to_string(),
         }
     }

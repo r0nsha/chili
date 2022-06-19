@@ -79,9 +79,10 @@ pub fn codegen<'w>(
         builder: &builder,
         ptr_sized_int_type: context.ptr_sized_int_type(&target_machine.get_target_data(), None),
         global_decls: HashMap::default(),
-        functions: HashMap::default(),
         types: HashMap::default(),
         static_strs: UstrMap::default(),
+        functions: HashMap::default(),
+        extern_functions: UstrMap::default(),
         intrinsics: HashMap::default(),
     };
 

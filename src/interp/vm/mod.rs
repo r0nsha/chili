@@ -1,3 +1,5 @@
+use self::value::FunctionValue;
+
 use super::{
     interp::Interp,
     vm::{
@@ -297,24 +299,27 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::Call(arg_count) => match self.stack.pop() {
-                    Value::Function(addr) => {
-                        let function = self.interp.functions.get(&addr.id).unwrap();
-                        self.push_frame(function as *const Function);
-                    }
-                    Value::ExternFunction(function) => {
-                        let mut values = (0..arg_count)
-                            .into_iter()
-                            .map(|_| self.stack.pop())
-                            .collect::<Vec<Value>>();
+                    Value::Function(addr) => match self.interp.get_function(addr.id).unwrap() {
+                        FunctionValue::Orphan(function) => {
+                            self.push_frame(function as *const Function);
+                        }
+                        FunctionValue::Extern(function) => {
+                            let mut values = (0..arg_count)
+                                .into_iter()
+                                .map(|_| self.stack.pop())
+                                .collect::<Vec<Value>>();
 
-                        values.reverse();
+                            values.reverse();
 
-                        let vm_ptr = self as *mut VM;
-                        let result = unsafe { self.interp.ffi.call(vm_ptr, function, values) };
-                        self.stack.push(result);
+                            let function = function.clone();
+                            let vm_ptr = self as *mut VM;
 
-                        self.next();
-                    }
+                            let result = unsafe { self.interp.ffi.call(vm_ptr, function, values) };
+                            self.stack.push(result);
+
+                            self.next();
+                        }
+                    },
                     Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
                     value => panic!("tried to call uncallable value `{}`", value.to_string()),
                 },

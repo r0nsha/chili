@@ -242,7 +242,6 @@ impl_value! {
     Array(Array),
     Pointer(Pointer),
     Function(FunctionAddress),
-    ExternFunction(ExternFunction),
     Intrinsic(IntrinsicFunction),
     Type(Type),
 }
@@ -310,6 +309,12 @@ pub enum IntrinsicFunction {
     StartWorkspace,
 }
 
+#[derive(Debug, Clone)]
+pub enum FunctionValue<'a> {
+    Orphan(&'a Function),
+    Extern(&'a ExternFunction),
+}
+
 impl Display for IntrinsicFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -353,13 +358,7 @@ impl From<&Type> for ValueKind {
                 }
             },
             Type::Pointer(_, _) | Type::MultiPointer(_, _) => Self::Pointer,
-            Type::Function(f) => {
-                if f.kind.is_extern() {
-                    Self::ExternFunction
-                } else {
-                    Self::Function
-                }
-            }
+            Type::Function(_) => Self::Function,
             Type::Array(_, _) => Self::Array,
             Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => Self::Aggregate,
             Type::Module(_) => panic!(),
@@ -601,7 +600,6 @@ impl Value {
                 name: f.name,
             })),
             Self::Pointer(_) => Err("pointer"),
-            Self::ExternFunction(_) => Err("extern function"),
             Self::Intrinsic(_) => Err("intrinsic function"),
         }
     }
@@ -743,7 +741,6 @@ impl Pointer {
             (Self::Array(p), Value::Array(v)) => **p = v,
             (Self::Pointer(p), Value::Pointer(v)) => **p = v,
             (Self::Function(p), Value::Function(v)) => **p = v,
-            (Self::ExternFunction(p), Value::ExternFunction(v)) => **p = v,
             (Self::Type(p), Value::Type(v)) => **p = v,
             (p, v) => panic!("invalid pair {:?} , {}", p, v.to_string()),
         }
@@ -775,7 +772,6 @@ impl Display for Value {
                 Value::Array(v) => v.to_string(),
                 Value::Pointer(p) => p.to_string(),
                 Value::Function(v) => v.to_string(),
-                Value::ExternFunction(v) => v.to_string(),
                 Value::Intrinsic(v) => v.to_string(),
                 Value::Type(ty) => format!("type {}", ty),
             }
@@ -877,7 +873,6 @@ impl Display for Pointer {
                     Pointer::Array(v) => (**v).to_string(),
                     Pointer::Pointer(p) => (**p).to_string(),
                     Pointer::Function(v) => (**v).to_string(),
-                    Pointer::ExternFunction(v) => (**v).to_string(),
                     Pointer::Intrinsic(v) => (**v).to_string(),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }

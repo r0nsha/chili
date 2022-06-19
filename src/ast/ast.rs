@@ -411,17 +411,17 @@ pub enum FunctionKind {
         sig: FunctionSig,
         body: Option<Block>, // The body will be filled after the function is fully checked
     },
-    // Extern {
-    //     id: FunctionId,
-    //     ty: TypeId,
-    //     lib: Option<ExternLibrary>,
-    // },
+    Extern {
+        name: Ustr,
+        lib: Option<ExternLibrary>,
+    },
 }
 
 impl Function {
     pub fn name(&self) -> Ustr {
         match &self.kind {
             FunctionKind::Orphan { sig, .. } => sig.name,
+            FunctionKind::Extern { name, .. } => *name,
         }
     }
 
@@ -429,6 +429,18 @@ impl Function {
         ConstFunction {
             id: self.id,
             name: self.name(),
+        }
+    }
+
+    /// This is a noop if the function doesn't have a body.
+    /// Returns whether the function has a body
+    pub fn set_body(&mut self, block: Block) -> bool {
+        match &mut self.kind {
+            FunctionKind::Orphan { body, .. } => {
+                *body = Some(block);
+                true
+            }
+            FunctionKind::Extern { .. } => false,
         }
     }
 }

@@ -1,5 +1,5 @@
 use super::{
-    abi::{AbiFunction, AbiTyKind},
+    abi::{AbiFunction, AbiType},
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
     util::LlvmName,
@@ -22,23 +22,24 @@ use inkwell::{
 };
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
-    pub fn gen_fn_by_id(
+    pub fn gen_function(
         &mut self,
         id: FunctionId,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         self.functions.get(&id).cloned().unwrap_or_else(|| {
             let function = self.typed_ast.get_function(id).unwrap();
-            self.gen_fn(function, prev_state)
+            self.gen_function_inner(function, prev_state)
         })
     }
 
-    pub fn gen_fn(
+    fn gen_function_inner(
         &mut self,
         function: &ast::Function,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         let module_info = *self.workspace.get_module_info(function.module_id).unwrap();
+        let function_type = function.ty.normalize(self.tycx).into_fn();
 
         match &function.kind {
             ast::FunctionKind::Orphan { sig, body } => {
@@ -48,23 +49,18 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.builder.get_insert_block()
                 };
 
-                let function_value = self
-                    .module
-                    .get_function(&sig.llvm_name(module_info.name))
-                    .unwrap_or_else(|| {
-                        self.declare_fn_sig(
-                            &sig.ty.normalize(self.tycx).as_fn(),
-                            sig.llvm_name(module_info.name),
-                        )
-                    });
+                let function_value = self.declare_fn_sig(
+                    &function_type,
+                    sig.llvm_name(module_info.name),
+                    Some(Linkage::Private),
+                );
 
                 self.functions.insert(function.id, function_value);
 
                 let decl_block = self.context.append_basic_block(function_value, "decls");
                 let entry_block = self.context.append_basic_block(function_value, "entry");
 
-                let fn_ty = sig.ty.normalize(self.tycx).into_fn();
-                let abi_fn = self.get_abi_compliant_fn(&fn_ty);
+                let abi_fn = self.get_abi_compliant_fn(&function_type);
 
                 let return_ptr = if abi_fn.ret.kind.is_indirect() {
                     let return_ptr = function_value
@@ -80,7 +76,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let mut state = CodegenState::new(
                     module_info,
                     function_value,
-                    fn_ty,
+                    function_type,
                     return_ptr,
                     decl_block,
                     entry_block,
@@ -143,6 +139,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 function_value
             }
+            ast::FunctionKind::Extern { name, lib: _ } => {
+                self.extern_functions.get(name).cloned().unwrap_or_else(|| {
+                    let function_type = self.fn_type(&function_type);
+                    let function = self.get_or_add_function(name, function_type, None);
+                    self.extern_functions.insert(*name, function);
+                    function
+                })
+            }
         }
     }
 
@@ -164,12 +168,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn declare_fn_sig(
         &mut self,
         ty: &FunctionType,
-        llvm_name: impl AsRef<str>,
+        name: impl AsRef<str>,
+        linkage: Option<Linkage>,
     ) -> FunctionValue<'ctx> {
-        let fn_type = self.fn_type(&ty);
+        let fn_type = self.abi_compliant_fn_type(&ty);
         let abi_fn = self.get_abi_compliant_fn(&ty);
 
-        let function = self.get_or_add_function(llvm_name, fn_type, Some(Linkage::External));
+        let function = self.get_or_add_function(name, fn_type, linkage);
 
         self.add_fn_attributes(function, &abi_fn);
 
@@ -263,7 +268,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let arg = args[index];
 
             let arg = match param.kind {
-                AbiTyKind::Direct => {
+                AbiType::Direct => {
                     // println!("...direct");
                     let abi_ty = match param.cast_to {
                         Some(cast_to) => cast_to,
@@ -272,7 +277,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                     self.build_transmute(state, arg, abi_ty)
                 }
-                AbiTyKind::Indirect => {
+                AbiType::Indirect => {
                     // println!("...indirect");
                     let arg_type = arg.get_type();
 
@@ -303,7 +308,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                     arg.into()
                 }
-                AbiTyKind::Ignore => unimplemented!("ignore '{:?}'", param.ty),
+                AbiType::Ignore => unimplemented!("ignore '{:?}'", param.ty),
             };
 
             processed_args.push(arg.into());
@@ -380,12 +385,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn get_or_add_function(
         &self,
         name: impl AsRef<str>,
-        fn_type: inkwell::types::FunctionType<'ctx>,
+        function_type: inkwell::types::FunctionType<'ctx>,
         linkage: Option<Linkage>,
     ) -> FunctionValue<'ctx> {
         let name = name.as_ref();
         self.module
             .get_function(name)
-            .unwrap_or(self.module.add_function(name, fn_type, linkage))
+            .unwrap_or_else(|| self.module.add_function(name, function_type, linkage))
     }
 }

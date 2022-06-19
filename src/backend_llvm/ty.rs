@@ -1,5 +1,5 @@
 use super::{
-    abi::{self, AbiFunction, AbiTyKind},
+    abi::{self, AbiFunction, AbiType},
     codegen::Codegen,
 };
 use crate::ast::ty::{size::SizeOf, *};
@@ -55,7 +55,10 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Type {
                 ty.ptr_type(AddressSpace::Generic).into()
             }
             Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => cg.unit_type(),
-            Type::Function(func) => cg.fn_type(func).ptr_type(AddressSpace::Generic).into(),
+            Type::Function(func) => cg
+                .abi_compliant_fn_type(func)
+                .ptr_type(AddressSpace::Generic)
+                .into(),
             Type::Array(inner, size) => inner.llvm_type(cg).array_type(*size as u32).into(),
             Type::Slice(inner, ..) => cg.slice_type(inner),
             Type::Tuple(tys) => cg
@@ -107,18 +110,25 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .into()
     }
 
-    pub fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
+    pub fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
         let params: Vec<BasicMetadataTypeEnum> =
             f.params.iter().map(|p| p.llvm_type(self).into()).collect();
 
         let ret = f.ret.llvm_type(self);
 
-        let fn_type = ret.fn_type(&params, f.varargs.is_some());
+        ret.fn_type(&params, f.varargs.is_some())
+    }
+
+    pub fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
+        let fn_type = self.fn_type(f);
 
         abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
     }
 
-    pub fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
+    pub fn abi_compliant_fn_type(
+        &mut self,
+        f: &FunctionType,
+    ) -> inkwell::types::FunctionType<'ctx> {
         let abi_compliant_fn_ty = self.get_abi_compliant_fn(f);
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
@@ -130,16 +140,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let mut offset = 0;
 
         let ret = match abi_fn.ret.kind {
-            AbiTyKind::Direct => match abi_fn.ret.cast_to {
+            AbiType::Direct => match abi_fn.ret.cast_to {
                 Some(cast_to) => cast_to,
                 None => abi_fn.ret.ty,
             }
             .as_any_type_enum(),
-            AbiTyKind::Indirect => {
+            AbiType::Indirect => {
                 offset += 1;
                 self.context.void_type().into()
             }
-            AbiTyKind::Ignore => self.context.void_type().into(),
+            AbiType::Ignore => self.context.void_type().into(),
         };
 
         let mut params: Vec<BasicMetadataTypeEnum> = vec![];
@@ -149,12 +159,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         for param in abi_fn.params.iter() {
             let ty = match &param.kind {
-                AbiTyKind::Direct => match param.cast_to {
+                AbiType::Direct => match param.cast_to {
                     Some(cast_to) => cast_to,
                     None => param.ty,
                 },
-                AbiTyKind::Indirect => param.ty.ptr_type(AddressSpace::Generic).into(),
-                AbiTyKind::Ignore => unimplemented!("ignore '{:?}'", param.ty),
+                AbiType::Indirect => param.ty.ptr_type(AddressSpace::Generic).into(),
+                AbiType::Ignore => unimplemented!("ignore '{:?}'", param.ty),
             };
 
             params.push(ty.into());

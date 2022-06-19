@@ -265,11 +265,9 @@ impl Lower for ast::Expr {
             | ast::ExprKind::SliceType(_)
             | ast::ExprKind::SelfType
             | ast::ExprKind::Placeholder
-            | ast::ExprKind::StructType(_) => {
-                panic!("unexpected type expression, should have been lowered to a ConstValue")
-            }
-            ast::ExprKind::FunctionType(sig) => {
-                sig.lower(sess, code, LowerContext { take_ptr: false })
+            | ast::ExprKind::StructType(_)
+            | ast::ExprKind::FunctionType(_) => {
+                panic!("unexpected type expression should have been lowered to a ConstValue")
             }
             ast::ExprKind::ConstValue(const_value) => {
                 let value = const_value_to_value(const_value, self.ty, sess);
@@ -283,21 +281,12 @@ impl Lower for ast::Expr {
 fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut CompiledCode) {
     match &binding.kind {
         ast::BindingKind::Extern(_) => {
-            let ty = binding.ty.normalize(sess.tycx);
+            let (id, value) = lower_extern_function(sess, binding);
 
-            match &ty {
-                Type::Function(func_ty) => {
-                    let pattern = binding.pattern.as_symbol_ref();
+            sess.push_const(code, value);
+            sess.add_local(code, id);
 
-                    let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
-                    sess.push_const(code, Value::ExternFunction(extern_func));
-
-                    sess.add_local(code, pattern.id);
-
-                    code.push(Instruction::SetLocal(code.last_local()));
-                }
-                _ => todo!("lower extern variables"),
-            }
+            code.push(Instruction::SetLocal(code.last_local()));
         }
         ast::BindingKind::Intrinsic(intrinsic) => {
             let pattern = binding.pattern.as_symbol_ref();
@@ -650,32 +639,29 @@ impl Lower for ast::Function {
                     },
                 );
             }
-        }
-    }
-}
-
-impl Lower for ast::FunctionSig {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        match &self.kind {
-            FunctionTypeKind::Orphan => {
-                // lowering a non-extern function signature is a noop
-            }
-            FunctionTypeKind::Extern { lib: Some(lib) } => {
+            ast::FunctionKind::Extern { name, lib } => {
                 let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
-                let extern_func = ExternFunction {
-                    lib_path: ustr(&lib.path()),
-                    name: self.name,
-                    param_tys: func_ty.params,
-                    return_ty: *func_ty.ret,
-                    variadic: self.varargs.is_some(),
-                };
+                // let extern_func = ExternFunction {
+                //     lib_path: ustr(&lib.path()),
+                //     name: self.name,
+                //     param_tys: func_ty.params,
+                //     return_ty: *func_ty.ret,
+                //     variadic: self.varargs.is_some(),
+                // };
 
-                sess.push_const(code, Value::ExternFunction(extern_func));
-            }
-            FunctionTypeKind::Extern { lib: None } => {
-                // TODO: raise proper diagnostic
-                panic!("cannot interpret extern function without specifying a library. TODO: proper diagnostic")
+                sess.interp.extern_functions.insert(
+                    self.id,
+                    ExternFunction {
+                        lib_path: ustr(&lib.as_ref().unwrap().path()),
+                        name: *name,
+                        param_tys: func_ty.params,
+                        return_ty: *func_ty.ret,
+                        variadic: func_ty.varargs.is_some(),
+                    },
+                );
+
+                // sess.push_const(code, Value::ExternFunction(extern_func));
             }
         }
     }
@@ -1243,6 +1229,41 @@ fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) ->
     lower_top_level_binding(binding, id, sess)
 }
 
+fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (BindingInfoId, Value) {
+    let pattern = binding.pattern.as_symbol_ref();
+    let binding_info = sess.workspace.get_binding_info(pattern.id).unwrap();
+    let ty = binding_info.ty.normalize(sess.tycx);
+
+    if let Some(ConstValue::Function(function)) = &binding_info.const_value {
+        let function = sess.typed_ast.get_function(function.id).unwrap();
+
+        match &function.kind {
+            ast::FunctionKind::Extern { name, .. } => {
+                let function_type = ty.as_fn();
+
+                let extern_function =
+                    function_type_to_extern_function(pattern.symbol, function_type);
+
+                if !sess.interp.extern_functions.contains_key(&function.id) {
+                    sess.interp
+                        .extern_functions
+                        .insert(function.id, extern_function);
+                }
+
+                let value = Value::Function(FunctionAddress {
+                    id: function.id,
+                    name: *name,
+                });
+
+                (pattern.id, value)
+            }
+            kind => panic!("got {:?}", kind),
+        }
+    } else {
+        todo!("lower extern variables")
+    }
+}
+
 fn lower_top_level_binding(
     binding: &ast::Binding,
     desired_id: BindingInfoId,
@@ -1252,18 +1273,8 @@ fn lower_top_level_binding(
 
     let desired_slot = match &binding.kind {
         ast::BindingKind::Extern(_) => {
-            let ty = binding.ty.normalize(sess.tycx);
-
-            match &ty {
-                Type::Function(func_ty) => {
-                    let pattern = binding.pattern.as_symbol_ref();
-
-                    let extern_func = func_ty_to_extern_func(pattern.symbol, func_ty);
-
-                    sess.insert_global(pattern.id, Value::ExternFunction(extern_func))
-                }
-                _ => todo!("lower extern variables"),
-            }
+            let (id, value) = lower_extern_function(sess, binding);
+            sess.insert_global(id, value)
         }
         ast::BindingKind::Intrinsic(intrinsic) => {
             let pattern = binding.pattern.as_symbol_ref();
@@ -1520,7 +1531,7 @@ fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut Comp
     }
 }
 
-fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionType) -> ExternFunction {
+fn function_type_to_extern_function(name: Ustr, func_ty: &FunctionType) -> ExternFunction {
     let lib_path = match &func_ty.kind {
         FunctionTypeKind::Extern { lib } => lib.as_ref().unwrap().path(),
         _ => panic!(),
