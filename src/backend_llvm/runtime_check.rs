@@ -29,7 +29,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             divisor.get_type().const_zero(),
             "",
         );
-        let message = self.gen_global_str(NAME, "attempt to divide by zero", true);
+        let message = self
+            .const_str_slice(NAME, "attempt to divide by zero")
+            .into();
         self.gen_conditional_panic(state, NAME, cond, message, span)
     }
 
@@ -43,7 +45,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         const NAME: &str = "__runtime_check_null_pointer_dereference";
         let cond = self.builder.build_is_null(ptr, "");
-        let message = self.gen_global_str(NAME, "attempt to dereference a null pointer", true);
+        let message = self
+            .const_str_slice(NAME, "attempt to dereference a null pointer")
+            .into();
         self.gen_conditional_panic(state, NAME, cond, message, span)
     }
 
@@ -57,7 +61,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         release_guard!(self);
 
         let name = format!("__runtime_check_overflow_{}", op);
-        let message = self.gen_global_str(&name, format!("attempt to {} with overflow", op), true);
+        let message = self
+            .const_str_slice(&name, format!("attempt to {} with overflow", op))
+            .into();
         self.gen_conditional_panic(state, &name, cond, message, span);
     }
 
@@ -72,11 +78,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         const NAME: &str = "__runtime_check_index_out_of_bounds";
 
-        let message = self.gen_global_str(
-            &NAME,
-            "index out of bounds: the len is (len) but the index is (index)",
-            true,
-        );
+        let message = self
+            .const_str_slice(
+                &NAME,
+                "index out of bounds: the len is (len) but the index is (index)",
+            )
+            .into();
 
         let is_lower_than_zero = self.builder.build_int_compare(
             IntPredicate::ULT,
@@ -107,11 +114,9 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         const NAME: &str = "__runtime_check_slice_end_before_start";
 
-        let message = self.gen_global_str(
-            &NAME,
-            "slice index starts at (start) but ends at (end)",
-            true,
-        );
+        let message = self
+            .const_str_slice(&NAME, "slice index starts at (start) but ends at (end)")
+            .into();
 
         let cond = self
             .builder
@@ -132,11 +137,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         const NAME: &str = "__runtime_check_slice_range_out_of_bounds";
 
-        let message = self.gen_global_str(
-            &NAME,
-            "slice range (start)..(end) is out of range for slice of length (len)",
-            true,
-        );
+        let message = self
+            .const_str_slice(
+                &NAME,
+                "slice range (start)..(end) is out of range for slice of length (len)",
+            )
+            .into();
 
         let is_low_less_than_zero =
             self.builder

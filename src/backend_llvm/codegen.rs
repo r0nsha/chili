@@ -684,7 +684,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     let message = if let Some(msg_expr) = msg_expr {
                         self.gen_expr(state, msg_expr, true)
                     } else {
-                        self.gen_global_str("", "", true)
+                        self.const_str_slice("", "").into()
                     };
 
                     self.gen_panic(state, message, expr.span);

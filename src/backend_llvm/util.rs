@@ -18,49 +18,6 @@ use std::mem;
 use ustr::{ustr, Ustr};
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
-    pub fn gen_global_str(
-        &mut self,
-        name: &str,
-        value: impl Into<Ustr>,
-        deref: bool,
-    ) -> BasicValueEnum<'ctx> {
-        let value = value.into();
-        let cached_str = self.static_strs.get(&value).map(|v| *v);
-        let str_ptr = cached_str.unwrap_or_else(|| {
-            let str_ptr = self
-                .builder
-                .build_global_string_ptr(&value, name)
-                .as_pointer_value();
-
-            let element_ty = Type::Uint(UintType::U8);
-            let ty = self.slice_type(&element_ty);
-
-            let str_slice_ptr = self.module.add_global(ty, Some(AddressSpace::Generic), "");
-
-            str_slice_ptr.set_initializer(&ty.const_zero());
-
-            let str_slice_ptr = str_slice_ptr.as_pointer_value();
-
-            self.gen_slice(
-                str_slice_ptr,
-                str_ptr.into(),
-                self.ptr_sized_int_type.const_zero(),
-                self.ptr_sized_int_type.const_int(value.len() as u64, false),
-                &element_ty,
-            );
-
-            self.static_strs.insert(value, str_slice_ptr);
-
-            str_slice_ptr
-        });
-
-        if deref {
-            self.build_load(str_ptr.into())
-        } else {
-            str_ptr.into()
-        }
-    }
-
     pub fn gen_unit(&self) -> BasicValueEnum<'ctx> {
         self.context.const_struct(&[], false).into()
     }

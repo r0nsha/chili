@@ -2,7 +2,7 @@ use super::codegen::{Codegen, CodegenState};
 use super::ty::IntoLlvmType;
 use crate::infer::normalize::Normalize;
 use crate::span::Span;
-use inkwell::values::{BasicValueEnum, IntValue};
+use inkwell::values::{BasicValue, BasicValueEnum, IntValue};
 
 impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[allow(unused)]
@@ -12,7 +12,7 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
         msg: impl AsRef<str>,
         span: Span,
     ) {
-        let message = self.gen_global_str("", msg.as_ref(), true);
+        let message = self.const_str_slice("", msg.as_ref()).into();
         self.gen_panic(state, message, span)
     }
 
@@ -37,9 +37,13 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let panic_info_llvm_type = panic_type.params.first().unwrap().llvm_type(self);
 
-        let program = self.gen_global_str("panic_program", self.workspace.name.as_ref(), true);
+        let program = self
+            .const_str_slice("panic_program", self.workspace.name.as_ref())
+            .as_basic_value_enum();
 
-        let file_path = self.gen_global_str("panic_file_path", state.module_info.file_path, true);
+        let file_path = self
+            .const_str_slice("panic_file_path", state.module_info.file_path)
+            .as_basic_value_enum();
 
         let line = self
             .ptr_sized_int_type
