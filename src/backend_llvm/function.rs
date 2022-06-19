@@ -27,8 +27,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         id: FunctionId,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
-        let function = self.typed_ast.get_function(id).unwrap();
-        self.gen_fn(function, prev_state)
+        self.functions.get(&id).cloned().unwrap_or_else(|| {
+            let function = self.typed_ast.get_function(id).unwrap();
+            self.gen_fn(function, prev_state)
+        })
     }
 
     pub fn gen_fn(
@@ -46,7 +48,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.builder.get_insert_block()
                 };
 
-                let function = self
+                let function_value = self
                     .module
                     .get_function(&sig.llvm_name(module_info.name))
                     .unwrap_or_else(|| {
@@ -56,14 +58,19 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         )
                     });
 
-                let decl_block = self.context.append_basic_block(function, "decls");
-                let entry_block = self.context.append_basic_block(function, "entry");
+                self.functions.insert(function.id, function_value);
+
+                let decl_block = self.context.append_basic_block(function_value, "decls");
+                let entry_block = self.context.append_basic_block(function_value, "entry");
 
                 let fn_ty = sig.ty.normalize(self.tycx).into_fn();
                 let abi_fn = self.get_abi_compliant_fn(&fn_ty);
 
                 let return_ptr = if abi_fn.ret.kind.is_indirect() {
-                    let return_ptr = function.get_first_param().unwrap().into_pointer_value();
+                    let return_ptr = function_value
+                        .get_first_param()
+                        .unwrap()
+                        .into_pointer_value();
                     return_ptr.set_name(&format!("{}.result", sig.name));
                     Some(return_ptr)
                 } else {
@@ -72,7 +79,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 let mut state = CodegenState::new(
                     module_info,
-                    function,
+                    function_value,
                     fn_ty,
                     return_ptr,
                     decl_block,
@@ -87,7 +94,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 state.push_scope();
 
-                let mut params = function.get_params();
+                let mut params = function_value.get_params();
 
                 if abi_fn.ret.kind.is_indirect() {
                     params.remove(0);
@@ -128,7 +135,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.start_block(&mut state, decl_block);
                 self.builder.build_unconditional_branch(entry_block);
 
-                let function_value = self.verify_and_optimize_function(function, &sig.name);
+                let function_value = self.verify_and_optimize_function(function_value, &sig.name);
 
                 if let Some(prev_block) = prev_block {
                     self.builder.position_at_end(prev_block);

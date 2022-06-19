@@ -3,7 +3,7 @@ use super::{
     abi::{align_of, size_of},
     util::is_a_load_inst,
 };
-use crate::ast::ast::Intrinsic;
+use crate::ast::ast::{FunctionId, Intrinsic};
 use crate::ast::{
     ast,
     const_value::ConstValue,
@@ -75,6 +75,7 @@ pub struct Codegen<'cg, 'ctx> {
     pub ptr_sized_int_type: IntType<'ctx>,
 
     pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
+    pub functions: HashMap<FunctionId, FunctionValue<'ctx>>,
     pub types: HashMap<BindingInfoId, BasicTypeEnum<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
     pub intrinsics: HashMap<Intrinsic, FunctionValue<'ctx>>,

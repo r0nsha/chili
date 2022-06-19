@@ -1,6 +1,6 @@
 mod binding;
 mod expr;
-mod func;
+mod function;
 mod import;
 mod literal;
 mod pattern;

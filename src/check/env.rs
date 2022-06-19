@@ -1,5 +1,8 @@
 use super::defer::DeferStack;
-use crate::ast::workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel};
+use crate::ast::{
+    ast::FunctionId,
+    workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel},
+};
 use ustr::{ustr, Ustr, UstrMap};
 
 pub struct Env {
@@ -76,6 +79,14 @@ impl Env {
         self.scope_level = self.scope_level.previous();
     }
 
+    pub fn insert_symbol(&mut self, symbol: Ustr, id: BindingInfoId) {
+        self.scope_mut().insert_symbol(symbol, id);
+    }
+
+    pub fn insert_function(&mut self, symbol: Ustr, id: FunctionId) {
+        self.scope_mut().insert_function(symbol, id);
+    }
+
     pub fn find_symbol(&self, symbol: Ustr) -> Option<BindingInfoId> {
         for scope in self.scopes.iter().rev() {
             if let Some(id) = scope.symbols.get(&symbol) {
@@ -86,8 +97,14 @@ impl Env {
         None
     }
 
-    pub fn insert_symbol(&mut self, symbol: Ustr, id: BindingInfoId) {
-        self.scope_mut().insert(symbol, id);
+    pub fn find_function(&self, symbol: Ustr) -> Option<FunctionId> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(id) = scope.functions.get(&symbol) {
+                return Some(*id);
+            }
+        }
+
+        None
     }
 }
 
@@ -96,7 +113,7 @@ pub struct Scope {
     pub kind: ScopeKind,
     pub name: String,
     pub symbols: UstrMap<BindingInfoId>,
-    pub functions: UstrMap<BindingInfoId>,
+    pub functions: UstrMap<FunctionId>,
     pub defer_stack: DeferStack,
 }
 
@@ -111,8 +128,12 @@ impl Scope {
         }
     }
 
-    pub fn insert(&mut self, symbol: Ustr, id: BindingInfoId) {
+    pub fn insert_symbol(&mut self, symbol: Ustr, id: BindingInfoId) {
         self.symbols.insert(symbol, id);
+    }
+
+    pub fn insert_function(&mut self, symbol: Ustr, id: FunctionId) {
+        self.functions.insert(symbol, id);
     }
 }
 

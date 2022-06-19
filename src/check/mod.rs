@@ -523,108 +523,6 @@ impl Check for ast::Binding {
     }
 }
 
-// impl Check for ast::FunctionExpr {
-//     fn check(
-//         &mut self,
-//         sess: &mut CheckSess,
-//         env: &mut Env,
-//         expected_ty: Option<TypeId>,
-//     ) -> CheckResult {
-//         let sig_res = self.sig.check(sess, env, expected_ty)?;
-//         let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
-
-//         let return_ty = sess.tycx.bound(
-//             fn_ty.ret.as_ref().clone(),
-//             self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span),
-//         );
-//         let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
-
-//         env.push_scope(ScopeKind::Function);
-
-//         self.id = sess.new_typed_ast.push_function(ast::Function {
-//             id: FunctionId::unknown(),
-//             module_id: env.module_id(),
-//             kind: ast::FunctionKind::Orphan {
-//                 sig: self.sig.clone(),
-//                 body: None,
-//             },
-//         });
-//         // sess.bind_symbol(
-//         //     env,
-//         //     self.sig.name,
-//         //     ast::Visibility::Private,
-//         //     sig_res.ty,
-//         //     None,
-//         //     false,
-//         //     ast::BindingKind::Normal,
-//         //     self.body.span,
-//         // )?;
-
-//         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
-//             let ty = sess.tycx.bound(
-//                 param_ty.clone(),
-//                 param
-//                     .ty_expr
-//                     .as_ref()
-//                     .map_or(param.pattern.span(), |e| e.span),
-//             );
-
-//             let span = param.pattern.span();
-
-//             sess.bind_pattern(
-//                 env,
-//                 &mut param.pattern,
-//                 ast::Visibility::Private,
-//                 ty,
-//                 None,
-//                 &ast::BindingKind::Normal,
-//                 span,
-//             )?;
-//         }
-
-//         let body_res = sess.with_function_frame(
-//             FunctionFrame {
-//                 return_ty,
-//                 return_ty_span,
-//                 scope_level: env.scope_level(),
-//             },
-//             |sess| self.body.check(sess, env, None),
-//         )?;
-
-//         let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
-
-//         if let Some(last_expr) = self.body.exprs.last_mut() {
-//             unify_res = unify_res.or_coerce_expr_into_ty(
-//                 last_expr,
-//                 return_ty,
-//                 &mut sess.tycx,
-//                 sess.target_metrics.word_size,
-//             );
-//         }
-
-//         unify_res.or_report_err(
-//             &sess.tycx,
-//             return_ty,
-//             Some(return_ty_span),
-//             body_res.ty,
-//             self.body.span,
-//         )?;
-
-//         env.pop_scope();
-
-//         match &mut sess.new_typed_ast.get_function_mut(self.id).unwrap().kind {
-//             ast::FunctionKind::Orphan { body, .. } => *body = Some(self.body.clone()),
-//         }
-
-//         let const_value = ConstValue::Function(ConstFunction {
-//             id: self.id,
-//             name: self.sig.name,
-//         });
-
-//         Ok(Res::new_const(sig_res.ty, const_value))
-//     }
-// }
-
 impl Check for ast::FunctionSig {
     fn check(
         &mut self,
@@ -868,22 +766,14 @@ impl Check for ast::Expr {
                 function.id = sess.new_typed_ast.push_function(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
+                    ty: sig_res.ty,
                     kind: ast::FunctionKind::Orphan {
                         sig: function.sig.clone(),
                         body: None,
                     },
                 });
 
-                // sess.bind_symbol(
-                //     env,
-                //     self.sig.name,
-                //     ast::Visibility::Private,
-                //     sig_res.ty,
-                //     None,
-                //     false,
-                //     ast::BindingKind::Normal,
-                //     self.body.span,
-                // )?;
+                env.insert_function(function.sig.name, function.id);
 
                 let body_res = sess.with_function_frame(
                     FunctionFrame {
@@ -1655,69 +1545,86 @@ impl Check for ast::Expr {
                         .with_label(Label::primary(access.expr.span, ""))),
                 }
             }
-            ast::ExprKind::Ident(ident) => match sess.get_symbol(env, ident.symbol) {
-                Some(id) => {
-                    // this is a local binding
-                    ident.binding_info_id = id;
+            ast::ExprKind::Ident(ident) => {
+                if let Some(id) = env.find_function(ident.symbol) {
+                    let function = sess.new_typed_ast.get_function(id).unwrap();
 
-                    sess.workspace.add_binding_info_use(id, self.span);
+                    let ty = function.ty;
+                    let const_value = ConstValue::Function(function.as_const_function());
 
-                    let binding_info = sess.workspace.get_binding_info(id).unwrap();
+                    *self = ast::Expr::typed(
+                        ast::ExprKind::ConstValue(const_value.clone()),
+                        ty,
+                        self.span,
+                    );
 
-                    let binding_ty = binding_info.ty.normalize(&sess.tycx);
+                    Ok(Res::new_const(ty, const_value))
+                } else {
+                    match sess.get_symbol(env, ident.symbol) {
+                        Some(id) => {
+                            // this is a local binding
+                            ident.binding_info_id = id;
 
-                    let min_scope_level = sess
-                        .function_frame()
-                        .map_or(ScopeLevel::Global, |f| f.scope_level);
+                            sess.workspace.add_binding_info_use(id, self.span);
 
-                    if !binding_ty.is_type()
-                        && !binding_ty.is_module()
-                        && !binding_info.scope_level.is_global()
-                        && binding_info.scope_level < min_scope_level
-                    {
-                        return Err(Diagnostic::error()
+                            let binding_info = sess.workspace.get_binding_info(id).unwrap();
+
+                            let binding_ty = binding_info.ty.normalize(&sess.tycx);
+
+                            let min_scope_level = sess
+                                .function_frame()
+                                .map_or(ScopeLevel::Global, |f| f.scope_level);
+
+                            if !binding_ty.is_type()
+                                && !binding_ty.is_module()
+                                && !binding_info.scope_level.is_global()
+                                && binding_info.scope_level < min_scope_level
+                            {
+                                return Err(Diagnostic::error()
                             .with_message(
                                 "can't capture environment - closures are not implemented yet",
                             )
                             .with_label(Label::primary(self.span, "can't capture")));
+                            }
+
+                            let ty = binding_info.ty;
+
+                            if let Some(const_value) = &binding_info.const_value {
+                                *self = ast::Expr::typed(
+                                    ast::ExprKind::ConstValue(const_value.clone()),
+                                    ty,
+                                    self.span,
+                                );
+                            }
+
+                            Ok(Res::new_maybe_const(ty, binding_info.const_value.clone()))
+                        }
+                        None => {
+                            // this is either a top level binding, a builtin binding, or it doesn't exist
+                            let (res, id) = sess.check_top_level_symbol(
+                                CallerInfo {
+                                    module_id: env.module_id(),
+                                    span: self.span,
+                                },
+                                env.module_id(),
+                                ident.symbol,
+                            )?;
+
+                            ident.binding_info_id = id;
+
+                            if let Some(const_value) = &res.const_value {
+                                *self = ast::Expr::typed(
+                                    ast::ExprKind::ConstValue(const_value.clone()),
+                                    res.ty,
+                                    self.span,
+                                );
+                            }
+
+                            Ok(res)
+                        }
                     }
-
-                    let ty = binding_info.ty;
-
-                    if let Some(const_value) = &binding_info.const_value {
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_value.clone()),
-                            ty,
-                            self.span,
-                        );
-                    }
-
-                    Ok(Res::new_maybe_const(ty, binding_info.const_value.clone()))
                 }
-                None => {
-                    // this is either a top level binding, a builtin binding, or it doesn't exist
-                    let (res, id) = sess.check_top_level_symbol(
-                        CallerInfo {
-                            module_id: env.module_id(),
-                            span: self.span,
-                        },
-                        env.module_id(),
-                        ident.symbol,
-                    )?;
-
-                    ident.binding_info_id = id;
-
-                    if let Some(const_value) = &res.const_value {
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_value.clone()),
-                            res.ty,
-                            self.span,
-                        );
-                    }
-
-                    Ok(res)
-                }
-            },
+            }
             ast::ExprKind::ArrayLiteral(lit) => match &mut lit.kind {
                 ast::ArrayLiteralKind::List(elements) => {
                     let element_ty_span = elements.first().map_or(self.span, |e| e.span);

@@ -1,5 +1,5 @@
 use super::{
-    const_value::ConstValue,
+    const_value::{ConstFunction, ConstValue},
     path::{try_resolve_relative_path, RelativeTo},
     pattern::Pattern,
     ty::*,
@@ -401,6 +401,7 @@ pub struct FunctionSig {
 pub struct Function {
     pub id: FunctionId,
     pub module_id: ModuleId,
+    pub ty: TypeId,
     pub kind: FunctionKind,
 }
 
@@ -415,6 +416,21 @@ pub enum FunctionKind {
     //     ty: TypeId,
     //     lib: Option<ExternLibrary>,
     // },
+}
+
+impl Function {
+    pub fn name(&self) -> Ustr {
+        match &self.kind {
+            FunctionKind::Orphan { sig, .. } => sig.name,
+        }
+    }
+
+    pub fn as_const_function(&self) -> ConstFunction {
+        ConstFunction {
+            id: self.id,
+            name: self.name(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
