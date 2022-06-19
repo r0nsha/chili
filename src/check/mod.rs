@@ -1569,24 +1569,6 @@ impl Check for ast::Expr {
 
                             let binding_info = sess.workspace.get_binding_info(id).unwrap();
 
-                            let binding_ty = binding_info.ty.normalize(&sess.tycx);
-
-                            let min_scope_level = sess
-                                .function_frame()
-                                .map_or(ScopeLevel::Global, |f| f.scope_level);
-
-                            if !binding_ty.is_type()
-                                && !binding_ty.is_module()
-                                && !binding_info.scope_level.is_global()
-                                && binding_info.scope_level < min_scope_level
-                            {
-                                return Err(Diagnostic::error()
-                            .with_message(
-                                "can't capture environment - closures are not implemented yet",
-                            )
-                            .with_label(Label::primary(self.span, "can't capture")));
-                            }
-
                             let ty = binding_info.ty;
 
                             if let Some(const_value) = &binding_info.const_value {
@@ -1595,6 +1577,22 @@ impl Check for ast::Expr {
                                     ty,
                                     self.span,
                                 );
+                            } else {
+                                let binding_ty = ty.normalize(&sess.tycx);
+
+                                let min_scope_level = sess
+                                    .function_frame()
+                                    .map_or(ScopeLevel::Global, |f| f.scope_level);
+
+                                if !binding_ty.is_type()
+                                    && !binding_ty.is_module()
+                                    && !binding_info.scope_level.is_global()
+                                    && binding_info.scope_level < min_scope_level
+                                {
+                                    return Err(Diagnostic::error()
+                                        .with_message("can't capture environment - closures are not implemented yet")
+                                        .with_label(Label::primary(self.span, "can't capture")));
+                                }
                             }
 
                             Ok(Res::new_maybe_const(ty, binding_info.const_value.clone()))

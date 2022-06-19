@@ -139,8 +139,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
-            // let module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
-
             match &binding.kind {
                 ast::BindingKind::Normal => {
                     if let Some(ast::Expr {
