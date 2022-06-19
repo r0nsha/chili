@@ -5,7 +5,7 @@ use inkwell::{
     values::{BasicValueEnum, IntValue},
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_if_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,

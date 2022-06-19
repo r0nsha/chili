@@ -3,6 +3,7 @@ use super::{
     abi::{align_of, size_of},
     util::is_a_load_inst,
 };
+use crate::ast::ast::Intrinsic;
 use crate::ast::{
     ast,
     const_value::ConstValue,
@@ -76,6 +77,7 @@ pub struct Codegen<'cg, 'ctx> {
     pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
     pub types: HashMap<BindingInfoId, BasicTypeEnum<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
+    pub intrinsics: HashMap<Intrinsic, FunctionValue<'ctx>>,
 }
 
 #[derive(Clone)]
@@ -126,7 +128,7 @@ pub struct LoopBlock<'ctx> {
     exit: BasicBlock<'ctx>,
 }
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn start(&mut self) {
         self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
         self.gen_entry_point_function();
@@ -157,7 +159,12 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                 }
                 ast::BindingKind::Intrinsic(intrinsic) => {
-                    self.gen_intrinsic(id, binding, intrinsic)
+                    let function = self.gen_intrinsic(binding, intrinsic);
+
+                    let decl = CodegenDecl::Function(function);
+                    self.global_decls.insert(id, decl);
+
+                    decl
                 }
                 ast::BindingKind::Extern(_) => {
                     let function = self.declare_fn_sig(
@@ -173,38 +180,6 @@ impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
         } else {
             panic!("{:?}", id)
-        }
-    }
-
-    fn gen_intrinsic(
-        &mut self,
-        id: BindingInfoId,
-        binding: &ast::Binding,
-        intrinsic: &ast::Intrinsic,
-    ) -> CodegenDecl<'ctx> {
-        match intrinsic {
-            ast::Intrinsic::StartWorkspace => {
-                const FUNC_NAME: &str = "intrinsic#start_workspace";
-
-                if let Some(f) = self.module.get_function(FUNC_NAME) {
-                    CodegenDecl::Function(f)
-                } else {
-                    let function = self.declare_fn_sig(
-                        binding.ty.normalize(self.tycx).as_fn(),
-                        "intrinsic#start_workspace",
-                    );
-
-                    let entry_block = self.context.append_basic_block(function, "entry");
-
-                    self.builder.position_at_end(entry_block);
-                    self.builder.build_return(Some(&self.gen_unit()));
-
-                    let decl = CodegenDecl::Function(function);
-                    self.global_decls.insert(id, decl);
-
-                    decl
-                }
-            }
         }
     }
 

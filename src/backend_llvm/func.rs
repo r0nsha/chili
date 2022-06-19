@@ -21,7 +21,7 @@ use inkwell::{
     },
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_fn(
         &mut self,
         module_info: ModuleInfo,

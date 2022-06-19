@@ -17,7 +17,7 @@ use inkwell::{
 use std::mem;
 use ustr::{ustr, Ustr};
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_unit(&self) -> BasicValueEnum<'ctx> {
         self.context.const_struct(&[], false).into()
     }

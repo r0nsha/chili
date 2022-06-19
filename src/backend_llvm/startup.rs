@@ -14,7 +14,7 @@ use inkwell::{
     AddressSpace,
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_entry_point_function(&mut self) -> FunctionValue<'ctx> {
         let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
 

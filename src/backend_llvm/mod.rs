@@ -3,6 +3,7 @@ mod binary;
 mod codegen;
 mod conditional;
 mod func;
+mod intrinsics;
 mod literal;
 mod panic;
 mod runtime_check;
@@ -80,6 +81,7 @@ pub fn codegen<'w>(
         global_decls: HashMap::default(),
         types: HashMap::default(),
         static_strs: UstrMap::default(),
+        intrinsics: HashMap::default(),
     };
 
     time! { workspace.build_options.verbose, "llvm",

@@ -537,7 +537,7 @@ impl Display for BindingKind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Intrinsic {
     StartWorkspace,
 }

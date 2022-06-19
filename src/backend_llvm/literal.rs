@@ -9,7 +9,7 @@ use inkwell::{
     AddressSpace,
 };
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_struct_literal(
         &mut self,
         state: &mut CodegenState<'ctx>,

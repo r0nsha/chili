@@ -13,7 +13,7 @@ macro_rules! release_guard {
     }};
 }
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_runtime_check_division_by_zero(
         &mut self,
         state: &mut CodegenState<'ctx>,

@@ -4,7 +4,7 @@ use crate::infer::normalize::Normalize;
 use crate::span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_unary(
         &mut self,
         state: &mut CodegenState<'ctx>,

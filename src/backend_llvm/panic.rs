@@ -4,7 +4,7 @@ use crate::infer::normalize::Normalize;
 use crate::span::Span;
 use inkwell::values::{BasicValue, BasicValueEnum, IntValue};
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     #[allow(unused)]
     pub fn gen_panic_with_message(
         &mut self,

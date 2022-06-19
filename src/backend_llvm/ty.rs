@@ -83,7 +83,7 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Type {
     }
 }
 
-impl<'w, 'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn unit_type(&self) -> BasicTypeEnum<'ctx> {
         self.context.struct_type(&[], false).into()
     }
