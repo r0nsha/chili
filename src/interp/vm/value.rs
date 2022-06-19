@@ -5,7 +5,7 @@ use super::{
     instruction::CompiledCode,
 };
 use crate::ast::{
-    ast::FunctionId,
+    ast::{FunctionId, Intrinsic},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     ty::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
 };
@@ -307,6 +307,14 @@ pub struct ExternFunction {
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum IntrinsicFunction {
     StartWorkspace,
+}
+
+impl From<Intrinsic> for IntrinsicFunction {
+    fn from(intrinsic: Intrinsic) -> Self {
+        match intrinsic {
+            Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

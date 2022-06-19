@@ -16,7 +16,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
 };
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 #[derive(Debug, Clone)]
 pub struct Ast {
@@ -415,6 +415,7 @@ pub enum FunctionKind {
         name: Ustr,
         lib: Option<ExternLibrary>,
     },
+    Intrinsic(Intrinsic),
 }
 
 impl Function {
@@ -422,6 +423,7 @@ impl Function {
         match &self.kind {
             FunctionKind::Orphan { sig, .. } => sig.name,
             FunctionKind::Extern { name, .. } => *name,
+            FunctionKind::Intrinsic(intrinsic) => ustr(intrinsic.to_str()),
         }
     }
 
@@ -441,6 +443,7 @@ impl Function {
                 true
             }
             FunctionKind::Extern { .. } => false,
+            FunctionKind::Intrinsic { .. } => false,
         }
     }
 }
@@ -584,17 +587,17 @@ impl Intrinsic {
             _ => None,
         }
     }
+
+    pub fn to_str(&self) -> &str {
+        match self {
+            Intrinsic::StartWorkspace => "start_workspace",
+        }
+    }
 }
 
 impl Display for Intrinsic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Intrinsic::StartWorkspace => "start_workspace",
-            }
-        )
+        write!(f, "{}", self.to_str())
     }
 }
 

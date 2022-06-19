@@ -497,9 +497,33 @@ impl Check for ast::Binding {
 
                 Ok(Res::new_maybe_const(self.ty, const_value))
             }
-            BindingKind::Intrinsic(_) => {
+            BindingKind::Intrinsic(intrinsic) => {
                 let pattern = self.pattern.as_symbol_mut();
-                sess.bind_symbol_pattern(env, pattern, self.visibility, self.ty, None, &self.kind)?;
+                let name = pattern.symbol;
+
+                let id = sess.new_typed_ast.push_function(ast::Function {
+                    id: FunctionId::unknown(),
+                    module_id: env.module_id(),
+                    ty: self.ty,
+                    kind: ast::FunctionKind::Intrinsic(*intrinsic),
+                });
+
+                let const_value = ConstValue::Function(ConstFunction { id, name });
+
+                sess.bind_symbol_pattern(
+                    env,
+                    pattern,
+                    self.visibility,
+                    self.ty,
+                    Some(const_value.clone()),
+                    &self.kind,
+                )?;
+
+                self.expr = Some(ast::Expr::new(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    pattern.span,
+                ));
+
                 Ok(Res::new(self.ty))
             }
             BindingKind::Extern(lib) => {
@@ -508,7 +532,7 @@ impl Check for ast::Binding {
                     sess.workspace.extern_libraries.insert(lib.clone());
                 }
 
-                let pattern = self.pattern.as_symbol_ref();
+                let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
                 let id = sess.new_typed_ast.push_function(ast::Function {
@@ -523,23 +547,18 @@ impl Check for ast::Binding {
 
                 let const_value = ConstValue::Function(ConstFunction { id, name });
 
-                sess.bind_pattern(
+                sess.bind_symbol_pattern(
                     env,
-                    &mut self.pattern,
+                    pattern,
                     self.visibility,
                     self.ty,
                     Some(const_value.clone()),
                     &self.kind,
-                    self.expr
-                        .as_ref()
-                        .map(|e| e.span)
-                        .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
-                        .unwrap_or(self.span),
                 )?;
 
                 self.expr = Some(ast::Expr::new(
                     ast::ExprKind::ConstValue(const_value.clone()),
-                    self.span,
+                    pattern.span,
                 ));
 
                 Ok(Res::new_const(self.ty, const_value))

@@ -140,23 +140,15 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
-            match &binding.kind {
-                ast::BindingKind::Normal | ast::BindingKind::Extern(_) => {
-                    if let Some(ast::Expr {
-                        kind: ast::ExprKind::ConstValue(ConstValue::Function(function)),
-                        ..
-                    }) = &binding.expr
-                    {
-                        let function = self.gen_function(function.id, None);
-                        self.insert_global_decl(id, CodegenDecl::Function(function))
-                    } else {
-                        self.declare_global_binding(id, binding)
-                    }
-                }
-                ast::BindingKind::Intrinsic(intrinsic) => {
-                    let function = self.gen_intrinsic(binding, intrinsic);
-                    self.insert_global_decl(id, CodegenDecl::Function(function))
-                }
+            if let Some(ast::Expr {
+                kind: ast::ExprKind::ConstValue(ConstValue::Function(function)),
+                ..
+            }) = &binding.expr
+            {
+                let function = self.gen_function(function.id, None);
+                self.insert_global_decl(id, CodegenDecl::Function(function))
+            } else {
+                self.declare_global_binding(id, binding)
             }
         } else {
             panic!("{:#?}", self.workspace.get_binding_info(id))
@@ -609,32 +601,21 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             &binding.expr,
                         );
                     }
-                    ast::BindingKind::Intrinsic(intrinsic) => {
+                    ast::BindingKind::Extern(_) | ast::BindingKind::Intrinsic(_) => {
                         let pattern = binding.pattern.as_symbol_ref();
 
-                        let function = self.gen_intrinsic(binding, intrinsic);
-
-                        state
-                            .scopes
-                            .insert(pattern.id, CodegenDecl::Function(function));
-                    }
-                    ast::BindingKind::Extern(_) => {
-                        let pattern = binding.pattern.as_symbol_ref();
-
-                        if let Some(ast::Expr {
+                        let decl = if let Some(ast::Expr {
                             kind: ast::ExprKind::ConstValue(ConstValue::Function(function)),
                             ..
                         }) = &binding.expr
                         {
                             let function = self.gen_function(function.id, None);
-
-                            state
-                                .scopes
-                                .insert(pattern.id, CodegenDecl::Function(function));
+                            CodegenDecl::Function(function)
                         } else {
-                            let decl = self.declare_global_binding(pattern.id, binding);
-                            state.scopes.insert(pattern.id, decl);
-                        }
+                            self.declare_global_binding(pattern.id, binding)
+                        };
+
+                        state.scopes.insert(pattern.id, decl);
                     }
                 }
 

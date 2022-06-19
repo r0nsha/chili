@@ -147,6 +147,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     function
                 })
             }
+            ast::FunctionKind::Intrinsic(intrinsic) => {
+                self.gen_intrinsic(intrinsic, &function_type)
+            }
         }
     }
 

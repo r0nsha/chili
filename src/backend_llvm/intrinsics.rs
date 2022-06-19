@@ -1,22 +1,17 @@
-use inkwell::{module::Linkage, values::FunctionValue};
-
 use super::codegen::Codegen;
-use crate::{ast::ast, infer::normalize::Normalize};
+use crate::ast::{ast, ty::FunctionType};
+use inkwell::{module::Linkage, values::FunctionValue};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub(super) fn gen_intrinsic(
         &mut self,
-        binding: &ast::Binding,
         intrinsic: &ast::Intrinsic,
+        function_type: &FunctionType,
     ) -> FunctionValue<'ctx> {
         match intrinsic {
             ast::Intrinsic::StartWorkspace => self.get_or_create_intrinsic(intrinsic, |cg| {
                 const NAME: &str = "intrinsic#start_workspace";
-                let function = cg.declare_fn_sig(
-                    binding.ty.normalize(cg.tycx).as_fn(),
-                    NAME,
-                    Some(Linkage::Private),
-                );
+                let function = cg.declare_fn_sig(function_type, NAME, Some(Linkage::Private));
 
                 let entry_block = cg.context.append_basic_block(function, "entry");
 

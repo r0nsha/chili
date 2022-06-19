@@ -642,14 +642,6 @@ impl Lower for ast::Function {
             ast::FunctionKind::Extern { name, lib } => {
                 let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
-                // let extern_func = ExternFunction {
-                //     lib_path: ustr(&lib.path()),
-                //     name: self.name,
-                //     param_tys: func_ty.params,
-                //     return_ty: *func_ty.ret,
-                //     variadic: self.varargs.is_some(),
-                // };
-
                 sess.interp.extern_functions.insert(
                     self.id,
                     ExternFunction {
@@ -660,8 +652,9 @@ impl Lower for ast::Function {
                         variadic: func_ty.varargs.is_some(),
                     },
                 );
-
-                // sess.push_const(code, Value::ExternFunction(extern_func));
+            }
+            ast::FunctionKind::Intrinsic(_) => {
+                // Noop
             }
         }
     }
@@ -1278,12 +1271,7 @@ fn lower_top_level_binding(
         }
         ast::BindingKind::Intrinsic(intrinsic) => {
             let pattern = binding.pattern.as_symbol_ref();
-
-            let intrinsic_func = match intrinsic {
-                Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
-            };
-
-            sess.insert_global(pattern.id, Value::Intrinsic(intrinsic_func))
+            sess.insert_global(pattern.id, Value::Intrinsic((*intrinsic).into()))
         }
         ast::BindingKind::Normal => {
             let mut code = CompiledCode::new();
