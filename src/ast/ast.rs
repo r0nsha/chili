@@ -42,7 +42,8 @@ impl Ast {
 #[derive(Default)]
 pub struct TypedAst {
     pub bindings: Slab<Binding>,
-    pub functions: Slab<Function>,
+    // pub functions: Slab<Function>,
+    // pub extern_functions: Slab<ExternFunction>,
     ids_to_bindings: HashMap<BindingInfoId, usize>,
 }
 
@@ -67,16 +68,25 @@ impl TypedAst {
         }
     }
 
-    pub fn get_function(&mut self, id: FunctionId) -> Option<&Function> {
-        self.functions.get(id.inner())
-    }
+    // pub fn get_function(&mut self, id: FunctionId) -> Option<&Function> {
+    //     self.functions.get(id.inner())
+    // }
 
-    pub fn push_function(&mut self, function: Function) -> FunctionId {
-        FunctionId(self.functions.insert(function))
-    }
+    // pub fn push_function(&mut self, function: Function) -> FunctionId {
+    //     FunctionId(self.functions.insert(function))
+    // }
+
+    // pub fn get_extern_function(&mut self, id: FunctionId) -> Option<&ExternFunction> {
+    //     self.extern_functions.get(id.inner())
+    // }
+
+    // pub fn push_extern_function(&mut self, function: ExternFunction) -> ExternFunctionId {
+    //     ExternFunctionId(self.extern_functions.insert(function))
+    // }
 }
 
 define_id_type!(FunctionId);
+define_id_type!(ExternFunctionId);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expr {
