@@ -1,5 +1,3 @@
-use self::value::FunctionAddress;
-
 use super::{
     interp::Interp,
     vm::{
@@ -160,11 +158,6 @@ impl<'vm> VM<'vm> {
     }
 
     pub fn run_func(&'vm mut self, function: Function) -> Value {
-        self.stack.push(Value::Function(FunctionAddress {
-            id: function.id,
-            name: function.name,
-        }));
-
         self.push_frame(&function as *const Function);
         self.run_inner()
     }
@@ -305,8 +298,6 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Call(arg_count) => match self.stack.pop() {
                     Value::Function(addr) => {
-                        // TODO: remove this dummy value that we have to push
-                        self.stack.push(Value::unit());
                         let function = self.interp.functions.get(&addr.id).unwrap();
                         self.push_frame(function as *const Function);
                     }
@@ -481,7 +472,6 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Halt => {
                     let result = self.stack.pop();
-                    self.stack.pop(); // pop the current function
                     break result;
                 }
             }
@@ -492,7 +482,7 @@ impl<'vm> VM<'vm> {
     pub fn push_frame(&mut self, func: *const Function) {
         debug_assert!(!func.is_null());
 
-        let stack_slot = self.stack.len() - 1;
+        let stack_slot = self.stack.len();
 
         let locals = unsafe { &*func }.code.locals;
         for _ in 0..locals {

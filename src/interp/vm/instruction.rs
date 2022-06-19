@@ -200,6 +200,6 @@ impl CompiledCode {
 
     #[inline]
     pub fn last_local(&self) -> i32 {
-        self.locals as i32
+        self.locals as i32 - 1
     }
 }

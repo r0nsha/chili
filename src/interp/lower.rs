@@ -1370,6 +1370,8 @@ fn lower_top_level_binding(
                 }
             }
 
+            sess.push_const_unit(&mut code);
+
             code.push(Instruction::Return);
             sess.evaluated_globals.push(code);
 

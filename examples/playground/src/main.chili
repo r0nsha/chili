@@ -1,17 +1,6 @@
 let ? = import!("std/c");
-let { println } = import!("std/fmt");
+let { println } = import!("std/fmt"); 
 
 let main = fn() {
-    run!({printf("answer: %d\n".data, answer())});
-    run!(printf("fib(10): %d\n".data, fib(10)));
     println("Hello from main.chili");
-};
-
-let answer = fn() { 42 };
-let fib = fn(x) {
-    if x <= 1 {
-        x
-    } else {
-        fib(x - 1) + fib(x - 2)
-    }
 };
