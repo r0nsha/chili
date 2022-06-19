@@ -241,9 +241,9 @@ impl_value! {
     Aggregate(Aggregate),
     Array(Array),
     Pointer(Pointer),
-    Function(Function),
+    Function(FunctionAddress),
     ExternFunction(ExternFunction),
-    IntrinsicFunction(IntrinsicFunction),
+    Intrinsic(IntrinsicFunction),
     Type(Type),
 }
 
@@ -288,6 +288,12 @@ pub struct Function {
     pub arg_types: Vec<Type>,
     pub return_type: Type,
     pub code: CompiledCode,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionAddress {
+    pub id: FunctionId,
+    pub name: Ustr,
 }
 
 #[derive(Debug, Clone)]
@@ -596,7 +602,7 @@ impl Value {
             })),
             Self::Pointer(_) => Err("pointer"),
             Self::ExternFunction(_) => Err("extern function"),
-            Self::IntrinsicFunction(_) => Err("intrinsic function"),
+            Self::Intrinsic(_) => Err("intrinsic function"),
         }
     }
 }
@@ -770,7 +776,7 @@ impl Display for Value {
                 Value::Pointer(p) => p.to_string(),
                 Value::Function(v) => v.to_string(),
                 Value::ExternFunction(v) => v.to_string(),
-                Value::IntrinsicFunction(v) => v.to_string(),
+                Value::Intrinsic(v) => v.to_string(),
                 Value::Type(ty) => format!("type {}", ty),
             }
         )
@@ -835,6 +841,12 @@ impl Display for Function {
     }
 }
 
+impl Display for FunctionAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fn {}", self.name)
+    }
+}
+
 impl Display for ExternFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "extern fn {}", self.name)
@@ -866,7 +878,7 @@ impl Display for Pointer {
                     Pointer::Pointer(p) => (**p).to_string(),
                     Pointer::Function(v) => (**v).to_string(),
                     Pointer::ExternFunction(v) => (**v).to_string(),
-                    Pointer::IntrinsicFunction(v) => (**v).to_string(),
+                    Pointer::Intrinsic(v) => (**v).to_string(),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }
             }

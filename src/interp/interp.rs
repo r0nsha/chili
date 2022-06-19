@@ -4,7 +4,7 @@ use super::{
     vm::{
         display::dump_bytecode_to_file,
         instruction::{CompiledCode, Instruction},
-        value::{Function, Value},
+        value::{Function, FunctionAddress, Value},
         Constants, Globals, VM,
     },
 };
@@ -29,7 +29,7 @@ pub enum InterpErr {}
 pub struct Interp {
     pub globals: Globals,
     pub constants: Constants,
-    pub functions: HashMap<FunctionId, usize>,
+    pub functions: HashMap<FunctionId, Function>,
     pub ffi: Ffi,
     pub build_options: BuildOptions,
 
@@ -102,7 +102,7 @@ impl<'i> InterpSess<'i> {
         self.env_stack.pop();
 
         if verbose {
-            dump_bytecode_to_file(&self.interp.globals, &self.interp.constants, &start_code);
+            dump_bytecode_to_file(&self.interp, &start_code);
         }
 
         let mut vm = self.create_vm();
@@ -127,13 +127,23 @@ impl<'i> InterpSess<'i> {
         for (i, global_eval_code) in self.evaluated_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
 
-            self.interp.constants.push(Value::Function(Function {
-                id: FunctionId::unknown(),
-                name: ustr(&format!("global_init_{}", i)),
-                arg_types: vec![],
-                return_type: Type::Unit,
-                code: global_eval_code.clone(),
-            }));
+            let id = FunctionId::from(usize::MAX - i);
+            let name = ustr(&format!("global_init_{}", i));
+
+            self.interp.functions.insert(
+                id,
+                Function {
+                    id,
+                    name,
+                    arg_types: vec![],
+                    return_type: Type::Unit,
+                    code: global_eval_code.clone(),
+                },
+            );
+
+            self.interp
+                .constants
+                .push(Value::Function(FunctionAddress { id, name }));
 
             init_instructions.push(Instruction::PushConst(const_slot as u32));
             init_instructions.push(Instruction::Call(0));
@@ -174,24 +184,6 @@ impl<'i> InterpSess<'i> {
             self.interp.bindings_to_globals.insert(id, slot);
             slot
         }
-    }
-
-    pub fn insert_unfinished_function(&mut self, id: FunctionId) -> usize {
-        if let Some(&slot) = self.interp.functions.get(&id) {
-            self.interp.constants[slot] = Value::unit();
-            slot
-        } else {
-            let slot = self.interp.constants.len();
-            self.interp.constants.push(Value::unit());
-            self.interp.functions.insert(id, slot);
-            slot
-        }
-    }
-
-    pub fn insert_function(&mut self, id: FunctionId, function: Function) -> usize {
-        let slot = *self.interp.functions.get(&id).unwrap();
-        self.interp.constants[slot] = Value::Function(function);
-        slot
     }
 
     pub fn get_global(&self, id: BindingInfoId) -> Option<usize> {

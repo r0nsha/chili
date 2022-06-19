@@ -197,4 +197,9 @@ impl CompiledCode {
         self.instructions.push(inst);
         self.instructions.len() - 1
     }
+
+    #[inline]
+    pub fn last_local(&self) -> i32 {
+        self.locals as i32
+    }
 }

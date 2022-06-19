@@ -7,18 +7,21 @@ use super::{
     },
     IS_64BIT, WORD_SIZE,
 };
-use crate::ast::{
-    ast::{self, Intrinsic},
-    const_value::ConstValue,
-    pattern::{Pattern, UnpackPattern, UnpackPatternKind},
-    ty::{
-        align::AlignOf, size::SizeOf, FloatType, FunctionType, FunctionTypeKind, InferTy, IntType,
-        StructType, Type, TypeId, UintType,
-    },
-    workspace::BindingInfoId,
-};
 use crate::common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use crate::infer::normalize::Normalize;
+use crate::{
+    ast::{
+        ast::{self, Intrinsic},
+        const_value::ConstValue,
+        pattern::{Pattern, UnpackPattern, UnpackPatternKind},
+        ty::{
+            align::AlignOf, size::SizeOf, FloatType, FunctionType, FunctionTypeKind, InferTy,
+            IntType, StructType, Type, TypeId, UintType,
+        },
+        workspace::BindingInfoId,
+    },
+    interp::vm::value::FunctionAddress,
+};
 use ustr::{ustr, Ustr};
 
 #[derive(Clone, Copy)]
@@ -291,7 +294,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
 
                     sess.add_local(code, pattern.id);
 
-                    code.push(Instruction::SetLocal(code.locals as i32));
+                    code.push(Instruction::SetLocal(code.last_local()));
                 }
                 _ => todo!("lower extern variables"),
             }
@@ -302,11 +305,11 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
             let intrinsic_func = match intrinsic {
                 Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
             };
-            sess.push_const(code, Value::IntrinsicFunction(intrinsic_func));
+            sess.push_const(code, Value::Intrinsic(intrinsic_func));
 
             sess.add_local(code, pattern.id);
 
-            code.push(Instruction::SetLocal(code.locals as i32));
+            code.push(Instruction::SetLocal(code.last_local()));
         }
         ast::BindingKind::Normal => {
             if let Some(expr) = &binding.expr {
@@ -318,7 +321,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                     sess.add_local(code, pattern.id);
 
                     if binding.expr.is_some() {
-                        code.push(Instruction::SetLocal(code.locals as i32));
+                        code.push(Instruction::SetLocal(code.last_local()));
                     }
                 }
                 Pattern::StructUnpack(pattern) => {
@@ -339,7 +342,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
 
                         if binding.expr.is_some() {
                             code.push(Instruction::Copy(0));
-                            code.push(Instruction::SetLocal(code.locals as i32));
+                            code.push(Instruction::SetLocal(code.last_local()));
                         }
                     }
 
@@ -391,7 +394,7 @@ fn lower_local_module_unpack(
 
         code.push(Instruction::GetGlobal(slot as u32));
         sess.add_local(code, pattern.id);
-        code.push(Instruction::SetLocal(code.locals as i32));
+        code.push(Instruction::SetLocal(code.last_local()));
     }
 }
 
@@ -416,7 +419,7 @@ fn lower_local_struct_unpack(
 
         code.push(Instruction::ConstIndex(field_index as u32));
         sess.add_local(code, pattern.id);
-        code.push(Instruction::SetLocal(code.locals as i32));
+        code.push(Instruction::SetLocal(code.last_local()));
     }
 }
 
@@ -438,7 +441,7 @@ fn lower_local_tuple_unpack(
 
         code.push(Instruction::ConstIndex(index as u32));
         sess.add_local(code, pattern.id);
-        code.push(Instruction::SetLocal(code.locals as i32));
+        code.push(Instruction::SetLocal(code.last_local()));
     }
 }
 
@@ -526,128 +529,15 @@ impl Lower for ast::Cast {
     }
 }
 
-// impl Lower for ast::FunctionExpr {
-//     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-//         sess.env_mut().push_scope();
-
-//         sess.insert_dummy_function(self.id);
-
-//         let mut func_code = CompiledCode::new();
-
-//         // set up function parameters
-//         let mut param_offset = -(self.sig.params.len() as i16);
-
-//         for param in self.sig.params.iter() {
-//             match &param.pattern {
-//                 Pattern::Symbol(pattern) => {
-//                     if !pattern.ignore {
-//                         sess.env_mut().insert(pattern.id, param_offset);
-//                     }
-//                 }
-//                 Pattern::StructUnpack(pattern) => {
-//                     let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
-//                     let ty = ty.as_struct();
-
-//                     for pattern in pattern.symbols.iter() {
-//                         if pattern.ignore {
-//                             continue;
-//                         }
-
-//                         let field_index = ty.find_field_position(pattern.symbol).unwrap();
-//                         // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
-//                         func_code.push(Instruction::Peek(param_offset as i32));
-//                         func_code.push(Instruction::ConstIndex(field_index as u32));
-//                         sess.add_local(&mut func_code, pattern.id);
-//                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
-//                     }
-//                 }
-//                 Pattern::TupleUnpack(pattern) => {
-//                     for (index, pattern) in pattern.symbols.iter().enumerate() {
-//                         if pattern.ignore {
-//                             continue;
-//                         }
-
-//                         func_code.push(Instruction::PeekPtr(param_offset as i32));
-//                         func_code.push(Instruction::ConstIndex(index as u32));
-//                         sess.add_local(&mut func_code, pattern.id);
-//                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
-//                     }
-//                 }
-//                 Pattern::Hybrid(pattern) => {
-//                     if !pattern.symbol.ignore {
-//                         sess.env_mut().insert(pattern.symbol.id, param_offset);
-//                     }
-
-//                     match &pattern.unpack {
-//                         UnpackPatternKind::Struct(pattern) => {
-//                             let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
-//                             let ty = ty.as_struct();
-
-//                             for pattern in pattern.symbols.iter() {
-//                                 if pattern.ignore {
-//                                     continue;
-//                                 }
-
-//                                 let field_index = ty.find_field_position(pattern.symbol).unwrap();
-//                                 // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
-//                                 func_code.push(Instruction::Peek(param_offset as i32));
-//                                 func_code.push(Instruction::ConstIndex(field_index as u32));
-//                                 sess.add_local(&mut func_code, pattern.id);
-//                                 func_code.push(Instruction::SetLocal(func_code.locals as i32));
-//                             }
-//                         }
-//                         UnpackPatternKind::Tuple(pattern) => {
-//                             for (index, pattern) in pattern.symbols.iter().enumerate() {
-//                                 if pattern.ignore {
-//                                     continue;
-//                                 }
-
-//                                 func_code.push(Instruction::PeekPtr(param_offset as i32));
-//                                 func_code.push(Instruction::ConstIndex(index as u32));
-//                                 sess.add_local(&mut func_code, pattern.id);
-//                                 func_code.push(Instruction::SetLocal(func_code.locals as i32));
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             param_offset += 1;
-//         }
-
-//         lower_block(
-//             &self.body,
-//             sess,
-//             &mut func_code,
-//             LowerContext { take_ptr: false },
-//         );
-
-//         if !func_code.instructions.ends_with(&[Instruction::Return]) {
-//             func_code.push(Instruction::Return);
-//         }
-
-//         sess.env_mut().pop_scope();
-
-//         let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
-
-//         let function = Function {
-//             id: self.id,
-//             name: self.sig.name,
-//             arg_types: sig_ty.params,
-//             return_type: *sig_ty.ret,
-//             code: func_code,
-//         };
-
-//         sess.insert_function(self.id, function);
-//     }
-// }
-
 impl Lower for ast::Function {
     fn lower(&self, sess: &mut InterpSess, _code: &mut CompiledCode, _ctx: LowerContext) {
+        if sess.interp.functions.contains_key(&self.id) {
+            return;
+        }
+
         match &self.kind {
             ast::FunctionKind::Orphan { sig, body } => {
                 sess.env_mut().push_scope();
-
-                sess.insert_unfinished_function(self.id);
 
                 let mut func_code = CompiledCode::new();
 
@@ -675,7 +565,7 @@ impl Lower for ast::Function {
                                 func_code.push(Instruction::Peek(param_offset as i32));
                                 func_code.push(Instruction::ConstIndex(field_index as u32));
                                 sess.add_local(&mut func_code, pattern.id);
-                                func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                                func_code.push(Instruction::SetLocal(func_code.last_local()));
                             }
                         }
                         Pattern::TupleUnpack(pattern) => {
@@ -687,7 +577,7 @@ impl Lower for ast::Function {
                                 func_code.push(Instruction::PeekPtr(param_offset as i32));
                                 func_code.push(Instruction::ConstIndex(index as u32));
                                 sess.add_local(&mut func_code, pattern.id);
-                                func_code.push(Instruction::SetLocal(func_code.locals as i32));
+                                func_code.push(Instruction::SetLocal(func_code.last_local()));
                             }
                         }
                         Pattern::Hybrid(pattern) => {
@@ -712,7 +602,7 @@ impl Lower for ast::Function {
                                         func_code.push(Instruction::ConstIndex(field_index as u32));
                                         sess.add_local(&mut func_code, pattern.id);
                                         func_code
-                                            .push(Instruction::SetLocal(func_code.locals as i32));
+                                            .push(Instruction::SetLocal(func_code.last_local()));
                                     }
                                 }
                                 UnpackPatternKind::Tuple(pattern) => {
@@ -725,7 +615,7 @@ impl Lower for ast::Function {
                                         func_code.push(Instruction::ConstIndex(index as u32));
                                         sess.add_local(&mut func_code, pattern.id);
                                         func_code
-                                            .push(Instruction::SetLocal(func_code.locals as i32));
+                                            .push(Instruction::SetLocal(func_code.last_local()));
                                     }
                                 }
                             }
@@ -749,15 +639,16 @@ impl Lower for ast::Function {
 
                 let sig_ty = sig.ty.normalize(sess.tycx).into_fn();
 
-                let function = Function {
-                    id: self.id,
-                    name: sig.name,
-                    arg_types: sig_ty.params,
-                    return_type: *sig_ty.ret,
-                    code: func_code,
-                };
-
-                sess.insert_function(self.id, function);
+                sess.interp.functions.insert(
+                    self.id,
+                    Function {
+                        id: self.id,
+                        name: sig.name,
+                        arg_types: sig_ty.params,
+                        return_type: *sig_ty.ret,
+                        code: func_code,
+                    },
+                );
             }
         }
     }
@@ -813,7 +704,7 @@ impl Lower for ast::For {
                 .map_or(BindingInfoId::unknown(), |x| x.id),
         );
 
-        let iter_index_slot = code.locals as i32;
+        let iter_index_slot = code.last_local();
         code.push(Instruction::SetLocal(iter_index_slot));
 
         match &self.iterator {
@@ -821,7 +712,7 @@ impl Lower for ast::For {
                 start.lower(sess, code, ctx);
 
                 sess.add_local(code, self.iter_binding.id);
-                let iter_slot = code.locals as i32;
+                let iter_slot = code.last_local();
                 code.push(Instruction::SetLocal(iter_slot));
 
                 // calculate the end index
@@ -864,7 +755,7 @@ impl Lower for ast::For {
 
                 // set the iterated value to a hidden local, in order to avoid unnecessary copies
                 code.locals += 1;
-                let value_slot = code.locals as i32;
+                let value_slot = code.last_local();
                 code.push(Instruction::SetLocal(value_slot));
 
                 // calculate the end index
@@ -906,7 +797,7 @@ impl Lower for ast::For {
                 code.push(Instruction::Index);
 
                 sess.add_local(code, self.iter_binding.id);
-                let iter_slot = code.locals as i32;
+                let iter_slot = code.last_local();
                 code.push(Instruction::SetLocal(iter_slot));
 
                 let block_start_pos = code.instructions.len();
@@ -1185,26 +1076,18 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             })
         }
         ConstValue::Function(f) => {
-            let fn_slot = match sess.interp.functions.get(&f.id) {
-                Some(slot) => *slot,
-                None => {
-                    let function = sess.typed_ast.get_function(f.id).unwrap();
+            let function = sess.typed_ast.get_function(f.id).unwrap();
 
-                    function.lower(
-                        sess,
-                        &mut CompiledCode::new(),
-                        LowerContext { take_ptr: false },
-                    );
+            function.lower(
+                sess,
+                &mut CompiledCode::new(),
+                LowerContext { take_ptr: false },
+            );
 
-                    sess.interp.functions[&f.id]
-
-                    // find_and_lower_top_level_binding(f.id, sess);
-                    // sess.interp.functions[&f.id]
-                }
-            };
-
-            // let fn_slot = sess.interp.functions.get(&f.id).unwrap();
-            sess.interp.constants[fn_slot].clone()
+            Value::Function(FunctionAddress {
+                id: f.id,
+                name: f.name,
+            })
         }
     }
 }
@@ -1389,7 +1272,7 @@ fn lower_top_level_binding(
                 Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
             };
 
-            sess.insert_global(pattern.id, Value::IntrinsicFunction(intrinsic_func))
+            sess.insert_global(pattern.id, Value::Intrinsic(intrinsic_func))
         }
         ast::BindingKind::Normal => {
             let mut code = CompiledCode::new();

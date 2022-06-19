@@ -1,4 +1,6 @@
-use super::{instruction::CompiledCode, value::Value, Constants, Globals};
+use crate::interp::interp::Interp;
+
+use super::{instruction::CompiledCode, value::Value};
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Write},
@@ -6,10 +8,10 @@ use std::{
 };
 
 pub trait PrettyPrint {
-    fn pretty_print(&self) -> String;
+    fn pretty_print(&self, interp: &Interp) -> String;
 }
 
-pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &CompiledCode) {
+pub fn dump_bytecode_to_file(interp: &Interp, code: &CompiledCode) {
     if let Ok(file) = &OpenOptions::new()
         .read(false)
         .write(true)
@@ -28,40 +30,43 @@ pub fn dump_bytecode_to_file(globals: &Globals, constants: &Constants, code: &Co
 
         writer.write_all("\nglobals:\n".as_bytes()).unwrap();
 
-        for (slot, value) in globals.iter().enumerate() {
+        for (slot, value) in interp.globals.iter().enumerate() {
             writer
-                .write_all(format!("${} = {}\n", slot, value.pretty_print()).as_bytes())
+                .write_all(format!("${} = {}\n", slot, value.pretty_print(interp)).as_bytes())
                 .unwrap();
         }
 
         writer.write_all("\nconstants:\n".as_bytes()).unwrap();
 
-        for (index, constant) in constants.iter().enumerate() {
+        for (index, constant) in interp.constants.iter().enumerate() {
             writer
-                .write_all(format!("%{}\t{}\n", index, constant.pretty_print()).as_bytes())
+                .write_all(format!("%{}\t{}\n", index, constant.pretty_print(interp)).as_bytes())
                 .unwrap();
         }
     }
 }
 
 impl PrettyPrint for Value {
-    fn pretty_print(&self) -> String {
+    fn pretty_print(&self, interp: &Interp) -> String {
         match self {
-            Value::Function(func) => format!(
-                "fn {}\n{}",
-                if func.name.is_empty() {
-                    "<anon>"
-                } else {
-                    &func.name
-                },
-                func.code
-                    .instructions
-                    .iter()
-                    .enumerate()
-                    .map(|(index, inst)| format!("{:06}\t{}", index, inst))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            ),
+            Value::Function(func) => {
+                format!(
+                    "fn {}\n{}",
+                    if func.name.is_empty() {
+                        "<anon>"
+                    } else {
+                        &func.name
+                    },
+                    interp.functions[&func.id]
+                        .code
+                        .instructions
+                        .iter()
+                        .enumerate()
+                        .map(|(index, inst)| format!("{:06}\t{}", index, inst))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                )
+            }
             _ => self.to_string(),
         }
     }

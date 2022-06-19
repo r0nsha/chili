@@ -185,13 +185,14 @@ impl FfiFunction {
                 }
                 Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
-                Value::Function(func) => {
-                    let function = FfiFunction::new(&func.arg_types, &func.return_type);
+                Value::Function(addr) => {
+                    let function = (*vm).interp.functions.get(&addr.id).unwrap();
+                    let ffi_function = FfiFunction::new(&function.arg_types, &function.return_type);
 
-                    let user_data = bump.alloc(ClosureUserData { vm, func });
+                    let user_data = bump.alloc(ClosureUserData { vm, function });
 
                     let closure =
-                        bump.alloc(Closure::new(function.cif, closure_callback, user_data));
+                        bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
 
                     let code_ptr =
                         closure.instantiate_code_ptr::<c_void>() as *const c_void as *mut c_void;
@@ -223,7 +224,7 @@ impl FfiFunction {
 
 struct ClosureUserData<'vm> {
     vm: *mut VM<'vm>,
-    func: *const Function,
+    function: *const Function,
 }
 
 // TODO: closures don't work in multithreaded code right now.
@@ -235,7 +236,7 @@ unsafe extern "C" fn closure_callback(
     args: *const *const c_void,
     userdata: &ClosureUserData,
 ) {
-    let mut func = (&*userdata.func).clone();
+    let mut func = (&*userdata.function).clone();
     let arg_count = func.arg_types.len();
 
     // set up function args

@@ -30,6 +30,7 @@ impl<T: ToString, const CAPACITY: usize> Stack<T, CAPACITY> {
         &mut self.inner[len - 1 - offset]
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn last(&self) -> &T {
         self.inner.last().unwrap()
