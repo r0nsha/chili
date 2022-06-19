@@ -51,6 +51,13 @@ impl Pattern {
         }
     }
 
+    pub fn as_symbol_mut(&mut self) -> &mut SymbolPattern {
+        match self {
+            Pattern::Symbol(s) => s,
+            _ => panic!("expected Symbol, got {}", self),
+        }
+    }
+
     pub fn into_symbol(self) -> SymbolPattern {
         match self {
             Pattern::Symbol(s) => s,

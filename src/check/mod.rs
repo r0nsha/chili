@@ -498,26 +498,9 @@ impl Check for ast::Binding {
                 Ok(Res::new_maybe_const(self.ty, const_value))
             }
             BindingKind::Intrinsic(_) => {
-                if let Pattern::Symbol(pattern) = &mut self.pattern {
-                    let id = sess.bind_symbol(
-                        env,
-                        pattern.symbol,
-                        self.visibility,
-                        self.ty,
-                        None,
-                        pattern.is_mutable,
-                        self.kind.clone(),
-                        pattern.span,
-                    )?;
-
-                    pattern.id = id;
-
-                    sess.new_typed_ast.push_binding(&[id], self.clone());
-
-                    Ok(Res::new(self.ty))
-                } else {
-                    panic!()
-                }
+                let pattern = self.pattern.as_symbol_mut();
+                sess.bind_symbol_pattern(env, pattern, self.visibility, self.ty, None, &self.kind)?;
+                Ok(Res::new(self.ty))
             }
             BindingKind::Extern(lib) => {
                 if let Some(lib) = lib {
