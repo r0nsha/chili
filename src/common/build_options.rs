@@ -77,10 +77,12 @@ pub enum OptLevel {
 }
 
 impl OptLevel {
+    #[allow(unused)]
     pub fn is_debug(&self) -> bool {
         matches!(self, OptLevel::Debug)
     }
 
+    #[allow(unused)]
     pub fn is_release(&self) -> bool {
         matches!(self, OptLevel::Release)
     }

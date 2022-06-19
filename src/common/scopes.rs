@@ -46,6 +46,7 @@ impl<K: Hash + Eq, V> Scopes<K, V> {
         self.get(k).map(|r| r.1)
     }
 
+    #[allow(unused)]
     pub fn value_mut(&mut self, k: K) -> Option<&mut V> {
         self.get_mut(k).map(|r| r.1)
     }

@@ -6,12 +6,12 @@ mod env;
 mod top_level;
 
 use crate::ast::{
-    ast::{self, BindingKind, TypedAst},
+    ast::{self, BindingKind, FunctionId, TypedAst},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
-        FunctionType, FunctionTypeVarargs, InferTy, PartialStructType, StructType, StructTypeField,
-        StructTypeKind, Type, TypeId,
+        FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
+        StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -476,153 +476,154 @@ impl Check for ast::Binding {
                 });
         }
 
-        if let Some(ConstValue::Function(f)) = &const_value {
-            let binding_info = sess.workspace.get_binding_info_mut(f.id).unwrap();
+        sess.bind_pattern(
+            env,
+            &mut self.pattern,
+            self.visibility,
+            self.ty,
+            const_value.clone(),
+            &self.kind,
+            self.expr
+                .as_ref()
+                .map(|e| e.span)
+                .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
+                .unwrap_or(self.span),
+        )?;
 
-            binding_info.visibility = self.visibility;
-            binding_info.span = self.pattern.span();
-            binding_info.const_value = const_value.clone();
-
-            match &mut self.pattern {
-                Pattern::Symbol(pattern) => {
-                    pattern.id = f.id;
-
-                    // TODO: this should be moved to another place...
-                    if sess.workspace.build_options.need_entry_point_function() {
-                        // If this binding matches the entry point function's requirements,
-                        // Tag it as the entry function
-                        // Requirements:
-                        // - Is declared in the root module
-                        // - Its name is the same as the required `entry_point_function_name`
-                        if let Some(_) = sess.workspace.entry_point_function_id {
-                            // TODO: emit error that we can't have two entry point functions
-                        } else {
-                            if self.module_id == sess.workspace.root_module_id
-                                && env.scope_level().is_global()
-                                && pattern.symbol
-                                    == sess
-                                        .workspace
-                                        .build_options
-                                        .entry_point_function_name()
-                                        .unwrap()
-                            {
-                                sess.workspace.entry_point_function_id = Some(pattern.id);
-                            }
-                        }
+        // If this binding matches the entry point function's requirements,
+        // Tag it as the entry function
+        // Requirements:
+        // - Is declared in the root module
+        // - It is in global scope
+        // - Its name is the same as the required `entry_point_function_name`
+        if let Some(ConstValue::Function(_)) = &const_value {
+            if let Pattern::Symbol(pattern) = &mut self.pattern {
+                if sess.workspace.build_options.need_entry_point_function()
+                    && self.module_id == sess.workspace.root_module_id
+                    && env.scope_level().is_global()
+                    && pattern.symbol
+                        == sess
+                            .workspace
+                            .build_options
+                            .entry_point_function_name()
+                            .unwrap()
+                {
+                    if let Some(_) = sess.workspace.entry_point_function_id {
+                        // TODO: When attributes are implemented:
+                        // TODO: Emit error that we can't have two entry point functions
+                        // TODO: Also, this should be moved to another place...
+                    } else {
+                        sess.workspace.entry_point_function_id = Some(pattern.id);
                     }
                 }
-                _ => (),
             }
-        } else {
-            sess.bind_pattern(
-                env,
-                &mut self.pattern,
-                self.visibility,
-                self.ty,
-                const_value.clone(),
-                &self.kind,
-                self.expr
-                    .as_ref()
-                    .map(|e| e.span)
-                    .or_else(|| self.ty_expr.as_ref().map(|e| e.span))
-                    .unwrap_or(self.span),
-            )?;
         }
 
         Ok(Res::new_maybe_const(self.ty, const_value))
     }
 }
 
-impl Check for ast::Function {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<TypeId>,
-    ) -> CheckResult {
-        let sig_res = self.sig.check(sess, env, expected_ty)?;
-        let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
+// impl Check for ast::FunctionExpr {
+//     fn check(
+//         &mut self,
+//         sess: &mut CheckSess,
+//         env: &mut Env,
+//         expected_ty: Option<TypeId>,
+//     ) -> CheckResult {
+//         let sig_res = self.sig.check(sess, env, expected_ty)?;
+//         let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
 
-        let return_ty = sess.tycx.bound(
-            fn_ty.ret.as_ref().clone(),
-            self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span),
-        );
-        let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
+//         let return_ty = sess.tycx.bound(
+//             fn_ty.ret.as_ref().clone(),
+//             self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span),
+//         );
+//         let return_ty_span = self.sig.ret.as_ref().map_or(self.sig.span, |e| e.span);
 
-        self.id = Some(sess.bind_symbol(
-            env,
-            self.sig.name,
-            ast::Visibility::Private,
-            sig_res.ty,
-            None,
-            false,
-            ast::BindingKind::Normal,
-            self.body.span,
-        )?);
+//         env.push_scope(ScopeKind::Function);
 
-        env.push_scope(ScopeKind::Function);
+//         self.id = sess.new_typed_ast.push_function(ast::Function {
+//             id: FunctionId::unknown(),
+//             module_id: env.module_id(),
+//             kind: ast::FunctionKind::Orphan {
+//                 sig: self.sig.clone(),
+//                 body: None,
+//             },
+//         });
+//         // sess.bind_symbol(
+//         //     env,
+//         //     self.sig.name,
+//         //     ast::Visibility::Private,
+//         //     sig_res.ty,
+//         //     None,
+//         //     false,
+//         //     ast::BindingKind::Normal,
+//         //     self.body.span,
+//         // )?;
 
-        for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
-            let ty = sess.tycx.bound(
-                param_ty.clone(),
-                param
-                    .ty_expr
-                    .as_ref()
-                    .map_or(param.pattern.span(), |e| e.span),
-            );
+//         for (param, param_ty) in self.sig.params.iter_mut().zip(fn_ty.params.iter()) {
+//             let ty = sess.tycx.bound(
+//                 param_ty.clone(),
+//                 param
+//                     .ty_expr
+//                     .as_ref()
+//                     .map_or(param.pattern.span(), |e| e.span),
+//             );
 
-            let span = param.pattern.span();
+//             let span = param.pattern.span();
 
-            sess.bind_pattern(
-                env,
-                &mut param.pattern,
-                ast::Visibility::Private,
-                ty,
-                None,
-                &ast::BindingKind::Normal,
-                span,
-            )?;
-        }
+//             sess.bind_pattern(
+//                 env,
+//                 &mut param.pattern,
+//                 ast::Visibility::Private,
+//                 ty,
+//                 None,
+//                 &ast::BindingKind::Normal,
+//                 span,
+//             )?;
+//         }
 
-        let body_res = sess.with_function_frame(
-            FunctionFrame {
-                return_ty,
-                return_ty_span,
-                scope_level: env.scope_level(),
-            },
-            |sess| self.body.check(sess, env, None),
-        )?;
+//         let body_res = sess.with_function_frame(
+//             FunctionFrame {
+//                 return_ty,
+//                 return_ty_span,
+//                 scope_level: env.scope_level(),
+//             },
+//             |sess| self.body.check(sess, env, None),
+//         )?;
 
-        let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
+//         let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
 
-        if let Some(last_expr) = self.body.exprs.last_mut() {
-            unify_res = unify_res.or_coerce_expr_into_ty(
-                last_expr,
-                return_ty,
-                &mut sess.tycx,
-                sess.target_metrics.word_size,
-            );
-        }
+//         if let Some(last_expr) = self.body.exprs.last_mut() {
+//             unify_res = unify_res.or_coerce_expr_into_ty(
+//                 last_expr,
+//                 return_ty,
+//                 &mut sess.tycx,
+//                 sess.target_metrics.word_size,
+//             );
+//         }
 
-        unify_res.or_report_err(
-            &sess.tycx,
-            return_ty,
-            Some(return_ty_span),
-            body_res.ty,
-            self.body.span,
-        )?;
+//         unify_res.or_report_err(
+//             &sess.tycx,
+//             return_ty,
+//             Some(return_ty_span),
+//             body_res.ty,
+//             self.body.span,
+//         )?;
 
-        env.pop_scope();
+//         env.pop_scope();
 
-        Ok(Res::new_const(
-            sig_res.ty,
-            ConstValue::Function(ConstFunction {
-                id: self.id.unwrap(),
-                name: self.sig.name,
-            }),
-        ))
-    }
-}
+//         match &mut sess.new_typed_ast.get_function_mut(self.id).unwrap().kind {
+//             ast::FunctionKind::Orphan { body, .. } => *body = Some(self.body.clone()),
+//         }
+
+//         let const_value = ConstValue::Function(ConstFunction {
+//             id: self.id,
+//             name: self.sig.name,
+//         });
+
+//         Ok(Res::new_const(sig_res.ty, const_value))
+//     }
+// }
 
 impl Check for ast::FunctionSig {
     fn check(
@@ -821,7 +822,121 @@ impl Check for ast::Expr {
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
-            ast::ExprKind::Function(f) => f.check(sess, env, expected_ty),
+            ast::ExprKind::Function(function) => {
+                let sig_res = function.sig.check(sess, env, expected_ty)?;
+                let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
+
+                let return_ty = sess.tycx.bound(
+                    fn_ty.ret.as_ref().clone(),
+                    function
+                        .sig
+                        .ret
+                        .as_ref()
+                        .map_or(function.sig.span, |e| e.span),
+                );
+
+                let return_ty_span = function
+                    .sig
+                    .ret
+                    .as_ref()
+                    .map_or(function.sig.span, |e| e.span);
+
+                env.push_scope(ScopeKind::Function);
+
+                for (param, param_ty) in function.sig.params.iter_mut().zip(fn_ty.params.iter()) {
+                    let ty = sess.tycx.bound(
+                        param_ty.clone(),
+                        param
+                            .ty_expr
+                            .as_ref()
+                            .map_or(param.pattern.span(), |e| e.span),
+                    );
+
+                    let span = param.pattern.span();
+
+                    sess.bind_pattern(
+                        env,
+                        &mut param.pattern,
+                        ast::Visibility::Private,
+                        ty,
+                        None,
+                        &ast::BindingKind::Normal,
+                        span,
+                    )?;
+                }
+
+                function.id = sess.new_typed_ast.push_function(ast::Function {
+                    id: FunctionId::unknown(),
+                    module_id: env.module_id(),
+                    kind: ast::FunctionKind::Orphan {
+                        sig: function.sig.clone(),
+                        body: None,
+                    },
+                });
+
+                // sess.bind_symbol(
+                //     env,
+                //     self.sig.name,
+                //     ast::Visibility::Private,
+                //     sig_res.ty,
+                //     None,
+                //     false,
+                //     ast::BindingKind::Normal,
+                //     self.body.span,
+                // )?;
+
+                let body_res = sess.with_function_frame(
+                    FunctionFrame {
+                        return_ty,
+                        return_ty_span,
+                        scope_level: env.scope_level(),
+                    },
+                    |sess| function.body.check(sess, env, None),
+                )?;
+
+                let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
+
+                if let Some(last_expr) = function.body.exprs.last_mut() {
+                    unify_res = unify_res.or_coerce_expr_into_ty(
+                        last_expr,
+                        return_ty,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    );
+                }
+
+                unify_res.or_report_err(
+                    &sess.tycx,
+                    return_ty,
+                    Some(return_ty_span),
+                    body_res.ty,
+                    function.body.span,
+                )?;
+
+                env.pop_scope();
+
+                match &mut sess
+                    .new_typed_ast
+                    .get_function_mut(function.id)
+                    .unwrap()
+                    .kind
+                {
+                    ast::FunctionKind::Orphan { body, .. } => *body = Some(function.body.clone()),
+                }
+
+                let const_value = ConstValue::Function(ConstFunction {
+                    id: function.id,
+                    name: function.sig.name,
+                });
+
+                *self = ast::Expr::typed(
+                    ast::ExprKind::ConstValue(const_value.clone()),
+                    sig_res.ty,
+                    self.span,
+                );
+
+                Ok(Res::new_const(sig_res.ty, const_value))
+            }
             ast::ExprKind::While(while_) => {
                 let cond_ty = sess.tycx.common_types.bool;
                 let cond_res = while_.cond.check(sess, env, Some(cond_ty))?;
@@ -2183,7 +2298,7 @@ impl Check for ast::Call {
                     params: self.args.iter().map(|arg| arg.ty.into()).collect(),
                     ret: Box::new(return_ty.into()),
                     varargs: None,
-                    kind: ast::FunctionKind::Orphan,
+                    kind: FunctionTypeKind::Orphan,
                 });
 
                 ty.unify(&inferred_fn_ty, &mut sess.tycx).or_report_err(

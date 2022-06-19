@@ -12,8 +12,8 @@ use crate::ast::{
     const_value::ConstValue,
     pattern::{Pattern, UnpackPattern, UnpackPatternKind},
     ty::{
-        align::AlignOf, size::SizeOf, FloatType, FunctionType, InferTy, IntType, StructType, Type,
-        TypeId, UintType,
+        align::AlignOf, size::SizeOf, FloatType, FunctionType, FunctionTypeKind, InferTy, IntType,
+        StructType, Type, TypeId, UintType,
     },
     workspace::BindingInfoId,
 };
@@ -78,7 +78,7 @@ impl Lower for ast::Expr {
                 ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
                 ast::Builtin::Import(_) => sess.push_const_unit(code),
             },
-            ast::ExprKind::Function(func) => func.lower(sess, code, ctx),
+            ast::ExprKind::Function(_) => panic!("should've been lower to ConstValue::Function"), // func.lower(sess, code, ctx),
             ast::ExprKind::While(while_) => {
                 while_.lower(sess, code, LowerContext { take_ptr: false })
             }
@@ -526,65 +526,142 @@ impl Lower for ast::Cast {
     }
 }
 
+// impl Lower for ast::FunctionExpr {
+//     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+//         sess.env_mut().push_scope();
+
+//         sess.insert_dummy_function(self.id);
+
+//         let mut func_code = CompiledCode::new();
+
+//         // set up function parameters
+//         let mut param_offset = -(self.sig.params.len() as i16);
+
+//         for param in self.sig.params.iter() {
+//             match &param.pattern {
+//                 Pattern::Symbol(pattern) => {
+//                     if !pattern.ignore {
+//                         sess.env_mut().insert(pattern.id, param_offset);
+//                     }
+//                 }
+//                 Pattern::StructUnpack(pattern) => {
+//                     let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
+//                     let ty = ty.as_struct();
+
+//                     for pattern in pattern.symbols.iter() {
+//                         if pattern.ignore {
+//                             continue;
+//                         }
+
+//                         let field_index = ty.find_field_position(pattern.symbol).unwrap();
+//                         // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+//                         func_code.push(Instruction::Peek(param_offset as i32));
+//                         func_code.push(Instruction::ConstIndex(field_index as u32));
+//                         sess.add_local(&mut func_code, pattern.id);
+//                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
+//                     }
+//                 }
+//                 Pattern::TupleUnpack(pattern) => {
+//                     for (index, pattern) in pattern.symbols.iter().enumerate() {
+//                         if pattern.ignore {
+//                             continue;
+//                         }
+
+//                         func_code.push(Instruction::PeekPtr(param_offset as i32));
+//                         func_code.push(Instruction::ConstIndex(index as u32));
+//                         sess.add_local(&mut func_code, pattern.id);
+//                         func_code.push(Instruction::SetLocal(func_code.locals as i32));
+//                     }
+//                 }
+//                 Pattern::Hybrid(pattern) => {
+//                     if !pattern.symbol.ignore {
+//                         sess.env_mut().insert(pattern.symbol.id, param_offset);
+//                     }
+
+//                     match &pattern.unpack {
+//                         UnpackPatternKind::Struct(pattern) => {
+//                             let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
+//                             let ty = ty.as_struct();
+
+//                             for pattern in pattern.symbols.iter() {
+//                                 if pattern.ignore {
+//                                     continue;
+//                                 }
+
+//                                 let field_index = ty.find_field_position(pattern.symbol).unwrap();
+//                                 // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+//                                 func_code.push(Instruction::Peek(param_offset as i32));
+//                                 func_code.push(Instruction::ConstIndex(field_index as u32));
+//                                 sess.add_local(&mut func_code, pattern.id);
+//                                 func_code.push(Instruction::SetLocal(func_code.locals as i32));
+//                             }
+//                         }
+//                         UnpackPatternKind::Tuple(pattern) => {
+//                             for (index, pattern) in pattern.symbols.iter().enumerate() {
+//                                 if pattern.ignore {
+//                                     continue;
+//                                 }
+
+//                                 func_code.push(Instruction::PeekPtr(param_offset as i32));
+//                                 func_code.push(Instruction::ConstIndex(index as u32));
+//                                 sess.add_local(&mut func_code, pattern.id);
+//                                 func_code.push(Instruction::SetLocal(func_code.locals as i32));
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//             param_offset += 1;
+//         }
+
+//         lower_block(
+//             &self.body,
+//             sess,
+//             &mut func_code,
+//             LowerContext { take_ptr: false },
+//         );
+
+//         if !func_code.instructions.ends_with(&[Instruction::Return]) {
+//             func_code.push(Instruction::Return);
+//         }
+
+//         sess.env_mut().pop_scope();
+
+//         let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
+
+//         let function = Function {
+//             id: self.id,
+//             name: self.sig.name,
+//             arg_types: sig_ty.params,
+//             return_type: *sig_ty.ret,
+//             code: func_code,
+//         };
+
+//         sess.insert_function(self.id, function);
+//     }
+// }
+
 impl Lower for ast::Function {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        if let Some(id) = self.id {
-            let binding_info = sess.workspace.get_binding_info(id).unwrap();
-            if binding_info.scope_level.is_global() {
-                sess.insert_global(id, Value::unit());
-            }
-        }
+    fn lower(&self, sess: &mut InterpSess, _code: &mut CompiledCode, _ctx: LowerContext) {
+        match &self.kind {
+            ast::FunctionKind::Orphan { sig, body } => {
+                sess.env_mut().push_scope();
 
-        sess.env_mut().push_scope();
+                sess.insert_unfinished_function(self.id);
 
-        let mut func_code = CompiledCode::new();
+                let mut func_code = CompiledCode::new();
 
-        // set up function parameters
-        let mut param_offset = -(self.sig.params.len() as i16);
+                // set up function parameters
+                let mut param_offset = -(sig.params.len() as i16);
 
-        for param in self.sig.params.iter() {
-            match &param.pattern {
-                Pattern::Symbol(pattern) => {
-                    if !pattern.ignore {
-                        sess.env_mut().insert(pattern.id, param_offset);
-                    }
-                }
-                Pattern::StructUnpack(pattern) => {
-                    let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
-                    let ty = ty.as_struct();
-
-                    for pattern in pattern.symbols.iter() {
-                        if pattern.ignore {
-                            continue;
+                for param in sig.params.iter() {
+                    match &param.pattern {
+                        Pattern::Symbol(pattern) => {
+                            if !pattern.ignore {
+                                sess.env_mut().insert(pattern.id, param_offset);
+                            }
                         }
-
-                        let field_index = ty.find_field_position(pattern.symbol).unwrap();
-                        // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
-                        func_code.push(Instruction::Peek(param_offset as i32));
-                        func_code.push(Instruction::ConstIndex(field_index as u32));
-                        sess.add_local(&mut func_code, pattern.id);
-                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
-                    }
-                }
-                Pattern::TupleUnpack(pattern) => {
-                    for (index, pattern) in pattern.symbols.iter().enumerate() {
-                        if pattern.ignore {
-                            continue;
-                        }
-
-                        func_code.push(Instruction::PeekPtr(param_offset as i32));
-                        func_code.push(Instruction::ConstIndex(index as u32));
-                        sess.add_local(&mut func_code, pattern.id);
-                        func_code.push(Instruction::SetLocal(func_code.locals as i32));
-                    }
-                }
-                Pattern::Hybrid(pattern) => {
-                    if !pattern.symbol.ignore {
-                        sess.env_mut().insert(pattern.symbol.id, param_offset);
-                    }
-
-                    match &pattern.unpack {
-                        UnpackPatternKind::Struct(pattern) => {
+                        Pattern::StructUnpack(pattern) => {
                             let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
                             let ty = ty.as_struct();
 
@@ -601,7 +678,7 @@ impl Lower for ast::Function {
                                 func_code.push(Instruction::SetLocal(func_code.locals as i32));
                             }
                         }
-                        UnpackPatternKind::Tuple(pattern) => {
+                        Pattern::TupleUnpack(pattern) => {
                             for (index, pattern) in pattern.symbols.iter().enumerate() {
                                 if pattern.ignore {
                                     continue;
@@ -613,48 +690,86 @@ impl Lower for ast::Function {
                                 func_code.push(Instruction::SetLocal(func_code.locals as i32));
                             }
                         }
+                        Pattern::Hybrid(pattern) => {
+                            if !pattern.symbol.ignore {
+                                sess.env_mut().insert(pattern.symbol.id, param_offset);
+                            }
+
+                            match &pattern.unpack {
+                                UnpackPatternKind::Struct(pattern) => {
+                                    let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
+                                    let ty = ty.as_struct();
+
+                                    for pattern in pattern.symbols.iter() {
+                                        if pattern.ignore {
+                                            continue;
+                                        }
+
+                                        let field_index =
+                                            ty.find_field_position(pattern.symbol).unwrap();
+                                        // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
+                                        func_code.push(Instruction::Peek(param_offset as i32));
+                                        func_code.push(Instruction::ConstIndex(field_index as u32));
+                                        sess.add_local(&mut func_code, pattern.id);
+                                        func_code
+                                            .push(Instruction::SetLocal(func_code.locals as i32));
+                                    }
+                                }
+                                UnpackPatternKind::Tuple(pattern) => {
+                                    for (index, pattern) in pattern.symbols.iter().enumerate() {
+                                        if pattern.ignore {
+                                            continue;
+                                        }
+
+                                        func_code.push(Instruction::PeekPtr(param_offset as i32));
+                                        func_code.push(Instruction::ConstIndex(index as u32));
+                                        sess.add_local(&mut func_code, pattern.id);
+                                        func_code
+                                            .push(Instruction::SetLocal(func_code.locals as i32));
+                                    }
+                                }
+                            }
+                        }
                     }
+                    param_offset += 1;
                 }
+
+                lower_block(
+                    body.as_ref().unwrap(),
+                    sess,
+                    &mut func_code,
+                    LowerContext { take_ptr: false },
+                );
+
+                if !func_code.instructions.ends_with(&[Instruction::Return]) {
+                    func_code.push(Instruction::Return);
+                }
+
+                sess.env_mut().pop_scope();
+
+                let sig_ty = sig.ty.normalize(sess.tycx).into_fn();
+
+                let function = Function {
+                    id: self.id,
+                    name: sig.name,
+                    arg_types: sig_ty.params,
+                    return_type: *sig_ty.ret,
+                    code: func_code,
+                };
+
+                sess.insert_function(self.id, function);
             }
-            param_offset += 1;
         }
-
-        lower_block(
-            &self.body,
-            sess,
-            &mut func_code,
-            LowerContext { take_ptr: false },
-        );
-
-        if !func_code.instructions.ends_with(&[Instruction::Return]) {
-            func_code.push(Instruction::Return);
-        }
-
-        sess.env_mut().pop_scope();
-
-        let sig_ty = self.sig.ty.normalize(sess.tycx).into_fn();
-
-        let func = Function {
-            id: self.id.unwrap(),
-            name: self.sig.name,
-            arg_types: sig_ty.params,
-            return_type: *sig_ty.ret,
-            code: func_code,
-        };
-
-        let slot = sess.push_const(code, Value::Function(func));
-
-        sess.interp.functions.insert(self.id.unwrap(), slot);
     }
 }
 
 impl Lower for ast::FunctionSig {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         match &self.kind {
-            ast::FunctionKind::Orphan | ast::FunctionKind::Intrinsic(_) => {
+            FunctionTypeKind::Orphan => {
                 // lowering a non-extern function signature is a noop
             }
-            ast::FunctionKind::Extern { lib: Some(lib) } => {
+            FunctionTypeKind::Extern { lib: Some(lib) } => {
                 let func_ty = self.ty.normalize(sess.tycx).into_fn();
 
                 let extern_func = ExternFunction {
@@ -667,7 +782,7 @@ impl Lower for ast::FunctionSig {
 
                 sess.push_const(code, Value::ExternFunction(extern_func));
             }
-            ast::FunctionKind::Extern { lib: None } => {
+            FunctionTypeKind::Extern { lib: None } => {
                 // TODO: raise proper diagnostic
                 panic!("cannot interpret extern function without specifying a library. TODO: proper diagnostic")
             }
@@ -1073,8 +1188,18 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             let fn_slot = match sess.interp.functions.get(&f.id) {
                 Some(slot) => *slot,
                 None => {
-                    find_and_lower_top_level_binding(f.id, sess);
+                    let function = sess.typed_ast.get_function(f.id).unwrap();
+
+                    function.lower(
+                        sess,
+                        &mut CompiledCode::new(),
+                        LowerContext { take_ptr: false },
+                    );
+
                     sess.interp.functions[&f.id]
+
+                    // find_and_lower_top_level_binding(f.id, sess);
+                    // sess.interp.functions[&f.id]
                 }
             };
 
@@ -1512,7 +1637,7 @@ fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut Comp
 
 fn func_ty_to_extern_func(name: Ustr, func_ty: &FunctionType) -> ExternFunction {
     let lib_path = match &func_ty.kind {
-        ast::FunctionKind::Extern { lib } => lib.as_ref().unwrap().path(),
+        FunctionTypeKind::Extern { lib } => lib.as_ref().unwrap().path(),
         _ => panic!(),
     };
 

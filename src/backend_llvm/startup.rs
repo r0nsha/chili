@@ -82,7 +82,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ],
             ret: Box::new(Type::Uint(UintType::U32)),
             varargs: None,
-            kind: ast::FunctionKind::Orphan,
+            kind: FunctionTypeKind::Orphan,
         };
 
         let function = self.module.add_function(
@@ -152,7 +152,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             let ty = binding.ty.llvm_type(self);
 
-            // TODO: when hybrid patterns arrive, we can get the ptr to the hybrid pattern that has been generated
             let global_value = match &binding.pattern {
                 Pattern::Symbol(pat) | Pattern::Hybrid(HybridPattern { symbol: pat, .. }) => {
                     self.global_decls.get(&pat.id).unwrap().into_global_value()

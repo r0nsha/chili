@@ -96,6 +96,7 @@ pub struct Scope {
     pub kind: ScopeKind,
     pub name: String,
     pub symbols: UstrMap<BindingInfoId>,
+    pub functions: UstrMap<BindingInfoId>,
     pub defer_stack: DeferStack,
 }
 
@@ -104,7 +105,8 @@ impl Scope {
         Self {
             kind,
             name: name.to_string(),
-            symbols: Default::default(),
+            symbols: UstrMap::default(),
+            functions: UstrMap::default(),
             defer_stack: DeferStack::new(),
         }
     }

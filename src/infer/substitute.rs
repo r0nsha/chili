@@ -133,7 +133,7 @@ impl<'a> Substitute<'a> for ast::Block {
     }
 }
 
-impl<'a> Substitute<'a> for ast::Function {
+impl<'a> Substitute<'a> for ast::FunctionExpr {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.sig.substitute(sess);
         self.body.substitute(sess);

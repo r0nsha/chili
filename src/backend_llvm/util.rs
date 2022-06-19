@@ -3,7 +3,7 @@ use super::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use crate::ast::{ast, ast::FunctionSig, pattern::SymbolPattern, ty::*, workspace::BindingInfoId};
+use crate::ast::{ast::FunctionSig, pattern::SymbolPattern, ty::*, workspace::BindingInfoId};
 use crate::common::mem::calculate_align;
 use inkwell::{
     basic_block::BasicBlock,
@@ -591,7 +591,7 @@ pub trait LlvmName {
 impl LlvmName for FunctionSig {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
         match &self.kind {
-            ast::FunctionKind::Extern { .. } => self.name.to_string(),
+            FunctionTypeKind::Extern { .. } => self.name.to_string(),
             _ => format!("{}.{}", module_name.as_ref(), self.name),
         }
     }

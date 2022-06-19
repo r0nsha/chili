@@ -1,7 +1,7 @@
 use super::*;
 use crate::ast::{
-    ast::{Expr, ExprKind, Function, FunctionParam, FunctionSig, FunctionVarargs},
-    ty::TypeId,
+    ast::{Expr, ExprKind, FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs},
+    ty::{FunctionTypeKind, TypeId},
 };
 use crate::error::{DiagnosticResult, SyntaxError};
 use crate::span::To;
@@ -18,10 +18,10 @@ impl Parser {
             let body = self.parse_block()?;
 
             Ok(Expr::new(
-                ExprKind::Function(Function {
+                ExprKind::Function(FunctionExpr {
                     sig,
                     body,
-                    id: None,
+                    id: FunctionId::unknown(),
                 }),
                 start_span.to(self.previous_span()),
             ))
@@ -54,7 +54,7 @@ impl Parser {
             kind: self
                 .extern_lib
                 .as_ref()
-                .map_or(ast::FunctionKind::Orphan, |lib| ast::FunctionKind::Extern {
+                .map_or(FunctionTypeKind::Orphan, |lib| FunctionTypeKind::Extern {
                     lib: lib.clone(),
                 }),
             ty: Default::default(),

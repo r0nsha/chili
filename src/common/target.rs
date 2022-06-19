@@ -250,6 +250,8 @@ pub enum Arch {
     _386,
     Arm64,
     Wasm32,
+
+    #[allow(unused)]
     Wasm64,
 }
 

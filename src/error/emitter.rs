@@ -28,6 +28,7 @@ impl DiagnosticEmitter {
         }
     }
 
+    #[allow(unused)]
     pub fn emit_one(&self, files: &SimpleFiles<String, String>, diagnostic: Diagnostic) {
         self.emit(&mut self.writer.lock(), files, diagnostic)
     }

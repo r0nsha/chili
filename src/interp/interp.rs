@@ -8,8 +8,8 @@ use super::{
         Constants, Globals, VM,
     },
 };
-use crate::common::scopes::Scopes;
 use crate::infer::ty_ctx::TyCtx;
+use crate::{ast::ast::FunctionId, common::scopes::Scopes};
 use crate::{
     ast::{
         ast,
@@ -29,7 +29,7 @@ pub enum InterpErr {}
 pub struct Interp {
     pub globals: Globals,
     pub constants: Constants,
-    pub functions: HashMap<BindingInfoId, usize>,
+    pub functions: HashMap<FunctionId, usize>,
     pub ffi: Ffi,
     pub build_options: BuildOptions,
 
@@ -108,7 +108,7 @@ impl<'i> InterpSess<'i> {
         let mut vm = self.create_vm();
 
         let start_func = Function {
-            id: BindingInfoId::unknown(),
+            id: FunctionId::unknown(),
             name: ustr("__vm_start"),
             arg_types: vec![],
             return_type: Type::Unit,
@@ -126,13 +126,15 @@ impl<'i> InterpSess<'i> {
 
         for (i, global_eval_code) in self.evaluated_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
+
             self.interp.constants.push(Value::Function(Function {
-                id: BindingInfoId::unknown(),
+                id: FunctionId::unknown(),
                 name: ustr(&format!("global_init_{}", i)),
                 arg_types: vec![],
                 return_type: Type::Unit,
                 code: global_eval_code.clone(),
             }));
+
             init_instructions.push(Instruction::PushConst(const_slot as u32));
             init_instructions.push(Instruction::Call(0));
         }
@@ -172,6 +174,24 @@ impl<'i> InterpSess<'i> {
             self.interp.bindings_to_globals.insert(id, slot);
             slot
         }
+    }
+
+    pub fn insert_unfinished_function(&mut self, id: FunctionId) -> usize {
+        if let Some(&slot) = self.interp.functions.get(&id) {
+            self.interp.constants[slot] = Value::unit();
+            slot
+        } else {
+            let slot = self.interp.constants.len();
+            self.interp.constants.push(Value::unit());
+            self.interp.functions.insert(id, slot);
+            slot
+        }
+    }
+
+    pub fn insert_function(&mut self, id: FunctionId, function: Function) -> usize {
+        let slot = *self.interp.functions.get(&id).unwrap();
+        self.interp.constants[slot] = Value::Function(function);
+        slot
     }
 
     pub fn get_global(&self, id: BindingInfoId) -> Option<usize> {

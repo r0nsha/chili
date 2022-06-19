@@ -27,7 +27,10 @@ pub enum Instruction {
     Shr,
     Xor,
     Jmp(i32),
+
+    #[allow(unused)]
     Jmpt(i32),
+
     Jmpf(i32),
     Return,
     Call(u32),

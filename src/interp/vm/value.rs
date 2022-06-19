@@ -5,9 +5,9 @@ use super::{
     instruction::CompiledCode,
 };
 use crate::ast::{
+    ast::FunctionId,
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     ty::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
-    workspace::BindingInfoId,
 };
 use crate::infer::ty_ctx::TyCtx;
 use crate::span::Span;
@@ -283,7 +283,7 @@ pub struct Array {
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub id: BindingInfoId,
+    pub id: FunctionId,
     pub name: Ustr,
     pub arg_types: Vec<Type>,
     pub return_type: Type,

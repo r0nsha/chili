@@ -6,9 +6,9 @@ use super::{
     CallingConv,
 };
 use crate::ast::{
-    ast,
+    ast::{self, FunctionId},
     ty::*,
-    workspace::{BindingInfoId, ModuleInfo},
+    workspace::BindingInfoId,
 };
 use crate::infer::normalize::Normalize;
 use inkwell::{
@@ -22,102 +22,121 @@ use inkwell::{
 };
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
-    pub fn gen_fn(
+    pub fn gen_fn_by_id(
         &mut self,
-        module_info: ModuleInfo,
-        func: &ast::Function,
+        id: FunctionId,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
-        let prev_block = if let Some(ref prev_state) = prev_state {
-            Some(prev_state.curr_block)
-        } else {
-            self.builder.get_insert_block()
-        };
+        let function = self.typed_ast.get_function(id).unwrap();
+        self.gen_fn(function, prev_state)
+    }
 
-        let function = self
-            .module
-            .get_function(&func.sig.llvm_name(module_info.name))
-            .unwrap_or_else(|| {
-                self.declare_fn_sig(
-                    &func.sig.ty.normalize(self.tycx).as_fn(),
-                    func.sig.llvm_name(module_info.name),
-                )
-            });
+    pub fn gen_fn(
+        &mut self,
+        function: &ast::Function,
+        prev_state: Option<CodegenState<'ctx>>,
+    ) -> FunctionValue<'ctx> {
+        let module_info = *self.workspace.get_module_info(function.module_id).unwrap();
 
-        let decl_block = self.context.append_basic_block(function, "decls");
-        let entry_block = self.context.append_basic_block(function, "entry");
+        match &function.kind {
+            ast::FunctionKind::Orphan { sig, body } => {
+                let prev_block = if let Some(ref prev_state) = prev_state {
+                    Some(prev_state.curr_block)
+                } else {
+                    self.builder.get_insert_block()
+                };
 
-        let fn_ty = func.sig.ty.normalize(self.tycx).into_fn();
-        let abi_fn = self.get_abi_compliant_fn(&fn_ty);
+                let function = self
+                    .module
+                    .get_function(&sig.llvm_name(module_info.name))
+                    .unwrap_or_else(|| {
+                        self.declare_fn_sig(
+                            &sig.ty.normalize(self.tycx).as_fn(),
+                            sig.llvm_name(module_info.name),
+                        )
+                    });
 
-        let return_ptr = if abi_fn.ret.kind.is_indirect() {
-            let return_ptr = function.get_first_param().unwrap().into_pointer_value();
-            return_ptr.set_name(&format!("{}.result", func.sig.name));
-            Some(return_ptr)
-        } else {
-            None
-        };
+                let decl_block = self.context.append_basic_block(function, "decls");
+                let entry_block = self.context.append_basic_block(function, "entry");
 
-        let mut state = CodegenState::new(
-            module_info,
-            function,
-            fn_ty,
-            return_ptr,
-            decl_block,
-            entry_block,
-        );
+                let fn_ty = sig.ty.normalize(self.tycx).into_fn();
+                let abi_fn = self.get_abi_compliant_fn(&fn_ty);
 
-        if let Some(prev_state) = prev_state {
-            state.scopes = prev_state.scopes;
+                let return_ptr = if abi_fn.ret.kind.is_indirect() {
+                    let return_ptr = function.get_first_param().unwrap().into_pointer_value();
+                    return_ptr.set_name(&format!("{}.result", sig.name));
+                    Some(return_ptr)
+                } else {
+                    None
+                };
+
+                let mut state = CodegenState::new(
+                    module_info,
+                    function,
+                    fn_ty,
+                    return_ptr,
+                    decl_block,
+                    entry_block,
+                );
+
+                if let Some(prev_state) = prev_state {
+                    state.scopes = prev_state.scopes;
+                }
+
+                self.start_block(&mut state, entry_block);
+
+                state.push_scope();
+
+                let mut params = function.get_params();
+
+                if abi_fn.ret.kind.is_indirect() {
+                    params.remove(0);
+                }
+
+                for (index, (&value, param)) in params.iter().zip(sig.params.iter()).enumerate() {
+                    let value = if abi_fn.params[index].kind.is_indirect() {
+                        self.build_load(value)
+                    } else {
+                        value
+                    };
+
+                    let param_ty = match param.ty.normalize(self.tycx) {
+                        Type::Type(inner) => *inner,
+                        t => t,
+                    };
+
+                    let llvm_param_ty = param_ty.llvm_type(self);
+
+                    let value = self.build_transmute(&state, value, llvm_param_ty);
+
+                    self.gen_binding_pattern_with_value(
+                        &mut state,
+                        &param.pattern,
+                        &param_ty,
+                        value,
+                    );
+                }
+
+                let return_value = self.gen_block(&mut state, body.as_ref().unwrap(), true);
+
+                if self.current_block().get_terminator().is_none() {
+                    self.gen_return(&mut state, Some(return_value), &[]);
+                }
+
+                state.pop_scope();
+
+                self.start_block(&mut state, decl_block);
+                self.builder.build_unconditional_branch(entry_block);
+
+                let function_value = self.verify_and_optimize_function(function, &sig.name);
+
+                if let Some(prev_block) = prev_block {
+                    self.builder.position_at_end(prev_block);
+                }
+
+                function_value
+            }
         }
-
-        self.start_block(&mut state, entry_block);
-
-        state.push_scope();
-
-        let mut params = function.get_params();
-
-        if abi_fn.ret.kind.is_indirect() {
-            params.remove(0);
-        }
-
-        for (index, (&value, param)) in params.iter().zip(func.sig.params.iter()).enumerate() {
-            let value = if abi_fn.params[index].kind.is_indirect() {
-                self.build_load(value)
-            } else {
-                value
-            };
-
-            let param_ty = match param.ty.normalize(self.tycx) {
-                Type::Type(inner) => *inner,
-                t => t,
-            };
-
-            let llvm_param_ty = param_ty.llvm_type(self);
-
-            let value = self.build_transmute(&state, value, llvm_param_ty);
-
-            self.gen_binding_pattern_with_value(&mut state, &param.pattern, &param_ty, value);
-        }
-
-        let return_value = self.gen_block(&mut state, &func.body, true);
-
-        if self.current_block().get_terminator().is_none() {
-            self.gen_return(&mut state, Some(return_value), &[]);
-        }
-
-        state.pop_scope();
-
-        self.start_block(&mut state, decl_block);
-        self.builder.build_unconditional_branch(entry_block);
-
-        let function_value = self.verify_and_optimize_function(function, &func.sig.name);
-
-        if let Some(prev_block) = prev_block {
-            self.builder.position_at_end(prev_block);
-        }
-
-        function_value
     }
 
     pub fn verify_and_optimize_function(

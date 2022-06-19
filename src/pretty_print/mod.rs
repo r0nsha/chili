@@ -135,7 +135,7 @@ impl PrintTree for ast::Binding {
     }
 }
 
-impl PrintTree for ast::Function {
+impl PrintTree for ast::FunctionExpr {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         b.begin_child("fn".to_string());
         self.sig.print_tree(b, workspace, tycx);

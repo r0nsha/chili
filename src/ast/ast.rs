@@ -42,8 +42,7 @@ impl Ast {
 #[derive(Default)]
 pub struct TypedAst {
     pub bindings: Slab<Binding>,
-    // pub functions: Slab<Function>,
-    // pub extern_functions: Slab<ExternFunction>,
+    pub functions: Slab<Function>,
     ids_to_bindings: HashMap<BindingInfoId, usize>,
 }
 
@@ -52,6 +51,13 @@ impl TypedAst {
         self.ids_to_bindings
             .get(&id)
             .map(|idx| &self.bindings[*idx])
+    }
+
+    #[allow(unused)]
+    pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
+        self.ids_to_bindings
+            .get_mut(&id)
+            .and_then(|idx| self.bindings.get_mut(*idx))
     }
 
     #[allow(unused)]
@@ -68,25 +74,27 @@ impl TypedAst {
         }
     }
 
-    // pub fn get_function(&mut self, id: FunctionId) -> Option<&Function> {
-    //     self.functions.get(id.inner())
-    // }
+    pub fn get_function(&self, id: FunctionId) -> Option<&Function> {
+        self.functions.get(id.inner())
+    }
 
-    // pub fn push_function(&mut self, function: Function) -> FunctionId {
-    //     FunctionId(self.functions.insert(function))
-    // }
+    pub fn get_function_mut(&mut self, id: FunctionId) -> Option<&mut Function> {
+        self.functions.get_mut(id.inner())
+    }
 
-    // pub fn get_extern_function(&mut self, id: FunctionId) -> Option<&ExternFunction> {
-    //     self.extern_functions.get(id.inner())
-    // }
+    pub fn push_function(&mut self, mut function: Function) -> FunctionId {
+        let vacant_entry = self.functions.vacant_entry();
 
-    // pub fn push_extern_function(&mut self, function: ExternFunction) -> ExternFunctionId {
-    //     ExternFunctionId(self.extern_functions.insert(function))
-    // }
+        let id = FunctionId(vacant_entry.key());
+
+        function.id = id;
+        vacant_entry.insert(function);
+
+        id
+    }
 }
 
 define_id_type!(FunctionId);
-define_id_type!(ExternFunctionId);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expr {
@@ -112,14 +120,14 @@ impl Expr {
         matches!(&self.kind, ExprKind::Function(..))
     }
 
-    pub fn as_function(&self) -> &Function {
+    pub fn as_function(&self) -> &FunctionExpr {
         match &self.kind {
             ExprKind::Function(func) => func,
             _ => panic!(),
         }
     }
 
-    pub fn as_function_mut(&mut self) -> &mut Function {
+    pub fn as_function_mut(&mut self) -> &mut FunctionExpr {
         match &mut self.kind {
             ExprKind::Function(func) => func,
             _ => panic!(),
@@ -138,7 +146,7 @@ pub enum ExprKind {
     Assign(Assign),
     Cast(Cast),
     Builtin(Builtin),
-    Function(Function),
+    Function(FunctionExpr),
     While(While),
     For(For),
     Break(Terminator),
@@ -372,10 +380,10 @@ pub enum ForIter {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Function {
+pub struct FunctionExpr {
+    pub id: FunctionId,
     pub sig: FunctionSig,
     pub body: Block,
-    pub id: Option<BindingInfoId>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -384,9 +392,29 @@ pub struct FunctionSig {
     pub params: Vec<FunctionParam>,
     pub ret: Option<Box<Expr>>,
     pub varargs: Option<FunctionVarargs>,
-    pub kind: FunctionKind,
+    pub kind: FunctionTypeKind,
     pub ty: TypeId,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Function {
+    pub id: FunctionId,
+    pub module_id: ModuleId,
+    pub kind: FunctionKind,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum FunctionKind {
+    Orphan {
+        sig: FunctionSig,
+        body: Option<Block>, // The body will be filled after the function is fully checked
+    },
+    // Extern {
+    //     id: FunctionId,
+    //     ty: TypeId,
+    //     lib: Option<ExternLibrary>,
+    // },
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -406,27 +434,6 @@ pub struct FunctionParam {
 impl ToString for FunctionParam {
     fn to_string(&self) -> String {
         self.pattern.to_string()
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum FunctionKind {
-    Orphan,
-    Extern { lib: Option<ExternLibrary> },
-    Intrinsic(Intrinsic),
-}
-
-impl FunctionKind {
-    pub fn is_orphan(&self) -> bool {
-        matches!(self, FunctionKind::Orphan)
-    }
-
-    pub fn is_extern(&self) -> bool {
-        matches!(self, FunctionKind::Extern { .. })
-    }
-
-    pub fn is_intrinsic(&self) -> bool {
-        matches!(self, FunctionKind::Intrinsic(_))
     }
 }
 

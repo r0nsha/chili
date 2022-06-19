@@ -1,4 +1,4 @@
-use super::{ast, ty::TypeId, workspace::BindingInfoId};
+use super::{ast, ty::TypeId};
 use indexmap::IndexMap;
 use paste::paste;
 use std::fmt::{self, Display};
@@ -111,7 +111,8 @@ pub struct ConstArray {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstFunction {
-    pub id: BindingInfoId,
+    pub id: ast::FunctionId,
+    // Name is only used for display purposes
     pub name: Ustr,
 }
 

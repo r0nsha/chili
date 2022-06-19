@@ -3,7 +3,7 @@ pub mod display;
 pub mod size;
 
 use super::{
-    ast::FunctionKind,
+    ast::ExternLibrary,
     workspace::{BindingInfoId, ModuleId},
 };
 use crate::span::Span;
@@ -116,12 +116,28 @@ pub struct FunctionType {
     pub params: Vec<Type>,
     pub ret: Box<Type>,
     pub varargs: Option<Box<FunctionTypeVarargs>>,
-    pub kind: FunctionKind,
+    pub kind: FunctionTypeKind,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTypeVarargs {
     pub ty: Option<Type>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum FunctionTypeKind {
+    Orphan,
+    Extern { lib: Option<ExternLibrary> },
+}
+
+impl FunctionTypeKind {
+    pub fn is_orphan(&self) -> bool {
+        matches!(self, FunctionTypeKind::Orphan)
+    }
+
+    pub fn is_extern(&self) -> bool {
+        matches!(self, FunctionTypeKind::Extern { .. })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

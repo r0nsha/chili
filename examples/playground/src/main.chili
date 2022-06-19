@@ -1,22 +1,5 @@
-let intrinsics = import!("std/intrinsics");
-let ? = import!("std/build");
 let { println } = import!("std/fmt");
 
 let main = fn() {
-    let build_options = BuildOptions {
-        input_file: "src/main.chili",
-        output_file: "out/main",
-        target: BuildTarget_auto,
-        opt_level: OptLevel_debug,
-        run_executable: true,
-	};
-
-	let workspace = Workspace {
-		name: "hello",
-		build_options
-	};
-
-	intrinsics.start_workspace(workspace);
-
     println("Hello from main.chili");
 };
