@@ -1,3 +1,5 @@
+use self::value::FunctionAddress;
+
 use super::{
     interp::Interp,
     vm::{
@@ -157,10 +159,13 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    pub fn run_func(&'vm mut self, func: Function) -> Value {
-        self.stack.push(Value::Function(func));
-        let func: *const Function = self.stack.last().as_function();
-        self.push_frame(func);
+    pub fn run_func(&'vm mut self, function: Function) -> Value {
+        self.stack.push(Value::Function(FunctionAddress {
+            id: function.id,
+            name: function.name,
+        }));
+
+        self.push_frame(&function as *const Function);
         self.run_inner()
     }
 
@@ -298,38 +303,30 @@ impl<'vm> VM<'vm> {
                         self.next();
                     }
                 }
-                Instruction::Call(arg_count) => {
-                    let value = self.stack.peek(0);
-                    match value {
-                        Value::Function(func) => {
-                            let func: *const Function = func;
-                            self.push_frame(func);
-                        }
-                        Value::ExternFunction(func) => {
-                            let func = func.clone();
-                            self.stack.pop(); // this pops the actual extern function
-
-                            let mut values = (0..arg_count)
-                                .into_iter()
-                                .map(|_| self.stack.pop())
-                                .collect::<Vec<Value>>();
-
-                            values.reverse();
-
-                            let vm_ptr = self as *mut VM;
-                            let result = unsafe { self.interp.ffi.call(vm_ptr, func, values) };
-                            self.stack.push(result);
-
-                            self.next();
-                        }
-                        Value::IntrinsicFunction(func) => {
-                            let func = *func;
-                            self.stack.pop();
-                            self.dispatch_intrinsic(func)
-                        }
-                        _ => panic!("tried to call uncallable value `{}`", value.to_string()),
+                Instruction::Call(arg_count) => match self.stack.pop() {
+                    Value::Function(addr) => {
+                        // TODO: remove this dummy value that we have to push
+                        self.stack.push(Value::unit());
+                        let function = self.interp.functions.get(&addr.id).unwrap();
+                        self.push_frame(function as *const Function);
                     }
-                }
+                    Value::ExternFunction(function) => {
+                        let mut values = (0..arg_count)
+                            .into_iter()
+                            .map(|_| self.stack.pop())
+                            .collect::<Vec<Value>>();
+
+                        values.reverse();
+
+                        let vm_ptr = self as *mut VM;
+                        let result = unsafe { self.interp.ffi.call(vm_ptr, function, values) };
+                        self.stack.push(result);
+
+                        self.next();
+                    }
+                    Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
+                    value => panic!("tried to call uncallable value `{}`", value.to_string()),
+                },
                 Instruction::GetGlobal(slot) => {
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),

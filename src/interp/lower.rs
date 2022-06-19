@@ -531,7 +531,7 @@ impl Lower for ast::Cast {
 
 impl Lower for ast::Function {
     fn lower(&self, sess: &mut InterpSess, _code: &mut CompiledCode, _ctx: LowerContext) {
-        if sess.interp.functions.contains_key(&self.id) {
+        if sess.interp.functions.contains_key(&self.id) || !sess.lowered_functions.insert(self.id) {
             return;
         }
 

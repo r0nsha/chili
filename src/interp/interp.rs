@@ -18,7 +18,7 @@ use crate::{
     },
     common::build_options::BuildOptions,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use ustr::{ustr, Ustr};
 
 pub type InterpResult = Result<Value, InterpErr>;
@@ -62,6 +62,7 @@ impl Interp {
             env_stack: vec![],
             // labels: vec![],
             evaluated_globals: vec![],
+            lowered_functions: HashSet::new(),
         }
     }
 }
@@ -75,8 +76,11 @@ pub struct InterpSess<'i> {
 
     // pub labels: Vec<Label>,
 
-    // globals to be evaluated when the VM starts
+    // Globals that are going to be evaluated when the VM starts
     pub evaluated_globals: Vec<CompiledCode>,
+
+    // Functions currently lowered, cached to prevent infinite recursion in recursive functions
+    pub lowered_functions: HashSet<FunctionId>,
 }
 
 // labels are used for patching call instruction after lowering
