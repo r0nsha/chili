@@ -22,4 +22,5 @@ vm.out
 *.o
 *.txt
 dist
+examples/**/out
 local_resources
