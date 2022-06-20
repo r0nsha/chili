@@ -86,7 +86,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                if self.workspace.build_options.opt_level.is_release() {
+                if self.workspace.build_options.optimization_level.is_release() {
                     self.builder.build_int_add(lhs, rhs, "iadd").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Add, ty, lhs.get_type());
@@ -116,7 +116,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                if self.workspace.build_options.opt_level.is_release() {
+                if self.workspace.build_options.optimization_level.is_release() {
                     self.builder.build_int_sub(lhs, rhs, "iadd").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Sub, ty, lhs.get_type());
@@ -146,7 +146,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let lhs = lhs.into_int_value();
                 let rhs = rhs.into_int_value();
 
-                if self.workspace.build_options.opt_level.is_release() {
+                if self.workspace.build_options.optimization_level.is_release() {
                     self.builder.build_int_mul(lhs, rhs, "iadd").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Mul, ty, lhs.get_type());

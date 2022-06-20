@@ -131,8 +131,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.start_block(&mut state, decl_block);
                 self.builder.build_unconditional_branch(entry_block);
 
-                let function_value = self.verify_and_optimize_function(function_value, &sig.name);
-
                 if let Some(prev_block) = prev_block {
                     self.builder.position_at_end(prev_block);
                 }
@@ -150,21 +148,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::FunctionKind::Intrinsic(intrinsic) => {
                 self.gen_intrinsic(intrinsic, &function_type)
             }
-        }
-    }
-
-    pub fn verify_and_optimize_function(
-        &mut self,
-        function: FunctionValue<'ctx>,
-        name: &str,
-    ) -> FunctionValue<'ctx> {
-        if function.verify(true) {
-            self.fpm.run_on(&function);
-            function
-        } else {
-            println!("\nThis is the generated function:");
-            function.print_to_stderr();
-            panic!("Invalid generated function `{}`", name);
         }
     }
 

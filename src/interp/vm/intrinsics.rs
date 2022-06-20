@@ -5,12 +5,12 @@ use path_absolutize::Absolutize;
 use super::{value::IntrinsicFunction, VM};
 use crate::{
     common::{
-        build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptLevel},
+        build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptimizationLevel},
         target::TargetPlatform,
     },
     interp::{
         vm::value::Value,
-        workspace::{BuildTargetValue, OptLevelValue, WorkspaceValue},
+        workspace::{BuildTargetValue, OptimizationLevelValue, WorkspaceValue},
     },
 };
 
@@ -39,9 +39,9 @@ impl<'vm> VM<'vm> {
                         BuildTargetValue::Linux => TargetPlatform::LinuxAmd64,
                         BuildTargetValue::Windows => TargetPlatform::WindowsAmd64,
                     },
-                    opt_level: match &workspace.build_options.opt_level {
-                        OptLevelValue::Debug => OptLevel::Debug,
-                        OptLevelValue::Release => OptLevel::Release,
+                    optimization_level: match &workspace.build_options.optimization_level {
+                        OptimizationLevelValue::Debug => OptimizationLevel::Debug,
+                        OptimizationLevelValue::Release => OptimizationLevel::Release,
                     },
                     verbose: self.interp.build_options.verbose,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),

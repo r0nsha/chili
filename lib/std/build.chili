@@ -9,7 +9,7 @@ pub let BuildOptions = struct {
     input_file: str,
     output_file: str,
     target: BuildTarget,
-    opt_level: OptLevel,
+    optimization_level: OptimizationLevel,
     run_executable: bool
 };
 
@@ -20,9 +20,9 @@ pub let BuildTarget_linux: BuildTarget = 1;
 pub let BuildTarget_windows: BuildTarget = 2;
 
 // TODO: turn into enum
-pub let OptLevel = u8;
-pub let OptLevel_debug: OptLevel = 0;
-pub let OptLevel_release: OptLevel = 1;
+pub let OptimizationLevel = u8;
+pub let OptimizationLevel_debug: OptimizationLevel = 0;
+pub let OptimizationLevel_release: OptimizationLevel = 1;
 
 pub let start_workspace = fn(workspace: Workspace) {
     intrinsics.start_workspace(workspace);

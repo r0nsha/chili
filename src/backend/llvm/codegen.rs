@@ -11,12 +11,15 @@ use crate::ast::{
     workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
 };
 use crate::ast::{ty::*, workspace::Workspace};
+use crate::common::build_options;
 use crate::common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     scopes::Scopes,
     target::TargetMetrics,
 };
 use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
+use inkwell::passes::PassManagerBuilder;
+use inkwell::OptimizationLevel;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -70,7 +73,6 @@ pub struct Codegen<'cg, 'ctx> {
 
     pub context: &'ctx Context,
     pub module: &'cg Module<'ctx>,
-    pub fpm: &'cg PassManager<FunctionValue<'ctx>>,
     pub builder: &'cg Builder<'ctx>,
     pub ptr_sized_int_type: IntType<'ctx>,
 
@@ -134,6 +136,29 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn start(&mut self) {
         self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
         self.gen_entry_point_function();
+    }
+
+    pub fn optimize(&mut self) {
+        let pass_manager_builder = PassManagerBuilder::create();
+
+        let optimization_level: OptimizationLevel =
+            self.workspace.build_options.optimization_level.into();
+
+        let size_level: u32 = match self.workspace.build_options.optimization_level {
+            build_options::OptimizationLevel::Debug => 1,
+            build_options::OptimizationLevel::Release => 2,
+        };
+
+        pass_manager_builder.set_optimization_level(optimization_level);
+        pass_manager_builder.set_size_level(size_level);
+
+        let pass_manager = PassManager::create(());
+        pass_manager_builder.populate_module_pass_manager(&pass_manager);
+        pass_manager.run_on(&self.module);
+
+        let link_time_optimizations = PassManager::create(());
+        pass_manager_builder.populate_lto_pass_manager(&link_time_optimizations, false, true);
+        link_time_optimizations.run_on(&self.module);
     }
 
     pub fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {

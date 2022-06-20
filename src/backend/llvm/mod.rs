@@ -14,6 +14,7 @@ mod unary;
 mod util;
 
 use crate::ast::{ast, workspace::Workspace};
+use crate::common::build_options;
 use crate::infer::ty_ctx::TyCtx;
 use crate::{
     common::{
@@ -27,11 +28,9 @@ use execute::Execute;
 use inkwell::{
     context::Context,
     module::Module,
-    passes::PassManager,
     targets::{
         CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
     },
-    values::FunctionValue,
     OptimizationLevel,
 };
 use path_absolutize::Absolutize;
@@ -62,12 +61,32 @@ pub fn codegen<'w>(
 
     let target_metrics = workspace.build_options.target_platform.metrics();
 
-    let target_machine = get_target_machine(&target_metrics);
+    match &target_metrics.arch {
+        Arch::Amd64 | Arch::_386 => Target::initialize_x86(&InitializationConfig::default()),
+        Arch::Arm64 => Target::initialize_aarch64(&InitializationConfig::default()),
+        Arch::Wasm32 | Arch::Wasm64 => {
+            Target::initialize_webassembly(&InitializationConfig::default())
+        }
+    }
+
+    let triple = TargetTriple::create(target_metrics.target_triplet);
+    let target = Target::from_triple(&triple).unwrap();
+    let host_cpu = TargetMachine::get_host_cpu_name();
+    let features = TargetMachine::get_host_cpu_features();
+
+    let target_machine = target
+        .create_target_machine(
+            &triple,
+            host_cpu.to_str().unwrap(),
+            features.to_str().unwrap(),
+            workspace.build_options.optimization_level.into(),
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+        .unwrap();
+
     module.set_data_layout(&target_machine.get_target_data().get_data_layout());
     module.set_triple(&target_machine.get_triple());
-
-    let fpm = PassManager::create(&module);
-    init_pass_manager(&fpm, workspace.build_options.opt_level.is_release());
 
     let mut cg = Codegen {
         workspace,
@@ -76,7 +95,6 @@ pub fn codegen<'w>(
         target_metrics: target_metrics.clone(),
         context: &context,
         module: &module,
-        fpm: &fpm,
         builder: &builder,
         ptr_sized_int_type: context.ptr_sized_int_type(&target_machine.get_target_data(), None),
         global_decls: HashMap::default(),
@@ -87,9 +105,21 @@ pub fn codegen<'w>(
         intrinsics: HashMap::default(),
     };
 
-    time! { workspace.build_options.verbose, "llvm",
-        cg.start()
-    };
+    time! { workspace.build_options.verbose, "llvm", {
+        cg.start();
+    }};
+
+    cg.module
+        .verify()
+        .map_err(|e| {
+            cg.module.print_to_stderr();
+            eprintln!("{}", e);
+        })
+        .unwrap();
+
+    time! { workspace.build_options.verbose, "llvm opt", {
+        cg.optimize();
+    }};
 
     if codegen_options.emit_llvm_ir {
         dump_ir(&module, &workspace.build_options.source_file);
@@ -106,70 +136,13 @@ pub fn codegen<'w>(
     executable_path
 }
 
-fn init_pass_manager<'a>(fpm: &PassManager<FunctionValue<'a>>, is_release: bool) {
-    if is_release {
-        fpm.add_instruction_combining_pass();
-        fpm.add_reassociate_pass();
-        fpm.add_cfg_simplification_pass();
-        fpm.add_basic_alias_analysis_pass();
-        fpm.add_promote_memory_to_register_pass();
-        fpm.add_scalar_repl_aggregates_pass_ssa();
-        fpm.add_reassociate_pass();
-        fpm.add_tail_call_elimination_pass();
-        fpm.add_gvn_pass();
-        fpm.add_loop_deletion_pass();
-        fpm.add_loop_rotate_pass();
-        fpm.add_loop_vectorize_pass();
-    }
-    // fpm.add_promote_memory_to_register_pass();
-    // fpm.add_global_dce_pass();
-    // fpm.add_tail_call_elimination_pass();
-    // fpm.add_ipsccp_pass();
-    // fpm.add_correlated_value_propagation_pass();
-    // fpm.add_global_optimizer_pass();
-    // fpm.add_cfg_simplification_pass();
-    // fpm.add_licm_pass();
-    // fpm.add_loop_unswitch_pass();
-    // fpm.add_loop_idiom_pass();
-    // fpm.add_loop_deletion_pass();
-    // fpm.add_memcpy_optimize_pass();
-    // fpm.add_sccp_pass();
-    // fpm.add_aggressive_dce_pass();
-    // fpm.add_function_inlining_pass();
-    // fpm.add_loop_rotate_pass();
-    // fpm.add_loop_vectorize_pass();
-    // fpm.add_instruction_combining_pass();
-    // fpm.add_jump_threading_pass();
-    // fpm.add_reassociate_pass();
-    // fpm.add_gvn_pass();
-
-    fpm.initialize();
-}
-
-fn get_target_machine(target_metrics: &TargetMetrics) -> TargetMachine {
-    match &target_metrics.arch {
-        Arch::Amd64 | Arch::_386 => Target::initialize_x86(&InitializationConfig::default()),
-        Arch::Arm64 => Target::initialize_aarch64(&InitializationConfig::default()),
-        Arch::Wasm32 | Arch::Wasm64 => {
-            Target::initialize_webassembly(&InitializationConfig::default())
+impl From<build_options::OptimizationLevel> for OptimizationLevel {
+    fn from(o: build_options::OptimizationLevel) -> Self {
+        match o {
+            build_options::OptimizationLevel::Debug => OptimizationLevel::Less,
+            build_options::OptimizationLevel::Release => OptimizationLevel::Default,
         }
     }
-
-    let triple = TargetTriple::create(target_metrics.target_triplet);
-    let target = Target::from_triple(&triple).unwrap();
-    let host_cpu = TargetMachine::get_host_cpu_name();
-    let features = TargetMachine::get_host_cpu_features();
-
-    target
-        .create_target_machine(
-            &triple,
-            host_cpu.to_str().unwrap(),
-            features.to_str().unwrap(),
-            OptimizationLevel::Default, // TODO: get optimization level from build options
-            RelocMode::Default,
-            CodeModel::Default,
-        )
-        .unwrap()
 }
 
 fn dump_ir(module: &Module, path: &Path) {
@@ -210,7 +183,7 @@ fn build_executable(
 
     time! { build_options.verbose, "link",
         link(target_metrics, &executable_file, &object_file,&extern_libraries,)
-    };
+    }
 
     let _ = std::fs::remove_file(object_file);
 

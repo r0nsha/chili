@@ -25,7 +25,7 @@ pub struct BuildOptionsValue<'a> {
     pub input_file: &'a str,
     pub output_file: &'a str,
     pub target: BuildTargetValue,
-    pub opt_level: OptLevelValue,
+    pub optimization_level: OptimizationLevelValue,
     pub run_executable: bool,
 }
 
@@ -36,14 +36,14 @@ impl<'a> From<&'a Value> for BuildOptionsValue<'a> {
         let input_file = unsafe { aggregate.elements[0].as_aggregate().as_str() };
         let output_file = unsafe { aggregate.elements[1].as_aggregate().as_str() };
         let target = BuildTargetValue::from(&aggregate.elements[2]);
-        let opt_level = OptLevelValue::from(&aggregate.elements[3]);
+        let optimization_level = OptimizationLevelValue::from(&aggregate.elements[3]);
         let run_executable = *aggregate.elements[4].as_bool();
 
         Self {
             input_file,
             output_file,
             target,
-            opt_level,
+            optimization_level,
             run_executable,
         }
     }
@@ -70,12 +70,12 @@ impl From<&Value> for BuildTargetValue {
 
 #[derive(Debug, Clone)]
 #[repr(u8)]
-pub enum OptLevelValue {
+pub enum OptimizationLevelValue {
     Debug = 0,
     Release = 1,
 }
 
-impl From<&Value> for OptLevelValue {
+impl From<&Value> for OptimizationLevelValue {
     fn from(value: &Value) -> Self {
         match value.as_u8() {
             0 => Self::Debug,

@@ -16,7 +16,7 @@ mod span;
 mod token;
 
 use crate::common::{
-    build_options::{BuildOptions, CodegenOptions, DiagnosticOptions, OptLevel},
+    build_options::{BuildOptions, CodegenOptions, DiagnosticOptions, OptimizationLevel},
     target::TargetPlatform,
 };
 use clap::*;
@@ -100,7 +100,7 @@ fn cli() {
                     source_file,
                     output_file: None,
                     target_platform: current_target_platform(),
-                    opt_level: OptLevel::Debug,
+                    optimization_level: OptimizationLevel::Debug,
                     verbose: args.verbose,
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
@@ -119,7 +119,7 @@ fn cli() {
                     source_file,
                     output_file: None,
                     target_platform: current_target_platform(),
-                    opt_level: OptLevel::Debug,
+                    optimization_level: OptimizationLevel::Debug,
                     verbose: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
                     codegen_options: CodegenOptions::Skip,
@@ -145,7 +145,7 @@ fn cli() {
                     source_file,
                     output_file: None,
                     target_platform: current_target_platform(),
-                    opt_level: OptLevel::Debug,
+                    optimization_level: OptimizationLevel::Debug,
                     verbose: args.verbose,
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,

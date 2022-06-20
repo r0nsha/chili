@@ -14,7 +14,7 @@ pub struct BuildOptions {
     pub target_platform: TargetPlatform,
 
     /// The overall codegen optimization level
-    pub opt_level: OptLevel,
+    pub optimization_level: OptimizationLevel,
 
     pub diagnostic_options: DiagnosticOptions,
     pub codegen_options: CodegenOptions,
@@ -70,21 +70,21 @@ impl BuildOptions {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum OptLevel {
+#[derive(Debug, Clone, Copy)]
+pub enum OptimizationLevel {
     Debug,
     Release,
 }
 
-impl OptLevel {
+impl OptimizationLevel {
     #[allow(unused)]
     pub fn is_debug(&self) -> bool {
-        matches!(self, OptLevel::Debug)
+        matches!(self, OptimizationLevel::Debug)
     }
 
     #[allow(unused)]
     pub fn is_release(&self) -> bool {
-        matches!(self, OptLevel::Release)
+        matches!(self, OptimizationLevel::Release)
     }
 }
 

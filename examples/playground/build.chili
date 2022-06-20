@@ -5,7 +5,7 @@ let build = fn() {
         input_file: "src/main.chili",
         output_file: "out/main",
         target: BuildTarget_auto,
-        opt_level: OptLevel_debug,
+        optimization_level: OptimizationLevel_debug,
         run_executable: true,
 	};
 

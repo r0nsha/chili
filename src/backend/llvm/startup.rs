@@ -10,12 +10,12 @@ use crate::ast::{
 use crate::infer::normalize::Normalize;
 use inkwell::{
     module::Linkage,
-    values::{BasicValue, FunctionValue, PointerValue},
+    values::{BasicValue, PointerValue},
     AddressSpace,
 };
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
-    pub fn gen_entry_point_function(&mut self) -> FunctionValue<'ctx> {
+    pub fn gen_entry_point_function(&mut self) {
         let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
 
         let entry_point_func_info = self
@@ -139,8 +139,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state.pop_scope();
 
         self.builder.build_unconditional_branch(entry_block);
-
-        self.verify_and_optimize_function(function, name)
     }
 
     fn initialize_globals(&mut self, state: &mut CodegenState<'ctx>) {
