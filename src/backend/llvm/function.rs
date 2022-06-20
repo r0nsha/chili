@@ -235,8 +235,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .gen_expr(state, &call.callee, false)
             .into_pointer_value();
 
-        let callee_ptr = self.maybe_load_double_pointer(callee_ptr);
-
         // println!("callee: {:#?}", callee_ptr.get_type());
 
         // for arg in args.iter() {
