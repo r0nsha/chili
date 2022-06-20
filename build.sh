@@ -1,14 +1,17 @@
-if test $1 = "release" 
-then
+if test $1 = "release"; then
+    dir="dist/release"
     cargo build --release
-    mkdir -p dist/release
-    cd dist/release
+    rm -rf $dir
+    mkdir -p $dir
+    cd $dir
     cp ../../target/release/chili chili
     cp -r ../../lib lib
 else
+    dir="dist/debug"
     cargo build
-    mkdir -p dist/debug
-    cd dist/debug
+    rm -rf $dir
+    mkdir -p $dir
+    cd $dir
     cp ../../target/debug/chili chili
 fi
 
