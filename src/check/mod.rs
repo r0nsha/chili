@@ -519,10 +519,10 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(ast::Expr::new(
+                self.expr = Some(Box::new(ast::Expr::new(
                     ast::ExprKind::ConstValue(const_value.clone()),
                     pattern.span,
-                ));
+                )));
 
                 Ok(Res::new(self.ty))
             }
@@ -556,10 +556,10 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(ast::Expr::new(
+                self.expr = Some(Box::new(ast::Expr::new(
                     ast::ExprKind::ConstValue(const_value.clone()),
                     pattern.span,
-                ));
+                )));
 
                 Ok(Res::new_const(self.ty, const_value))
             }

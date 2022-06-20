@@ -141,7 +141,7 @@ impl Expr {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
-    Binding(Box<Binding>),
+    Binding(Binding),
     Defer(Defer),
     Assign(Assign),
     Cast(Cast),
@@ -538,9 +538,9 @@ pub struct Binding {
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub pattern: Pattern,
-    pub ty_expr: Option<Expr>,
+    pub ty_expr: Option<Box<Expr>>,
     pub ty: TypeId,
-    pub expr: Option<Expr>,
+    pub expr: Option<Box<Expr>>,
     pub span: Span,
 }
 

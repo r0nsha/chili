@@ -74,14 +74,14 @@ impl Parser {
                     let binding = self.parse_extern(Visibility::Private, start_span)?;
 
                     Ok(Expr::new(
-                        ExprKind::Binding(Box::new(binding)),
+                        ExprKind::Binding(binding),
                         start_span.to(self.previous_span()),
                     ))
                 } else {
                     let binding = self.parse_binding(Visibility::Private, false)?;
 
                     Ok(Expr::new(
-                        ExprKind::Binding(Box::new(binding)),
+                        ExprKind::Binding(binding),
                         start_span.to(self.previous_span()),
                     ))
                 }

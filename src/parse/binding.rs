@@ -20,7 +20,7 @@ impl Parser {
         let pattern = self.parse_pattern()?;
 
         let ty_expr = if eat!(self, Colon) {
-            Some(self.parse_expr()?)
+            Some(Box::new(self.parse_expr()?))
         } else {
             None
         };
@@ -52,7 +52,7 @@ impl Parser {
             pattern,
             ty: TypeId::unknown(),
             ty_expr,
-            expr: Some(expr),
+            expr: Some(Box::new(expr)),
             span: start_span.to(self.previous_span()),
         })
     }
@@ -101,7 +101,7 @@ impl Parser {
             kind: ast::BindingKind::Extern(lib),
             pattern,
             ty: TypeId::unknown(),
-            ty_expr: Some(ty_expr),
+            ty_expr: Some(Box::new(ty_expr)),
             expr: None,
             span: start_span.to(self.previous_span()),
         })
@@ -140,7 +140,7 @@ impl Parser {
             kind: ast::BindingKind::Intrinsic(intrinsic),
             pattern,
             ty: TypeId::unknown(),
-            ty_expr: Some(ty_expr),
+            ty_expr: Some(Box::new(ty_expr)),
             expr: None,
             span: start_span.to(self.previous_span()),
         })

@@ -140,13 +140,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
-            if let Some(ast::Expr {
-                kind: ast::ExprKind::ConstValue(ConstValue::Function(function)),
-                ..
-            }) = &binding.expr
-            {
-                let function = self.gen_function(function.id, None);
-                self.insert_global_decl(id, CodegenDecl::Function(function))
+            if let Some(expr) = binding.expr.as_ref() {
+                if let ast::ExprKind::ConstValue(ConstValue::Function(function)) = &expr.kind {
+                    let function = self.gen_function(function.id, None);
+                    self.insert_global_decl(id, CodegenDecl::Function(function))
+                } else {
+                    self.declare_global_binding(id, binding)
+                }
             } else {
                 self.declare_global_binding(id, binding)
             }
@@ -260,7 +260,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
         ty: &Type,
-        expr: &Option<ast::Expr>,
+        expr: &Option<Box<ast::Expr>>,
     ) {
         if ty.is_type() {
             return;
@@ -604,13 +604,15 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     ast::BindingKind::Extern(_) | ast::BindingKind::Intrinsic(_) => {
                         let pattern = binding.pattern.as_symbol_ref();
 
-                        let decl = if let Some(ast::Expr {
-                            kind: ast::ExprKind::ConstValue(ConstValue::Function(function)),
-                            ..
-                        }) = &binding.expr
-                        {
-                            let function = self.gen_function(function.id, None);
-                            CodegenDecl::Function(function)
+                        let decl = if let Some(expr) = &binding.expr {
+                            if let ast::ExprKind::ConstValue(ConstValue::Function(function)) =
+                                &expr.kind
+                            {
+                                let function = self.gen_function(function.id, None);
+                                CodegenDecl::Function(function)
+                            } else {
+                                self.declare_global_binding(pattern.id, binding)
+                            }
                         } else {
                             self.declare_global_binding(pattern.id, binding)
                         };
@@ -1370,7 +1372,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         id: BindingInfoId,
-        expr: &Option<ast::Expr>,
+        expr: &Option<Box<ast::Expr>>,
         ty: &Type,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
