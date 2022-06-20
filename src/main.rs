@@ -5,6 +5,7 @@ mod check;
 mod common;
 mod driver;
 mod error;
+mod hir;
 mod ide;
 mod infer;
 mod interp;
