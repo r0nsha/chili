@@ -475,6 +475,7 @@ checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 [[package]]
 name = "libffi"
 version = "3.0.0"
+source = "git+https://github.com/r0nsha/libffi-rs#7b0446a276f4d5998b989b0ddf27d6c2b1add33a"
 dependencies = [
  "abort_on_panic",
  "libc",
@@ -484,6 +485,7 @@ dependencies = [
 [[package]]
 name = "libffi-sys"
 version = "2.0.0"
+source = "git+https://github.com/r0nsha/libffi-rs#7b0446a276f4d5998b989b0ddf27d6c2b1add33a"
 dependencies = [
  "cc",
 ]
