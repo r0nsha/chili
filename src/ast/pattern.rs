@@ -1,4 +1,4 @@
-use super::workspace::BindingInfoId;
+use super::workspace::BindingId;
 use crate::span::Span;
 use std::fmt::Display;
 use ustr::Ustr;
@@ -80,8 +80,8 @@ impl Pattern {
         }
     }
 
-    pub fn ids(&self) -> Vec<BindingInfoId> {
-        self.iter().map(|p| p.id).collect::<Vec<BindingInfoId>>()
+    pub fn ids(&self) -> Vec<BindingId> {
+        self.iter().map(|p| p.id).collect::<Vec<BindingId>>()
     }
 }
 
@@ -157,7 +157,7 @@ impl Display for UnpackPattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SymbolPattern {
-    pub id: BindingInfoId,
+    pub id: BindingId,
     pub symbol: Ustr,
     pub alias: Option<Ustr>,
     pub span: Span,

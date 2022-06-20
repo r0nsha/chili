@@ -269,7 +269,7 @@ impl Parser {
                 Expr::new(
                     ExprKind::Ident(ast::Ident {
                         symbol,
-                        binding_info_id: Default::default(),
+                        binding_id: Default::default(),
                     }),
                     token.span,
                 )
@@ -444,7 +444,7 @@ impl Parser {
                 name,
                 fields,
                 kind,
-                binding_info_id: Default::default(),
+                binding_id: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))
@@ -463,7 +463,7 @@ impl Parser {
                 name,
                 fields,
                 kind: StructTypeKind::Union,
-                binding_info_id: Default::default(),
+                binding_id: Default::default(),
             }),
             start_span.to(self.previous_span()),
         ))

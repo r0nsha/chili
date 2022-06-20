@@ -45,7 +45,7 @@ pub struct Workspace {
     pub binding_infos: Slab<BindingInfo>,
 
     // The entry point function's id (usually main). Resolved during name resolution
-    pub entry_point_function_id: Option<BindingInfoId>,
+    pub entry_point_function_id: Option<BindingId>,
 
     // Extern libraries needed to be linked. Resolved during name resolution
     pub extern_libraries: HashSet<ExternLibrary>,
@@ -54,7 +54,7 @@ pub struct Workspace {
 #[derive(Debug, PartialEq, Clone)]
 pub struct BindingInfo {
     // a reference to the info's own index
-    pub id: BindingInfoId,
+    pub id: BindingId,
     // the module where this binding lives
     pub module_id: ModuleId,
     // the symbol(name) used for the binding
@@ -72,7 +72,7 @@ pub struct BindingInfo {
     pub flags: BindingInfoFlags,
     // the amount of times this binding was used
     pub uses: Vec<Span>,
-    pub redirects_to: Option<BindingInfoId>,
+    pub redirects_to: Option<BindingId>,
     pub span: Span,
 }
 
@@ -91,7 +91,7 @@ pub struct PartialBindingInfo {
 }
 
 impl PartialBindingInfo {
-    fn into_binding_info(self, id: BindingInfoId) -> BindingInfo {
+    fn into_binding_info(self, id: BindingId) -> BindingInfo {
         BindingInfo {
             id,
             module_id: self.module_id,
@@ -174,10 +174,10 @@ impl Workspace {
             .map(ModuleId::from)
     }
 
-    pub fn add_binding_info(&mut self, partial: PartialBindingInfo) -> BindingInfoId {
+    pub fn add_binding_info(&mut self, partial: PartialBindingInfo) -> BindingId {
         let vacant_entry = self.binding_infos.vacant_entry();
 
-        let id = BindingInfoId(vacant_entry.key());
+        let id = BindingId(vacant_entry.key());
         let binding_info = partial.into_binding_info(id);
 
         vacant_entry.insert(binding_info);
@@ -185,21 +185,21 @@ impl Workspace {
         id
     }
 
-    pub fn get_binding_info(&self, id: BindingInfoId) -> Option<&BindingInfo> {
+    pub fn get_binding_info(&self, id: BindingId) -> Option<&BindingInfo> {
         self.binding_infos.get(id.0)
     }
 
-    pub fn get_binding_info_mut(&mut self, id: BindingInfoId) -> Option<&mut BindingInfo> {
+    pub fn get_binding_info_mut(&mut self, id: BindingId) -> Option<&mut BindingInfo> {
         self.binding_infos.get_mut(id.0)
     }
 
-    pub fn add_binding_info_use(&mut self, id: BindingInfoId, span: Span) {
+    pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
         if let Some(binding_info) = self.get_binding_info_mut(id) {
             binding_info.uses.push(span);
         }
     }
 
-    pub fn set_binding_info_redirect(&mut self, src: BindingInfoId, dest: BindingInfoId) {
+    pub fn set_binding_info_redirect(&mut self, src: BindingId, dest: BindingId) {
         if let Some(info) = self.get_binding_info_mut(src) {
             info.redirects_to = Some(dest);
         }
@@ -212,7 +212,7 @@ impl Workspace {
 }
 
 define_id_type!(ModuleId);
-define_id_type!(BindingInfoId);
+define_id_type!(BindingId);
 
 #[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleInfo {

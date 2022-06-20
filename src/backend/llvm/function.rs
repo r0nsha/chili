@@ -8,7 +8,7 @@ use super::{
 use crate::ast::{
     ast::{self, FunctionId},
     ty::*,
-    workspace::BindingInfoId,
+    workspace::BindingId,
 };
 use crate::infer::normalize::Normalize;
 use inkwell::{
@@ -28,7 +28,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         self.functions.get(&id).cloned().unwrap_or_else(|| {
-            let function = self.typed_ast.get_function(id).unwrap();
+            let function = self.typed_ast.functions.get(id).unwrap();
             self.gen_function_inner(function, prev_state)
         })
     }
@@ -285,7 +285,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         ptr
                     } else if !callee_ty.kind.is_extern() {
-                        self.gen_local_or_load_addr(state, BindingInfoId::unknown(), arg)
+                        self.gen_local_or_load_addr(state, BindingId::unknown(), arg)
                     } else {
                         self.build_copy_value_to_ptr(state, arg, arg_type, 16)
                     };

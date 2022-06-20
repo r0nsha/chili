@@ -1,12 +1,12 @@
 use super::sess::LintSess;
-use crate::ast::{ast, ty::Type, workspace::BindingInfoId};
+use crate::ast::{ast, ty::Type, workspace::BindingId};
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::{display::DisplayTy, normalize::Normalize};
 use crate::span::Span;
 
 pub enum LvalueAccessErr {
     ImmutableReference { ty: Type, span: Span },
-    ImmutableIdent { id: BindingInfoId, span: Span },
+    ImmutableIdent { id: BindingId, span: Span },
     InvalidLvalue,
 }
 
@@ -81,10 +81,7 @@ impl<'s> LintSess<'s> {
             ast::ExprKind::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.expr),
             ast::ExprKind::Subscript(sub) => self.check_lvalue_mutability_inner(&sub.expr),
             ast::ExprKind::Ident(ident) => {
-                let binding_info = self
-                    .workspace
-                    .get_binding_info(ident.binding_info_id)
-                    .unwrap();
+                let binding_info = self.workspace.get_binding_info(ident.binding_id).unwrap();
 
                 let ty = expr.ty.normalize(self.tycx);
                 match ty {
@@ -105,7 +102,7 @@ impl<'s> LintSess<'s> {
                             Ok(())
                         } else {
                             Err(LvalueAccessErr::ImmutableIdent {
-                                id: ident.binding_info_id,
+                                id: ident.binding_id,
                                 span: expr.span,
                             })
                         }

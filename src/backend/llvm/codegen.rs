@@ -8,7 +8,7 @@ use crate::ast::{
     ast,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
-    workspace::{BindingInfo, BindingInfoId, ModuleId, ModuleInfo},
+    workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo},
 };
 use crate::ast::{ty::*, workspace::Workspace};
 use crate::common::build_options;
@@ -76,8 +76,8 @@ pub struct Codegen<'cg, 'ctx> {
     pub builder: &'cg Builder<'ctx>,
     pub ptr_sized_int_type: IntType<'ctx>,
 
-    pub global_decls: HashMap<BindingInfoId, CodegenDecl<'ctx>>,
-    pub types: HashMap<BindingInfoId, BasicTypeEnum<'ctx>>,
+    pub global_decls: HashMap<BindingId, CodegenDecl<'ctx>>,
+    pub types: HashMap<BindingId, BasicTypeEnum<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
     pub functions: HashMap<FunctionId, FunctionValue<'ctx>>,
     pub extern_functions: UstrMap<FunctionValue<'ctx>>,
@@ -93,7 +93,7 @@ pub struct CodegenState<'ctx> {
     pub loop_blocks: Vec<LoopBlock<'ctx>>,
     pub decl_block: BasicBlock<'ctx>,
     pub curr_block: BasicBlock<'ctx>,
-    pub scopes: Scopes<BindingInfoId, CodegenDecl<'ctx>>, // TODO: switch to BindingInfoId
+    pub scopes: Scopes<BindingId, CodegenDecl<'ctx>>, // TODO: switch to BindingInfoId
 }
 
 impl<'ctx> CodegenState<'ctx> {
@@ -161,7 +161,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         link_time_optimizations.run_on(&self.module);
     }
 
-    pub fn gen_top_level_binding(&mut self, id: BindingInfoId) -> CodegenDecl<'ctx> {
+    pub fn gen_top_level_binding(&mut self, id: BindingId) -> CodegenDecl<'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
@@ -182,7 +182,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn insert_global_decl(
         &mut self,
-        id: BindingInfoId,
+        id: BindingId,
         decl: CodegenDecl<'ctx>,
     ) -> CodegenDecl<'ctx> {
         self.global_decls.insert(id, decl);
@@ -191,7 +191,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn declare_global_binding(
         &mut self,
-        id: BindingInfoId,
+        id: BindingId,
         binding: &ast::Binding,
     ) -> CodegenDecl<'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
@@ -217,7 +217,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub fn add_global(&mut self, id: BindingInfoId, linkage: Linkage) -> GlobalValue<'ctx> {
+    pub fn add_global(&mut self, id: BindingId, linkage: Linkage) -> GlobalValue<'ctx> {
         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
         let ty = binding_info.ty.llvm_type(self);
@@ -237,7 +237,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
     pub fn add_global_uninit(
         &mut self,
-        id: BindingInfoId,
+        id: BindingId,
         ty: BasicTypeEnum<'ctx>,
         linkage: Linkage,
     ) -> GlobalValue<'ctx> {
@@ -292,26 +292,22 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         match pattern {
-            Pattern::Symbol(SymbolPattern {
-                id: binding_info_id,
-                ..
-            }) => {
-                self.gen_local_and_store_expr(state, *binding_info_id, &expr, ty);
+            Pattern::Symbol(SymbolPattern { id: binding_id, .. }) => {
+                self.gen_local_and_store_expr(state, *binding_id, &expr, ty);
             }
             Pattern::StructUnpack(pattern) => match ty.maybe_deref_once() {
                 Type::Module(_) => {
                     self.gen_binding_module_unpack_pattern(state, pattern);
                 }
                 Type::Struct(struct_ty) => {
-                    let ptr =
-                        self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
+                    let ptr = self.gen_local_and_store_expr(state, BindingId::unknown(), &expr, ty);
 
                     self.gen_binding_struct_unpack_pattern(state, pattern, ty, &struct_ty, ptr);
                 }
                 ty => panic!("unexpected type: {}", ty),
             },
             Pattern::TupleUnpack(pattern) => {
-                let ptr = self.gen_local_and_store_expr(state, BindingInfoId::unknown(), &expr, ty);
+                let ptr = self.gen_local_and_store_expr(state, BindingId::unknown(), &expr, ty);
 
                 self.gen_binding_tuple_unpack_pattern(state, pattern, ty, ptr);
             }
@@ -468,7 +464,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         for i in 0..pattern.symbols.len() {
             let SymbolPattern {
-                id: binding_info_id,
+                id: binding_id,
                 symbol,
                 ignore,
                 ..
@@ -490,7 +486,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.build_load(value)
             };
 
-            self.gen_local_with_alloca(state, binding_info_id, value);
+            self.gen_local_with_alloca(state, binding_id, value);
         }
     }
 
@@ -503,7 +499,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         for i in 0..pattern.symbols.len() {
             let SymbolPattern {
-                id: binding_info_id,
+                id: binding_id,
                 ignore,
                 ..
             } = pattern.symbols[i];
@@ -522,14 +518,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.build_load(value)
             };
 
-            self.gen_local_with_alloca(state, binding_info_id, value);
+            self.gen_local_with_alloca(state, binding_id, value);
         }
     }
 
     pub fn gen_local_uninit(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        id: BindingInfoId,
+        id: BindingId,
         ty: &Type,
     ) -> PointerValue<'ctx> {
         let ty = ty.llvm_type(self);
@@ -541,7 +537,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_local_with_alloca(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        id: BindingInfoId,
+        id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
         let ptr = self.build_alloca_named(state, value.get_type(), id);
@@ -553,7 +549,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_local_or_load_addr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        id: BindingInfoId,
+        id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
         if value.is_a_load_inst() {
@@ -580,7 +576,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     fn gen_local_inner(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        id: BindingInfoId,
+        id: BindingId,
         ptr: PointerValue<'ctx>,
     ) {
         let name = self
@@ -600,7 +596,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .set_alignment(align as u32)
             .unwrap();
 
-        if id != BindingInfoId::unknown() {
+        if id != BindingId::unknown() {
             state.scopes.insert(id, CodegenDecl::Local(ptr));
         }
     }
@@ -790,7 +786,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     state,
                     for_.index_binding
                         .as_ref()
-                        .map_or(BindingInfoId::unknown(), |x| x.id),
+                        .map_or(BindingId::unknown(), |x| x.id),
                     start.into(),
                 );
 
@@ -1060,7 +1056,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .position(|(_, info)| {
                                 info.module_id == module_id && info.symbol == access.member
                             })
-                            .map(BindingInfoId::from)
+                            .map(BindingId::from)
                             .unwrap_or_else(|| {
                                 panic!(
                                     "couldn't find member `{}` in module `{}`",
@@ -1083,11 +1079,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::ExprKind::Ident(ident) => {
-                assert!(ident.binding_info_id != BindingInfoId::unknown());
+                assert!(ident.binding_id != BindingId::unknown());
 
-                let decl = match state.scopes.get(ident.binding_info_id) {
+                let decl = match state.scopes.get(ident.binding_id) {
                     Some((_, decl)) => decl.clone(),
-                    None => self.gen_top_level_binding(ident.binding_info_id),
+                    None => self.gen_top_level_binding(ident.binding_id),
                 };
 
                 let ptr = decl.into_pointer_value();
@@ -1389,7 +1385,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_local_and_store_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        id: BindingInfoId,
+        id: BindingId,
         expr: &Option<Box<ast::Expr>>,
         ty: &Type,
     ) -> PointerValue<'ctx> {

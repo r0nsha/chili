@@ -6,7 +6,7 @@ use crate::{
         ast::{Function, FunctionId},
         const_value::ConstValue,
         ty::TypeId,
-        workspace::BindingInfoId,
+        workspace::BindingId,
     },
     span::Span,
 };
@@ -24,18 +24,18 @@ impl Cache {
         }
     }
 
-    pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
+    pub fn get_binding(&self, id: BindingId) -> Option<&Binding> {
         self.bindings.get(id.inner())
     }
 
-    pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
+    pub fn get_binding_mut(&mut self, id: BindingId) -> Option<&mut Binding> {
         self.bindings.get_mut(id.inner())
     }
 
-    pub fn push_binding(&mut self, id: BindingInfoId, mut binding: Binding) -> BindingInfoId {
+    pub fn push_binding(&mut self, id: BindingId, mut binding: Binding) -> BindingId {
         let vacant_entry = self.bindings.vacant_entry();
 
-        let id = BindingInfoId::from(vacant_entry.key());
+        let id = BindingId::from(vacant_entry.key());
 
         binding.id = id;
         vacant_entry.insert(binding);
@@ -84,7 +84,7 @@ pub struct Const {
 
 #[derive(Debug, Clone)]
 pub struct Binding {
-    id: BindingInfoId,
+    id: BindingId,
     value: Box<Node>,
     ty: TypeId,
     span: Span,
@@ -92,7 +92,7 @@ pub struct Binding {
 
 #[derive(Debug, Clone)]
 pub struct Id {
-    id: BindingInfoId,
+    id: BindingId,
     ty: TypeId,
     span: Span,
 }

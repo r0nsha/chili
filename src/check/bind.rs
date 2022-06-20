@@ -8,7 +8,7 @@ use crate::ast::{
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
     ty::{InferTy, PartialStructType, Type, TypeId},
-    workspace::{BindingInfoId, ModuleId, PartialBindingInfo},
+    workspace::{BindingId, ModuleId, PartialBindingInfo},
 };
 use crate::error::{
     diagnostic::{Diagnostic, Label},
@@ -20,13 +20,13 @@ use indexmap::IndexMap;
 use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
-    pub fn get_global_symbol(&self, module_id: ModuleId, symbol: Ustr) -> Option<BindingInfoId> {
+    pub fn get_global_symbol(&self, module_id: ModuleId, symbol: Ustr) -> Option<BindingId> {
         self.global_scopes
             .get(&module_id)
             .and_then(|module| module.symbols.get(&symbol).cloned())
     }
 
-    pub fn insert_global_symbol(&mut self, module_id: ModuleId, symbol: Ustr, id: BindingInfoId) {
+    pub fn insert_global_symbol(&mut self, module_id: ModuleId, symbol: Ustr, id: BindingId) {
         self.global_scopes
             .entry(module_id)
             .or_insert(Scope::new(
@@ -37,7 +37,7 @@ impl<'s> CheckSess<'s> {
             .insert(symbol, id);
     }
 
-    pub fn get_symbol(&self, env: &Env, symbol: Ustr) -> Option<BindingInfoId> {
+    pub fn get_symbol(&self, env: &Env, symbol: Ustr) -> Option<BindingId> {
         env.find_symbol(symbol)
             .or_else(|| self.get_global_symbol(env.module_id(), symbol))
     }
@@ -52,7 +52,7 @@ impl<'s> CheckSess<'s> {
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
-    ) -> DiagnosticResult<BindingInfoId> {
+    ) -> DiagnosticResult<BindingId> {
         let module_id = env.module_id();
         let scope_level = env.scope_level();
         let is_global = scope_level.is_global();
@@ -279,7 +279,7 @@ impl<'s> CheckSess<'s> {
                             let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
 
                             let mut new_pattern = SymbolPattern {
-                                id: BindingInfoId::unknown(),
+                                id: BindingId::unknown(),
                                 symbol: pattern.symbol,
                                 alias: None,
                                 span: wildcard_symbol,
@@ -372,7 +372,7 @@ impl<'s> CheckSess<'s> {
                                 });
 
                                 let mut field_pattern = SymbolPattern {
-                                    id: BindingInfoId::unknown(),
+                                    id: BindingId::unknown(),
                                     symbol: field.symbol,
                                     alias: None,
                                     span: wildcard_symbol,

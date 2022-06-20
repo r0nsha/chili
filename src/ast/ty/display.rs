@@ -69,7 +69,7 @@ impl Display for Type {
 
 impl Display for StructType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.binding_info_id != BindingInfoId::unknown() {
+        if self.binding_id != BindingId::unknown() {
             write!(f, "{}", self.name.as_str())
         } else {
             write!(

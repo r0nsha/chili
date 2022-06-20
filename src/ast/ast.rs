@@ -3,12 +3,14 @@ use super::{
     path::{try_resolve_relative_path, RelativeTo},
     pattern::Pattern,
     ty::*,
-    workspace::{BindingInfoId, ModuleId, ModuleInfo},
+    workspace::{BindingId, ModuleId, ModuleInfo},
 };
-use crate::span::{FileId, Span};
-use crate::token::TokenKind;
+use crate::{
+    common::id_cache::IdCache,
+    span::{FileId, Span},
+};
+use crate::{common::id_cache::WithId, token::TokenKind};
 use crate::{define_id_type, error::DiagnosticResult};
-use slab::Slab;
 use std::{
     collections::HashMap,
     ffi::OsStr,
@@ -41,56 +43,37 @@ impl Ast {
 
 #[derive(Default)]
 pub struct TypedAst {
-    pub bindings: Slab<Binding>,
-    pub functions: Slab<Function>,
-    ids_to_bindings: HashMap<BindingInfoId, usize>,
+    pub bindings: IdCache<usize, Binding>,
+    pub functions: IdCache<FunctionId, Function>,
+    ids_to_bindings: HashMap<BindingId, usize>,
 }
 
 impl TypedAst {
-    pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
+    pub fn get_binding(&self, id: BindingId) -> Option<&Binding> {
         self.ids_to_bindings
             .get(&id)
             .map(|idx| &self.bindings[*idx])
     }
 
     #[allow(unused)]
-    pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
+    pub fn get_binding_mut(&mut self, id: BindingId) -> Option<&mut Binding> {
         self.ids_to_bindings
             .get_mut(&id)
             .and_then(|idx| self.bindings.get_mut(*idx))
     }
 
     #[allow(unused)]
-    pub fn has_binding(&self, id: BindingInfoId) -> bool {
+    pub fn has_binding(&self, id: BindingId) -> bool {
         self.ids_to_bindings.contains_key(&id)
     }
 
-    pub fn push_binding(&mut self, ids: &[BindingInfoId], binding: Binding) {
+    pub fn push_binding(&mut self, ids: &[BindingId], binding: Binding) {
         self.bindings.insert(binding);
         let idx = self.bindings.len() - 1;
 
         for id in ids {
             self.ids_to_bindings.insert(*id, idx);
         }
-    }
-
-    pub fn get_function(&self, id: FunctionId) -> Option<&Function> {
-        self.functions.get(id.inner())
-    }
-
-    pub fn get_function_mut(&mut self, id: FunctionId) -> Option<&mut Function> {
-        self.functions.get_mut(id.inner())
-    }
-
-    pub fn push_function(&mut self, mut function: Function) -> FunctionId {
-        let vacant_entry = self.functions.vacant_entry();
-
-        let id = FunctionId(vacant_entry.key());
-
-        function.id = id;
-        vacant_entry.insert(function);
-
-        id
     }
 }
 
@@ -253,7 +236,7 @@ pub struct StructType {
     pub name: Ustr,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
-    pub binding_info_id: BindingInfoId,
+    pub binding_id: BindingId,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -286,7 +269,7 @@ pub struct MemberAccess {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ident {
     pub symbol: Ustr,
-    pub binding_info_id: BindingInfoId,
+    pub binding_id: BindingId,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -393,6 +376,16 @@ pub struct Function {
     pub module_id: ModuleId,
     pub ty: TypeId,
     pub kind: FunctionKind,
+}
+
+impl WithId<FunctionId> for Function {
+    fn id(&self) -> &FunctionId {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut FunctionId {
+        &mut self.id
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -594,14 +587,14 @@ impl Display for Intrinsic {
 #[derive(Debug, PartialEq, Clone)]
 pub struct NameAndId {
     pub name: Ustr,
-    pub id: BindingInfoId,
+    pub id: BindingId,
 }
 
 impl NameAndId {
     pub fn new(name: Ustr) -> Self {
         Self {
             name,
-            id: BindingInfoId::unknown(),
+            id: BindingId::unknown(),
         }
     }
 }

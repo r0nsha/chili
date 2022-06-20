@@ -182,7 +182,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
-        match self.types.get(&struct_ty.binding_info_id) {
+        match self.types.get(&struct_ty.binding_id) {
             Some(t) => t.into_struct_type(),
             None => self.create_named_struct_type(struct_ty),
         }
@@ -194,8 +194,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> inkwell::types::StructType<'ctx> {
         let struct_type = self.context.opaque_struct_type(&struct_ty.name);
 
-        self.types
-            .insert(struct_ty.binding_info_id, struct_type.into());
+        self.types.insert(struct_ty.binding_id, struct_type.into());
 
         let fields = self.create_struct_type_fields(struct_ty);
         struct_type.set_body(&fields, struct_ty.is_packed_struct());

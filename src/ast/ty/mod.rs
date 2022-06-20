@@ -4,7 +4,7 @@ pub mod size;
 
 use super::{
     ast::ExternLibrary,
-    workspace::{BindingInfoId, ModuleId},
+    workspace::{BindingId, ModuleId},
 };
 use crate::span::Span;
 use indexmap::IndexMap;
@@ -143,7 +143,7 @@ impl FunctionTypeKind {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructType {
     pub name: Ustr,
-    pub binding_info_id: BindingInfoId,
+    pub binding_id: BindingId,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
 }
@@ -179,7 +179,7 @@ impl PartialStructType {
     pub fn into_struct(&self) -> StructType {
         StructType {
             name: ustr(""),
-            binding_info_id: Default::default(),
+            binding_id: Default::default(),
             fields: self
                 .iter()
                 .map(|(&symbol, ty)| StructTypeField {
@@ -221,10 +221,10 @@ pub enum StructTypeKind {
 }
 
 impl StructType {
-    pub fn opaque(name: Ustr, binding_info_id: BindingInfoId, kind: StructTypeKind) -> Self {
+    pub fn opaque(name: Ustr, binding_id: BindingId, kind: StructTypeKind) -> Self {
         Self {
             name,
-            binding_info_id,
+            binding_id,
             fields: vec![],
             kind,
         }
@@ -233,7 +233,7 @@ impl StructType {
     pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
         Self {
             name: ustr(""),
-            binding_info_id: Default::default(),
+            binding_id: Default::default(),
             fields,
             kind,
         }

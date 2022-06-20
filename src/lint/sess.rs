@@ -1,11 +1,11 @@
-use crate::ast::workspace::{BindingInfoId, Workspace};
+use crate::ast::workspace::{BindingId, Workspace};
 use crate::common::scopes::Scopes;
 use crate::infer::ty_ctx::TyCtx;
 
 pub struct LintSess<'s> {
     pub workspace: &'s mut Workspace,
     pub tycx: &'s TyCtx,
-    pub init_scopes: Scopes<BindingInfoId, InitState>,
+    pub init_scopes: Scopes<BindingId, InitState>,
 }
 
 #[allow(dead_code)]

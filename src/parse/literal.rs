@@ -107,7 +107,7 @@ impl Parser {
                     Expr::new(
                         ExprKind::Ident(ast::Ident {
                             symbol: id_token.symbol(),
-                            binding_info_id: Default::default(),
+                            binding_id: Default::default(),
                         }),
                         id_token.span,
                     )

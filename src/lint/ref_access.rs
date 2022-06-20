@@ -2,7 +2,7 @@ use super::sess::LintSess;
 use crate::ast::{
     ast,
     ty::Type,
-    workspace::{BindingInfo, BindingInfoId, ModuleId},
+    workspace::{BindingId, BindingInfo, ModuleId},
 };
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::{display::DisplayTy, normalize::Normalize};
@@ -11,7 +11,7 @@ use ustr::Ustr;
 
 enum RefAccessErr {
     ImmutableReference { ty: Type, span: Span },
-    ImmutableBinding { id: BindingInfoId, span: Span },
+    ImmutableBinding { id: BindingId, span: Span },
 }
 
 impl<'s> LintSess<'s> {
@@ -154,16 +154,13 @@ impl<'s> LintSess<'s> {
                     _ => (),
                 }
 
-                let binding_info = self
-                    .workspace
-                    .get_binding_info(ident.binding_info_id)
-                    .unwrap();
+                let binding_info = self.workspace.get_binding_info(ident.binding_id).unwrap();
 
                 if binding_info.is_mutable {
                     Ok(())
                 } else {
                     Err(ImmutableBinding {
-                        id: ident.binding_info_id,
+                        id: ident.binding_id,
                         span: expr.span,
                     })
                 }

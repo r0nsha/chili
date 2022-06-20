@@ -12,9 +12,7 @@ use crate::ast::{
         FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
         StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
-    workspace::{
-        BindingInfoFlags, BindingInfoId, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
-    },
+    workspace::{BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel, Workspace},
 };
 use crate::common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -131,7 +129,7 @@ pub struct CheckSess<'s> {
 
     // Information that's relevant for the global context
     pub global_scopes: HashMap<ModuleId, Scope>,
-    pub builtin_types: UstrMap<BindingInfoId>,
+    pub builtin_types: UstrMap<BindingId>,
 
     // Stack of function frames, each ast::Function creates its own frame
     pub function_frames: Vec<FunctionFrame>,
@@ -306,7 +304,7 @@ impl<'s> CheckSess<'s> {
             ast::ExprKind::MemberAccess(access) => self.is_mutable(&access.expr.kind),
             ast::ExprKind::Ident(ident) => {
                 self.workspace
-                    .get_binding_info(ident.binding_info_id)
+                    .get_binding_info(ident.binding_id)
                     .unwrap()
                     .is_mutable
             }
@@ -502,7 +500,7 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
-                let id = sess.new_typed_ast.push_function(ast::Function {
+                let id = sess.new_typed_ast.functions.insert_with_id(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
                     ty: self.ty,
@@ -536,7 +534,7 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
-                let id = sess.new_typed_ast.push_function(ast::Function {
+                let id = sess.new_typed_ast.functions.insert_with_id(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
                     ty: self.ty,
@@ -797,7 +795,7 @@ impl Check for ast::Expr {
                     )?;
                 }
 
-                function.id = sess.new_typed_ast.push_function(ast::Function {
+                function.id = sess.new_typed_ast.functions.insert_with_id(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
                     ty: sig_res.ty,
@@ -840,7 +838,8 @@ impl Check for ast::Expr {
                 env.pop_scope();
 
                 sess.new_typed_ast
-                    .get_function_mut(function.id)
+                    .functions
+                    .get_mut(function.id)
                     .unwrap()
                     .set_body(function.body.clone());
 
@@ -1560,7 +1559,7 @@ impl Check for ast::Expr {
             }
             ast::ExprKind::Ident(ident) => {
                 if let Some(id) = env.find_function(ident.symbol) {
-                    let function = sess.new_typed_ast.get_function(id).unwrap();
+                    let function = sess.new_typed_ast.functions.get(id).unwrap();
 
                     let ty = function.ty;
                     let const_value = ConstValue::Function(function.as_const_function());
@@ -1576,7 +1575,7 @@ impl Check for ast::Expr {
                     match sess.get_symbol(env, ident.symbol) {
                         Some(id) => {
                             // this is a local binding
-                            ident.binding_info_id = id;
+                            ident.binding_id = id;
 
                             sess.workspace.add_binding_info_use(id, self.span);
 
@@ -1621,7 +1620,7 @@ impl Check for ast::Expr {
                                 ident.symbol,
                             )?;
 
-                            ident.binding_info_id = id;
+                            ident.binding_id = id;
 
                             if let Some(const_value) = &res.const_value {
                                 *self = ast::Expr::typed(
@@ -2006,7 +2005,7 @@ impl Check for ast::Expr {
 
                 // the struct's main type variable
                 let struct_ty_var = sess.tycx.bound(
-                    Type::Struct(StructType::opaque(st.name, st.binding_info_id, st.kind)),
+                    Type::Struct(StructType::opaque(st.name, st.binding_id, st.kind)),
                     self.span,
                 );
 
@@ -2019,7 +2018,7 @@ impl Check for ast::Expr {
 
                 env.push_scope(ScopeKind::Block);
 
-                st.binding_info_id = sess.bind_symbol(
+                st.binding_id = sess.bind_symbol(
                     env,
                     st.name,
                     ast::Visibility::Private,
@@ -2060,7 +2059,7 @@ impl Check for ast::Expr {
 
                 let struct_ty = Type::Struct(StructType {
                     name: st.name,
-                    binding_info_id: st.binding_info_id,
+                    binding_id: st.binding_id,
                     kind: st.kind,
                     fields: struct_ty_fields,
                 });
@@ -2446,7 +2445,7 @@ fn check_anonymous_struct_literal(
 
     let mut struct_ty = StructType {
         name,
-        binding_info_id: BindingInfoId::unknown(),
+        binding_id: BindingId::unknown(),
         kind: StructTypeKind::Struct,
         fields: vec![],
     };

@@ -10,7 +10,7 @@ use crate::{
     ast::{
         ast,
         ty::Type,
-        workspace::{BindingInfo, BindingInfoId, ModuleId},
+        workspace::{BindingId, BindingInfo, ModuleId},
     },
     check::interp_expr,
 };
@@ -48,7 +48,7 @@ impl<'s> CheckSess<'s> {
         caller_info: CallerInfo,
         module_id: ModuleId,
         symbol: Ustr,
-    ) -> DiagnosticResult<(Res, BindingInfoId)> {
+    ) -> DiagnosticResult<(Res, BindingId)> {
         // check if the binding has already been checked
         if let Some(id) = self.get_global_symbol(module_id, symbol) {
             // this binding has already been checked, so just return its data

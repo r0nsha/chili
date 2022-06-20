@@ -4,7 +4,7 @@ use super::{
     ty::IntoLlvmType,
 };
 use crate::{
-    ast::{ty::*, workspace::BindingInfoId},
+    ast::{ty::*, workspace::BindingId},
     backend::llvm::traits::IsAggregateType,
 };
 use crate::{backend::llvm::traits::IsALoadInst, common::mem::calculate_align};
@@ -133,7 +133,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &self,
         state: &mut CodegenState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,
-        id: BindingInfoId,
+        id: BindingId,
     ) -> PointerValue<'ctx> {
         if let Some((depth, decl)) = state.scopes.get(id) {
             let is_same_depth = depth == state.scopes.depth();
@@ -266,7 +266,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let dst_align = align_of(dst_type, self.target_metrics.word_size);
         let align = align.min(dst_align as _);
 
-        let ptr = self.gen_local_with_alloca(state, BindingInfoId::unknown(), value);
+        let ptr = self.gen_local_with_alloca(state, BindingId::unknown(), value);
 
         ptr.as_instruction_value()
             .unwrap()

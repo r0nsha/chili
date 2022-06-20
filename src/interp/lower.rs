@@ -18,7 +18,7 @@ use crate::{
             align::AlignOf, size::SizeOf, FloatType, FunctionType, FunctionTypeKind, InferTy,
             IntType, StructType, Type, TypeId, UintType,
         },
-        workspace::BindingInfoId,
+        workspace::BindingId,
     },
     interp::vm::value::FunctionAddress,
 };
@@ -158,9 +158,9 @@ impl Lower for ast::Expr {
                 }
             }
             ast::ExprKind::Ident(ident) => {
-                let id = ident.binding_info_id;
+                let id = ident.binding_id;
 
-                assert!(id != BindingInfoId::unknown(), "{}", ident.symbol);
+                assert!(id != BindingId::unknown(), "{}", ident.symbol);
 
                 match self.ty.normalize(sess.tycx) {
                     // Note (Ron): We do nothing with modules, since they are not an actual value
@@ -673,7 +673,7 @@ impl Lower for ast::For {
             code,
             self.index_binding
                 .as_ref()
-                .map_or(BindingInfoId::unknown(), |x| x.id),
+                .map_or(BindingId::unknown(), |x| x.id),
         );
 
         let iter_index_slot = code.last_local();
@@ -1048,7 +1048,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             })
         }
         ConstValue::Function(f) => {
-            let function = sess.typed_ast.get_function(f.id).unwrap();
+            let function = sess.typed_ast.functions.get(f.id).unwrap();
 
             function.lower(
                 sess,
@@ -1206,7 +1206,7 @@ fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, conti
     }
 }
 
-fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) -> usize {
+fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usize {
     let binding = sess
         .typed_ast
         .get_binding(id)
@@ -1215,13 +1215,13 @@ fn find_and_lower_top_level_binding(id: BindingInfoId, sess: &mut InterpSess) ->
     lower_top_level_binding(binding, id, sess)
 }
 
-fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (BindingInfoId, Value) {
+fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (BindingId, Value) {
     let pattern = binding.pattern.as_symbol_ref();
     let binding_info = sess.workspace.get_binding_info(pattern.id).unwrap();
     let ty = binding_info.ty.normalize(sess.tycx);
 
     if let Some(ConstValue::Function(function)) = &binding_info.const_value {
-        let function = sess.typed_ast.get_function(function.id).unwrap();
+        let function = sess.typed_ast.functions.get(function.id).unwrap();
 
         match &function.kind {
             ast::FunctionKind::Extern { name, .. } => {
@@ -1252,7 +1252,7 @@ fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (Bind
 
 fn lower_top_level_binding(
     binding: &ast::Binding,
-    desired_id: BindingInfoId,
+    desired_id: BindingId,
     sess: &mut InterpSess,
 ) -> usize {
     sess.env_stack.push((binding.module_id, Env::default()));
@@ -1378,7 +1378,7 @@ fn lower_top_level_binding(
 
 fn lower_top_level_binding_module_unpack(
     pattern: &UnpackPattern,
-    desired_id: BindingInfoId,
+    desired_id: BindingId,
     desired_slot: &mut usize,
     code: &mut CompiledCode,
     sess: &mut InterpSess,
@@ -1414,7 +1414,7 @@ fn lower_top_level_binding_module_unpack(
 fn lower_top_level_binding_struct_unpack(
     pattern: &UnpackPattern,
     struct_ty: &StructType,
-    desired_id: BindingInfoId,
+    desired_id: BindingId,
     desired_slot: &mut usize,
     code: &mut CompiledCode,
     sess: &mut InterpSess,
@@ -1444,7 +1444,7 @@ fn lower_top_level_binding_struct_unpack(
 
 fn lower_top_level_binding_tuple_unpack(
     pattern: &UnpackPattern,
-    desired_id: BindingInfoId,
+    desired_id: BindingId,
     desired_slot: &mut usize,
     code: &mut CompiledCode,
     sess: &mut InterpSess,

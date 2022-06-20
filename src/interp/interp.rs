@@ -14,7 +14,7 @@ use crate::{
     ast::{
         ast,
         ty::Type,
-        workspace::{BindingInfoId, ModuleId, Workspace},
+        workspace::{BindingId, ModuleId, Workspace},
     },
     common::build_options::BuildOptions,
 };
@@ -36,7 +36,7 @@ pub struct Interp {
     pub ffi: Ffi,
     pub build_options: BuildOptions,
 
-    bindings_to_globals: HashMap<BindingInfoId, usize>,
+    bindings_to_globals: HashMap<BindingId, usize>,
 }
 
 impl Interp {
@@ -99,7 +99,7 @@ pub struct InterpSess<'i> {
 //     instruction: *mut Instruction,
 // }
 
-pub type Env = Scopes<BindingInfoId, i16>;
+pub type Env = Scopes<BindingId, i16>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, expr: &ast::Expr, module_id: ModuleId) -> InterpResult {
@@ -189,7 +189,7 @@ impl<'i> InterpSess<'i> {
         code.push(Instruction::PushConst(0));
     }
 
-    pub fn insert_global(&mut self, id: BindingInfoId, value: Value) -> usize {
+    pub fn insert_global(&mut self, id: BindingId, value: Value) -> usize {
         if let Some(&slot) = self.interp.bindings_to_globals.get(&id) {
             self.interp.globals[slot] = value;
             slot
@@ -201,7 +201,7 @@ impl<'i> InterpSess<'i> {
         }
     }
 
-    pub fn get_global(&self, id: BindingInfoId) -> Option<usize> {
+    pub fn get_global(&self, id: BindingId) -> Option<usize> {
         self.interp.bindings_to_globals.get(&id).cloned()
     }
 
@@ -218,12 +218,12 @@ impl<'i> InterpSess<'i> {
         &mut self.env_stack.last_mut().unwrap().1
     }
 
-    pub fn find_symbol(&self, module_id: ModuleId, symbol: Ustr) -> BindingInfoId {
+    pub fn find_symbol(&self, module_id: ModuleId, symbol: Ustr) -> BindingId {
         self.workspace
             .binding_infos
             .iter()
             .position(|(_, info)| info.module_id == module_id && info.symbol == symbol)
-            .map(BindingInfoId::from)
+            .map(BindingId::from)
             .unwrap_or_else(|| {
                 panic!(
                     "couldn't find member `{}` in module `{}`",
@@ -233,7 +233,7 @@ impl<'i> InterpSess<'i> {
             })
     }
 
-    pub fn add_local(&mut self, code: &mut CompiledCode, id: BindingInfoId) {
+    pub fn add_local(&mut self, code: &mut CompiledCode, id: BindingId) {
         code.locals += 1;
         self.env_mut().insert(id, code.locals as i16);
     }

@@ -1,5 +1,5 @@
 use super::{inference_value::InferenceValue, ty_ctx::TyCtx};
-use crate::ast::{ty::*, workspace::BindingInfoId};
+use crate::ast::{ty::*, workspace::BindingId};
 use crate::span::Span;
 use indexmap::IndexMap;
 use ustr::ustr;
@@ -11,7 +11,7 @@ pub trait Normalize {
 impl Normalize for TypeId {
     fn normalize(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
-            parent_binding_info_id: Default::default(),
+            parent_binding_id: Default::default(),
             concrete: false,
         }
         .normalize_ty(tycx, *self)
@@ -21,7 +21,7 @@ impl Normalize for TypeId {
 impl Normalize for Type {
     fn normalize(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
-            parent_binding_info_id: Default::default(),
+            parent_binding_id: Default::default(),
             concrete: false,
         }
         .normalize_kind(tycx, self)
@@ -35,7 +35,7 @@ pub trait Concrete {
 impl Concrete for TypeId {
     fn concrete(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
-            parent_binding_info_id: Default::default(),
+            parent_binding_id: Default::default(),
             concrete: true,
         }
         .normalize_ty(tycx, *self)
@@ -45,7 +45,7 @@ impl Concrete for TypeId {
 impl Concrete for Type {
     fn concrete(&self, tycx: &TyCtx) -> Type {
         NormalizeCtx {
-            parent_binding_info_id: Default::default(),
+            parent_binding_id: Default::default(),
             concrete: true,
         }
         .normalize_kind(tycx, self)
@@ -53,7 +53,7 @@ impl Concrete for Type {
 }
 
 struct NormalizeCtx {
-    parent_binding_info_id: BindingInfoId,
+    parent_binding_id: BindingId,
     concrete: bool,
 }
 
@@ -79,7 +79,7 @@ impl NormalizeCtx {
                 if self.concrete {
                     Type::Struct(StructType {
                         name: ustr(""),
-                        binding_info_id: BindingInfoId::unknown(),
+                        binding_id: BindingId::unknown(),
                         fields: st
                             .iter()
                             .map(|(name, ty)| StructTypeField {
@@ -136,17 +136,15 @@ impl NormalizeCtx {
                     .collect(),
             ),
             Type::Struct(st) => {
-                if st.binding_info_id != Default::default()
-                    && st.binding_info_id == self.parent_binding_info_id
-                {
+                if st.binding_id != Default::default() && st.binding_id == self.parent_binding_id {
                     kind.clone()
                 } else {
-                    let old_id = self.parent_binding_info_id;
-                    self.parent_binding_info_id = st.binding_info_id;
+                    let old_id = self.parent_binding_id;
+                    self.parent_binding_id = st.binding_id;
 
                     let st = Type::Struct(StructType {
                         name: st.name,
-                        binding_info_id: st.binding_info_id,
+                        binding_id: st.binding_id,
                         fields: st
                             .fields
                             .iter()
@@ -159,7 +157,7 @@ impl NormalizeCtx {
                         kind: st.kind,
                     });
 
-                    self.parent_binding_info_id = old_id;
+                    self.parent_binding_id = old_id;
 
                     st
                 }
@@ -191,7 +189,7 @@ impl NormalizeCtx {
                 if self.concrete {
                     Type::Struct(StructType {
                         name: ustr(""),
-                        binding_info_id: BindingInfoId::unknown(),
+                        binding_id: BindingId::unknown(),
                         fields: st
                             .iter()
                             .map(|(name, ty)| StructTypeField {

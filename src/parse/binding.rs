@@ -4,7 +4,7 @@ use crate::ast::{
     path::RelativeTo,
     pattern::{Pattern, SymbolPattern},
     ty::TypeId,
-    workspace::{BindingInfoId, ModuleId},
+    workspace::{BindingId, ModuleId},
 };
 use crate::error::diagnostic::Label;
 use crate::span::To;
@@ -85,7 +85,7 @@ impl Parser {
         let id = require!(self, Ident(_), "an identifier")?;
 
         let pattern = Pattern::Symbol(SymbolPattern {
-            id: BindingInfoId::unknown(),
+            id: BindingId::unknown(),
             symbol: id.symbol(),
             alias: None,
             is_mutable,
@@ -126,7 +126,7 @@ impl Parser {
         })?;
 
         let pattern = Pattern::Symbol(SymbolPattern {
-            id: BindingInfoId::unknown(),
+            id: BindingId::unknown(),
             symbol: id.symbol(),
             alias: None,
             is_mutable: false,

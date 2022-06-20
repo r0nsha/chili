@@ -158,10 +158,7 @@ impl Lint for ast::Expr {
 
                 match &assignment.lvalue.kind {
                     ast::ExprKind::Ident(ident) => {
-                        sess.check_assign_lvalue_id_access(
-                            &assignment.lvalue,
-                            ident.binding_info_id,
-                        );
+                        sess.check_assign_lvalue_id_access(&assignment.lvalue, ident.binding_id);
                     }
                     _ => {
                         sess.check_lvalue_access(&assignment.lvalue, assignment.lvalue.span);
@@ -276,7 +273,7 @@ impl Lint for ast::Expr {
                 }
                 sig.ret.lint(sess);
             }
-            ast::ExprKind::Ident(ident) => sess.check_id_access(ident.binding_info_id, self.span),
+            ast::ExprKind::Ident(ident) => sess.check_id_access(ident.binding_id, self.span),
             ast::ExprKind::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }

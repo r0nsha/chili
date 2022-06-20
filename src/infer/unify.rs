@@ -103,7 +103,7 @@ impl UnifyTy<Type> for Type {
             }
 
             (Type::Struct(t1), Type::Struct(t2)) => {
-                if t1.binding_info_id == t2.binding_info_id {
+                if t1.binding_id == t2.binding_id {
                     Ok(())
                 } else if t1.fields.len() != t2.fields.len() || t1.kind != t2.kind {
                     Err(UnifyTyErr::Mismatch)
