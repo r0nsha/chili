@@ -1,8 +1,8 @@
 use super::{
     abi::{AbiFunction, AbiType},
     codegen::{Codegen, CodegenState},
+    traits::LlvmName,
     ty::IntoLlvmType,
-    util::LlvmName,
     CallingConv,
 };
 use crate::ast::{

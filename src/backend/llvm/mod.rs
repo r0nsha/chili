@@ -8,6 +8,7 @@ mod literal;
 mod panic;
 mod runtime_check;
 mod startup;
+mod traits;
 mod ty;
 mod unary;
 mod util;

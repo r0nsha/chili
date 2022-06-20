@@ -400,6 +400,7 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.1.0"
+source = "git+https://github.com/r0nsha/inkwell?branch=my-missing-features#847e8b4790ce784e6fd529fce30f2cd452d4926c"
 dependencies = [
  "either",
  "inkwell_internals",
@@ -412,6 +413,7 @@ dependencies = [
 [[package]]
 name = "inkwell_internals"
 version = "0.5.0"
+source = "git+https://github.com/r0nsha/inkwell?branch=my-missing-features#847e8b4790ce784e6fd529fce30f2cd452d4926c"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -1,7 +1,7 @@
 use super::ty::IntoLlvmType;
 use super::{
     abi::{align_of, size_of},
-    util::is_a_load_inst,
+    traits::IsALoadInst,
 };
 use crate::ast::ast::{FunctionId, Intrinsic};
 use crate::ast::{
@@ -531,7 +531,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         id: BindingInfoId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        if is_a_load_inst(value) {
+        if value.is_a_load_inst() {
             self.get_operand(value).into_pointer_value()
         } else {
             self.gen_local_with_alloca(state, id, value)
@@ -543,7 +543,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        if is_a_load_inst(value) {
+        if value.is_a_load_inst() {
             self.get_operand(value).into_pointer_value()
         } else {
             let ptr = self.build_alloca(state, value.get_type());
@@ -1534,7 +1534,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             match value {
                 Some(value) => {
                     let size = size_of(abi_fn.ret.ty, self.target_metrics.word_size);
-                    if is_a_load_inst(value) && size > self.target_metrics.word_size {
+                    if value.is_a_load_inst() && size > self.target_metrics.word_size {
                         let ptr = self.build_alloca_or_load_addr(state, value);
                         self.build_copy_nonoverlapping(
                             ptr,

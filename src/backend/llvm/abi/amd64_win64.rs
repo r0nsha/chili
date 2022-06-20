@@ -1,4 +1,4 @@
-use super::super::util::IsAggregateType;
+use super::super::traits::IsAggregateType;
 use super::{i386, size_of, AbiFunction, AbiInfo, AbiTy};
 use inkwell::types::{BasicTypeEnum, FunctionType};
 

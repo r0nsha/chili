@@ -1,4 +1,4 @@
-use super::super::util::IsAggregateType;
+use super::super::traits::IsAggregateType;
 use super::{size_of, AbiFunction, AbiInfo, AbiTy};
 use inkwell::{
     attributes::Attribute,

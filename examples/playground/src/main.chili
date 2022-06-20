@@ -1,11 +1,12 @@
-let { println } = import!("std/fmt"); 
+let { printf } = import!("std/c");
+
+let Foo = struct { a: int, b: int, c: int };
+
+let print_foo = fn(?: Foo) {
+    printf("%d %d %d\n".data, a, b, c)
+};
 
 let main = fn() {
-    let extern "c" printf: fn(input: [*]u8, ..args) -> int;
-    let print = fn() {
-        printf("Hola\n".data);
-        println("Hello from main.chili");    
-    };
-    run!(print());
-    print();
+    let foo = Foo { a: 1, b: 2, c: 3 };
+    print_foo(foo);
 };

@@ -3,11 +3,14 @@ use super::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use crate::ast::{ast::FunctionSig, pattern::SymbolPattern, ty::*, workspace::BindingInfoId};
-use crate::common::mem::calculate_align;
+use crate::{
+    ast::{ty::*, workspace::BindingInfoId},
+    backend::llvm::traits::IsAggregateType,
+};
+use crate::{backend::llvm::traits::IsALoadInst, common::mem::calculate_align};
 use inkwell::{
     basic_block::BasicBlock,
-    types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
+    types::{AnyType, BasicType, BasicTypeEnum},
     values::{
         BasicValue, BasicValueEnum, GlobalValue, InstructionOpcode, IntValue, PointerValue,
         StructValue,
@@ -348,7 +351,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         // println!("src_type => {:#?}", src_type);
         // println!("dst_type => {:#?}", dst_type);
 
-        if is_a_load_inst(value) {
+        if value.is_a_load_inst() {
             let inst_align = value
                 .as_instruction_value()
                 .unwrap()
@@ -402,7 +405,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             _ => {
                 src_align = src_align.max(dst_align as _) as _;
 
-                if is_a_load_inst(value) && src_align < dst_align {
+                if value.is_a_load_inst() && src_align < dst_align {
                     let inst = value.as_instruction_value().unwrap();
                     let value_ptr = inst.get_operand(0).unwrap();
 
@@ -431,7 +434,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 // println!("src_align: {}, dst_align: {}", src_align,
                 // dst_align);
 
-                if is_a_load_inst(value) && src_size >= dst_size && src_align >= dst_align {
+                if value.is_a_load_inst() && src_size >= dst_size && src_align >= dst_align {
                     let value_ptr = self.get_operand(value).into_pointer_value();
 
                     let ptr = self.builder.build_pointer_cast(
@@ -553,65 +556,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.build_load(access.into())
         } else {
             access.into()
-        }
-    }
-}
-
-pub fn is_a_load_inst<'ctx>(value: BasicValueEnum<'ctx>) -> bool {
-    if let Some(inst) = value.as_instruction_value() {
-        inst.is_a_load_inst()
-    } else {
-        false
-    }
-}
-
-pub trait IsAggregateType {
-    fn is_aggregate_type(&self) -> bool;
-}
-
-impl<'ctx> IsAggregateType for AnyTypeEnum<'ctx> {
-    fn is_aggregate_type(&self) -> bool {
-        match self {
-            AnyTypeEnum::ArrayType(_) | AnyTypeEnum::StructType(_) => true,
-            _ => false,
-        }
-    }
-}
-
-impl<'ctx> IsAggregateType for BasicTypeEnum<'ctx> {
-    fn is_aggregate_type(&self) -> bool {
-        self.as_any_type_enum().is_aggregate_type()
-    }
-}
-
-pub trait LlvmName {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String;
-}
-
-impl LlvmName for FunctionSig {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        // let module_name
-        match &self.kind {
-            FunctionTypeKind::Extern { .. } => self.name.to_string(),
-            _ => self.name.llvm_name(module_name),
-        }
-    }
-}
-
-impl LlvmName for SymbolPattern {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        self.symbol.llvm_name(module_name)
-    }
-}
-
-impl LlvmName for Ustr {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        let module_name = module_name.as_ref();
-
-        if module_name == "" {
-            format!("root#{}", self)
-        } else {
-            format!("{}.{}", module_name, self)
         }
     }
 }

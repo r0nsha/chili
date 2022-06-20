@@ -1,4 +1,3 @@
-let intrinsics = import!("std/intrinsics");
 let ? = import!("std/build");
 
 let build = fn() {
@@ -15,7 +14,7 @@ let build = fn() {
 		build_options
 	};
 
-	intrinsics.start_workspace(workspace);
+	start_workspace(workspace);
 };
 
 run!(build());

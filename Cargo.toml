@@ -36,7 +36,11 @@ unindent = "0.1.7"
 stopwatch = "0.0.7"
 backtrace = "0.3.65"
 
-inkwell = { path = "vendor/inkwell", features = ["llvm12-0"] }
+# inkwell = { path = "vendor/inkwell", features = ["llvm12-0"] }
+inkwell = { git = "https://github.com/r0nsha/inkwell", branch = "my-missing-features", features = [
+  "llvm12-0",
+] }
+
 
 [target.'cfg(windows)'.dependencies]
 libffi = { path = "vendor/libffi-rs/libffi-rs" }
