@@ -20,7 +20,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let entry_point_func_info = self
             .workspace
-            .get_binding_info(entry_point_func_id)
+            .binding_infos
+            .get(entry_point_func_id)
             .unwrap();
 
         let entry_point_func = self
@@ -163,7 +164,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             let value = if let Some(expr) = &binding.expr {
                 let old_module_info = state.module_info;
-                state.module_info = *self.workspace.get_module_info(binding.module_id).unwrap();
+                state.module_info = *self.workspace.module_infos.get(binding.module_id).unwrap();
 
                 let value = self.gen_expr(state, expr, true);
 
@@ -230,7 +231,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 continue;
             }
 
-            let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
+            let binding_info = self.workspace.binding_infos.get(pattern.id).unwrap();
 
             if binding_info.const_value.is_some() {
                 continue;
@@ -266,7 +267,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 continue;
             }
 
-            let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
+            let binding_info = self.workspace.binding_infos.get(pattern.id).unwrap();
 
             if binding_info.const_value.is_some() {
                 continue;

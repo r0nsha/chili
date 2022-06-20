@@ -38,7 +38,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         function: &ast::Function,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
-        let module_info = *self.workspace.get_module_info(function.module_id).unwrap();
+        let module_info = *self.workspace.module_infos.get(function.module_id).unwrap();
         let function_type = function.ty.normalize(self.tycx).into_fn();
 
         match &function.kind {

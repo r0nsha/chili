@@ -1,20 +1,20 @@
 use super::{inference_value::InferenceValue, normalize::Normalize};
 use crate::{
     ast::ty::{FloatType, IntType, PartialStructType, Type, TypeId, UintType},
+    common::id_cache::IdCache,
     span::Span,
 };
-use slab::Slab;
 
 pub struct TyCtx {
-    pub bindings: Slab<InferenceValue>,
-    pub binding_spans: Slab<Option<Span>>,
+    pub bindings: IdCache<TypeId, InferenceValue>,
+    pub binding_spans: IdCache<TypeId, Option<Span>>,
     pub common_types: CommonTypes,
 }
 
 impl Default for TyCtx {
     fn default() -> Self {
-        let mut bindings = Default::default();
-        let mut binding_spans = Default::default();
+        let mut bindings = IdCache::new();
+        let mut binding_spans = IdCache::new();
         let common_types = CommonTypes::new(&mut bindings, &mut binding_spans);
         Self {
             bindings,
@@ -28,7 +28,7 @@ impl TyCtx {
     #[inline]
     fn insert(&mut self, binding: InferenceValue, span: Option<Span>) -> TypeId {
         self.binding_spans.insert(span);
-        TypeId(self.bindings.insert(binding))
+        self.bindings.insert(binding)
     }
 
     #[inline]
@@ -73,8 +73,8 @@ impl TyCtx {
     }
 
     #[inline]
-    pub fn value_of(&self, var: TypeId) -> &InferenceValue {
-        match self.bindings.get(var.0) {
+    pub fn value_of(&self, id: TypeId) -> &InferenceValue {
+        match self.bindings.get(id) {
             Some(ty) => ty,
             None => &InferenceValue::Unbound,
         }
@@ -87,17 +87,17 @@ impl TyCtx {
 
     #[inline]
     pub fn ty_span(&self, ty: TypeId) -> Option<Span> {
-        self.binding_spans.get(ty.0).cloned().flatten()
+        self.binding_spans.get(ty).cloned().flatten()
     }
 
     #[inline]
-    pub fn bind_ty(&mut self, var: TypeId, ty: Type) {
-        self.bind_value(var, InferenceValue::Bound(ty))
+    pub fn bind_ty(&mut self, id: TypeId, ty: Type) {
+        self.bind_value(id, InferenceValue::Bound(ty))
     }
 
     #[inline]
-    pub fn bind_value(&mut self, var: TypeId, value: InferenceValue) {
-        self.bindings[var.0] = value;
+    pub fn bind_value(&mut self, id: TypeId, value: InferenceValue) {
+        self.bindings[id] = value;
     }
 
     #[allow(unused)]
@@ -111,7 +111,7 @@ impl TyCtx {
 
     #[allow(unused)]
     pub fn print_binding(&self, ty: TypeId) {
-        println!("'{} :: {}", ty.0, self.bindings[ty.0]);
+        println!("'{} :: {}", ty.inner(), self.bindings[ty]);
     }
 }
 
@@ -140,12 +140,12 @@ pub struct CommonTypes {
 
 impl CommonTypes {
     pub fn new(
-        bindings: &mut Slab<InferenceValue>,
-        binding_spans: &mut Slab<Option<Span>>,
+        bindings: &mut IdCache<TypeId, InferenceValue>,
+        binding_spans: &mut IdCache<TypeId, Option<Span>>,
     ) -> Self {
         let mut mk = |kind| {
             binding_spans.insert(None);
-            TypeId(bindings.insert(InferenceValue::Bound(kind)))
+            bindings.insert(InferenceValue::Bound(kind))
         };
 
         Self {

@@ -6,19 +6,12 @@ use super::{
     ast::ExternLibrary,
     workspace::{BindingId, ModuleId},
 };
-use crate::span::Span;
+use crate::{define_id_type, span::Span};
 use indexmap::IndexMap;
 use std::ops::{Deref, DerefMut};
 use ustr::{ustr, Ustr};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct TypeId(pub usize);
-
-impl Default for TypeId {
-    fn default() -> Self {
-        Self(usize::MAX)
-    }
-}
+define_id_type!(TypeId);
 
 impl From<TypeId> for Type {
     fn from(val: TypeId) -> Self {
@@ -27,12 +20,8 @@ impl From<TypeId> for Type {
 }
 
 impl TypeId {
-    pub fn unknown() -> Self {
-        Default::default()
-    }
-
     pub fn as_kind(&self) -> Type {
-        (*self).into()
+        Type::from(*self)
     }
 }
 

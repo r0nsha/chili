@@ -364,7 +364,8 @@ fn lower_local_module_unpack(
 
         let redirect_id = sess
             .workspace
-            .get_binding_info(pattern.id)
+            .binding_infos
+            .get(pattern.id)
             .unwrap()
             .redirects_to
             .unwrap();
@@ -1217,7 +1218,7 @@ fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usi
 
 fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (BindingId, Value) {
     let pattern = binding.pattern.as_symbol_ref();
-    let binding_info = sess.workspace.get_binding_info(pattern.id).unwrap();
+    let binding_info = sess.workspace.binding_infos.get(pattern.id).unwrap();
     let ty = binding_info.ty.normalize(sess.tycx);
 
     if let Some(ConstValue::Function(function)) = &binding_info.const_value {
@@ -1390,7 +1391,8 @@ fn lower_top_level_binding_module_unpack(
 
         let redirect_id = sess
             .workspace
-            .get_binding_info(pattern.id)
+            .binding_infos
+            .get(pattern.id)
             .unwrap()
             .redirects_to
             .unwrap();

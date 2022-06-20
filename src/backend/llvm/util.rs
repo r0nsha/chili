@@ -146,7 +146,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let name = self
             .workspace
-            .get_binding_info(id)
+            .binding_infos
+            .get(id)
             .map_or(ustr(""), |b| b.symbol);
         self.build_alloca_inner(state, llvm_ty, &name)
     }

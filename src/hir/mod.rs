@@ -1,5 +1,4 @@
 use enum_as_inner::EnumAsInner;
-use slab::Slab;
 
 use crate::{
     ast::{
@@ -8,58 +7,21 @@ use crate::{
         ty::TypeId,
         workspace::BindingId,
     },
+    common::id_cache::IdCache,
     span::Span,
 };
 
 pub struct Cache {
-    pub bindings: Slab<Binding>,
-    pub functions: Slab<Function>,
+    pub bindings: IdCache<BindingId, Binding>,
+    pub functions: IdCache<FunctionId, Function>,
 }
 
 impl Cache {
     pub fn new() -> Self {
         Self {
-            bindings: Slab::new(),
-            functions: Slab::new(),
+            bindings: IdCache::new(),
+            functions: IdCache::new(),
         }
-    }
-
-    pub fn get_binding(&self, id: BindingId) -> Option<&Binding> {
-        self.bindings.get(id.inner())
-    }
-
-    pub fn get_binding_mut(&mut self, id: BindingId) -> Option<&mut Binding> {
-        self.bindings.get_mut(id.inner())
-    }
-
-    pub fn push_binding(&mut self, id: BindingId, mut binding: Binding) -> BindingId {
-        let vacant_entry = self.bindings.vacant_entry();
-
-        let id = BindingId::from(vacant_entry.key());
-
-        binding.id = id;
-        vacant_entry.insert(binding);
-
-        id
-    }
-
-    pub fn get_function(&self, id: FunctionId) -> Option<&Function> {
-        self.functions.get(id.inner())
-    }
-
-    pub fn get_function_mut(&mut self, id: FunctionId) -> Option<&mut Function> {
-        self.functions.get_mut(id.inner())
-    }
-
-    pub fn push_function(&mut self, mut function: Function) -> FunctionId {
-        let vacant_entry = self.functions.vacant_entry();
-
-        let id = FunctionId::from(vacant_entry.key());
-
-        function.id = id;
-        vacant_entry.insert(function);
-
-        id
     }
 }
 

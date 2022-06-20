@@ -30,7 +30,7 @@ impl<'s> CheckSess<'s> {
         self.global_scopes
             .entry(module_id)
             .or_insert(Scope::new(
-                self.workspace.get_module_info(module_id).unwrap().name,
+                self.workspace.module_infos.get(module_id).unwrap().name,
                 ScopeKind::Global,
             ))
             .symbols
@@ -60,7 +60,7 @@ impl<'s> CheckSess<'s> {
         if is_global {
             // check if there's already a binding with this symbol
             if let Some(id) = self.get_global_symbol(module_id, symbol) {
-                let already_defined = self.workspace.get_binding_info(id).unwrap();
+                let already_defined = self.workspace.binding_infos.get(id).unwrap();
                 return Err(SyntaxError::duplicate_symbol(
                     already_defined.span,
                     span,
@@ -69,7 +69,7 @@ impl<'s> CheckSess<'s> {
             }
         }
 
-        let id = self.workspace.add_binding_info(PartialBindingInfo {
+        let partial_binding_info = PartialBindingInfo {
             module_id,
             symbol,
             visibility,
@@ -80,7 +80,12 @@ impl<'s> CheckSess<'s> {
             scope_level,
             scope_name: env.scope_name(),
             span,
-        });
+        };
+
+        let id = self
+            .workspace
+            .binding_infos
+            .insert_with_id(partial_binding_info.into_binding_info());
 
         if is_global {
             // insert the symbol into its module's global scope
@@ -276,7 +281,8 @@ impl<'s> CheckSess<'s> {
                         };
 
                         for pattern in binding_pattern.iter() {
-                            let binding_info = self.workspace.get_binding_info(pattern.id).unwrap();
+                            let binding_info =
+                                self.workspace.binding_infos.get(pattern.id).unwrap();
 
                             let mut new_pattern = SymbolPattern {
                                 id: BindingId::unknown(),

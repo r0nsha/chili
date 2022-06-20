@@ -176,7 +176,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.declare_global_binding(id, binding)
             }
         } else {
-            panic!("{:#?}", self.workspace.get_binding_info(id))
+            panic!("{:#?}", self.workspace.binding_infos.get(id))
         }
     }
 
@@ -201,7 +201,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             return *decl;
         }
 
-        let binding_info = self.workspace.get_binding_info(id).unwrap();
+        let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
         if let Some(redirect) = binding_info.redirects_to {
             self.gen_top_level_binding(redirect)
@@ -218,7 +218,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub fn add_global(&mut self, id: BindingId, linkage: Linkage) -> GlobalValue<'ctx> {
-        let binding_info = self.workspace.get_binding_info(id).unwrap();
+        let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
         let ty = binding_info.ty.llvm_type(self);
 
@@ -241,7 +241,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         ty: BasicTypeEnum<'ctx>,
         linkage: Linkage,
     ) -> GlobalValue<'ctx> {
-        let binding_info = self.workspace.get_binding_info(id).unwrap();
+        let binding_info = self.workspace.binding_infos.get(id).unwrap();
         let global_value = self.module.add_global(ty, None, &binding_info.symbol);
         global_value.set_linkage(linkage);
         global_value
@@ -345,7 +345,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
             let redirect_id = self
                 .workspace
-                .get_binding_info(pattern.id)
+                .binding_infos
+                .get(pattern.id)
                 .unwrap()
                 .redirects_to
                 .unwrap();
@@ -581,7 +582,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) {
         let name = self
             .workspace
-            .get_binding_info(id)
+            .binding_infos
+            .get(id)
             .map_or(ustr(""), |b| b.symbol);
 
         ptr.set_name(&name);
@@ -1060,7 +1062,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .unwrap_or_else(|| {
                                 panic!(
                                     "couldn't find member `{}` in module `{}`",
-                                    self.workspace.get_module_info(module_id).unwrap().name,
+                                    self.workspace.module_infos.get(module_id).unwrap().name,
                                     access.member
                                 )
                             });

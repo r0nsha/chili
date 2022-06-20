@@ -3,14 +3,19 @@ use super::{
     const_value::ConstValue,
     ty::TypeId,
 };
-use crate::error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
-use crate::span::{FileId, Span};
 use crate::{
     common::build_options::{BuildOptions, DiagnosticOptions},
     define_id_type,
 };
+use crate::{
+    common::id_cache::IdCache,
+    error::{emit_diagnostics, emitter::ColorMode, Diagnostics},
+};
+use crate::{
+    common::id_cache::WithId,
+    span::{FileId, Span},
+};
 use bitflags::bitflags;
-use slab::Slab;
 use std::{
     cmp::Ordering,
     collections::HashSet,
@@ -38,11 +43,11 @@ pub struct Workspace {
 
     // Parsed modules/trees info. Resolved during ast generation
     // ModuleId -> ModuleInfo
-    pub module_infos: Slab<ModuleInfo>,
+    pub module_infos: IdCache<ModuleId, ModuleInfo>,
 
     // Bindings resolved during name resolution
     // BindingInfoId -> BindingInfo
-    pub binding_infos: Slab<BindingInfo>,
+    pub binding_infos: IdCache<BindingId, BindingInfo>,
 
     // The entry point function's id (usually main). Resolved during name resolution
     pub entry_point_function_id: Option<BindingId>,
@@ -76,6 +81,16 @@ pub struct BindingInfo {
     pub span: Span,
 }
 
+impl WithId<BindingId> for BindingInfo {
+    fn id(&self) -> &BindingId {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut BindingId {
+        &mut self.id
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct PartialBindingInfo {
     pub module_id: ModuleId,
@@ -91,9 +106,9 @@ pub struct PartialBindingInfo {
 }
 
 impl PartialBindingInfo {
-    fn into_binding_info(self, id: BindingId) -> BindingInfo {
+    pub fn into_binding_info(self) -> BindingInfo {
         BindingInfo {
-            id,
+            id: BindingId::unknown(),
             module_id: self.module_id,
             symbol: self.symbol,
             visibility: self.visibility,
@@ -155,16 +170,8 @@ impl Workspace {
         }
     }
 
-    pub fn add_module_info(&mut self, module_info: ModuleInfo) -> ModuleId {
-        ModuleId(self.module_infos.insert(module_info))
-    }
-
-    pub fn get_module_info(&self, id: ModuleId) -> Option<&ModuleInfo> {
-        self.module_infos.get(id.0)
-    }
-
     pub fn get_root_module_info(&self) -> &ModuleInfo {
-        self.get_module_info(self.root_module_id).unwrap()
+        self.module_infos.get(self.root_module_id).unwrap()
     }
 
     pub fn find_module_id_by_file_id(&self, file_id: FileId) -> Option<ModuleId> {
@@ -174,40 +181,21 @@ impl Workspace {
             .map(ModuleId::from)
     }
 
-    pub fn add_binding_info(&mut self, partial: PartialBindingInfo) -> BindingId {
-        let vacant_entry = self.binding_infos.vacant_entry();
-
-        let id = BindingId(vacant_entry.key());
-        let binding_info = partial.into_binding_info(id);
-
-        vacant_entry.insert(binding_info);
-
-        id
-    }
-
-    pub fn get_binding_info(&self, id: BindingId) -> Option<&BindingInfo> {
-        self.binding_infos.get(id.0)
-    }
-
-    pub fn get_binding_info_mut(&mut self, id: BindingId) -> Option<&mut BindingInfo> {
-        self.binding_infos.get_mut(id.0)
-    }
-
     pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
-        if let Some(binding_info) = self.get_binding_info_mut(id) {
+        if let Some(binding_info) = self.binding_infos.get_mut(id) {
             binding_info.uses.push(span);
         }
     }
 
     pub fn set_binding_info_redirect(&mut self, src: BindingId, dest: BindingId) {
-        if let Some(info) = self.get_binding_info_mut(src) {
+        if let Some(info) = self.binding_infos.get_mut(src) {
             info.redirects_to = Some(dest);
         }
     }
 
     pub fn entry_point_function(&self) -> Option<&BindingInfo> {
         self.entry_point_function_id
-            .and_then(|id| self.get_binding_info(id))
+            .and_then(|id| self.binding_infos.get(id))
     }
 }
 

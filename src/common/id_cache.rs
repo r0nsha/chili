@@ -96,19 +96,18 @@ where
 
 impl<I, V> IdCache<I, V>
 where
-    I: From<usize>,
+    I: From<usize> + Copy,
     V: WithId<I>,
 {
     pub fn insert_with_id(&mut self, mut v: V) -> I {
         let vacant_entry = self.inner.vacant_entry();
 
-        let key = vacant_entry.key();
-        let id = I::from(key);
+        let id = I::from(vacant_entry.key());
 
         *v.id_mut() = id;
         vacant_entry.insert(v);
 
-        I::from(key)
+        id
     }
 }
 

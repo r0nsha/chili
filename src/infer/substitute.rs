@@ -78,8 +78,9 @@ impl<'a> Sess<'a> {
             .tycx
             .bindings
             .iter()
-            .map(|(ty, _)| TypeId(ty))
+            .map(|(ty, _)| TypeId::from(ty))
             .collect();
+
         for ty in tys {
             let concrete_type = ty.concrete(&self.tycx);
             self.tycx.bind_ty(ty, concrete_type);

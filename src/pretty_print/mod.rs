@@ -111,7 +111,7 @@ impl PrintTree for ast::Ast {
 
 impl PrintTree for ast::Binding {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        let module_info = workspace.get_module_info(self.module_id).unwrap();
+        let module_info = workspace.module_infos.get(self.module_id).unwrap();
         let module_prefix = if module_info.name.is_empty() {
             "".to_string()
         } else {

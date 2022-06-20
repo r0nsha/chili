@@ -88,7 +88,7 @@ pub fn goto_definition(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usiz
             if let Some(tycx) = tycx {
                 match binding_info.ty.normalize(tycx) {
                     Type::Module(module_id) => {
-                        let module_info = workspace.get_module_info(module_id).unwrap();
+                        let module_info = workspace.module_infos.get(module_id).unwrap();
 
                         let span = Span {
                             file_id: module_info.file_id,
@@ -110,7 +110,8 @@ pub fn goto_definition(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usiz
             write(&IdeSpan::from_span_and_file(
                 binding_info.span,
                 workspace
-                    .get_module_info(binding_info.module_id)
+                    .module_infos
+                    .get(binding_info.module_id)
                     .unwrap()
                     .file_path
                     .to_string(),
@@ -124,7 +125,8 @@ pub fn goto_definition(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usiz
                 write(&IdeSpan::from_span_and_file(
                     binding_info.span,
                     workspace
-                        .get_module_info(binding_info.module_id)
+                        .module_infos
+                        .get(binding_info.module_id)
                         .unwrap()
                         .file_path
                         .to_string(),

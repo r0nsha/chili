@@ -28,7 +28,7 @@ impl<'s> LintSess<'s> {
                     ))
                     .with_label(Label::primary(span, "cannot reference")),
                 ImmutableBinding { id, span } => {
-                    let binding_info = self.workspace.get_binding_info(id).unwrap();
+                    let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                     Diagnostic::error()
                         .with_message(format!(
@@ -154,7 +154,7 @@ impl<'s> LintSess<'s> {
                     _ => (),
                 }
 
-                let binding_info = self.workspace.get_binding_info(ident.binding_id).unwrap();
+                let binding_info = self.workspace.binding_infos.get(ident.binding_id).unwrap();
 
                 if binding_info.is_mutable {
                     Ok(())

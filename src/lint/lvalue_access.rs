@@ -25,7 +25,7 @@ impl<'s> LintSess<'s> {
                         ))
                         .with_label(Label::primary(span, "cannot assignment")),
                     ImmutableIdent { id, span } => {
-                        let binding_info = self.workspace.get_binding_info(id).unwrap();
+                        let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                         Diagnostic::error()
                             .with_message(format!(
@@ -81,7 +81,7 @@ impl<'s> LintSess<'s> {
             ast::ExprKind::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.expr),
             ast::ExprKind::Subscript(sub) => self.check_lvalue_mutability_inner(&sub.expr),
             ast::ExprKind::Ident(ident) => {
-                let binding_info = self.workspace.get_binding_info(ident.binding_id).unwrap();
+                let binding_info = self.workspace.binding_infos.get(ident.binding_id).unwrap();
 
                 let ty = expr.ty.normalize(self.tycx);
                 match ty {

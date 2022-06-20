@@ -30,7 +30,7 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
 
     // Add all module_infos to the workspace
     for ast in asts.iter_mut() {
-        ast.module_id = workspace.add_module_info(ast.module_info);
+        ast.module_id = workspace.module_infos.insert(ast.module_info);
 
         if ast.module_info.file_path.as_str() == root_file_path.to_str().unwrap() {
             workspace.root_module_id = ast.module_id;

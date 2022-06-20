@@ -55,7 +55,7 @@ impl<'s> CheckSess<'s> {
 
             self.workspace.add_binding_info_use(id, caller_info.span);
 
-            let binding_info = self.workspace.get_binding_info(id).unwrap();
+            let binding_info = self.workspace.binding_infos.get(id).unwrap();
             self.validate_can_access_item(binding_info, caller_info)?;
 
             return Ok((
@@ -87,7 +87,7 @@ impl<'s> CheckSess<'s> {
                 .unwrap();
 
             let id = desired_pat.id;
-            let desired_binding_info = self.workspace.get_binding_info(id).unwrap();
+            let desired_binding_info = self.workspace.binding_infos.get(id).unwrap();
 
             self.validate_can_access_item(desired_binding_info, caller_info)?;
 
@@ -102,7 +102,8 @@ impl<'s> CheckSess<'s> {
             // this is a builtin symbol, such as i32, bool, etc.
             let res = self
                 .workspace
-                .get_binding_info(builtin_id)
+                .binding_infos
+                .get(builtin_id)
                 .map(|binding_info| {
                     Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone())
                 })
@@ -111,7 +112,7 @@ impl<'s> CheckSess<'s> {
             (res, builtin_id)
         } else {
             // the symbol doesn't exist, return an error
-            let module_info = self.workspace.get_module_info(module_id).unwrap();
+            let module_info = self.workspace.module_infos.get(module_id).unwrap();
 
             let message = if module_info.name.is_empty() {
                 format!("cannot find value `{}` in this scope", symbol)

@@ -227,7 +227,7 @@ impl<'i> InterpSess<'i> {
             .unwrap_or_else(|| {
                 panic!(
                     "couldn't find member `{}` in module `{}`",
-                    self.workspace.get_module_info(module_id).unwrap().name,
+                    self.workspace.module_infos.get(module_id).unwrap().name,
                     symbol
                 )
             })

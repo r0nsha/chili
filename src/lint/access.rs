@@ -7,7 +7,7 @@ impl<'s> LintSess<'s> {
     pub fn check_id_access(&mut self, binding_id: BindingId, span: Span) {
         if let Some((_, state)) = self.init_scopes.get(binding_id) {
             if state.is_not_init() {
-                let binding_info = self.workspace.get_binding_info(binding_id).unwrap();
+                let binding_info = self.workspace.binding_infos.get(binding_id).unwrap();
 
                 if binding_info.kind.is_extern() {
                     return;
@@ -29,7 +29,7 @@ impl<'s> LintSess<'s> {
     }
 
     pub fn check_assign_lvalue_id_access(&mut self, lvalue: &ast::Expr, binding_id: BindingId) {
-        let binding_info = self.workspace.get_binding_info(binding_id).unwrap();
+        let binding_info = self.workspace.binding_infos.get(binding_id).unwrap();
         let init_state = self.init_scopes.value(binding_id).unwrap();
 
         if init_state.is_init() && !binding_info.is_mutable {

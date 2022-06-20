@@ -196,7 +196,7 @@ impl<'s> CheckSess<'s> {
         module_id: ModuleId,
         mut f: F,
     ) -> T {
-        let module_info = *self.workspace.get_module_info(module_id).unwrap();
+        let module_info = *self.workspace.module_infos.get(module_id).unwrap();
         f(self, Env::new(module_id, module_info))
     }
 
@@ -252,7 +252,7 @@ impl<'s> CheckSess<'s> {
         let mk = |sess: &mut CheckSess, symbol: &str, ty: TypeId| {
             let symbol = ustr(symbol);
 
-            let id = sess.workspace.add_binding_info(PartialBindingInfo {
+            let partial_binding_info = PartialBindingInfo {
                 module_id: Default::default(),
                 symbol,
                 visibility: ast::Visibility::Public,
@@ -265,9 +265,14 @@ impl<'s> CheckSess<'s> {
                 scope_level: ScopeLevel::Global,
                 scope_name: ustr(""),
                 span: Span::unknown(),
-            });
+            };
 
-            let info = sess.workspace.get_binding_info_mut(id).unwrap();
+            let id = sess
+                .workspace
+                .binding_infos
+                .insert_with_id(partial_binding_info.into_binding_info());
+
+            let info = sess.workspace.binding_infos.get_mut(id).unwrap();
             info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
 
             sess.builtin_types.insert(symbol, id);
@@ -304,7 +309,8 @@ impl<'s> CheckSess<'s> {
             ast::ExprKind::MemberAccess(access) => self.is_mutable(&access.expr.kind),
             ast::ExprKind::Ident(ident) => {
                 self.workspace
-                    .get_binding_info(ident.binding_id)
+                    .binding_infos
+                    .get(ident.binding_id)
                     .unwrap()
                     .is_mutable
             }
@@ -1579,7 +1585,7 @@ impl Check for ast::Expr {
 
                             sess.workspace.add_binding_info_use(id, self.span);
 
-                            let binding_info = sess.workspace.get_binding_info(id).unwrap();
+                            let binding_info = sess.workspace.binding_infos.get(id).unwrap();
 
                             let ty = binding_info.ty;
 
