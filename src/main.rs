@@ -1,6 +1,6 @@
 mod ast;
 mod astgen;
-mod backend_llvm;
+mod backend;
 mod check;
 mod common;
 mod driver;

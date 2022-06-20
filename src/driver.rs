@@ -106,7 +106,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     match &workspace.build_options.codegen_options {
         CodegenOptions::Codegen(codegen_options) => {
             let executable_path =
-                crate::backend_llvm::codegen(&workspace, &tycx, &typed_ast, codegen_options);
+                crate::backend::llvm::codegen(&workspace, &tycx, &typed_ast, codegen_options);
 
             if workspace.build_options.verbose {
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
