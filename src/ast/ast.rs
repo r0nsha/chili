@@ -5,9 +5,9 @@ use super::{
     ty::*,
     workspace::{BindingInfoId, ModuleId, ModuleInfo},
 };
-use crate::error::DiagnosticResult;
 use crate::span::{FileId, Span};
 use crate::token::TokenKind;
+use crate::{define_id_type, error::DiagnosticResult};
 use slab::Slab;
 use std::{
     collections::HashMap,

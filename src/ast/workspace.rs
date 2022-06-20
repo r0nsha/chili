@@ -3,9 +3,12 @@ use super::{
     const_value::ConstValue,
     ty::TypeId,
 };
-use crate::common::build_options::{BuildOptions, DiagnosticOptions};
 use crate::error::{emit_diagnostics, emitter::ColorMode, Diagnostics};
 use crate::span::{FileId, Span};
+use crate::{
+    common::build_options::{BuildOptions, DiagnosticOptions},
+    define_id_type,
+};
 use bitflags::bitflags;
 use slab::Slab;
 use std::{

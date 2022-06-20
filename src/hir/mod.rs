@@ -67,11 +67,11 @@ impl Cache {
 pub enum Node {
     Const(Const),
     Binding(Binding),
-    Ident(Ident),
-    Assign(Assign),
+    Id(Id),
+    Assignment(Assignment),
     MemberAccess(MemberAccess),
     Call(Call),
-    Block(Block),
+    Sequence(Sequence),
     Control(Control),
 }
 
@@ -91,14 +91,14 @@ pub struct Binding {
 }
 
 #[derive(Debug, Clone)]
-pub struct Ident {
+pub struct Id {
     id: BindingInfoId,
     ty: TypeId,
     span: Span,
 }
 
 #[derive(Debug, Clone)]
-pub struct Assign {
+pub struct Assignment {
     lhs: Box<Node>,
     rhs: Box<Node>,
     ty: TypeId,
@@ -122,7 +122,7 @@ pub struct Call {
 }
 
 #[derive(Debug, Clone)]
-pub struct Block {
+pub struct Sequence {
     statements: Vec<Node>,
     ty: TypeId,
     span: Span,
@@ -270,11 +270,11 @@ impl Node {
         match self {
             Self::Const(x) => x.ty,
             Self::Binding(x) => x.ty,
-            Self::Ident(x) => x.ty,
-            Self::Assign(x) => x.ty,
+            Self::Id(x) => x.ty,
+            Self::Assignment(x) => x.ty,
             Self::MemberAccess(x) => x.ty,
             Self::Call(x) => x.ty,
-            Self::Block(x) => x.ty,
+            Self::Sequence(x) => x.ty,
             Self::Control(x) => x.ty(),
         }
     }
@@ -283,11 +283,11 @@ impl Node {
         match self {
             Self::Const(c) => c.span,
             Self::Binding(c) => c.span,
-            Self::Ident(x) => x.span,
-            Self::Assign(x) => x.span,
+            Self::Id(x) => x.span,
+            Self::Assignment(x) => x.span,
             Self::MemberAccess(x) => x.span,
             Self::Call(x) => x.span,
-            Self::Block(x) => x.span,
+            Self::Sequence(x) => x.span,
             Self::Control(x) => x.span(),
         }
     }
