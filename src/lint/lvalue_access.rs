@@ -20,19 +20,19 @@ impl<'s> LintSess<'s> {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
                         .with_message(format!(
-                            "cannot assign to the value, it is behind an immutable `{}`",
+                            "cannot assignment to the value, it is behind an immutable `{}`",
                             ty.display(self.tycx)
                         ))
-                        .with_label(Label::primary(span, "cannot assign")),
+                        .with_label(Label::primary(span, "cannot assignment")),
                     ImmutableIdent { id, span } => {
                         let binding_info = self.workspace.get_binding_info(id).unwrap();
 
                         Diagnostic::error()
                             .with_message(format!(
-                                "cannot assign to `{}`, as it is not declared as mutable",
+                                "cannot assignment to `{}`, as it is not declared as mutable",
                                 binding_info.symbol
                             ))
-                            .with_label(Label::primary(span, "cannot assign"))
+                            .with_label(Label::primary(span, "cannot assignment"))
                             .with_label(Label::secondary(
                                 binding_info.span,
                                 format!(
@@ -45,7 +45,7 @@ impl<'s> LintSess<'s> {
                         .with_message("invalid left-hand side of assignment")
                         .with_label(Label::primary(
                             expr_span,
-                            "cannot assign to this expression",
+                            "cannot assignment to this expression",
                         )),
                 }
             });

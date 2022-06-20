@@ -142,8 +142,7 @@ impl Expr {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
     Binding(Binding),
-    Defer(Defer),
-    Assign(Assign),
+    Assignment(Assignment),
     Cast(Cast),
     Builtin(Builtin),
     Function(FunctionExpr),
@@ -183,11 +182,6 @@ pub struct ArrayLiteral {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Defer {
-    pub expr: Box<Expr>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct TupleLiteral {
     pub elements: Vec<Expr>,
 }
@@ -205,14 +199,11 @@ pub struct ExprAndMut {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Terminator {
-    pub deferred: Vec<Expr>,
-}
+pub struct Terminator {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Return {
     pub expr: Option<Box<Expr>>,
-    pub deferred: Vec<Expr>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -224,8 +215,7 @@ pub struct If {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
-    pub exprs: Vec<Expr>,
-    pub deferred: Vec<Expr>,
+    pub statements: Vec<Expr>,
     pub yields: bool,
     pub span: Span,
 }
@@ -347,7 +337,7 @@ pub enum Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Assign {
+pub struct Assignment {
     pub lvalue: Box<Expr>,
     pub rvalue: Box<Expr>,
 }

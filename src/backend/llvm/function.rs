@@ -123,7 +123,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let return_value = self.gen_block(&mut state, body.as_ref().unwrap(), true);
 
                 if self.current_block().get_terminator().is_none() {
-                    self.gen_return(&mut state, Some(return_value), &[]);
+                    self.gen_return(&mut state, Some(return_value));
                 }
 
                 state.pop_scope();

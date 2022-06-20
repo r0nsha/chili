@@ -1,4 +1,3 @@
-use super::defer::DeferStack;
 use crate::ast::{
     ast::FunctionId,
     workspace::{BindingInfoId, ModuleId, ModuleInfo, ScopeLevel},
@@ -114,7 +113,6 @@ pub struct Scope {
     pub name: String,
     pub symbols: UstrMap<BindingInfoId>,
     pub functions: UstrMap<FunctionId>,
-    pub defer_stack: DeferStack,
 }
 
 impl Scope {
@@ -124,7 +122,6 @@ impl Scope {
             name: name.to_string(),
             symbols: UstrMap::default(),
             functions: UstrMap::default(),
-            defer_stack: DeferStack::new(),
         }
     }
 

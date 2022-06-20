@@ -39,15 +39,12 @@ impl Lower for ast::Expr {
             ast::ExprKind::Binding(binding) => {
                 lower_local_binding(binding, sess, code);
             }
-            ast::ExprKind::Defer(_) => {
-                sess.push_const_unit(code);
-            }
-            ast::ExprKind::Assign(assign) => {
-                assign
+            ast::ExprKind::Assignment(assignment) => {
+                assignment
                     .rvalue
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                assign
+                assignment
                     .lvalue
                     .lower(sess, code, LowerContext { take_ptr: true });
 
@@ -86,17 +83,13 @@ impl Lower for ast::Expr {
                 while_.lower(sess, code, LowerContext { take_ptr: false })
             }
             ast::ExprKind::For(for_) => for_.lower(sess, code, ctx),
-            ast::ExprKind::Break(term) => {
-                lower_deferred(&term.deferred, sess, code);
+            ast::ExprKind::Break(_) => {
                 code.push(Instruction::Jmp(INVALID_BREAK_JMP_OFFSET));
             }
-            ast::ExprKind::Continue(term) => {
-                lower_deferred(&term.deferred, sess, code);
+            ast::ExprKind::Continue(_) => {
                 code.push(Instruction::Jmp(INVALID_CONTINUE_JMP_OFFSET));
             }
             ast::ExprKind::Return(ret) => {
-                lower_deferred(&ret.deferred, sess, code);
-
                 if let Some(expr) = &ret.expr {
                     expr.lower(sess, code, ctx);
                 } else {
@@ -1485,8 +1478,8 @@ fn lower_block(
 ) {
     sess.env_mut().push_scope();
 
-    for (index, expr) in block.exprs.iter().enumerate() {
-        let is_last = index == block.exprs.len() - 1;
+    for (index, expr) in block.statements.iter().enumerate() {
+        let is_last = index == block.statements.len() - 1;
 
         expr.lower(
             sess,
@@ -1503,20 +1496,11 @@ fn lower_block(
         }
     }
 
-    lower_deferred(&block.deferred, sess, code);
-
-    if block.exprs.is_empty() || !block.yields {
+    if block.statements.is_empty() || !block.yields {
         sess.push_const_unit(code);
     }
 
     sess.env_mut().pop_scope();
-}
-
-fn lower_deferred(deferred: &[ast::Expr], sess: &mut InterpSess, code: &mut CompiledCode) {
-    for expr in deferred.iter() {
-        expr.lower(sess, code, LowerContext { take_ptr: false });
-        code.push(Instruction::Pop);
-    }
 }
 
 fn function_type_to_extern_function(name: Ustr, func_ty: &FunctionType) -> ExternFunction {

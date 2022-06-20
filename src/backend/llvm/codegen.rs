@@ -648,13 +648,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::ExprKind::Defer(_) => self.gen_unit(),
-            ast::ExprKind::Assign(assign) => {
+            ast::ExprKind::Assignment(assignment) => {
                 let left = self
-                    .gen_expr(state, &assign.lvalue, false)
+                    .gen_expr(state, &assignment.lvalue, false)
                     .into_pointer_value();
 
-                let right = self.gen_expr(state, &assign.rvalue, true);
+                let right = self.gen_expr(state, &assignment.rvalue, true);
 
                 // println!("left: {:#?}", left);
                 // println!("right: {:#?}", right);
@@ -867,16 +866,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_unit()
             }
             ast::ExprKind::Break(term) => {
-                self.gen_expr_list(state, &term.deferred);
-
                 let exit_block = state.loop_blocks.last().unwrap().exit;
                 self.builder.build_unconditional_branch(exit_block);
 
                 self.gen_unit()
             }
             ast::ExprKind::Continue(term) => {
-                self.gen_expr_list(state, &term.deferred);
-
                 let head_block = state.loop_blocks.last().unwrap().head;
                 self.builder.build_unconditional_branch(head_block);
 
@@ -888,7 +883,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .as_ref()
                     .map(|expr| self.gen_expr(state, expr, true));
 
-                self.gen_return(state, value, &ret.deferred);
+                self.gen_return(state, value);
 
                 self.gen_unit()
             }
@@ -1280,18 +1275,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         state.push_scope();
 
-        for (i, expr) in block.exprs.iter().enumerate() {
+        for (i, expr) in block.statements.iter().enumerate() {
             let value = self.gen_expr(state, expr, true);
-            if block.yields && i == block.exprs.len() - 1 {
+            if block.yields && i == block.statements.len() - 1 {
                 yielded_value = value;
             }
         }
 
-        self.gen_expr_list(state, &block.deferred);
-
         state.pop_scope();
 
-        if deref && !block.exprs.is_empty() && block.yields {
+        if deref && !block.statements.is_empty() && block.yields {
             self.build_load(yielded_value)
         } else {
             yielded_value
@@ -1551,7 +1544,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         value: Option<BasicValueEnum<'ctx>>,
-        deferred: &[ast::Expr],
     ) {
         let abi_fn = self.get_abi_compliant_fn(&state.fn_type);
 
@@ -1577,7 +1569,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             };
 
-            self.gen_expr_list(state, deferred);
             self.builder.build_return(None);
         } else {
             let value = value.unwrap_or_else(|| self.gen_unit());
@@ -1587,8 +1578,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 value,
                 state.function.get_type().get_return_type().unwrap(),
             );
-
-            self.gen_expr_list(state, deferred);
 
             self.builder.build_return(Some(&value));
         }

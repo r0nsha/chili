@@ -38,7 +38,7 @@ impl<'s> LintSess<'s> {
 
         if init_state.is_init() && !binding_info.is_mutable {
             let msg = format!(
-                "cannot assign twice to immutable variable `{}`",
+                "cannot assignment twice to immutable variable `{}`",
                 binding_info.symbol
             );
             let binding_span = binding_info.span;

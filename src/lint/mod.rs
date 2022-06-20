@@ -144,8 +144,7 @@ impl Lint for ast::Binding {
 impl Lint for ast::Block {
     fn lint(&self, sess: &mut LintSess) {
         sess.init_scopes.push_scope();
-        self.exprs.lint(sess);
-        self.deferred.lint(sess);
+        self.statements.lint(sess);
         sess.init_scopes.pop_scope();
     }
 }
@@ -154,17 +153,19 @@ impl Lint for ast::Expr {
     fn lint(&self, sess: &mut LintSess) {
         match &self.kind {
             ast::ExprKind::Binding(binding) => binding.lint(sess),
-            ast::ExprKind::Defer(defer) => defer.expr.lint(sess),
-            ast::ExprKind::Assign(assign) => {
-                assign.rvalue.lint(sess);
+            ast::ExprKind::Assignment(assignment) => {
+                assignment.rvalue.lint(sess);
 
-                match &assign.lvalue.kind {
+                match &assignment.lvalue.kind {
                     ast::ExprKind::Ident(ident) => {
-                        sess.check_assign_lvalue_id_access(&assign.lvalue, ident.binding_info_id);
+                        sess.check_assign_lvalue_id_access(
+                            &assignment.lvalue,
+                            ident.binding_info_id,
+                        );
                     }
                     _ => {
-                        sess.check_lvalue_access(&assign.lvalue, assign.lvalue.span);
-                        assign.lvalue.lint(sess);
+                        sess.check_lvalue_access(&assignment.lvalue, assignment.lvalue.span);
+                        assignment.lvalue.lint(sess);
                     }
                 };
             }
@@ -195,12 +196,9 @@ impl Lint for ast::Expr {
                 }
                 for_.block.lint(sess);
             }
-            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
-                term.deferred.lint(sess);
-            }
+            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => (),
             ast::ExprKind::Return(ret) => {
                 ret.expr.lint(sess);
-                ret.deferred.lint(sess);
             }
             ast::ExprKind::If(if_) => {
                 if_.cond.lint(sess);

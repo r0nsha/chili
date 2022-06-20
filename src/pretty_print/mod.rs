@@ -146,13 +146,12 @@ impl PrintTree for ast::FunctionExpr {
 
 impl PrintTree for ast::Block {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        let ty = match self.exprs.last() {
+        let ty = match self.statements.last() {
             Some(e) => tycx.ty_kind(e.ty),
             None => Type::Unit,
         };
         b.begin_child(format!("block <{}>", ty));
-        self.exprs.print_tree(b, workspace, tycx);
-        build_deferred(b, &self.deferred, workspace, tycx);
+        self.statements.print_tree(b, workspace, tycx);
         b.end_child();
     }
 }
@@ -190,33 +189,14 @@ impl PrintTree for ast::FunctionSig {
     }
 }
 
-fn build_deferred(
-    b: &mut TreeBuilder,
-    deferred: &[ast::Expr],
-    workspace: &Workspace,
-    tycx: &TyCtx,
-) {
-    if deferred.is_empty() {
-        return;
-    }
-    b.begin_child("deferred".to_string());
-    deferred.print_tree(b, workspace, tycx);
-    b.end_child();
-}
-
 impl PrintTree for ast::Expr {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         match &self.kind {
             ast::ExprKind::Binding(binding) => binding.print_tree(b, workspace, tycx),
-            ast::ExprKind::Defer(defer) => {
-                b.begin_child("defer".to_string());
-                defer.expr.print_tree(b, workspace, tycx);
-                b.end_child();
-            }
-            ast::ExprKind::Assign(assign) => {
-                b.begin_child("assign".to_string());
-                assign.lvalue.print_tree(b, workspace, tycx);
-                assign.rvalue.print_tree(b, workspace, tycx);
+            ast::ExprKind::Assignment(assignment) => {
+                b.begin_child("assignment".to_string());
+                assignment.lvalue.print_tree(b, workspace, tycx);
+                assignment.rvalue.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::ExprKind::Cast(cast) => {
@@ -293,17 +273,14 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Break(term) => {
-                build_deferred(b, &term.deferred, workspace, tycx);
+            ast::ExprKind::Break(_) => {
                 b.add_empty_child("break".to_string());
             }
-            ast::ExprKind::Continue(term) => {
-                build_deferred(b, &term.deferred, workspace, tycx);
+            ast::ExprKind::Continue(_) => {
                 b.add_empty_child("continue".to_string());
             }
             ast::ExprKind::Return(ret) => {
                 b.begin_child("return".to_string());
-                build_deferred(b, &ret.deferred, workspace, tycx);
                 ret.expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }

@@ -122,8 +122,7 @@ impl<'a> CollectHints<'a> for ast::FunctionSig {
 
 impl<'a> CollectHints<'a> for ast::Block {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
-        self.exprs.collect_hints(sess);
-        self.deferred.collect_hints(sess);
+        self.statements.collect_hints(sess);
     }
 }
 
@@ -131,10 +130,9 @@ impl<'a> CollectHints<'a> for ast::Expr {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         match &self.kind {
             ast::ExprKind::Binding(binding) => binding.collect_hints(sess),
-            ast::ExprKind::Defer(defer) => defer.expr.collect_hints(sess),
-            ast::ExprKind::Assign(assign) => {
-                assign.lvalue.collect_hints(sess);
-                assign.rvalue.collect_hints(sess);
+            ast::ExprKind::Assignment(assignment) => {
+                assignment.lvalue.collect_hints(sess);
+                assignment.rvalue.collect_hints(sess);
             }
             ast::ExprKind::Cast(t) => t.expr.collect_hints(sess),
             ast::ExprKind::Builtin(b) => match b {
@@ -164,12 +162,9 @@ impl<'a> CollectHints<'a> for ast::Expr {
                 }
                 for_.block.collect_hints(sess);
             }
-            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
-                term.deferred.collect_hints(sess);
-            }
+            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => (),
             ast::ExprKind::Return(ret) => {
                 ret.expr.collect_hints(sess);
-                ret.deferred.collect_hints(sess);
             }
             ast::ExprKind::If(if_) => {
                 if_.cond.collect_hints(sess);

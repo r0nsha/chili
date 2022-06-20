@@ -90,7 +90,6 @@ pub enum TokenKind {
     Break,
     Continue,
     Return,
-    Defer,
     Let,
     Fn,
     Extern,
@@ -179,7 +178,6 @@ impl TokenKind {
             Break => "break",
             Continue => "continue",
             Return => "return",
-            Defer => "defer",
             Let => "let",
             Fn => "fn",
             Extern => "extern",
@@ -226,7 +224,6 @@ impl TokenKind {
                 | Break
                 | Continue
                 | Return
-                | Defer
                 | Let
                 | Fn
                 | Extern

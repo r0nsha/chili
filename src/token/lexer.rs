@@ -502,7 +502,6 @@ impl<'lx> Lexer<'lx> {
             "break" => Break,
             "continue" => Continue,
             "return" => Return,
-            "defer" => Defer,
             "let" => Let,
             "fn" => Fn,
             "extern" => Extern,

@@ -85,7 +85,7 @@ impl Parser {
         let end_span = self.previous_span();
 
         Ok(Expr::new(
-            ExprKind::Assign(ast::Assign {
+            ExprKind::Assignment(ast::Assignment {
                 lvalue: Box::new(expr),
                 rvalue: Box::new(rvalue),
             }),
@@ -101,7 +101,7 @@ impl Parser {
         let rvalue_span = rvalue.span;
 
         Ok(Expr::new(
-            ExprKind::Assign(ast::Assign {
+            ExprKind::Assignment(ast::Assignment {
                 lvalue: Box::new(lvalue.clone()),
                 rvalue: Box::new(Expr::new(
                     ExprKind::Binary(ast::Binary {

@@ -1,7 +1,6 @@
 mod bind;
 mod builtin;
 mod const_fold;
-mod defer;
 mod env;
 mod top_level;
 
@@ -693,25 +692,14 @@ impl Check for ast::Expr {
                 binding.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Defer(defer) => {
-                defer.expr.check(sess, env, None)?;
-
-                // Add the expression to this scope's defer stack
-                env.scope_mut()
-                    .defer_stack
-                    .deferred
-                    .push(defer.expr.as_ref().clone());
-
-                Ok(Res::new(sess.tycx.common_types.unit))
-            }
-            ast::ExprKind::Assign(assign) => {
-                let lres = assign.lvalue.check(sess, env, None)?;
-                let rres = assign.rvalue.check(sess, env, Some(lres.ty))?;
+            ast::ExprKind::Assignment(assignment) => {
+                let lres = assignment.lvalue.check(sess, env, None)?;
+                let rres = assignment.rvalue.check(sess, env, Some(lres.ty))?;
 
                 rres.ty
                     .unify(&lres.ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
-                        &mut assign.rvalue,
+                        &mut assignment.rvalue,
                         lres.ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
@@ -719,9 +707,9 @@ impl Check for ast::Expr {
                     .or_report_err(
                         &sess.tycx,
                         lres.ty,
-                        Some(assign.lvalue.span),
+                        Some(assignment.lvalue.span),
                         rres.ty,
-                        assign.rvalue.span,
+                        assignment.rvalue.span,
                     )?;
 
                 Ok(Res::new(sess.tycx.common_types.unit))
@@ -832,7 +820,7 @@ impl Check for ast::Expr {
 
                 let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
 
-                if let Some(last_expr) = function.body.exprs.last_mut() {
+                if let Some(last_expr) = function.body.statements.last_mut() {
                     unify_res = unify_res.or_coerce_expr_into_ty(
                         last_expr,
                         return_ty,
@@ -994,17 +982,7 @@ impl Check for ast::Expr {
             ast::ExprKind::Continue(_) if sess.loop_depth == 0 => {
                 return Err(SyntaxError::outside_of_loop(self.span, "continue"));
             }
-            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
-                for scope in env.scopes().iter().rev() {
-                    if let ScopeKind::Loop = scope.kind {
-                        break;
-                    }
-
-                    for expr in scope.defer_stack.deferred.iter().rev() {
-                        term.deferred.push(expr.clone())
-                    }
-                }
-
+            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => {
                 Ok(Res::new(sess.tycx.common_types.never))
             }
             ast::ExprKind::Return(ret) => {
@@ -1044,13 +1022,6 @@ impl Check for ast::Expr {
                             function_frame.return_ty,
                             self.span,
                         )?;
-                }
-
-                // Recursively add all defers in the stack, in reverse
-                for scope in env.scopes().iter().rev() {
-                    for expr in scope.defer_stack.deferred.iter().rev() {
-                        ret.deferred.push(expr.clone())
-                    }
                 }
 
                 Ok(Res::new(sess.tycx.common_types.never))
@@ -2315,24 +2286,14 @@ impl Check for ast::Block {
 
         env.push_scope(ScopeKind::Block);
 
-        if !self.exprs.is_empty() {
-            let last_index = self.exprs.len() - 1;
+        if !self.statements.is_empty() {
+            let last_index = self.statements.len() - 1;
 
-            for (i, expr) in self.exprs.iter_mut().enumerate() {
+            for (i, expr) in self.statements.iter_mut().enumerate() {
                 let expected_ty = if i == last_index { expected_ty } else { None };
                 res = expr.check(sess, env, expected_ty)?;
             }
         }
-
-        // Add all defers in the current scope
-        self.deferred = env
-            .scope()
-            .defer_stack
-            .deferred
-            .iter()
-            .rev()
-            .cloned()
-            .collect();
 
         env.pop_scope();
 

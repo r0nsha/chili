@@ -128,8 +128,7 @@ impl<'a> Substitute<'a> for ast::Binding {
 
 impl<'a> Substitute<'a> for ast::Block {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.exprs.substitute(sess);
-        self.deferred.substitute(sess);
+        self.statements.substitute(sess);
     }
 }
 
@@ -167,11 +166,10 @@ impl<'a> Substitute<'a> for ast::Expr {
         self.ty.substitute(sess, self.span);
 
         match &self.kind {
-            ast::ExprKind::Defer(_) => (),
             ast::ExprKind::Binding(binding) => binding.substitute(sess),
-            ast::ExprKind::Assign(assign) => {
-                assign.lvalue.substitute(sess);
-                assign.rvalue.substitute(sess);
+            ast::ExprKind::Assignment(assignment) => {
+                assignment.lvalue.substitute(sess);
+                assignment.rvalue.substitute(sess);
             }
             ast::ExprKind::Cast(info) => info.substitute(sess),
             ast::ExprKind::Builtin(builtin) => match builtin {
@@ -199,11 +197,8 @@ impl<'a> Substitute<'a> for ast::Expr {
 
                 for_.block.substitute(sess);
             }
-            ast::ExprKind::Break(term) | ast::ExprKind::Continue(term) => {
-                term.deferred.substitute(sess)
-            }
+            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => (),
             ast::ExprKind::Return(ret) => {
-                ret.deferred.substitute(sess);
                 ret.expr.substitute(sess);
             }
             ast::ExprKind::If(if_) => {
@@ -212,8 +207,7 @@ impl<'a> Substitute<'a> for ast::Expr {
                 if_.otherwise.substitute(sess);
             }
             ast::ExprKind::Block(block) => {
-                block.exprs.substitute(sess);
-                block.deferred.substitute(sess);
+                block.statements.substitute(sess);
             }
             ast::ExprKind::Binary(binary) => {
                 binary.lhs.substitute(sess);

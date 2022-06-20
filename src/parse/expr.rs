@@ -58,16 +58,7 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            if eat!(self, Defer) {
-                let span = self.span();
-                let expr = self.parse_expr()?;
-                Ok(Expr::new(
-                    ExprKind::Defer(ast::Defer {
-                        expr: Box::new(expr),
-                    }),
-                    span,
-                ))
-            } else if eat!(self, Let) {
+            if eat!(self, Let) {
                 let start_span = self.previous_span();
 
                 if eat!(self, Extern) {
@@ -174,8 +165,7 @@ impl Parser {
         let span = start_span.to(self.previous_span());
 
         Ok(Block {
-            exprs,
-            deferred: vec![],
+            statements: exprs,
             yields,
             span,
         })
@@ -590,8 +580,8 @@ impl Parser {
         let span = token.span;
 
         let kind = match token.kind {
-            Break => ExprKind::Break(ast::Terminator { deferred: vec![] }),
-            Continue => ExprKind::Continue(ast::Terminator { deferred: vec![] }),
+            Break => ExprKind::Break(ast::Terminator {}),
+            Continue => ExprKind::Continue(ast::Terminator {}),
             Return => {
                 let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
@@ -600,10 +590,7 @@ impl Parser {
                     Some(Box::new(expr))
                 };
 
-                ExprKind::Return(ast::Return {
-                    expr,
-                    deferred: vec![],
-                })
+                ExprKind::Return(ast::Return { expr })
             }
             _ => panic!("got an invalid terminator"),
         };
