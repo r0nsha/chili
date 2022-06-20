@@ -43,14 +43,16 @@ use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-pub fn check(
-    workspace: &mut Workspace,
-    ast: Vec<ast::Ast>,
-) -> Result<(ast::TypedAst, TyCtx), (TyCtx, ast::TypedAst, Diagnostic)> {
+pub fn check(workspace: &mut Workspace, ast: Vec<ast::Ast>) -> (ast::TypedAst, TyCtx) {
     let mut sess = CheckSess::new(workspace, &ast);
 
     if let Err(diag) = sess.start() {
-        return Err((sess.tycx, sess.new_typed_ast, diag));
+        sess.workspace.diagnostics.push(diag);
+        return (sess.new_typed_ast, sess.tycx);
+    }
+
+    if sess.workspace.diagnostics.has_errors() {
+        return (sess.new_typed_ast, sess.tycx);
     }
 
     substitute(
@@ -78,7 +80,7 @@ pub fn check(
         }
     }
 
-    Ok((sess.new_typed_ast, sess.tycx))
+    (sess.new_typed_ast, sess.tycx)
 }
 
 fn ty_is_extern(ty: &Type) -> bool {

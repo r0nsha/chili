@@ -320,7 +320,7 @@ impl Parser {
             } else {
                 return Err(SyntaxError::expected(
                     self.span(),
-                    &format!("an expression, got `{}`", self.peek().lexeme),
+                    &format!("[ or {{, got `{}`", self.peek().lexeme),
                 ));
             }
         } else if eat!(self, Break | Continue | Return) {

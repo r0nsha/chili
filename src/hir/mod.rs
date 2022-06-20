@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-
 use enum_as_inner::EnumAsInner;
 use slab::Slab;
-use ustr::Ustr;
 
 use crate::{
     ast::{
@@ -14,46 +11,36 @@ use crate::{
     span::Span,
 };
 
-pub struct Root {
+pub struct Cache {
     pub bindings: Slab<Binding>,
     pub functions: Slab<Function>,
-    ids_to_bindings: HashMap<BindingInfoId, usize>,
 }
 
-impl Root {
+impl Cache {
     pub fn new() -> Self {
         Self {
             bindings: Slab::new(),
             functions: Slab::new(),
-            ids_to_bindings: HashMap::new(),
         }
     }
 
     pub fn get_binding(&self, id: BindingInfoId) -> Option<&Binding> {
-        self.ids_to_bindings
-            .get(&id)
-            .map(|idx| &self.bindings[*idx])
+        self.bindings.get(id.inner())
     }
 
-    #[allow(unused)]
     pub fn get_binding_mut(&mut self, id: BindingInfoId) -> Option<&mut Binding> {
-        self.ids_to_bindings
-            .get_mut(&id)
-            .and_then(|idx| self.bindings.get_mut(*idx))
+        self.bindings.get_mut(id.inner())
     }
 
-    #[allow(unused)]
-    pub fn has_binding(&self, id: BindingInfoId) -> bool {
-        self.ids_to_bindings.contains_key(&id)
-    }
+    pub fn push_binding(&mut self, id: BindingInfoId, mut binding: Binding) -> BindingInfoId {
+        let vacant_entry = self.bindings.vacant_entry();
 
-    pub fn push_binding(&mut self, ids: &[BindingInfoId], binding: Binding) {
-        self.bindings.insert(binding);
-        let idx = self.bindings.len() - 1;
+        let id = BindingInfoId::from(vacant_entry.key());
 
-        for id in ids {
-            self.ids_to_bindings.insert(*id, idx);
-        }
+        binding.id = id;
+        vacant_entry.insert(binding);
+
+        id
     }
 
     pub fn get_function(&self, id: FunctionId) -> Option<&Function> {

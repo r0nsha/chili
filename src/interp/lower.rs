@@ -273,7 +273,7 @@ impl Lower for ast::Expr {
                 let value = const_value_to_value(const_value, self.ty, sess);
                 sess.push_const(code, value);
             }
-            ast::ExprKind::Error(_) => panic!("got an Error expression"),
+            ast::ExprKind::Error(_) => sess.push_const_unit(code),
         }
     }
 }

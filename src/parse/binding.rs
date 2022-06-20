@@ -28,16 +28,20 @@ impl Parser {
         if require_value {
             require!(self, Eq, "=")?;
         } else if !eat!(self, Eq) {
-            return Ok(Binding {
-                module_id: Default::default(),
-                visibility,
-                kind: BindingKind::Normal,
-                pattern,
-                ty: TypeId::unknown(),
-                ty_expr,
-                expr: None,
-                span: start_span.to(self.previous_span()),
-            });
+            if ty_expr.is_some() {
+                return Ok(Binding {
+                    module_id: Default::default(),
+                    visibility,
+                    kind: BindingKind::Normal,
+                    pattern,
+                    ty: TypeId::unknown(),
+                    ty_expr,
+                    expr: None,
+                    span: start_span.to(self.previous_span()),
+                });
+            } else {
+                return Err(SyntaxError::expected(self.previous_span(), ":"));
+            }
         }
 
         let expr = match &pattern {
