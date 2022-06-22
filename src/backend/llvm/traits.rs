@@ -4,7 +4,7 @@ use inkwell::{
 };
 use ustr::Ustr;
 
-use crate::ast::{ast::FunctionSig, pattern::SymbolPattern, ty::FunctionTypeKind};
+use crate::ast::{pattern::SymbolPattern, ty::FunctionTypeKind, FunctionSig};
 
 pub(super) trait IsALoadInst {
     fn is_a_load_inst(&self) -> bool;

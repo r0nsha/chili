@@ -166,7 +166,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
             if let Some(expr) = binding.expr.as_ref() {
-                if let ast::Ast::ConstValue(ast::Const {
+                if let ast::Ast::Const(ast::Const {
                     value: ConstValue::Function(function),
                     ..
                 }) = expr.as_ref()
@@ -632,7 +632,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let pattern = binding.pattern.as_symbol_ref();
 
                         let decl = if let Some(expr) = &binding.expr {
-                            if let ast::Ast::ConstValue(ast::Const {
+                            if let ast::Ast::Const(ast::Const {
                                 value: ConstValue::Function(function),
                                 ..
                             }) = expr.as_ref()
@@ -669,11 +669,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::Ast::Cast(info) => self.gen_cast(state, &info.expr, &info.ty),
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
-                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty().normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty().normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
@@ -684,11 +684,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.const_str_slice("", "").into()
                     };
 
-                    self.gen_panic(state, message, expr.span);
+                    self.gen_panic(state, message, expr.span());
                     self.gen_unit()
                 }
                 ast::BuiltinKind::Run(_, result) => {
-                    let ty = expr.ty.normalize(self.tycx);
+                    let ty = expr.ty().normalize(self.tycx);
                     let value = self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty);
 
                     if deref {
@@ -751,7 +751,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                     ast::ForIter::Value(value, ..) => {
                         let start = self.ptr_sized_int_type.const_zero();
-                        let end = match value.ty.normalize(self.tycx).maybe_deref_once() {
+                        let end = match value.ty().normalize(self.tycx).maybe_deref_once() {
                             Type::Array(_, len) => {
                                 self.ptr_sized_int_type.const_int(len as u64, false)
                             }
@@ -774,14 +774,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                     ast::ForIter::Value(value) => {
                         // TODO: remove by_ref?
-                        let by_ref = value.ty.normalize(self.tycx).is_pointer();
+                        let by_ref = value.ty().normalize(self.tycx).is_pointer();
 
                         let agg = self.gen_expr(state, value, false).into_pointer_value();
                         let agg = self.maybe_load_double_pointer(agg);
 
                         let item = self.gen_subscript(
                             agg.into(),
-                            &value.ty.normalize(self.tycx),
+                            &value.ty().normalize(self.tycx),
                             start,
                             !by_ref,
                         );
@@ -843,14 +843,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             self.build_store(it, next_it.into());
                         }
                         ast::ForIter::Value(value) => {
-                            let by_ref = value.ty.normalize(self.tycx).is_pointer();
+                            let by_ref = value.ty().normalize(self.tycx).is_pointer();
 
                             let agg = self.gen_expr(state, value, false).into_pointer_value();
                             let agg = self.maybe_load_double_pointer(agg);
 
                             let item = self.gen_subscript(
                                 agg.into(),
-                                &value.ty.normalize(self.tycx),
+                                &value.ty().normalize(self.tycx),
                                 next_index,
                                 !by_ref,
                             );
@@ -869,13 +869,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::Ast::Break(term) => {
+            ast::Ast::Break(_) => {
                 let exit_block = state.loop_blocks.last().unwrap().exit;
                 self.builder.build_unconditional_branch(exit_block);
 
                 self.gen_unit()
             }
-            ast::Ast::Continue(term) => {
+            ast::Ast::Continue(_) => {
                 let head_block = state.loop_blocks.last().unwrap().head;
                 self.builder.build_unconditional_branch(head_block);
 
@@ -893,13 +893,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ast::Ast::If(if_) => self.gen_if_expr(state, if_),
             ast::Ast::Block(block) => self.gen_block(state, block, deref),
-            ast::Ast::Binary(binary) => self.gen_binary(state, binary, expr.span),
-            ast::Ast::Unary(unary) => self.gen_unary(state, unary, expr.span, deref),
+            ast::Ast::Binary(binary) => self.gen_binary(state, binary),
+            ast::Ast::Unary(unary) => self.gen_unary(state, unary, deref),
             ast::Ast::Subscript(sub) => {
                 let value = self.gen_expr(state, &sub.expr, false);
                 let index = self.gen_expr(state, &sub.index, true).into_int_value();
 
-                let ty = sub.expr.ty.normalize(self.tycx);
+                let ty = sub.expr.ty().normalize(self.tycx);
 
                 let len = match ty.maybe_deref_once() {
                     Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
@@ -909,7 +909,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 };
 
                 if let Some(len) = len {
-                    self.gen_runtime_check_index_out_of_bounds(state, index, len, expr.span);
+                    self.gen_runtime_check_index_out_of_bounds(state, index, len, expr.span());
                 }
 
                 self.gen_subscript(value, &ty, index, deref)
@@ -918,7 +918,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let ptr = self
                     .gen_expr(state, &slice.expr, false)
                     .into_pointer_value();
-                let ty = slice.expr.ty.normalize(self.tycx);
+                let ty = slice.expr.ty().normalize(self.tycx);
 
                 let data = match ty {
                     Type::Slice(..) => {
@@ -933,7 +933,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let low = match &slice.low {
                     Some(low) => self.gen_expr(state, low, true).into_int_value(),
                     None => match &slice.high {
-                        Some(high) => high.ty.llvm_type(self).into_int_type(),
+                        Some(high) => high.ty().llvm_type(self).into_int_type(),
                         None => self.ptr_sized_int_type,
                     }
                     .const_zero(),
@@ -948,7 +948,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     },
                 };
 
-                self.gen_runtime_check_slice_end_before_start(state, low, high, expr.span);
+                self.gen_runtime_check_slice_end_before_start(state, low, high, expr.span());
 
                 let len = match ty {
                     Type::Slice(..) => Some(self.gen_load_slice_len(ptr.into())),
@@ -961,11 +961,15 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 if let Some(len) = len {
                     self.gen_runtime_check_slice_range_out_of_bounds(
-                        state, low, high, len, expr.span,
+                        state,
+                        low,
+                        high,
+                        len,
+                        expr.span(),
                     );
                 }
 
-                let slice_llvm_ty = expr.ty.llvm_type(self);
+                let slice_llvm_ty = expr.ty().llvm_type(self);
                 let slice_ptr = self.build_alloca(state, slice_llvm_ty);
 
                 self.gen_slice(
@@ -982,10 +986,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     slice_ptr.into()
                 }
             }
-            ast::Ast::Call(call) => self.gen_fn_call_expr(state, call, expr.ty),
+            ast::Ast::Call(call) => self.gen_fn_call_expr(state, call),
             ast::Ast::MemberAccess(access) => {
                 let value = self.gen_expr(state, &access.expr, false);
-                let accessed_ty = access.expr.ty.normalize(self.tycx);
+                let accessed_ty = access.expr.ty().normalize(self.tycx);
 
                 let value = if accessed_ty.is_pointer() {
                     self.build_load(value)
@@ -1103,7 +1107,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::Ast::ArrayLiteral(lit) => {
-                let ty = expr.ty.normalize(self.tycx);
+                let ty = expr.ty().normalize(self.tycx);
                 let array_ptr = match &lit.kind {
                     ast::ArrayLiteralKind::List(elements) => {
                         let elements: Vec<BasicValueEnum> = elements
@@ -1212,7 +1216,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::Ast::TupleLiteral(lit) => {
-                let ty = expr.ty.normalize(self.tycx);
+                let ty = expr.ty().normalize(self.tycx);
                 if ty.is_type() {
                     return self.gen_unit();
                 }
@@ -1223,7 +1227,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .map(|e| self.gen_expr(state, e, true))
                     .collect();
 
-                let llvm_ty = expr.ty.llvm_type(self);
+                let llvm_ty = expr.ty().llvm_type(self);
                 let tuple = self.build_alloca(state, llvm_ty);
 
                 for (i, value) in values.iter().enumerate() {
@@ -1238,7 +1242,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::Ast::StructLiteral(lit) => {
-                self.gen_struct_literal(state, &expr.ty.normalize(self.tycx), &lit.fields, deref)
+                self.gen_struct_literal(state, &expr.ty().normalize(self.tycx), &lit.fields, deref)
             }
 
             ast::Ast::Literal(_) => {
@@ -1250,19 +1254,19 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             | ast::Ast::ArrayType(..)
             | ast::Ast::SliceType(..)
             | ast::Ast::StructType(..)
-            | ast::Ast::SelfType
-            | ast::Ast::Placeholder
+            | ast::Ast::SelfType(..)
+            | ast::Ast::Placeholder(..)
             | ast::Ast::FunctionType(..) => self.gen_unit(),
 
-            ast::Ast::ConstValue(const_value) => {
-                let ty = expr.ty.normalize(self.tycx);
-                self.gen_const_value(Some(state), const_value, &ty)
+            ast::Ast::Const(const_value) => {
+                let ty = expr.ty().normalize(self.tycx);
+                self.gen_const_value(Some(state), &const_value.value, &ty)
             }
 
             ast::Ast::Error(_) => panic!("unexpected error node"),
         };
 
-        if expr.ty.normalize(self.tycx).is_never() {
+        if expr.ty().normalize(self.tycx).is_never() {
             self.build_unreachable();
         }
 
@@ -1292,12 +1296,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.build_load(yielded_value)
         } else {
             yielded_value
-        }
-    }
-
-    pub fn gen_expr_list(&mut self, state: &mut CodegenState<'ctx>, expr_list: &[ast::Ast]) {
-        for expr in expr_list {
-            self.gen_expr(state, expr, true);
         }
     }
 
@@ -1417,7 +1415,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         self.gen_cast_inner(
             state,
             value,
-            &expr.ty.normalize(self.tycx),
+            &expr.ty().normalize(self.tycx),
             &target_ty.normalize(self.tycx),
         )
     }

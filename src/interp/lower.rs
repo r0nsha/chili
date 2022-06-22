@@ -55,13 +55,13 @@ impl Lower for ast::Ast {
             }
             ast::Ast::Cast(cast) => cast.lower(sess, code, ctx),
             ast::Ast::Builtin(builtin) => match &builtin.kind {
-                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty().normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty().normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
                     }
@@ -261,7 +261,7 @@ impl Lower for ast::Ast {
             | ast::Ast::FunctionType(_) => {
                 panic!("unexpected type expression should have been lowered to a ConstValue")
             }
-            ast::Ast::ConstValue(const_) => {
+            ast::Ast::Const(const_) => {
                 let value = const_value_to_value(&const_.value, self.ty(), sess);
                 sess.push_const(code, value);
             }

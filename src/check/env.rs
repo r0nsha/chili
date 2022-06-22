@@ -30,6 +30,7 @@ impl Env {
         self.module_info
     }
 
+    #[allow(unused)]
     pub fn scopes(&self) -> &[Scope] {
         &self.scopes
     }

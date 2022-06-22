@@ -224,7 +224,7 @@ impl<'a> CollectHints<'a> for ast::Ast {
             ast::Ast::Ident(_)
             | ast::Ast::Literal(_)
             | ast::Ast::SelfType(_)
-            | ast::Ast::ConstValue(_)
+            | ast::Ast::Const(_)
             | ast::Ast::Placeholder(_)
             | ast::Ast::Error(_) => (),
         }

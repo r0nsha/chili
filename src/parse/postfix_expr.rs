@@ -52,7 +52,7 @@ impl Parser {
                 let fn_arg = self.parse_fn()?;
                 let span = start_span.to(self.previous_span());
 
-                match expr {
+                match &mut expr {
                     Ast::Call(call) => {
                         // map(x) fn ...
                         call.args.push(fn_arg);

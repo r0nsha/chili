@@ -11,7 +11,7 @@ use std::fmt::Display;
 
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, e: &ast::Ast) {
-        if let ast::Ast::ConstValue(const_value) = e {
+        if let ast::Ast::Const(const_value) = e {
             match &const_value.value {
                 ConstValue::Int(value) => match &e.ty().normalize(self.tycx) {
                     Type::Int(int_ty) => self.check_int_limits(int_ty, *value, e),

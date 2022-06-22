@@ -5,11 +5,7 @@ use super::{
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::ast::{
-    ast::{self, FunctionId},
-    ty::*,
-    workspace::BindingId,
-};
+use crate::ast::{self, ty::*, workspace::BindingId, FunctionId};
 use crate::infer::normalize::Normalize;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -199,9 +195,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         call: &ast::Call,
-        result_ty: TypeId,
     ) -> BasicValueEnum<'ctx> {
-        let callee_ty = call.callee.ty.normalize(self.tycx).into_fn();
+        let callee_ty = call.callee.ty().normalize(self.tycx).into_fn();
 
         let mut args = vec![];
 
@@ -231,7 +226,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             callable_value,
             &callee_ty,
             args,
-            &result_ty.normalize(self.tycx),
+            &call.ty.normalize(self.tycx),
         )
     }
 

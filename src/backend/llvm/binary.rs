@@ -13,7 +13,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         binary: &ast::Binary,
-        span: Span,
     ) -> BasicValueEnum<'ctx> {
         let ty = binary.lhs.ty().normalize(self.tycx);
 
@@ -34,11 +33,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         };
 
         match binary.op {
-            ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, span),
-            ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, span),
-            ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, span),
-            ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, span),
-            ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, span),
+            ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, binary.span),
+            ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, binary.span),
+            ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, binary.span),
+            ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, binary.span),
+            ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, binary.span),
             ast::BinaryOp::Eq
             | ast::BinaryOp::Neq
             | ast::BinaryOp::Lt

@@ -459,7 +459,7 @@ impl PrintTree for ast::Ast {
             ast::Ast::Placeholder(x) => {
                 b.add_empty_child(format!("_ (type hole) <{}>", tycx.ty_kind(x.ty)));
             }
-            ast::Ast::ConstValue(const_) => {
+            ast::Ast::Const(const_) => {
                 b.add_empty_child(format!(
                     "const value: {} <{}>",
                     const_.value.to_string(),

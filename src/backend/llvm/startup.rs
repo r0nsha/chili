@@ -178,7 +178,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let is_const = binding
                 .expr
                 .as_ref()
-                .map_or(false, |expr| matches!(expr, ast::Ast::ConstValue(..)));
+                .map_or(false, |expr| matches!(expr.as_ref(), ast::Ast::Const(..)));
 
             let initializer = if is_const { value } else { ty.const_zero() };
 

@@ -526,7 +526,7 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(Box::new(ast::Ast::ConstValue(ast::Const {
+                self.expr = Some(Box::new(ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty: self.ty,
                     span: pattern.span,
@@ -565,7 +565,7 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(Box::new(ast::Ast::ConstValue(ast::Const {
+                self.expr = Some(Box::new(ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty: self.ty,
                     span: pattern.span,
@@ -724,7 +724,7 @@ impl Check for ast::Ast {
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_ty),
-            ast::Ast::Builtin(builtin) => match &builtin.kind {
+            ast::Ast::Builtin(builtin) => match &mut builtin.kind {
                 ast::BuiltinKind::Import(path) => sess.check_import(path),
                 ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
@@ -742,7 +742,7 @@ impl Check for ast::Ast {
 
                         let ty = res.ty.normalize(&sess.tycx);
 
-                        match interp_value.try_into_const_value(&mut sess.tycx, &ty, self.span()) {
+                        match interp_value.try_into_const_value(&mut sess.tycx, &ty, builtin.span) {
                             Ok(const_value) => {
                                 *run_result = Some(const_value.clone());
                                 Ok(Res::new_const(res.ty, const_value))
@@ -752,7 +752,7 @@ impl Check for ast::Ast {
                                     "compile-time evaluation cannot result in `{}`",
                                     value_str,
                                 ))
-                                .with_label(Label::primary(self.span(), "evaluated here"))),
+                                .with_label(Label::primary(builtin.span, "evaluated here"))),
                         }
                     }
                 }
@@ -860,7 +860,7 @@ impl Check for ast::Ast {
                     name: function.sig.name,
                 });
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty: sig_res.ty,
                     span: function.span,
@@ -1065,7 +1065,7 @@ impl Check for ast::Ast {
                             *self = otherwise.as_ref().clone();
                             Ok(res)
                         } else {
-                            *self = ast::Ast::ConstValue(ast::Const {
+                            *self = ast::Ast::Const(ast::Const {
                                 value: ConstValue::Unit(()),
                                 ty: unit,
                                 span: if_.span,
@@ -1170,7 +1170,7 @@ impl Check for ast::Ast {
                     (Some(lhs), Some(rhs)) => {
                         let const_value = const_fold_binary(lhs, rhs, binary.op, binary.span)?;
 
-                        *self = ast::Ast::ConstValue(ast::Const {
+                        *self = ast::Ast::Const(ast::Const {
                             value: const_value.clone(),
                             ty: result_ty,
                             span: binary.span,
@@ -1225,7 +1225,7 @@ impl Check for ast::Ast {
                                 _ => panic!(),
                             };
 
-                            *self = ast::Ast::ConstValue(ast::Const {
+                            *self = ast::Ast::Const(ast::Const {
                                 value: const_value.clone(),
                                 ty: res.ty,
                                 span: unary.span,
@@ -1254,7 +1254,7 @@ impl Check for ast::Ast {
                                 _ => unreachable!("got {:?}", const_value),
                             };
 
-                            *self = ast::Ast::ConstValue(ast::Const {
+                            *self = ast::Ast::Const(ast::Const {
                                 value: const_value.clone(),
                                 ty: res.ty,
                                 span: unary.span,
@@ -1331,7 +1331,7 @@ impl Check for ast::Ast {
                         let ty = sess.tycx.bound(*inner, sub.span);
 
                         if let Some(const_value) = &const_value {
-                            *self = ast::Ast::ConstValue(ast::Const {
+                            *self = ast::Ast::Const(ast::Const {
                                 value: const_value.clone(),
                                 ty,
                                 span: sub.span,
@@ -1578,7 +1578,7 @@ impl Check for ast::Ast {
                     let ty = function.ty;
                     let const_value = ConstValue::Function(function.as_const_function());
 
-                    *self = ast::Ast::ConstValue(ast::Const {
+                    *self = ast::Ast::Const(ast::Const {
                         value: const_value.clone(),
                         ty,
                         span: ident.span,
@@ -1598,7 +1598,7 @@ impl Check for ast::Ast {
                             let ty = binding_info.ty;
 
                             if let Some(const_value) = &binding_info.const_value {
-                                *self = ast::Ast::ConstValue(ast::Const {
+                                *self = ast::Ast::Const(ast::Const {
                                     value: const_value.clone(),
                                     ty,
                                     span: ident.span,
@@ -1637,7 +1637,7 @@ impl Check for ast::Ast {
                             ident.binding_id = id;
 
                             if let Some(const_value) = &res.const_value {
-                                *self = ast::Ast::ConstValue(ast::Const {
+                                *self = ast::Ast::Const(ast::Const {
                                     value: const_value.clone(),
                                     ty: res.ty,
                                     span: ident.span,
@@ -1694,7 +1694,7 @@ impl Check for ast::Ast {
                             element_ty,
                         });
 
-                        *self = ast::Ast::ConstValue(ast::Const {
+                        *self = ast::Ast::Const(ast::Const {
                             value: const_array.clone(),
                             ty,
                             span: lit.span,
@@ -1727,7 +1727,7 @@ impl Check for ast::Ast {
                             element_ty: res.ty,
                         });
 
-                        *self = ast::Ast::ConstValue(ast::Const {
+                        *self = ast::Ast::Const(ast::Const {
                             value: const_array.clone(),
                             ty,
                             span: lit.span,
@@ -1754,7 +1754,7 @@ impl Check for ast::Ast {
                             (unit_ty, ConstValue::Unit(()))
                         };
 
-                    *self = ast::Ast::ConstValue(ast::Const {
+                    *self = ast::Ast::Const(ast::Const {
                         value: const_value.clone(),
                         ty,
                         span: lit.span,
@@ -1800,14 +1800,16 @@ impl Check for ast::Ast {
 
                         let const_value = ConstValue::Type(ty);
 
-                        *self = ast::Ast::ConstValue(ast::Const {
+                        let span = lit.span;
+
+                        *self = ast::Ast::Const(ast::Const {
                             value: const_value.clone(),
                             ty,
-                            span: lit.span,
+                            span,
                         });
 
                         Ok(Res::new_const(
-                            sess.tycx.bound(kind.create_type(), lit.span),
+                            sess.tycx.bound(kind.create_type(), span),
                             const_value,
                         ))
                     } else {
@@ -1831,7 +1833,7 @@ impl Check for ast::Ast {
                                 .collect(),
                         );
 
-                        *self = ast::Ast::ConstValue(ast::Const {
+                        *self = ast::Ast::Const(ast::Const {
                             value: const_value.clone(),
                             ty,
                             span: lit.span,
@@ -1907,7 +1909,7 @@ impl Check for ast::Ast {
                 };
 
                 if let Some(const_value) = &res.const_value {
-                    *self = ast::Ast::ConstValue(ast::Const {
+                    *self = ast::Ast::Const(ast::Const {
                         value: const_value.clone(),
                         ty: res.ty,
                         span: lit.span,
@@ -1928,7 +1930,7 @@ impl Check for ast::Ast {
                     ast::LiteralKind::Char(_) => sess.tycx.common_types.u8,
                 };
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
                     span: lit.span,
@@ -1949,10 +1951,10 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
-                    span: self.span(),
+                    span: *span,
                 });
 
                 Ok(Res::new_const(ty, const_value))
@@ -1970,10 +1972,10 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
-                    span: self.span(),
+                    span: *span,
                 });
 
                 Ok(Res::new_const(ty, const_value))
@@ -1999,10 +2001,10 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
-                    span: self.span(),
+                    span: *span,
                 });
 
                 Ok(Res::new_const(ty, const_value))
@@ -2020,7 +2022,7 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
                     span: *span,
@@ -2109,7 +2111,7 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.bound(struct_ty.clone().create_type(), st.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(struct_ty, st.span));
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
                     span: st.span,
@@ -2123,7 +2125,7 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.bound(res.ty.as_kind().create_type(), sig.span);
                 let const_value = ConstValue::Type(res.ty);
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
                     span: sig.span,
@@ -2136,10 +2138,10 @@ impl Check for ast::Ast {
                     let ty = sess.tycx.bound(ty.as_kind().create_type(), expr.span);
                     let const_value = ConstValue::Type(ty);
 
-                    *self = ast::Ast::ConstValue(ast::Const {
+                    *self = ast::Ast::Const(ast::Const {
                         value: const_value.clone(),
                         ty,
-                        span: self.span(),
+                        span: expr.span,
                     });
 
                     Ok(Res::new_const(ty, const_value))
@@ -2152,7 +2154,7 @@ impl Check for ast::Ast {
                 let ty = sess.tycx.var(expr.span);
                 let const_value = ConstValue::Type(ty);
 
-                *self = ast::Ast::ConstValue(ast::Const {
+                *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
                     ty,
                     span: expr.span,
@@ -2160,7 +2162,7 @@ impl Check for ast::Ast {
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::Ast::ConstValue(const_value) => panic!(),
+            ast::Ast::Const(_) => panic!(),
             ast::Ast::Error(expr) => Ok(Res::new(sess.tycx.var(expr.span))),
         }?;
 

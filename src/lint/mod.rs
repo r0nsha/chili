@@ -278,7 +278,7 @@ impl Lint for ast::Ast {
             ast::Ast::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
-            ast::Ast::SelfType(_) | ast::Ast::ConstValue(_) | ast::Ast::Placeholder(_) => (),
+            ast::Ast::SelfType(_) | ast::Ast::Const(_) | ast::Ast::Placeholder(_) => (),
             ast::Ast::Error(_) => panic!("unexpected error node"),
         }
 

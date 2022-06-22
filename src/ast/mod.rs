@@ -13,6 +13,7 @@ use crate::{
     token::TokenKind,
 };
 use const_value::{ConstFunction, ConstValue};
+use enum_as_inner::EnumAsInner;
 use paste::paste;
 use path::{try_resolve_relative_path, RelativeTo};
 use pattern::Pattern;
@@ -119,7 +120,7 @@ pub enum Ast {
     FunctionType(FunctionSig),
     SelfType(Empty),
     Placeholder(Empty),
-    ConstValue(Const),
+    Const(Const),
     Error(Empty),
 }
 
@@ -160,7 +161,7 @@ macro_rules! ast_field_dispatch {
                     Self::FunctionType(x) => x.$field,
                     Self::SelfType(x) => x.$field,
                     Self::Placeholder(x) => x.$field,
-                    Self::ConstValue(x) => x.$field,
+                    Self::Const(x) => x.$field,
                     Self::Error(x) => x.$field,
                 }
             }
@@ -200,7 +201,7 @@ macro_rules! ast_field_dispatch {
                         Self::FunctionType(x) => &mut x.$field,
                         Self::SelfType(x) => &mut x.$field,
                         Self::Placeholder(x) => &mut x.$field,
-                        Self::ConstValue(x) => &mut x.$field,
+                        Self::Const(x) => &mut x.$field,
                         Self::Error(x) => &mut x.$field,
                     }
                 }
@@ -503,7 +504,7 @@ impl WithId<FunctionId> for Function {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum FunctionKind {
     Orphan {
         sig: FunctionSig,

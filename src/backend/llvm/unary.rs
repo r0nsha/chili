@@ -1,7 +1,6 @@
 use super::codegen::{Codegen, CodegenState};
-use crate::ast::ty::*;
+use crate::ast::{self, ty::*};
 use crate::infer::normalize::Normalize;
-use crate::span::Span;
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
@@ -9,15 +8,18 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         unary: &ast::Unary,
-        span: Span,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
-        let ty = unary.lhs.ty.normalize(self.tycx);
+        let ty = unary.lhs.ty().normalize(self.tycx);
         match unary.op {
             ast::UnaryOp::Ref(_) => self.gen_expr(state, &unary.lhs, false),
             ast::UnaryOp::Deref => {
                 let ptr = self.gen_expr(state, &unary.lhs, true);
-                self.gen_runtime_check_null_pointer_deref(state, ptr.into_pointer_value(), span);
+                self.gen_runtime_check_null_pointer_deref(
+                    state,
+                    ptr.into_pointer_value(),
+                    unary.span,
+                );
                 if deref {
                     self.build_load(ptr)
                 } else {
@@ -39,7 +41,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         "fneg",
                     )
                     .into(),
-                _ => unreachable!("{}", &unary.lhs.ty),
+                _ => unreachable!("{}", &unary.lhs.ty()),
             },
             ast::UnaryOp::Plus => self.gen_expr(state, &unary.lhs, true),
             ast::UnaryOp::Not => {

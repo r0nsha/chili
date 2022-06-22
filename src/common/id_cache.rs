@@ -67,6 +67,7 @@ impl<I, V> IdCache<I, V> {
         self.inner.iter()
     }
 
+    #[allow(unused)]
     pub fn iter_mut(&mut self) -> slab::IterMut<V> {
         self.inner.iter_mut()
     }
