@@ -126,6 +126,7 @@ pub enum Ast {
 macro_rules! ast_field_dispatch {
     ($field:ident, $ty:ty) => {
         impl Ast {
+            #[inline(always)]
             pub fn $field(&self) -> $ty {
                 match self {
                     Self::Binding(x) => x.$field,
@@ -165,6 +166,7 @@ macro_rules! ast_field_dispatch {
             }
 
             paste! {
+                #[inline(always)]
                 pub fn [< $field:snake _mut >](&mut self) -> &mut $ty {
                     match self {
                         Self::Binding(x) => &mut x.$field,

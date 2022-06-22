@@ -141,6 +141,7 @@ pub enum Builtin {
 macro_rules! node_field_dispatch {
     ($field:ident, $ty:ty) => {
         impl Node {
+            #[inline(always)]
             pub fn $field(&self) -> $ty {
                 match self {
                     Self::Const(x) => x.$field,
