@@ -33,13 +33,13 @@ pub trait Lower {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext);
 }
 
-impl Lower for ast::Expr {
+impl Lower for ast::Ast {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match &self.kind {
-            ast::ExprKind::Binding(binding) => {
+            ast::Ast::Binding(binding) => {
                 lower_local_binding(binding, sess, code);
             }
-            ast::ExprKind::Assignment(assignment) => {
+            ast::Ast::Assignment(assignment) => {
                 assignment
                     .rvalue
                     .lower(sess, code, LowerContext { take_ptr: false });
@@ -52,21 +52,21 @@ impl Lower for ast::Expr {
 
                 sess.push_const_unit(code);
             }
-            ast::ExprKind::Cast(cast) => cast.lower(sess, code, ctx),
-            ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
+            ast::Ast::Cast(cast) => cast.lower(sess, code, ctx),
+            ast::Ast::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.align_of(WORD_SIZE)));
                     }
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::Panic(expr) => {
+                ast::BuiltinKind::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.lower(sess, code, ctx);
                     } else {
@@ -75,21 +75,19 @@ impl Lower for ast::Expr {
 
                     code.push(Instruction::Panic);
                 }
-                ast::Builtin::Run(expr, _) => expr.lower(sess, code, ctx),
-                ast::Builtin::Import(_) => sess.push_const_unit(code),
+                ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
+                ast::BuiltinKind::Import(_) => sess.push_const_unit(code),
             },
-            ast::ExprKind::Function(_) => panic!("should've been lower to ConstValue::Function"), // func.lower(sess, code, ctx),
-            ast::ExprKind::While(while_) => {
-                while_.lower(sess, code, LowerContext { take_ptr: false })
-            }
-            ast::ExprKind::For(for_) => for_.lower(sess, code, ctx),
-            ast::ExprKind::Break(_) => {
+            ast::Ast::Function(_) => panic!("should've been lower to ConstValue::Function"), // func.lower(sess, code, ctx),
+            ast::Ast::While(while_) => while_.lower(sess, code, LowerContext { take_ptr: false }),
+            ast::Ast::For(for_) => for_.lower(sess, code, ctx),
+            ast::Ast::Break(_) => {
                 code.push(Instruction::Jmp(INVALID_BREAK_JMP_OFFSET));
             }
-            ast::ExprKind::Continue(_) => {
+            ast::Ast::Continue(_) => {
                 code.push(Instruction::Jmp(INVALID_CONTINUE_JMP_OFFSET));
             }
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Return(ret) => {
                 if let Some(expr) = &ret.expr {
                     expr.lower(sess, code, ctx);
                 } else {
@@ -98,14 +96,14 @@ impl Lower for ast::Expr {
 
                 code.push(Instruction::Return);
             }
-            ast::ExprKind::If(if_) => if_.lower(sess, code, ctx),
-            ast::ExprKind::Block(block) => lower_block(block, sess, code, ctx),
-            ast::ExprKind::Binary(binary) => binary.lower(sess, code, ctx),
-            ast::ExprKind::Unary(unary) => unary.lower(sess, code, ctx),
-            ast::ExprKind::Subscript(sub) => sub.lower(sess, code, ctx),
-            ast::ExprKind::Slice(slice) => slice.lower(sess, code, ctx),
-            ast::ExprKind::Call(call) => call.lower(sess, code, ctx),
-            ast::ExprKind::MemberAccess(access) => {
+            ast::Ast::If(if_) => if_.lower(sess, code, ctx),
+            ast::Ast::Block(block) => lower_block(block, sess, code, ctx),
+            ast::Ast::Binary(binary) => binary.lower(sess, code, ctx),
+            ast::Ast::Unary(unary) => unary.lower(sess, code, ctx),
+            ast::Ast::Subscript(sub) => sub.lower(sess, code, ctx),
+            ast::Ast::Slice(slice) => slice.lower(sess, code, ctx),
+            ast::Ast::Call(call) => call.lower(sess, code, ctx),
+            ast::Ast::MemberAccess(access) => {
                 access.expr.lower(sess, code, ctx);
 
                 match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
@@ -157,7 +155,7 @@ impl Lower for ast::Expr {
                     ty => panic!("invalid type `{}` or member `{}`", ty, access.member),
                 }
             }
-            ast::ExprKind::Ident(ident) => {
+            ast::Ast::Ident(ident) => {
                 let id = ident.binding_id;
 
                 assert!(id != BindingId::unknown(), "{}", ident.symbol);
@@ -188,7 +186,7 @@ impl Lower for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::ArrayLiteral(lit) => {
+            ast::Ast::ArrayLiteral(lit) => {
                 let ty = self.ty.normalize(sess.tycx);
                 let inner_ty_size = ty.inner().size_of(WORD_SIZE);
 
@@ -220,7 +218,7 @@ impl Lower for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::TupleLiteral(lit) => {
+            ast::Ast::TupleLiteral(lit) => {
                 code.push(Instruction::AggregateAlloc);
 
                 for element in lit.elements.iter() {
@@ -228,7 +226,7 @@ impl Lower for ast::Expr {
                     code.push(Instruction::AggregatePush);
                 }
             }
-            ast::ExprKind::StructLiteral(lit) => {
+            ast::Ast::StructLiteral(lit) => {
                 code.push(Instruction::AggregateAlloc);
 
                 let ty = self.ty.normalize(sess.tycx);
@@ -249,24 +247,24 @@ impl Lower for ast::Expr {
                     code.push(Instruction::AggregatePush);
                 }
             }
-            ast::ExprKind::Literal(_) => {
+            ast::Ast::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
-            ast::ExprKind::PointerType(_)
-            | ast::ExprKind::MultiPointerType(_)
-            | ast::ExprKind::ArrayType(_)
-            | ast::ExprKind::SliceType(_)
-            | ast::ExprKind::SelfType
-            | ast::ExprKind::Placeholder
-            | ast::ExprKind::StructType(_)
-            | ast::ExprKind::FunctionType(_) => {
+            ast::Ast::PointerType(_)
+            | ast::Ast::MultiPointerType(_)
+            | ast::Ast::ArrayType(_)
+            | ast::Ast::SliceType(_)
+            | ast::Ast::SelfType
+            | ast::Ast::Placeholder
+            | ast::Ast::StructType(_)
+            | ast::Ast::FunctionType(_) => {
                 panic!("unexpected type expression should have been lowered to a ConstValue")
             }
-            ast::ExprKind::ConstValue(const_value) => {
+            ast::Ast::ConstValue(const_value) => {
                 let value = const_value_to_value(const_value, self.ty, sess);
                 sess.push_const(code, value);
             }
-            ast::ExprKind::Error(_) => sess.push_const_unit(code),
+            ast::Ast::Error(_) => sess.push_const_unit(code),
         }
     }
 }
@@ -433,7 +431,7 @@ impl Lower for ast::Cast {
         self.expr
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        match self.target_ty.normalize(sess.tycx) {
+        match self.ty.normalize(sess.tycx) {
             Type::Never | Type::Unit | Type::Bool => (),
             Type::Int(ty) => {
                 code.push(match ty {
@@ -1071,7 +1069,7 @@ impl Lower for ast::Slice {
         let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
 
         // lower `low`, or push a 0
-        fn lower_low(sess: &mut InterpSess, code: &mut CompiledCode, low: &Option<Box<ast::Expr>>) {
+        fn lower_low(sess: &mut InterpSess, code: &mut CompiledCode, low: &Option<Box<ast::Ast>>) {
             if let Some(low) = low {
                 low.lower(sess, code, LowerContext { take_ptr: false });
             } else {
@@ -1083,7 +1081,7 @@ impl Lower for ast::Slice {
         fn lower_high(
             sess: &mut InterpSess,
             code: &mut CompiledCode,
-            high: &Option<Box<ast::Expr>>,
+            high: &Option<Box<ast::Ast>>,
             expr_ty: &Type,
         ) {
             if let Some(high) = high {

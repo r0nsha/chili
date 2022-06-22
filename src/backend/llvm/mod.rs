@@ -13,7 +13,8 @@ mod ty;
 mod unary;
 mod util;
 
-use crate::ast::{ast, workspace::Workspace};
+use crate::ast;
+use crate::ast::workspace::Workspace;
 use crate::common::build_options;
 use crate::infer::ty_ctx::TyCtx;
 use crate::{

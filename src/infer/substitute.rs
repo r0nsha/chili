@@ -154,38 +154,38 @@ impl<'a> Substitute<'a> for ast::FunctionSig {
 impl<'a> Substitute<'a> for ast::Cast {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.expr.substitute(sess);
-        self.ty_expr.substitute(sess);
-        self.target_ty.substitute(
+        self.target.substitute(sess);
+        self.ty.substitute(
             sess,
-            self.ty_expr.as_ref().map_or(self.expr.span, |e| e.span),
+            self.target.as_ref().map_or(self.expr.span, |e| e.span),
         );
     }
 }
 
-impl<'a> Substitute<'a> for ast::Expr {
+impl<'a> Substitute<'a> for ast::Ast {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.ty.substitute(sess, self.span);
 
         match &self.kind {
-            ast::ExprKind::Binding(binding) => binding.substitute(sess),
-            ast::ExprKind::Assignment(assignment) => {
+            ast::Ast::Binding(binding) => binding.substitute(sess),
+            ast::Ast::Assignment(assignment) => {
                 assignment.lvalue.substitute(sess);
                 assignment.rvalue.substitute(sess);
             }
-            ast::ExprKind::Cast(info) => info.substitute(sess),
-            ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::SizeOf(expr)
-                | ast::Builtin::AlignOf(expr)
-                | ast::Builtin::Run(expr, _) => expr.substitute(sess),
-                ast::Builtin::Panic(expr) => expr.substitute(sess),
-                ast::Builtin::Import(_) => (),
+            ast::Ast::Cast(info) => info.substitute(sess),
+            ast::Ast::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::SizeOf(expr)
+                | ast::BuiltinKind::AlignOf(expr)
+                | ast::BuiltinKind::Run(expr, _) => expr.substitute(sess),
+                ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
+                ast::BuiltinKind::Import(_) => (),
             },
-            ast::ExprKind::Function(func) => func.substitute(sess),
-            ast::ExprKind::While(while_) => {
+            ast::Ast::Function(func) => func.substitute(sess),
+            ast::Ast::While(while_) => {
                 while_.cond.substitute(sess);
                 while_.block.substitute(sess);
             }
-            ast::ExprKind::For(for_) => {
+            ast::Ast::For(for_) => {
                 match &for_.iterator {
                     ast::ForIter::Range(start, end) => {
                         start.substitute(sess);
@@ -198,70 +198,67 @@ impl<'a> Substitute<'a> for ast::Expr {
 
                 for_.block.substitute(sess);
             }
-            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => (),
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Break(_) | ast::Ast::Continue(_) => (),
+            ast::Ast::Return(ret) => {
                 ret.expr.substitute(sess);
             }
-            ast::ExprKind::If(if_) => {
+            ast::Ast::If(if_) => {
                 if_.cond.substitute(sess);
                 if_.then.substitute(sess);
                 if_.otherwise.substitute(sess);
             }
-            ast::ExprKind::Block(block) => {
+            ast::Ast::Block(block) => {
                 block.statements.substitute(sess);
             }
-            ast::ExprKind::Binary(binary) => {
+            ast::Ast::Binary(binary) => {
                 binary.lhs.substitute(sess);
                 binary.rhs.substitute(sess);
             }
-            ast::ExprKind::Unary(unary) => unary.lhs.substitute(sess),
-            ast::ExprKind::Subscript(sub) => {
+            ast::Ast::Unary(unary) => unary.lhs.substitute(sess),
+            ast::Ast::Subscript(sub) => {
                 sub.expr.substitute(sess);
                 sub.index.substitute(sess);
             }
-            ast::ExprKind::Slice(slice) => {
+            ast::Ast::Slice(slice) => {
                 slice.expr.substitute(sess);
                 slice.low.substitute(sess);
                 slice.high.substitute(sess);
             }
-            ast::ExprKind::Call(call) => {
+            ast::Ast::Call(call) => {
                 call.callee.substitute(sess);
                 call.args.substitute(sess);
             }
-            ast::ExprKind::MemberAccess(access) => access.expr.substitute(sess),
-            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
+            ast::Ast::MemberAccess(access) => access.expr.substitute(sess),
+            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
                 ast::ArrayLiteralKind::List(elements) => elements.substitute(sess),
                 ast::ArrayLiteralKind::Fill { expr, len } => {
                     len.substitute(sess);
                     expr.substitute(sess);
                 }
             },
-            ast::ExprKind::TupleLiteral(lit) => {
-                println!("{}", sess.tycx.ty_kind(self.ty));
-                lit.elements.substitute(sess)
-            }
-            ast::ExprKind::StructLiteral(lit) => {
+            ast::Ast::TupleLiteral(lit) => lit.elements.substitute(sess),
+            ast::Ast::StructLiteral(lit) => {
                 lit.type_expr.substitute(sess);
                 for f in lit.fields.iter() {
                     f.expr.substitute(sess);
                 }
             }
-            ast::ExprKind::PointerType(expr)
-            | ast::ExprKind::MultiPointerType(expr)
-            | ast::ExprKind::SliceType(expr) => expr.inner.substitute(sess),
-            ast::ExprKind::ArrayType(at) => at.inner.substitute(sess),
-            ast::ExprKind::StructType(struct_type, ..) => {
+            ast::Ast::PointerType(expr)
+            | ast::Ast::MultiPointerType(expr)
+            | ast::Ast::SliceType(expr) => expr.inner.substitute(sess),
+            ast::Ast::ArrayType(at) => at.inner.substitute(sess),
+            ast::Ast::StructType(struct_type, ..) => {
                 for f in struct_type.fields.iter() {
                     f.ty.substitute(sess);
                 }
             }
-            ast::ExprKind::FunctionType(sig) => sig.substitute(sess),
-            ast::ExprKind::Ident(_)
-            | ast::ExprKind::Literal(_)
-            | ast::ExprKind::SelfType
-            | ast::ExprKind::ConstValue(_)
-            | ast::ExprKind::Placeholder => (),
-            ast::ExprKind::Error(_) => panic!("unexpected error node"),
+            ast::Ast::FunctionType(sig) => sig.substitute(sess),
+            ast::Ast::Ident(_)
+            | ast::Ast::Literal(_)
+            | ast::Ast::SelfType(_)
+            | ast::Ast::ConstValue(_)
+            | ast::Ast::Placeholder(_) => (),
+            ast::Ast::Error(_) => panic!("unexpected error node"),
         }
     }
 }

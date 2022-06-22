@@ -143,13 +143,13 @@ impl Coerce for Type {
     }
 }
 
-fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: Type) {
+fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::to: Type) {
     let target_ty = tycx.bound(to, expr.span);
-    *expr = ast::Expr::typed(
-        ast::ExprKind::Cast(ast::Cast {
+    *expr = ast::Ast::typed(
+        ast::Ast::Cast(ast::Cast {
             expr: Box::new(expr.clone()),
-            ty_expr: None,
-            target_ty,
+            target: None,
+            ty: target_ty,
         }),
         target_ty,
         expr.span,
@@ -159,8 +159,8 @@ fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Expr, to: Type) {
 pub trait OrCoerceExprs {
     fn or_coerce_exprs(
         self,
-        left: &mut ast::Expr,
-        right: &mut ast::Expr,
+        left: &mut ast::Ast,
+        right: &mut ast::Ast,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult;
@@ -169,8 +169,8 @@ pub trait OrCoerceExprs {
 impl OrCoerceExprs for UnifyTyResult {
     fn or_coerce_exprs(
         self,
-        left: &mut ast::Expr,
-        right: &mut ast::Expr,
+        left: &mut ast::Ast,
+        right: &mut ast::Ast,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult {
@@ -197,7 +197,7 @@ impl OrCoerceExprs for UnifyTyResult {
 pub trait OrCoerceExprIntoTy {
     fn or_coerce_expr_into_ty(
         self,
-        expr: &mut ast::Expr,
+        expr: &mut ast::Ast,
         ty: impl Normalize,
         tycx: &mut TyCtx,
         word_size: usize,
@@ -207,7 +207,7 @@ pub trait OrCoerceExprIntoTy {
 impl OrCoerceExprIntoTy for UnifyTyResult {
     fn or_coerce_expr_into_ty(
         self,
-        expr: &mut ast::Expr,
+        expr: &mut ast::Ast,
         ty: impl Normalize,
         tycx: &mut TyCtx,
         word_size: usize,

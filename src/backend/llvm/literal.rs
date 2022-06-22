@@ -2,7 +2,7 @@ use super::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use crate::ast::{ast, ty::*};
+use crate::ast::ty::*;
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
     values::{BasicValueEnum, PointerValue},

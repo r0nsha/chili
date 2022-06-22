@@ -1,5 +1,5 @@
 use crate::ast::{
-    ast, compiler_info,
+    self, compiler_info,
     path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
     workspace::{PartialModuleInfo, Workspace},
 };

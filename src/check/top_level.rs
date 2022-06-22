@@ -29,7 +29,7 @@ impl CheckTopLevel for ast::Binding {
             self.check(sess, &mut env, None)
         })?;
 
-        sess.new_typed_ast
+        sess.typed_ast
             .push_binding(&self.pattern.ids(), self.clone());
 
         Ok(res)

@@ -3,8 +3,8 @@ pub mod display;
 pub mod size;
 
 use super::{
-    ast::ExternLibrary,
     workspace::{BindingId, ModuleId},
+    ExternLibrary,
 };
 use crate::{define_id_type, span::Span};
 use indexmap::IndexMap;

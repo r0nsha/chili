@@ -1,15 +1,9 @@
-use enum_as_inner::EnumAsInner;
-
 use crate::{
-    ast::{
-        ast::{Function, FunctionId},
-        const_value::ConstValue,
-        ty::TypeId,
-        workspace::BindingId,
-    },
+    ast::{const_value::ConstValue, ty::TypeId, workspace::BindingId, Function, FunctionId},
     common::id_cache::IdCache,
     span::Span,
 };
+use enum_as_inner::EnumAsInner;
 
 macro_rules! node_struct {
     ($name:ident) => {

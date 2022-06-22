@@ -1,5 +1,5 @@
 use super::*;
-use crate::ast::ast::{Module, Visibility};
+use crate::ast::{Module, Visibility};
 use crate::error::SyntaxError;
 use crate::span::FileId;
 

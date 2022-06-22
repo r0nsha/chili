@@ -21,7 +21,7 @@ macro_rules! define_id_type {
 
         impl Default for $name {
             fn default() -> Self {
-                Self(usize::MAX)
+                $name::unknown()
             }
         }
 

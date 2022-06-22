@@ -5,9 +5,10 @@ mod sess;
 mod type_limits;
 
 use crate::ast::{
-    ast::{self, BindingKind},
+    self,
     pattern::{HybridPattern, Pattern},
     workspace::Workspace,
+    BindingKind,
 };
 use crate::common::scopes::Scopes;
 use crate::error::diagnostic::{Diagnostic, Label};
@@ -149,15 +150,15 @@ impl Lint for ast::Block {
     }
 }
 
-impl Lint for ast::Expr {
+impl Lint for ast::Ast {
     fn lint(&self, sess: &mut LintSess) {
         match &self.kind {
-            ast::ExprKind::Binding(binding) => binding.lint(sess),
-            ast::ExprKind::Assignment(assignment) => {
+            ast::Ast::Binding(binding) => binding.lint(sess),
+            ast::Ast::Assignment(assignment) => {
                 assignment.rvalue.lint(sess);
 
                 match &assignment.lvalue.kind {
-                    ast::ExprKind::Ident(ident) => {
+                    ast::Ast::Ident(ident) => {
                         sess.check_assign_lvalue_id_access(&assignment.lvalue, ident.binding_id);
                     }
                     _ => {
@@ -166,22 +167,22 @@ impl Lint for ast::Expr {
                     }
                 };
             }
-            ast::ExprKind::Cast(t) => t.expr.lint(sess),
-            ast::ExprKind::Builtin(b) => match b {
-                ast::Builtin::Import(_) => (),
-                ast::Builtin::SizeOf(expr)
-                | ast::Builtin::AlignOf(expr)
-                | ast::Builtin::Run(expr, _) => expr.lint(sess),
-                ast::Builtin::Panic(e) => e.lint(sess),
+            ast::Ast::Cast(t) => t.expr.lint(sess),
+            ast::Ast::Builtin(b) => match b {
+                ast::BuiltinKind::Import(_) => (),
+                ast::BuiltinKind::SizeOf(expr)
+                | ast::BuiltinKind::AlignOf(expr)
+                | ast::BuiltinKind::Run(expr, _) => expr.lint(sess),
+                ast::BuiltinKind::Panic(e) => e.lint(sess),
             },
-            ast::ExprKind::Function(f) => {
+            ast::Ast::Function(f) => {
                 f.body.lint(sess);
             }
-            ast::ExprKind::While(while_) => {
+            ast::Ast::While(while_) => {
                 while_.cond.lint(sess);
                 while_.block.lint(sess);
             }
-            ast::ExprKind::For(for_) => {
+            ast::Ast::For(for_) => {
                 match &for_.iterator {
                     ast::ForIter::Range(s, e) => {
                         s.lint(sess);
@@ -193,21 +194,21 @@ impl Lint for ast::Expr {
                 }
                 for_.block.lint(sess);
             }
-            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => (),
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Break(_) | ast::Ast::Continue(_) => (),
+            ast::Ast::Return(ret) => {
                 ret.expr.lint(sess);
             }
-            ast::ExprKind::If(if_) => {
+            ast::Ast::If(if_) => {
                 if_.cond.lint(sess);
                 if_.then.lint(sess);
                 if_.otherwise.lint(sess);
             }
-            ast::ExprKind::Block(block) => block.lint(sess),
-            ast::ExprKind::Binary(binary) => {
+            ast::Ast::Block(block) => block.lint(sess),
+            ast::Ast::Binary(binary) => {
                 binary.lhs.lint(sess);
                 binary.rhs.lint(sess);
             }
-            ast::ExprKind::Unary(unary) => {
+            ast::Ast::Unary(unary) => {
                 unary.lhs.lint(sess);
 
                 if let ast::UnaryOp::Ref(is_mutable_ref) = &unary.op {
@@ -216,11 +217,11 @@ impl Lint for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::Subscript(sub) => {
+            ast::Ast::Subscript(sub) => {
                 sub.expr.lint(sess);
                 sub.index.lint(sess);
             }
-            ast::ExprKind::Slice(slice) => {
+            ast::Ast::Slice(slice) => {
                 slice.expr.lint(sess);
                 slice.low.lint(sess);
                 slice.high.lint(sess);
@@ -237,50 +238,48 @@ impl Lint for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::Call(call) => {
+            ast::Ast::Call(call) => {
                 call.callee.lint(sess);
                 call.args.lint(sess);
             }
-            ast::ExprKind::MemberAccess(access) => access.expr.lint(sess),
-            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
+            ast::Ast::MemberAccess(access) => access.expr.lint(sess),
+            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
                 ast::ArrayLiteralKind::List(l) => l.lint(sess),
                 ast::ArrayLiteralKind::Fill { len, expr } => {
                     len.lint(sess);
                     expr.lint(sess);
                 }
             },
-            ast::ExprKind::TupleLiteral(lit) => {
+            ast::Ast::TupleLiteral(lit) => {
                 lit.elements.lint(sess);
             }
-            ast::ExprKind::StructLiteral(lit) => {
+            ast::Ast::StructLiteral(lit) => {
                 lit.type_expr.lint(sess);
                 for field in &lit.fields {
                     field.expr.lint(sess);
                 }
             }
-            ast::ExprKind::PointerType(e)
-            | ast::ExprKind::MultiPointerType(e)
-            | ast::ExprKind::SliceType(e) => e.inner.lint(sess),
-            ast::ExprKind::ArrayType(at) => at.inner.lint(sess),
-            ast::ExprKind::StructType(s) => {
+            ast::Ast::PointerType(e) | ast::Ast::MultiPointerType(e) | ast::Ast::SliceType(e) => {
+                e.inner.lint(sess)
+            }
+            ast::Ast::ArrayType(at) => at.inner.lint(sess),
+            ast::Ast::StructType(s) => {
                 for f in &s.fields {
                     f.ty.lint(sess);
                 }
             }
-            ast::ExprKind::FunctionType(sig) => {
+            ast::Ast::FunctionType(sig) => {
                 for p in &sig.params {
                     p.ty_expr.lint(sess);
                 }
                 sig.ret.lint(sess);
             }
-            ast::ExprKind::Ident(ident) => sess.check_id_access(ident.binding_id, self.span),
-            ast::ExprKind::Literal(_) => {
+            ast::Ast::Ident(ident) => sess.check_id_access(ident.binding_id, self.span),
+            ast::Ast::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
-            ast::ExprKind::SelfType | ast::ExprKind::ConstValue(_) | ast::ExprKind::Placeholder => {
-                ()
-            }
-            ast::ExprKind::Error(_) => panic!("unexpected error node"),
+            ast::Ast::SelfType | ast::Ast::ConstValue(_) | ast::Ast::Placeholder => (),
+            ast::Ast::Error(_) => panic!("unexpected error node"),
         }
 
         sess.check_type_limits(self);

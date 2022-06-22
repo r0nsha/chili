@@ -15,7 +15,7 @@ enum RefAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub fn check_expr_can_be_mutably_referenced(&mut self, expr: &ast::Expr) {
+    pub fn check_expr_can_be_mutably_referenced(&mut self, expr: &ast::Ast) {
         use RefAccessErr::*;
 
         let result = self
@@ -53,7 +53,7 @@ impl<'s> LintSess<'s> {
 
     fn check_expr_can_be_mutably_referenced_inner(
         &self,
-        expr: &ast::Expr,
+        expr: &ast::Ast,
         is_direct_ref: bool,
     ) -> Result<(), RefAccessErr> {
         use RefAccessErr::*;
@@ -61,7 +61,7 @@ impl<'s> LintSess<'s> {
         let ty = expr.ty.normalize(self.tycx);
 
         match &expr.kind {
-            ast::ExprKind::MemberAccess(access) => {
+            ast::Ast::MemberAccess(access) => {
                 match self.check_expr_can_be_mutably_referenced_inner(expr, true) {
                     Ok(_) => match ty {
                         Type::Tuple(tys) => {
@@ -137,7 +137,7 @@ impl<'s> LintSess<'s> {
                     Err(err) => Err(err),
                 }
             }
-            ast::ExprKind::Ident(ident) => {
+            ast::Ast::Ident(ident) => {
                 match ty {
                     Type::Slice(_, is_mutable)
                     | Type::MultiPointer(_, is_mutable)

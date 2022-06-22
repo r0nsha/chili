@@ -1,14 +1,14 @@
 use super::*;
 use crate::ast::{
-    ast::{Expr, ExprKind, FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs},
     ty::{FunctionTypeKind, TypeId},
+    FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs,
 };
 use crate::error::{DiagnosticResult, SyntaxError};
 use crate::span::To;
 use ustr::Ustr;
 
 impl Parser {
-    pub fn parse_fn(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_fn(&mut self) -> DiagnosticResult<Ast> {
         let name = self.get_decl_name();
         let start_span = self.previous_span();
 
@@ -17,19 +17,15 @@ impl Parser {
         if eat!(self, OpenCurly) {
             let body = self.parse_block()?;
 
-            Ok(Expr::new(
-                ExprKind::Function(FunctionExpr {
-                    sig,
-                    body,
-                    id: FunctionId::unknown(),
-                }),
-                start_span.to(self.previous_span()),
-            ))
+            Ok(Ast::Function(FunctionExpr {
+                sig,
+                body,
+                id: FunctionId::unknown(),
+                ty: Default::default(),
+                span: start_span.to(self.previous_span()),
+            }))
         } else {
-            Ok(Expr::new(
-                ExprKind::FunctionType(sig),
-                start_span.to(self.previous_span()),
-            ))
+            Ok(Ast::FunctionType(sig))
         }
     }
 

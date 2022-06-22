@@ -1,4 +1,4 @@
-use super::{ast, ty::TypeId};
+use super::ty::TypeId;
 use indexmap::IndexMap;
 use paste::paste;
 use std::fmt::{self, Display};
@@ -111,20 +111,20 @@ pub struct ConstArray {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstFunction {
-    pub id: ast::FunctionId,
+    pub id: super::FunctionId,
     // Name is only used for display purposes
     pub name: Ustr,
 }
 
-impl From<ast::LiteralKind> for ConstValue {
-    fn from(lit: ast::LiteralKind) -> Self {
+impl From<super::LiteralKind> for ConstValue {
+    fn from(lit: super::LiteralKind) -> Self {
         match lit {
-            ast::LiteralKind::Nil => panic!("nil is deprecated"),
-            ast::LiteralKind::Bool(v) => ConstValue::Bool(v),
-            ast::LiteralKind::Int(v) => ConstValue::Int(v),
-            ast::LiteralKind::Float(v) => ConstValue::Float(v),
-            ast::LiteralKind::Str(v) => ConstValue::Str(v),
-            ast::LiteralKind::Char(v) => ConstValue::Uint(v as u64),
+            super::LiteralKind::Nil => panic!("nil is deprecated"),
+            super::LiteralKind::Bool(v) => ConstValue::Bool(v),
+            super::LiteralKind::Int(v) => ConstValue::Int(v),
+            super::LiteralKind::Float(v) => ConstValue::Float(v),
+            super::LiteralKind::Str(v) => ConstValue::Str(v),
+            super::LiteralKind::Char(v) => ConstValue::Uint(v as u64),
         }
     }
 }

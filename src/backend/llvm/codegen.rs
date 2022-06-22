@@ -3,14 +3,14 @@ use super::{
     abi::{align_of, size_of},
     traits::IsALoadInst,
 };
-use crate::ast::ast::{FunctionId, Intrinsic};
 use crate::ast::{
-    ast,
+    self,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo},
 };
 use crate::ast::{ty::*, workspace::Workspace};
+use crate::ast::{FunctionId, Intrinsic};
 use crate::common::build_options;
 use crate::common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -166,7 +166,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
             if let Some(expr) = binding.expr.as_ref() {
-                if let ast::ExprKind::ConstValue(ConstValue::Function(function)) = &expr.kind {
+                if let ast::Ast::ConstValue(ConstValue::Function(function)) = &expr.kind {
                     let function = self.gen_function(function.id, None);
                     self.insert_global_decl(id, CodegenDecl::Function(function))
                 } else {
@@ -285,7 +285,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         pattern: &Pattern,
         ty: &Type,
-        expr: &Option<Box<ast::Expr>>,
+        expr: &Option<Box<ast::Ast>>,
     ) {
         if ty.is_type() {
             return;
@@ -606,7 +606,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        expr: &ast::Expr,
+        expr: &ast::Ast,
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         if self.current_block().get_terminator().is_some() {
@@ -614,7 +614,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         let value = match &expr.kind {
-            ast::ExprKind::Binding(binding) => {
+            ast::Ast::Binding(binding) => {
                 match &binding.kind {
                     ast::BindingKind::Normal => {
                         self.gen_binding_pattern_with_expr(
@@ -628,8 +628,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let pattern = binding.pattern.as_symbol_ref();
 
                         let decl = if let Some(expr) = &binding.expr {
-                            if let ast::ExprKind::ConstValue(ConstValue::Function(function)) =
-                                &expr.kind
+                            if let ast::Ast::ConstValue(ConstValue::Function(function)) = &expr.kind
                             {
                                 let function = self.gen_function(function.id, None);
                                 CodegenDecl::Function(function)
@@ -646,7 +645,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::ExprKind::Assignment(assignment) => {
+            ast::Ast::Assignment(assignment) => {
                 let left = self
                     .gen_expr(state, &assignment.lvalue, false)
                     .into_pointer_value();
@@ -660,18 +659,18 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::ExprKind::Cast(info) => self.gen_cast(state, &info.expr, &info.target_ty),
-            ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
-                ast::Builtin::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
+            ast::Ast::Cast(info) => self.gen_cast(state, &info.expr, &info.ty),
+            ast::Ast::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
+                ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
+                ast::BuiltinKind::AlignOf(expr) => match expr.ty.normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).align_of().into(),
                     ty => unreachable!("got {}", ty),
                 },
-                ast::Builtin::Panic(msg_expr) => {
+                ast::BuiltinKind::Panic(msg_expr) => {
                     let message = if let Some(msg_expr) = msg_expr {
                         self.gen_expr(state, msg_expr, true)
                     } else {
@@ -681,7 +680,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_panic(state, message, expr.span);
                     self.gen_unit()
                 }
-                ast::Builtin::Run(_, result) => {
+                ast::BuiltinKind::Run(_, result) => {
                     let ty = expr.ty.normalize(self.tycx);
                     let value = self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty);
 
@@ -692,7 +691,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     }
                 }
             },
-            ast::ExprKind::Function(_) => {
+            ast::Ast::Function(_) => {
                 panic!("should've been lowered to ConstValue::Function")
                 // let function = self.gen_fn_expr(state.module_info, func, Some(state.clone()));
 
@@ -700,7 +699,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 // function.as_global_value().as_pointer_value().into()
             }
-            ast::ExprKind::While(while_) => {
+            ast::Ast::While(while_) => {
                 let loop_head = self.append_basic_block(state, "loop_head");
                 let loop_body = self.append_basic_block(state, "loop_body");
                 let loop_exit = self.append_basic_block(state, "loop_exit");
@@ -732,7 +731,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 return self.gen_unit();
             }
-            ast::ExprKind::For(for_) => {
+            ast::Ast::For(for_) => {
                 let loop_head = self.append_basic_block(state, "loop_head");
                 let loop_body = self.append_basic_block(state, "loop_body");
                 let loop_exit = self.append_basic_block(state, "loop_exit");
@@ -863,19 +862,19 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::ExprKind::Break(term) => {
+            ast::Ast::Break(term) => {
                 let exit_block = state.loop_blocks.last().unwrap().exit;
                 self.builder.build_unconditional_branch(exit_block);
 
                 self.gen_unit()
             }
-            ast::ExprKind::Continue(term) => {
+            ast::Ast::Continue(term) => {
                 let head_block = state.loop_blocks.last().unwrap().head;
                 self.builder.build_unconditional_branch(head_block);
 
                 self.gen_unit()
             }
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Return(ret) => {
                 let value = ret
                     .expr
                     .as_ref()
@@ -885,11 +884,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_unit()
             }
-            ast::ExprKind::If(if_) => self.gen_if_expr(state, if_),
-            ast::ExprKind::Block(block) => self.gen_block(state, block, deref),
-            ast::ExprKind::Binary(binary) => self.gen_binary(state, binary, expr.span),
-            ast::ExprKind::Unary(unary) => self.gen_unary(state, unary, expr.span, deref),
-            ast::ExprKind::Subscript(sub) => {
+            ast::Ast::If(if_) => self.gen_if_expr(state, if_),
+            ast::Ast::Block(block) => self.gen_block(state, block, deref),
+            ast::Ast::Binary(binary) => self.gen_binary(state, binary, expr.span),
+            ast::Ast::Unary(unary) => self.gen_unary(state, unary, expr.span, deref),
+            ast::Ast::Subscript(sub) => {
                 let value = self.gen_expr(state, &sub.expr, false);
                 let index = self.gen_expr(state, &sub.index, true).into_int_value();
 
@@ -908,7 +907,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_subscript(value, &ty, index, deref)
             }
-            ast::ExprKind::Slice(slice) => {
+            ast::Ast::Slice(slice) => {
                 let ptr = self
                     .gen_expr(state, &slice.expr, false)
                     .into_pointer_value();
@@ -976,8 +975,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     slice_ptr.into()
                 }
             }
-            ast::ExprKind::Call(call) => self.gen_fn_call_expr(state, call, expr.ty),
-            ast::ExprKind::MemberAccess(access) => {
+            ast::Ast::Call(call) => self.gen_fn_call_expr(state, call, expr.ty),
+            ast::Ast::MemberAccess(access) => {
                 let value = self.gen_expr(state, &access.expr, false);
                 let accessed_ty = access.expr.ty.normalize(self.tycx);
 
@@ -1080,7 +1079,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     _ => unreachable!("invalid ty `{}`", accessed_ty),
                 }
             }
-            ast::ExprKind::Ident(ident) => {
+            ast::Ast::Ident(ident) => {
                 assert!(ident.binding_id != BindingId::unknown());
 
                 let decl = match state.scopes.get(ident.binding_id) {
@@ -1096,7 +1095,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     ptr.into()
                 }
             }
-            ast::ExprKind::ArrayLiteral(lit) => {
+            ast::Ast::ArrayLiteral(lit) => {
                 let ty = expr.ty.normalize(self.tycx);
                 let array_ptr = match &lit.kind {
                     ast::ArrayLiteralKind::List(elements) => {
@@ -1205,7 +1204,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     array_ptr
                 }
             }
-            ast::ExprKind::TupleLiteral(lit) => {
+            ast::Ast::TupleLiteral(lit) => {
                 let ty = expr.ty.normalize(self.tycx);
                 if ty.is_type() {
                     return self.gen_unit();
@@ -1231,29 +1230,29 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     tuple.into()
                 }
             }
-            ast::ExprKind::StructLiteral(lit) => {
+            ast::Ast::StructLiteral(lit) => {
                 self.gen_struct_literal(state, &expr.ty.normalize(self.tycx), &lit.fields, deref)
             }
 
-            ast::ExprKind::Literal(_) => {
+            ast::Ast::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
 
-            ast::ExprKind::PointerType(..)
-            | ast::ExprKind::MultiPointerType(..)
-            | ast::ExprKind::ArrayType(..)
-            | ast::ExprKind::SliceType(..)
-            | ast::ExprKind::StructType(..)
-            | ast::ExprKind::SelfType
-            | ast::ExprKind::Placeholder
-            | ast::ExprKind::FunctionType(..) => self.gen_unit(),
+            ast::Ast::PointerType(..)
+            | ast::Ast::MultiPointerType(..)
+            | ast::Ast::ArrayType(..)
+            | ast::Ast::SliceType(..)
+            | ast::Ast::StructType(..)
+            | ast::Ast::SelfType
+            | ast::Ast::Placeholder
+            | ast::Ast::FunctionType(..) => self.gen_unit(),
 
-            ast::ExprKind::ConstValue(const_value) => {
+            ast::Ast::ConstValue(const_value) => {
                 let ty = expr.ty.normalize(self.tycx);
                 self.gen_const_value(Some(state), const_value, &ty)
             }
 
-            ast::ExprKind::Error(_) => panic!("unexpected error node"),
+            ast::Ast::Error(_) => panic!("unexpected error node"),
         };
 
         if expr.ty.normalize(self.tycx).is_never() {
@@ -1289,7 +1288,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
     }
 
-    pub fn gen_expr_list(&mut self, state: &mut CodegenState<'ctx>, expr_list: &[ast::Expr]) {
+    pub fn gen_expr_list(&mut self, state: &mut CodegenState<'ctx>, expr_list: &[ast::Ast]) {
         for expr in expr_list {
             self.gen_expr(state, expr, true);
         }
@@ -1388,7 +1387,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         id: BindingId,
-        expr: &Option<Box<ast::Expr>>,
+        expr: &Option<Box<ast::Ast>>,
         ty: &Type,
     ) -> PointerValue<'ctx> {
         if let Some(expr) = expr {
@@ -1404,7 +1403,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_cast(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        expr: &Box<ast::Expr>,
+        expr: &Box<ast::Ast>,
         target_ty: &TypeId,
     ) -> BasicValueEnum<'ctx> {
         let value = self.gen_expr(state, expr, true);

@@ -1,5 +1,5 @@
 use super::sess::{InitState, LintSess};
-use crate::ast::{ast, workspace::BindingId};
+use crate::ast::{workspace::BindingId};
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::span::Span;
 
@@ -28,7 +28,7 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    pub fn check_assign_lvalue_id_access(&mut self, lvalue: &ast::Expr, binding_id: BindingId) {
+    pub fn check_assign_lvalue_id_access(&mut self, lvalue: &ast::binding_id: BindingId) {
         let binding_info = self.workspace.binding_infos.get(binding_id).unwrap();
         let init_state = self.init_scopes.value(binding_id).unwrap();
 

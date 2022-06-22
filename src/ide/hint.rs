@@ -1,5 +1,5 @@
 use super::types::*;
-use crate::ast::{ast, ty::Type, workspace::Workspace};
+use crate::ast::{ty::Type, workspace::Workspace};
 use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
 use crate::span::{EndPosition, Position, Span};
 
@@ -126,31 +126,31 @@ impl<'a> CollectHints<'a> for ast::Block {
     }
 }
 
-impl<'a> CollectHints<'a> for ast::Expr {
+impl<'a> CollectHints<'a> for ast::Ast {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         match &self.kind {
-            ast::ExprKind::Binding(binding) => binding.collect_hints(sess),
-            ast::ExprKind::Assignment(assignment) => {
+            ast::Ast::Binding(binding) => binding.collect_hints(sess),
+            ast::Ast::Assignment(assignment) => {
                 assignment.lvalue.collect_hints(sess);
                 assignment.rvalue.collect_hints(sess);
             }
-            ast::ExprKind::Cast(t) => t.expr.collect_hints(sess),
-            ast::ExprKind::Builtin(b) => match b {
-                ast::Builtin::Import(_) => (),
-                ast::Builtin::SizeOf(expr)
-                | ast::Builtin::AlignOf(expr)
-                | ast::Builtin::Run(expr, _) => expr.collect_hints(sess),
-                ast::Builtin::Panic(expr) => expr.collect_hints(sess),
+            ast::Ast::Cast(t) => t.expr.collect_hints(sess),
+            ast::Ast::Builtin(b) => match b {
+                ast::BuiltinKind::Import(_) => (),
+                ast::BuiltinKind::SizeOf(expr)
+                | ast::BuiltinKind::AlignOf(expr)
+                | ast::BuiltinKind::Run(expr, _) => expr.collect_hints(sess),
+                ast::BuiltinKind::Panic(expr) => expr.collect_hints(sess),
             },
-            ast::ExprKind::Function(f) => {
+            ast::Ast::Function(f) => {
                 f.sig.collect_hints(sess);
                 f.body.collect_hints(sess);
             }
-            ast::ExprKind::While(while_) => {
+            ast::Ast::While(while_) => {
                 while_.cond.collect_hints(sess);
                 while_.block.collect_hints(sess);
             }
-            ast::ExprKind::For(for_) => {
+            ast::Ast::For(for_) => {
                 match &for_.iterator {
                     ast::ForIter::Range(s, e) => {
                         s.collect_hints(sess);
@@ -162,71 +162,71 @@ impl<'a> CollectHints<'a> for ast::Expr {
                 }
                 for_.block.collect_hints(sess);
             }
-            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => (),
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Break(_) | ast::Ast::Continue(_) => (),
+            ast::Ast::Return(ret) => {
                 ret.expr.collect_hints(sess);
             }
-            ast::ExprKind::If(if_) => {
+            ast::Ast::If(if_) => {
                 if_.cond.collect_hints(sess);
                 if_.then.collect_hints(sess);
                 if_.otherwise.collect_hints(sess);
             }
-            ast::ExprKind::Block(block) => block.collect_hints(sess),
-            ast::ExprKind::Binary(binary) => {
+            ast::Ast::Block(block) => block.collect_hints(sess),
+            ast::Ast::Binary(binary) => {
                 binary.lhs.collect_hints(sess);
                 binary.rhs.collect_hints(sess);
             }
-            ast::ExprKind::Unary(unary) => {
+            ast::Ast::Unary(unary) => {
                 unary.lhs.collect_hints(sess);
             }
-            ast::ExprKind::Subscript(sub) => {
+            ast::Ast::Subscript(sub) => {
                 sub.expr.collect_hints(sess);
                 sub.index.collect_hints(sess);
             }
-            ast::ExprKind::Slice(slice) => {
+            ast::Ast::Slice(slice) => {
                 slice.expr.collect_hints(sess);
                 slice.low.collect_hints(sess);
                 slice.high.collect_hints(sess);
             }
-            ast::ExprKind::Call(call) => {
+            ast::Ast::Call(call) => {
                 call.callee.collect_hints(sess);
                 call.args.collect_hints(sess);
             }
-            ast::ExprKind::MemberAccess(access) => access.expr.collect_hints(sess),
-            ast::ExprKind::ArrayLiteral(lit) => match &lit.kind {
+            ast::Ast::MemberAccess(access) => access.expr.collect_hints(sess),
+            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
                 ast::ArrayLiteralKind::List(l) => l.collect_hints(sess),
                 ast::ArrayLiteralKind::Fill { len, expr } => {
                     len.collect_hints(sess);
                     expr.collect_hints(sess);
                 }
             },
-            ast::ExprKind::TupleLiteral(lit) => {
+            ast::Ast::TupleLiteral(lit) => {
                 lit.elements.collect_hints(sess);
             }
-            ast::ExprKind::StructLiteral(lit) => {
+            ast::Ast::StructLiteral(lit) => {
                 lit.type_expr.collect_hints(sess);
                 for field in &lit.fields {
                     field.expr.collect_hints(sess);
                 }
             }
-            ast::ExprKind::PointerType(e)
-            | ast::ExprKind::MultiPointerType(e)
-            | ast::ExprKind::SliceType(e) => e.inner.collect_hints(sess),
-            ast::ExprKind::ArrayType(at) => at.inner.collect_hints(sess),
-            ast::ExprKind::StructType(s) => {
+            ast::Ast::PointerType(e) | ast::Ast::MultiPointerType(e) | ast::Ast::SliceType(e) => {
+                e.inner.collect_hints(sess)
+            }
+            ast::Ast::ArrayType(at) => at.inner.collect_hints(sess),
+            ast::Ast::StructType(s) => {
                 for f in &s.fields {
                     f.ty.collect_hints(sess);
                 }
             }
-            ast::ExprKind::FunctionType(sig) => {
+            ast::Ast::FunctionType(sig) => {
                 sig.collect_hints(sess);
             }
-            ast::ExprKind::Ident(_)
-            | ast::ExprKind::Literal(_)
-            | ast::ExprKind::SelfType
-            | ast::ExprKind::ConstValue(_)
-            | ast::ExprKind::Placeholder
-            | ast::ExprKind::Error(_) => (),
+            ast::Ast::Ident(_)
+            | ast::Ast::Literal(_)
+            | ast::Ast::SelfType
+            | ast::Ast::ConstValue(_)
+            | ast::Ast::Placeholder
+            | ast::Ast::Error(_) => (),
         }
     }
 }

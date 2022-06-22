@@ -1,5 +1,5 @@
 use super::codegen::{Codegen, CodegenState};
-use crate::ast::ast;
+use crate::ast;
 use inkwell::{
     basic_block::BasicBlock,
     values::{BasicValueEnum, IntValue},

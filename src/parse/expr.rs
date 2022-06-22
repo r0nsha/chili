@@ -1,9 +1,7 @@
 use super::*;
 use crate::ast::{
-    ast::{
-        self, BinaryOp, Block, Builtin, Expr, ExprKind, ForIter, NameAndId, UnaryOp, Visibility,
-    },
-    ty::StructTypeKind,
+    self, ty::StructTypeKind, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndId, UnaryOp,
+    Visibility,
 };
 use crate::error::{
     diagnostic::{Diagnostic, Label},
@@ -17,21 +15,20 @@ use ustr::ustr;
 macro_rules! parse_binary {
     ($parser:expr, pattern = $(|) ? $($pattern : pat_param) | +, next_fn = $next:expr) => {{
         let mut expr = $next($parser)?;
-        let start_span = expr.span;
+        let start_span = expr.span();
 
         while eat!($parser, $( $pattern )|+) {
             let op: BinaryOp = $parser.previous().kind.into();
             let rhs = $next($parser)?;
             let span = start_span.to($parser.previous_span());
 
-            expr = Expr::new(
-                ExprKind::Binary(ast::Binary {
+            expr = Ast::Binary(ast::Binary {
                     lhs: Box::new(expr),
                     op,
                     rhs: Box::new(rhs),
+                    ty: Default::default(),
                     span,
-                }),
-                span,
+                }
             );
         }
 
@@ -40,19 +37,19 @@ macro_rules! parse_binary {
 }
 
 impl Parser {
-    pub fn parse_expr(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_expr(&mut self) -> DiagnosticResult<Ast> {
         self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(ustr("")))
     }
 
-    pub fn parse_expr_with_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Expr> {
+    pub fn parse_expr_with_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
         self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
     }
 
-    pub fn parse_decl_expr(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
+    pub fn parse_decl_expr(&mut self, decl_name: Ustr) -> DiagnosticResult<Ast> {
         self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(decl_name))
     }
 
-    fn parse_expr_inner(&mut self, decl_name: Ustr) -> DiagnosticResult<Expr> {
+    fn parse_expr_inner(&mut self, decl_name: Ustr) -> DiagnosticResult<Ast> {
         let is_stmt = self.restrictions.contains(Restrictions::STMT_EXPR);
 
         self.decl_name_frames.push(decl_name);
@@ -61,21 +58,13 @@ impl Parser {
             if eat!(self, Let) {
                 let start_span = self.previous_span();
 
-                if eat!(self, Extern) {
-                    let binding = self.parse_extern(Visibility::Private, start_span)?;
-
-                    Ok(Expr::new(
-                        ExprKind::Binding(binding),
-                        start_span.to(self.previous_span()),
-                    ))
+                let binding = if eat!(self, Extern) {
+                    self.parse_extern(Visibility::Private, start_span)?
                 } else {
-                    let binding = self.parse_binding(Visibility::Private, false)?;
+                    self.parse_binding(Visibility::Private, false)?
+                };
 
-                    Ok(Expr::new(
-                        ExprKind::Binding(binding),
-                        start_span.to(self.previous_span()),
-                    ))
-                }
+                Ok(Ast::Binding(binding))
             } else {
                 self.parse_logic_or()
             }
@@ -90,7 +79,7 @@ impl Parser {
         Ok(expr)
     }
 
-    pub fn parse_if(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_if(&mut self) -> DiagnosticResult<Ast> {
         let token = self.previous();
         let span = token.span;
 
@@ -112,14 +101,13 @@ impl Parser {
             None
         };
 
-        Ok(Expr::new(
-            ExprKind::If(ast::If {
-                cond: Box::new(cond),
-                then: Box::new(then),
-                otherwise,
-            }),
-            span.to(self.previous_span()),
-        ))
+        Ok(Ast::If(ast::If {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            otherwise,
+            ty: Default::default(),
+            span: span.to(self.previous_span()),
+        }))
     }
 
     pub fn parse_block(&mut self) -> DiagnosticResult<Block> {
@@ -139,7 +127,10 @@ impl Parser {
                     self.cache.lock().diagnostics.push(diag);
                     self.skip_until_recovery_point();
 
-                    Expr::new(ast::ExprKind::Error(span), span)
+                    ast::Ast::Error(ast::Empty {
+                        ty: Default::default(),
+                        span,
+                    })
                 });
 
             exprs.push(expr);
@@ -150,7 +141,7 @@ impl Parser {
             } else if eat!(self, CloseCurly) {
                 yields = true;
                 break;
-            } else if exprs.last().map_or(false, expr_doesnt_require_semicolon) {
+            } else if exprs.last().map_or(false, ast_doesnt_require_semicolon) {
                 continue;
             } else {
                 let span = Parser::get_missing_delimiter_span(self.previous_span());
@@ -162,30 +153,27 @@ impl Parser {
             }
         }
 
-        let span = start_span.to(self.previous_span());
-
         Ok(Block {
             statements: exprs,
             yields,
-            span,
+            ty: Default::default(),
+            span: start_span.to(self.previous_span()),
         })
     }
 
-    pub fn parse_block_expr(&mut self) -> DiagnosticResult<Expr> {
-        let block = self.parse_block()?;
-        let span = block.span;
-        Ok(Expr::new(ExprKind::Block(block), span))
+    pub fn parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
+        Ok(Ast::Block(self.parse_block()?))
     }
 
-    pub fn parse_logic_or(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_logic_or(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = BarBar, next_fn = Parser::parse_logic_and)
     }
 
-    pub fn parse_logic_and(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_logic_and(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = AmpAmp, next_fn = Parser::parse_comparison)
     }
 
-    pub fn parse_comparison(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_comparison(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(
             self,
             pattern = BangEq | EqEq | Gt | GtEq | Lt | LtEq,
@@ -193,27 +181,27 @@ impl Parser {
         )
     }
 
-    pub fn parse_bitwise_or(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_bitwise_or(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = Bar, next_fn = Parser::parse_bitwise_xor)
     }
 
-    pub fn parse_bitwise_xor(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_bitwise_xor(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = Caret, next_fn = Parser::parse_bitwise_and)
     }
 
-    pub fn parse_bitwise_and(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_bitwise_and(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = Amp, next_fn = Parser::parse_bitshift)
     }
 
-    pub fn parse_bitshift(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_bitshift(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = LtLt | GtGt, next_fn = Parser::parse_term)
     }
 
-    pub fn parse_term(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_term(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = Minus | Plus, next_fn = Parser::parse_factor)
     }
 
-    pub fn parse_factor(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_factor(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(
             self,
             pattern = Star | FwSlash | Percent,
@@ -221,7 +209,7 @@ impl Parser {
         )
     }
 
-    pub fn parse_unary(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_unary(&mut self) -> DiagnosticResult<Ast> {
         if eat!(self, Amp | AmpAmp | Bang | Minus | Plus) {
             let start_span = self.previous_span();
             let token = self.previous().kind;
@@ -239,14 +227,12 @@ impl Parser {
 
             let span = start_span.to(self.previous_span());
 
-            let expr = Expr::new(
-                ExprKind::Unary(ast::Unary {
-                    op,
-                    lhs: Box::new(lhs),
-                    span,
-                }),
+            let expr = Ast::Unary(ast::Unary {
+                op,
+                lhs: Box::new(lhs),
+                ty: Default::default(),
                 span,
-            );
+            });
 
             Ok(expr)
         } else {
@@ -254,7 +240,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_primary(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_primary(&mut self) -> DiagnosticResult<Ast> {
         let expr = if eat!(self, Ident(_)) {
             const SELF_SYMBOL: &str = "Self";
 
@@ -262,32 +248,36 @@ impl Parser {
             let symbol = token.symbol();
 
             if symbol == SELF_SYMBOL {
-                Expr::new(ExprKind::SelfType, token.span)
+                Ast::SelfType(ast::Empty {
+                    ty: Default::default(),
+                    span: token.span,
+                })
             } else if eat!(self, Bang) {
                 self.parse_builtin(symbol, token.span)?
             } else {
-                Expr::new(
-                    ExprKind::Ident(ast::Ident {
-                        symbol,
-                        binding_id: Default::default(),
-                    }),
-                    token.span,
-                )
+                Ast::Ident(ast::Ident {
+                    symbol,
+                    binding_id: Default::default(),
+                    ty: Default::default(),
+                    span: token.span,
+                })
             }
         } else if eat!(self, Placeholder) {
-            Expr::new(ExprKind::Placeholder, self.previous_span())
+            Ast::Placeholder(ast::Empty {
+                ty: Default::default(),
+                span: self.previous_span(),
+            })
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
             let expr = self.parse_expr()?;
 
-            Expr::new(
-                ExprKind::PointerType(ast::ExprAndMut {
-                    inner: Box::new(expr),
-                    is_mutable,
-                }),
-                start_span.to(self.previous_span()),
-            )
+            Ast::PointerType(ast::ExprAndMut {
+                inner: Box::new(expr),
+                is_mutable,
+                ty: Default::default(),
+                span: start_span.to(self.previous_span()),
+            })
         } else if eat!(self, If) {
             self.parse_if()?
         } else if eat!(self, While) {
@@ -324,23 +314,23 @@ impl Parser {
             let start_span = self.previous_span();
 
             if eat!(self, CloseParen) {
-                let span = start_span.to(self.previous_span());
-                Expr::new(
-                    ExprKind::TupleLiteral(ast::TupleLiteral { elements: vec![] }),
-                    span,
-                )
+                Ast::TupleLiteral(ast::TupleLiteral {
+                    elements: vec![],
+                    ty: Default::default(),
+                    span: start_span.to(self.previous_span()),
+                })
             } else {
-                let mut expr = self.parse_expr()?;
+                let mut ast = self.parse_expr()?;
 
                 if eat!(self, Comma) {
-                    self.parse_tuple_literal(expr, start_span)?
+                    self.parse_tuple_literal(ast, start_span)?
                 } else {
                     require!(self, CloseParen, ")")?;
 
-                    expr.span.range().start -= 1;
-                    expr.span = Span::to(&expr.span, self.previous_span());
+                    ast.span().range().start -= 1;
+                    *ast.span_mut() = Span::to(&ast.span(), self.previous_span());
 
-                    expr
+                    ast
                 }
             }
         } else if eat!(self, Fn) {
@@ -359,7 +349,7 @@ impl Parser {
         self.parse_postfix_expr(expr)
     }
 
-    fn parse_array_type(&mut self) -> DiagnosticResult<Expr> {
+    fn parse_array_type(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
         if eat!(self, Star) {
@@ -375,13 +365,12 @@ impl Parser {
 
             let inner = self.parse_expr()?;
 
-            let ty = Expr::new(
-                ExprKind::MultiPointerType(ast::ExprAndMut {
-                    inner: Box::new(inner),
-                    is_mutable,
-                }),
-                start_span.to(self.previous_span()),
-            );
+            let ty = Ast::MultiPointerType(ast::ExprAndMut {
+                inner: Box::new(inner),
+                is_mutable,
+                ty: Default::default(),
+                span: start_span.to(self.previous_span()),
+            });
 
             Ok(ty)
         } else if eat!(self, CloseBracket) {
@@ -391,13 +380,12 @@ impl Parser {
             let is_mutable = eat!(self, Mut);
             let ty = self.parse_expr()?;
 
-            Ok(Expr::new(
-                ExprKind::SliceType(ast::ExprAndMut {
-                    inner: Box::new(ty),
-                    is_mutable,
-                }),
-                start_span.to(self.previous_span()),
-            ))
+            Ok(Ast::SliceType(ast::ExprAndMut {
+                inner: Box::new(ty),
+                is_mutable,
+                ty: Default::default(),
+                span: start_span.to(self.previous_span()),
+            }))
         } else {
             // array type
 
@@ -405,17 +393,16 @@ impl Parser {
             require!(self, CloseBracket, "]")?;
             let ty = self.parse_expr()?;
 
-            Ok(Expr::new(
-                ExprKind::ArrayType(ast::ArrayType {
-                    inner: Box::new(ty),
-                    size: Box::new(size),
-                }),
-                start_span.to(self.previous_span()),
-            ))
+            Ok(Ast::ArrayType(ast::ArrayType {
+                inner: Box::new(ty),
+                size: Box::new(size),
+                ty: Default::default(),
+                span: start_span.to(self.previous_span()),
+            }))
         }
     }
 
-    fn parse_struct_type(&mut self) -> DiagnosticResult<Expr> {
+    fn parse_struct_type(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
         let name = self.get_decl_name();
 
@@ -439,18 +426,17 @@ impl Parser {
 
         let fields = self.parse_struct_type_fields()?;
 
-        Ok(Expr::new(
-            ExprKind::StructType(ast::StructType {
-                name,
-                fields,
-                kind,
-                binding_id: Default::default(),
-            }),
-            start_span.to(self.previous_span()),
-        ))
+        Ok(Ast::StructType(ast::StructType {
+            name,
+            fields,
+            kind,
+            binding_id: Default::default(),
+            ty: Default::default(),
+            span: start_span.to(self.previous_span()),
+        }))
     }
 
-    fn parse_struct_union_type(&mut self) -> DiagnosticResult<Expr> {
+    fn parse_struct_union_type(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
         let name = self.get_decl_name();
 
@@ -458,15 +444,14 @@ impl Parser {
 
         let fields = self.parse_struct_type_fields()?;
 
-        Ok(Expr::new(
-            ExprKind::StructType(ast::StructType {
-                name,
-                fields,
-                kind: StructTypeKind::Union,
-                binding_id: Default::default(),
-            }),
-            start_span.to(self.previous_span()),
-        ))
+        Ok(Ast::StructType(ast::StructType {
+            name,
+            fields,
+            kind: StructTypeKind::Union,
+            binding_id: Default::default(),
+            ty: Default::default(),
+            span: start_span.to(self.previous_span()),
+        }))
     }
 
     fn parse_struct_type_fields(&mut self) -> DiagnosticResult<Vec<ast::StructTypeField>> {
@@ -494,19 +479,19 @@ impl Parser {
         Ok(fields)
     }
 
-    fn parse_builtin(&mut self, symbol: Ustr, start_span: Span) -> DiagnosticResult<Expr> {
+    fn parse_builtin(&mut self, symbol: Ustr, start_span: Span) -> DiagnosticResult<Ast> {
         require!(self, OpenParen, "(")?;
 
-        let builtin = match symbol.as_str() {
+        let kind = match symbol.as_str() {
             "import" => self.parse_builtin_import()?,
-            "size_of" => Builtin::SizeOf(Box::new(self.parse_expr()?)),
-            "align_of" => Builtin::AlignOf(Box::new(self.parse_expr()?)),
-            "panic" => Builtin::Panic(if is!(self, CloseParen) {
+            "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
+            "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
+            "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {
                 None
             } else {
                 Some(Box::new(self.parse_expr()?))
             }),
-            "run" => Builtin::Run(Box::new(self.parse_expr()?), None),
+            "run" => BuiltinKind::Run(Box::new(self.parse_expr()?), None),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))
@@ -516,13 +501,14 @@ impl Parser {
 
         require!(self, CloseParen, ")")?;
 
-        Ok(Expr::new(
-            ExprKind::Builtin(builtin),
-            start_span.to(self.previous_span()),
-        ))
+        Ok(Ast::Builtin(ast::Builtin {
+            kind,
+            ty: Default::default(),
+            span: start_span.to(self.previous_span()),
+        }))
     }
 
-    pub fn parse_while(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
         let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
@@ -530,16 +516,15 @@ impl Parser {
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
-        Ok(Expr::new(
-            ExprKind::While(ast::While {
-                cond: Box::new(cond),
-                block,
-            }),
-            start_span.to(self.previous_span()),
-        ))
+        Ok(Ast::While(ast::While {
+            cond: Box::new(cond),
+            block,
+            ty: Default::default(),
+            span: start_span.to(self.previous_span()),
+        }))
     }
 
-    pub fn parse_for(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_for(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
         let iter_name = require!(self, Ident(_), "an identifier")?.symbol();
@@ -564,24 +549,29 @@ impl Parser {
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
-        Ok(Expr::new(
-            ExprKind::For(ast::For {
-                iter_binding: NameAndId::new(iter_name),
-                index_binding: iter_index_name.map(|name| NameAndId::new(name)),
-                iterator,
-                block,
-            }),
-            start_span.to(self.previous_span()),
-        ))
+        Ok(Ast::For(ast::For {
+            iter_binding: NameAndId::new(iter_name),
+            index_binding: iter_index_name.map(|name| NameAndId::new(name)),
+            iterator,
+            block,
+            ty: Default::default(),
+            span: start_span.to(self.previous_span()),
+        }))
     }
 
-    pub fn parse_terminator(&mut self) -> DiagnosticResult<Expr> {
+    pub fn parse_terminator(&mut self) -> DiagnosticResult<Ast> {
         let token = self.previous();
         let span = token.span;
 
-        let kind = match token.kind {
-            Break => ExprKind::Break(ast::Terminator {}),
-            Continue => ExprKind::Continue(ast::Terminator {}),
+        match token.kind {
+            Break => Ok(Ast::Break(ast::Terminator {
+                ty: Default::default(),
+                span,
+            })),
+            Continue => Ok(Ast::Continue(ast::Terminator {
+                ty: Default::default(),
+                span,
+            })),
             Return => {
                 let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
@@ -590,22 +580,21 @@ impl Parser {
                     Some(Box::new(expr))
                 };
 
-                ExprKind::Return(ast::Return { expr })
+                Ok(Ast::Return(ast::Return {
+                    expr,
+                    ty: Default::default(),
+                    span: span.to(self.previous_span()),
+                }))
             }
             _ => panic!("got an invalid terminator"),
-        };
-
-        Ok(Expr::new(kind, span.to(self.previous_span())))
+        }
     }
 }
 
 #[inline(always)]
-fn expr_doesnt_require_semicolon(expr: &ast::Expr) -> bool {
-    match &expr.kind {
-        ast::ExprKind::For(_)
-        | ast::ExprKind::While(_)
-        | ast::ExprKind::If(_)
-        | ast::ExprKind::Block(_) => true,
+fn ast_doesnt_require_semicolon(ast: &ast::Ast) -> bool {
+    match ast {
+        ast::Ast::For(_) | ast::Ast::While(_) | ast::Ast::If(_) | ast::Ast::Block(_) => true,
         _ => false,
     }
 }

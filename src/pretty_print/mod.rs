@@ -1,4 +1,4 @@
-use crate::ast::{ast, ty::Type, workspace::Workspace};
+use crate::ast::{self, ty::Type, workspace::Workspace};
 use crate::infer::{display::DisplayTy, ty_ctx::TyCtx};
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
@@ -147,7 +147,7 @@ impl PrintTree for ast::FunctionExpr {
 impl PrintTree for ast::Block {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         let ty = match self.statements.last() {
-            Some(e) => tycx.ty_kind(e.ty),
+            Some(e) => tycx.ty_kind(e.ty()),
             None => Type::Unit,
         };
         b.begin_child(format!("block <{}>", ty));
@@ -189,60 +189,60 @@ impl PrintTree for ast::FunctionSig {
     }
 }
 
-impl PrintTree for ast::Expr {
+impl PrintTree for ast::Ast {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
-        match &self.kind {
-            ast::ExprKind::Binding(binding) => binding.print_tree(b, workspace, tycx),
-            ast::ExprKind::Assignment(assignment) => {
+        match self {
+            ast::Ast::Binding(binding) => binding.print_tree(b, workspace, tycx),
+            ast::Ast::Assignment(assignment) => {
                 b.begin_child("assignment".to_string());
                 assignment.lvalue.print_tree(b, workspace, tycx);
                 assignment.rvalue.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Cast(cast) => {
+            ast::Ast::Cast(cast) => {
                 b.begin_child("cast".to_string());
                 cast.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Builtin(builtin) => {
-                match builtin {
-                    ast::Builtin::Import(path) => {
+            ast::Ast::Builtin(builtin) => {
+                match &builtin.kind {
+                    ast::BuiltinKind::Import(path) => {
                         b.add_empty_child(format!("import!(\"{}\")", path.to_str().unwrap()));
                     }
-                    ast::Builtin::SizeOf(expr) => {
+                    ast::BuiltinKind::SizeOf(expr) => {
                         b.begin_child("size_of!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::AlignOf(expr) => {
+                    ast::BuiltinKind::AlignOf(expr) => {
                         b.begin_child("align_of!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::Run(expr, result) => {
+                    ast::BuiltinKind::Run(expr, result) => {
                         b.begin_child(format!("run!(resulted in: {:?})", result.as_ref().unwrap()));
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::Builtin::Panic(expr) => {
+                    ast::BuiltinKind::Panic(expr) => {
                         b.begin_child("panic!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
                 };
             }
-            ast::ExprKind::Function(closure) => {
+            ast::Ast::Function(closure) => {
                 b.begin_child(closure.sig.to_string());
                 closure.body.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::While(while_) => {
+            ast::Ast::While(while_) => {
                 b.begin_child("while".to_string());
                 while_.cond.print_tree(b, workspace, tycx);
                 while_.block.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::For(for_) => {
+            ast::Ast::For(for_) => {
                 if let Some(index_binding) = &for_.index_binding {
                     b.begin_child(format!(
                         "for {}, {}",
@@ -273,19 +273,19 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Break(_) => {
+            ast::Ast::Break(_) => {
                 b.add_empty_child("break".to_string());
             }
-            ast::ExprKind::Continue(_) => {
+            ast::Ast::Continue(_) => {
                 b.add_empty_child("continue".to_string());
             }
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Return(ret) => {
                 b.begin_child("return".to_string());
                 ret.expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::If(if_) => {
-                b.begin_child(format!("if <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::If(if_) => {
+                b.begin_child(format!("if <{}>", tycx.ty_kind(if_.ty)));
                 if_.cond.print_tree(b, workspace, tycx);
                 if_.then.print_tree(b, workspace, tycx);
 
@@ -297,27 +297,27 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Block(block) => {
+            ast::Ast::Block(block) => {
                 block.print_tree(b, workspace, tycx);
             }
-            ast::ExprKind::Binary(binary) => {
-                b.begin_child(format!("{} <{}>", binary.op, tycx.ty_kind(self.ty)));
+            ast::Ast::Binary(binary) => {
+                b.begin_child(format!("{} <{}>", binary.op, tycx.ty_kind(binary.ty)));
                 binary.lhs.print_tree(b, workspace, tycx);
                 binary.rhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Unary(unary) => {
-                b.begin_child(format!("{} <{}>", unary.op, tycx.ty_kind(self.ty)));
+            ast::Ast::Unary(unary) => {
+                b.begin_child(format!("{} <{}>", unary.op, tycx.ty_kind(unary.ty)));
                 unary.lhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Subscript(sub) => {
-                b.begin_child(format!("subscript <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::Subscript(sub) => {
+                b.begin_child(format!("subscript <{}>", tycx.ty_kind(sub.ty)));
                 sub.expr.print_tree(b, workspace, tycx);
                 sub.index.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Slice(slice) => {
+            ast::Ast::Slice(slice) => {
                 b.begin_child("slice".to_string());
                 slice.expr.print_tree(b, workspace, tycx);
 
@@ -335,10 +335,10 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::Call(call) => {
-                b.begin_child(format!("call <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::Call(call) => {
+                b.begin_child(format!("call <{}>", tycx.ty_kind(call.ty)));
 
-                b.begin_child(format!("callee <{}>", tycx.ty_kind(call.callee.ty)));
+                b.begin_child(format!("callee <{}>", tycx.ty_kind(call.callee.ty())));
                 call.callee.print_tree(b, workspace, tycx);
                 b.end_child();
 
@@ -350,20 +350,20 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::MemberAccess(access) => {
+            ast::Ast::MemberAccess(access) => {
                 b.begin_child(format!(
                     "access `{}` <{}>",
                     access.member,
-                    tycx.ty_kind(self.ty)
+                    tycx.ty_kind(access.ty)
                 ));
                 access.expr.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::Ident(ident) => {
-                b.add_empty_child(format!("`{}` <{}>", ident.symbol, tycx.ty_kind(self.ty)));
+            ast::Ast::Ident(ident) => {
+                b.add_empty_child(format!("`{}` <{}>", ident.symbol, tycx.ty_kind(ident.ty)));
             }
-            ast::ExprKind::ArrayLiteral(lit) => {
-                b.begin_child(format!("array literal <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::ArrayLiteral(lit) => {
+                b.begin_child(format!("array literal <{}>", tycx.ty_kind(lit.ty)));
 
                 match &lit.kind {
                     ast::ArrayLiteralKind::List(elements) => {
@@ -381,13 +381,13 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::TupleLiteral(lit) => {
-                b.begin_child(format!("tuple literal <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::TupleLiteral(lit) => {
+                b.begin_child(format!("tuple literal <{}>", tycx.ty_kind(lit.ty)));
                 lit.elements.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::StructLiteral(lit) => {
-                b.begin_child(format!("struct literal <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::StructLiteral(lit) => {
+                b.begin_child(format!("struct literal <{}>", tycx.ty_kind(lit.ty)));
                 lit.type_expr.print_tree(b, workspace, tycx);
                 for f in &lit.fields {
                     b.begin_child(f.symbol.to_string());
@@ -396,29 +396,29 @@ impl PrintTree for ast::Expr {
                 }
                 b.end_child();
             }
-            ast::ExprKind::Literal(lit) => {
-                b.add_empty_child(format!("{} <{}>", lit.kind, tycx.ty_kind(self.ty)));
+            ast::Ast::Literal(lit) => {
+                b.add_empty_child(format!("{} <{}>", lit.kind, tycx.ty_kind(lit.ty)));
             }
-            ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
+            ast::Ast::PointerType(em) => {
                 b.begin_child(format!(
                     "{}pointer type <{}>",
-                    if *is_mutable { "mut " } else { "" },
-                    tycx.ty_kind(self.ty)
+                    if em.is_mutable { "mut " } else { "" },
+                    tycx.ty_kind(em.ty)
                 ));
-                inner.print_tree(b, workspace, tycx);
+                em.inner.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
+            ast::Ast::MultiPointerType(em) => {
                 b.begin_child(format!(
                     "{}multi-pointer type <{}>",
-                    if *is_mutable { "mut " } else { "" },
-                    tycx.ty_kind(self.ty)
+                    if em.is_mutable { "mut " } else { "" },
+                    tycx.ty_kind(em.ty)
                 ));
-                inner.print_tree(b, workspace, tycx);
+                em.inner.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::ArrayType(at) => {
-                b.begin_child(format!("array type <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::ArrayType(at) => {
+                b.begin_child(format!("array type <{}>", tycx.ty_kind(at.ty)));
 
                 b.begin_child("type".to_string());
                 at.inner.print_tree(b, workspace, tycx);
@@ -430,16 +430,16 @@ impl PrintTree for ast::Expr {
 
                 b.end_child();
             }
-            ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
+            ast::Ast::SliceType(em) => {
                 b.begin_child(format!(
                     "{}slice type <{}>",
-                    if *is_mutable { "mut " } else { "" },
-                    tycx.ty_kind(self.ty)
+                    if em.is_mutable { "mut " } else { "" },
+                    tycx.ty_kind(em.ty)
                 ));
-                inner.print_tree(b, workspace, tycx);
+                em.inner.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::StructType(ty) => {
+            ast::Ast::StructType(ty) => {
                 b.begin_child("struct type".to_string());
                 for field in &ty.fields {
                     b.begin_child(format!("field {}", field.name));
@@ -448,25 +448,25 @@ impl PrintTree for ast::Expr {
                 }
                 b.end_child();
             }
-            ast::ExprKind::FunctionType(sig) => {
+            ast::Ast::FunctionType(sig) => {
                 b.begin_child("fn type".to_string());
                 sig.print_tree(b, workspace, tycx);
                 b.end_child();
             }
-            ast::ExprKind::SelfType => {
-                b.add_empty_child(format!("Self <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::SelfType(x) => {
+                b.add_empty_child(format!("Self <{}>", tycx.ty_kind(x.ty)));
             }
-            ast::ExprKind::Placeholder => {
-                b.add_empty_child(format!("_ (type hole) <{}>", tycx.ty_kind(self.ty)));
+            ast::Ast::Placeholder(x) => {
+                b.add_empty_child(format!("_ (type hole) <{}>", tycx.ty_kind(x.ty)));
             }
-            ast::ExprKind::ConstValue(const_value) => {
+            ast::Ast::ConstValue(const_) => {
                 b.add_empty_child(format!(
                     "const value: {} <{}>",
-                    const_value.to_string(),
-                    tycx.ty_kind(self.ty)
+                    const_.value.to_string(),
+                    tycx.ty_kind(const_.ty)
                 ));
             }
-            ast::ExprKind::Error(_) => {
+            ast::Ast::Error(_) => {
                 b.add_empty_child("Error".to_string());
             }
         }
@@ -479,12 +479,12 @@ impl PrintTree for ast::Cast {
         self.expr.print_tree(b, workspace, tycx);
         b.end_child();
 
-        if let Some(type_expr) = &self.ty_expr {
+        if let Some(type_expr) = &self.target {
             b.begin_child("to".to_string());
             type_expr.print_tree(b, workspace, tycx);
             b.end_child();
         } else {
-            b.add_empty_child(format!("autocast -> {}", self.target_ty.display(tycx)));
+            b.add_empty_child(format!("autocast -> {}", self.ty.display(tycx)));
         }
     }
 }

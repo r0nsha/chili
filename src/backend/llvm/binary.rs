@@ -1,5 +1,5 @@
 use super::codegen::{Codegen, CodegenState};
-use crate::ast::{ast, ty::*};
+use crate::ast::{self, ty::*};
 use crate::infer::normalize::Normalize;
 use crate::span::Span;
 use inkwell::{

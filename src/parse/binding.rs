@@ -1,10 +1,10 @@
 use super::*;
 use crate::ast::{
-    ast::{Binding, BindingKind, Intrinsic, Visibility},
     path::RelativeTo,
     pattern::{Pattern, SymbolPattern},
     ty::TypeId,
     workspace::{BindingId, ModuleId},
+    Binding, BindingKind, Intrinsic, Visibility,
 };
 use crate::error::diagnostic::Label;
 use crate::span::To;

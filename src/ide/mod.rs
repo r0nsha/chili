@@ -2,7 +2,7 @@ mod hint;
 mod types;
 mod util;
 
-use crate::ast::{ast::TypedAst, ty::Type, workspace::Workspace};
+use crate::ast::{ast::Typedty::Type, workspace::Workspace};
 use crate::error::diagnostic::DiagnosticSeverity;
 use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
 use crate::span::{EndPosition, Position, Span};

@@ -1,6 +1,6 @@
 use super::*;
 use crate::ast::{
-    ast, compiler_info,
+    compiler_info,
     path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
 };
 use crate::error::{
@@ -11,7 +11,7 @@ use std::path::Path;
 use ustr::ustr;
 
 impl Parser {
-    pub fn parse_builtin_import(&mut self) -> DiagnosticResult<ast::Builtin> {
+    pub fn parse_builtin_import(&mut self) -> DiagnosticResult<ast::BuiltinKind> {
         let token = require!(self, Str(_), "string")?;
         let path = token.symbol().as_str();
 
@@ -76,7 +76,7 @@ impl Parser {
             module_info,
         );
 
-        Ok(ast::Builtin::Import(absolute_import_path))
+        Ok(ast::BuiltinKind::Import(absolute_import_path))
     }
 
     fn search_for_import_path(

@@ -5,7 +5,7 @@ mod env;
 mod top_level;
 
 use crate::ast::{
-    ast::{self, BindingKind, FunctionId},
+    self, BindingKind, FunctionId,
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
@@ -45,21 +45,21 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> (ast::Typed
 
     if let Err(diag) = sess.start() {
         sess.workspace.diagnostics.push(diag);
-        return (sess.new_typed_ast, sess.tycx);
+        return (sess.typed_ast, sess.tycx);
     }
 
     if sess.workspace.diagnostics.has_errors() {
-        return (sess.new_typed_ast, sess.tycx);
+        return (sess.typed_ast, sess.tycx);
     }
 
     substitute(
         &mut sess.workspace.diagnostics,
         &mut sess.tycx,
-        &sess.new_typed_ast,
+        &sess.typed_ast,
     );
 
     for binding in sess
-        .new_typed_ast
+        .typed_ast
         .bindings
         .iter()
         .map(|(_, b)| b)
@@ -77,7 +77,7 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> (ast::Typed
         }
     }
 
-    (sess.new_typed_ast, sess.tycx)
+    (sess.typed_ast.sess.tycx)
 }
 
 fn ty_is_extern(ty: &Type) -> bool {
@@ -124,7 +124,7 @@ pub struct CheckSess<'s> {
     pub modules: &'s Vec<ast::Module>,
 
     // The new typed ast being generated
-    pub new_typed_ast: ast::TypedAst,
+    pub typed_ast: ast::TypedAst,
     pub checked_modules: HashMap<ModuleId, TypeId>,
 
     // Information that's relevant for the global context
@@ -160,7 +160,7 @@ impl<'s> CheckSess<'s> {
             interp,
             tycx: TyCtx::default(),
             modules: old_asts,
-            new_typed_ast: ast::TypedAst::default(),
+            typed_ast: ast::TypedAst::default(),
             checked_modules: HashMap::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
@@ -304,10 +304,10 @@ impl<'s> CheckSess<'s> {
         mk(self, builtin::SYM_STR, self.tycx.common_types.str);
     }
 
-    pub fn is_mutable(&self, expr: &ast::ExprKind) -> bool {
+    pub fn is_mutable(&self, expr: &ast::Ast) -> bool {
         match expr {
-            ast::ExprKind::MemberAccess(access) => self.is_mutable(&access.expr.kind),
-            ast::ExprKind::Ident(ident) => {
+            ast::Ast::MemberAccess(access) => self.is_mutable(&access.expr.kind),
+            ast::Ast::Ident(ident) => {
                 self.workspace
                     .binding_infos
                     .get(ident.binding_id)
@@ -506,7 +506,7 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
-                let id = sess.new_typed_ast.functions.insert_with_id(ast::Function {
+                let id = sess.typed_ast.functions.insert_with_id(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
                     ty: self.ty,
@@ -524,10 +524,13 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(Box::new(ast::Expr::new(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    pattern.span,
-                )));
+                self.expr = Some(Box::new(
+                    ast::Ast::ConstValue(ast::Const{
+                        value: const_value.clone(),
+                        ty: self.ty, 
+                        span: pattern.span,
+                    }),
+                ));
 
                 Ok(Res::new(self.ty))
             }
@@ -540,7 +543,7 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
-                let id = sess.new_typed_ast.functions.insert_with_id(ast::Function {
+                let id = sess.typed_ast.functions.insert_with_id(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
                     ty: self.ty,
@@ -561,10 +564,13 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(Box::new(ast::Expr::new(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    pattern.span,
-                )));
+                self.expr = Some(Box::new(
+                    ast::Ast::ConstValue(ast::Const{
+                        value: const_value.clone(),
+                        ty: self.ty, 
+                        span: pattern.span,
+                    }),
+                ));
 
                 Ok(Res::new_const(self.ty, const_value))
             }
@@ -684,7 +690,7 @@ impl Check for ast::FunctionSig {
     }
 }
 
-impl Check for ast::Expr {
+impl Check for ast::Ast {
     fn check(
         &mut self,
         sess: &mut CheckSess,
@@ -692,11 +698,11 @@ impl Check for ast::Expr {
         expected_ty: Option<TypeId>,
     ) -> CheckResult {
         let res = match &mut self.kind {
-            ast::ExprKind::Binding(binding) => {
+            ast::Ast::Binding(binding) => {
                 binding.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Assignment(assignment) => {
+            ast::Ast::Assignment(assignment) => {
                 let lres = assignment.lvalue.check(sess, env, None)?;
                 let rres = assignment.rvalue.check(sess, env, Some(lres.ty))?;
 
@@ -718,15 +724,15 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Cast(cast) => cast.check(sess, env, expected_ty),
-            ast::ExprKind::Builtin(builtin) => match builtin {
-                ast::Builtin::Import(path) => sess.check_import(path),
-                ast::Builtin::SizeOf(expr) | ast::Builtin::AlignOf(expr) => {
+            ast::Ast::Cast(cast) => cast.check(sess, env, expected_ty),
+            ast::Ast::Builtin(builtin) => match builtin {
+                ast::BuiltinKind::Import(path) => sess.check_import(path),
+                ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                     sess.extract_const_type(res.const_value, res.ty, expr.span)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
-                ast::Builtin::Run(expr, run_result) => {
+                ast::BuiltinKind::Run(expr, run_result) => {
                     let res = expr.check(sess, env, None)?;
 
                     if sess.workspace.build_options.check_mode {
@@ -751,14 +757,14 @@ impl Check for ast::Expr {
                         }
                     }
                 }
-                ast::Builtin::Panic(expr) => {
+                ast::BuiltinKind::Panic(expr) => {
                     if let Some(expr) = expr {
                         expr.check(sess, env, None)?;
                     }
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
-            ast::ExprKind::Function(function) => {
+            ast::Ast::Function(function) => {
                 let sig_res = function.sig.check(sess, env, expected_ty)?;
                 let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
 
@@ -801,7 +807,7 @@ impl Check for ast::Expr {
                     )?;
                 }
 
-                function.id = sess.new_typed_ast.functions.insert_with_id(ast::Function {
+                function.id = sess.typed_ast.functions.insert_with_id(ast::Function {
                     id: FunctionId::unknown(),
                     module_id: env.module_id(),
                     ty: sig_res.ty,
@@ -843,7 +849,7 @@ impl Check for ast::Expr {
 
                 env.pop_scope();
 
-                sess.new_typed_ast
+                sess.typed_ast
                     .functions
                     .get_mut(function.id)
                     .unwrap()
@@ -854,15 +860,15 @@ impl Check for ast::Expr {
                     name: function.sig.name,
                 });
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
+                *self = ast::Ast::typed(
+                    ast::Ast::ConstValue(const_value.clone()),
                     sig_res.ty,
                     self.span,
                 );
 
                 Ok(Res::new_const(sig_res.ty, const_value))
             }
-            ast::ExprKind::While(while_) => {
+            ast::Ast::While(while_) => {
                 let cond_ty = sess.tycx.common_types.bool;
                 let cond_res = while_.cond.check(sess, env, Some(cond_ty))?;
 
@@ -895,7 +901,7 @@ impl Check for ast::Expr {
                     Ok(Res::new(sess.tycx.common_types.unit))
                 }
             }
-            ast::ExprKind::For(for_) => {
+            ast::Ast::For(for_) => {
                 let iter_ty = match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
                         let start_res = start.check(sess, env, None)?;
@@ -981,16 +987,16 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
-            ast::ExprKind::Break(_) if sess.loop_depth == 0 => {
+            ast::Ast::Break(_) if sess.loop_depth == 0 => {
                 return Err(SyntaxError::outside_of_loop(self.span, "break"));
             }
-            ast::ExprKind::Continue(_) if sess.loop_depth == 0 => {
+            ast::Ast::Continue(_) if sess.loop_depth == 0 => {
                 return Err(SyntaxError::outside_of_loop(self.span, "continue"));
             }
-            ast::ExprKind::Break(_) | ast::ExprKind::Continue(_) => {
+            ast::Ast::Break(_) | ast::Ast::Continue(_) => {
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::Return(ret) => {
+            ast::Ast::Return(ret) => {
                 let function_frame = sess
                     .function_frame()
                     .ok_or(SyntaxError::outside_of_function(self.span, "return"))?;
@@ -1031,7 +1037,7 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::ExprKind::If(if_) => {
+            ast::Ast::If(if_) => {
                 let unit = sess.tycx.common_types.unit;
                 let cond_ty = sess.tycx.common_types.bool;
                 let cond_res = if_.cond.check(sess, env, Some(cond_ty))?;
@@ -1059,8 +1065,8 @@ impl Check for ast::Expr {
                             *self = otherwise.as_ref().clone();
                             Ok(res)
                         } else {
-                            *self = ast::Expr::typed(
-                                ast::ExprKind::ConstValue(ConstValue::Unit(())),
+                            *self = ast::Ast::typed(
+                                ast::Ast::ConstValue(ConstValue::Unit(())),
                                 unit,
                                 self.span,
                             );
@@ -1098,8 +1104,8 @@ impl Check for ast::Expr {
                     Ok(Res::new(unit))
                 }
             }
-            ast::ExprKind::Block(block) => block.check(sess, env, expected_ty),
-            ast::ExprKind::Binary(binary) => {
+            ast::Ast::Block(block) => block.check(sess, env, expected_ty),
+            ast::Ast::Binary(binary) => {
                 let lhs_res = binary.lhs.check(sess, env, None)?;
                 let rhs_res = binary.rhs.check(sess, env, Some(lhs_res.ty))?;
 
@@ -1163,8 +1169,8 @@ impl Check for ast::Expr {
                 match (lhs_res.const_value, rhs_res.const_value) {
                     (Some(lhs), Some(rhs)) => {
                         let const_value = const_fold_binary(lhs, rhs, binary.op, self.span)?;
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_value.clone()),
+                        *self = ast::Ast::typed(
+                            ast::Ast::ConstValue(const_value.clone()),
                             result_ty,
                             self.span,
                         );
@@ -1173,7 +1179,7 @@ impl Check for ast::Expr {
                     _ => Ok(Res::new(result_ty)),
                 }
             }
-            ast::ExprKind::Unary(unary) => {
+            ast::Ast::Unary(unary) => {
                 let res = unary.lhs.check(sess, env, None)?;
 
                 match unary.op {
@@ -1217,8 +1223,8 @@ impl Check for ast::Expr {
                                 _ => panic!(),
                             };
 
-                            *self = ast::Expr::typed(
-                                ast::ExprKind::ConstValue(const_value.clone()),
+                            *self = ast::Ast::typed(
+                                ast::Ast::ConstValue(const_value.clone()),
                                 res.ty,
                                 self.span,
                             );
@@ -1246,8 +1252,8 @@ impl Check for ast::Expr {
                                 _ => unreachable!("got {:?}", const_value),
                             };
 
-                            *self = ast::Expr::typed(
-                                ast::ExprKind::ConstValue(const_value.clone()),
+                            *self = ast::Ast::typed(
+                                ast::Ast::ConstValue(const_value.clone()),
                                 res.ty,
                                 self.span,
                             );
@@ -1272,7 +1278,7 @@ impl Check for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::Subscript(sub) => {
+            ast::Ast::Subscript(sub) => {
                 let index_res = sub.index.check(sess, env, None)?;
                 let uint = sess.tycx.common_types.uint;
 
@@ -1323,8 +1329,8 @@ impl Check for ast::Expr {
                         let ty = sess.tycx.bound(*inner, self.span);
 
                         if let Some(const_value) = &const_value {
-                            *self = ast::Expr::typed(
-                                ast::ExprKind::ConstValue(const_value.clone()),
+                            *self = ast::Ast::typed(
+                                ast::Ast::ConstValue(const_value.clone()),
                                 ty,
                                 self.span,
                             );
@@ -1337,7 +1343,7 @@ impl Check for ast::Expr {
                         .with_label(Label::primary(sub.expr.span, "cannot index"))),
                 }
             }
-            ast::ExprKind::Slice(slice) => {
+            ast::Ast::Slice(slice) => {
                 let expr_res = slice.expr.check(sess, env, None)?;
                 let expr_ty = expr_res.ty.normalize(&sess.tycx);
                 let uint = sess.tycx.common_types.uint;
@@ -1398,8 +1404,8 @@ impl Check for ast::Expr {
 
                 Ok(Res::new(ty))
             }
-            ast::ExprKind::Call(call) => call.check(sess, env, expected_ty),
-            ast::ExprKind::MemberAccess(access) => {
+            ast::Ast::Call(call) => call.check(sess, env, expected_ty),
+            ast::Ast::MemberAccess(access) => {
                 let res = access.expr.check(sess, env, None)?;
 
                 let member_tuple_index = access.member.as_str().parse::<usize>();
@@ -1563,18 +1569,15 @@ impl Check for ast::Expr {
                         .with_label(Label::primary(access.expr.span, ""))),
                 }
             }
-            ast::ExprKind::Ident(ident) => {
+            ast::Ast::Ident(ident) => {
                 if let Some(id) = env.find_function(ident.symbol) {
-                    let function = sess.new_typed_ast.functions.get(id).unwrap();
+                    let function = sess.typed_ast.functions.get(id).unwrap();
 
                     let ty = function.ty;
                     let const_value = ConstValue::Function(function.as_const_function());
 
-                    *self = ast::Expr::typed(
-                        ast::ExprKind::ConstValue(const_value.clone()),
-                        ty,
-                        self.span,
-                    );
+                    *self =
+                        ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                     Ok(Res::new_const(ty, const_value))
                 } else {
@@ -1590,8 +1593,8 @@ impl Check for ast::Expr {
                             let ty = binding_info.ty;
 
                             if let Some(const_value) = &binding_info.const_value {
-                                *self = ast::Expr::typed(
-                                    ast::ExprKind::ConstValue(const_value.clone()),
+                                *self = ast::Ast::typed(
+                                    ast::Ast::ConstValue(const_value.clone()),
                                     ty,
                                     self.span,
                                 );
@@ -1629,8 +1632,8 @@ impl Check for ast::Expr {
                             ident.binding_id = id;
 
                             if let Some(const_value) = &res.const_value {
-                                *self = ast::Expr::typed(
-                                    ast::ExprKind::ConstValue(const_value.clone()),
+                                *self = ast::Ast::typed(
+                                    ast::Ast::ConstValue(const_value.clone()),
                                     res.ty,
                                     self.span,
                                 );
@@ -1641,7 +1644,7 @@ impl Check for ast::Expr {
                     }
                 }
             }
-            ast::ExprKind::ArrayLiteral(lit) => match &mut lit.kind {
+            ast::Ast::ArrayLiteral(lit) => match &mut lit.kind {
                 ast::ArrayLiteralKind::List(elements) => {
                     let element_ty_span = elements.first().map_or(self.span, |e| e.span);
                     let element_ty = sess.tycx.var(element_ty_span);
@@ -1686,8 +1689,8 @@ impl Check for ast::Expr {
                             element_ty,
                         });
 
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_array.clone()),
+                        *self = ast::Ast::typed(
+                            ast::Ast::ConstValue(const_array.clone()),
                             ty,
                             self.span,
                         );
@@ -1719,8 +1722,8 @@ impl Check for ast::Expr {
                             element_ty: res.ty,
                         });
 
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_array.clone()),
+                        *self = ast::Ast::typed(
+                            ast::Ast::ConstValue(const_array.clone()),
                             ty,
                             self.span,
                         );
@@ -1731,7 +1734,7 @@ impl Check for ast::Expr {
                     }
                 }
             },
-            ast::ExprKind::TupleLiteral(lit) => {
+            ast::Ast::TupleLiteral(lit) => {
                 // when a tuple literal is empty, it is either a unit value or unit type
                 if lit.elements.is_empty() {
                     let unit_ty = sess.tycx.common_types.unit;
@@ -1746,11 +1749,8 @@ impl Check for ast::Expr {
                             (unit_ty, ConstValue::Unit(()))
                         };
 
-                    *self = ast::Expr::typed(
-                        ast::ExprKind::ConstValue(const_value.clone()),
-                        ty,
-                        self.span,
-                    );
+                    *self =
+                        ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                     return Ok(Res::new_const(ty, const_value));
                 }
@@ -1792,8 +1792,8 @@ impl Check for ast::Expr {
 
                         let const_value = ConstValue::Type(ty);
 
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_value.clone()),
+                        *self = ast::Ast::typed(
+                            ast::Ast::ConstValue(const_value.clone()),
                             ty,
                             self.span,
                         );
@@ -1822,8 +1822,8 @@ impl Check for ast::Expr {
                                 .collect(),
                         );
 
-                        *self = ast::Expr::typed(
-                            ast::ExprKind::ConstValue(const_value.clone()),
+                        *self = ast::Ast::typed(
+                            ast::Ast::ConstValue(const_value.clone()),
                             ty,
                             self.span,
                         );
@@ -1841,7 +1841,7 @@ impl Check for ast::Expr {
                     Ok(Res::new(ty))
                 }
             }
-            ast::ExprKind::StructLiteral(lit) => {
+            ast::Ast::StructLiteral(lit) => {
                 let res = match &mut lit.type_expr {
                     Some(type_expr) => {
                         let res =
@@ -1898,8 +1898,8 @@ impl Check for ast::Expr {
                 };
 
                 if let Some(const_value) = &res.const_value {
-                    *self = ast::Expr::typed(
-                        ast::ExprKind::ConstValue(const_value.clone()),
+                    *self = ast::Ast::typed(
+                        ast::Ast::ConstValue(const_value.clone()),
                         res.ty,
                         self.span,
                     );
@@ -1907,7 +1907,7 @@ impl Check for ast::Expr {
 
                 Ok(res)
             }
-            ast::ExprKind::Literal(lit) => {
+            ast::Ast::Literal(lit) => {
                 let const_value: ConstValue = lit.kind.into();
 
                 let ty = match &lit.kind {
@@ -1919,15 +1919,11 @@ impl Check for ast::Expr {
                     ast::LiteralKind::Char(_) => sess.tycx.common_types.u8,
                 };
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
+            ast::Ast::PointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = Type::Pointer(Box::new(inner_kind.into()), *is_mutable);
@@ -1935,15 +1931,11 @@ impl Check for ast::Expr {
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
+            ast::Ast::MultiPointerType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = Type::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
@@ -1951,15 +1943,11 @@ impl Check for ast::Expr {
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::ArrayType(ast::ArrayType { inner, size }) => {
+            ast::Ast::ArrayType(ast::ArrayType { inner, size }) => {
                 let inner_res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_ty =
                     sess.extract_const_type(inner_res.const_value, inner_res.ty, inner.span)?;
@@ -1978,15 +1966,11 @@ impl Check for ast::Expr {
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
+            ast::Ast::SliceType(ast::ExprAndMut { inner, is_mutable }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                 let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span)?;
                 let kind = Type::Slice(Box::new(inner_kind.into()), *is_mutable);
@@ -1994,15 +1978,11 @@ impl Check for ast::Expr {
                 let ty = sess.tycx.bound(kind.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(kind, self.span));
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::StructType(st) => {
+            ast::Ast::StructType(st) => {
                 st.name = if st.name.is_empty() {
                     get_anonymous_struct_name(self.span)
                 } else {
@@ -2083,38 +2063,27 @@ impl Check for ast::Expr {
                 let ty = sess.tycx.bound(struct_ty.clone().create_type(), self.span);
                 let const_value = ConstValue::Type(sess.tycx.bound(struct_ty, self.span));
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::FunctionType(sig) => {
+            ast::Ast::FunctionType(sig) => {
                 let res = sig.check(sess, env, expected_ty)?;
 
                 let ty = sess.tycx.bound(res.ty.as_kind().create_type(), self.span);
                 let const_value = ConstValue::Type(res.ty);
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::SelfType => match sess.self_types.last() {
+            ast::Ast::SelfType => match sess.self_types.last() {
                 Some(&ty) => {
                     let ty = sess.tycx.bound(ty.as_kind().create_type(), self.span);
                     let const_value = ConstValue::Type(ty);
 
-                    *self = ast::Expr::typed(
-                        ast::ExprKind::ConstValue(const_value.clone()),
-                        ty,
-                        self.span,
-                    );
+                    *self =
+                        ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                     Ok(Res::new_const(ty, const_value))
                 }
@@ -2122,20 +2091,16 @@ impl Check for ast::Expr {
                     .with_message("`Self` is only available within struct types")
                     .with_label(Label::primary(self.span, "`Self` is invalid here"))),
             },
-            ast::ExprKind::Placeholder => {
+            ast::Ast::Placeholder => {
                 let ty = sess.tycx.var(self.span);
                 let const_value = ConstValue::Type(ty);
 
-                *self = ast::Expr::typed(
-                    ast::ExprKind::ConstValue(const_value.clone()),
-                    ty,
-                    self.span,
-                );
+                *self = ast::Ast::typed(ast::Ast::ConstValue(const_value.clone()), ty, self.span);
 
                 Ok(Res::new_const(ty, const_value))
             }
-            ast::ExprKind::ConstValue(const_value) => const_value.check(sess, env, expected_ty),
-            ast::ExprKind::Error(_) => Ok(Res::new(sess.tycx.var(self.span))),
+            ast::Ast::ConstValue(const_value) => const_value.check(sess, env, expected_ty),
+            ast::Ast::Error(_) => Ok(Res::new(sess.tycx.var(self.span))),
         }?;
 
         self.ty = res.ty;
@@ -2247,7 +2212,7 @@ impl Check for ast::Cast {
     ) -> CheckResult {
         let res = self.expr.check(sess, env, None)?;
 
-        self.target_ty = if let Some(ty_expr) = &mut self.ty_expr {
+        self.ty = if let Some(ty_expr) = &mut self.target {
             let res = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
             sess.extract_const_type(res.const_value, res.ty, ty_expr.span)?
         } else {
@@ -2262,10 +2227,10 @@ impl Check for ast::Cast {
         };
 
         let source_ty = res.ty.normalize(&sess.tycx);
-        let target_ty = self.target_ty.normalize(&sess.tycx);
+        let target_ty = self.ty.normalize(&sess.tycx);
 
         if source_ty.can_cast(&target_ty) {
-            Ok(Res::new(self.target_ty))
+            Ok(Res::new(self.ty))
         } else {
             Err(Diagnostic::error()
                 .with_message(format!(
@@ -2506,7 +2471,7 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
     ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
 }
 
-fn interp_expr(expr: &ast::Expr, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
+fn interp_expr(expr: &ast::sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
     let mut interp_sess =
         sess.interp
             .create_session(sess.workspace, &sess.tycx, &sess.new_typed_ast);

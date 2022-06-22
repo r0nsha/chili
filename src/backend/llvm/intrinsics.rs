@@ -1,5 +1,5 @@
 use super::codegen::Codegen;
-use crate::ast::{ast, ty::FunctionType};
+use crate::ast::ty::FunctionType;
 use inkwell::{module::Linkage, values::FunctionValue};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {

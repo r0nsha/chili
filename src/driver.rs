@@ -1,4 +1,4 @@
-use crate::ast::{ast::TypedAst, workspace::Workspace};
+use crate::ast::{workspace::Workspace, TypedAst};
 use crate::astgen::AstGenerationStats;
 use crate::error::diagnostic::Diagnostic;
 use crate::infer::ty_ctx::TyCtx;
@@ -100,7 +100,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
     }
 
-    // chili_pretty_print::print_typed_ast(&typed_ast, &workspace, &tycx);
+    // chili_pretty_print::print_typed_ast(&typed_&workspace, &tycx);
 
     // Code generation
     match &workspace.build_options.codegen_options {

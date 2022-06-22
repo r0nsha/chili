@@ -1,8 +1,4 @@
-use super::{
-    ast::{BindingKind, ExternLibrary, Visibility},
-    const_value::ConstValue,
-    ty::TypeId,
-};
+use super::{const_value::ConstValue, ty::TypeId, BindingKind, ExternLibrary, Visibility};
 use crate::{
     common::build_options::{BuildOptions, DiagnosticOptions},
     define_id_type,

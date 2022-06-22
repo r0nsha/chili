@@ -1,5 +1,5 @@
 use super::sess::LintSess;
-use crate::ast::{ast, ty::Type, workspace::BindingId};
+use crate::ast::{ty::Type, workspace::BindingId};
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::{display::DisplayTy, normalize::Normalize};
 use crate::span::Span;
@@ -11,7 +11,7 @@ pub enum LvalueAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub fn check_lvalue_access(&mut self, expr: &ast::Expr, expr_span: Span) {
+    pub fn check_lvalue_access(&mut self, expr: &ast::expr_span: Span) {
         use LvalueAccessErr::*;
 
         let result = self
@@ -55,11 +55,11 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_lvalue_mutability_inner(&self, expr: &ast::Expr) -> Result<(), LvalueAccessErr> {
+    fn check_lvalue_mutability_inner(&self, expr: &ast::Ast) -> Result<(), LvalueAccessErr> {
         use LvalueAccessErr::*;
 
         match &expr.kind {
-            ast::ExprKind::Unary(unary) => match &unary.op {
+            ast::Ast::Unary(unary) => match &unary.op {
                 ast::UnaryOp::Deref => {
                     let ty = unary.lhs.ty.normalize(self.tycx);
 
@@ -78,9 +78,9 @@ impl<'s> LintSess<'s> {
                 }
                 _ => Err(InvalidLvalue),
             },
-            ast::ExprKind::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.expr),
-            ast::ExprKind::Subscript(sub) => self.check_lvalue_mutability_inner(&sub.expr),
-            ast::ExprKind::Ident(ident) => {
+            ast::Ast::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.expr),
+            ast::Ast::Subscript(sub) => self.check_lvalue_mutability_inner(&sub.expr),
+            ast::Ast::Ident(ident) => {
                 let binding_info = self.workspace.binding_infos.get(ident.binding_id).unwrap();
 
                 let ty = expr.ty.normalize(self.tycx);

@@ -7,13 +7,17 @@ mod pattern;
 mod postfix_expr;
 mod top_level;
 
-use crate::ast::{
-    ast::{self, Expr, ExternLibrary},
-    workspace::{ModuleInfo, PartialModuleInfo},
-};
 use crate::error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
 use crate::span::{EndPosition, Position, Span};
 use crate::token::{lexer::Lexer, Token, TokenKind::*};
+use crate::{
+    ast::{
+        self,
+        workspace::{ModuleInfo, PartialModuleInfo},
+        Ast, ExternLibrary,
+    },
+    span::To,
+};
 use bitflags::bitflags;
 use parking_lot::{Mutex, MutexGuard};
 use std::{
@@ -273,14 +277,17 @@ pub(super) trait Recover<T> {
     fn recover(self, parser: &mut Parser) -> T;
 }
 
-impl Recover<Expr> for DiagnosticResult<Expr> {
-    fn recover(self, parser: &mut Parser) -> Expr {
+impl Recover<Ast> for DiagnosticResult<Ast> {
+    fn recover(self, parser: &mut Parser) -> Ast {
         match self {
             Ok(expr) => expr,
             Err(_) => {
-                let span = parser.previous_span();
+                let start_span = parser.previous_span();
                 parser.skip_until_recovery_point();
-                Expr::new(ast::ExprKind::Error(span), span)
+                ast::Ast::Error(ast::Empty {
+                    ty: Default::default(),
+                    span: start_span.to(parser.previous_span()),
+                })
             }
         }
     }

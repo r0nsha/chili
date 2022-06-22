@@ -1,4 +1,4 @@
-use crate::ast::{ast, const_value::ConstValue};
+use crate::ast::const_value::ConstValue;
 use crate::error::{DiagnosticResult, SyntaxError};
 use crate::span::Span;
 

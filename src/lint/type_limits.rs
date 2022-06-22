@@ -10,8 +10,8 @@ use crate::span::Span;
 use std::fmt::Display;
 
 impl<'s> LintSess<'s> {
-    pub fn check_type_limits(&mut self, e: &ast::Expr) {
-        if let ast::ExprKind::ConstValue(const_value) = &e.kind {
+    pub fn check_type_limits(&mut self, e: &ast::Ast) {
+        if let ast::Ast::ConstValue(const_value) = &e.kind {
             match const_value {
                 ConstValue::Int(value) => match &e.ty.normalize(self.tycx) {
                     Type::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
@@ -28,7 +28,7 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_int_limits(&mut self, int_ty: &IntType, value: i64, e: &ast::Expr) {
+    fn check_int_limits(&mut self, int_ty: &IntType, value: i64, e: &ast::Ast) {
         let (min, max) = int_ty_range(*int_ty);
         if value < min || value > max {
             self.workspace
@@ -37,7 +37,7 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_uint_limits(&mut self, uint_ty: &UintType, value: i64, e: &ast::Expr) {
+    fn check_uint_limits(&mut self, uint_ty: &UintType, value: i64, e: &ast::Ast) {
         let (min, max) = uint_ty_range(*uint_ty);
 
         if value.is_negative() {

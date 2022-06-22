@@ -266,7 +266,7 @@ impl<'s> CheckSess<'s> {
                                 // check if the binding has already been checked
                                 if let Some(id) = self.get_global_symbol(module_id, pattern.symbol)
                                 {
-                                    self.new_typed_ast.get_binding(id).unwrap().pattern.clone()
+                                    self.typed_ast.get_binding(id).unwrap().pattern.clone()
                                 } else {
                                     let mut binding = binding.clone();
                                     binding.check_top_level(self)?;

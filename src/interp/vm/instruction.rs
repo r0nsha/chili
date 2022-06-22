@@ -1,5 +1,5 @@
 use super::value::ValueKind;
-use crate::ast::ast;
+use crate::ast;
 use std::fmt::Display;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
