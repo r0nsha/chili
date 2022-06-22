@@ -32,7 +32,7 @@ pub fn print_typed_ast(typed_ast: &ast::TypedAst, workspace: &Workspace, tycx: &
 }
 
 #[allow(unused)]
-pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyCtx) {
+pub fn print_ast(module: &ast::Module, workspace: &Workspace, tycx: &TyCtx) {
     let config = {
         let mut config = PrintConfig::from_env();
         config.branch = Style {
@@ -51,10 +51,10 @@ pub fn print_ast(ast: &ast::Ast, workspace: &Workspace, tycx: &TyCtx) {
 
     let mut b = TreeBuilder::new(format!(
         "'{}' - {}",
-        ast.module_info.name, ast.module_info.file_path
+        module.module_info.name, module.module_info.file_path
     ));
 
-    ast.print_tree(&mut b, workspace, tycx);
+    module.print_tree(&mut b, workspace, tycx);
 
     print_tree_with(&b.build(), &config).expect("error printing ir tree");
 
@@ -103,7 +103,7 @@ impl PrintTree for ast::TypedAst {
     }
 }
 
-impl PrintTree for ast::Ast {
+impl PrintTree for ast::Module {
     fn print_tree(&self, b: &mut TreeBuilder, workspace: &Workspace, tycx: &TyCtx) {
         self.bindings.print_tree(b, workspace, tycx);
     }

@@ -92,7 +92,7 @@ impl<T: Lint> Lint for Box<T> {
     }
 }
 
-impl Lint for ast::Ast {
+impl Lint for ast::Module {
     fn lint(&self, sess: &mut LintSess) {
         for binding in self.bindings.iter() {
             binding.lint(sess);

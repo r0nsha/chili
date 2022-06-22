@@ -250,13 +250,13 @@ impl<'s> CheckSess<'s> {
                 }
 
                 if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
-                    let ast = self
-                        .old_asts
+                    let module = self
+                        .modules
                         .iter()
-                        .find(|a| a.module_id == module_id)
+                        .find(|m| m.module_id == module_id)
                         .unwrap_or_else(|| panic!("couldn't find {:?}", module_id));
 
-                    for binding in &ast.bindings {
+                    for binding in &module.bindings {
                         if binding.visibility.is_private() {
                             continue;
                         }

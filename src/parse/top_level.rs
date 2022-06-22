@@ -1,14 +1,14 @@
 use super::*;
-use crate::ast::ast::{Ast, Visibility};
+use crate::ast::ast::{Module, Visibility};
 use crate::error::SyntaxError;
 use crate::span::FileId;
 
 impl Parser {
     pub fn parse_all_top_level(&mut self, file_id: FileId) -> ParserResult {
-        let mut ast = ast::Ast::new(file_id, self.module_info);
+        let mut module = ast::Module::new(file_id, self.module_info);
 
         while !self.is_end() {
-            match self.parse_top_level(&mut ast) {
+            match self.parse_top_level(&mut module) {
                 Ok(_) => {
                     if let Err(_) = require!(self, Semicolon, ";") {
                         let span = Parser::get_missing_delimiter_span(self.previous_span());
@@ -28,10 +28,10 @@ impl Parser {
             self.skip_semicolons();
         }
 
-        ParserResult::NewAst(ast)
+        ParserResult::NewAst(module)
     }
 
-    pub fn parse_top_level(&mut self, ast: &mut Ast) -> DiagnosticResult<()> {
+    pub fn parse_top_level(&mut self, module: &mut Module) -> DiagnosticResult<()> {
         let visibility = if eat!(self, Pub) {
             Visibility::Public
         } else {
@@ -49,7 +49,7 @@ impl Parser {
                 self.parse_binding(visibility, true)?
             };
 
-            ast.bindings.push(binding);
+            module.bindings.push(binding);
 
             Ok(())
         } else if eat!(self, Ident(_)) {
@@ -61,7 +61,7 @@ impl Parser {
 
             if symbol == "run" {
                 let expr = self.parse_expr()?;
-                ast.run_exprs.push(expr);
+                module.run_exprs.push(expr);
                 require!(self, CloseParen, ")")?;
 
                 Ok(())

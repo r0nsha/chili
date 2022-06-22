@@ -40,8 +40,8 @@ use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-pub fn check(workspace: &mut Workspace, ast: Vec<ast::Ast>) -> (ast::TypedAst, TyCtx) {
-    let mut sess = CheckSess::new(workspace, &ast);
+pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> (ast::TypedAst, TyCtx) {
+    let mut sess = CheckSess::new(workspace, &module);
 
     if let Err(diag) = sess.start() {
         sess.workspace.diagnostics.push(diag);
@@ -121,7 +121,7 @@ pub struct CheckSess<'s> {
     pub tycx: TyCtx,
 
     // The ast's being processed
-    pub old_asts: &'s Vec<ast::Ast>,
+    pub modules: &'s Vec<ast::Module>,
 
     // The new typed ast being generated
     pub new_typed_ast: ast::TypedAst,
@@ -150,7 +150,7 @@ pub struct FunctionFrame {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn new(workspace: &'s mut Workspace, old_asts: &'s Vec<ast::Ast>) -> Self {
+    pub fn new(workspace: &'s mut Workspace, old_asts: &'s Vec<ast::Module>) -> Self {
         let target_metrics = workspace.build_options.target_platform.metrics();
         let interp = Interp::new(workspace.build_options.clone());
 
@@ -159,7 +159,7 @@ impl<'s> CheckSess<'s> {
             target_metrics,
             interp,
             tycx: TyCtx::default(),
-            old_asts,
+            modules: old_asts,
             new_typed_ast: ast::TypedAst::default(),
             checked_modules: HashMap::default(),
             global_scopes: HashMap::default(),
@@ -173,7 +173,7 @@ impl<'s> CheckSess<'s> {
     pub fn start(&mut self) -> DiagnosticResult<()> {
         self.add_builtin_types();
 
-        for ast in self.old_asts.iter() {
+        for ast in self.modules.iter() {
             self.check_ast(ast)?;
         }
 

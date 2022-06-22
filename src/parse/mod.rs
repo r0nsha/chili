@@ -130,7 +130,7 @@ pub struct ParserCache {
 pub type ParserCacheGuard<'a> = MutexGuard<'a, ParserCache>;
 
 pub enum ParserResult {
-    NewAst(ast::Ast),
+    NewAst(ast::Module),
     AlreadyParsed,
     Failed(Diagnostic),
 }

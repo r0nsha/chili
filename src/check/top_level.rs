@@ -65,13 +65,13 @@ impl<'s> CheckSess<'s> {
         }
 
         // this binding hasn't been checked yet - check it and then return its data
-        let ast = self
-            .old_asts
+        let module = self
+            .modules
             .iter()
-            .find(|ast| ast.module_id == module_id)
+            .find(|m| m.module_id == module_id)
             .unwrap_or_else(|| panic!("{:?}", module_id));
 
-        let (res, id) = if let Some(binding) = ast
+        let (res, id) = if let Some(binding) = module
             .bindings
             .iter()
             .find(|binding| binding.pattern.iter().any(|pat| pat.symbol == symbol))
@@ -163,28 +163,28 @@ impl<'s> CheckSess<'s> {
     pub fn check_import(&mut self, import_path: &Path) -> CheckResult {
         let path_str = import_path.to_str().unwrap();
 
-        let ast = self
-            .old_asts
+        let module = self
+            .modules
             .iter()
-            .find(|a| a.module_info.file_path == path_str)
+            .find(|m| m.module_info.file_path == path_str)
             .unwrap_or_else(|| panic!("couldn't find ast for module with path: {}", path_str));
 
-        self.check_ast(ast)
+        self.check_ast(module)
     }
 
-    pub fn check_ast(&mut self, ast: &ast::Ast) -> CheckResult {
-        if let Some(module_ty) = self.checked_modules.get(&ast.module_id) {
+    pub fn check_ast(&mut self, module: &ast::Module) -> CheckResult {
+        if let Some(module_ty) = self.checked_modules.get(&module.module_id) {
             Ok(Res::new(*module_ty))
         } else {
-            let module_id = ast.module_id;
+            let module_id = module.module_id;
 
             let module_type = self
                 .tycx
-                .bound(Type::Module(module_id), Span::initial(ast.file_id));
+                .bound(Type::Module(module_id), Span::initial(module.file_id));
 
-            self.checked_modules.insert(ast.module_id, module_type);
+            self.checked_modules.insert(module.module_id, module_type);
 
-            for binding in ast.bindings.iter() {
+            for binding in module.bindings.iter() {
                 // 6/6/2022: a binding's pattern has a count of 0 only when a single wildcard symbol is used
                 if binding.pattern.iter().count() == 0
                     || binding
@@ -196,7 +196,7 @@ impl<'s> CheckSess<'s> {
                 }
             }
 
-            for expr in ast.run_exprs.iter() {
+            for expr in module.run_exprs.iter() {
                 let mut expr = expr.clone();
                 self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
 

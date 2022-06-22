@@ -21,7 +21,7 @@ use std::{
 use ustr::{ustr, Ustr};
 
 #[derive(Debug, Clone)]
-pub struct Ast {
+pub struct Module {
     pub file_id: FileId,
     pub module_id: ModuleId,
     pub module_info: ModuleInfo,
@@ -29,7 +29,7 @@ pub struct Ast {
     pub run_exprs: Vec<Expr>,
 }
 
-impl Ast {
+impl Module {
     pub fn new(file_id: FileId, module_info: ModuleInfo) -> Self {
         Self {
             file_id,
@@ -740,7 +740,7 @@ impl fmt::Display for FunctionSig {
             self.name,
             self.params
                 .iter()
-                .map(|a| a.to_string())
+                .map(|p| p.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
             match &self.varargs {

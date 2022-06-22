@@ -44,7 +44,7 @@ use ustr::UstrMap;
 pub fn codegen<'w>(
     workspace: &Workspace,
     tycx: &TyCtx,
-    ast: &ast::TypedAst,
+    typed_ast: &ast::TypedAst,
     codegen_options: &EnabledCodegenOptions,
 ) -> String {
     let context = Context::create();
@@ -91,7 +91,7 @@ pub fn codegen<'w>(
     let mut cg = Codegen {
         workspace,
         tycx,
-        typed_ast: ast,
+        typed_ast,
         target_metrics: target_metrics.clone(),
         context: &context,
         module: &module,

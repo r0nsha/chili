@@ -57,7 +57,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     }
 
     // Parse all source files into ast's
-    let (asts, stats) = time! { workspace.build_options.verbose, "parse", {
+    let (modules, stats) = time! { workspace.build_options.verbose, "parse", {
             match crate::astgen::generate_ast(&mut workspace) {
                 Some(result) => result,
                 None => {
@@ -75,7 +75,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     // Type inference, type checking, static analysis, const folding, etc..
     let (typed_ast, tycx) = time! { workspace.build_options.verbose, "check", {
-        let (typed_ast, tycx) = crate::check::check(&mut workspace, asts);
+        let (typed_ast, tycx) = crate::check::check(&mut workspace, modules);
 
         if workspace.diagnostics.has_errors() {
             workspace.emit_diagnostics();
