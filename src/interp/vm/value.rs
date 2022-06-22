@@ -14,7 +14,7 @@ use crate::span::Span;
 use byteorder::{NativeEndian, WriteBytesExt};
 use indexmap::IndexMap;
 use paste::paste;
-use std::{ffi::c_void, fmt::Display, mem, slice, str};
+use std::{fmt::Display, mem, slice, str};
 use ustr::{ustr, Ustr};
 
 macro_rules! impl_value {
@@ -53,10 +53,10 @@ macro_rules! impl_value {
                 }
             }
 
-            pub fn as_c_ref(&mut self) -> *mut c_void {
+            pub fn as_c_ref(&mut self) -> RawPointer {
                 match self {
                     $(
-                        Self::$variant(v) => v as *mut _ as *mut c_void
+                        Self::$variant(v) => v as *mut _ as RawPointer
                     ),+
                 }
             }

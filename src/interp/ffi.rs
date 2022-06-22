@@ -26,7 +26,7 @@ pub type RawPointer = *mut c_void;
 
 pub struct Ffi {
     libs: UstrMap<libloading::Library>,
-    symbols: HashMap<(Ustr, Ustr), *mut c_void>,
+    symbols: HashMap<(Ustr, Ustr), RawPointer>,
     libc: Ustr,
 }
 
@@ -61,7 +61,7 @@ impl Ffi {
         }
     }
 
-    pub unsafe fn load_symbol(&mut self, lib_path: Ustr, name: Ustr) -> &mut *mut c_void {
+    pub unsafe fn load_symbol(&mut self, lib_path: Ustr, name: Ustr) -> &mut RawPointer {
         self.symbols.entry((lib_path, name)).or_insert_with(|| {
             let lib_name = match lib_path.as_str() {
                 "c" | "C" => self.libc,
@@ -195,8 +195,8 @@ impl FfiFunction {
                         let closure =
                             bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
 
-                        let code_ptr = closure.instantiate_code_ptr::<c_void>() as *const c_void
-                            as *mut c_void;
+                        let code_ptr =
+                            closure.instantiate_code_ptr::<c_void>() as *const c_void as RawPointer;
 
                         raw_ptr!(code_ptr)
                     }
