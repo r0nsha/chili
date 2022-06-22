@@ -12,7 +12,7 @@ use crate::infer::ty_ctx::TyCtx;
 use crate::{ast::FunctionId, common::scopes::Scopes};
 use crate::{
     ast::{
-        ast,
+        self,
         ty::Type,
         workspace::{BindingId, ModuleId, Workspace},
     },
@@ -102,7 +102,7 @@ pub struct InterpSess<'i> {
 pub type Env = Scopes<BindingId, i16>;
 
 impl<'i> InterpSess<'i> {
-    pub fn eval(&'i mut self, expr: &ast::module_id: ModuleId) -> InterpResult {
+    pub fn eval(&'i mut self, expr: &ast::Ast, module_id: ModuleId) -> InterpResult {
         let verbose = self.workspace.build_options.verbose;
         let mut start_code = CompiledCode::new();
 

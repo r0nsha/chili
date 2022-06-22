@@ -11,7 +11,7 @@ use crate::common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
 use crate::infer::normalize::Normalize;
 use crate::{
     ast::{
-        ast::{self, Intrinsic},
+        self,
         const_value::ConstValue,
         pattern::{Pattern, UnpackPattern, UnpackPatternKind},
         ty::{
@@ -19,6 +19,7 @@ use crate::{
             IntType, StructType, Type, TypeId, UintType,
         },
         workspace::BindingId,
+        Intrinsic,
     },
     interp::vm::value::FunctionAddress,
 };
@@ -35,7 +36,7 @@ pub trait Lower {
 
 impl Lower for ast::Ast {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        match &self.kind {
+        match self {
             ast::Ast::Binding(binding) => {
                 lower_local_binding(binding, sess, code);
             }
@@ -53,7 +54,7 @@ impl Lower for ast::Ast {
                 sess.push_const_unit(code);
             }
             ast::Ast::Cast(cast) => cast.lower(sess, code, ctx),
-            ast::Ast::Builtin(builtin) => match builtin {
+            ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(sess.tycx) {
                     Type::Type(ty) => {
                         sess.push_const(code, Value::Uint(ty.size_of(WORD_SIZE)));
@@ -106,7 +107,7 @@ impl Lower for ast::Ast {
             ast::Ast::MemberAccess(access) => {
                 access.expr.lower(sess, code, ctx);
 
-                match &access.expr.ty.normalize(sess.tycx).maybe_deref_once() {
+                match &access.expr.ty().normalize(sess.tycx).maybe_deref_once() {
                     Type::Tuple(_) | Type::Infer(_, InferTy::PartialTuple(_)) => {
                         let index = access.member.parse::<usize>().unwrap();
 
@@ -160,7 +161,7 @@ impl Lower for ast::Ast {
 
                 assert!(id != BindingId::unknown(), "{}", ident.symbol);
 
-                match self.ty.normalize(sess.tycx) {
+                match ident.ty.normalize(sess.tycx) {
                     // Note (Ron): We do nothing with modules, since they are not an actual value
                     Type::Module(_) => (),
                     _ => {
@@ -187,7 +188,7 @@ impl Lower for ast::Ast {
                 }
             }
             ast::Ast::ArrayLiteral(lit) => {
-                let ty = self.ty.normalize(sess.tycx);
+                let ty = lit.ty.normalize(sess.tycx);
                 let inner_ty_size = ty.inner().size_of(WORD_SIZE);
 
                 match &lit.kind {
@@ -229,7 +230,7 @@ impl Lower for ast::Ast {
             ast::Ast::StructLiteral(lit) => {
                 code.push(Instruction::AggregateAlloc);
 
-                let ty = self.ty.normalize(sess.tycx);
+                let ty = self.ty().normalize(sess.tycx);
                 let ty = ty.as_struct();
 
                 let mut ordered_fields = lit.fields.clone();
@@ -254,14 +255,14 @@ impl Lower for ast::Ast {
             | ast::Ast::MultiPointerType(_)
             | ast::Ast::ArrayType(_)
             | ast::Ast::SliceType(_)
-            | ast::Ast::SelfType
-            | ast::Ast::Placeholder
+            | ast::Ast::SelfType(_)
+            | ast::Ast::Placeholder(_)
             | ast::Ast::StructType(_)
             | ast::Ast::FunctionType(_) => {
                 panic!("unexpected type expression should have been lowered to a ConstValue")
             }
-            ast::Ast::ConstValue(const_value) => {
-                let value = const_value_to_value(const_value, self.ty, sess);
+            ast::Ast::ConstValue(const_) => {
+                let value = const_value_to_value(&const_.value, self.ty(), sess);
                 sess.push_const(code, value);
             }
             ast::Ast::Error(_) => sess.push_const_unit(code),
@@ -467,7 +468,7 @@ impl Lower for ast::Cast {
                 code.push(Instruction::Cast(cast_inst));
             }
             Type::Slice(_, _) => {
-                let expr_ty = self.expr.ty.normalize(sess.tycx);
+                let expr_ty = self.expr.ty().normalize(sess.tycx);
                 let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
 
                 code.push(Instruction::AggregateAlloc);
@@ -720,7 +721,7 @@ impl Lower for ast::For {
                 code.push(Instruction::Pop);
             }
             ast::ForIter::Value(value) => {
-                let value_ty = value.ty.normalize(sess.tycx).maybe_deref_once();
+                let value_ty = value.ty().normalize(sess.tycx).maybe_deref_once();
 
                 value.lower(sess, code, ctx);
 
@@ -883,7 +884,7 @@ impl Lower for ast::Subscript {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.expr.lower(sess, code, LowerContext { take_ptr: true });
 
-        let expr_ty = self.expr.ty.normalize(sess.tycx);
+        let expr_ty = self.expr.ty().normalize(sess.tycx);
 
         if expr_ty.is_slice() {
             code.push(Instruction::ConstIndex(0));
@@ -1065,7 +1066,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
 
 impl Lower for ast::Slice {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let expr_ty = self.expr.ty.normalize(sess.tycx);
+        let expr_ty = self.expr.ty().normalize(sess.tycx);
         let inner_ty_size = expr_ty.inner().size_of(WORD_SIZE);
 
         // lower `low`, or push a 0

@@ -5,9 +5,9 @@ use super::{
     instruction::CompiledCode,
 };
 use crate::ast::{
-    ast::{FunctionId, Intrinsic},
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     ty::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
+    FunctionId, Intrinsic,
 };
 use crate::infer::ty_ctx::TyCtx;
 use crate::span::Span;

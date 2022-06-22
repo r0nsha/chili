@@ -1,5 +1,6 @@
 use super::sess::{InitState, LintSess};
-use crate::ast::{workspace::BindingId};
+use crate::ast;
+use crate::ast::workspace::BindingId;
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::span::Span;
 
@@ -28,7 +29,7 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    pub fn check_assign_lvalue_id_access(&mut self, lvalue: &ast::binding_id: BindingId) {
+    pub fn check_assign_lvalue_id_access(&mut self, lvalue: &ast::Ast, binding_id: BindingId) {
         let binding_info = self.workspace.binding_infos.get(binding_id).unwrap();
         let init_state = self.init_scopes.value(binding_id).unwrap();
 
@@ -42,13 +43,13 @@ impl<'s> LintSess<'s> {
             self.workspace.diagnostics.push(
                 Diagnostic::error()
                     .with_message(msg.clone())
-                    .with_label(Label::primary(lvalue.span, msg))
+                    .with_label(Label::primary(lvalue.span(), msg))
                     .with_label(Label::secondary(binding_span, "defined here")),
             );
         }
 
         if init_state.is_init() {
-            self.check_lvalue_access(lvalue, lvalue.span);
+            self.check_lvalue_access(lvalue, lvalue.span());
         } else {
             // set binding as init in the current scope
             *self.init_scopes.get_mut(binding_id).unwrap().1 = InitState::Init;

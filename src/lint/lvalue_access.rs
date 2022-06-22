@@ -1,5 +1,5 @@
 use super::sess::LintSess;
-use crate::ast::{ty::Type, workspace::BindingId};
+use crate::ast::{self, ty::Type, workspace::BindingId};
 use crate::error::diagnostic::{Diagnostic, Label};
 use crate::infer::{display::DisplayTy, normalize::Normalize};
 use crate::span::Span;
@@ -11,7 +11,7 @@ pub enum LvalueAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub fn check_lvalue_access(&mut self, expr: &ast::expr_span: Span) {
+    pub fn check_lvalue_access(&mut self, expr: &ast::Ast, expr_span: Span) {
         use LvalueAccessErr::*;
 
         let result = self
@@ -58,10 +58,10 @@ impl<'s> LintSess<'s> {
     fn check_lvalue_mutability_inner(&self, expr: &ast::Ast) -> Result<(), LvalueAccessErr> {
         use LvalueAccessErr::*;
 
-        match &expr.kind {
+        match expr {
             ast::Ast::Unary(unary) => match &unary.op {
                 ast::UnaryOp::Deref => {
-                    let ty = unary.lhs.ty.normalize(self.tycx);
+                    let ty = unary.lhs.ty().normalize(self.tycx);
 
                     if let Type::Pointer(_, is_mutable) = ty {
                         if is_mutable {
@@ -69,11 +69,11 @@ impl<'s> LintSess<'s> {
                         } else {
                             Err(ImmutableReference {
                                 ty,
-                                span: unary.lhs.span,
+                                span: unary.lhs.span(),
                             })
                         }
                     } else {
-                        unreachable!("got {}", unary.lhs.ty)
+                        unreachable!("got {}", unary.lhs.ty())
                     }
                 }
                 _ => Err(InvalidLvalue),
@@ -83,7 +83,7 @@ impl<'s> LintSess<'s> {
             ast::Ast::Ident(ident) => {
                 let binding_info = self.workspace.binding_infos.get(ident.binding_id).unwrap();
 
-                let ty = expr.ty.normalize(self.tycx);
+                let ty = expr.ty().normalize(self.tycx);
                 match ty {
                     Type::Pointer(_, is_mutable)
                     | Type::MultiPointer(_, is_mutable)
@@ -93,7 +93,7 @@ impl<'s> LintSess<'s> {
                         } else {
                             Err(LvalueAccessErr::ImmutableReference {
                                 ty,
-                                span: expr.span,
+                                span: expr.span(),
                             })
                         }
                     }
@@ -103,7 +103,7 @@ impl<'s> LintSess<'s> {
                         } else {
                             Err(LvalueAccessErr::ImmutableIdent {
                                 id: ident.binding_id,
-                                span: expr.span,
+                                span: expr.span(),
                             })
                         }
                     }

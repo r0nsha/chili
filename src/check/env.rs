@@ -1,6 +1,6 @@
 use crate::ast::{
-    ast::FunctionId,
     workspace::{BindingId, ModuleId, ModuleInfo, ScopeLevel},
+    FunctionId,
 };
 use ustr::{ustr, Ustr, UstrMap};
 

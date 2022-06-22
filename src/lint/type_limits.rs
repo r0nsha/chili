@@ -1,6 +1,6 @@
 use super::sess::LintSess;
 use crate::ast::{
-    ast,
+    self,
     const_value::ConstValue,
     ty::{IntType, Type, TypeId, UintType},
 };
@@ -11,14 +11,14 @@ use std::fmt::Display;
 
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, e: &ast::Ast) {
-        if let ast::Ast::ConstValue(const_value) = &e.kind {
-            match const_value {
-                ConstValue::Int(value) => match &e.ty.normalize(self.tycx) {
+        if let ast::Ast::ConstValue(const_value) = e {
+            match &const_value.value {
+                ConstValue::Int(value) => match &e.ty().normalize(self.tycx) {
                     Type::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
                     Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
                     _ => (),
                 },
-                ConstValue::Uint(value) => match &e.ty.normalize(self.tycx) {
+                ConstValue::Uint(value) => match &e.ty().normalize(self.tycx) {
                     Type::Int(int_ty) => self.check_int_limits(int_ty, *value as _, e),
                     Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, e),
                     _ => (),
@@ -33,7 +33,7 @@ impl<'s> LintSess<'s> {
         if value < min || value > max {
             self.workspace
                 .diagnostics
-                .push(overflow_err(value, &e.ty, min, max, e.span))
+                .push(overflow_err(value, &e.ty(), min, max, e.span()))
         }
     }
 
@@ -43,14 +43,14 @@ impl<'s> LintSess<'s> {
         if value.is_negative() {
             self.workspace
                 .diagnostics
-                .push(overflow_err(value, &e.ty, min, max, e.span))
+                .push(overflow_err(value, &e.ty(), min, max, e.span()))
         } else {
             let value = value as u64;
 
             if value < min || value > max {
                 self.workspace
                     .diagnostics
-                    .push(overflow_err(value, &e.ty, min, max, e.span))
+                    .push(overflow_err(value, &e.ty(), min, max, e.span()))
             }
         }
     }

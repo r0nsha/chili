@@ -4,7 +4,7 @@ use super::{
     unify::{can_coerce_mut, UnifyTyResult},
 };
 use crate::ast::{
-    ast,
+    self,
     ty::{size::SizeOf, *},
 };
 
@@ -143,17 +143,15 @@ impl Coerce for Type {
     }
 }
 
-fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::to: Type) {
-    let target_ty = tycx.bound(to, expr.span);
-    *expr = ast::Ast::typed(
-        ast::Ast::Cast(ast::Cast {
-            expr: Box::new(expr.clone()),
-            target: None,
-            ty: target_ty,
-        }),
-        target_ty,
-        expr.span,
-    )
+fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Ast, to: Type) {
+    let target_ty = tycx.bound(to, expr.span());
+
+    *expr = ast::Ast::Cast(ast::Cast {
+        expr: Box::new(expr.clone()),
+        target: None,
+        ty: target_ty,
+        span: expr.span(),
+    })
 }
 
 pub trait OrCoerceExprs {
@@ -177,7 +175,7 @@ impl OrCoerceExprs for UnifyTyResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {
-                let (left_ty, right_ty) = (left.ty.normalize(tycx), right.ty.normalize(tycx));
+                let (left_ty, right_ty) = (left.ty().normalize(tycx), right.ty().normalize(tycx));
                 match left_ty.coerce(&right_ty, word_size) {
                     CoercionResult::CoerceToLeft => {
                         coerce_expr(tycx, right, left_ty);
@@ -215,7 +213,7 @@ impl OrCoerceExprIntoTy for UnifyTyResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {
-                let (expr_ty, ty) = (expr.ty.normalize(tycx), ty.normalize(tycx));
+                let (expr_ty, ty) = (expr.ty().normalize(tycx), ty.normalize(tycx));
                 match expr_ty.coerce(&ty, word_size) {
                     CoercionResult::CoerceToRight => {
                         coerce_expr(tycx, expr, ty);

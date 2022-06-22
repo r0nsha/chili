@@ -8,7 +8,7 @@ use crate::error::{
 use crate::span::Span;
 use crate::{
     ast::{
-        ast,
+        self,
         ty::Type,
         workspace::{BindingId, BindingInfo, ModuleId},
     },

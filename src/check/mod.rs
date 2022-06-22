@@ -5,7 +5,7 @@ mod env;
 mod top_level;
 
 use crate::ast::{
-    self, BindingKind, FunctionId,
+    self,
     const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
     ty::{
@@ -13,6 +13,7 @@ use crate::ast::{
         StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel, Workspace},
+    BindingKind, FunctionId,
 };
 use crate::common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -306,7 +307,7 @@ impl<'s> CheckSess<'s> {
 
     pub fn is_mutable(&self, expr: &ast::Ast) -> bool {
         match expr {
-            ast::Ast::MemberAccess(access) => self.is_mutable(&access.expr.kind),
+            ast::Ast::MemberAccess(access) => self.is_mutable(&access.expr),
             ast::Ast::Ident(ident) => {
                 self.workspace
                     .binding_infos
@@ -524,13 +525,11 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(Box::new(
-                    ast::Ast::ConstValue(ast::Const{
-                        value: const_value.clone(),
-                        ty: self.ty, 
-                        span: pattern.span,
-                    }),
-                ));
+                self.expr = Some(Box::new(ast::Ast::ConstValue(ast::Const {
+                    value: const_value.clone(),
+                    ty: self.ty,
+                    span: pattern.span,
+                })));
 
                 Ok(Res::new(self.ty))
             }
@@ -564,13 +563,11 @@ impl Check for ast::Binding {
                     &self.kind,
                 )?;
 
-                self.expr = Some(Box::new(
-                    ast::Ast::ConstValue(ast::Const{
-                        value: const_value.clone(),
-                        ty: self.ty, 
-                        span: pattern.span,
-                    }),
-                ));
+                self.expr = Some(Box::new(ast::Ast::ConstValue(ast::Const {
+                    value: const_value.clone(),
+                    ty: self.ty,
+                    span: pattern.span,
+                })));
 
                 Ok(Res::new_const(self.ty, const_value))
             }
@@ -725,7 +722,7 @@ impl Check for ast::Ast {
                 Ok(Res::new(sess.tycx.common_types.unit))
             }
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_ty),
-            ast::Ast::Builtin(builtin) => match builtin {
+            ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::Import(path) => sess.check_import(path),
                 ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
@@ -860,11 +857,12 @@ impl Check for ast::Ast {
                     name: function.sig.name,
                 });
 
-                *self = ast::Ast::typed(
-                    ast::Ast::ConstValue(const_value.clone()),
-                    sig_res.ty,
-                    self.span,
-                );
+                *self = ast::Ast::ConstValue(ast::Const {
+                    value: const_value.clone(),
+
+                    ty: sig_res.ty,
+                    span: self.span,
+                });
 
                 Ok(Res::new_const(sig_res.ty, const_value))
             }
@@ -1065,11 +1063,11 @@ impl Check for ast::Ast {
                             *self = otherwise.as_ref().clone();
                             Ok(res)
                         } else {
-                            *self = ast::Ast::typed(
-                                ast::Ast::ConstValue(ConstValue::Unit(())),
-                                unit,
-                                self.span,
-                            );
+                            *self = ast::Ast::ConstValue(ast::Const {
+                                value: ConstValue::Unit(()),
+                                ty: unit,
+                                span: self.span,
+                            });
                             Ok(Res::new(unit))
                         }
                     };
@@ -1384,7 +1382,7 @@ impl Check for ast::Ast {
 
                 let (result_ty, is_mutable) = match expr_ty {
                     // TODO: this is immutable even if the array is mutable
-                    Type::Array(inner, ..) => (inner, sess.is_mutable(&slice.expr.kind)),
+                    Type::Array(inner, ..) => (inner, sess.is_mutable(&slice.expr)),
                     Type::Slice(inner, is_mutable) | Type::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
                     }
@@ -2471,9 +2469,9 @@ fn get_anonymous_struct_name(span: Span) -> Ustr {
     ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
 }
 
-fn interp_expr(expr: &ast::sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
-    let mut interp_sess =
-        sess.interp
-            .create_session(sess.workspace, &sess.tycx, &sess.new_typed_ast);
+fn interp_expr(expr: &ast::Ast, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
+    let mut interp_sess = sess
+        .interp
+        .create_session(sess.workspace, &sess.tycx, &sess.typed_ast);
     interp_sess.eval(expr, module_id)
 }

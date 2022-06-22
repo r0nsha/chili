@@ -15,7 +15,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         binary: &ast::Binary,
         span: Span,
     ) -> BasicValueEnum<'ctx> {
-        let ty = binary.lhs.ty.normalize(self.tycx);
+        let ty = binary.lhs.ty().normalize(self.tycx);
 
         let lhs = self.gen_expr(state, &binary.lhs, true);
         let rhs = self.gen_expr(state, &binary.rhs, true);

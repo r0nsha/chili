@@ -2,7 +2,7 @@ use super::{
     normalize::{Concrete, Normalize},
     ty_ctx::TyCtx,
 };
-use crate::ast::{ast, ty::*};
+use crate::ast::{self, ty::*};
 use crate::error::{
     diagnostic::{Diagnostic, Label},
     Diagnostics,
@@ -157,23 +157,23 @@ impl<'a> Substitute<'a> for ast::Cast {
         self.target.substitute(sess);
         self.ty.substitute(
             sess,
-            self.target.as_ref().map_or(self.expr.span, |e| e.span),
+            self.target.as_ref().map_or(self.expr.span(), |e| e.span()),
         );
     }
 }
 
 impl<'a> Substitute<'a> for ast::Ast {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.ty.substitute(sess, self.span);
+        self.ty().substitute(sess, self.span());
 
-        match &self.kind {
+        match self {
             ast::Ast::Binding(binding) => binding.substitute(sess),
             ast::Ast::Assignment(assignment) => {
                 assignment.lvalue.substitute(sess);
                 assignment.rvalue.substitute(sess);
             }
             ast::Ast::Cast(info) => info.substitute(sess),
-            ast::Ast::Builtin(builtin) => match builtin {
+            ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
                 | ast::BuiltinKind::Run(expr, _) => expr.substitute(sess),

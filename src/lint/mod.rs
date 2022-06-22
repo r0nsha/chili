@@ -120,7 +120,7 @@ impl Lint for ast::Binding {
         self.expr.lint(sess);
 
         if let Some(expr) = &self.expr {
-            let is_a_type = expr.ty.normalize(sess.tycx).is_type();
+            let is_a_type = expr.ty().normalize(sess.tycx).is_type();
 
             // * don't allow types to be bounded to mutable bindings
             if is_a_type {
@@ -152,23 +152,23 @@ impl Lint for ast::Block {
 
 impl Lint for ast::Ast {
     fn lint(&self, sess: &mut LintSess) {
-        match &self.kind {
+        match self {
             ast::Ast::Binding(binding) => binding.lint(sess),
             ast::Ast::Assignment(assignment) => {
                 assignment.rvalue.lint(sess);
 
-                match &assignment.lvalue.kind {
+                match assignment.lvalue.as_ref() {
                     ast::Ast::Ident(ident) => {
                         sess.check_assign_lvalue_id_access(&assignment.lvalue, ident.binding_id);
                     }
                     _ => {
-                        sess.check_lvalue_access(&assignment.lvalue, assignment.lvalue.span);
+                        sess.check_lvalue_access(&assignment.lvalue, assignment.lvalue.span());
                         assignment.lvalue.lint(sess);
                     }
                 };
             }
             ast::Ast::Cast(t) => t.expr.lint(sess),
-            ast::Ast::Builtin(b) => match b {
+            ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::Import(_) => (),
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
@@ -227,13 +227,13 @@ impl Lint for ast::Ast {
                 slice.high.lint(sess);
 
                 if slice.high.is_none() {
-                    if slice.expr.ty.normalize(sess.tycx).is_multi_pointer() {
+                    if slice.expr.ty().normalize(sess.tycx).is_multi_pointer() {
                         sess.workspace.diagnostics.push(Diagnostic::error()
                         .with_message(
                             "multi pointer has unknown length, so you must specify the ending index",
                         )
                         .with_label(Label::primary(
-                            slice.expr.span,"multi pointer has unknown length"
+                            slice.expr.span(),"multi pointer has unknown length"
                         )));
                     }
                 }
@@ -274,11 +274,11 @@ impl Lint for ast::Ast {
                 }
                 sig.ret.lint(sess);
             }
-            ast::Ast::Ident(ident) => sess.check_id_access(ident.binding_id, self.span),
+            ast::Ast::Ident(ident) => sess.check_id_access(ident.binding_id, self.span()),
             ast::Ast::Literal(_) => {
                 panic!("Literal expression should have been lowered to a ConstValue")
             }
-            ast::Ast::SelfType | ast::Ast::ConstValue(_) | ast::Ast::Placeholder => (),
+            ast::Ast::SelfType(_) | ast::Ast::ConstValue(_) | ast::Ast::Placeholder(_) => (),
             ast::Ast::Error(_) => panic!("unexpected error node"),
         }
 

@@ -166,7 +166,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
             if let Some(expr) = binding.expr.as_ref() {
-                if let ast::Ast::ConstValue(ConstValue::Function(function)) = &expr.kind {
+                if let ast::Ast::ConstValue(ast::Const {
+                    value: ConstValue::Function(function),
+                    ..
+                }) = expr.as_ref()
+                {
                     let function = self.gen_function(function.id, None);
                     self.insert_global_decl(id, CodegenDecl::Function(function))
                 } else {
@@ -613,7 +617,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             return self.gen_unit();
         }
 
-        let value = match &expr.kind {
+        let value = match expr {
             ast::Ast::Binding(binding) => {
                 match &binding.kind {
                     ast::BindingKind::Normal => {
@@ -628,7 +632,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         let pattern = binding.pattern.as_symbol_ref();
 
                         let decl = if let Some(expr) = &binding.expr {
-                            if let ast::Ast::ConstValue(ConstValue::Function(function)) = &expr.kind
+                            if let ast::Ast::ConstValue(ast::Const {
+                                value: ConstValue::Function(function),
+                                ..
+                            }) = expr.as_ref()
                             {
                                 let function = self.gen_function(function.id, None);
                                 CodegenDecl::Function(function)
@@ -660,7 +667,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_unit()
             }
             ast::Ast::Cast(info) => self.gen_cast(state, &info.expr, &info.ty),
-            ast::Ast::Builtin(builtin) => match builtin {
+            ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
                 ast::BuiltinKind::SizeOf(expr) => match expr.ty.normalize(self.tycx) {
                     Type::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),

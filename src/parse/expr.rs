@@ -320,17 +320,17 @@ impl Parser {
                     span: start_span.to(self.previous_span()),
                 })
             } else {
-                let mut ast = self.parse_expr()?;
+                let mut expr = self.parse_expr()?;
 
                 if eat!(self, Comma) {
-                    self.parse_tuple_literal(ast, start_span)?
+                    self.parse_tuple_literal(expr, start_span)?
                 } else {
                     require!(self, CloseParen, ")")?;
 
-                    ast.span().range().start -= 1;
-                    *ast.span_mut() = Span::to(&ast.span(), self.previous_span());
+                    expr.span().range().start -= 1;
+                    *expr.span_mut() = Span::to(&expr.span(), self.previous_span());
 
-                    ast
+                    expr
                 }
             }
         } else if eat!(self, Fn) {

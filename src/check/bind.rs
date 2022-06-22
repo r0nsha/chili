@@ -4,7 +4,7 @@ use super::{
     CheckSess,
 };
 use crate::ast::{
-    ast,
+    self,
     const_value::ConstValue,
     pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
     ty::{InferTy, PartialStructType, Type, TypeId},

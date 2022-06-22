@@ -1,5 +1,5 @@
 use super::types::*;
-use crate::ast::{ty::Type, workspace::Workspace};
+use crate::ast::{self, ty::Type, workspace::Workspace};
 use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
 use crate::span::{EndPosition, Position, Span};
 
@@ -128,14 +128,14 @@ impl<'a> CollectHints<'a> for ast::Block {
 
 impl<'a> CollectHints<'a> for ast::Ast {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
-        match &self.kind {
+        match self {
             ast::Ast::Binding(binding) => binding.collect_hints(sess),
             ast::Ast::Assignment(assignment) => {
                 assignment.lvalue.collect_hints(sess);
                 assignment.rvalue.collect_hints(sess);
             }
             ast::Ast::Cast(t) => t.expr.collect_hints(sess),
-            ast::Ast::Builtin(b) => match b {
+            ast::Ast::Builtin(b) => match &b.kind {
                 ast::BuiltinKind::Import(_) => (),
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
@@ -223,9 +223,9 @@ impl<'a> CollectHints<'a> for ast::Ast {
             }
             ast::Ast::Ident(_)
             | ast::Ast::Literal(_)
-            | ast::Ast::SelfType
+            | ast::Ast::SelfType(_)
             | ast::Ast::ConstValue(_)
-            | ast::Ast::Placeholder
+            | ast::Ast::Placeholder(_)
             | ast::Ast::Error(_) => (),
         }
     }

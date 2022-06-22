@@ -1,6 +1,6 @@
 use super::sess::LintSess;
 use crate::ast::{
-    ast,
+    self,
     ty::Type,
     workspace::{BindingId, BindingInfo, ModuleId},
 };
@@ -58,9 +58,9 @@ impl<'s> LintSess<'s> {
     ) -> Result<(), RefAccessErr> {
         use RefAccessErr::*;
 
-        let ty = expr.ty.normalize(self.tycx);
+        let ty = expr.ty().normalize(self.tycx);
 
-        match &expr.kind {
+        match expr {
             ast::Ast::MemberAccess(access) => {
                 match self.check_expr_can_be_mutably_referenced_inner(expr, true) {
                     Ok(_) => match ty {
@@ -76,7 +76,7 @@ impl<'s> LintSess<'s> {
                                 {
                                     Err(ImmutableReference {
                                         ty,
-                                        span: expr.span,
+                                        span: expr.span(),
                                     })
                                 }
                                 _ => Ok(()),
@@ -98,7 +98,7 @@ impl<'s> LintSess<'s> {
                                 {
                                     Err(ImmutableReference {
                                         ty,
-                                        span: expr.span,
+                                        span: expr.span(),
                                     })
                                 }
                                 _ => Ok(()),
@@ -117,7 +117,7 @@ impl<'s> LintSess<'s> {
                                 {
                                     Err(ImmutableReference {
                                         ty,
-                                        span: expr.span,
+                                        span: expr.span(),
                                     })
                                 }
                                 _ => {
@@ -126,7 +126,7 @@ impl<'s> LintSess<'s> {
                                     } else {
                                         Err(ImmutableBinding {
                                             id: binding_info.id,
-                                            span: expr.span,
+                                            span: expr.span(),
                                         })
                                     }
                                 }
@@ -147,7 +147,7 @@ impl<'s> LintSess<'s> {
                         } else {
                             return Err(ImmutableReference {
                                 ty,
-                                span: expr.span,
+                                span: expr.span(),
                             });
                         }
                     }
@@ -161,7 +161,7 @@ impl<'s> LintSess<'s> {
                 } else {
                     Err(ImmutableBinding {
                         id: ident.binding_id,
-                        span: expr.span,
+                        span: expr.span(),
                     })
                 }
             }
