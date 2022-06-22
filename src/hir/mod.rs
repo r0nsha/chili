@@ -11,6 +11,27 @@ use crate::{
     span::Span,
 };
 
+macro_rules! node_struct {
+    ($name:ident) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            ty: TypeId,
+            span: Span,
+        }
+    };
+
+    ($name:ident, { $($field:ident : $ty:ty) , + $(,)? }) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            ty: TypeId,
+            span: Span,
+            $(
+                $field: $ty
+            ),+
+        }
+    };
+}
+
 pub struct Cache {
     pub bindings: IdCache<BindingId, Binding>,
     pub functions: IdCache<FunctionId, Function>,
@@ -25,7 +46,7 @@ impl Cache {
     }
 }
 
-#[derive(Debug, EnumAsInner, Clone)]
+#[derive(Debug, Clone, EnumAsInner)]
 pub enum Node {
     Const(Const),
     Binding(Binding),
@@ -37,148 +58,81 @@ pub enum Node {
     Control(Control),
 }
 
-#[derive(Debug, Clone)]
-pub struct Const {
-    value: ConstValue,
-    ty: TypeId,
-    span: Span,
-}
+node_struct!(Empty);
+node_struct!(Const, { value: ConstValue });
+node_struct!(Binding, { id: BindingId, value: Box<Node> });
+node_struct!(Id, { id: BindingId });
+node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
+node_struct!(MemberAccess, { value: Box<Node>, index: u32 });
+node_struct!(Call, { value: Box<Node>, args: Vec<Node> });
+node_struct!(Sequence, { statements: Vec<Node> });
+node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
+node_struct!(While, { condition: Box<Node>, body: Box<Node> });
+node_struct!(Return, { condition: Box<Node>, value: Box<Node> });
+node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
+node_struct!(Cast, { value: Box<Node> });
+node_struct!(Deref, { value: Box<Node> });
+node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
+// node_struct!(Transmute, { value: Box<Node> });
 
-#[derive(Debug, Clone)]
-pub struct Binding {
-    id: BindingId,
-    value: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Id {
-    id: BindingId,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Assignment {
-    lhs: Box<Node>,
-    rhs: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct MemberAccess {
-    value: Box<Node>,
-    index: u32,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Call {
-    value: Box<Node>,
-    args: Vec<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Sequence {
-    statements: Vec<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EnumAsInner)]
 pub enum Control {
     If(If),
     While(While),
     Return(Return),
-    Break(Break),
-    Continue(Continue),
+    Break(Empty),
+    Continue(Empty),
 }
 
-#[derive(Debug, Clone)]
-pub struct If {
-    condition: Box<Node>,
-    then: Box<Node>,
-    otherwise: Option<Box<Node>>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct While {
-    condition: Box<Node>,
-    then: Box<Node>,
-    otherwise: Option<Box<Node>>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Return {
-    value: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Break {
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Continue {
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EnumAsInner)]
 pub enum Builtin {
-    AddInt(Binary),
+    AddSigned(Binary),
     AddFloat(Binary),
 
-    SubInt(Binary),
+    SubSigned(Binary),
     SubFloat(Binary),
 
-    MulInt(Binary),
+    MulSigned(Binary),
     MulFloat(Binary),
 
-    DivInt(Binary),
-    DivUint(Binary),
+    DivSigned(Binary),
+    DivUnsigned(Binary),
     DivFloat(Binary),
 
     ModSigned(Binary),
     ModUnsigned(Binary),
     ModFloat(Binary),
 
-    LtInt(Binary),
-    LtUint(Binary),
+    LtSigned(Binary),
+    LtUnsigned(Binary),
     LtFloat(Binary),
 
-    LeInt(Binary),
-    LeUint(Binary),
+    LeSigned(Binary),
+    LeUnsigned(Binary),
     LeFloat(Binary),
 
-    GtInt(Binary),
-    GtUint(Binary),
+    GtSigned(Binary),
+    GtUnsigned(Binary),
     GtFloat(Binary),
 
-    GeInt(Binary),
-    GeUint(Binary),
+    GeSigned(Binary),
+    GeUnsigned(Binary),
     GeFloat(Binary),
 
-    EqInt(Binary),
+    EqSigned(Binary),
+    EqUnsigned(Binary),
     EqFloat(Binary),
     EqBool(Binary),
 
-    IntToFloat(Cast),
-    UintToFloat(Cast),
-    FloatToInt(Cast),
-    FloatToUint(Cast),
+    NeSigned(Binary),
+    NeUnsigned(Binary),
+    NeFloat(Binary),
+    NeBool(Binary),
+
+    SignedToFloat(Cast),
+    UnsignedToFloat(Cast),
+    FloatToSigned(Cast),
+    FloatToUnsigned(Cast),
 
     BitwiseAnd(Binary),
     BitwiseOr(Binary),
@@ -187,92 +141,46 @@ pub enum Builtin {
 
     Deref(Deref),
     Offset(Offset),
-    Transmute(Transmute),
+    // TODO: Transmute(Transmute),
 }
 
-#[derive(Debug, Clone)]
-pub struct Binary {
-    lhs: Box<Node>,
-    rhs: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Cast {
-    value: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Deref {
-    value: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Offset {
-    value: Box<Node>,
-    offset: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Transmute {
-    value: Box<Node>,
-    ty: TypeId,
-    span: Span,
-}
-
-impl Node {
-    pub fn ty(&self) -> TypeId {
-        match self {
-            Self::Const(x) => x.ty,
-            Self::Binding(x) => x.ty,
-            Self::Id(x) => x.ty,
-            Self::Assignment(x) => x.ty,
-            Self::MemberAccess(x) => x.ty,
-            Self::Call(x) => x.ty,
-            Self::Sequence(x) => x.ty,
-            Self::Control(x) => x.ty(),
+macro_rules! node_field_dispatch {
+    ($field:ident, $ty:ty) => {
+        impl Node {
+            pub fn $field(&self) -> $ty {
+                match self {
+                    Self::Const(x) => x.$field,
+                    Self::Binding(x) => x.$field,
+                    Self::Id(x) => x.$field,
+                    Self::Assignment(x) => x.$field,
+                    Self::MemberAccess(x) => x.$field,
+                    Self::Call(x) => x.$field,
+                    Self::Sequence(x) => x.$field,
+                    Self::Control(x) => x.$field(),
+                }
+            }
         }
-    }
-
-    pub fn span(&self) -> Span {
-        match self {
-            Self::Const(c) => c.span,
-            Self::Binding(c) => c.span,
-            Self::Id(x) => x.span,
-            Self::Assignment(x) => x.span,
-            Self::MemberAccess(x) => x.span,
-            Self::Call(x) => x.span,
-            Self::Sequence(x) => x.span,
-            Self::Control(x) => x.span(),
-        }
-    }
+    };
 }
 
-impl Control {
-    pub fn ty(&self) -> TypeId {
-        match self {
-            Control::If(x) => x.ty,
-            Control::While(x) => x.ty,
-            Control::Return(x) => x.ty,
-            Control::Break(x) => x.ty,
-            Control::Continue(x) => x.ty,
-        }
-    }
+node_field_dispatch!(ty, TypeId);
+node_field_dispatch!(span, Span);
 
-    pub fn span(&self) -> Span {
-        match self {
-            Control::If(x) => x.span,
-            Control::While(x) => x.span,
-            Control::Return(x) => x.span,
-            Control::Break(x) => x.span,
-            Control::Continue(x) => x.span,
+macro_rules! control_field_dispatch {
+    ($field:ident, $ty:ty) => {
+        impl Control {
+            pub fn $field(&self) -> $ty {
+                match self {
+                    Self::If(x) => x.$field,
+                    Self::While(x) => x.$field,
+                    Self::Return(x) => x.$field,
+                    Self::Break(x) => x.$field,
+                    Self::Continue(x) => x.$field,
+                }
+            }
         }
-    }
+    };
 }
+
+control_field_dispatch!(ty, TypeId);
+control_field_dispatch!(span, Span);

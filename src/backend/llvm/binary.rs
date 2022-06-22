@@ -117,7 +117,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let rhs = rhs.into_int_value();
 
                 if self.workspace.build_options.optimization_level.is_release() {
-                    self.builder.build_int_sub(lhs, rhs, "iadd").into()
+                    self.builder.build_int_sub(lhs, rhs, "isub").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Sub, ty, lhs.get_type());
                     let result =
@@ -147,7 +147,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 let rhs = rhs.into_int_value();
 
                 if self.workspace.build_options.optimization_level.is_release() {
-                    self.builder.build_int_mul(lhs, rhs, "iadd").into()
+                    self.builder.build_int_mul(lhs, rhs, "imul").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Mul, ty, lhs.get_type());
                     let result =
