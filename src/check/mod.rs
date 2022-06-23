@@ -26,7 +26,6 @@ use crate::span::Span;
 use crate::{
     ast::{
         self,
-        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
         pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
         ty::{
             FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
@@ -37,7 +36,10 @@ use crate::{
         },
         BindingKind, FunctionId,
     },
-    hir,
+    hir::{
+        self,
+        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+    },
 };
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
@@ -218,45 +220,23 @@ impl<'s> CheckSess<'s> {
         self.function_frames.last().map(|&f| f)
     }
 
-    pub fn extract_const_type(
-        &self,
-        const_value: Option<ConstValue>,
-        ty: TypeId,
-        span: Span,
-    ) -> DiagnosticResult<TypeId> {
-        match const_value {
-            Some(v) => {
-                if let ConstValue::Type(t) = v {
-                    return Ok(t);
-                }
-            }
-            None => (),
+    pub fn extract_const_type(&self, node: &hir::Node) -> DiagnosticResult<TypeId> {
+        match node.as_const_value() {
+            Some(ConstValue::Type(t)) => Ok(*t),
+            _ => Err(TypeError::expected(
+                node.span(),
+                node.ty().display(&self.tycx),
+                "a type",
+            )),
         }
-
-        Err(TypeError::expected(span, ty.display(&self.tycx), "a type"))
     }
 
-    pub fn extract_const_int(
-        &mut self,
-        value: Option<ConstValue>,
-        ty: TypeId,
-        span: Span,
-    ) -> DiagnosticResult<i64> {
-        match &value {
-            Some(value) => {
-                if !value.is_int() {
-                    Err(TypeError::expected(
-                        span,
-                        ty.display(&self.tycx),
-                        "compile-time known integer",
-                    ))
-                } else {
-                    Ok(value.clone().into_int())
-                }
-            }
-            None => Err(TypeError::expected(
-                span,
-                ty.display(&self.tycx),
+    pub fn extract_const_int(&self, node: &hir::Node) -> DiagnosticResult<i64> {
+        match node.as_const_value() {
+            Some(ConstValue::Int(v)) => Ok(*v),
+            _ => Err(TypeError::expected(
+                node.span(),
+                node.ty().display(&self.tycx),
                 "compile-time known integer",
             )),
         }
@@ -347,8 +327,8 @@ impl Check for ast::Binding {
         self.module_id = env.module_id();
 
         self.ty = if let Some(ty_expr) = &mut self.ty_expr {
-            let res = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(res.const_value, res.ty, ty_expr.span())?
+            let node = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+            sess.extract_const_type(&node)?
         } else {
             sess.tycx.var(self.pattern.span())
         };
@@ -564,7 +544,7 @@ impl Check for ast::FunctionSig {
             for param in self.params.iter_mut() {
                 param.ty = if let Some(expr) = &mut param.ty_expr {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    sess.extract_const_type(res.const_value, res.ty, expr.span())?
+                    sess.extract_const_type(&res)?
                 } else {
                     sess.tycx.var(param.pattern.span())
                 };
@@ -614,7 +594,7 @@ impl Check for ast::FunctionSig {
 
         let ret = if let Some(expr) = &mut self.ret {
             let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(res.const_value, res.ty, expr.span())?
+            sess.extract_const_type(&res)?
         } else if self.kind.is_extern() {
             sess.tycx.common_types.unit
         } else {
@@ -624,7 +604,7 @@ impl Check for ast::FunctionSig {
         let varargs = if let Some(varargs) = &mut self.varargs {
             let ty = if let Some(ty) = &mut varargs.ty {
                 let res = ty.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let ty = sess.extract_const_type(res.const_value, res.ty, ty.span())?;
+                let ty = sess.extract_const_type(&res)?;
 
                 Some(ty.as_kind())
             } else {
@@ -663,7 +643,7 @@ impl Check for ast::FunctionSig {
 
 impl Check for ast::Ast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let res = match self {
+        match self {
             ast::Ast::Binding(binding) => {
                 binding.check(sess, env, None)?;
                 Ok(Res::new(sess.tycx.common_types.unit))
@@ -695,7 +675,7 @@ impl Check for ast::Ast {
                 ast::BuiltinKind::Import(path) => sess.check_import(path),
                 ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
                     let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    sess.extract_const_type(res.const_value, res.ty, expr.span())?;
+                    sess.extract_const_type(&res)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
                 ast::BuiltinKind::Run(expr, run_result) => {
@@ -1674,8 +1654,7 @@ impl Check for ast::Ast {
                 }
                 ast::ArrayLiteralKind::Fill { len, expr } => {
                     let len_res = len.check(sess, env, None)?;
-                    let array_len =
-                        sess.extract_const_int(len_res.const_value, len_res.ty, len.span())?;
+                    let array_len = sess.extract_const_int(&len_res)?;
 
                     if array_len < 0 {
                         return Err(TypeError::negative_array_len(len.span(), array_len));
@@ -1824,8 +1803,7 @@ impl Check for ast::Ast {
                     Some(type_expr) => {
                         let res =
                             type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                        let ty =
-                            sess.extract_const_type(res.const_value, res.ty, type_expr.span())?;
+                        let ty = sess.extract_const_type(&res)?;
 
                         let kind = ty.normalize(&sess.tycx);
 
@@ -1912,7 +1890,7 @@ impl Check for ast::Ast {
                 ..
             }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span())?;
+                let inner_kind = sess.extract_const_type(&res)?;
                 let kind = Type::Pointer(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
@@ -1933,7 +1911,7 @@ impl Check for ast::Ast {
                 ..
             }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span())?;
+                let inner_kind = sess.extract_const_type(&res)?;
                 let kind = Type::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
@@ -1951,13 +1929,11 @@ impl Check for ast::Ast {
                 inner, size, span, ..
             }) => {
                 let inner_res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_ty =
-                    sess.extract_const_type(inner_res.const_value, inner_res.ty, inner.span())?;
+                let inner_ty = sess.extract_const_type(&inner_res)?;
 
                 let size_res = size.check(sess, env, None)?;
 
-                let size_value =
-                    sess.extract_const_int(size_res.const_value, size_res.ty, size.span())?;
+                let size_value = sess.extract_const_int(&size_res)?;
 
                 if size_value < 0 {
                     return Err(TypeError::negative_array_len(size.span(), size_value));
@@ -1983,7 +1959,7 @@ impl Check for ast::Ast {
                 ..
             }) => {
                 let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(res.const_value, res.ty, inner.span())?;
+                let inner_kind = sess.extract_const_type(&res)?;
                 let kind = Type::Slice(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
@@ -2037,7 +2013,7 @@ impl Check for ast::Ast {
                     let res = field
                         .ty
                         .check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    let ty = sess.extract_const_type(res.const_value, res.ty, field.span)?;
+                    let ty = sess.extract_const_type(&res)?;
 
                     if let Some(defined_span) = field_map.insert(field.name, field.span) {
                         return Err(SyntaxError::duplicate_struct_field(
@@ -2131,11 +2107,7 @@ impl Check for ast::Ast {
             }
             ast::Ast::Const(_) => panic!(),
             ast::Ast::Error(expr) => Ok(Res::new(sess.tycx.var(expr.span))),
-        }?;
-
-        *self.ty_mut() = res.ty;
-
-        Ok(res)
+        }
     }
 }
 
@@ -2234,7 +2206,7 @@ impl Check for ast::Cast {
 
         self.ty = if let Some(ty_expr) = &mut self.target {
             let res = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(res.const_value, res.ty, ty_expr.span())?
+            sess.extract_const_type(&res)?
         } else {
             match expected_ty {
                 Some(t) => t,

@@ -1,14 +1,12 @@
-use super::{const_value::ConstValue, ty::TypeId, BindingKind, ExternLibrary, Visibility};
+use super::{ty::TypeId, BindingKind, ExternLibrary, Visibility};
 use crate::{
-    common::build_options::{BuildOptions, DiagnosticOptions},
+    common::{
+        build_options::{BuildOptions, DiagnosticOptions},
+        id_cache::{IdCache, WithId},
+    },
     define_id_type,
-};
-use crate::{
-    common::id_cache::IdCache,
     error::{emit_diagnostics, emitter::ColorMode, Diagnostics},
-};
-use crate::{
-    common::id_cache::WithId,
+    hir::const_value::ConstValue,
     span::{FileId, Span},
 };
 use bitflags::bitflags;
