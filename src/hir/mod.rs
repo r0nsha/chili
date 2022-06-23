@@ -115,6 +115,7 @@ pub enum Node {
     MemberAccess(MemberAccess),
     Call(Call),
     Cast(Cast),
+    Slice(Slice),
     Sequence(Sequence),
     Control(Control),
     Builtin(Builtin),
@@ -122,28 +123,36 @@ pub enum Node {
 }
 
 node_struct!(Empty);
+
 node_struct!(Const, { value: ConstValue });
+
 node_struct!(Binding, { module_id: ModuleId, id: BindingId, name: Ustr, value: Box<Node> });
 node_struct!(Id, { id: BindingId });
 node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(MemberAccess, { value: Box<Node>, member: Ustr, index: u32 });
+
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
+node_struct!(Cast, { value: Box<Node> });
+node_struct!(Slice, { value: Box<Node>, low: Box<Node>, high: Box<Node> });
+
 node_struct!(Sequence, { statements: Vec<Node> });
+
 node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
 node_struct!(Return, { condition: Box<Node>, value: Box<Node> });
+
 node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(Unary, { value: Box<Node> });
-node_struct!(Cast, { value: Box<Node> });
+
 node_struct!(Deref, { value: Box<Node> });
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
+// node_struct!(Transmute, { value: Box<Node> });
+
 node_struct!(StructLiteral, { fields: Vec<StructLiteralField> });
 node_struct!(StructLiteralField, { name: Ustr, value: Box<Node> });
 node_struct!(TupleLiteral, { elements: Vec<Node> });
 node_struct!(ArrayLiteral, { elements: Vec<Node> });
 node_struct!(ArrayFillLiteral, { value: Box<Node>, len: usize });
-
-// node_struct!(Transmute, { value: Box<Node> });
 
 #[derive(Debug, Clone, EnumAsInner)]
 pub enum Control {
@@ -197,6 +206,7 @@ macro_rules! node_field_dispatch {
                     Self::MemberAccess(x) => x.$field,
                     Self::Call(x) => x.$field,
                     Self::Cast(x) => x.$field,
+                    Self::Slice(x) => x.$field,
                     Self::Sequence(x) => x.$field,
                     Self::Control(x) => x.$field(),
                     Self::Builtin(x) => x.$field(),

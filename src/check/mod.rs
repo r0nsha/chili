@@ -1303,26 +1303,40 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::Slice(slice) => {
-                let expr_node = slice.expr.check(sess, env, None)?;
-                let expr_ty = expr_node.ty.normalize(&sess.tycx);
                 let uint = sess.tycx.common_types.uint;
 
-                if let Some(low) = &mut slice.low {
-                    let node = low.check(sess, env, None)?;
+                let node = slice.expr.check(sess, env, None)?;
+                let expr_ty = node.ty().normalize(&sess.tycx);
 
-                    node.ty
-                        .unify(&uint, &mut sess.tycx)
-                        .or_coerce_into_ty(low, uint, &mut sess.tycx, sess.target_metrics.word_size)
-                        .or_report_err(&sess.tycx, uint, None, node.ty, low.span())?;
-                }
+                let low = if let Some(low) = &mut slice.low {
+                    let low = low.check(sess, env, None)?;
 
-                if let Some(high) = &mut slice.high {
-                    let node = high.check(sess, env, None)?;
-
-                    node.ty
+                    low.ty()
                         .unify(&uint, &mut sess.tycx)
                         .or_coerce_into_ty(
-                            high,
+                            &mut low,
+                            uint,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(&sess.tycx, uint, None, low.ty(), low.span())?;
+
+                    low
+                } else {
+                    hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(0),
+                        ty: uint,
+                        span: slice.span,
+                    })
+                };
+
+                let high = if let Some(high) = &mut slice.high {
+                    let mut high = high.check(sess, env, None)?;
+
+                    high.ty()
+                        .unify(&uint, &mut sess.tycx)
+                        .or_coerce_into_ty(
+                            &mut high,
                             uint,
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
@@ -1331,10 +1345,42 @@ impl Check for ast::Ast {
                             &sess.tycx,
                             uint,
                             slice.low.as_ref().map(|e| e.span()),
-                            node.ty,
+                            high.ty(),
                             high.span(),
                         )?;
-                }
+
+                    high
+                } else {
+                    match &expr_ty {
+                        Type::Array(_, size) => hir::Node::Const(hir::Const {
+                            value: ConstValue::Uint(*size as _),
+                            ty: uint,
+                            span: slice.span,
+                        }),
+                        Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
+                            value: Box::new(node),
+                            ty: uint,
+                            span: slice.span,
+                            member: ustr(BUILTIN_FIELD_LEN),
+                            index: 1,
+                        }),
+                        Type::MultiPointer(..) => {
+                            return Err(Diagnostic::error()
+                                .with_message(
+                                    "slicing a multi-pointer requires specifying the end index",
+                                )
+                                .with_label(Label::primary(slice.span, "must specify end index")))
+                        }
+                        _ => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot slice type `{}`",
+                                    expr_ty.display(&sess.tycx)
+                                ))
+                                .with_label(Label::primary(slice.expr.span(), "cannot slice")))
+                        }
+                    }
+                };
 
                 let (result_ty, is_mutable) = match expr_ty {
                     // TODO: this is immutable even if the array is mutable
@@ -1356,7 +1402,13 @@ impl Check for ast::Ast {
                     .tycx
                     .bound(Type::Slice(result_ty, is_mutable), slice.span);
 
-                Ok(Res::new(ty))
+                Ok(hir::Node::Slice(hir::Slice {
+                    ty,
+                    span: slice.span,
+                    value: Box::new(node),
+                    low: Box::new(low),
+                    high: Box::new(high),
+                }))
             }
             ast::Ast::Call(call) => call.check(sess, env, expected_ty),
             ast::Ast::MemberAccess(access) => {
