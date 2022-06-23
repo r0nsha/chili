@@ -24,3 +24,4 @@ vm.out
 dist
 examples/**/out
 local_resources
+hir.pretty.chili

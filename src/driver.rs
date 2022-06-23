@@ -1,6 +1,7 @@
 use crate::ast::{workspace::Workspace, TypedAst};
 use crate::astgen::AstGenerationStats;
 use crate::error::diagnostic::Diagnostic;
+use crate::hir;
 use crate::infer::ty_ctx::TyCtx;
 use crate::{
     common::{
@@ -85,6 +86,8 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         (typed_ast, cache, tycx)
     }};
 
+    hir::pretty::print(&cache, &workspace, &tycx);
+
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
         return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
@@ -99,8 +102,6 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         workspace.emit_diagnostics();
         return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
     }
-
-    // chili_pretty_print::print_typed_ast(&typed_&workspace, &tycx);
 
     // Code generation
     match &workspace.build_options.codegen_options {

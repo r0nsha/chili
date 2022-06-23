@@ -1,4 +1,5 @@
 pub mod const_value;
+pub mod pretty;
 
 use crate::{
     ast::{
@@ -119,7 +120,7 @@ pub enum Node {
 
 node_struct!(Empty);
 node_struct!(Const, { value: ConstValue });
-node_struct!(Binding, { id: BindingId, value: Box<Node> });
+node_struct!(Binding, { module_id: ModuleId, id: BindingId, name: Ustr, value: Box<Node> });
 node_struct!(Id, { id: BindingId });
 node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(MemberAccess, { value: Box<Node>, index: u32 });
