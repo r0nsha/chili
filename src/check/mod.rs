@@ -333,53 +333,17 @@ impl<'s> CheckSess<'s> {
     }
 }
 
-pub type CheckResult = DiagnosticResult<Res>;
-
-#[derive(Debug)]
-pub struct Res {
-    ty: TypeId,
-    const_value: Option<ConstValue>,
-}
-
-impl Res {
-    pub fn new(ty: TypeId) -> Self {
-        Self {
-            ty,
-            const_value: None,
-        }
-    }
-
-    pub fn new_maybe_const(ty: TypeId, const_value: Option<ConstValue>) -> Self {
-        Self { ty, const_value }
-    }
-
-    pub fn new_const(ty: TypeId, const_value: ConstValue) -> Self {
-        Self {
-            ty,
-            const_value: Some(const_value),
-        }
-    }
-}
+type Result<T = hir::Node> = DiagnosticResult<T>;
 
 pub trait Check
 where
     Self: Sized,
 {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<TypeId>,
-    ) -> CheckResult;
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result;
 }
 
 impl Check for ast::Binding {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        _expected_ty: Option<TypeId>,
-    ) -> CheckResult {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         self.module_id = env.module_id();
 
         self.ty = if let Some(ty_expr) = &mut self.ty_expr {
@@ -591,12 +555,7 @@ impl Check for ast::Binding {
 }
 
 impl Check for ast::FunctionSig {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<TypeId>,
-    ) -> CheckResult {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let mut ty_params = vec![];
 
         if !self.params.is_empty() {
@@ -703,12 +662,7 @@ impl Check for ast::FunctionSig {
 }
 
 impl Check for ast::Ast {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<TypeId>,
-    ) -> CheckResult {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let res = match self {
             ast::Ast::Binding(binding) => {
                 binding.check(sess, env, None)?;
@@ -2186,12 +2140,7 @@ impl Check for ast::Ast {
 }
 
 impl Check for ast::Call {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        _expected_ty: Option<TypeId>,
-    ) -> CheckResult {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let callee_res = self.callee.check(sess, env, None)?;
 
         match callee_res.ty.normalize(&sess.tycx) {
@@ -2280,12 +2229,7 @@ impl Check for ast::Call {
 }
 
 impl Check for ast::Cast {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<TypeId>,
-    ) -> CheckResult {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let res = self.expr.check(sess, env, None)?;
 
         self.ty = if let Some(ty_expr) = &mut self.target {
@@ -2322,12 +2266,7 @@ impl Check for ast::Cast {
 }
 
 impl Check for ast::Block {
-    fn check(
-        &mut self,
-        sess: &mut CheckSess,
-        env: &mut Env,
-        expected_ty: Option<TypeId>,
-    ) -> CheckResult {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let mut res = Res::new(sess.tycx.common_types.unit);
 
         env.push_scope(ScopeKind::Block);
@@ -2367,7 +2306,7 @@ fn check_named_struct_literal(
     struct_ty: StructType,
     fields: &mut Vec<ast::StructLiteralField>,
     span: Span,
-) -> CheckResult {
+) -> Result {
     let mut field_set = UstrSet::default();
     let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
 
@@ -2470,8 +2409,7 @@ fn check_anonymous_struct_literal(
     env: &mut Env,
     fields: &mut Vec<ast::StructLiteralField>,
     span: Span,
-) -> CheckResult {
-    // TODO: anonymous structs should support unsafe union initialization
+) -> Result {
     let mut field_set = UstrSet::default();
 
     let name = get_anonymous_struct_name(span);
@@ -2497,7 +2435,7 @@ fn check_anonymous_struct_literal(
 
         struct_ty.fields.push(StructTypeField {
             symbol: field.symbol,
-            ty: res.ty.into(),
+            ty: res.ty().into(),
             span: field.span,
         });
 

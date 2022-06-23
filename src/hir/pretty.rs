@@ -7,6 +7,8 @@ use crate::hir;
 use crate::infer::normalize::Normalize;
 use crate::infer::{display::DisplayTy, ty_ctx::TyCtx};
 
+const INDENT: u16 = 2;
+
 #[allow(unused)]
 pub fn print(cache: &hir::Cache, workspace: &Workspace, tycx: &TyCtx) {
     if let Ok(file) = &OpenOptions::new()
@@ -26,7 +28,7 @@ struct Printer<'a> {
     workspace: &'a Workspace,
     tycx: &'a TyCtx,
     buf: BufWriter<Vec<u8>>,
-    ident: u16,
+    identation: u16,
 }
 
 impl<'a> Printer<'a> {
@@ -35,12 +37,20 @@ impl<'a> Printer<'a> {
             workspace,
             tycx,
             buf: BufWriter::new(Vec::new()),
-            ident: 0,
+            identation: 0,
         }
     }
 
     fn write(&mut self, s: &str) {
         self.buf.write_all(s.as_bytes()).unwrap();
+    }
+
+    fn indent(&mut self) {
+        self.identation += INDENT;
+    }
+
+    fn dedent(&mut self) {
+        self.identation -= INDENT;
     }
 }
 
@@ -99,6 +109,8 @@ impl Print for hir::Node {
             hir::Node::Call(_) => todo!(),
             hir::Node::Sequence(_) => todo!(),
             hir::Node::Control(_) => todo!(),
+            hir::Node::Builtin(_) => todo!(),
+            hir::Node::Literal(_) => todo!(),
         }
     }
 }

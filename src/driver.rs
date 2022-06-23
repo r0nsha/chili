@@ -69,11 +69,6 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         }
     };
 
-    // if workspace.diagnostics.has_errors() {
-    //     workspace.emit_diagnostics();
-    //     return StartWorkspaceResult::new(workspace, None, None);
-    // }
-
     // Type inference, type checking, static analysis, const folding, etc..
     let (typed_ast, cache, tycx) = time! { workspace.build_options.verbose, "check", {
         let (typed_ast, cache, tycx) = crate::check::check(&mut workspace, modules);

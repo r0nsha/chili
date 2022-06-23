@@ -116,6 +116,8 @@ pub enum Node {
     Call(Call),
     Sequence(Sequence),
     Control(Control),
+    Builtin(Builtin),
+    Literal(Literal),
 }
 
 node_struct!(Empty);
@@ -130,9 +132,14 @@ node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
 node_struct!(Return, { condition: Box<Node>, value: Box<Node> });
 node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
+node_struct!(Unary, { value: Box<Node> });
 node_struct!(Cast, { value: Box<Node> });
 node_struct!(Deref, { value: Box<Node> });
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
+node_struct!(StructLiteral, { fields: Vec<StructLiteralField> });
+node_struct!(StructLiteralField, { value: Box<Node> });
+node_struct!(TupleLiteral, { elements: Vec<Node> });
+
 // node_struct!(Transmute, { value: Box<Node> });
 
 #[derive(Debug, Clone, EnumAsInner)]
@@ -197,11 +204,17 @@ pub enum Builtin {
     BitwiseAnd(Binary),
     BitwiseOr(Binary),
     BitwiseXor(Binary),
-    BitwiseNot(Box<Node>),
+    BitwiseNot(Unary),
 
     Deref(Deref),
     Offset(Offset),
     // TODO: Transmute(Transmute),
+}
+
+#[derive(Debug, Clone, EnumAsInner)]
+pub enum Literal {
+    Struct(StructLiteral),
+    Tuple(TupleLiteral),
 }
 
 macro_rules! node_field_dispatch {
@@ -218,14 +231,20 @@ macro_rules! node_field_dispatch {
                     Self::Call(x) => x.$field,
                     Self::Sequence(x) => x.$field,
                     Self::Control(x) => x.$field(),
+                    Self::Builtin(x) => x.$field(),
+                    Self::Literal(x) => x.$field(),
                 }
             }
         }
     };
+
+    () => {
+        node_field_dispatch!(ty, TypeId);
+        node_field_dispatch!(span, Span);
+    };
 }
 
-node_field_dispatch!(ty, TypeId);
-node_field_dispatch!(span, Span);
+node_field_dispatch!();
 
 macro_rules! control_field_dispatch {
     ($field:ident, $ty:ty) => {
@@ -241,10 +260,94 @@ macro_rules! control_field_dispatch {
             }
         }
     };
+
+    () => {
+        control_field_dispatch!(ty, TypeId);
+        control_field_dispatch!(span, Span);
+    };
 }
 
-control_field_dispatch!(ty, TypeId);
-control_field_dispatch!(span, Span);
+control_field_dispatch!();
+
+macro_rules! builtin_field_dispatch {
+    ($field:ident, $ty:ty) => {
+        impl Builtin {
+            pub fn $field(&self) -> $ty {
+                match self {
+                    Self::AddSigned(x) => x.$field,
+                    Self::AddFloat(x) => x.$field,
+                    Self::SubSigned(x) => x.$field,
+                    Self::SubFloat(x) => x.$field,
+                    Self::MulSigned(x) => x.$field,
+                    Self::MulFloat(x) => x.$field,
+                    Self::DivSigned(x) => x.$field,
+                    Self::DivUnsigned(x) => x.$field,
+                    Self::DivFloat(x) => x.$field,
+                    Self::ModSigned(x) => x.$field,
+                    Self::ModUnsigned(x) => x.$field,
+                    Self::ModFloat(x) => x.$field,
+                    Self::LtSigned(x) => x.$field,
+                    Self::LtUnsigned(x) => x.$field,
+                    Self::LtFloat(x) => x.$field,
+                    Self::LeSigned(x) => x.$field,
+                    Self::LeUnsigned(x) => x.$field,
+                    Self::LeFloat(x) => x.$field,
+                    Self::GtSigned(x) => x.$field,
+                    Self::GtUnsigned(x) => x.$field,
+                    Self::GtFloat(x) => x.$field,
+                    Self::GeSigned(x) => x.$field,
+                    Self::GeUnsigned(x) => x.$field,
+                    Self::GeFloat(x) => x.$field,
+                    Self::EqSigned(x) => x.$field,
+                    Self::EqUnsigned(x) => x.$field,
+                    Self::EqFloat(x) => x.$field,
+                    Self::EqBool(x) => x.$field,
+                    Self::NeSigned(x) => x.$field,
+                    Self::NeUnsigned(x) => x.$field,
+                    Self::NeFloat(x) => x.$field,
+                    Self::NeBool(x) => x.$field,
+                    Self::SignedToFloat(x) => x.$field,
+                    Self::UnsignedToFloat(x) => x.$field,
+                    Self::FloatToSigned(x) => x.$field,
+                    Self::FloatToUnsigned(x) => x.$field,
+                    Self::BitwiseAnd(x) => x.$field,
+                    Self::BitwiseOr(x) => x.$field,
+                    Self::BitwiseXor(x) => x.$field,
+                    Self::BitwiseNot(x) => x.$field,
+                    Self::Deref(x) => x.$field,
+                    Self::Offset(x) => x.$field,
+                }
+            }
+        }
+    };
+
+    () => {
+        builtin_field_dispatch!(ty, TypeId);
+        builtin_field_dispatch!(span, Span);
+    };
+}
+
+builtin_field_dispatch!();
+
+macro_rules! literal_field_dispatch {
+    ($field:ident, $ty:ty) => {
+        impl Literal {
+            pub fn $field(&self) -> $ty {
+                match self {
+                    Self::Struct(x) => x.$field,
+                    Self::Tuple(x) => x.$field,
+                }
+            }
+        }
+    };
+
+    () => {
+        literal_field_dispatch!(ty, TypeId);
+        literal_field_dispatch!(span, Span);
+    };
+}
+
+literal_field_dispatch!();
 
 impl Node {
     pub fn as_const_value(&self) -> Option<&ConstValue> {

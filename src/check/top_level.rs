@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{Check, CheckResult, CheckSess, Res};
+use super::{Check, CheckSess, Res, Result};
 use crate::error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult,
@@ -20,11 +20,11 @@ pub trait CheckTopLevel
 where
     Self: Sized,
 {
-    fn check_top_level(&mut self, sess: &mut CheckSess) -> CheckResult;
+    fn check_top_level(&mut self, sess: &mut CheckSess) -> Result;
 }
 
 impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&mut self, sess: &mut CheckSess) -> CheckResult {
+    fn check_top_level(&mut self, sess: &mut CheckSess) -> Result {
         let res = sess.with_env(self.module_id, |sess, mut env| {
             self.check(sess, &mut env, None)
         })?;
@@ -160,7 +160,7 @@ impl<'s> CheckSess<'s> {
     }
 
     #[inline]
-    pub fn check_import(&mut self, import_path: &Path) -> CheckResult {
+    pub fn check_import(&mut self, import_path: &Path) -> Result {
         let path_str = import_path.to_str().unwrap();
 
         let module = self
@@ -172,7 +172,7 @@ impl<'s> CheckSess<'s> {
         self.check_ast(module)
     }
 
-    pub fn check_ast(&mut self, module: &ast::Module) -> CheckResult {
+    pub fn check_ast(&mut self, module: &ast::Module) -> Result {
         if let Some(module_ty) = self.checked_modules.get(&module.module_id) {
             Ok(Res::new(*module_ty))
         } else {
