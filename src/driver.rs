@@ -74,15 +74,15 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     // }
 
     // Type inference, type checking, static analysis, const folding, etc..
-    let (typed_ast, tycx) = time! { workspace.build_options.verbose, "check", {
-        let (typed_ast, tycx) = crate::check::check(&mut workspace, modules);
+    let (typed_ast, cache, tycx) = time! { workspace.build_options.verbose, "check", {
+        let (typed_ast, cache, tycx) = crate::check::check(&mut workspace, modules);
 
         if workspace.diagnostics.has_errors() {
             workspace.emit_diagnostics();
             return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
         }
 
-        (typed_ast, tycx)
+        (typed_ast, cache, tycx)
     }};
 
     if workspace.diagnostics.has_errors() {

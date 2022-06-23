@@ -11,7 +11,7 @@ use crate::{
     span::Span,
 };
 use enum_as_inner::EnumAsInner;
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
 use self::const_value::{ConstFunction, ConstValue};
 
@@ -244,3 +244,12 @@ macro_rules! control_field_dispatch {
 
 control_field_dispatch!(ty, TypeId);
 control_field_dispatch!(span, Span);
+
+impl Node {
+    pub fn as_const_value(&self) -> Option<&ConstValue> {
+        match self {
+            Self::Const(c) => Some(&c.value),
+            _ => None,
+        }
+    }
+}

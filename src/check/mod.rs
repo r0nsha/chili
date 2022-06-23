@@ -4,17 +4,6 @@ mod const_fold;
 mod env;
 mod top_level;
 
-use crate::ast::{
-    self,
-    const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
-    ty::{
-        FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
-        StructType, StructTypeField, StructTypeKind, Type, TypeId,
-    },
-    workspace::{BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel, Workspace},
-    BindingKind, FunctionId,
-};
 use crate::common::{
     builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     target::TargetMetrics,
@@ -34,6 +23,22 @@ use crate::infer::{
 };
 use crate::interp::interp::{Interp, InterpResult};
 use crate::span::Span;
+use crate::{
+    ast::{
+        self,
+        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+        pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
+        ty::{
+            FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
+            StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        },
+        workspace::{
+            BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
+        },
+        BindingKind, FunctionId,
+    },
+    hir,
+};
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
 use indexmap::IndexMap;
@@ -41,16 +46,18 @@ use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> (ast::TypedAst, TyCtx) {
+pub type CheckData = (ast::TypedAst, hir::Cache, TyCtx);
+
+pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
     let mut sess = CheckSess::new(workspace, &module);
 
     if let Err(diag) = sess.start() {
         sess.workspace.diagnostics.push(diag);
-        return (sess.typed_ast, sess.tycx);
+        return sess.into_data();
     }
 
     if sess.workspace.diagnostics.has_errors() {
-        return (sess.typed_ast, sess.tycx);
+        return sess.into_data();
     }
 
     substitute(
@@ -78,7 +85,7 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> (ast::Typed
         }
     }
 
-    (sess.typed_ast, sess.tycx)
+    sess.into_data()
 }
 
 fn ty_is_extern(ty: &Type) -> bool {
@@ -126,6 +133,7 @@ pub struct CheckSess<'s> {
 
     // The new typed ast being generated
     pub typed_ast: ast::TypedAst,
+    pub cache: hir::Cache,
     pub checked_modules: HashMap<ModuleId, TypeId>,
 
     // Information that's relevant for the global context
@@ -162,6 +170,7 @@ impl<'s> CheckSess<'s> {
             tycx: TyCtx::default(),
             modules: old_asts,
             typed_ast: ast::TypedAst::default(),
+            cache: hir::Cache::new(),
             checked_modules: HashMap::default(),
             global_scopes: HashMap::default(),
             builtin_types: UstrMap::default(),
@@ -179,6 +188,10 @@ impl<'s> CheckSess<'s> {
         }
 
         Ok(())
+    }
+
+    fn into_data(self) -> CheckData {
+        (self.typed_ast, self.cache, self.tycx)
     }
 
     pub fn with_function_frame<T, F: FnMut(&mut Self) -> T>(
