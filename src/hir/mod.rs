@@ -114,6 +114,7 @@ pub enum Node {
     Assignment(Assignment),
     MemberAccess(MemberAccess),
     Call(Call),
+    Cast(Cast),
     Sequence(Sequence),
     Control(Control),
     Builtin(Builtin),
@@ -126,7 +127,7 @@ node_struct!(Binding, { module_id: ModuleId, id: BindingId, name: Ustr, value: B
 node_struct!(Id, { id: BindingId });
 node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(MemberAccess, { value: Box<Node>, index: u32 });
-node_struct!(Call, { value: Box<Node>, args: Vec<Node> });
+node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
 node_struct!(Sequence, { statements: Vec<Node> });
 node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
@@ -153,59 +154,21 @@ pub enum Control {
 
 #[derive(Debug, Clone, EnumAsInner)]
 pub enum Builtin {
-    AddSigned(Binary),
-    AddFloat(Binary),
-
-    SubSigned(Binary),
-    SubFloat(Binary),
-
-    MulSigned(Binary),
-    MulFloat(Binary),
-
-    DivSigned(Binary),
-    DivUnsigned(Binary),
-    DivFloat(Binary),
-
-    ModSigned(Binary),
-    ModUnsigned(Binary),
-    ModFloat(Binary),
-
-    LtSigned(Binary),
-    LtUnsigned(Binary),
-    LtFloat(Binary),
-
-    LeSigned(Binary),
-    LeUnsigned(Binary),
-    LeFloat(Binary),
-
-    GtSigned(Binary),
-    GtUnsigned(Binary),
-    GtFloat(Binary),
-
-    GeSigned(Binary),
-    GeUnsigned(Binary),
-    GeFloat(Binary),
-
-    EqSigned(Binary),
-    EqUnsigned(Binary),
-    EqFloat(Binary),
-    EqBool(Binary),
-
-    NeSigned(Binary),
-    NeUnsigned(Binary),
-    NeFloat(Binary),
-    NeBool(Binary),
-
-    SignedToFloat(Cast),
-    UnsignedToFloat(Cast),
-    FloatToSigned(Cast),
-    FloatToUnsigned(Cast),
-
+    Add(Binary),
+    Sub(Binary),
+    Mul(Binary),
+    Div(Binary),
+    Mod(Binary),
+    Lt(Binary),
+    Le(Binary),
+    Gt(Binary),
+    Ge(Binary),
+    Eq(Binary),
+    Ne(Binary),
     BitwiseAnd(Binary),
     BitwiseOr(Binary),
     BitwiseXor(Binary),
     BitwiseNot(Unary),
-
     Deref(Deref),
     Offset(Offset),
     // TODO: Transmute(Transmute),
@@ -229,6 +192,7 @@ macro_rules! node_field_dispatch {
                     Self::Assignment(x) => x.$field,
                     Self::MemberAccess(x) => x.$field,
                     Self::Call(x) => x.$field,
+                    Self::Cast(x) => x.$field,
                     Self::Sequence(x) => x.$field,
                     Self::Control(x) => x.$field(),
                     Self::Builtin(x) => x.$field(),
@@ -274,42 +238,17 @@ macro_rules! builtin_field_dispatch {
         impl Builtin {
             pub fn $field(&self) -> $ty {
                 match self {
-                    Self::AddSigned(x) => x.$field,
-                    Self::AddFloat(x) => x.$field,
-                    Self::SubSigned(x) => x.$field,
-                    Self::SubFloat(x) => x.$field,
-                    Self::MulSigned(x) => x.$field,
-                    Self::MulFloat(x) => x.$field,
-                    Self::DivSigned(x) => x.$field,
-                    Self::DivUnsigned(x) => x.$field,
-                    Self::DivFloat(x) => x.$field,
-                    Self::ModSigned(x) => x.$field,
-                    Self::ModUnsigned(x) => x.$field,
-                    Self::ModFloat(x) => x.$field,
-                    Self::LtSigned(x) => x.$field,
-                    Self::LtUnsigned(x) => x.$field,
-                    Self::LtFloat(x) => x.$field,
-                    Self::LeSigned(x) => x.$field,
-                    Self::LeUnsigned(x) => x.$field,
-                    Self::LeFloat(x) => x.$field,
-                    Self::GtSigned(x) => x.$field,
-                    Self::GtUnsigned(x) => x.$field,
-                    Self::GtFloat(x) => x.$field,
-                    Self::GeSigned(x) => x.$field,
-                    Self::GeUnsigned(x) => x.$field,
-                    Self::GeFloat(x) => x.$field,
-                    Self::EqSigned(x) => x.$field,
-                    Self::EqUnsigned(x) => x.$field,
-                    Self::EqFloat(x) => x.$field,
-                    Self::EqBool(x) => x.$field,
-                    Self::NeSigned(x) => x.$field,
-                    Self::NeUnsigned(x) => x.$field,
-                    Self::NeFloat(x) => x.$field,
-                    Self::NeBool(x) => x.$field,
-                    Self::SignedToFloat(x) => x.$field,
-                    Self::UnsignedToFloat(x) => x.$field,
-                    Self::FloatToSigned(x) => x.$field,
-                    Self::FloatToUnsigned(x) => x.$field,
+                    Self::Add(x) => x.$field,
+                    Self::Sub(x) => x.$field,
+                    Self::Mul(x) => x.$field,
+                    Self::Div(x) => x.$field,
+                    Self::Mod(x) => x.$field,
+                    Self::Lt(x) => x.$field,
+                    Self::Le(x) => x.$field,
+                    Self::Gt(x) => x.$field,
+                    Self::Ge(x) => x.$field,
+                    Self::Eq(x) => x.$field,
+                    Self::Ne(x) => x.$field,
                     Self::BitwiseAnd(x) => x.$field,
                     Self::BitwiseOr(x) => x.$field,
                     Self::BitwiseXor(x) => x.$field,
@@ -366,5 +305,13 @@ impl Node {
             Self::Const(c) => Some(&c.value),
             _ => None,
         }
+    }
+
+    pub fn noop(ty: TypeId, span: Span) -> Self {
+        Self::Sequence(Sequence {
+            ty,
+            span,
+            statements: vec![],
+        })
     }
 }

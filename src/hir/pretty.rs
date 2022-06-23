@@ -107,6 +107,7 @@ impl Print for hir::Node {
             hir::Node::Assignment(_) => todo!(),
             hir::Node::MemberAccess(_) => todo!(),
             hir::Node::Call(_) => todo!(),
+            hir::Node::Cast(_) => todo!(),
             hir::Node::Sequence(_) => todo!(),
             hir::Node::Control(_) => todo!(),
             hir::Node::Builtin(_) => todo!(),

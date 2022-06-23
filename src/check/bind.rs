@@ -3,19 +3,21 @@ use super::{
     top_level::{CallerInfo, CheckTopLevel},
     CheckSess,
 };
-use crate::ast::{
-    self,
-    const_value::ConstValue,
-    pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
-    ty::{InferTy, PartialStructType, Type, TypeId},
-    workspace::{BindingId, ModuleId, PartialBindingInfo},
+use crate::{
+    ast::{
+        self,
+        pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
+        ty::{InferTy, PartialStructType, Type, TypeId},
+        workspace::{BindingId, ModuleId, PartialBindingInfo},
+    },
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError,
+    },
+    hir::const_value::ConstValue,
+    infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
+    span::Span,
 };
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult, SyntaxError,
-};
-use crate::infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy};
-use crate::span::Span;
 use indexmap::IndexMap;
 use ustr::Ustr;
 

@@ -4,17 +4,13 @@ mod const_fold;
 mod env;
 mod top_level;
 
-use crate::common::{
-    builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-    target::TargetMetrics,
-};
 use crate::error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult, SyntaxError, TypeError,
 };
 use crate::infer::{
     cast::CanCast,
-    coerce::{OrCoerceExprIntoTy, OrCoerceExprs},
+    coerce::{OrCoerce, OrCoerceIntoTy},
     display::{DisplayTy, OrReportErr},
     normalize::Normalize,
     substitute::substitute,
@@ -40,6 +36,13 @@ use crate::{
         self,
         const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
     },
+};
+use crate::{
+    common::{
+        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+        target::TargetMetrics,
+    },
+    infer::cast::can_cast_type,
 };
 use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
@@ -340,7 +343,7 @@ impl Check for ast::Binding {
 
                     node.ty()
                         .unify(&self.ty, &mut sess.tycx)
-                        .or_coerce_expr_into_ty(
+                        .or_coerce_into_ty(
                             expr,
                             self.ty,
                             &mut sess.tycx,
@@ -1887,13 +1890,11 @@ impl Check for ast::Ast {
                     ast::LiteralKind::Char(_) => sess.tycx.common_types.u8,
                 };
 
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
+                Ok(hir::Node::Const(hir::Const {
                     ty,
                     span: lit.span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: const_value,
+                }))
             }
             ast::Ast::PointerType(ast::ExprAndMut {
                 inner,
@@ -1905,16 +1906,11 @@ impl Check for ast::Ast {
                 let inner_kind = sess.extract_const_type(&node)?;
                 let kind = Type::Pointer(Box::new(inner_kind.into()), *is_mutable);
 
-                let ty = sess.tycx.bound(kind.clone().create_type(), *span);
-                let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
-
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty,
+                Ok(hir::Node::Const(hir::Const {
+                    ty: sess.tycx.bound(kind.clone().create_type(), *span),
                     span: *span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: ConstValue::Type(sess.tycx.bound(kind, *span)),
+                }))
             }
             ast::Ast::MultiPointerType(ast::ExprAndMut {
                 inner,
@@ -1926,16 +1922,11 @@ impl Check for ast::Ast {
                 let inner_kind = sess.extract_const_type(&node)?;
                 let kind = Type::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
 
-                let ty = sess.tycx.bound(kind.clone().create_type(), *span);
-                let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
-
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty,
+                Ok(hir::Node::Const(hir::Const {
+                    ty: sess.tycx.bound(kind.clone().create_type(), *span),
                     span: *span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: ConstValue::Type(sess.tycx.bound(kind, *span)),
+                }))
             }
             ast::Ast::ArrayType(ast::ArrayType {
                 inner, size, span, ..
@@ -1951,18 +1942,13 @@ impl Check for ast::Ast {
                     return Err(TypeError::negative_array_len(size.span(), size_value));
                 }
 
-                let kind = Type::Array(Box::new(inner_ty.into()), size_value as usize);
+                let array_ty = Type::Array(Box::new(inner_ty.into()), size_value as usize);
 
-                let ty = sess.tycx.bound(kind.clone().create_type(), *span);
-                let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
-
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty,
+                Ok(hir::Node::Const(hir::Const {
+                    ty: sess.tycx.bound(array_ty.clone().create_type(), *span),
                     span: *span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: ConstValue::Type(sess.tycx.bound(array_ty, *span)),
+                }))
             }
             ast::Ast::SliceType(ast::ExprAndMut {
                 inner,
@@ -1974,16 +1960,11 @@ impl Check for ast::Ast {
                 let inner_kind = sess.extract_const_type(&node)?;
                 let kind = Type::Slice(Box::new(inner_kind.into()), *is_mutable);
 
-                let ty = sess.tycx.bound(kind.clone().create_type(), *span);
-                let const_value = ConstValue::Type(sess.tycx.bound(kind, *span));
-
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty,
+                Ok(hir::Node::Const(hir::Const {
+                    ty: sess.tycx.bound(kind.clone().create_type(), *span),
                     span: *span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: ConstValue::Type(sess.tycx.bound(kind, *span)),
+                }))
             }
             ast::Ast::StructType(st) => {
                 st.name = if st.name.is_empty() {
@@ -2054,52 +2035,41 @@ impl Check for ast::Ast {
                 });
 
                 if occurs(struct_ty_var, &struct_ty, &sess.tycx) {
-                    return Err(UnifyTyErr::Occurs.into_diagnostic(
+                    Err(UnifyTyErr::Occurs.into_diagnostic(
                         &sess.tycx,
                         struct_ty,
                         None,
                         struct_ty_var,
                         st.span,
-                    ));
+                    ))
+                } else {
+                    Ok(hir::Node::Const(hir::Const {
+                        ty: sess.tycx.bound(struct_ty.clone().create_type(), st.span),
+                        span: st.span,
+                        value: ConstValue::Type(sess.tycx.bound(struct_ty, st.span)),
+                    }))
                 }
-
-                let ty = sess.tycx.bound(struct_ty.clone().create_type(), st.span);
-                let const_value = ConstValue::Type(sess.tycx.bound(struct_ty, st.span));
-
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty,
-                    span: st.span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
             }
             ast::Ast::FunctionType(sig) => {
                 let node = sig.check(sess, env, expected_ty)?;
 
-                let ty = sess.tycx.bound(node.ty.as_kind().create_type(), sig.span);
-                let const_value = ConstValue::Type(node.ty);
+                let ty = sess.tycx.bound(node.ty().as_kind().create_type(), sig.span);
 
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
+                Ok(hir::Node::Const(hir::Const {
                     ty,
                     span: sig.span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: ConstValue::Type(node.ty()),
+                }))
             }
             ast::Ast::SelfType(expr) => match sess.self_types.last() {
                 Some(&ty) => {
                     let ty = sess.tycx.bound(ty.as_kind().create_type(), expr.span);
-                    let const_value = ConstValue::Type(ty);
 
-                    *self = ast::Ast::Const(ast::Const {
-                        value: const_value.clone(),
+                    Ok(hir::Node::Const(hir::Const {
                         ty,
                         span: expr.span,
-                    });
-
-                    Ok(Res::new_const(ty, const_value))
+                        value: ConstValue::Type(ty),
+                    }))
                 }
                 None => Err(Diagnostic::error()
                     .with_message("`Self` is only available within struct types")
@@ -2107,27 +2077,24 @@ impl Check for ast::Ast {
             },
             ast::Ast::Placeholder(expr) => {
                 let ty = sess.tycx.var(expr.span);
-                let const_value = ConstValue::Type(ty);
 
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
+                Ok(hir::Node::Const(hir::Const {
                     ty,
                     span: expr.span,
-                });
-
-                Ok(Res::new_const(ty, const_value))
+                    value: ConstValue::Type(ty),
+                }))
             }
             ast::Ast::Const(_) => panic!(),
-            ast::Ast::Error(expr) => Ok(Res::new(sess.tycx.var(expr.span))),
+            ast::Ast::Error(expr) => Ok(hir::Node::noop(sess.tycx.var(expr.span), expr.span)),
         }
     }
 }
 
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        let callee_node = self.callee.check(sess, env, None)?;
+        let callee = self.callee.check(sess, env, None)?;
 
-        match callee_node.ty.normalize(&sess.tycx) {
+        match callee.ty().normalize(&sess.tycx) {
             Type::Function(fn_ty) => {
                 let arg_mismatch = match &fn_ty.varargs {
                     Some(_) if self.args.len() < fn_ty.params.len() => true,
@@ -2159,35 +2126,45 @@ impl Check for ast::Call {
                         .with_note(format!("function is of type `{}`", fn_ty)));
                 }
 
-                for (index, arg) in self.args.iter_mut().enumerate() {
+                let mut args = vec![];
+
+                for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = fn_ty.params.get(index) {
                         let param_ty = sess.tycx.bound(param.clone(), self.span);
-                        let node = arg.check(sess, env, Some(param_ty))?;
+                        let mut node = arg.check(sess, env, Some(param_ty))?;
 
-                        node.ty
+                        node.ty()
                             .unify(&param_ty, &mut sess.tycx)
-                            .or_coerce_expr_into_ty(
-                                arg,
+                            .or_coerce_into_ty(
+                                &mut node,
                                 param_ty,
                                 &mut sess.tycx,
                                 sess.target_metrics.word_size,
                             )
-                            .or_report_err(&sess.tycx, param_ty, None, node.ty, arg.span())?;
+                            .or_report_err(&sess.tycx, param_ty, None, node.ty(), arg.span())?;
+
+                        args.push(node);
                     } else {
                         // this is a variadic argument, meaning that the argument's
                         // index is greater than the function's param length
-                        arg.check(sess, env, None)?;
+                        let node = arg.check(sess, env, None)?;
+                        args.push(node);
                     }
                 }
 
-                Ok(Res::new(
-                    sess.tycx.bound(fn_ty.ret.as_ref().clone(), self.span),
-                ))
+                Ok(hir::Node::Call(hir::Call {
+                    ty: sess.tycx.bound(fn_ty.ret.as_ref().clone(), self.span),
+                    span: self.span,
+                    callee: Box::new(callee),
+                    args,
+                }))
             }
             ty => {
-                for arg in self.args.iter_mut() {
-                    arg.check(sess, env, None)?;
-                }
+                let args = self
+                    .args
+                    .iter()
+                    .map(|arg| arg.check(sess, env, None))
+                    .collect::<DiagnosticResult<Vec<_>>>()?;
 
                 let return_ty = sess.tycx.var(self.span);
 
@@ -2206,7 +2183,12 @@ impl Check for ast::Call {
                     self.callee.span(),
                 )?;
 
-                Ok(Res::new(return_ty))
+                Ok(hir::Node::Call(hir::Call {
+                    ty: return_ty,
+                    span: self.span,
+                    callee: Box::new(callee),
+                    args,
+                }))
             }
         }
     }
@@ -2216,7 +2198,7 @@ impl Check for ast::Cast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let node = self.expr.check(sess, env, None)?;
 
-        self.ty = if let Some(ty_expr) = &mut self.target {
+        let target_ty = if let Some(ty_expr) = &mut self.target {
             let node = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
             sess.extract_const_type(&node)?
         } else {
@@ -2230,20 +2212,21 @@ impl Check for ast::Cast {
             }
         };
 
-        let source_ty = node.ty.normalize(&sess.tycx);
-        let target_ty = self.ty.normalize(&sess.tycx);
+        let from = node.ty().normalize(&sess.tycx);
+        let to = target_ty.normalize(&sess.tycx);
 
-        if source_ty.can_cast(&target_ty) {
-            Ok(Res::new(self.ty))
+        if can_cast_type(&from, &to) {
+            Ok(hir::Node::Cast(hir::Cast {
+                value: Box::new(node),
+                ty: target_ty,
+                span: self.span,
+            }))
         } else {
             Err(Diagnostic::error()
-                .with_message(format!(
-                    "cannot cast from `{}` to `{}`",
-                    source_ty, target_ty
-                ))
+                .with_message(format!("cannot cast from `{}` to `{}`", from, to))
                 .with_label(Label::primary(
-                    self.expr.span(),
-                    format!("invalid cast to `{}`", target_ty),
+                    self.span,
+                    format!("invalid cast to `{}`", to),
                 )))
         }
     }
@@ -2251,34 +2234,50 @@ impl Check for ast::Cast {
 
 impl Check for ast::Block {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let mut res = Res::new(sess.tycx.common_types.unit);
+        let unit_node = hir::Node::Const(hir::Const {
+            value: ConstValue::Unit(()),
+            ty: sess.tycx.common_types.unit,
+            span: self.span,
+        });
 
-        env.push_scope(ScopeKind::Block);
-
-        if !self.statements.is_empty() {
-            let last_index = self.statements.len() - 1;
-
-            for (i, expr) in self.statements.iter_mut().enumerate() {
-                let expected_ty = if i == last_index { expected_ty } else { None };
-                res = expr.check(sess, env, expected_ty)?;
-            }
-        }
-
-        env.pop_scope();
-
-        if self.yields {
-            Ok(res)
+        if self.statements.is_empty() {
+            Ok(unit_node)
         } else {
-            let node_ty = res.ty.normalize(&sess.tycx);
+            env.push_scope(ScopeKind::Block);
 
-            Ok(Res::new_const(
-                if node_ty.is_never() {
+            let last_index = self.statements.len() - 1;
+            let statements = self
+                .statements
+                .iter()
+                .enumerate()
+                .map(|(i, expr)| {
+                    expr.check(sess, env, if i == last_index { expected_ty } else { None })
+                })
+                .collect::<DiagnosticResult<Vec<_>>>()?;
+
+            env.pop_scope();
+
+            let last_statement_ty = statements.last().unwrap().ty();
+
+            if self.yields {
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    ty: last_statement_ty,
+                    span: self.span,
+                    statements,
+                }))
+            } else {
+                let ty = if last_statement_ty.normalize(&sess.tycx).is_never() {
                     sess.tycx.common_types.never
                 } else {
                     sess.tycx.common_types.unit
-                },
-                ConstValue::Unit(()),
-            ))
+                };
+
+                Ok(hir::Node::Const(hir::Const {
+                    value: ConstValue::Unit(()),
+                    ty,
+                    span: self.span,
+                }))
+            }
         }
     }
 }
@@ -2309,12 +2308,12 @@ fn check_named_struct_literal(
                 uninit_fields.remove(&field.symbol);
 
                 let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
-                let node = field.expr.check(sess, env, Some(expected_ty))?;
+                let mut node = field.expr.check(sess, env, Some(expected_ty))?;
 
                 node.ty()
                     .unify(&expected_ty, &mut sess.tycx)
-                    .or_coerce_expr_into_ty(
-                        &mut field.expr,
+                    .or_coerce_into_ty(
+                        &mut node,
                         expected_ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,

@@ -3,10 +3,8 @@ use super::{
     ty_ctx::TyCtx,
     unify::{can_coerce_mut, UnifyTyResult},
 };
-use crate::ast::{
-    self,
-    ty::{size::SizeOf, *},
-};
+use crate::ast::ty::{size::SizeOf, *};
+use crate::hir;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {
@@ -143,32 +141,29 @@ impl Coerce for Type {
     }
 }
 
-fn coerce_expr(tycx: &mut TyCtx, expr: &mut ast::Ast, to: Type) {
-    let target_ty = tycx.bound(to, expr.span());
-
-    *expr = ast::Ast::Cast(ast::Cast {
-        expr: Box::new(expr.clone()),
-        target: None,
-        ty: target_ty,
-        span: expr.span(),
+fn coerce_node(tycx: &mut TyCtx, node: &mut hir::Node, to: Type) {
+    *node = hir::Node::Cast(hir::Cast {
+        value: Box::new(node.clone()),
+        ty: tycx.bound(to, node.span()),
+        span: node.span(),
     })
 }
 
-pub trait OrCoerceExprs {
-    fn or_coerce_exprs(
+pub trait OrCoerce {
+    fn or_coerce(
         self,
-        left: &mut ast::Ast,
-        right: &mut ast::Ast,
+        left: &mut hir::Node,
+        right: &mut hir::Node,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult;
 }
 
-impl OrCoerceExprs for UnifyTyResult {
-    fn or_coerce_exprs(
+impl OrCoerce for UnifyTyResult {
+    fn or_coerce(
         self,
-        left: &mut ast::Ast,
-        right: &mut ast::Ast,
+        left: &mut hir::Node,
+        right: &mut hir::Node,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult {
@@ -178,11 +173,11 @@ impl OrCoerceExprs for UnifyTyResult {
                 let (left_ty, right_ty) = (left.ty().normalize(tycx), right.ty().normalize(tycx));
                 match left_ty.coerce(&right_ty, word_size) {
                     CoercionResult::CoerceToLeft => {
-                        coerce_expr(tycx, right, left_ty);
+                        coerce_node(tycx, right, left_ty);
                         Ok(())
                     }
                     CoercionResult::CoerceToRight => {
-                        coerce_expr(tycx, left, right_ty);
+                        coerce_node(tycx, left, right_ty);
                         Ok(())
                     }
                     CoercionResult::NoCoercion => Err(e),
@@ -192,20 +187,20 @@ impl OrCoerceExprs for UnifyTyResult {
     }
 }
 
-pub trait OrCoerceExprIntoTy {
-    fn or_coerce_expr_into_ty(
+pub trait OrCoerceIntoTy {
+    fn or_coerce_into_ty(
         self,
-        expr: &mut ast::Ast,
+        expr: &mut hir::Node,
         ty: impl Normalize,
         tycx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult;
 }
 
-impl OrCoerceExprIntoTy for UnifyTyResult {
-    fn or_coerce_expr_into_ty(
+impl OrCoerceIntoTy for UnifyTyResult {
+    fn or_coerce_into_ty(
         self,
-        expr: &mut ast::Ast,
+        expr: &mut hir::Node,
         ty: impl Normalize,
         tycx: &mut TyCtx,
         word_size: usize,
@@ -216,7 +211,7 @@ impl OrCoerceExprIntoTy for UnifyTyResult {
                 let (expr_ty, ty) = (expr.ty().normalize(tycx), ty.normalize(tycx));
                 match expr_ty.coerce(&ty, word_size) {
                     CoercionResult::CoerceToRight => {
-                        coerce_expr(tycx, expr, ty);
+                        coerce_node(tycx, expr, ty);
                         Ok(())
                     }
                     CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => Err(e),
