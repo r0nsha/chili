@@ -115,7 +115,6 @@ pub enum Node {
     MemberAccess(MemberAccess),
     Call(Call),
     Cast(Cast),
-    Slice(Slice),
     Sequence(Sequence),
     Control(Control),
     Builtin(Builtin),
@@ -133,7 +132,6 @@ node_struct!(MemberAccess, { value: Box<Node>, member: Ustr, index: u32 });
 
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
 node_struct!(Cast, { value: Box<Node> });
-node_struct!(Slice, { value: Box<Node>, low: Box<Node>, high: Box<Node> });
 
 node_struct!(Sequence, { statements: Vec<Node> });
 
@@ -146,6 +144,7 @@ node_struct!(Unary, { value: Box<Node> });
 
 node_struct!(Deref, { value: Box<Node> });
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
+node_struct!(Slice, { value: Box<Node>, low: Box<Node>, high: Box<Node> });
 // node_struct!(Transmute, { value: Box<Node> });
 
 node_struct!(StructLiteral, { fields: Vec<StructLiteralField> });
@@ -182,6 +181,7 @@ pub enum Builtin {
     BitwiseNot(Unary),
     Deref(Deref),
     Offset(Offset),
+    Slice(Slice),
     // TODO: Transmute(Transmute),
 }
 
@@ -206,7 +206,6 @@ macro_rules! node_field_dispatch {
                     Self::MemberAccess(x) => x.$field,
                     Self::Call(x) => x.$field,
                     Self::Cast(x) => x.$field,
-                    Self::Slice(x) => x.$field,
                     Self::Sequence(x) => x.$field,
                     Self::Control(x) => x.$field(),
                     Self::Builtin(x) => x.$field(),
@@ -269,6 +268,7 @@ macro_rules! builtin_field_dispatch {
                     Self::BitwiseNot(x) => x.$field,
                     Self::Deref(x) => x.$field,
                     Self::Offset(x) => x.$field,
+                    Self::Slice(x) => x.$field,
                 }
             }
         }
