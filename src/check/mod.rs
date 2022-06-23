@@ -336,9 +336,9 @@ impl Check for ast::Binding {
         match &self.kind {
             BindingKind::Normal => {
                 let const_value = if let Some(expr) = &mut self.expr {
-                    let res = expr.check(sess, env, Some(self.ty))?;
+                    let node = expr.check(sess, env, Some(self.ty))?;
 
-                    res.ty
+                    node.ty()
                         .unify(&self.ty, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             expr,
@@ -350,11 +350,11 @@ impl Check for ast::Binding {
                             &sess.tycx,
                             self.ty,
                             self.ty_expr.as_ref().map(|e| e.span()),
-                            res.ty,
+                            node.ty,
                             expr.span(),
                         )?;
 
-                    res.const_value
+                    node.const_value
                 } else {
                     match &self.pattern {
                         Pattern::StructUnpack(pat)
@@ -543,8 +543,8 @@ impl Check for ast::FunctionSig {
 
             for param in self.params.iter_mut() {
                 param.ty = if let Some(expr) = &mut param.ty_expr {
-                    let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    sess.extract_const_type(&res)?
+                    let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                    sess.extract_const_type(&node)?
                 } else {
                     sess.tycx.var(param.pattern.span())
                 };
@@ -593,8 +593,8 @@ impl Check for ast::FunctionSig {
         }
 
         let ret = if let Some(expr) = &mut self.ret {
-            let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(&res)?
+            let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+            sess.extract_const_type(&node)?
         } else if self.kind.is_extern() {
             sess.tycx.common_types.unit
         } else {
@@ -603,8 +603,8 @@ impl Check for ast::FunctionSig {
 
         let varargs = if let Some(varargs) = &mut self.varargs {
             let ty = if let Some(ty) = &mut varargs.ty {
-                let res = ty.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let ty = sess.extract_const_type(&res)?;
+                let node = ty.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                let ty = sess.extract_const_type(&node)?;
 
                 Some(ty.as_kind())
             } else {
@@ -674,25 +674,25 @@ impl Check for ast::Ast {
             ast::Ast::Builtin(builtin) => match &mut builtin.kind {
                 ast::BuiltinKind::Import(path) => sess.check_import(path),
                 ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
-                    let res = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    sess.extract_const_type(&res)?;
+                    let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                    sess.extract_const_type(&node)?;
                     Ok(Res::new(sess.tycx.common_types.uint))
                 }
                 ast::BuiltinKind::Run(expr, run_result) => {
-                    let res = expr.check(sess, env, None)?;
+                    let node = expr.check(sess, env, None)?;
 
                     if sess.workspace.build_options.check_mode {
-                        Ok(Res::new(res.ty))
+                        Ok(Res::new(node.ty))
                     } else {
                         // TODO (Ron): unwrap interp result into a diagnostic
                         let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
 
-                        let ty = res.ty.normalize(&sess.tycx);
+                        let ty = node.ty.normalize(&sess.tycx);
 
                         match interp_value.try_into_const_value(&mut sess.tycx, &ty, builtin.span) {
                             Ok(const_value) => {
                                 *run_result = Some(const_value.clone());
-                                Ok(Res::new_const(res.ty, const_value))
+                                Ok(Res::new_const(node.ty, const_value))
                             }
                             Err(value_str) => Err(Diagnostic::error()
                                 .with_message(format!(
@@ -711,8 +711,8 @@ impl Check for ast::Ast {
                 }
             },
             ast::Ast::Function(function) => {
-                let sig_res = function.sig.check(sess, env, expected_ty)?;
-                let fn_ty = sig_res.ty.normalize(&sess.tycx).into_fn();
+                let sig_node = function.sig.check(sess, env, expected_ty)?;
+                let fn_ty = sig_node.ty.normalize(&sess.tycx).into_fn();
 
                 let return_ty = sess.tycx.bound(
                     fn_ty.ret.as_ref().clone(),
@@ -760,13 +760,13 @@ impl Check for ast::Ast {
                         sig: function.sig.clone(),
                         body: None,
                     },
-                    ty: sig_res.ty,
+                    ty: sig_node.ty,
                     span: function.span,
                 });
 
                 env.insert_function(function.sig.name, function.id);
 
-                let body_res = sess.with_function_frame(
+                let body_node = sess.with_function_frame(
                     FunctionFrame {
                         return_ty,
                         return_ty_span,
@@ -775,10 +775,10 @@ impl Check for ast::Ast {
                     |sess| function.body.check(sess, env, None),
                 )?;
 
-                let mut unify_res = body_res.ty.unify(&return_ty, &mut sess.tycx);
+                let mut unify_node = body_node.ty.unify(&return_ty, &mut sess.tycx);
 
                 if let Some(last_expr) = function.body.statements.last_mut() {
-                    unify_res = unify_res.or_coerce_expr_into_ty(
+                    unify_node = unify_node.or_coerce_expr_into_ty(
                         last_expr,
                         return_ty,
                         &mut sess.tycx,
@@ -786,11 +786,11 @@ impl Check for ast::Ast {
                     );
                 }
 
-                unify_res.or_report_err(
+                unify_node.or_report_err(
                     &sess.tycx,
                     return_ty,
                     Some(return_ty_span),
-                    body_res.ty,
+                    body_node.ty,
                     function.body.span,
                 )?;
 
@@ -809,17 +809,17 @@ impl Check for ast::Ast {
 
                 *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
-                    ty: sig_res.ty,
+                    ty: sig_node.ty,
                     span: function.span,
                 });
 
-                Ok(Res::new_const(sig_res.ty, const_value))
+                Ok(Res::new_const(sig_node.ty, const_value))
             }
             ast::Ast::While(while_) => {
                 let cond_ty = sess.tycx.common_types.bool;
-                let cond_res = while_.cond.check(sess, env, Some(cond_ty))?;
+                let cond_node = while_.cond.check(sess, env, Some(cond_ty))?;
 
-                cond_res
+                cond_node
                     .ty
                     .unify(&cond_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
@@ -828,7 +828,7 @@ impl Check for ast::Ast {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, None, cond_res.ty, while_.cond.span())?;
+                    .or_report_err(&sess.tycx, cond_ty, None, cond_node.ty, while_.cond.span())?;
 
                 env.push_scope(ScopeKind::Loop);
                 sess.loop_depth += 1;
@@ -838,7 +838,7 @@ impl Check for ast::Ast {
                 sess.loop_depth -= 1;
                 env.pop_scope();
 
-                if let Some(cond) = cond_res.const_value {
+                if let Some(cond) = cond_node.const_value {
                     if cond.into_bool() {
                         Ok(Res::new(sess.tycx.common_types.never))
                     } else {
@@ -851,22 +851,22 @@ impl Check for ast::Ast {
             ast::Ast::For(for_) => {
                 let iter_ty = match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
-                        let start_res = start.check(sess, env, None)?;
-                        let end_res = end.check(sess, env, None)?;
+                        let start_node = start.check(sess, env, None)?;
+                        let end_node = end.check(sess, env, None)?;
 
                         let anyint = sess.tycx.anyint(start.span());
 
-                        start_res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
+                        start_node.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             None,
-                            start_res.ty,
+                            start_node.ty,
                             start.span(),
                         )?;
 
-                        start_res
+                        start_node
                             .ty
-                            .unify(&end_res.ty, &mut sess.tycx)
+                            .unify(&end_node.ty, &mut sess.tycx)
                             .or_coerce_exprs(
                                 start,
                                 end,
@@ -875,17 +875,17 @@ impl Check for ast::Ast {
                             )
                             .or_report_err(
                                 &sess.tycx,
-                                start_res.ty,
+                                start_node.ty,
                                 Some(start.span()),
-                                end_res.ty,
+                                end_node.ty,
                                 end.span(),
                             )?;
 
-                        start_res.ty
+                        start_node.ty
                     }
                     ast::ForIter::Value(value) => {
-                        let res = value.check(sess, env, None)?;
-                        let ty = res.ty.normalize(&sess.tycx);
+                        let node = value.check(sess, env, None)?;
+                        let ty = node.ty.normalize(&sess.tycx);
 
                         match ty.maybe_deref_once() {
                             Type::Array(inner, ..) | Type::Slice(inner, ..) => {
@@ -950,9 +950,9 @@ impl Check for ast::Ast {
 
                 if let Some(expr) = &mut ret.expr {
                     let expected = function_frame.return_ty;
-                    let res = expr.check(sess, env, Some(expected))?;
+                    let node = expr.check(sess, env, Some(expected))?;
 
-                    res.ty
+                    node.ty
                         .unify(&expected, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             expr,
@@ -964,7 +964,7 @@ impl Check for ast::Ast {
                             &sess.tycx,
                             expected,
                             Some(function_frame.return_ty_span),
-                            res.ty,
+                            node.ty,
                             expr.span(),
                         )?;
                 } else {
@@ -987,9 +987,9 @@ impl Check for ast::Ast {
             ast::Ast::If(if_) => {
                 let unit = sess.tycx.common_types.unit;
                 let cond_ty = sess.tycx.common_types.bool;
-                let cond_res = if_.cond.check(sess, env, Some(cond_ty))?;
+                let cond_node = if_.cond.check(sess, env, Some(cond_ty))?;
 
-                cond_res
+                cond_node
                     .ty
                     .unify(&cond_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
@@ -998,19 +998,19 @@ impl Check for ast::Ast {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, None, cond_res.ty, if_.cond.span())?;
+                    .or_report_err(&sess.tycx, cond_ty, None, cond_node.ty, if_.cond.span())?;
 
                 // if the condition is compile-time known, only check the resulting branch
-                if let Some(cond_value) = cond_res.const_value {
-                    let res = if cond_value.into_bool() {
-                        let res = if_.then.check(sess, env, expected_ty)?;
+                if let Some(cond_value) = cond_node.const_value {
+                    let node = if cond_value.into_bool() {
+                        let node = if_.then.check(sess, env, expected_ty)?;
                         *self = if_.then.as_ref().clone();
-                        Ok(res)
+                        Ok(node)
                     } else {
                         if let Some(otherwise) = &mut if_.otherwise {
-                            let res = otherwise.check(sess, env, expected_ty)?;
+                            let node = otherwise.check(sess, env, expected_ty)?;
                             *self = otherwise.as_ref().clone();
-                            Ok(res)
+                            Ok(node)
                         } else {
                             *self = ast::Ast::Const(ast::Const {
                                 value: ConstValue::Unit(()),
@@ -1021,17 +1021,17 @@ impl Check for ast::Ast {
                         }
                     };
 
-                    return res;
+                    return node;
                 }
 
-                let then_res = if_.then.check(sess, env, expected_ty)?;
+                let then_node = if_.then.check(sess, env, expected_ty)?;
 
                 if let Some(otherwise) = &mut if_.otherwise {
-                    let otherwise_res = otherwise.check(sess, env, Some(then_res.ty))?;
+                    let otherwise_node = otherwise.check(sess, env, Some(then_node.ty))?;
 
-                    otherwise_res
+                    otherwise_node
                         .ty
-                        .unify(&then_res.ty, &mut sess.tycx)
+                        .unify(&then_node.ty, &mut sess.tycx)
                         .or_coerce_exprs(
                             &mut if_.then,
                             otherwise,
@@ -1040,21 +1040,21 @@ impl Check for ast::Ast {
                         )
                         .or_report_err(
                             &sess.tycx,
-                            then_res.ty,
+                            then_node.ty,
                             Some(if_.then.span()),
-                            otherwise_res.ty,
+                            otherwise_node.ty,
                             otherwise.span(),
                         )?;
 
-                    Ok(Res::new(then_res.ty))
+                    Ok(Res::new(then_node.ty))
                 } else {
                     Ok(Res::new(unit))
                 }
             }
             ast::Ast::Block(block) => block.check(sess, env, expected_ty),
             ast::Ast::Binary(binary) => {
-                let lhs_res = binary.lhs.check(sess, env, None)?;
-                let rhs_res = binary.rhs.check(sess, env, Some(lhs_res.ty))?;
+                let lhs_node = binary.lhs.check(sess, env, None)?;
+                let rhs_node = binary.rhs.check(sess, env, Some(lhs_node.ty))?;
 
                 let expected_ty = match &binary.op {
                     ast::BinaryOp::Add
@@ -1075,21 +1075,33 @@ impl Check for ast::Ast {
                     ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
-                lhs_res
+                lhs_node
                     .ty
                     .unify(&expected_ty, &mut sess.tycx)
-                    .or_report_err(&sess.tycx, expected_ty, None, lhs_res.ty, binary.lhs.span())?;
+                    .or_report_err(
+                        &sess.tycx,
+                        expected_ty,
+                        None,
+                        lhs_node.ty,
+                        binary.lhs.span(),
+                    )?;
 
-                rhs_res
+                rhs_node
                     .ty
-                    .unify(&lhs_res.ty, &mut sess.tycx)
+                    .unify(&lhs_node.ty, &mut sess.tycx)
                     .or_coerce_exprs(
                         &mut binary.lhs,
                         &mut binary.rhs,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, lhs_res.ty, None, rhs_res.ty, binary.rhs.span())?;
+                    .or_report_err(
+                        &sess.tycx,
+                        lhs_node.ty,
+                        None,
+                        rhs_node.ty,
+                        binary.rhs.span(),
+                    )?;
 
                 let result_ty = match &binary.op {
                     ast::BinaryOp::Add
@@ -1113,7 +1125,7 @@ impl Check for ast::Ast {
                     | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
-                match (lhs_res.const_value, rhs_res.const_value) {
+                match (lhs_node.const_value, rhs_node.const_value) {
                     (Some(lhs), Some(rhs)) => {
                         let const_value = const_fold_binary(lhs, rhs, binary.op, binary.span)?;
 
@@ -1129,12 +1141,12 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::Unary(unary) => {
-                let res = unary.lhs.check(sess, env, None)?;
+                let node = unary.lhs.check(sess, env, None)?;
 
                 match unary.op {
                     ast::UnaryOp::Ref(is_mutable) => {
                         let ty = sess.tycx.bound(
-                            Type::Pointer(Box::new(res.ty.into()), is_mutable),
+                            Type::Pointer(Box::new(node.ty.into()), is_mutable),
                             unary.span,
                         );
                         Ok(Res::new(ty))
@@ -1146,11 +1158,11 @@ impl Check for ast::Ast {
                             .tycx
                             .bound(Type::Pointer(Box::new(pointee.into()), false), unary.span);
 
-                        res.ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
+                        node.ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             ptr_ty,
                             None,
-                            res.ty,
+                            node.ty,
                             unary.lhs.span(),
                         )?;
 
@@ -1160,12 +1172,12 @@ impl Check for ast::Ast {
                         let anyint = sess.tycx.anyint(unary.span);
                         let bool = sess.tycx.common_types.bool;
 
-                        res.ty
+                        node.ty
                             .unify(&bool, &mut sess.tycx)
-                            .or(res.ty.unify(&anyint, &mut sess.tycx))
-                            .or_report_err(&sess.tycx, bool, None, res.ty, unary.lhs.span())?;
+                            .or(node.ty.unify(&anyint, &mut sess.tycx))
+                            .or_report_err(&sess.tycx, bool, None, node.ty, unary.lhs.span())?;
 
-                        if let Some(const_value) = res.const_value {
+                        if let Some(const_value) = node.const_value {
                             let const_value = match const_value {
                                 ConstValue::Bool(v) => ConstValue::Bool(!v),
                                 ConstValue::Int(v) => ConstValue::Int(!v),
@@ -1174,27 +1186,27 @@ impl Check for ast::Ast {
 
                             *self = ast::Ast::Const(ast::Const {
                                 value: const_value.clone(),
-                                ty: res.ty,
+                                ty: node.ty,
                                 span: unary.span,
                             });
 
-                            Ok(Res::new_const(res.ty, const_value))
+                            Ok(Res::new_const(node.ty, const_value))
                         } else {
-                            Ok(Res::new(res.ty))
+                            Ok(Res::new(node.ty))
                         }
                     }
                     ast::UnaryOp::Neg => {
                         let anyint = sess.tycx.anyint(unary.span);
 
-                        res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
+                        node.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             None,
-                            res.ty,
+                            node.ty,
                             unary.lhs.span(),
                         )?;
 
-                        if let Some(const_value) = res.const_value.as_ref() {
+                        if let Some(const_value) = node.const_value.as_ref() {
                             let const_value = match const_value {
                                 ConstValue::Int(i) => ConstValue::Int(-i),
                                 ConstValue::Float(f) => ConstValue::Float(-f),
@@ -1203,35 +1215,35 @@ impl Check for ast::Ast {
 
                             *self = ast::Ast::Const(ast::Const {
                                 value: const_value.clone(),
-                                ty: res.ty,
+                                ty: node.ty,
                                 span: unary.span,
                             });
 
-                            Ok(Res::new_const(res.ty, const_value))
+                            Ok(Res::new_const(node.ty, const_value))
                         } else {
-                            Ok(Res::new(res.ty))
+                            Ok(Res::new(node.ty))
                         }
                     }
                     ast::UnaryOp::Plus => {
                         let anyint = sess.tycx.anyint(unary.span);
 
-                        res.ty.unify(&anyint, &mut sess.tycx).or_report_err(
+                        node.ty.unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             None,
-                            res.ty,
+                            node.ty,
                             unary.lhs.span(),
                         )?;
 
-                        Ok(Res::new_maybe_const(res.ty, res.const_value))
+                        Ok(Res::new_maybe_const(node.ty, node.const_value))
                     }
                 }
             }
             ast::Ast::Subscript(sub) => {
-                let index_res = sub.index.check(sess, env, None)?;
+                let index_node = sub.index.check(sess, env, None)?;
                 let uint = sess.tycx.common_types.uint;
 
-                index_res
+                index_node
                     .ty
                     .unify(&uint, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
@@ -1240,13 +1252,13 @@ impl Check for ast::Ast {
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, uint, None, index_res.ty, sub.index.span())?;
+                    .or_report_err(&sess.tycx, uint, None, index_node.ty, sub.index.span())?;
 
-                let res = sub.expr.check(sess, env, None)?;
-                let kind = res.ty.normalize(&sess.tycx);
+                let node = sub.expr.check(sess, env, None)?;
+                let kind = node.ty.normalize(&sess.tycx);
                 let kind_deref = kind.maybe_deref_once();
 
-                let const_value = if let Some(ConstValue::Int(const_index)) = index_res.const_value
+                let const_value = if let Some(ConstValue::Int(const_index)) = index_node.const_value
                 {
                     // compile-time array bounds check
                     if let Type::Array(_, size) = kind_deref {
@@ -1262,7 +1274,7 @@ impl Check for ast::Ast {
                         }
                     }
 
-                    if let Some(ConstValue::Array(const_array)) = &res.const_value {
+                    if let Some(ConstValue::Array(const_array)) = &node.const_value {
                         Some(const_array.values[const_index as usize].clone())
                     } else {
                         None
@@ -1293,14 +1305,14 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::Slice(slice) => {
-                let expr_res = slice.expr.check(sess, env, None)?;
-                let expr_ty = expr_res.ty.normalize(&sess.tycx);
+                let expr_node = slice.expr.check(sess, env, None)?;
+                let expr_ty = expr_node.ty.normalize(&sess.tycx);
                 let uint = sess.tycx.common_types.uint;
 
                 if let Some(low) = &mut slice.low {
-                    let res = low.check(sess, env, None)?;
+                    let node = low.check(sess, env, None)?;
 
-                    res.ty
+                    node.ty
                         .unify(&uint, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             low,
@@ -1308,13 +1320,13 @@ impl Check for ast::Ast {
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, uint, None, res.ty, low.span())?;
+                        .or_report_err(&sess.tycx, uint, None, node.ty, low.span())?;
                 }
 
                 if let Some(high) = &mut slice.high {
-                    let res = high.check(sess, env, None)?;
+                    let node = high.check(sess, env, None)?;
 
-                    res.ty
+                    node.ty
                         .unify(&uint, &mut sess.tycx)
                         .or_coerce_expr_into_ty(
                             high,
@@ -1326,7 +1338,7 @@ impl Check for ast::Ast {
                             &sess.tycx,
                             uint,
                             slice.low.as_ref().map(|e| e.span()),
-                            res.ty,
+                            node.ty,
                             high.span(),
                         )?;
                 }
@@ -1355,12 +1367,12 @@ impl Check for ast::Ast {
             }
             ast::Ast::Call(call) => call.check(sess, env, expected_ty),
             ast::Ast::MemberAccess(access) => {
-                let res = access.expr.check(sess, env, None)?;
+                let node = access.expr.check(sess, env, None)?;
 
                 let member_tuple_index = access.member.as_str().parse::<usize>();
 
                 // if the accessed expression's type is not resolved yet - try unifying it with a partial type
-                match res.ty.normalize(&sess.tycx) {
+                match node.ty.normalize(&sess.tycx) {
                     Type::Var(_)
                     | Type::Infer(_, InferTy::PartialStruct(_))
                     | Type::Infer(_, InferTy::PartialTuple(_)) => {
@@ -1384,18 +1396,18 @@ impl Check for ast::Ast {
                             }
                         };
 
-                        res.ty.unify(&partial_ty, &mut sess.tycx).or_report_err(
+                        node.ty.unify(&partial_ty, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             partial_ty,
                             None,
-                            res.ty,
+                            node.ty,
                             access.expr.span(),
                         )?;
                     }
                     _ => (),
                 }
 
-                let kind = res.ty.normalize(&sess.tycx);
+                let kind = node.ty.normalize(&sess.tycx);
 
                 match &kind.maybe_deref_once() {
                     ty @ Type::Tuple(elements)
@@ -1405,7 +1417,7 @@ impl Check for ast::Ast {
                                 Some(field_ty) => {
                                     let const_value =
                                         if let Some(ConstValue::Tuple(const_elements)) =
-                                            &res.const_value
+                                            &node.const_value
                                         {
                                             Some(const_elements[index].value.clone())
                                         } else {
@@ -1434,7 +1446,7 @@ impl Check for ast::Ast {
                     ty @ Type::Struct(st) => match st.find_field(access.member) {
                         Some(field) => {
                             let const_value =
-                                if let Some(ConstValue::Struct(const_fields)) = &res.const_value {
+                                if let Some(ConstValue::Struct(const_fields)) = &node.const_value {
                                     Some(const_fields[&field.symbol].value.clone())
                                 } else {
                                     None
@@ -1455,7 +1467,7 @@ impl Check for ast::Ast {
                         match partial_struct.get(&access.member) {
                             Some(field_ty) => {
                                 let const_value = if let Some(ConstValue::Struct(const_fields)) =
-                                    &res.const_value
+                                    &node.const_value
                                 {
                                     Some(const_fields[&access.member].value.clone())
                                 } else {
@@ -1478,7 +1490,7 @@ impl Check for ast::Ast {
                         Res::new_const(sess.tycx.common_types.uint, ConstValue::Int(*size as _)),
                     ),
                     Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        let const_value = if let Some(ConstValue::Str(s)) = &res.const_value {
+                        let const_value = if let Some(ConstValue::Str(s)) = &node.const_value {
                             Some(ConstValue::Uint(s.len() as _))
                         } else {
                             None
@@ -1601,12 +1613,12 @@ impl Check for ast::Ast {
                     let element_ty_span = elements.first().map_or(lit.span, |e| e.span());
                     let element_ty = sess.tycx.var(element_ty_span);
 
-                    let mut elements_res: Vec<Res> = vec![];
+                    let mut element_nodes: Vec<Res> = vec![];
 
                     for el in elements.iter_mut() {
-                        let res = el.check(sess, env, Some(element_ty))?;
+                        let node = el.check(sess, env, Some(element_ty))?;
 
-                        res.ty
+                        node.ty
                             .unify(&element_ty, &mut sess.tycx)
                             .or_coerce_expr_into_ty(
                                 el,
@@ -1618,11 +1630,11 @@ impl Check for ast::Ast {
                                 &sess.tycx,
                                 element_ty,
                                 Some(element_ty_span),
-                                res.ty,
+                                node.ty,
                                 el.span(),
                             )?;
 
-                        elements_res.push(res);
+                        element_nodes.push(node);
                     }
 
                     let ty = sess.tycx.bound(
@@ -1630,11 +1642,11 @@ impl Check for ast::Ast {
                         lit.span,
                     );
 
-                    let is_const_array = elements_res.iter().all(|res| res.const_value.is_some());
+                    let is_const_array = element_nodes.iter().all(|res| res.const_value.is_some());
 
                     if is_const_array {
                         let const_array = ConstValue::Array(ConstArray {
-                            values: elements_res
+                            values: element_nodes
                                 .iter()
                                 .map(|res| res.const_value.clone().unwrap())
                                 .collect(),
@@ -1653,24 +1665,24 @@ impl Check for ast::Ast {
                     }
                 }
                 ast::ArrayLiteralKind::Fill { len, expr } => {
-                    let len_res = len.check(sess, env, None)?;
-                    let array_len = sess.extract_const_int(&len_res)?;
+                    let len_node = len.check(sess, env, None)?;
+                    let array_len = sess.extract_const_int(&len_node)?;
 
                     if array_len < 0 {
                         return Err(TypeError::negative_array_len(len.span(), array_len));
                     }
 
-                    let res = expr.check(sess, env, None)?;
+                    let node = expr.check(sess, env, None)?;
 
                     let ty = sess.tycx.bound(
-                        Type::Array(Box::new(res.ty.into()), array_len as _),
+                        Type::Array(Box::new(node.ty.into()), array_len as _),
                         lit.span,
                     );
 
-                    if let Some(const_value) = &res.const_value {
+                    if let Some(const_value) = &node.const_value {
                         let const_array = ConstValue::Array(ConstArray {
                             values: vec![const_value.clone(); array_len as usize],
-                            element_ty: res.ty,
+                            element_ty: node.ty,
                         });
 
                         *self = ast::Ast::Const(ast::Const {
@@ -1709,17 +1721,17 @@ impl Check for ast::Ast {
                     return Ok(Res::new_const(ty, const_value));
                 }
 
-                let mut elements_res = vec![];
+                let mut element_nodes = vec![];
 
                 for el in lit.elements.iter_mut() {
-                    let res = el.check(sess, env, None)?;
-                    elements_res.push(res);
+                    let node = el.check(sess, env, None)?;
+                    element_nodes.push(node);
                 }
 
-                let is_const_tuple = elements_res.iter().all(|res| res.const_value.is_some());
+                let is_const_tuple = element_nodes.iter().all(|res| res.const_value.is_some());
 
                 if is_const_tuple {
-                    let const_values: Vec<&ConstValue> = elements_res
+                    let const_values: Vec<&ConstValue> = element_nodes
                         .iter()
                         .map(|res| res.const_value.as_ref().unwrap())
                         .collect();
@@ -1728,7 +1740,7 @@ impl Check for ast::Ast {
 
                     if is_tuple_type {
                         // unwrap element type constants
-                        let element_tys: Vec<Type> = elements_res
+                        let element_tys: Vec<Type> = element_nodes
                             .iter()
                             .map(|res| {
                                 res.const_value
@@ -1799,11 +1811,11 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::StructLiteral(lit) => {
-                let res = match &mut lit.type_expr {
+                let node = match &mut lit.type_expr {
                     Some(type_expr) => {
-                        let res =
+                        let node =
                             type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                        let ty = sess.extract_const_type(&res)?;
+                        let ty = sess.extract_const_type(&node)?;
 
                         let kind = ty.normalize(&sess.tycx);
 
@@ -1853,15 +1865,15 @@ impl Check for ast::Ast {
                     },
                 };
 
-                if let Some(const_value) = &res.const_value {
+                if let Some(const_value) = &node.const_value {
                     *self = ast::Ast::Const(ast::Const {
                         value: const_value.clone(),
-                        ty: res.ty,
+                        ty: node.ty,
                         span: lit.span,
                     });
                 }
 
-                Ok(res)
+                Ok(node)
             }
             ast::Ast::Literal(lit) => {
                 let const_value: ConstValue = lit.kind.into();
@@ -1889,8 +1901,8 @@ impl Check for ast::Ast {
                 span,
                 ..
             }) => {
-                let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(&res)?;
+                let node = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                let inner_kind = sess.extract_const_type(&node)?;
                 let kind = Type::Pointer(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
@@ -1910,8 +1922,8 @@ impl Check for ast::Ast {
                 span,
                 ..
             }) => {
-                let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(&res)?;
+                let node = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                let inner_kind = sess.extract_const_type(&node)?;
                 let kind = Type::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
@@ -1928,12 +1940,12 @@ impl Check for ast::Ast {
             ast::Ast::ArrayType(ast::ArrayType {
                 inner, size, span, ..
             }) => {
-                let inner_res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_ty = sess.extract_const_type(&inner_res)?;
+                let inner_node = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                let inner_ty = sess.extract_const_type(&inner_node)?;
 
-                let size_res = size.check(sess, env, None)?;
+                let size_node = size.check(sess, env, None)?;
 
-                let size_value = sess.extract_const_int(&size_res)?;
+                let size_value = sess.extract_const_int(&size_node)?;
 
                 if size_value < 0 {
                     return Err(TypeError::negative_array_len(size.span(), size_value));
@@ -1958,8 +1970,8 @@ impl Check for ast::Ast {
                 span,
                 ..
             }) => {
-                let res = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(&res)?;
+                let node = inner.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                let inner_kind = sess.extract_const_type(&node)?;
                 let kind = Type::Slice(Box::new(inner_kind.into()), *is_mutable);
 
                 let ty = sess.tycx.bound(kind.clone().create_type(), *span);
@@ -2010,10 +2022,10 @@ impl Check for ast::Ast {
                 let mut struct_ty_fields = vec![];
 
                 for field in st.fields.iter_mut() {
-                    let res = field
+                    let node = field
                         .ty
                         .check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    let ty = sess.extract_const_type(&res)?;
+                    let ty = sess.extract_const_type(&node)?;
 
                     if let Some(defined_span) = field_map.insert(field.name, field.span) {
                         return Err(SyntaxError::duplicate_struct_field(
@@ -2063,10 +2075,10 @@ impl Check for ast::Ast {
                 Ok(Res::new_const(ty, const_value))
             }
             ast::Ast::FunctionType(sig) => {
-                let res = sig.check(sess, env, expected_ty)?;
+                let node = sig.check(sess, env, expected_ty)?;
 
-                let ty = sess.tycx.bound(res.ty.as_kind().create_type(), sig.span);
-                let const_value = ConstValue::Type(res.ty);
+                let ty = sess.tycx.bound(node.ty.as_kind().create_type(), sig.span);
+                let const_value = ConstValue::Type(node.ty);
 
                 *self = ast::Ast::Const(ast::Const {
                     value: const_value.clone(),
@@ -2113,9 +2125,9 @@ impl Check for ast::Ast {
 
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        let callee_res = self.callee.check(sess, env, None)?;
+        let callee_node = self.callee.check(sess, env, None)?;
 
-        match callee_res.ty.normalize(&sess.tycx) {
+        match callee_node.ty.normalize(&sess.tycx) {
             Type::Function(fn_ty) => {
                 let arg_mismatch = match &fn_ty.varargs {
                     Some(_) if self.args.len() < fn_ty.params.len() => true,
@@ -2150,9 +2162,9 @@ impl Check for ast::Call {
                 for (index, arg) in self.args.iter_mut().enumerate() {
                     if let Some(param) = fn_ty.params.get(index) {
                         let param_ty = sess.tycx.bound(param.clone(), self.span);
-                        let res = arg.check(sess, env, Some(param_ty))?;
+                        let node = arg.check(sess, env, Some(param_ty))?;
 
-                        res.ty
+                        node.ty
                             .unify(&param_ty, &mut sess.tycx)
                             .or_coerce_expr_into_ty(
                                 arg,
@@ -2160,7 +2172,7 @@ impl Check for ast::Call {
                                 &mut sess.tycx,
                                 sess.target_metrics.word_size,
                             )
-                            .or_report_err(&sess.tycx, param_ty, None, res.ty, arg.span())?;
+                            .or_report_err(&sess.tycx, param_ty, None, node.ty, arg.span())?;
                     } else {
                         // this is a variadic argument, meaning that the argument's
                         // index is greater than the function's param length
@@ -2202,11 +2214,11 @@ impl Check for ast::Call {
 
 impl Check for ast::Cast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let res = self.expr.check(sess, env, None)?;
+        let node = self.expr.check(sess, env, None)?;
 
         self.ty = if let Some(ty_expr) = &mut self.target {
-            let res = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(&res)?
+            let node = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+            sess.extract_const_type(&node)?
         } else {
             match expected_ty {
                 Some(t) => t,
@@ -2218,7 +2230,7 @@ impl Check for ast::Cast {
             }
         };
 
-        let source_ty = res.ty.normalize(&sess.tycx);
+        let source_ty = node.ty.normalize(&sess.tycx);
         let target_ty = self.ty.normalize(&sess.tycx);
 
         if source_ty.can_cast(&target_ty) {
@@ -2257,10 +2269,10 @@ impl Check for ast::Block {
         if self.yields {
             Ok(res)
         } else {
-            let res_ty = res.ty.normalize(&sess.tycx);
+            let node_ty = res.ty.normalize(&sess.tycx);
 
             Ok(Res::new_const(
-                if res_ty.is_never() {
+                if node_ty.is_never() {
                     sess.tycx.common_types.never
                 } else {
                     sess.tycx.common_types.unit
@@ -2282,7 +2294,7 @@ fn check_named_struct_literal(
     let mut field_set = UstrSet::default();
     let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
 
-    let mut fields_res: Vec<(Ustr, Res)> = vec![];
+    let mut field_nodes: Vec<(Ustr, Res)> = vec![];
 
     for field in fields.iter_mut() {
         if !field_set.insert(field.symbol) {
@@ -2297,9 +2309,9 @@ fn check_named_struct_literal(
                 uninit_fields.remove(&field.symbol);
 
                 let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
-                let res = field.expr.check(sess, env, Some(expected_ty))?;
+                let node = field.expr.check(sess, env, Some(expected_ty))?;
 
-                res.ty
+                node.ty
                     .unify(&expected_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut field.expr,
@@ -2311,11 +2323,11 @@ fn check_named_struct_literal(
                         &sess.tycx,
                         expected_ty,
                         Some(ty_field.span),
-                        res.ty,
+                        node.ty,
                         field.expr.span(),
                     )?;
 
-                fields_res.push((field.symbol, res));
+                field_nodes.push((field.symbol, node));
             }
             None => {
                 return Err(TypeError::invalid_struct_field(
@@ -2349,12 +2361,12 @@ fn check_named_struct_literal(
     }
 
     // TODO: named and anonymous structs share the same logic for constant propogation, this could be unified to a shared function
-    let is_const_struct = fields_res.iter().all(|(_, res)| res.const_value.is_some());
+    let is_const_struct = field_nodes.iter().all(|(_, res)| res.const_value.is_some());
 
     if is_const_struct {
         let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
 
-        for (name, res) in fields_res.iter() {
+        for (name, res) in field_nodes.iter() {
             const_value_fields.insert(
                 *name,
                 ConstElement {
@@ -2386,7 +2398,7 @@ fn check_anonymous_struct_literal(
 
     let name = get_anonymous_struct_name(span);
 
-    let mut fields_res: Vec<(Ustr, Res)> = vec![];
+    let mut field_nodes: Vec<(Ustr, Res)> = vec![];
 
     let mut struct_ty = StructType {
         name,
@@ -2403,24 +2415,24 @@ fn check_anonymous_struct_literal(
             ));
         }
 
-        let res = field.expr.check(sess, env, None)?;
+        let node = field.expr.check(sess, env, None)?;
 
         struct_ty.fields.push(StructTypeField {
             symbol: field.symbol,
-            ty: res.ty().into(),
+            ty: node.ty().into(),
             span: field.span,
         });
 
-        fields_res.push((field.symbol, res));
+        field_nodes.push((field.symbol, node));
     }
 
     // TODO: named and anonymous structs share the same logic for constant propogation, this could be unified to a shared function
-    let is_const_struct = fields_res.iter().all(|(_, res)| res.const_value.is_some());
+    let is_const_struct = field_nodes.iter().all(|(_, res)| res.const_value.is_some());
 
     if is_const_struct {
         let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
 
-        for (name, res) in fields_res.iter() {
+        for (name, res) in field_nodes.iter() {
             const_value_fields.insert(
                 *name,
                 ConstElement {
