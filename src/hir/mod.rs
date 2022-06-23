@@ -126,7 +126,7 @@ node_struct!(Const, { value: ConstValue });
 node_struct!(Binding, { module_id: ModuleId, id: BindingId, name: Ustr, value: Box<Node> });
 node_struct!(Id, { id: BindingId });
 node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
-node_struct!(MemberAccess, { value: Box<Node>, index: u32 });
+node_struct!(MemberAccess, { value: Box<Node>, member: Ustr, index: u32 });
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
 node_struct!(Sequence, { statements: Vec<Node> });
 node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
@@ -140,6 +140,8 @@ node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
 node_struct!(StructLiteral, { fields: Vec<StructLiteralField> });
 node_struct!(StructLiteralField, { name: Ustr, value: Box<Node> });
 node_struct!(TupleLiteral, { elements: Vec<Node> });
+node_struct!(ArrayLiteral, { elements: Vec<Node> });
+node_struct!(ArrayFillLiteral, { value: Box<Node>, len: usize });
 
 // node_struct!(Transmute, { value: Box<Node> });
 
@@ -178,6 +180,8 @@ pub enum Builtin {
 pub enum Literal {
     Struct(StructLiteral),
     Tuple(TupleLiteral),
+    Array(ArrayLiteral),
+    ArrayFill(ArrayFillLiteral),
 }
 
 macro_rules! node_field_dispatch {
@@ -275,6 +279,8 @@ macro_rules! literal_field_dispatch {
                 match self {
                     Self::Struct(x) => x.$field,
                     Self::Tuple(x) => x.$field,
+                    Self::Array(x) => x.$field,
+                    Self::ArrayFill(x) => x.$field,
                 }
             }
         }

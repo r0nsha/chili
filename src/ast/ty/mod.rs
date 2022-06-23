@@ -145,6 +145,13 @@ impl StructType {
     pub fn find_field_position(&self, field: Ustr) -> Option<usize> {
         self.fields.iter().position(|f| f.symbol == field)
     }
+
+    pub fn find_field_full(&self, field: Ustr) -> Option<(usize, &StructTypeField)> {
+        self.fields
+            .iter()
+            .enumerate()
+            .find(|(_, f)| f.symbol == field)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
