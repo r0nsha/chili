@@ -20,18 +20,18 @@ macro_rules! node_struct {
     ($name:ident) => {
         #[derive(Debug, Clone)]
         pub struct $name {
-            ty: TypeId,
-            span: Span,
+            pub ty: TypeId,
+            pub span: Span,
         }
     };
 
     ($name:ident, { $($field:ident : $ty:ty) , + $(,)? }) => {
         #[derive(Debug, Clone)]
         pub struct $name {
-            ty: TypeId,
-            span: Span,
+            pub ty: TypeId,
+            pub span: Span,
             $(
-                $field: $ty
+                pub $field: $ty
             ),+
         }
     };
@@ -137,7 +137,7 @@ node_struct!(Cast, { value: Box<Node> });
 node_struct!(Deref, { value: Box<Node> });
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
 node_struct!(StructLiteral, { fields: Vec<StructLiteralField> });
-node_struct!(StructLiteralField, { value: Box<Node> });
+node_struct!(StructLiteralField, { name: Ustr, value: Box<Node> });
 node_struct!(TupleLiteral, { elements: Vec<Node> });
 
 // node_struct!(Transmute, { value: Box<Node> });
@@ -350,6 +350,17 @@ macro_rules! literal_field_dispatch {
 literal_field_dispatch!();
 
 impl Node {
+    pub fn is_const(&self) -> bool {
+        matches!(self, Self::Const(_))
+    }
+
+    pub fn into_const_value(self) -> Option<ConstValue> {
+        match self {
+            Self::Const(c) => Some(c.value),
+            _ => None,
+        }
+    }
+
     pub fn as_const_value(&self) -> Option<&ConstValue> {
         match self {
             Self::Const(c) => Some(&c.value),

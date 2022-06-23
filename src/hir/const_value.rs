@@ -4,6 +4,8 @@ use paste::paste;
 use std::fmt::{self, Display};
 use ustr::Ustr;
 
+use super::FunctionId;
+
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
         #[derive(Debug, PartialEq, Clone, Copy)]
@@ -111,7 +113,7 @@ pub struct ConstArray {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstFunction {
-    pub id: super::FunctionId,
+    pub id: FunctionId,
     // Name is only used for display purposes
     pub name: Ustr,
 }

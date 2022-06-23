@@ -350,7 +350,7 @@ impl Check for ast::Binding {
                             &sess.tycx,
                             self.ty,
                             self.ty_expr.as_ref().map(|e| e.span()),
-                            node.ty,
+                            node.ty(),
                             expr.span(),
                         )?;
 
@@ -2294,7 +2294,7 @@ fn check_named_struct_literal(
     let mut field_set = UstrSet::default();
     let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
 
-    let mut field_nodes: Vec<(Ustr, Res)> = vec![];
+    let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
 
     for field in fields.iter_mut() {
         if !field_set.insert(field.symbol) {
@@ -2311,7 +2311,7 @@ fn check_named_struct_literal(
                 let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
                 let node = field.expr.check(sess, env, Some(expected_ty))?;
 
-                node.ty
+                node.ty()
                     .unify(&expected_ty, &mut sess.tycx)
                     .or_coerce_expr_into_ty(
                         &mut field.expr,
@@ -2323,11 +2323,16 @@ fn check_named_struct_literal(
                         &sess.tycx,
                         expected_ty,
                         Some(ty_field.span),
-                        node.ty,
+                        node.ty(),
                         field.expr.span(),
                     )?;
 
-                field_nodes.push((field.symbol, node));
+                field_nodes.push(hir::StructLiteralField {
+                    ty: node.ty(),
+                    span,
+                    name: field.symbol,
+                    value: Box::new(node),
+                });
             }
             None => {
                 return Err(TypeError::invalid_struct_field(
@@ -2360,31 +2365,7 @@ fn check_named_struct_literal(
             .with_label(Label::primary(span, "missing fields")));
     }
 
-    // TODO: named and anonymous structs share the same logic for constant propogation, this could be unified to a shared function
-    let is_const_struct = field_nodes.iter().all(|(_, res)| res.const_value.is_some());
-
-    if is_const_struct {
-        let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
-
-        for (name, res) in field_nodes.iter() {
-            const_value_fields.insert(
-                *name,
-                ConstElement {
-                    value: res.const_value.clone().unwrap(),
-                    ty: res.ty,
-                },
-            );
-        }
-
-        let const_value = ConstValue::Struct(const_value_fields);
-
-        Ok(Res::new_const(
-            sess.tycx.bound(Type::Struct(struct_ty), span),
-            const_value,
-        ))
-    } else {
-        Ok(Res::new(sess.tycx.bound(Type::Struct(struct_ty), span)))
-    }
+    Ok(make_struct_literal_node(sess, field_nodes, struct_ty, span))
 }
 
 #[inline]
@@ -2398,7 +2379,7 @@ fn check_anonymous_struct_literal(
 
     let name = get_anonymous_struct_name(span);
 
-    let mut field_nodes: Vec<(Ustr, Res)> = vec![];
+    let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
 
     let mut struct_ty = StructType {
         name,
@@ -2423,33 +2404,49 @@ fn check_anonymous_struct_literal(
             span: field.span,
         });
 
-        field_nodes.push((field.symbol, node));
+        field_nodes.push(hir::StructLiteralField {
+            ty: node.ty(),
+            span,
+            name: field.symbol,
+            value: Box::new(node),
+        });
     }
 
-    // TODO: named and anonymous structs share the same logic for constant propogation, this could be unified to a shared function
-    let is_const_struct = field_nodes.iter().all(|(_, res)| res.const_value.is_some());
+    Ok(make_struct_literal_node(sess, field_nodes, struct_ty, span))
+}
+
+fn make_struct_literal_node(
+    sess: &mut CheckSess,
+    field_nodes: Vec<hir::StructLiteralField>,
+    struct_ty: StructType,
+    span: Span,
+) -> hir::Node {
+    let is_const_struct = field_nodes.iter().all(|f| f.value.is_const());
 
     if is_const_struct {
         let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
 
-        for (name, res) in field_nodes.iter() {
+        for field in field_nodes.iter() {
             const_value_fields.insert(
-                *name,
+                field.name,
                 ConstElement {
-                    value: res.const_value.clone().unwrap(),
-                    ty: res.ty,
+                    value: field.value.as_const_value().unwrap().clone(),
+                    ty: field.ty,
                 },
             );
         }
 
-        let const_value = ConstValue::Struct(const_value_fields);
-
-        Ok(Res::new_const(
-            sess.tycx.bound(Type::Struct(struct_ty), span),
-            const_value,
-        ))
+        hir::Node::Const(hir::Const {
+            value: ConstValue::Struct(const_value_fields),
+            ty: sess.tycx.bound(Type::Struct(struct_ty), span),
+            span,
+        })
     } else {
-        Ok(Res::new(sess.tycx.bound(Type::Struct(struct_ty), span)))
+        hir::Node::Literal(hir::Literal::Struct(hir::StructLiteral {
+            ty: sess.tycx.bound(Type::Struct(struct_ty), span),
+            span,
+            fields: field_nodes,
+        }))
     }
 }
 
