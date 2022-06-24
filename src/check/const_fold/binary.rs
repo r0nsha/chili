@@ -24,7 +24,12 @@ pub fn binary(
             ConstValue::Int(0) | ConstValue::Uint(0) => Err(SyntaxError::divide_by_zero(span)),
             _ => lhs.div(rhs).ok_or_else(|| int_overflow("dividing")),
         },
-        ast::BinaryOp::Rem => todo!(),
+        ast::BinaryOp::Rem => match rhs {
+            ConstValue::Int(0) | ConstValue::Uint(0) => Err(SyntaxError::divide_by_zero(span)),
+            _ => lhs
+                .rem(rhs)
+                .ok_or_else(|| int_overflow("taking the remainder of")),
+        },
         ast::BinaryOp::Eq => todo!(),
         ast::BinaryOp::Neq => todo!(),
         ast::BinaryOp::Lt => todo!(),
