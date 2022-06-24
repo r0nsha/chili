@@ -298,7 +298,7 @@ pub struct Binary {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Unary {
     pub op: UnaryOp,
-    pub lhs: Box<Ast>,
+    pub value: Box<Ast>,
     pub ty: TypeId,
     pub span: Span,
 }

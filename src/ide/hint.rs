@@ -177,7 +177,7 @@ impl<'a> CollectHints<'a> for ast::Ast {
                 binary.rhs.collect_hints(sess);
             }
             ast::Ast::Unary(unary) => {
-                unary.lhs.collect_hints(sess);
+                unary.value.collect_hints(sess);
             }
             ast::Ast::Subscript(sub) => {
                 sub.expr.collect_hints(sess);

@@ -171,7 +171,7 @@ impl Parser {
 
             Star => Ast::Unary(ast::Unary {
                 op: UnaryOp::Deref,
-                lhs: Box::new(expr),
+                value: Box::new(expr),
                 ty: Default::default(),
                 span: start_span.to(token.span),
             }),

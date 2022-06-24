@@ -214,7 +214,7 @@ impl<'a> Substitute<'a> for ast::Ast {
                 binary.lhs.substitute(sess);
                 binary.rhs.substitute(sess);
             }
-            ast::Ast::Unary(unary) => unary.lhs.substitute(sess),
+            ast::Ast::Unary(unary) => unary.value.substitute(sess),
             ast::Ast::Subscript(sub) => {
                 sub.expr.substitute(sess);
                 sub.index.substitute(sess);

@@ -209,11 +209,11 @@ impl Lint for ast::Ast {
                 binary.rhs.lint(sess);
             }
             ast::Ast::Unary(unary) => {
-                unary.lhs.lint(sess);
+                unary.value.lint(sess);
 
                 if let ast::UnaryOp::Ref(is_mutable_ref) = &unary.op {
                     if *is_mutable_ref {
-                        sess.check_expr_can_be_mutably_referenced(&unary.lhs);
+                        sess.check_expr_can_be_mutably_referenced(&unary.value);
                     }
                 }
             }

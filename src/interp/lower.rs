@@ -858,7 +858,7 @@ impl Lower for ast::Binary {
 
 impl Lower for ast::Unary {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        self.lhs.lower(
+        self.value.lower(
             sess,
             code,
             match self.op {

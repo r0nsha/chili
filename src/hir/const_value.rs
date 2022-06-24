@@ -174,3 +174,41 @@ impl Display for ConstValue {
         )
     }
 }
+
+impl ConstValue {
+    pub fn not(&self) -> ConstValue {
+        match self {
+            ConstValue::Bool(v) => ConstValue::Bool(!v),
+            ConstValue::Int(v) => ConstValue::Int(!v),
+            ConstValue::Uint(v) => ConstValue::Uint(!v),
+            _ => unreachable!("got {:?}", self),
+        }
+    }
+
+    pub fn neg(&self) -> ConstValue {
+        match self {
+            ConstValue::Int(i) => ConstValue::Int(-i),
+            ConstValue::Float(f) => ConstValue::Float(-f),
+            _ => unreachable!("got {:?}", self),
+        }
+    }
+
+    pub fn add(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Int(*v1 + *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Uint(*v1 + *v2),
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Int(*v1 + *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Int(*v1 + *v2 as i64),
+
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => ConstValue::Float(*v1 as f64 + *v2),
+            (ConstValue::Float(v2), ConstValue::Int(v1)) => ConstValue::Float(*v1 as f64 + *v2),
+
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Float(*v1 as f64 + *v2),
+            (ConstValue::Float(v2), ConstValue::Uint(v1)) => ConstValue::Float(*v1 as f64 + *v2),
+
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Float(*v1 + *v2),
+            _ => unreachable!("got {:?}", self),
+        }
+    }
+}

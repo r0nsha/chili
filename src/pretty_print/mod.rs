@@ -308,7 +308,7 @@ impl PrintTree for ast::Ast {
             }
             ast::Ast::Unary(unary) => {
                 b.begin_child(format!("{} <{}>", unary.op, tycx.ty_kind(unary.ty)));
-                unary.lhs.print_tree(b, workspace, tycx);
+                unary.value.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::Ast::Subscript(sub) => {

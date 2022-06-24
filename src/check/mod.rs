@@ -44,7 +44,6 @@ use crate::{
     },
     infer::cast::can_cast_type,
 };
-use const_fold::binary::const_fold_binary;
 use env::{Env, Scope, ScopeKind};
 use indexmap::IndexMap;
 use std::{collections::HashMap, iter::repeat_with};
@@ -1045,8 +1044,8 @@ impl Check for ast::Ast {
             }
             ast::Ast::Block(block) => block.check(sess, env, expected_ty),
             ast::Ast::Binary(binary) => {
-                let lhs_node = binary.lhs.check(sess, env, None)?;
-                let rhs_node = binary.rhs.check(sess, env, Some(lhs_node.ty))?;
+                let mut lhs_node = binary.lhs.check(sess, env, None)?;
+                let mut rhs_node = binary.rhs.check(sess, env, Some(lhs_node.ty))?;
 
                 let expected_ty = match &binary.op {
                     ast::BinaryOp::Add
@@ -1068,30 +1067,30 @@ impl Check for ast::Ast {
                 };
 
                 lhs_node
-                    .ty
+                    .ty()
                     .unify(&expected_ty, &mut sess.tycx)
                     .or_report_err(
                         &sess.tycx,
                         expected_ty,
                         None,
-                        lhs_node.ty,
+                        lhs_node.ty(),
                         binary.lhs.span(),
                     )?;
 
                 rhs_node
-                    .ty
-                    .unify(&lhs_node.ty, &mut sess.tycx)
+                    .ty()
+                    .unify(&lhs_node.ty(), &mut sess.tycx)
                     .or_coerce(
-                        &mut binary.lhs,
-                        &mut binary.rhs,
+                        &mut lhs_node,
+                        &mut rhs_node,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
                     .or_report_err(
                         &sess.tycx,
-                        lhs_node.ty,
+                        lhs_node.ty(),
                         None,
-                        rhs_node.ty,
+                        rhs_node.ty(),
                         binary.rhs.span(),
                     )?;
 
@@ -1119,8 +1118,7 @@ impl Check for ast::Ast {
 
                 match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
                     (Some(lhs), Some(rhs)) => {
-                        let const_value =
-                            const_fold::binary(lhs.clone(), rhs.clone(), binary.op, binary.span)?;
+                        let const_value = const_fold::binary(lhs, rhs, binary.op, binary.span)?;
 
                         Ok(hir::Node::Const(hir::Const {
                             value: const_value,
@@ -1131,118 +1129,7 @@ impl Check for ast::Ast {
                     _ => Ok(Res::new(result_ty)),
                 }
             }
-            ast::Ast::Unary(unary) => {
-                dasdasd ad sad
-                // TODO: move to trait impl
-                // TODO: define binary/unary operations on const values
-                let node = unary.lhs.check(sess, env, None)?;
-
-                match unary.op {
-                    ast::UnaryOp::Ref(is_mutable) => {
-                        let ty = sess.tycx.bound(
-                            Type::Pointer(Box::new(node.ty().into()), is_mutable),
-                            unary.span,
-                        );
-
-                        Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Unary {
-                            ty,
-                            span: unary.span,
-                            value: Box::new(node),
-                        })))
-                    }
-                    ast::UnaryOp::Deref => {
-                        let pointee_ty = sess.tycx.var(unary.span);
-
-                        let ptr_ty = sess.tycx.bound(
-                            Type::Pointer(Box::new(pointee_ty.into()), false),
-                            unary.span,
-                        );
-
-                        node.ty().unify(&ptr_ty, &mut sess.tycx).or_report_err(
-                            &sess.tycx,
-                            ptr_ty,
-                            None,
-                            node.ty(),
-                            unary.lhs.span(),
-                        )?;
-
-                        Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                            ty: pointee_ty,
-                            span: unary.span,
-                            value: Box::new(node),
-                        })))
-                    }
-                    ast::UnaryOp::Not => {
-                        let anyint = sess.tycx.anyint(unary.span);
-                        let bool = sess.tycx.common_types.bool;
-
-                        node.ty()
-                            .unify(&bool, &mut sess.tycx)
-                            .or_else(|_| node.ty().unify(&anyint, &mut sess.tycx))
-                            .or_report_err(&sess.tycx, bool, None, node.ty(), unary.lhs.span())?;
-
-                        if let Some(const_value) = node.as_const_value() {
-                            Ok(hir::Node::Const(hir::Const {
-                                value: match const_value {
-                                    ConstValue::Bool(v) => ConstValue::Bool(!v),
-                                    ConstValue::Int(v) => ConstValue::Int(!v),
-                                    _ => unreachable!("got {:?}", const_value),
-                                },
-                                ty: node.ty(),
-                                span: unary.span,
-                            }))
-                        } else {
-                            Ok(hir::Node::Builtin(hir::Builtin::Not(hir::Unary {
-                                value: Box::new(node),
-                                ty: node.ty(),
-                                span: unary.span,
-                            })))
-                        }
-                    }
-                    ast::UnaryOp::Neg => {
-                        let anyint = sess.tycx.anyint(unary.span);
-
-                        node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
-                            &sess.tycx,
-                            anyint,
-                            None,
-                            node.ty(),
-                            unary.lhs.span(),
-                        )?;
-
-                        if let Some(const_value) = node.as_const_value() {
-                            Ok(hir::Node::Const(hir::Const {
-                                value: match const_value {
-                                    ConstValue::Int(i) => ConstValue::Int(-i),
-                                    ConstValue::Float(f) => ConstValue::Float(-f),
-                                    _ => unreachable!("got {:?}", const_value),
-                                },
-                                ty: node.ty(),
-                                span: unary.span,
-                            }))
-                        } else {
-                            Ok(hir::Node::Builtin(hir::Builtin::Neg(hir::Unary {
-                                value: Box::new(node),
-                                ty: node.ty(),
-                                span: unary.span,
-                            })))
-                        }
-                    }
-                    ast::UnaryOp::Plus => {
-                        let anyint = sess.tycx.anyint(unary.span);
-
-                        node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
-                            &sess.tycx,
-                            anyint,
-                            None,
-                            node.ty(),
-                            unary.lhs.span(),
-                        )?;
-
-                        Ok(node)
-                    }
-                }
-            }
+            ast::Ast::Unary(unary) => unary.check(sess, env, expected_ty),
             ast::Ast::Subscript(sub) => {
                 let uint = sess.tycx.common_types.uint;
 
@@ -2209,6 +2096,108 @@ impl Check for ast::Ast {
     }
 }
 
+impl Check for ast::Unary {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
+        let node = self.value.check(sess, env, None)?;
+
+        match self.op {
+            ast::UnaryOp::Ref(is_mutable) => {
+                let ty = sess.tycx.bound(
+                    Type::Pointer(Box::new(node.ty().into()), is_mutable),
+                    self.span,
+                );
+
+                Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Unary {
+                    ty,
+                    span: self.span,
+                    value: Box::new(node),
+                })))
+            }
+            ast::UnaryOp::Deref => {
+                let pointee_ty = sess.tycx.var(self.span);
+
+                let ptr_ty = sess
+                    .tycx
+                    .bound(Type::Pointer(Box::new(pointee_ty.into()), false), self.span);
+
+                node.ty().unify(&ptr_ty, &mut sess.tycx).or_report_err(
+                    &sess.tycx,
+                    ptr_ty,
+                    None,
+                    node.ty(),
+                    self.value.span(),
+                )?;
+
+                Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
+                    ty: pointee_ty,
+                    span: self.span,
+                    value: Box::new(node),
+                })))
+            }
+            ast::UnaryOp::Not => {
+                let anyint = sess.tycx.anyint(self.span);
+                let bool = sess.tycx.common_types.bool;
+
+                node.ty()
+                    .unify(&bool, &mut sess.tycx)
+                    .or_else(|_| node.ty().unify(&anyint, &mut sess.tycx))
+                    .or_report_err(&sess.tycx, bool, None, node.ty(), self.value.span())?;
+
+                if let Some(const_value) = node.as_const_value() {
+                    Ok(hir::Node::Const(hir::Const {
+                        value: const_value.not(),
+                        ty: node.ty(),
+                        span: self.span,
+                    }))
+                } else {
+                    Ok(hir::Node::Builtin(hir::Builtin::Not(hir::Unary {
+                        value: Box::new(node),
+                        ty: node.ty(),
+                        span: self.span,
+                    })))
+                }
+            }
+            ast::UnaryOp::Neg => {
+                let anyint = sess.tycx.anyint(self.span);
+
+                node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
+                    &sess.tycx,
+                    anyint,
+                    None,
+                    node.ty(),
+                    self.value.span(),
+                )?;
+
+                if let Some(const_value) = node.as_const_value() {
+                    Ok(hir::Node::Const(hir::Const {
+                        value: const_value.neg(),
+                        ty: node.ty(),
+                        span: self.span,
+                    }))
+                } else {
+                    Ok(hir::Node::Builtin(hir::Builtin::Neg(hir::Unary {
+                        value: Box::new(node),
+                        ty: node.ty(),
+                        span: self.span,
+                    })))
+                }
+            }
+            ast::UnaryOp::Plus => {
+                let anyint = sess.tycx.anyint(self.span);
+
+                node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
+                    &sess.tycx,
+                    anyint,
+                    None,
+                    node.ty(),
+                    self.value.span(),
+                )?;
+
+                Ok(node)
+            }
+        }
+    }
+}
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let callee = self.callee.check(sess, env, None)?;

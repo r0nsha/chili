@@ -61,7 +61,7 @@ impl<'s> LintSess<'s> {
         match expr {
             ast::Ast::Unary(unary) => match &unary.op {
                 ast::UnaryOp::Deref => {
-                    let ty = unary.lhs.ty().normalize(self.tycx);
+                    let ty = unary.value.ty().normalize(self.tycx);
 
                     if let Type::Pointer(_, is_mutable) = ty {
                         if is_mutable {
@@ -69,11 +69,11 @@ impl<'s> LintSess<'s> {
                         } else {
                             Err(ImmutableReference {
                                 ty,
-                                span: unary.lhs.span(),
+                                span: unary.value.span(),
                             })
                         }
                     } else {
-                        unreachable!("got {}", unary.lhs.ty())
+                        unreachable!("got {}", unary.value.ty())
                     }
                 }
                 _ => Err(InvalidLvalue),

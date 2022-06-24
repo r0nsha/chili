@@ -229,7 +229,7 @@ impl Parser {
 
             let expr = Ast::Unary(ast::Unary {
                 op,
-                lhs: Box::new(lhs),
+                value: Box::new(lhs),
                 ty: Default::default(),
                 span,
             });
