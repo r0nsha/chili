@@ -1117,17 +1117,16 @@ impl Check for ast::Ast {
                     | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
-                match (lhs_node.const_value, rhs_node.const_value) {
+                match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
                     (Some(lhs), Some(rhs)) => {
-                        let const_value = const_fold_binary(lhs, rhs, binary.op, binary.span)?;
+                        let const_value =
+                            const_fold::binary(lhs.clone(), rhs.clone(), binary.op, binary.span)?;
 
-                        *self = ast::Ast::Const(ast::Const {
-                            value: const_value.clone(),
+                        Ok(hir::Node::Const(hir::Const {
+                            value: const_value,
                             ty: result_ty,
                             span: binary.span,
-                        });
-
-                        Ok(Res::new_const(result_ty, const_value))
+                        }))
                     }
                     _ => Ok(Res::new(result_ty)),
                 }
@@ -1138,27 +1137,37 @@ impl Check for ast::Ast {
                 match unary.op {
                     ast::UnaryOp::Ref(is_mutable) => {
                         let ty = sess.tycx.bound(
-                            Type::Pointer(Box::new(node.ty.into()), is_mutable),
+                            Type::Pointer(Box::new(node.ty().into()), is_mutable),
                             unary.span,
                         );
-                        Ok(Res::new(ty))
+
+                        Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Unary {
+                            ty,
+                            span: unary.span,
+                            value: Box::new(node),
+                        })))
                     }
                     ast::UnaryOp::Deref => {
-                        let pointee = sess.tycx.var(unary.span);
+                        let pointee_ty = sess.tycx.var(unary.span);
 
-                        let ptr_ty = sess
-                            .tycx
-                            .bound(Type::Pointer(Box::new(pointee.into()), false), unary.span);
+                        let ptr_ty = sess.tycx.bound(
+                            Type::Pointer(Box::new(pointee_ty.into()), false),
+                            unary.span,
+                        );
 
-                        node.ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
+                        node.ty().unify(&ptr_ty, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             ptr_ty,
                             None,
-                            node.ty,
+                            node.ty(),
                             unary.lhs.span(),
                         )?;
 
-                        Ok(Res::new(pointee))
+                        Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
+                            ty: pointee_ty,
+                            span: unary.span,
+                            value: Box::new(node),
+                        })))
                     }
                     ast::UnaryOp::Not => {
                         let anyint = sess.tycx.anyint(unary.span);
@@ -1642,7 +1651,7 @@ impl Check for ast::Ast {
                 };
 
                 if node_type.is_pointer() {
-                    Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Deref {
+                    Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
                         ty: sess.tycx.bound(node_type_deref, new_node.span()),
                         span: access.span,
                         value: Box::new(new_node),

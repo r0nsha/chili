@@ -1,8 +1,9 @@
-use crate::ast::{self, const_value::ConstValue};
+use crate::ast;
 use crate::error::{DiagnosticResult, SyntaxError};
+use crate::hir::const_value::ConstValue;
 use crate::span::Span;
 
-pub fn const_fold_binary(
+pub fn binary(
     lhs: ConstValue,
     rhs: ConstValue,
     op: ast::BinaryOp,

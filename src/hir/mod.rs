@@ -142,7 +142,6 @@ node_struct!(Return, { condition: Box<Node>, value: Box<Node> });
 node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(Unary, { value: Box<Node> });
 
-node_struct!(Deref, { value: Box<Node> });
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
 node_struct!(Slice, { value: Box<Node>, low: Box<Node>, high: Box<Node> });
 // node_struct!(Transmute, { value: Box<Node> });
@@ -180,7 +179,8 @@ pub enum Builtin {
     BitwiseXor(Binary),
     Not(Unary),
     Neg(Unary),
-    Deref(Deref),
+    Ref(Unary),
+    Deref(Unary),
     Offset(Offset),
     Slice(Slice),
     // TODO: Transmute(Transmute),
@@ -268,6 +268,7 @@ macro_rules! builtin_field_dispatch {
                     Self::BitwiseXor(x) => x.$field,
                     Self::Not(x) => x.$field,
                     Self::Neg(x) => x.$field,
+                    Self::Ref(x) => x.$field,
                     Self::Deref(x) => x.$field,
                     Self::Offset(x) => x.$field,
                     Self::Slice(x) => x.$field,
