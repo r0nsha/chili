@@ -1132,6 +1132,9 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::Unary(unary) => {
+                dasdasd ad sad
+                // TODO: move to trait impl
+                // TODO: define binary/unary operations on const values
                 let node = unary.lhs.check(sess, env, None)?;
 
                 match unary.op {

@@ -9,6 +9,10 @@ pub fn binary(
     op: ast::BinaryOp,
     span: Span,
 ) -> DiagnosticResult<ConstValue> {
+    dasdasdas
+
+    // TODO: define binary/unary operations on const values
+
     match (lhs, rhs) {
         (ConstValue::Bool(lhs), ConstValue::Bool(rhs)) => {
             let value = match op {
