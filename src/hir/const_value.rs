@@ -184,7 +184,7 @@ impl ConstValue {
     }
 
     pub fn ne(&self, other: &ConstValue) -> ConstValue {
-        ConstValue::Bool(!self.eq(other))
+        self.eq(other).not()
     }
 
     pub fn not(&self) -> ConstValue {
@@ -325,20 +325,20 @@ impl ConstValue {
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 - *v2))
+                Some(ConstValue::Float(*v1 as f64 / *v2))
             }
             (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 - *v2 as f64))
+                Some(ConstValue::Float(*v1 / *v2 as f64))
             }
 
             (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 - *v2))
+                Some(ConstValue::Float(*v1 as f64 / *v2))
             }
             (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 - *v2 as f64))
+                Some(ConstValue::Float(*v1 / *v2 as f64))
             }
 
-            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 / *v2)),
 
             _ => panic!("got {:?}", self),
         }
@@ -361,20 +361,20 @@ impl ConstValue {
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 - *v2))
+                Some(ConstValue::Float(*v1 as f64 % *v2))
             }
             (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 - *v2 as f64))
+                Some(ConstValue::Float(*v1 % *v2 as f64))
             }
 
             (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 - *v2))
+                Some(ConstValue::Float(*v1 as f64 % *v2))
             }
             (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 - *v2 as f64))
+                Some(ConstValue::Float(*v1 % *v2 as f64))
             }
 
-            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 % *v2)),
 
             _ => panic!("got {:?}", self),
         }
@@ -436,6 +436,42 @@ impl ConstValue {
             (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) >= *v2),
             (ConstValue::Float(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 >= *v2 as f64),
             (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Bool(*v1 >= *v2),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn and(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Bool(v1), ConstValue::Bool(v2)) => ConstValue::Bool(*v1 && *v2),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn or(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Bool(v1), ConstValue::Bool(v2)) => ConstValue::Bool(*v1 || *v2),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn shl(&self, other: &ConstValue) -> Option<ConstValue> {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => {
+                v1.checked_shl(*v2 as _).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_shl(*v2 as _).map(ConstValue::Uint)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_shl(*v2 as _).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_shl(*v2 as _).map(ConstValue::Int)
+            }
+
             _ => panic!("got {:?}", self),
         }
     }
