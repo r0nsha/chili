@@ -1,7 +1,10 @@
-use crate::ast::{self, ty::TypeId};
+use crate::{
+    ast::{self, ty::TypeId},
+    error::DiagnosticResult,
+};
 use indexmap::IndexMap;
 use paste::paste;
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
 use ustr::Ustr;
 
 use super::FunctionId;
@@ -137,13 +140,13 @@ impl Display for ConstValue {
             f,
             "{}",
             match self {
-                ConstValue::Unit(_) => "unit".to_string(),
-                ConstValue::Type(t) => format!("ty {}", t),
-                ConstValue::Bool(v) => format!("bool {}", v),
-                ConstValue::Int(v) => format!("int {}", v),
-                ConstValue::Uint(v) => format!("uint {}", v),
-                ConstValue::Float(v) => format!("float {}", v),
-                ConstValue::Str(v) => format!("str {}", v),
+                ConstValue::Unit(_) => "()".to_string(),
+                ConstValue::Type(t) => format!("type {}", t),
+                ConstValue::Bool(v) => format!("{}", v),
+                ConstValue::Int(v) => format!("{}", v),
+                ConstValue::Uint(v) => format!("{}", v),
+                ConstValue::Float(v) => format!("{}", v),
+                ConstValue::Str(v) => format!("\"{}\"", v),
                 ConstValue::Array(array) => format!(
                     "[{}]",
                     array
@@ -169,7 +172,7 @@ impl Display for ConstValue {
                         .collect::<Vec<String>>()
                         .join(", "),
                 ),
-                ConstValue::Function(f) => format!("fn '{}'", f.name),
+                ConstValue::Function(f) => format!("fn {}", f.name),
             }
         )
     }
@@ -181,7 +184,7 @@ impl ConstValue {
             ConstValue::Bool(v) => ConstValue::Bool(!v),
             ConstValue::Int(v) => ConstValue::Int(!v),
             ConstValue::Uint(v) => ConstValue::Uint(!v),
-            _ => unreachable!("got {:?}", self),
+            _ => panic!("got {:?}", self),
         }
     }
 
@@ -189,26 +192,183 @@ impl ConstValue {
         match self {
             ConstValue::Int(i) => ConstValue::Int(-i),
             ConstValue::Float(f) => ConstValue::Float(-f),
-            _ => unreachable!("got {:?}", self),
+            _ => panic!("got {:?}", self),
         }
     }
 
-    pub fn add(&self, other: &ConstValue) -> ConstValue {
+    pub fn add(&self, other: &ConstValue) -> Option<ConstValue> {
         match (self, other) {
-            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Int(*v1 + *v2),
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Uint(*v1 + *v2),
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_add(*v2).map(ConstValue::Int),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_add(*v2).map(ConstValue::Uint)
+            }
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Int(*v1 + *v2 as i64),
-            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Int(*v1 + *v2 as i64),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_add(*v2 as i64).map(ConstValue::Int)
+            }
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
+                v1.checked_add(*v2 as i64).map(ConstValue::Int)
+            }
 
-            (ConstValue::Int(v1), ConstValue::Float(v2)) => ConstValue::Float(*v1 as f64 + *v2),
-            (ConstValue::Float(v2), ConstValue::Int(v1)) => ConstValue::Float(*v1 as f64 + *v2),
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
+            (ConstValue::Float(v2), ConstValue::Int(v1)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
 
-            (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Float(*v1 as f64 + *v2),
-            (ConstValue::Float(v2), ConstValue::Uint(v1)) => ConstValue::Float(*v1 as f64 + *v2),
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
+            (ConstValue::Float(v2), ConstValue::Uint(v1)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
 
-            (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Float(*v1 + *v2),
-            _ => unreachable!("got {:?}", self),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 + *v2)),
+
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn sub(&self, other: &ConstValue) -> Option<ConstValue> {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_sub(*v2).map(ConstValue::Int),
+
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_sub(*v2).map(ConstValue::Uint)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_sub(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
+                v1.checked_sub(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 - *v2))
+            }
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
+                Some(ConstValue::Float(*v1 - *v2 as f64))
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 - *v2))
+            }
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
+                Some(ConstValue::Float(*v1 - *v2 as f64))
+            }
+
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
+
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn mul(&self, other: &ConstValue) -> Option<ConstValue> {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_mul(*v2).map(ConstValue::Int),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_mul(*v2).map(ConstValue::Uint)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_mul(*v2 as i64).map(ConstValue::Int)
+            }
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
+                v1.checked_mul(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
+            (ConstValue::Float(v2), ConstValue::Int(v1)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
+            (ConstValue::Float(v2), ConstValue::Uint(v1)) => {
+                Some(ConstValue::Float(*v1 as f64 + *v2))
+            }
+
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 + *v2)),
+
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn div(&self, other: &ConstValue) -> Option<ConstValue> {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_div(*v2).map(ConstValue::Int),
+
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_div(*v2).map(ConstValue::Uint)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_div(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
+                v1.checked_div(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 - *v2))
+            }
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
+                Some(ConstValue::Float(*v1 - *v2 as f64))
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 - *v2))
+            }
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
+                Some(ConstValue::Float(*v1 - *v2 as f64))
+            }
+
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
+
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn rem(&self, other: &ConstValue) -> Option<ConstValue> {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_rem(*v2).map(ConstValue::Int),
+
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_rem(*v2).map(ConstValue::Uint)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_rem(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
+                v1.checked_rem(*v2 as i64).map(ConstValue::Int)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 - *v2))
+            }
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
+                Some(ConstValue::Float(*v1 - *v2 as f64))
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
+                Some(ConstValue::Float(*v1 as f64 - *v2))
+            }
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
+                Some(ConstValue::Float(*v1 - *v2 as f64))
+            }
+
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
+
+            _ => panic!("got {:?}", self),
         }
     }
 }

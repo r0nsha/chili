@@ -1,7 +1,12 @@
-use crate::ast;
-use crate::error::{DiagnosticResult, SyntaxError};
-use crate::hir::const_value::ConstValue;
-use crate::span::Span;
+use crate::{
+    ast,
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError,
+    },
+    hir::const_value::ConstValue,
+    span::Span,
+};
 
 pub fn binary(
     lhs: &ConstValue,
@@ -9,11 +14,16 @@ pub fn binary(
     op: ast::BinaryOp,
     span: Span,
 ) -> DiagnosticResult<ConstValue> {
+    let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span);
+
     match op {
-        ast::BinaryOp::Add => Ok(lhs.add(rhs)),
-        ast::BinaryOp::Sub => Ok(lhs.sub(rhs)),
-        ast::BinaryOp::Mul => todo!(),
-        ast::BinaryOp::Div => todo!(),
+        ast::BinaryOp::Add => lhs.add(rhs).ok_or_else(|| int_overflow("adding")),
+        ast::BinaryOp::Sub => lhs.sub(rhs).ok_or_else(|| int_overflow("subtracting")),
+        ast::BinaryOp::Mul => lhs.mul(rhs).ok_or_else(|| int_overflow("multiplying")),
+        ast::BinaryOp::Div => match rhs {
+            ConstValue::Int(0) | ConstValue::Uint(0) => Err(SyntaxError::divide_by_zero(span)),
+            _ => lhs.div(rhs).ok_or_else(|| int_overflow("dividing")),
+        },
         ast::BinaryOp::Rem => todo!(),
         ast::BinaryOp::Eq => todo!(),
         ast::BinaryOp::Neq => todo!(),
@@ -285,4 +295,13 @@ pub fn binary(
     //     }
     //     _ => unreachable!(),
     // }
+}
+
+fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span) -> Diagnostic {
+    Diagnostic::error()
+        .with_message(format!(
+            "integer overflowed while {} {} and {} at compile-time",
+            action, lhs, rhs
+        ))
+        .with_label(Label::primary(span, "integer overflow"))
 }
