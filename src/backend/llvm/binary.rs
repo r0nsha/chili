@@ -39,11 +39,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, binary.span),
             ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, binary.span),
             ast::BinaryOp::Eq
-            | ast::BinaryOp::Neq
+            | ast::BinaryOp::Ne
             | ast::BinaryOp::Lt
-            | ast::BinaryOp::LtEq
+            | ast::BinaryOp::Le
             | ast::BinaryOp::Gt
-            | ast::BinaryOp::GtEq => {
+            | ast::BinaryOp::Ge => {
                 if ty.is_float() {
                     self.builder
                         .build_float_compare(
@@ -341,7 +341,7 @@ impl IntoIntPredicate for ast::BinaryOp {
     fn into_int_predicate(self, is_signed: bool) -> IntPredicate {
         match self {
             ast::BinaryOp::Eq => IntPredicate::EQ,
-            ast::BinaryOp::Neq => IntPredicate::NE,
+            ast::BinaryOp::Ne => IntPredicate::NE,
             ast::BinaryOp::Lt => {
                 if is_signed {
                     IntPredicate::SLT
@@ -349,7 +349,7 @@ impl IntoIntPredicate for ast::BinaryOp {
                     IntPredicate::ULT
                 }
             }
-            ast::BinaryOp::LtEq => {
+            ast::BinaryOp::Le => {
                 if is_signed {
                     IntPredicate::SLE
                 } else {
@@ -363,7 +363,7 @@ impl IntoIntPredicate for ast::BinaryOp {
                     IntPredicate::UGT
                 }
             }
-            ast::BinaryOp::GtEq => {
+            ast::BinaryOp::Ge => {
                 if is_signed {
                     IntPredicate::SGE
                 } else {
@@ -383,11 +383,11 @@ impl IntoFloatPredicate for ast::BinaryOp {
     fn into_float_predicate(self) -> FloatPredicate {
         match self {
             ast::BinaryOp::Eq => FloatPredicate::OEQ,
-            ast::BinaryOp::Neq => FloatPredicate::ONE,
+            ast::BinaryOp::Ne => FloatPredicate::ONE,
             ast::BinaryOp::Lt => FloatPredicate::OLT,
-            ast::BinaryOp::LtEq => FloatPredicate::OLE,
+            ast::BinaryOp::Le => FloatPredicate::OLE,
             ast::BinaryOp::Gt => FloatPredicate::OGT,
-            ast::BinaryOp::GtEq => FloatPredicate::OGE,
+            ast::BinaryOp::Ge => FloatPredicate::OGE,
             _ => panic!("got {}", self),
         }
     }

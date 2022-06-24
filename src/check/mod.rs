@@ -1054,15 +1054,15 @@ impl Check for ast::Ast {
                     | ast::BinaryOp::Div
                     | ast::BinaryOp::Rem
                     | ast::BinaryOp::Lt
-                    | ast::BinaryOp::LtEq
+                    | ast::BinaryOp::Le
                     | ast::BinaryOp::Gt
-                    | ast::BinaryOp::GtEq
+                    | ast::BinaryOp::Ge
                     | ast::BinaryOp::Shl
                     | ast::BinaryOp::Shr
                     | ast::BinaryOp::BitwiseOr
                     | ast::BinaryOp::BitwiseXor
                     | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(binary.span),
-                    ast::BinaryOp::Eq | ast::BinaryOp::Neq => sess.tycx.var(binary.span),
+                    ast::BinaryOp::Eq | ast::BinaryOp::Ne => sess.tycx.var(binary.span),
                     ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
 
@@ -1107,11 +1107,11 @@ impl Check for ast::Ast {
                     | ast::BinaryOp::BitwiseAnd => binary.lhs.ty(),
 
                     ast::BinaryOp::Eq
-                    | ast::BinaryOp::Neq
+                    | ast::BinaryOp::Ne
                     | ast::BinaryOp::Lt
-                    | ast::BinaryOp::LtEq
+                    | ast::BinaryOp::Le
                     | ast::BinaryOp::Gt
-                    | ast::BinaryOp::GtEq
+                    | ast::BinaryOp::Ge
                     | ast::BinaryOp::And
                     | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };

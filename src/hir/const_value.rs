@@ -179,6 +179,14 @@ impl Display for ConstValue {
 }
 
 impl ConstValue {
+    pub fn eq(&self, other: &ConstValue) -> ConstValue {
+        ConstValue::Bool(self == other)
+    }
+
+    pub fn ne(&self, other: &ConstValue) -> ConstValue {
+        ConstValue::Bool(!self.eq(other))
+    }
+
     pub fn not(&self) -> ConstValue {
         match self {
             ConstValue::Bool(v) => ConstValue::Bool(!v),
@@ -312,8 +320,8 @@ impl ConstValue {
                 v1.checked_div(*v2 as i64).map(ConstValue::Int)
             }
 
-            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
-                v1.checked_div(*v2 as i64).map(ConstValue::Int)
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_div(*v2).map(ConstValue::Int)
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
@@ -348,8 +356,8 @@ impl ConstValue {
                 v1.checked_rem(*v2 as i64).map(ConstValue::Int)
             }
 
-            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
-                v1.checked_rem(*v2 as i64).map(ConstValue::Int)
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_rem(*v2).map(ConstValue::Int)
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
@@ -368,6 +376,66 @@ impl ConstValue {
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
 
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn lt(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 < *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 < *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 < *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Bool((*v2 as i64) < *v1),
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) < *v2),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 < *v2 as f64),
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) < *v2),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 < *v2 as f64),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Bool(*v1 < *v2),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn le(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 <= *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 <= *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 <= *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Bool((*v2 as i64) <= *v1),
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) <= *v2),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 <= *v2 as f64),
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) <= *v2),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 <= *v2 as f64),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Bool(*v1 <= *v2),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn gt(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 > *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 > *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 > *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Bool((*v2 as i64) > *v1),
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) > *v2),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 > *v2 as f64),
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) > *v2),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 > *v2 as f64),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Bool(*v1 > *v2),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn ge(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 >= *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 >= *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 >= *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Bool((*v2 as i64) >= *v1),
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) >= *v2),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => ConstValue::Bool(*v1 >= *v2 as f64),
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => ConstValue::Bool((*v1 as f64) >= *v2),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => ConstValue::Bool(*v1 >= *v2 as f64),
+            (ConstValue::Float(v1), ConstValue::Float(v2)) => ConstValue::Bool(*v1 >= *v2),
             _ => panic!("got {:?}", self),
         }
     }
