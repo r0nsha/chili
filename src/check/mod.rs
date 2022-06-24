@@ -1164,56 +1164,56 @@ impl Check for ast::Ast {
                         let anyint = sess.tycx.anyint(unary.span);
                         let bool = sess.tycx.common_types.bool;
 
-                        node.ty
+                        node.ty()
                             .unify(&bool, &mut sess.tycx)
-                            .or(node.ty.unify(&anyint, &mut sess.tycx))
-                            .or_report_err(&sess.tycx, bool, None, node.ty, unary.lhs.span())?;
+                            .or_else(|_| node.ty().unify(&anyint, &mut sess.tycx))
+                            .or_report_err(&sess.tycx, bool, None, node.ty(), unary.lhs.span())?;
 
-                        if let Some(const_value) = node.const_value {
-                            let const_value = match const_value {
-                                ConstValue::Bool(v) => ConstValue::Bool(!v),
-                                ConstValue::Int(v) => ConstValue::Int(!v),
-                                _ => panic!(),
-                            };
-
-                            *self = ast::Ast::Const(ast::Const {
-                                value: const_value.clone(),
-                                ty: node.ty,
+                        if let Some(const_value) = node.as_const_value() {
+                            Ok(hir::Node::Const(hir::Const {
+                                value: match const_value {
+                                    ConstValue::Bool(v) => ConstValue::Bool(!v),
+                                    ConstValue::Int(v) => ConstValue::Int(!v),
+                                    _ => unreachable!("got {:?}", const_value),
+                                },
+                                ty: node.ty(),
                                 span: unary.span,
-                            });
-
-                            Ok(Res::new_const(node.ty, const_value))
+                            }))
                         } else {
-                            Ok(Res::new(node.ty))
+                            Ok(hir::Node::Builtin(hir::Builtin::Not(hir::Unary {
+                                value: Box::new(node),
+                                ty: node.ty(),
+                                span: unary.span,
+                            })))
                         }
                     }
                     ast::UnaryOp::Neg => {
                         let anyint = sess.tycx.anyint(unary.span);
 
-                        node.ty.unify(&anyint, &mut sess.tycx).or_report_err(
+                        node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
                             &sess.tycx,
                             anyint,
                             None,
-                            node.ty,
+                            node.ty(),
                             unary.lhs.span(),
                         )?;
 
-                        if let Some(const_value) = node.const_value.as_ref() {
-                            let const_value = match const_value {
-                                ConstValue::Int(i) => ConstValue::Int(-i),
-                                ConstValue::Float(f) => ConstValue::Float(-f),
-                                _ => unreachable!("got {:?}", const_value),
-                            };
-
-                            *self = ast::Ast::Const(ast::Const {
-                                value: const_value.clone(),
-                                ty: node.ty,
+                        if let Some(const_value) = node.as_const_value() {
+                            Ok(hir::Node::Const(hir::Const {
+                                value: match const_value {
+                                    ConstValue::Int(i) => ConstValue::Int(-i),
+                                    ConstValue::Float(f) => ConstValue::Float(-f),
+                                    _ => unreachable!("got {:?}", const_value),
+                                },
+                                ty: node.ty(),
                                 span: unary.span,
-                            });
-
-                            Ok(Res::new_const(node.ty, const_value))
+                            }))
                         } else {
-                            Ok(Res::new(node.ty))
+                            Ok(hir::Node::Builtin(hir::Builtin::Neg(hir::Unary {
+                                value: Box::new(node),
+                                ty: node.ty(),
+                                span: unary.span,
+                            })))
                         }
                     }
                     ast::UnaryOp::Plus => {
@@ -1227,7 +1227,7 @@ impl Check for ast::Ast {
                             unary.lhs.span(),
                         )?;
 
-                        Ok(Res::new_maybe_const(node.ty(), node.const_value))
+                        Ok(node)
                     }
                 }
             }
@@ -1471,7 +1471,7 @@ impl Check for ast::Ast {
                 let node_type = node.ty().normalize(&sess.tycx);
                 let node_type_deref = node_type.maybe_deref_once();
 
-                let node = match &node_type_deref {
+                let new_node = match &node_type_deref {
                     ty @ Type::Tuple(elements)
                     | ty @ Type::Infer(_, InferTy::PartialTuple(elements)) => {
                         match member_tuple_index {
@@ -1643,12 +1643,12 @@ impl Check for ast::Ast {
 
                 if node_type.is_pointer() {
                     Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Deref {
-                        ty: sess.tycx.bound(node_type_deref, node.span()),
+                        ty: sess.tycx.bound(node_type_deref, new_node.span()),
                         span: access.span,
-                        value: Box::new(node),
+                        value: Box::new(new_node),
                     })))
                 } else {
-                    Ok(node)
+                    Ok(new_node)
                 }
             }
             ast::Ast::Ident(ident) => {
