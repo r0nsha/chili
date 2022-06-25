@@ -151,11 +151,11 @@ impl From<ast::BinaryOp> for Instruction {
             ast::BinaryOp::Le => Instruction::LtEq,
             ast::BinaryOp::Gt => Instruction::Gt,
             ast::BinaryOp::Ge => Instruction::GtEq,
-            ast::BinaryOp::And | ast::BinaryOp::BitwiseAnd => Instruction::And,
-            ast::BinaryOp::Or | ast::BinaryOp::BitwiseOr => Instruction::Or,
+            ast::BinaryOp::And | ast::BinaryOp::BitAnd => Instruction::And,
+            ast::BinaryOp::Or | ast::BinaryOp::BitOr => Instruction::Or,
             ast::BinaryOp::Shl => Instruction::Shl,
             ast::BinaryOp::Shr => Instruction::Shr,
-            ast::BinaryOp::BitwiseXor => Instruction::Xor,
+            ast::BinaryOp::BitXor => Instruction::Xor,
         }
     }
 }

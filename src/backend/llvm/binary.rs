@@ -64,11 +64,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         .into()
                 }
             }
-            ast::BinaryOp::And | ast::BinaryOp::BitwiseAnd => self.gen_and(lhs, rhs),
-            ast::BinaryOp::Or | ast::BinaryOp::BitwiseOr => self.gen_or(lhs, rhs),
+            ast::BinaryOp::And | ast::BinaryOp::BitAnd => self.gen_and(lhs, rhs),
+            ast::BinaryOp::Or | ast::BinaryOp::BitOr => self.gen_or(lhs, rhs),
             ast::BinaryOp::Shl => self.gen_shl(lhs, rhs),
             ast::BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
-            ast::BinaryOp::BitwiseXor => self.gen_xor(lhs, rhs),
+            ast::BinaryOp::BitXor => self.gen_xor(lhs, rhs),
         }
     }
 

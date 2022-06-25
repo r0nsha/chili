@@ -1059,9 +1059,9 @@ impl Check for ast::Ast {
                     | ast::BinaryOp::Ge
                     | ast::BinaryOp::Shl
                     | ast::BinaryOp::Shr
-                    | ast::BinaryOp::BitwiseOr
-                    | ast::BinaryOp::BitwiseXor
-                    | ast::BinaryOp::BitwiseAnd => sess.tycx.anyint(binary.span),
+                    | ast::BinaryOp::BitOr
+                    | ast::BinaryOp::BitXor
+                    | ast::BinaryOp::BitAnd => sess.tycx.anyint(binary.span),
                     ast::BinaryOp::Eq | ast::BinaryOp::Ne => sess.tycx.var(binary.span),
                     ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
                 };
@@ -1102,9 +1102,9 @@ impl Check for ast::Ast {
                     | ast::BinaryOp::Rem
                     | ast::BinaryOp::Shl
                     | ast::BinaryOp::Shr
-                    | ast::BinaryOp::BitwiseOr
-                    | ast::BinaryOp::BitwiseXor
-                    | ast::BinaryOp::BitwiseAnd => binary.lhs.ty(),
+                    | ast::BinaryOp::BitOr
+                    | ast::BinaryOp::BitXor
+                    | ast::BinaryOp::BitAnd => binary.lhs.ty(),
 
                     ast::BinaryOp::Eq
                     | ast::BinaryOp::Ne

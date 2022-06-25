@@ -748,9 +748,9 @@ pub enum BinaryOp {
     Or,
     Shl,
     Shr,
-    BitwiseAnd,
-    BitwiseOr,
-    BitwiseXor,
+    BitAnd,
+    BitOr,
+    BitXor,
 }
 
 impl Display for BinaryOp {
@@ -775,9 +775,9 @@ impl Display for BinaryOp {
                 Or => "||",
                 Shl => "<<",
                 Shr => ">>",
-                BitwiseAnd => "&",
-                BitwiseOr => "|",
-                BitwiseXor => "^",
+                BitAnd => "&",
+                BitOr => "|",
+                BitXor => "^",
             }
         )
     }
@@ -802,9 +802,9 @@ impl From<TokenKind> for BinaryOp {
             BarBar | BarBarEq => BinaryOp::Or,
             LtLt | LtLtEq => BinaryOp::Shl,
             GtGt | GtGtEq => BinaryOp::Shr,
-            Amp | AmpEq => BinaryOp::BitwiseAnd,
-            Bar | BarEq => BinaryOp::BitwiseOr,
-            Caret | CaretEq => BinaryOp::BitwiseXor,
+            Amp | AmpEq => BinaryOp::BitAnd,
+            Bar | BarEq => BinaryOp::BitOr,
+            Caret | CaretEq => BinaryOp::BitXor,
             _ => panic!("{} is not a binary op", kind),
         }
     }

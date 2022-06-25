@@ -475,4 +475,56 @@ impl ConstValue {
             _ => panic!("got {:?}", self),
         }
     }
+
+    pub fn shr(&self, other: &ConstValue) -> Option<ConstValue> {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => {
+                v1.checked_shr(*v2 as _).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
+                v1.checked_shr(*v2 as _).map(ConstValue::Uint)
+            }
+
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
+                v1.checked_shr(*v2 as _).map(ConstValue::Int)
+            }
+
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_shr(*v2 as _).map(ConstValue::Int)
+            }
+
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn bitand(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Int(*v1 & *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Uint(*v1 & *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Int(*v1 & *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Int((*v2 as i64) & *v1),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn bitor(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Int(*v1 | *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Uint(*v1 | *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Int(*v1 | *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Int((*v2 as i64) | *v1),
+            _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn bitxor(&self, other: &ConstValue) -> ConstValue {
+        match (self, other) {
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => ConstValue::Int(*v1 ^ *v2),
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => ConstValue::Uint(*v1 ^ *v2),
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Int(*v1 ^ *v2 as i64),
+            (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Int((*v2 as i64) ^ *v1),
+            _ => panic!("got {:?}", self),
+        }
+    }
 }
