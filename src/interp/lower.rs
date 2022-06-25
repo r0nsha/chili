@@ -318,16 +318,12 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                 }
                 Pattern::TupleUnpack(pattern) => lower_local_tuple_unpack(pattern, sess, code),
                 Pattern::Hybrid(pattern) => {
-                    if !pattern.name.ignore {
-                        sess.add_local(code, pattern.name.id);
+                    sess.add_local(code, pattern.name_pattern.id);
 
-                        if binding.value.is_some() {
-                            code.push(Instruction::Copy(0));
-                            code.push(Instruction::SetLocal(code.last_local()));
-                        }
-                    }
+                    code.push(Instruction::Copy(0));
+                    code.push(Instruction::SetLocal(code.last_local()));
 
-                    match &pattern.unpack {
+                    match &pattern.unpack_pattern {
                         UnpackPatternKind::Struct(pattern) => {
                             let ty = binding.ty.normalize(sess.tycx);
 
@@ -356,28 +352,25 @@ fn lower_local_module_unpack(
     sess: &mut InterpSess,
     code: &mut CompiledCode,
 ) {
-    for pattern in pattern.symbols.iter() {
-        if pattern.ignore {
-            continue;
-        }
+    todo!()
+    // for pattern in pattern.symbols.iter() {
+    //     let redirect_id = sess
+    //         .workspace
+    //         .binding_infos
+    //         .get(pattern.id)
+    //         .unwrap()
+    //         .redirects_to
+    //         .unwrap();
 
-        let redirect_id = sess
-            .workspace
-            .binding_infos
-            .get(pattern.id)
-            .unwrap()
-            .redirects_to
-            .unwrap();
+    //     let slot = sess
+    //         .get_global(redirect_id)
+    //         .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
+    //         as u32;
 
-        let slot = sess
-            .get_global(redirect_id)
-            .unwrap_or_else(|| find_and_lower_top_level_binding(redirect_id, sess))
-            as u32;
-
-        code.push(Instruction::GetGlobal(slot as u32));
-        sess.add_local(code, pattern.id);
-        code.push(Instruction::SetLocal(code.last_local()));
-    }
+    //     code.push(Instruction::GetGlobal(slot as u32));
+    //     sess.add_local(code, pattern.id);
+    //     code.push(Instruction::SetLocal(code.last_local()));
+    // }
 }
 
 fn lower_local_struct_unpack(
@@ -389,10 +382,6 @@ fn lower_local_struct_unpack(
     let last_index = pattern.symbols.len() - 1;
 
     for (index, pattern) in pattern.symbols.iter().enumerate() {
-        if pattern.ignore {
-            continue;
-        }
-
         if index < last_index {
             code.push(Instruction::Copy(0));
         }
@@ -413,10 +402,6 @@ fn lower_local_tuple_unpack(
     let last_index = pattern.symbols.len() - 1;
 
     for (index, pattern) in pattern.symbols.iter().enumerate() {
-        if pattern.ignore {
-            continue;
-        }
-
         if index < last_index {
             code.push(Instruction::Copy(0));
         }
@@ -529,19 +514,13 @@ impl Lower for ast::Function {
                 for param in sig.params.iter() {
                     match &param.pattern {
                         Pattern::Name(pattern) => {
-                            if !pattern.ignore {
-                                sess.env_mut().insert(pattern.id, param_offset);
-                            }
+                            sess.env_mut().insert(pattern.id, param_offset);
                         }
                         Pattern::StructUnpack(pattern) => {
                             let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
                             let ty = ty.as_struct();
 
                             for pattern in pattern.symbols.iter() {
-                                if pattern.ignore {
-                                    continue;
-                                }
-
                                 let field_index = ty.find_field_position(pattern.name).unwrap();
                                 // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
                                 func_code.push(Instruction::Peek(param_offset as i32));
@@ -552,10 +531,6 @@ impl Lower for ast::Function {
                         }
                         Pattern::TupleUnpack(pattern) => {
                             for (index, pattern) in pattern.symbols.iter().enumerate() {
-                                if pattern.ignore {
-                                    continue;
-                                }
-
                                 func_code.push(Instruction::PeekPtr(param_offset as i32));
                                 func_code.push(Instruction::ConstIndex(index as u32));
                                 sess.add_local(&mut func_code, pattern.id);
@@ -563,20 +538,14 @@ impl Lower for ast::Function {
                             }
                         }
                         Pattern::Hybrid(pattern) => {
-                            if !pattern.name.ignore {
-                                sess.env_mut().insert(pattern.name.id, param_offset);
-                            }
+                            sess.env_mut().insert(pattern.name_pattern.id, param_offset);
 
-                            match &pattern.unpack {
+                            match &pattern.unpack_pattern {
                                 UnpackPatternKind::Struct(pattern) => {
                                     let ty = param.ty.normalize(sess.tycx).maybe_deref_once();
                                     let ty = ty.as_struct();
 
                                     for pattern in pattern.symbols.iter() {
-                                        if pattern.ignore {
-                                            continue;
-                                        }
-
                                         let field_index =
                                             ty.find_field_position(pattern.name).unwrap();
                                         // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
@@ -589,10 +558,6 @@ impl Lower for ast::Function {
                                 }
                                 UnpackPatternKind::Tuple(pattern) => {
                                     for (index, pattern) in pattern.symbols.iter().enumerate() {
-                                        if pattern.ignore {
-                                            continue;
-                                        }
-
                                         func_code.push(Instruction::PeekPtr(param_offset as i32));
                                         func_code.push(Instruction::ConstIndex(index as u32));
                                         sess.add_local(&mut func_code, pattern.id);
@@ -1317,17 +1282,15 @@ fn lower_top_level_binding(
                     sess,
                 ),
                 Pattern::Hybrid(pattern) => {
-                    if !pattern.name.ignore {
-                        let slot = sess.insert_global(pattern.name.id, Value::unit());
-                        code.push(Instruction::Copy(0));
-                        code.push(Instruction::SetGlobal(slot as u32));
+                    let slot = sess.insert_global(pattern.name_pattern.id, Value::unit());
+                    code.push(Instruction::Copy(0));
+                    code.push(Instruction::SetGlobal(slot as u32));
 
-                        if pattern.name.id == desired_id {
-                            desired_slot = slot;
-                        }
+                    if pattern.name_pattern.id == desired_id {
+                        desired_slot = slot;
                     }
 
-                    match &pattern.unpack {
+                    match &pattern.unpack_pattern {
                         UnpackPatternKind::Struct(pattern) => {
                             let ty = binding.ty.normalize(sess.tycx);
 
@@ -1383,10 +1346,6 @@ fn lower_top_level_binding_module_unpack(
     sess: &mut InterpSess,
 ) {
     for pattern in pattern.symbols.iter() {
-        if pattern.ignore {
-            continue;
-        }
-
         let redirect_id = sess
             .workspace
             .binding_infos
@@ -1422,10 +1381,6 @@ fn lower_top_level_binding_struct_unpack(
     let last_index = pattern.symbols.len() - 1;
 
     for (index, pattern) in pattern.symbols.iter().enumerate() {
-        if pattern.ignore {
-            continue;
-        }
-
         if index < last_index {
             code.push(Instruction::Copy(0));
         }
@@ -1452,10 +1407,6 @@ fn lower_top_level_binding_tuple_unpack(
     let last_index = pattern.symbols.len() - 1;
 
     for (index, pattern) in pattern.symbols.iter().enumerate() {
-        if pattern.ignore {
-            continue;
-        }
-
         if index < last_index {
             code.push(Instruction::Copy(0));
         }

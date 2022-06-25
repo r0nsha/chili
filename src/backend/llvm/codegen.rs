@@ -207,18 +207,19 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-        if let Some(redirect) = binding_info.redirects_to {
-            self.gen_top_level_binding(redirect)
-        } else {
-            let global_value = if binding.kind.is_extern() {
-                let ty = binding.ty.llvm_type(self);
-                self.add_global_uninit(id, ty, Linkage::External)
-            } else {
-                self.add_global(id, Linkage::Private)
-            };
+        todo!()
+        // if let Some(redirect) = binding_info.redirects_to {
+        //     self.gen_top_level_binding(redirect)
+        // } else {
+        //     let global_value = if binding.kind.is_extern() {
+        //         let ty = binding.ty.llvm_type(self);
+        //         self.add_global_uninit(id, ty, Linkage::External)
+        //     } else {
+        //         self.add_global(id, Linkage::Private)
+        //     };
 
-            self.insert_global_decl(id, CodegenDecl::Global(global_value))
-        }
+        //     self.insert_global_decl(id, CodegenDecl::Global(global_value))
+        // }
     }
 
     pub fn add_global(&mut self, id: BindingId, linkage: Linkage) -> GlobalValue<'ctx> {
@@ -315,21 +316,27 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                 self.gen_binding_tuple_unpack_pattern(state, pattern, ty, ptr);
             }
-            Pattern::Hybrid(pattern) => match &pattern.unpack {
+            Pattern::Hybrid(pattern) => match &pattern.unpack_pattern {
                 UnpackPatternKind::Struct(unpack) => match ty.maybe_deref_once() {
                     Type::Module(_) => {
-                        self.gen_local_and_store_expr(state, pattern.name.id, &expr, ty);
+                        self.gen_local_and_store_expr(state, pattern.name_pattern.id, &expr, ty);
                         self.gen_binding_module_unpack_pattern(state, unpack);
                     }
                     Type::Struct(struct_ty) => {
-                        let ptr = self.gen_local_and_store_expr(state, pattern.name.id, &expr, ty);
+                        let ptr = self.gen_local_and_store_expr(
+                            state,
+                            pattern.name_pattern.id,
+                            &expr,
+                            ty,
+                        );
 
                         self.gen_binding_struct_unpack_pattern(state, unpack, ty, &struct_ty, ptr);
                     }
                     ty => panic!("unexpected type: {}", ty),
                 },
                 UnpackPatternKind::Tuple(unpack) => {
-                    let ptr = self.gen_local_and_store_expr(state, pattern.name.id, &expr, ty);
+                    let ptr =
+                        self.gen_local_and_store_expr(state, pattern.name_pattern.id, &expr, ty);
                     self.gen_binding_tuple_unpack_pattern(state, unpack, ty, ptr);
                 }
             },
@@ -342,10 +349,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         pattern: &UnpackPattern,
     ) {
         for pattern in pattern.symbols.iter() {
-            if pattern.ignore {
-                continue;
-            }
-
             let redirect_id = self
                 .workspace
                 .binding_infos
@@ -371,10 +374,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let struct_llvm_type = Some(ty.llvm_type(self));
 
         for pattern in pattern.symbols.iter() {
-            if pattern.ignore {
-                continue;
-            }
-
             let field_index = struct_ty.find_field_position(pattern.name).unwrap();
 
             let value = self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
@@ -401,10 +400,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let llvm_type = Some(ty.llvm_type(self));
 
         for (i, pattern) in pattern.symbols.iter().enumerate() {
-            if pattern.ignore {
-                continue;
-            }
-
             let value = self.gen_struct_access(ptr.into(), i as u32, llvm_type);
 
             self.gen_local_with_alloca(
@@ -437,9 +432,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_binding_tuple_unpack_pattern_with_value(state, pattern, ty, value);
             }
             Pattern::Hybrid(pattern) => {
-                let ptr = self.gen_local_with_alloca(state, pattern.name.id, value);
+                let ptr = self.gen_local_with_alloca(state, pattern.name_pattern.id, value);
 
-                match &pattern.unpack {
+                match &pattern.unpack_pattern {
                     UnpackPatternKind::Struct(unpack) => {
                         self.gen_binding_struct_unpack_pattern(
                             state,

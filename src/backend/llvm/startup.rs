@@ -152,9 +152,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let ty = binding.ty.llvm_type(self);
 
             let global_value = match &binding.pattern {
-                Pattern::Name(pat) | Pattern::Hybrid(HybridPattern { name: pat, .. }) => {
-                    self.global_decls.get(&pat.id).unwrap().into_global_value()
-                }
+                Pattern::Name(pat)
+                | Pattern::Hybrid(HybridPattern {
+                    name_pattern: pat, ..
+                }) => self.global_decls.get(&pat.id).unwrap().into_global_value(),
                 Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
                     let global_value = self.module.add_global(ty, None, "");
                     global_value.set_linkage(Linkage::Private);
@@ -203,7 +204,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         self.build_store(global_ptr, value);
                     }
 
-                    match &pattern.unpack {
+                    match &pattern.unpack_pattern {
                         UnpackPatternKind::Struct(pattern) => {
                             self.initialize_global_struct_unpack(binding, pattern, global_ptr)
                         }
@@ -228,10 +229,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let struct_llvm_type = Some(ty.llvm_type(self));
 
         for pattern in pattern.symbols.iter() {
-            if pattern.ignore {
-                continue;
-            }
-
             let binding_info = self.workspace.binding_infos.get(pattern.id).unwrap();
 
             if binding_info.const_value.is_some() {
@@ -264,10 +261,6 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let llvm_type = Some(ty.llvm_type(self));
 
         for (i, pattern) in pattern.symbols.iter().enumerate() {
-            if pattern.ignore {
-                continue;
-            }
-
             let binding_info = self.workspace.binding_infos.get(pattern.id).unwrap();
 
             if binding_info.const_value.is_some() {

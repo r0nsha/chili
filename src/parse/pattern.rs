@@ -19,8 +19,8 @@ impl Parser {
                 };
 
                 Ok(Pattern::Hybrid(HybridPattern {
-                    name: pattern,
-                    unpack: unpack_pattern,
+                    name_pattern: pattern,
+                    unpack_pattern,
                     span: start_span.to(self.previous_span()),
                 }))
             } else {

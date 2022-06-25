@@ -71,7 +71,6 @@ pub struct BindingInfo {
     pub flags: BindingInfoFlags,
     // the amount of times this binding was used
     pub uses: Vec<Span>,
-    pub redirects_to: Option<BindingId>,
     pub span: Span,
 }
 
@@ -114,7 +113,6 @@ impl PartialBindingInfo {
             scope_name: self.scope_name,
             flags: BindingInfoFlags::empty(),
             uses: vec![],
-            redirects_to: None,
             span: self.span,
         }
     }
@@ -178,12 +176,6 @@ impl Workspace {
     pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
         if let Some(binding_info) = self.binding_infos.get_mut(id) {
             binding_info.uses.push(span);
-        }
-    }
-
-    pub fn set_binding_info_redirect(&mut self, src: BindingId, dest: BindingId) {
-        if let Some(info) = self.binding_infos.get_mut(src) {
-            info.redirects_to = Some(dest);
         }
     }
 

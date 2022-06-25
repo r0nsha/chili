@@ -14,12 +14,12 @@ use crate::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult, SyntaxError,
     },
-    hir::{self, const_value::ConstValue},
+    hir,
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
 };
 use indexmap::IndexMap;
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 impl<'s> CheckSess<'s> {
     pub fn get_global_binding_id(&self, module_id: ModuleId, name: Ustr) -> Option<BindingId> {
@@ -114,13 +114,13 @@ impl<'s> CheckSess<'s> {
     pub fn bind_name_pattern(
         &mut self,
         env: &mut Env,
-        pattern: &mut NamePattern,
+        pattern: &NamePattern,
         visibility: ast::Visibility,
         ty: TypeId,
         value: hir::Node,
         kind: &ast::BindingKind,
     ) -> DiagnosticResult<hir::Node> {
-        let id = self.bind_name(
+        let binding = self.bind_name(
             env,
             pattern.alias.unwrap_or(pattern.name),
             visibility,
@@ -131,106 +131,180 @@ impl<'s> CheckSess<'s> {
             pattern.span,
         )?;
 
-        Ok(hir::Node::Binding(hir::Binding {
-            module_id: env.module_id(),
-            id,
-            name: pattern.name,
-            value: Box::new(hir::Node::Const(hir::Const {
-                value: ConstValue::Uint(0),
-                ty: index_type,
-                span: index_binding.span,
-            })),
-            ty: unit_type,
-            span: index_binding.span,
-        }))
+        Ok(hir::Node::Binding(binding))
     }
 
     pub fn bind_pattern(
         &mut self,
         env: &mut Env,
-        pattern: &mut Pattern,
+        pattern: &Pattern,
         visibility: ast::Visibility,
         ty: TypeId,
-        const_value: Option<ConstValue>,
+        value: hir::Node,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<hir::Node> {
+        // Note (Ron 25/06/2022): There is a lot of duplicate code here. This should be organized better...
         match pattern {
             Pattern::Name(pattern) => {
-                self.bind_name_pattern(env, pattern, visibility, ty, const_value, kind)
+                self.bind_name_pattern(env, pattern, visibility, ty, value, kind)
             }
-            Pattern::StructUnpack(pattern) => self.bind_struct_unpack_pattern(
-                env,
-                pattern,
-                visibility,
-                ty,
-                const_value,
-                kind,
-                ty_origin_span,
-            ),
-            Pattern::TupleUnpack(pattern) => self.bind_tuple_unpack_pattern(
-                env,
-                pattern,
-                visibility,
-                ty,
-                const_value,
-                kind,
-                ty_origin_span,
-            ),
-            Pattern::Hybrid(pattern) => {
-                self.bind_name_pattern(
+            Pattern::StructUnpack(pattern) => {
+                let mut statements = vec![];
+
+                let value_span = value.span();
+
+                let name = self.generate_name("v");
+                let name_node = self.bind_name(
                     env,
-                    &mut pattern.name,
+                    name,
                     visibility,
                     ty,
-                    const_value.clone(),
+                    value,
+                    false,
+                    kind.clone(),
+                    pattern.span,
+                )?;
+
+                let id = name_node.id;
+                let ty = self.workspace.binding_infos.get(id).unwrap().ty;
+
+                let name_id_node = hir::Node::Id(hir::Id {
+                    id,
+                    ty,
+                    span: value_span,
+                });
+
+                self.bind_struct_unpack_pattern(
+                    &mut statements,
+                    env,
+                    pattern,
+                    visibility,
+                    ty,
+                    name_id_node,
+                    kind,
+                    ty_origin_span,
+                )?;
+
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
+                    ty: self.tycx.common_types.unit,
+                    span: pattern.span,
+                }))
+            }
+            Pattern::TupleUnpack(pattern) => {
+                let mut statements = vec![];
+
+                let value_span = value.span();
+
+                let name = self.generate_name("v");
+                let name_node = self.bind_name(
+                    env,
+                    name,
+                    visibility,
+                    ty,
+                    value,
+                    false,
+                    kind.clone(),
+                    pattern.span,
+                )?;
+
+                let id = name_node.id;
+                let ty = self.workspace.binding_infos.get(id).unwrap().ty;
+
+                let name_id_node = hir::Node::Id(hir::Id {
+                    id,
+                    ty,
+                    span: value_span,
+                });
+
+                self.bind_tuple_unpack_pattern(
+                    &mut statements,
+                    env,
+                    pattern,
+                    visibility,
+                    ty,
+                    name_id_node,
+                    kind,
+                    ty_origin_span,
+                )?;
+
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
+                    ty: self.tycx.common_types.unit,
+                    span: pattern.span,
+                }))
+            }
+            Pattern::Hybrid(pattern) => {
+                let mut statements = vec![];
+
+                let name_node = self.bind_name_pattern(
+                    env,
+                    &pattern.name_pattern,
+                    visibility,
+                    ty,
+                    value.clone(),
                     kind,
                 )?;
 
-                match &mut pattern.unpack {
+                let id = name_node.as_binding().unwrap().id;
+                let ty = self.workspace.binding_infos.get(id).unwrap().ty;
+
+                let name_id_node = hir::Node::Id(hir::Id {
+                    id,
+                    ty,
+                    span: pattern.name_pattern.span,
+                });
+
+                match &pattern.unpack_pattern {
                     UnpackPatternKind::Struct(pattern) => self.bind_struct_unpack_pattern(
+                        &mut statements,
                         env,
                         pattern,
                         visibility,
                         ty,
-                        const_value,
+                        name_id_node,
                         kind,
                         ty_origin_span,
                     )?,
                     UnpackPatternKind::Tuple(pattern) => self.bind_tuple_unpack_pattern(
+                        &mut statements,
                         env,
                         pattern,
                         visibility,
                         ty,
-                        const_value,
+                        name_id_node,
                         kind,
                         ty_origin_span,
                     )?,
                 }
 
-                Ok(())
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
+                    ty: self.tycx.common_types.unit,
+                    span: pattern.span,
+                }))
             }
         }
     }
 
     fn bind_struct_unpack_pattern(
         &mut self,
+        statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        unpack_pattern: &mut UnpackPattern,
+        unpack_pattern: &UnpackPattern,
         visibility: ast::Visibility,
         ty: TypeId,
-        const_value: Option<ConstValue>,
+        value: hir::Node,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
-        match ty.normalize(&self.tycx) {
-            Type::Module(module_id) => {
-                for pattern in unpack_pattern.symbols.iter_mut() {
-                    if pattern.ignore {
-                        continue;
-                    }
+        let mut statements = Vec::<hir::Node>::new();
 
-                    let top_level_name_id = self.check_top_level_binding(
+        match ty.normalize(&self.tycx).maybe_deref_once() {
+            Type::Module(module_id) => {
+                for pattern in unpack_pattern.symbols.iter() {
+                    let top_level_binding_id = self.check_top_level_binding(
                         CallerInfo {
                             module_id: env.module_id(),
                             span: pattern.span,
@@ -251,25 +325,29 @@ impl<'s> CheckSess<'s> {
                         continue;
                     }
 
-                    self.workspace
-                        .add_binding_info_use(top_level_name_id, pattern.span);
+                    let top_level_binding_info = self
+                        .workspace
+                        .binding_infos
+                        .get(top_level_binding_id)
+                        .unwrap();
 
-                    let binding_info = self.workspace.binding_infos.get(top_level_name_id).unwrap();
-
-                    self.bind_name_pattern(
+                    let binding = self.bind_name_pattern(
                         env,
                         pattern,
                         visibility,
-                        binding_info.ty,
-                        binding_info.const_value,
+                        top_level_binding_info.ty,
+                        hir::Node::Id(hir::Id {
+                            id: top_level_binding_info.id,
+                            ty: top_level_binding_info.ty,
+                            span: pattern.span,
+                        }),
                         kind,
                     )?;
 
-                    self.workspace
-                        .set_binding_info_redirect(pattern.id, top_level_name_id);
+                    statements.push(binding);
                 }
 
-                if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
+                if let Some(wildcard_symbol_span) = unpack_pattern.wildcard_symbol {
                     let module = self
                         .modules
                         .iter()
@@ -281,57 +359,45 @@ impl<'s> CheckSess<'s> {
                             continue;
                         }
 
-                        let binding_pattern = match binding.pattern.iter().next() {
+                        let bound_ids = match binding.pattern.iter().next() {
                             Some(pattern) => {
                                 // check if the binding has already been checked
-                                if let Some(id) =
-                                    self.get_global_binding_id(module_id, pattern.name)
-                                {
-                                    self.typed_ast.get_binding(id).unwrap().pattern.clone()
-                                } else {
-                                    let mut binding = binding.clone();
-                                    binding.check_top_level(self)?;
-                                    binding.pattern
+                                match self.get_global_binding_id(module_id, pattern.name) {
+                                    Some(id) => binding.pattern.ids(),
+                                    None => {
+                                        let bound_names = binding.check_top_level(self)?;
+                                        bound_names.values().cloned().collect::<Vec<BindingId>>()
+                                    }
                                 }
                             }
                             None => {
-                                let mut binding = binding.clone();
-                                binding.check_top_level(self)?;
-                                binding.pattern
+                                let bound_names = binding.check_top_level(self)?;
+                                bound_names.values().cloned().collect::<Vec<BindingId>>()
                             }
                         };
 
-                        for pattern in binding_pattern.iter() {
-                            let binding_info =
-                                self.workspace.binding_infos.get(pattern.id).unwrap();
+                        for id in bound_ids.into_iter() {
+                            let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-                            let mut new_pattern = NamePattern {
-                                id: BindingId::unknown(),
-                                name: pattern.name,
-                                alias: None,
-                                span: wildcard_symbol,
-                                is_mutable: false,
-                                ignore: false,
-                            };
-
-                            self.bind_name_pattern(
+                            let binding = self.bind_name(
                                 env,
-                                &mut new_pattern,
+                                binding_info.name,
                                 visibility,
                                 binding_info.ty,
-                                binding_info.const_value.clone(),
-                                kind,
+                                hir::Node::Id(hir::Id {
+                                    id: binding_info.id,
+                                    ty: binding_info.ty,
+                                    span: wildcard_symbol_span,
+                                }),
+                                binding_info.is_mutable,
+                                binding_info.kind,
+                                binding_info.span,
                             )?;
 
-                            self.workspace
-                                .set_binding_info_redirect(new_pattern.id, pattern.id);
-
-                            unpack_pattern.symbols.push(new_pattern);
+                            statements.push(hir::Node::Binding(binding));
                         }
                     }
                 }
-
-                Ok(())
             }
             ty_kind => {
                 let partial_struct = PartialStructType(IndexMap::from_iter(
@@ -353,30 +419,41 @@ impl<'s> CheckSess<'s> {
                     ty_origin_span,
                 )?;
 
-                for pattern in unpack_pattern.symbols.iter_mut() {
-                    if pattern.ignore {
-                        continue;
-                    }
-
+                for (index, pattern) in unpack_pattern.symbols.iter().enumerate() {
                     let ty = self
                         .tycx
                         .bound(partial_struct[&pattern.name].clone(), pattern.span);
 
-                    let field_const_value = if pattern.is_mutable {
-                        None
-                    } else {
-                        const_value
-                            .as_ref()
-                            .map(|v| v.as_struct().get(&pattern.name).unwrap().clone().value)
+                    let field_value = match value.as_const_value() {
+                        Some(const_value) if pattern.is_mutable => hir::Node::Const(hir::Const {
+                            value: const_value
+                                .as_struct()
+                                .get(&pattern.name)
+                                .unwrap()
+                                .clone()
+                                .value,
+                            ty: value.ty(),
+                            span: pattern.span,
+                        }),
+                        _ => hir::Node::MemberAccess(hir::MemberAccess {
+                            value: Box::new(value),
+                            member: pattern.name,
+                            index: index as _,
+                            ty,
+                            span: pattern.span,
+                        }),
                     };
 
-                    self.bind_name_pattern(env, pattern, visibility, ty, field_const_value, kind)?;
+                    let binding =
+                        self.bind_name_pattern(env, pattern, visibility, ty, field_value, kind)?;
+
+                    statements.push(binding);
                 }
 
-                if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
-                    match ty_kind.maybe_deref_once() {
+                if let Some(wildcard_symbol_span) = unpack_pattern.wildcard_symbol {
+                    match ty_kind {
                         Type::Struct(struct_ty) => {
-                            for field in struct_ty.fields.iter() {
+                            for (index, field) in struct_ty.fields.iter().enumerate() {
                                 if unpack_pattern
                                     .symbols
                                     .iter()
@@ -387,31 +464,40 @@ impl<'s> CheckSess<'s> {
                                     continue;
                                 }
 
-                                let field_const_value = const_value
-                                    .as_ref()
-                                    .map(|v| v.as_struct().get(&field.name).unwrap().clone().value);
-
-                                let mut field_pattern = NamePattern {
-                                    id: BindingId::unknown(),
-                                    name: field.name,
-                                    alias: None,
-                                    span: wildcard_symbol,
-                                    is_mutable: false,
-                                    ignore: false,
+                                let field_value = match value.as_const_value() {
+                                    Some(const_value) => hir::Node::Const(hir::Const {
+                                        value: const_value
+                                            .as_struct()
+                                            .get(&field.name)
+                                            .unwrap()
+                                            .clone()
+                                            .value,
+                                        ty: value.ty(),
+                                        span: field.span,
+                                    }),
+                                    None => hir::Node::MemberAccess(hir::MemberAccess {
+                                        value: Box::new(value),
+                                        member: field.name,
+                                        index: index as _,
+                                        ty,
+                                        span: field.span,
+                                    }),
                                 };
 
                                 let ty = self.tycx.bound(field.ty.clone(), field.span);
 
-                                self.bind_name_pattern(
+                                let binding = self.bind_name(
                                     env,
-                                    &mut field_pattern,
+                                    field.name,
                                     visibility,
                                     ty,
-                                    field_const_value,
-                                    kind,
+                                    field_value,
+                                    false,
+                                    kind.clone(),
+                                    wildcard_symbol_span,
                                 )?;
 
-                                unpack_pattern.symbols.push(field_pattern);
+                                statements.push(hir::Node::Binding(binding));
                             }
                         }
                         Type::Infer(_, InferTy::PartialStruct(_)) => {
@@ -421,7 +507,7 @@ impl<'s> CheckSess<'s> {
                                     ty_kind
                                 ))
                                 .with_label(Label::primary(
-                                    wildcard_symbol,
+                                    wildcard_symbol_span,
                                     "illegal wildcard unpack",
                                 )))
                         }
@@ -432,25 +518,26 @@ impl<'s> CheckSess<'s> {
                                     ty_kind
                                 ))
                                 .with_label(Label::primary(
-                                    wildcard_symbol,
+                                    wildcard_symbol_span,
                                     "illegal wildcard unpack",
                                 )))
                         }
                     }
                 }
-
-                Ok(())
             }
         }
+
+        Ok(())
     }
 
     fn bind_tuple_unpack_pattern(
         &mut self,
+        statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        pattern: &mut UnpackPattern,
+        pattern: &UnpackPattern,
         visibility: ast::Visibility,
         ty: TypeId,
-        const_value: Option<ConstValue>,
+        value: hir::Node,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
@@ -470,22 +557,25 @@ impl<'s> CheckSess<'s> {
             ty_origin_span,
         )?;
 
-        for (index, pattern) in pattern.symbols.iter_mut().enumerate() {
-            if pattern.ignore {
-                continue;
-            }
-
+        for (index, pattern) in pattern.symbols.iter().enumerate() {
             let ty = self.tycx.bound(elements[index].clone(), pattern.span);
 
-            let element_const_value = if pattern.is_mutable {
-                None
-            } else {
-                const_value
-                    .as_ref()
-                    .map(|v| v.as_tuple()[index].clone().value)
+            let element_value = match value.as_const_value() {
+                Some(const_value) => hir::Node::Const(hir::Const {
+                    value: const_value.as_tuple()[index].clone().value,
+                    ty: value.ty(),
+                    span: value.span(),
+                }),
+                None => hir::Node::MemberAccess(hir::MemberAccess {
+                    value: Box::new(value),
+                    member: ustr(&index.to_string()),
+                    index: index as _,
+                    ty,
+                    span: value.span(),
+                }),
             };
 
-            self.bind_name_pattern(env, pattern, visibility, ty, element_const_value, kind)?;
+            self.bind_name_pattern(env, pattern, visibility, ty, element_value, kind)?;
         }
 
         Ok(())

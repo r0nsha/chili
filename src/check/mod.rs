@@ -421,7 +421,7 @@ impl Check for ast::Binding {
                     &mut self.pattern,
                     self.visibility,
                     self.ty,
-                    value_node.as_const_value().cloned(),
+                    value_node,
                     &self.kind,
                     value_node.span(),
                 )?;
@@ -2141,15 +2141,16 @@ impl Check for ast::FunctionExpr {
                     .map_or(param.pattern.span(), |e| e.span()),
             );
 
-            sess.bind_pattern(
-                env,
-                &mut param.pattern,
-                ast::Visibility::Private,
-                ty,
-                None,
-                &ast::BindingKind::Normal,
-                param.pattern.span(),
-            )?;
+            todo!();
+            // sess.bind_pattern(
+            //     env,
+            //     &mut param.pattern,
+            //     ast::Visibility::Private,
+            //     ty,
+            //     None,
+            //     &ast::BindingKind::Normal,
+            //     param.pattern.span(),
+            // )?;
         }
 
         let function_id = sess.cache.functions.insert_with_id(hir::Function {

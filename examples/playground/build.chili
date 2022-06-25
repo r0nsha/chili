@@ -1,6 +1,7 @@
 let ? = import!("std/build");
 
 let build = fn() {
+	add(5, 10);
 	// let build_options = BuildOptions {
     //     input_file: "src/main.chili",
     //     output_file: "out/main",
@@ -16,5 +17,7 @@ let build = fn() {
 
 	// start_workspace(workspace);
 };
+
+let add = fn(a: int, b: int) -> int { a + b };
 
 // run!(build());

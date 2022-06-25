@@ -34,8 +34,8 @@ impl UnpackPatternKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct HybridPattern {
-    pub name: NamePattern,
-    pub unpack: UnpackPatternKind,
+    pub name_pattern: NamePattern,
+    pub unpack_pattern: UnpackPatternKind,
     pub span: Span,
 }
 
@@ -101,8 +101,8 @@ impl<'a> Iterator for PatternIter<'a> {
             },
             Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => pat.symbols.get(self.pos),
             Pattern::Hybrid(pat) => match self.pos {
-                0 => Some(&pat.name),
-                _ => pat.unpack.as_inner().symbols.get(self.pos - 1),
+                0 => Some(&pat.name_pattern),
+                _ => pat.unpack_pattern.as_inner().symbols.get(self.pos - 1),
             },
         };
 
@@ -123,8 +123,8 @@ impl Display for Pattern {
                 Pattern::TupleUnpack(pat) => format!("({})", pat),
                 Pattern::Hybrid(pat) => format!(
                     "{} @ {}",
-                    pat.name,
-                    match &pat.unpack {
+                    pat.name_pattern,
+                    match &pat.unpack_pattern {
                         UnpackPatternKind::Struct(pat) => format!("{{ {} }}", pat),
                         UnpackPatternKind::Tuple(pat) => format!("({})", pat),
                     }

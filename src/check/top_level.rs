@@ -29,25 +29,25 @@ impl CheckTopLevel for ast::Binding {
             self.check(sess, &mut env, None)
         })?;
 
-        let ids = UstrMap::<BindingId>::default();
+        let bound_names = UstrMap::<BindingId>::default();
 
         match node {
             hir::Node::Binding(binding) => {
                 let id = sess.cache.bindings.insert(binding);
-                ids.insert(binding.name, id);
+                bound_names.insert(binding.name, id);
             }
             hir::Node::Sequence(sequence) => {
                 for statement in sequence.statements.into_iter() {
                     let binding = statement.into_binding().unwrap();
                     let (name, id) = (binding.name, binding.id);
                     let id = sess.cache.bindings.insert(binding);
-                    ids.insert(name, id);
+                    bound_names.insert(name, id);
                 }
             }
             _ => (),
         }
 
-        Ok(ids)
+        Ok(bound_names)
     }
 }
 
