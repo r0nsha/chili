@@ -2106,16 +2106,16 @@ impl Check for ast::FunctionExpr {
                     .map_or(param.pattern.span(), |e| e.span()),
             );
 
-            todo!();
-            // sess.bind_pattern(
-            //     env,
-            //     &mut param.pattern,
-            //     ast::Visibility::Private,
-            //     ty,
-            //     None,
-            //     &ast::BindingKind::Normal,
-            //     param.pattern.span(),
-            // )?;
+            // TODO: support `value` as `Option<hir::Node>` in `bind_name`
+            let bound_node = sess.bind_pattern(
+                env,
+                &mut param.pattern,
+                ast::Visibility::Private,
+                ty,
+                None,
+                &ast::BindingKind::Normal,
+                param.pattern.span(),
+            )?;
         }
 
         let function_id = sess.cache.functions.insert_with_id(hir::Function {
