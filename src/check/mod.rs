@@ -377,18 +377,14 @@ impl Check for ast::Binding {
                 let ty_kind = ty.normalize(&sess.tycx);
 
                 let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
-                let is_any_pattern_mut = self.pattern.iter().any(|p| p.is_mutable);
 
                 // Global immutable bindings must resolve to a const value, unless it is:
                 // - of type `type` or `module`
                 // - an extern binding
                 if env.scope_level().is_global()
+                    && !value_node.is_const()
                     && !is_type_or_module
-                    && !is_any_pattern_mut
-                    && !matches!(
-                        self.kind,
-                        BindingKind::Extern(_) | BindingKind::Intrinsic(_)
-                    )
+                    && !self.pattern.iter().any(|p| p.is_mutable)
                 {
                     return Err(Diagnostic::error()
                         .with_message(format!("immutable top level binding must be constant"))
@@ -424,7 +420,7 @@ impl Check for ast::Binding {
                     env,
                     &self.pattern,
                     self.visibility,
-                    self.ty,
+                    ty,
                     value_node,
                     &self.kind,
                     value_span,
@@ -459,46 +455,31 @@ impl Check for ast::Binding {
                     }
                 }
 
-                Ok(hir::Node::Binding(hir::Binding {
-                    ty,
-                    span: self.span,
-                    module_id: env.module_id(),
-                    id: todo!(),
-                    name: todo!(),
-                    value: Box::new(value_node),
-                }))
+                Ok(bound_node)
             }
             BindingKind::Intrinsic(intrinsic) => {
                 let pattern = self.pattern.as_name();
                 let name = pattern.name;
 
-                todo!()
-                // let id = sess.typed_ast.functions.insert_with_id(ast::Function {
-                //     id: FunctionId::unknown(),
-                //     module_id: env.module_id(),
-                //     kind: ast::FunctionKind::Intrinsic(*intrinsic),
-                //     ty,
-                //     span: self.span,
-                // });
+                let function_id = sess.cache.functions.insert_with_id(hir::Function {
+                    module_id: env.module_id(),
+                    id: hir::FunctionId::unknown(),
+                    name,
+                    kind: hir::FunctionKind::Intrinsic(*intrinsic),
+                    ty,
+                    span: self.span,
+                });
 
-                // let const_value = ConstValue::Function(ConstFunction { id, name });
+                let value = hir::Node::Const(hir::Const {
+                    value: ConstValue::Function(ConstFunction {
+                        id: function_id,
+                        name,
+                    }),
+                    ty,
+                    span: pattern.span,
+                });
 
-                // sess.bind_name_pattern(
-                //     env,
-                //     pattern,
-                //     self.visibility,
-                //     ty,
-                //     Some(const_value.clone()),
-                //     &self.kind,
-                // )?;
-
-                // self.value = Some(Box::new(ast::Ast::Const(ast::Const {
-                //     value: const_value.clone(),
-                //     ty: self.ty,
-                //     span: pattern.span,
-                // })));
-
-                // Ok(Res::new(ty))
+                sess.bind_name_pattern(env, pattern, self.visibility, ty, value, &self.kind)
             }
             BindingKind::Extern(lib) => {
                 if let Some(lib) = lib {
@@ -509,37 +490,25 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_name();
                 let name = pattern.name;
 
-                todo!()
+                let function_id = sess.cache.functions.insert_with_id(hir::Function {
+                    module_id: env.module_id(),
+                    id: hir::FunctionId::unknown(),
+                    name,
+                    kind: hir::FunctionKind::Extern { lib: lib.clone() },
+                    ty,
+                    span: self.span,
+                });
 
-                // let id = sess.typed_ast.functions.insert_with_id(ast::Function {
-                //     id: FunctionId::unknown(),
-                //     module_id: env.module_id(),
-                //     kind: ast::FunctionKind::Extern {
-                //         name,
-                //         lib: lib.clone(),
-                //     },
-                //     tyty,
-                //     span: self.span,
-                // });
+                let value = hir::Node::Const(hir::Const {
+                    value: ConstValue::Function(ConstFunction {
+                        id: function_id,
+                        name,
+                    }),
+                    ty,
+                    span: pattern.span,
+                });
 
-                // let const_value = ConstValue::Function(ConstFunction { id, name });
-
-                // sess.bind_name_pattern(
-                //     env,
-                //     pattern,
-                //     self.visibility,
-                //     ty,
-                //     Some(const_value.clone()),
-                //     &self.kind,
-                // )?;
-
-                // self.value = Some(Box::new(ast::Ast::Const(ast::Const {
-                //     value: const_value.clone(),
-                //     ty: self.ty,
-                //     span: pattern.span,
-                // })));
-
-                // Ok(Res::new_const(ty, const_value))
+                sess.bind_name_pattern(env, pattern, self.visibility, ty, value, &self.kind)
             }
         }
     }

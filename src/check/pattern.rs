@@ -167,6 +167,9 @@ impl<'s> CheckSess<'s> {
                 )?;
 
                 let id = name_node.id;
+
+                statements.push(hir::Node::Binding(name_node));
+
                 let ty = self.workspace.binding_infos.get(id).unwrap().ty;
 
                 let name_id_node = hir::Node::Id(hir::Id {
@@ -210,6 +213,9 @@ impl<'s> CheckSess<'s> {
                 )?;
 
                 let id = name_node.id;
+
+                statements.push(hir::Node::Binding(name_node));
+
                 let ty = self.workspace.binding_infos.get(id).unwrap().ty;
 
                 let name_id_node = hir::Node::Id(hir::Id {
@@ -248,6 +254,9 @@ impl<'s> CheckSess<'s> {
                 )?;
 
                 let id = name_node.as_binding().unwrap().id;
+
+                statements.push(name_node);
+
                 let ty = self.workspace.binding_infos.get(id).unwrap().ty;
 
                 let name_id_node = hir::Node::Id(hir::Id {
@@ -299,8 +308,6 @@ impl<'s> CheckSess<'s> {
         kind: &ast::BindingKind,
         ty_origin_span: Span,
     ) -> DiagnosticResult<()> {
-        let mut statements = Vec::<hir::Node>::new();
-
         match ty.normalize(&self.tycx).maybe_deref_once() {
             Type::Module(module_id) => {
                 for pattern in unpack_pattern.symbols.iter() {
@@ -363,7 +370,7 @@ impl<'s> CheckSess<'s> {
                             Some(pattern) => {
                                 // check if the binding has already been checked
                                 match self.get_global_binding_id(module_id, pattern.name) {
-                                    Some(id) => binding.pattern.ids(),
+                                    Some(_) => binding.pattern.ids(),
                                     None => {
                                         let bound_names = binding.check_top_level(self)?;
                                         bound_names.values().cloned().collect::<Vec<BindingId>>()
@@ -575,7 +582,10 @@ impl<'s> CheckSess<'s> {
                 }),
             };
 
-            self.bind_name_pattern(env, pattern, visibility, ty, element_value, kind)?;
+            let binding =
+                self.bind_name_pattern(env, pattern, visibility, ty, element_value, kind)?;
+
+            statements.push(binding);
         }
 
         Ok(())
