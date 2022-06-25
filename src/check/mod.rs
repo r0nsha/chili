@@ -82,7 +82,7 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
                 Diagnostic::error()
                     .with_message("type is not valid in extern context")
                     .with_label(Label::primary(
-                        binding.ty_expr.as_ref().unwrap().span(),
+                        binding.type_expr.as_ref().unwrap().span(),
                         "cannot be used in extern context",
                     )),
             )
@@ -187,8 +187,8 @@ impl<'s> CheckSess<'s> {
     pub fn start(&mut self) -> DiagnosticResult<()> {
         self.add_builtin_types();
 
-        for ast in self.modules.iter() {
-            self.check_ast(ast)?;
+        for module in self.modules.iter() {
+            self.check_module(module)?;
         }
 
         Ok(())
@@ -300,7 +300,7 @@ impl<'s> CheckSess<'s> {
         mk(self, builtin::SYM_STR, self.tycx.common_types.str);
     }
 
-    pub fn is_mutable(&self, node: &hir::Node) -> bool {
+    pub(super) fn is_mutable(&self, node: &hir::Node) -> bool {
         match node {
             hir::Node::MemberAccess(access) => self.is_mutable(&access.value),
             hir::Node::Id(id) => self.workspace.binding_infos.get(id.id).unwrap().is_mutable,
@@ -320,12 +320,7 @@ where
 
 impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        let ty = if let Some(ty_expr) = &self.ty_expr {
-            let node = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(&node)?
-        } else {
-            sess.tycx.var(self.pattern.span())
-        };
+        let ty = check_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
 
         match &self.kind {
             BindingKind::Normal => {
@@ -343,7 +338,7 @@ impl Check for ast::Binding {
                     .or_report_err(
                         &sess.tycx,
                         ty,
-                        self.ty_expr.as_ref().map(|e| e.span()),
+                        self.type_expr.as_ref().map(|e| e.span()),
                         value_node.ty(),
                         self.value.span(),
                     )?;
@@ -517,20 +512,13 @@ impl Check for ast::Binding {
 
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let mut ty_params = vec![];
-
-        if !self.params.is_empty() {
+        let (params, param_types): (Vec<_>, Vec<_>) = if !self.params.is_empty() {
             let mut defined_params = UstrMap::default();
 
-            for param in self.params.iter_mut() {
-                param.ty = if let Some(expr) = &mut param.ty_expr {
-                    let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    sess.extract_const_type(&node)?
-                } else {
-                    sess.tycx.var(param.pattern.span())
-                };
+            self.params.iter().map(|param| {
+                let ty = check_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
 
-                ty_params.push(param.ty.into());
+                param_types.push(param.ty.into());
 
                 for pat in param.pattern.iter() {
                     if let Some(already_defined_span) = defined_params.insert(pat.symbol, pat.span)
@@ -542,7 +530,7 @@ impl Check for ast::FunctionSig {
                         ));
                     }
                 }
-            }
+            });
         } else {
             // if the function signature has no parameters, and the
             // parent type is a function with 1 parameter, add an implicit `it` parameter
@@ -561,32 +549,27 @@ impl Check for ast::FunctionSig {
                                     is_mutable: false,
                                     ignore: false,
                                 }),
-                                ty_expr: None,
+                                type_expr: None,
                                 ty: sess.tycx.bound(f.params[0].clone(), self.span),
                             });
 
-                            ty_params.push(f.params[0].clone());
+                            param_types.push(f.params[0].clone());
                         }
                     }
                     _ => (),
                 }
             }
-        }
+        };
 
-        let ret = if let Some(expr) = &mut self.ret {
-            let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(&node)?
-        } else if self.kind.is_extern() {
+        let return_type = if self.return_type.is_none() && self.kind.is_extern() {
             sess.tycx.common_types.unit
         } else {
-            sess.tycx.var(self.span)
+            check_type_expr(&self.return_type, sess, env, self.span)?
         };
 
         let varargs = if let Some(varargs) = &mut self.varargs {
-            let ty = if let Some(ty) = &mut varargs.ty {
-                let node = ty.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                let ty = sess.extract_const_type(&node)?;
-
+            let ty = if varargs.type_expr.is_some() {
+                let ty = check_type_expr(&varargs.type_expr, sess, env, self.span)?;
                 Some(ty.as_kind())
             } else {
                 None
@@ -605,20 +588,23 @@ impl Check for ast::FunctionSig {
             None
         };
 
-        self.ty = sess.tycx.bound(
+        let function_type = sess.tycx.bound(
             Type::Function(FunctionType {
-                params: ty_params,
-                ret: Box::new(ret.into()),
+                params: param_types,
+                ret: Box::new(return_type.into()),
                 varargs,
                 kind: self.kind.clone(),
             }),
             self.span,
         );
 
-        Ok(Res {
-            ty: self.ty,
-            const_value: None,
-        })
+        Ok(hir::Node::Const(hir::Const {
+            value: ConstValue::Type(function_type),
+            ty: sess
+                .tycx
+                .bound(function_type.as_kind().create_type(), self.span),
+            span: self.span,
+        }))
     }
 }
 
@@ -653,7 +639,25 @@ impl Check for ast::Ast {
             }
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_ty),
             ast::Ast::Builtin(builtin) => match &mut builtin.kind {
-                ast::BuiltinKind::Import(path) => sess.check_import(path),
+                ast::BuiltinKind::Import(import_path) => {
+                    let path_str = import_path.to_str().unwrap();
+
+                    let module = sess
+                        .modules
+                        .iter()
+                        .find(|m| m.module_info.file_path == path_str)
+                        .unwrap_or_else(|| {
+                            panic!("couldn't find ast for module with path: {}", path_str)
+                        });
+
+                    let module_type = sess.check_module(module)?;
+
+                    Ok(hir::Node::Const(hir::Const {
+                        value: ConstValue::Unit(()),
+                        ty: module_type,
+                        span: builtin.span,
+                    }))
+                }
                 ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
                     let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                     sess.extract_const_type(&node)?;
@@ -699,14 +703,14 @@ impl Check for ast::Ast {
                     fn_ty.ret.as_ref().clone(),
                     function
                         .sig
-                        .ret
+                        .return_type
                         .as_ref()
                         .map_or(function.sig.span, |e| e.span()),
                 );
 
                 let return_ty_span = function
                     .sig
-                    .ret
+                    .return_type
                     .as_ref()
                     .map_or(function.sig.span, |e| e.span());
 
@@ -716,7 +720,7 @@ impl Check for ast::Ast {
                     let ty = sess.tycx.bound(
                         param_ty.clone(),
                         param
-                            .ty_expr
+                            .type_expr
                             .as_ref()
                             .map_or(param.pattern.span(), |e| e.span()),
                     );
@@ -2623,5 +2627,19 @@ fn id_or_const(
             span,
         }),
         None => hir::Node::Id(hir::Id { id, ty, span }),
+    }
+}
+
+pub(super) fn check_type_expr<'s>(
+    type_expr: &Option<Box<ast::Ast>>,
+    sess: &mut CheckSess<'s>,
+    env: &mut Env,
+    span: Span,
+) -> DiagnosticResult<TypeId> {
+    if let Some(type_expr) = type_expr {
+        let node = type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+        sess.extract_const_type(&node)
+    } else {
+        Ok(sess.tycx.var(span))
     }
 }

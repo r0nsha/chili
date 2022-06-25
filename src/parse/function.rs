@@ -46,7 +46,7 @@ impl Parser {
             name,
             params,
             varargs,
-            ret: ret_ty,
+            return_type: ret_ty,
             kind: self
                 .extern_lib
                 .as_ref()
@@ -89,7 +89,7 @@ impl Parser {
 
                     varargs = Some(FunctionVarargs {
                         name,
-                        ty,
+                        type_expr,
                         span: start_span.to(end_span),
                     });
 
@@ -106,7 +106,7 @@ impl Parser {
 
                 FunctionParam {
                     pattern,
-                    ty_expr: ty,
+                    type_expr: ty,
                     ty: TypeId::unknown(),
                 }
             },

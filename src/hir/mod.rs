@@ -266,7 +266,7 @@ macro_rules! builtin_field_dispatch {
                     Self::Sub(x) => x.$field,
                     Self::Mul(x) => x.$field,
                     Self::Div(x) => x.$field,
-                    Self::Mod(x) => x.$field,
+                    Self::Rem(x) => x.$field,
                     Self::Shl(x) => x.$field,
                     Self::Shr(x) => x.$field,
 

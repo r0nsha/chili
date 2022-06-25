@@ -49,7 +49,7 @@ impl<'a, T: CollectHints<'a>> CollectHints<'a> for Box<T> {
 
 impl<'a> CollectHints<'a> for ast::Binding {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
-        if self.ty_expr.is_none() {
+        if self.type_expr.is_none() {
             let ty = self.ty.normalize(sess.tycx);
 
             match ty {
@@ -79,7 +79,7 @@ impl<'a> CollectHints<'a> for ast::FunctionSig {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         self.params
             .iter()
-            .filter(|param| param.ty_expr.is_none())
+            .filter(|param| param.type_expr.is_none())
             .for_each(|param| {
                 let ty = param.ty.normalize(sess.tycx);
                 let span = param.pattern.span();
@@ -108,7 +108,7 @@ impl<'a> CollectHints<'a> for ast::FunctionSig {
                 }
             });
 
-        if let Some(ret) = self.ret.as_ref() {
+        if let Some(ret) = self.return_type.as_ref() {
             ret.collect_hints(sess);
         } else {
             let ret_ty = &self.ty.normalize(sess.tycx).into_fn().ret;

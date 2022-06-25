@@ -1,6 +1,5 @@
-use std::path::Path;
-
-use super::{Check, CheckResult, CheckSess, Res};
+use super::{Check, CheckSess, Result};
+use crate::ast::ty::TypeId;
 use crate::error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult,
@@ -20,11 +19,11 @@ pub trait CheckTopLevel
 where
     Self: Sized,
 {
-    fn check_top_level(&mut self, sess: &mut CheckSess) -> CheckResult;
+    fn check_top_level(&mut self, sess: &mut CheckSess) -> Result;
 }
 
 impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&mut self, sess: &mut CheckSess) -> CheckResult {
+    fn check_top_level(&mut self, sess: &mut CheckSess) -> Result {
         let res = sess.with_env(self.module_id, |sess, mut env| {
             self.check(sess, &mut env, None)
         })?;
@@ -48,7 +47,7 @@ impl<'s> CheckSess<'s> {
         caller_info: CallerInfo,
         module_id: ModuleId,
         symbol: Ustr,
-    ) -> DiagnosticResult<(Res, BindingId)> {
+    ) -> DiagnosticResult<BindingId> {
         // check if the binding has already been checked
         if let Some(id) = self.get_global_symbol(module_id, symbol) {
             // this binding has already been checked, so just return its data
@@ -58,85 +57,71 @@ impl<'s> CheckSess<'s> {
             let binding_info = self.workspace.binding_infos.get(id).unwrap();
             self.validate_can_access_item(binding_info, caller_info)?;
 
-            return Ok((
-                Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone()),
-                id,
-            ));
-        }
-
-        // this binding hasn't been checked yet - check it and then return its data
-        let module = self
-            .modules
-            .iter()
-            .find(|m| m.module_id == module_id)
-            .unwrap_or_else(|| panic!("{:?}", module_id));
-
-        let (res, id) = if let Some(binding) = module
-            .bindings
-            .iter()
-            .find(|binding| binding.pattern.iter().any(|pat| pat.symbol == symbol))
-        {
-            // this symbol points to a binding
-            let mut binding = binding.clone();
-            binding.check_top_level(self)?;
-
-            let desired_pat = binding
-                .pattern
-                .iter()
-                .find(|pat| pat.symbol == symbol)
-                .unwrap();
-
-            let id = desired_pat.id;
-            let desired_binding_info = self.workspace.binding_infos.get(id).unwrap();
-
-            self.validate_can_access_item(desired_binding_info, caller_info)?;
-
-            (
-                Res::new_maybe_const(
-                    desired_binding_info.ty,
-                    desired_binding_info.const_value.clone(),
-                ),
-                id,
-            )
-        } else if let Some(&builtin_id) = self.builtin_types.get(&symbol) {
-            // this is a builtin symbol, such as i32, bool, etc.
-            let res = self
-                .workspace
-                .binding_infos
-                .get(builtin_id)
-                .map(|binding_info| {
-                    Res::new_maybe_const(binding_info.ty, binding_info.const_value.clone())
-                })
-                .unwrap();
-
-            (res, builtin_id)
+            Ok(id)
         } else {
-            // the symbol doesn't exist, return an error
-            let module_info = self.workspace.module_infos.get(module_id).unwrap();
+            // this binding hasn't been checked yet - check it and then return its data
+            let module = self
+                .modules
+                .iter()
+                .find(|m| m.module_id == module_id)
+                .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            let message = if module_info.name.is_empty() {
-                format!("cannot find value `{}` in this scope", symbol)
+            if let Some(binding) = module
+                .bindings
+                .iter()
+                .find(|binding| binding.pattern.iter().any(|pat| pat.symbol == symbol))
+            {
+                // this symbol points to a binding
+                let mut binding = binding.clone();
+                binding.check_top_level(self)?;
+
+                let desired_pattern = binding
+                    .pattern
+                    .iter()
+                    .find(|pat| pat.symbol == symbol)
+                    .unwrap();
+
+                let desired_binding_info = self
+                    .workspace
+                    .binding_infos
+                    .get(desired_pattern.id)
+                    .unwrap();
+
+                self.workspace
+                    .add_binding_info_use(desired_binding_info.id, caller_info.span);
+
+                self.validate_can_access_item(desired_binding_info, caller_info)?;
+
+                Ok(desired_binding_info.id)
+            } else if let Some(&builtin_id) = self.builtin_types.get(&symbol) {
+                self.workspace
+                    .add_binding_info_use(builtin_id, caller_info.span);
+
+                Ok(builtin_id)
             } else {
-                format!(
-                    "cannot find value `{}` in module `{}`",
-                    symbol, module_info.name
-                )
-            };
+                // the symbol doesn't exist, return an error
+                let module_info = self.workspace.module_infos.get(module_id).unwrap();
 
-            let label_message = if module_info.name.is_empty() {
-                "not found in this scope".to_string()
-            } else {
-                format!("not found in `{}`", module_info.name)
-            };
+                let message = if module_info.name.is_empty() {
+                    format!("cannot find value `{}` in this scope", symbol)
+                } else {
+                    format!(
+                        "cannot find value `{}` in module `{}`",
+                        symbol, module_info.name
+                    )
+                };
 
-            return Err(Diagnostic::error()
-                .with_message(message)
-                .with_label(Label::primary(caller_info.span, label_message)));
-        };
+                let label_message = if module_info.name.is_empty() {
+                    "not found in this scope".to_string()
+                } else {
+                    format!("not found in `{}`", module_info.name)
+                };
 
-        self.workspace.add_binding_info_use(id, caller_info.span);
-
-        Ok((res, id))
+                Err(Diagnostic::error()
+                    .with_message(message)
+                    .with_label(Label::primary(caller_info.span, label_message)))
+            }
+        }
     }
 
     pub fn validate_can_access_item(
@@ -159,22 +144,9 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    #[inline]
-    pub fn check_import(&mut self, import_path: &Path) -> CheckResult {
-        let path_str = import_path.to_str().unwrap();
-
-        let module = self
-            .modules
-            .iter()
-            .find(|m| m.module_info.file_path == path_str)
-            .unwrap_or_else(|| panic!("couldn't find ast for module with path: {}", path_str));
-
-        self.check_ast(module)
-    }
-
-    pub fn check_ast(&mut self, module: &ast::Module) -> CheckResult {
-        if let Some(module_ty) = self.checked_modules.get(&module.module_id) {
-            Ok(Res::new(*module_ty))
+    pub fn check_module(&mut self, module: &ast::Module) -> DiagnosticResult<TypeId> {
+        if let Some(module_type) = self.checked_modules.get(&module.module_id) {
+            Ok(*module_type)
         } else {
             let module_id = module.module_id;
 
@@ -205,7 +177,7 @@ impl<'s> CheckSess<'s> {
                 }
             }
 
-            Ok(Res::new(module_type))
+            Ok(module_type)
         }
     }
 }

@@ -164,7 +164,7 @@ impl PrintTree for ast::FunctionSig {
         for param in &self.params {
             b.begin_child(param.pattern.to_string());
 
-            if let Some(ty) = &param.ty_expr {
+            if let Some(ty) = &param.type_expr {
                 ty.print_tree(b, workspace, tycx);
             } else {
                 b.add_empty_child("inferred".to_string());
@@ -175,7 +175,7 @@ impl PrintTree for ast::FunctionSig {
 
         b.end_child();
 
-        if let Some(ret) = &self.ret {
+        if let Some(ret) = &self.return_type {
             b.begin_child("return".to_string());
             ret.print_tree(b, workspace, tycx);
             b.end_child();

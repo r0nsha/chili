@@ -1,7 +1,4 @@
-use crate::{
-    ast::{self, ty::TypeId},
-    error::DiagnosticResult,
-};
+use crate::ast::{self, ty::TypeId};
 use indexmap::IndexMap;
 use paste::paste;
 use std::fmt::{self, Debug, Display};

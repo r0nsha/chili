@@ -122,7 +122,7 @@ impl<'a> Substitute<'a> for ast::TypedAst {
 
 impl<'a> Substitute<'a> for ast::Binding {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.ty_expr.substitute(sess);
+        self.type_expr.substitute(sess);
         self.value.substitute(sess);
     }
 }
@@ -143,10 +143,10 @@ impl<'a> Substitute<'a> for ast::FunctionExpr {
 impl<'a> Substitute<'a> for ast::FunctionSig {
     fn substitute(&self, sess: &mut Sess<'a>) {
         for param in self.params.iter() {
-            param.ty_expr.substitute(sess);
+            param.type_expr.substitute(sess);
             param.ty.substitute(sess, param.pattern.span());
         }
-        self.ret.substitute(sess);
+        self.return_type.substitute(sess);
         self.ty.substitute(sess, self.span);
     }
 }

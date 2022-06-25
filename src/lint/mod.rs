@@ -8,7 +8,6 @@ use crate::ast::{
     self,
     pattern::{HybridPattern, Pattern},
     workspace::Workspace,
-    BindingKind,
 };
 use crate::common::scopes::Scopes;
 use crate::error::diagnostic::{Diagnostic, Label};
@@ -258,9 +257,9 @@ impl Lint for ast::Ast {
             }
             ast::Ast::FunctionType(sig) => {
                 for p in &sig.params {
-                    p.ty_expr.lint(sess);
+                    p.type_expr.lint(sess);
                 }
-                sig.ret.lint(sess);
+                sig.return_type.lint(sess);
             }
             ast::Ast::Ident(ident) => sess.check_id_access(ident.binding_id, self.span()),
             ast::Ast::Literal(_) => {

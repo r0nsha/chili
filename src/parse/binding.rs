@@ -38,7 +38,7 @@ impl Parser {
             kind: BindingKind::Normal,
             pattern,
             ty: TypeId::unknown(),
-            ty_expr,
+            type_expr: ty_expr,
             value: Box::new(value),
             span: start_span.to(self.previous_span()),
         })
@@ -89,7 +89,7 @@ impl Parser {
                 kind: ast::BindingKind::Extern(lib),
                 pattern,
                 ty: TypeId::unknown(),
-                ty_expr: None,
+                type_expr: None,
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
             })
@@ -131,7 +131,7 @@ impl Parser {
             kind: ast::BindingKind::Intrinsic(intrinsic),
             pattern,
             ty: TypeId::unknown(),
-            ty_expr: Some(Box::new(value)),
+            type_expr: Some(Box::new(value)),
             value: Box::new(value),
             span: start_span.to(self.previous_span()),
         })

@@ -478,7 +478,7 @@ pub struct FunctionExpr {
 pub struct FunctionSig {
     pub name: Ustr,
     pub params: Vec<FunctionParam>,
-    pub ret: Option<Box<Ast>>,
+    pub return_type: Option<Box<Ast>>,
     pub varargs: Option<FunctionVarargs>,
     pub kind: FunctionTypeKind,
     pub ty: TypeId,
@@ -550,14 +550,14 @@ impl Function {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionVarargs {
     pub name: Ustr,
-    pub ty: Option<Box<Ast>>,
+    pub type_expr: Option<Box<Ast>>,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionParam {
     pub pattern: Pattern,
-    pub ty_expr: Option<Box<Ast>>,
+    pub type_expr: Option<Box<Ast>>,
     pub ty: TypeId,
 }
 
@@ -637,7 +637,7 @@ pub struct Binding {
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub pattern: Pattern,
-    pub ty_expr: Option<Box<Ast>>,
+    pub type_expr: Option<Box<Ast>>,
     pub value: Box<Ast>,
     pub ty: TypeId,
     pub span: Span,
