@@ -1043,92 +1043,7 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::Block(block) => block.check(sess, env, expected_ty),
-            ast::Ast::Binary(binary) => {
-                let mut lhs_node = binary.lhs.check(sess, env, None)?;
-                let mut rhs_node = binary.rhs.check(sess, env, Some(lhs_node.ty))?;
-
-                let expected_ty = match &binary.op {
-                    ast::BinaryOp::Add
-                    | ast::BinaryOp::Sub
-                    | ast::BinaryOp::Mul
-                    | ast::BinaryOp::Div
-                    | ast::BinaryOp::Rem
-                    | ast::BinaryOp::Lt
-                    | ast::BinaryOp::Le
-                    | ast::BinaryOp::Gt
-                    | ast::BinaryOp::Ge
-                    | ast::BinaryOp::Shl
-                    | ast::BinaryOp::Shr
-                    | ast::BinaryOp::BitOr
-                    | ast::BinaryOp::BitXor
-                    | ast::BinaryOp::BitAnd => sess.tycx.anyint(binary.span),
-                    ast::BinaryOp::Eq | ast::BinaryOp::Ne => sess.tycx.var(binary.span),
-                    ast::BinaryOp::And | ast::BinaryOp::Or => sess.tycx.common_types.bool,
-                };
-
-                lhs_node
-                    .ty()
-                    .unify(&expected_ty, &mut sess.tycx)
-                    .or_report_err(
-                        &sess.tycx,
-                        expected_ty,
-                        None,
-                        lhs_node.ty(),
-                        binary.lhs.span(),
-                    )?;
-
-                rhs_node
-                    .ty()
-                    .unify(&lhs_node.ty(), &mut sess.tycx)
-                    .or_coerce(
-                        &mut lhs_node,
-                        &mut rhs_node,
-                        &mut sess.tycx,
-                        sess.target_metrics.word_size,
-                    )
-                    .or_report_err(
-                        &sess.tycx,
-                        lhs_node.ty(),
-                        None,
-                        rhs_node.ty(),
-                        binary.rhs.span(),
-                    )?;
-
-                let result_ty = match &binary.op {
-                    ast::BinaryOp::Add
-                    | ast::BinaryOp::Sub
-                    | ast::BinaryOp::Mul
-                    | ast::BinaryOp::Div
-                    | ast::BinaryOp::Rem
-                    | ast::BinaryOp::Shl
-                    | ast::BinaryOp::Shr
-                    | ast::BinaryOp::BitOr
-                    | ast::BinaryOp::BitXor
-                    | ast::BinaryOp::BitAnd => binary.lhs.ty(),
-
-                    ast::BinaryOp::Eq
-                    | ast::BinaryOp::Ne
-                    | ast::BinaryOp::Lt
-                    | ast::BinaryOp::Le
-                    | ast::BinaryOp::Gt
-                    | ast::BinaryOp::Ge
-                    | ast::BinaryOp::And
-                    | ast::BinaryOp::Or => sess.tycx.common_types.bool,
-                };
-
-                match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
-                    (Some(lhs), Some(rhs)) => {
-                        let const_value = const_fold::binary(lhs, rhs, binary.op, binary.span)?;
-
-                        Ok(hir::Node::Const(hir::Const {
-                            value: const_value,
-                            ty: result_ty,
-                            span: binary.span,
-                        }))
-                    }
-                    _ => Ok(Res::new(result_ty)),
-                }
-            }
+            ast::Ast::Binary(binary) => binary.check(sess, env, expected_ty),
             ast::Ast::Unary(unary) => unary.check(sess, env, expected_ty),
             ast::Ast::Subscript(sub) => {
                 let uint = sess.tycx.common_types.uint;
@@ -2096,6 +2011,128 @@ impl Check for ast::Ast {
     }
 }
 
+impl Check for ast::Binary {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
+        let mut lhs_node = self.lhs.check(sess, env, None)?;
+        let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
+
+        let expected_ty = match &self.op {
+            ast::BinaryOp::Add
+            | ast::BinaryOp::Sub
+            | ast::BinaryOp::Mul
+            | ast::BinaryOp::Div
+            | ast::BinaryOp::Rem
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::Le
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::Ge
+            | ast::BinaryOp::Shl
+            | ast::BinaryOp::Shr
+            | ast::BinaryOp::BitOr
+            | ast::BinaryOp::BitXor
+            | ast::BinaryOp::BitAnd => sess.tycx.anyint(self.span),
+
+            ast::BinaryOp::Eq | ast::BinaryOp::Ne | ast::BinaryOp::And | ast::BinaryOp::Or => {
+                sess.tycx.common_types.bool
+            }
+        };
+
+        lhs_node
+            .ty()
+            .unify(&expected_ty, &mut sess.tycx)
+            .or_report_err(
+                &sess.tycx,
+                expected_ty,
+                None,
+                lhs_node.ty(),
+                self.lhs.span(),
+            )?;
+
+        rhs_node
+            .ty()
+            .unify(&lhs_node.ty(), &mut sess.tycx)
+            .or_coerce(
+                &mut lhs_node,
+                &mut rhs_node,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            )
+            .or_report_err(
+                &sess.tycx,
+                lhs_node.ty(),
+                None,
+                rhs_node.ty(),
+                self.rhs.span(),
+            )?;
+
+        let ty = match &self.op {
+            ast::BinaryOp::Add
+            | ast::BinaryOp::Sub
+            | ast::BinaryOp::Mul
+            | ast::BinaryOp::Div
+            | ast::BinaryOp::Rem
+            | ast::BinaryOp::Shl
+            | ast::BinaryOp::Shr
+            | ast::BinaryOp::BitOr
+            | ast::BinaryOp::BitXor
+            | ast::BinaryOp::BitAnd => self.lhs.ty(),
+
+            ast::BinaryOp::Eq
+            | ast::BinaryOp::Ne
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::Le
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::Ge
+            | ast::BinaryOp::And
+            | ast::BinaryOp::Or => sess.tycx.common_types.bool,
+        };
+
+        let span = self.span;
+
+        match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
+            (Some(lhs), Some(rhs)) => {
+                let const_value = const_fold::binary(lhs, rhs, self.op, self.span)?;
+
+                Ok(hir::Node::Const(hir::Const {
+                    value: const_value,
+                    ty,
+                    span,
+                }))
+            }
+            _ => {
+                let binary = hir::Binary {
+                    lhs: Box::new(lhs_node),
+                    rhs: Box::new(rhs_node),
+                    ty,
+                    span,
+                };
+
+                let builtin = match self.op {
+                    ast::BinaryOp::Add => hir::Builtin::Add(binary),
+                    ast::BinaryOp::Sub => hir::Builtin::Sub(binary),
+                    ast::BinaryOp::Mul => hir::Builtin::Mul(binary),
+                    ast::BinaryOp::Div => hir::Builtin::Div(binary),
+                    ast::BinaryOp::Rem => hir::Builtin::Rem(binary),
+                    ast::BinaryOp::Eq => hir::Builtin::Eq(binary),
+                    ast::BinaryOp::Ne => hir::Builtin::Ne(binary),
+                    ast::BinaryOp::Lt => hir::Builtin::Lt(binary),
+                    ast::BinaryOp::Le => hir::Builtin::Le(binary),
+                    ast::BinaryOp::Gt => hir::Builtin::Gt(binary),
+                    ast::BinaryOp::Ge => hir::Builtin::Ge(binary),
+                    ast::BinaryOp::And => hir::Builtin::And(binary),
+                    ast::BinaryOp::Or => hir::Builtin::Or(binary),
+                    ast::BinaryOp::Shl => hir::Builtin::Shl(binary),
+                    ast::BinaryOp::Shr => hir::Builtin::Shr(binary),
+                    ast::BinaryOp::BitAnd => hir::Builtin::BitAnd(binary),
+                    ast::BinaryOp::BitOr => hir::Builtin::BitOr(binary),
+                    ast::BinaryOp::BitXor => hir::Builtin::BitXor(binary),
+                };
+
+                Ok(hir::Node::Builtin(builtin))
+            }
+        }
+    }
+}
 impl Check for ast::Unary {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let node = self.value.check(sess, env, None)?;

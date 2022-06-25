@@ -167,20 +167,30 @@ pub enum Builtin {
     Sub(Binary),
     Mul(Binary),
     Div(Binary),
-    Mod(Binary),
+    Rem(Binary),
+
+    Shl(Binary),
+    Shr(Binary),
+
+    And(Binary),
+    Or(Binary),
+
     Lt(Binary),
     Le(Binary),
     Gt(Binary),
     Ge(Binary),
     Eq(Binary),
     Ne(Binary),
-    BitwiseAnd(Binary),
-    BitwiseOr(Binary),
-    BitwiseXor(Binary),
+
+    BitAnd(Binary),
+    BitOr(Binary),
+    BitXor(Binary),
+
     Not(Unary),
     Neg(Unary),
     Ref(Unary),
     Deref(Unary),
+
     Offset(Offset),
     Slice(Slice),
     // TODO: Transmute(Transmute),
@@ -257,15 +267,23 @@ macro_rules! builtin_field_dispatch {
                     Self::Mul(x) => x.$field,
                     Self::Div(x) => x.$field,
                     Self::Mod(x) => x.$field,
+                    Self::Shl(x) => x.$field,
+                    Self::Shr(x) => x.$field,
+
+                    Self::And(x) => x.$field,
+                    Self::Or(x) => x.$field,
+
                     Self::Lt(x) => x.$field,
                     Self::Le(x) => x.$field,
                     Self::Gt(x) => x.$field,
                     Self::Ge(x) => x.$field,
                     Self::Eq(x) => x.$field,
                     Self::Ne(x) => x.$field,
-                    Self::BitwiseAnd(x) => x.$field,
-                    Self::BitwiseOr(x) => x.$field,
-                    Self::BitwiseXor(x) => x.$field,
+
+                    Self::BitAnd(x) => x.$field,
+                    Self::BitOr(x) => x.$field,
+                    Self::BitXor(x) => x.$field,
+
                     Self::Not(x) => x.$field,
                     Self::Neg(x) => x.$field,
                     Self::Ref(x) => x.$field,
