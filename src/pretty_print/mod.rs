@@ -125,11 +125,7 @@ impl PrintTree for ast::Binding {
             tycx.ty_kind(self.ty)
         ));
 
-        if let Some(value) = &self.expr {
-            value.print_tree(b, workspace, tycx);
-        } else {
-            b.add_empty_child("[uninit]".to_string());
-        }
+        self.value.print_tree(b, workspace, tycx);
 
         b.end_child();
     }

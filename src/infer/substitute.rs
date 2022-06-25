@@ -123,7 +123,7 @@ impl<'a> Substitute<'a> for ast::TypedAst {
 impl<'a> Substitute<'a> for ast::Binding {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.ty_expr.substitute(sess);
-        self.expr.substitute(sess);
+        self.value.substitute(sess);
     }
 }
 

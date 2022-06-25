@@ -320,9 +320,7 @@ where
 
 impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        self.module_id = env.module_id();
-
-        self.ty = if let Some(ty_expr) = &mut self.ty_expr {
+        let ty = if let Some(ty_expr) = &self.ty_expr {
             let node = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
             sess.extract_const_type(&node)?
         } else {
@@ -331,45 +329,26 @@ impl Check for ast::Binding {
 
         match &self.kind {
             BindingKind::Normal => {
-                let const_value = if let Some(expr) = &mut self.expr {
-                    let node = expr.check(sess, env, Some(self.ty))?;
+                let mut value_node = self.value.check(sess, env, Some(ty))?;
 
-                    node.ty()
-                        .unify(&self.ty, &mut sess.tycx)
-                        .or_coerce_into_ty(
-                            expr,
-                            self.ty,
-                            &mut sess.tycx,
-                            sess.target_metrics.word_size,
-                        )
-                        .or_report_err(
-                            &sess.tycx,
-                            self.ty,
-                            self.ty_expr.as_ref().map(|e| e.span()),
-                            node.ty(),
-                            expr.span(),
-                        )?;
+                value_node
+                    .ty()
+                    .unify(&ty, &mut sess.tycx)
+                    .or_coerce_into_ty(
+                        &mut value_node,
+                        ty,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(
+                        &sess.tycx,
+                        ty,
+                        self.ty_expr.as_ref().map(|e| e.span()),
+                        value_node.ty(),
+                        self.value.span(),
+                    )?;
 
-                    node.const_value
-                } else {
-                    match &self.pattern {
-                        Pattern::StructUnpack(pat)
-                        | Pattern::TupleUnpack(pat)
-                        | Pattern::Hybrid(HybridPattern {
-                            unpack: UnpackPatternKind::Struct(pat) | UnpackPatternKind::Tuple(pat),
-                            ..
-                        }) => {
-                            return Err(Diagnostic::error()
-                                .with_message("unpack pattern requires a value to unpack")
-                                .with_label(Label::primary(pat.span, "illegal pattern use")));
-                        }
-                        Pattern::Symbol(_) => (),
-                    }
-
-                    None
-                };
-
-                let ty_kind = self.ty.normalize(&sess.tycx);
+                let ty_kind = ty.normalize(&sess.tycx);
 
                 let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
                 let is_any_pattern_mut = self.pattern.iter().any(|p| p.is_mutable);
@@ -380,7 +359,6 @@ impl Check for ast::Binding {
                 if env.scope_level().is_global()
                     && !is_type_or_module
                     && !is_any_pattern_mut
-                    && const_value.is_none()
                     && !matches!(
                         self.kind,
                         BindingKind::Extern(_) | BindingKind::Intrinsic(_)
@@ -389,9 +367,10 @@ impl Check for ast::Binding {
                     return Err(Diagnostic::error()
                         .with_message(format!("immutable top level binding must be constant"))
                         .with_label(Label::primary(self.pattern.span(), "must be constant"))
-                        .maybe_with_label(self.expr.as_ref().map(|expr| {
-                            Label::secondary(expr.span(), "doesn't resolve to a constant value")
-                        })));
+                        .with_label(Label::secondary(
+                            value_node.span(),
+                            "doesn't resolve to a constant value",
+                        )));
                 }
 
                 // Bindings of type `type` and `module` cannot be assigned to mutable bindings
@@ -416,13 +395,9 @@ impl Check for ast::Binding {
                     &mut self.pattern,
                     self.visibility,
                     self.ty,
-                    const_value.clone(),
+                    value_node.as_const_value().cloned(),
                     &self.kind,
-                    self.expr
-                        .as_ref()
-                        .map(|e| e.span())
-                        .or_else(|| self.ty_expr.as_ref().map(|e| e.span()))
-                        .unwrap_or(self.span),
+                    value_node.span(),
                 )?;
 
                 // If this binding matches the entry point function's requirements,
@@ -431,7 +406,7 @@ impl Check for ast::Binding {
                 // - Is declared in the root module
                 // - It is in global scope
                 // - Its name is the same as the required `entry_point_function_name`
-                if let Some(ConstValue::Function(_)) = &const_value {
+                if let Some(ConstValue::Function(_)) = value_node.as_const_value() {
                     if let Pattern::Symbol(pattern) = &mut self.pattern {
                         if sess.workspace.build_options.need_entry_point_function()
                             && self.module_id == sess.workspace.root_module_id
@@ -454,38 +429,46 @@ impl Check for ast::Binding {
                     }
                 }
 
-                Ok(Res::new_maybe_const(self.ty, const_value))
+                Ok(hir::Node::Binding(hir::Binding {
+                    ty,
+                    span: self.span,
+                    module_id: env.module_id(),
+                    id: todo!(),
+                    name: todo!(),
+                    value: Box::new(value_node),
+                }))
             }
             BindingKind::Intrinsic(intrinsic) => {
                 let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
-                let id = sess.typed_ast.functions.insert_with_id(ast::Function {
-                    id: FunctionId::unknown(),
-                    module_id: env.module_id(),
-                    kind: ast::FunctionKind::Intrinsic(*intrinsic),
-                    ty: self.ty,
-                    span: self.span,
-                });
+                todo!()
+                // let id = sess.typed_ast.functions.insert_with_id(ast::Function {
+                //     id: FunctionId::unknown(),
+                //     module_id: env.module_id(),
+                //     kind: ast::FunctionKind::Intrinsic(*intrinsic),
+                //     ty,
+                //     span: self.span,
+                // });
 
-                let const_value = ConstValue::Function(ConstFunction { id, name });
+                // let const_value = ConstValue::Function(ConstFunction { id, name });
 
-                sess.bind_symbol_pattern(
-                    env,
-                    pattern,
-                    self.visibility,
-                    self.ty,
-                    Some(const_value.clone()),
-                    &self.kind,
-                )?;
+                // sess.bind_symbol_pattern(
+                //     env,
+                //     pattern,
+                //     self.visibility,
+                //     ty,
+                //     Some(const_value.clone()),
+                //     &self.kind,
+                // )?;
 
-                self.expr = Some(Box::new(ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty: self.ty,
-                    span: pattern.span,
-                })));
+                // self.value = Some(Box::new(ast::Ast::Const(ast::Const {
+                //     value: const_value.clone(),
+                //     ty: self.ty,
+                //     span: pattern.span,
+                // })));
 
-                Ok(Res::new(self.ty))
+                // Ok(Res::new(ty))
             }
             BindingKind::Extern(lib) => {
                 if let Some(lib) = lib {
@@ -496,35 +479,37 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_symbol_mut();
                 let name = pattern.symbol;
 
-                let id = sess.typed_ast.functions.insert_with_id(ast::Function {
-                    id: FunctionId::unknown(),
-                    module_id: env.module_id(),
-                    kind: ast::FunctionKind::Extern {
-                        name,
-                        lib: lib.clone(),
-                    },
-                    ty: self.ty,
-                    span: self.span,
-                });
+                todo!()
 
-                let const_value = ConstValue::Function(ConstFunction { id, name });
+                // let id = sess.typed_ast.functions.insert_with_id(ast::Function {
+                //     id: FunctionId::unknown(),
+                //     module_id: env.module_id(),
+                //     kind: ast::FunctionKind::Extern {
+                //         name,
+                //         lib: lib.clone(),
+                //     },
+                //     tyty,
+                //     span: self.span,
+                // });
 
-                sess.bind_symbol_pattern(
-                    env,
-                    pattern,
-                    self.visibility,
-                    self.ty,
-                    Some(const_value.clone()),
-                    &self.kind,
-                )?;
+                // let const_value = ConstValue::Function(ConstFunction { id, name });
 
-                self.expr = Some(Box::new(ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty: self.ty,
-                    span: pattern.span,
-                })));
+                // sess.bind_symbol_pattern(
+                //     env,
+                //     pattern,
+                //     self.visibility,
+                //     ty,
+                //     Some(const_value.clone()),
+                //     &self.kind,
+                // )?;
 
-                Ok(Res::new_const(self.ty, const_value))
+                // self.value = Some(Box::new(ast::Ast::Const(ast::Const {
+                //     value: const_value.clone(),
+                //     ty: self.ty,
+                //     span: pattern.span,
+                // })));
+
+                // Ok(Res::new_const(ty, const_value))
             }
         }
     }
@@ -937,50 +922,12 @@ impl Check for ast::Ast {
             ast::Ast::Continue(term) if sess.loop_depth == 0 => {
                 Err(SyntaxError::outside_of_loop(term.span, "continue"))
             }
-            ast::Ast::Break(_) | ast::Ast::Continue(_) => {
-                Ok(Res::new(sess.tycx.common_types.never))
-            }
-            ast::Ast::Return(ret) => {
-                let function_frame = sess
-                    .function_frame()
-                    .ok_or(SyntaxError::outside_of_function(ret.span, "return"))?;
-
-                if let Some(expr) = &mut ret.expr {
-                    let expected = function_frame.return_ty;
-                    let node = expr.check(sess, env, Some(expected))?;
-
-                    node.ty
-                        .unify(&expected, &mut sess.tycx)
-                        .or_coerce_into_ty(
-                            expr,
-                            expected,
-                            &mut sess.tycx,
-                            sess.target_metrics.word_size,
-                        )
-                        .or_report_err(
-                            &sess.tycx,
-                            expected,
-                            Some(function_frame.return_ty_span),
-                            node.ty,
-                            expr.span(),
-                        )?;
-                } else {
-                    let expected = sess.tycx.common_types.unit;
-
-                    function_frame
-                        .return_ty
-                        .unify(&expected, &mut sess.tycx)
-                        .or_report_err(
-                            &sess.tycx,
-                            expected,
-                            None,
-                            function_frame.return_ty,
-                            ret.span,
-                        )?;
-                }
-
-                Ok(Res::new(sess.tycx.common_types.never))
-            }
+            ast::Ast::Break(term) | ast::Ast::Continue(term) => Ok(hir::Node::Const(hir::Const {
+                value: ConstValue::Unit(()),
+                ty: sess.tycx.common_types.never,
+                span: term.span,
+            })),
+            ast::Ast::Return(return_) => return_.check(sess, env, expected_ty),
             ast::Ast::If(if_) => if_.check(sess, env, expected_ty),
             ast::Ast::Block(block) => block.check(sess, env, expected_ty),
             ast::Ast::Binary(binary) => binary.check(sess, env, expected_ty),
@@ -1930,6 +1877,61 @@ impl Check for ast::Ast {
     }
 }
 
+impl Check for ast::Return {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+        let function_frame = sess
+            .function_frame()
+            .ok_or(SyntaxError::outside_of_function(self.span, "return"))?;
+
+        let value = if let Some(expr) = &self.expr {
+            let expected = function_frame.return_ty;
+            let mut node = expr.check(sess, env, Some(expected))?;
+
+            node.ty()
+                .unify(&expected, &mut sess.tycx)
+                .or_coerce_into_ty(
+                    &mut node,
+                    expected,
+                    &mut sess.tycx,
+                    sess.target_metrics.word_size,
+                )
+                .or_report_err(
+                    &sess.tycx,
+                    expected,
+                    Some(function_frame.return_ty_span),
+                    node.ty(),
+                    expr.span(),
+                )?;
+
+            node
+        } else {
+            let unit_type = sess.tycx.common_types.unit;
+
+            function_frame
+                .return_ty
+                .unify(&unit_type, &mut sess.tycx)
+                .or_report_err(
+                    &sess.tycx,
+                    unit_type,
+                    None,
+                    function_frame.return_ty,
+                    self.span,
+                )?;
+
+            hir::Node::Const(hir::Const {
+                value: ConstValue::Unit(()),
+                ty: unit_type,
+                span: self.span,
+            })
+        };
+
+        Ok(hir::Node::Control(hir::Control::Return(hir::Return {
+            value: Box::new(value),
+            ty: sess.tycx.common_types.never,
+            span: self.span,
+        })))
+    }
+}
 impl Check for ast::If {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let unit_type = sess.tycx.common_types.unit;

@@ -162,7 +162,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             };
 
-            let value = if let Some(expr) = &binding.expr {
+            let value = if let Some(expr) = &binding.value {
                 let old_module_info = state.module_info;
                 state.module_info = *self.workspace.module_infos.get(binding.module_id).unwrap();
 
@@ -176,7 +176,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             };
 
             let is_const = binding
-                .expr
+                .value
                 .as_ref()
                 .map_or(false, |expr| matches!(expr.as_ref(), ast::Ast::Const(..)));
 

@@ -58,7 +58,7 @@ impl<'a> CollectHints<'a> for ast::Binding {
             }
         }
 
-        self.expr.collect_hints(sess);
+        self.value.collect_hints(sess);
     }
 }
 

@@ -25,26 +25,9 @@ impl Parser {
             None
         };
 
-        if require_value {
-            require!(self, Eq, "=")?;
-        } else if !eat!(self, Eq) {
-            if ty_expr.is_some() {
-                return Ok(Binding {
-                    module_id: Default::default(),
-                    visibility,
-                    kind: BindingKind::Normal,
-                    pattern,
-                    ty: TypeId::unknown(),
-                    ty_expr,
-                    expr: None,
-                    span: start_span.to(self.previous_span()),
-                });
-            } else {
-                return Err(SyntaxError::expected(self.previous_span(), ":"));
-            }
-        }
+        require!(self, Eq, "=")?;
 
-        let expr = match &pattern {
+        let value = match &pattern {
             Pattern::Symbol(pattern) => self.parse_decl_expr(pattern.symbol)?,
             _ => self.parse_expr()?,
         };
@@ -56,7 +39,7 @@ impl Parser {
             pattern,
             ty: TypeId::unknown(),
             ty_expr,
-            expr: Some(Box::new(expr)),
+            value: Box::new(value),
             span: start_span.to(self.previous_span()),
         })
     }
@@ -93,22 +76,26 @@ impl Parser {
             ignore: false,
         });
 
-        require!(self, Colon, ":")?;
+        if eat!(self, Colon) {
+            todo!("parse extern variables")
+        } else if eat!(self, Eq) {
+            self.extern_lib = Some(lib.clone());
+            let value = self.parse_decl_expr(pattern.as_symbol_ref().symbol)?;
+            self.extern_lib = None;
 
-        self.extern_lib = Some(lib.clone());
-        let ty_expr = self.parse_expr()?;
-        self.extern_lib = None;
-
-        Ok(ast::Binding {
-            module_id: ModuleId::unknown(),
-            visibility,
-            kind: ast::BindingKind::Extern(lib),
-            pattern,
-            ty: TypeId::unknown(),
-            ty_expr: Some(Box::new(ty_expr)),
-            expr: None,
-            span: start_span.to(self.previous_span()),
-        })
+            Ok(ast::Binding {
+                module_id: ModuleId::unknown(),
+                visibility,
+                kind: ast::BindingKind::Extern(lib),
+                pattern,
+                ty: TypeId::unknown(),
+                ty_expr: None,
+                value: Box::new(value),
+                span: start_span.to(self.previous_span()),
+            })
+        } else {
+            Err(SyntaxError::expected(self.previous_span(), ": or ="))
+        }
     }
 
     pub fn parse_builtin_binding(
@@ -145,7 +132,7 @@ impl Parser {
             pattern,
             ty: TypeId::unknown(),
             ty_expr: Some(Box::new(ty_expr)),
-            expr: None,
+            value: None,
             span: start_span.to(self.previous_span()),
         })
     }

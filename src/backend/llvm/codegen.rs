@@ -165,7 +165,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
-            if let Some(expr) = binding.expr.as_ref() {
+            if let Some(expr) = binding.value.as_ref() {
                 if let ast::Ast::Const(ast::Const {
                     value: ConstValue::Function(function),
                     ..
@@ -625,13 +625,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             state,
                             &binding.pattern,
                             &binding.ty.normalize(self.tycx),
-                            &binding.expr,
+                            &binding.value,
                         );
                     }
                     ast::BindingKind::Extern(_) | ast::BindingKind::Intrinsic(_) => {
                         let pattern = binding.pattern.as_symbol_ref();
 
-                        let decl = if let Some(expr) = &binding.expr {
+                        let decl = if let Some(expr) = &binding.value {
                             if let ast::Ast::Const(ast::Const {
                                 value: ConstValue::Function(function),
                                 ..

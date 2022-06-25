@@ -137,7 +137,7 @@ node_struct!(Sequence, { statements: Vec<Node> });
 
 node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
-node_struct!(Return, { condition: Box<Node>, value: Box<Node> });
+node_struct!(Return, { value: Box<Node> });
 
 node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(Unary, { value: Box<Node> });

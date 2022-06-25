@@ -103,7 +103,7 @@ impl Lint for ast::Module {
 
 impl Lint for ast::Binding {
     fn lint(&self, sess: &mut LintSess) {
-        let init_state = if self.expr.is_some()
+        let init_state = if self.value.is_some()
             || matches!(
                 self.kind,
                 BindingKind::Extern(_) | BindingKind::Intrinsic(_)
@@ -117,9 +117,9 @@ impl Lint for ast::Binding {
             sess.init_scopes.insert(symbol.id, init_state);
         }
 
-        self.expr.lint(sess);
+        self.value.lint(sess);
 
-        if let Some(expr) = &self.expr {
+        if let Some(expr) = &self.value {
             let is_a_type = expr.ty().normalize(sess.tycx).is_type();
 
             // * don't allow types to be bounded to mutable bindings

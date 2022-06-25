@@ -293,7 +293,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
             code.push(Instruction::SetLocal(code.last_local()));
         }
         ast::BindingKind::Normal => {
-            if let Some(expr) = &binding.expr {
+            if let Some(expr) = &binding.value {
                 expr.lower(sess, code, LowerContext { take_ptr: false });
             }
 
@@ -301,7 +301,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                 Pattern::Symbol(pattern) => {
                     sess.add_local(code, pattern.id);
 
-                    if binding.expr.is_some() {
+                    if binding.value.is_some() {
                         code.push(Instruction::SetLocal(code.last_local()));
                     }
                 }
@@ -321,7 +321,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                     if !pattern.symbol.ignore {
                         sess.add_local(code, pattern.symbol.id);
 
-                        if binding.expr.is_some() {
+                        if binding.value.is_some() {
                             code.push(Instruction::Copy(0));
                             code.push(Instruction::SetLocal(code.last_local()));
                         }
@@ -1269,11 +1269,11 @@ fn lower_top_level_binding(
         ast::BindingKind::Normal => {
             let mut code = CompiledCode::new();
 
-            binding
-                .expr
-                .as_ref()
-                .unwrap()
-                .lower(sess, &mut code, LowerContext { take_ptr: false });
+            binding.value.as_ref().unwrap().lower(
+                sess,
+                &mut code,
+                LowerContext { take_ptr: false },
+            );
 
             sess.env_stack.pop();
 

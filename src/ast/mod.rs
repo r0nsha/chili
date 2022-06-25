@@ -638,7 +638,7 @@ pub struct Binding {
     pub kind: BindingKind,
     pub pattern: Pattern,
     pub ty_expr: Option<Box<Ast>>,
-    pub expr: Option<Box<Ast>>,
+    pub value: Box<Ast>,
     pub ty: TypeId,
     pub span: Span,
 }
