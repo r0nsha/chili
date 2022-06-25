@@ -36,18 +36,8 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
             workspace.root_module_id = module.module_id;
         }
 
-        // let mut defined_symbols = UstrMap::<Span>::default();
-
         module.bindings.iter_mut().for_each(|binding| {
             binding.module_id = module.module_id;
-            // for pat in binding.pattern.iter() {
-            //     check_duplicate_global_symbol(
-            //         workspace,
-            //         &mut defined_symbols,
-            //         pat.symbol,
-            //         pat.span,
-            //     );
-            // }
         });
     }
 
@@ -114,20 +104,3 @@ fn generate_ast_inner(
         },
     )
 }
-
-// fn check_duplicate_global_symbol(
-//     workspace: &mut Workspace,
-//     defined_symbols: &mut UstrMap<Span>,
-//     symbol: Ustr,
-//     span: Span,
-// ) {
-//     if let Some(already_defined_span) = defined_symbols.get(&symbol) {
-//         workspace.diagnostics.push(SyntaxError::duplicate_symbol(
-//             *already_defined_span,
-//             span,
-//             symbol,
-//         ));
-//     } else {
-//         defined_symbols.insert(symbol, span);
-//     }
-// }

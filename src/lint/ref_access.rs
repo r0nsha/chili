@@ -33,14 +33,14 @@ impl<'s> LintSess<'s> {
                     Diagnostic::error()
                         .with_message(format!(
                             "cannot reference `{}` as mutable, as it is not declared as mutable",
-                            binding_info.symbol
+                            binding_info.name
                         ))
                         .with_label(Label::primary(span, "cannot reference immutable variable"))
                         .with_label(Label::secondary(
                             binding_info.span,
                             format!(
                                 "consider changing this to be mutable: `mut {}`",
-                                binding_info.symbol
+                                binding_info.name
                             ),
                         ))
                 }
@@ -86,7 +86,7 @@ impl<'s> LintSess<'s> {
                             let ty = struct_ty
                                 .fields
                                 .iter()
-                                .find(|f| f.symbol == access.member)
+                                .find(|f| f.name == access.member)
                                 .map(|f| f.ty.normalize(self.tycx))
                                 .unwrap();
 
@@ -169,12 +169,12 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn find_binding_info_in_module(&self, module_id: ModuleId, symbol: Ustr) -> &BindingInfo {
+    fn find_binding_info_in_module(&self, module_id: ModuleId, name: Ustr) -> &BindingInfo {
         self.workspace
             .binding_infos
             .iter()
             .map(|(_, b)| b)
-            .find(|b| b.module_id == module_id && b.symbol == symbol)
+            .find(|b| b.module_id == module_id && b.name == name)
             .unwrap()
     }
 }

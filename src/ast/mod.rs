@@ -339,7 +339,7 @@ pub struct StructTypeField {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructLiteralField {
-    pub symbol: Ustr,
+    pub name: Ustr,
     pub expr: Ast,
     pub span: Span,
 }
@@ -362,7 +362,7 @@ pub struct MemberAccess {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ident {
-    pub symbol: Ustr,
+    pub name: Ustr,
     pub binding_id: BindingId,
     pub ty: TypeId,
     pub span: Span,

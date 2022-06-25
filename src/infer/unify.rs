@@ -109,7 +109,7 @@ impl UnifyTy<Type> for Type {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for f1 in t1.fields.iter() {
-                        if let Some(f2) = t2.find_field(f1.symbol) {
+                        if let Some(f2) = t2.find_field(f1.name) {
                             f1.ty.unify(&f2.ty, tycx)?;
                         } else {
                             return Err(UnifyTyErr::Mismatch);

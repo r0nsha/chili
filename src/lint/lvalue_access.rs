@@ -30,14 +30,14 @@ impl<'s> LintSess<'s> {
                         Diagnostic::error()
                             .with_message(format!(
                                 "cannot assignment to `{}`, as it is not declared as mutable",
-                                binding_info.symbol
+                                binding_info.name
                             ))
                             .with_label(Label::primary(span, "cannot assignment"))
                             .with_label(Label::secondary(
                                 binding_info.span,
                                 format!(
                                     "consider making this binding mutable: `mut {}`",
-                                    binding_info.symbol
+                                    binding_info.name
                                 ),
                             ))
                     }

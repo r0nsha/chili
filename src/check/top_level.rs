@@ -58,14 +58,14 @@ pub struct CallerInfo {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_top_level_symbol(
+    pub fn check_top_level_binding(
         &mut self,
         caller_info: CallerInfo,
         module_id: ModuleId,
-        symbol: Ustr,
+        name: Ustr,
     ) -> DiagnosticResult<BindingId> {
         // check if the binding has already been checked
-        if let Some(id) = self.get_global_symbol(module_id, symbol) {
+        if let Some(id) = self.get_global_binding_id(module_id, name) {
             // this binding has already been checked, so just return its data
 
             self.workspace.add_binding_info_use(id, caller_info.span);
@@ -85,17 +85,13 @@ impl<'s> CheckSess<'s> {
             if let Some(binding) = module
                 .bindings
                 .iter()
-                .find(|binding| binding.pattern.iter().any(|pat| pat.symbol == symbol))
+                .find(|binding| binding.pattern.iter().any(|pat| pat.name == name))
             {
                 // this symbol points to a binding
                 let mut binding = binding.clone();
                 binding.check_top_level(self)?;
 
-                let desired_pattern = binding
-                    .pattern
-                    .iter()
-                    .find(|pat| pat.symbol == symbol)
-                    .unwrap();
+                let desired_pattern = binding.pattern.iter().find(|pat| pat.name == name).unwrap();
 
                 let desired_binding_info = self
                     .workspace
@@ -109,7 +105,7 @@ impl<'s> CheckSess<'s> {
                 self.validate_can_access_item(desired_binding_info, caller_info)?;
 
                 Ok(desired_binding_info.id)
-            } else if let Some(&builtin_id) = self.builtin_types.get(&symbol) {
+            } else if let Some(&builtin_id) = self.builtin_types.get(&name) {
                 self.workspace
                     .add_binding_info_use(builtin_id, caller_info.span);
 
@@ -119,11 +115,11 @@ impl<'s> CheckSess<'s> {
                 let module_info = self.workspace.module_infos.get(module_id).unwrap();
 
                 let message = if module_info.name.is_empty() {
-                    format!("cannot find value `{}` in this scope", symbol)
+                    format!("cannot find value `{}` in this scope", name)
                 } else {
                     format!(
                         "cannot find value `{}` in module `{}`",
-                        symbol, module_info.name
+                        name, module_info.name
                     )
                 };
 
@@ -151,7 +147,7 @@ impl<'s> CheckSess<'s> {
             Err(Diagnostic::error()
                 .with_message(format!(
                     "associated symbol `{}` is private",
-                    binding_info.symbol
+                    binding_info.name
                 ))
                 .with_label(Label::primary(caller_info.span, "accessed here"))
                 .with_label(Label::secondary(binding_info.span, "defined here")))
@@ -175,10 +171,10 @@ impl<'s> CheckSess<'s> {
             for binding in module.bindings.iter() {
                 // 6/6/2022: a binding's pattern has a count of 0 only when a single wildcard symbol is used
                 if binding.pattern.iter().count() == 0
-                    || binding
-                        .pattern
-                        .iter()
-                        .all(|pattern| self.get_global_symbol(module_id, pattern.symbol).is_none())
+                    || binding.pattern.iter().all(|pattern| {
+                        self.get_global_binding_id(module_id, pattern.name)
+                            .is_none()
+                    })
                 {
                     binding.clone().check_top_level(self)?;
                 }

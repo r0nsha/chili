@@ -149,7 +149,7 @@ impl Lower for ast::Ast {
                         code.push(Instruction::ConstIndex(0));
                     }
                     Type::Module(module_id) => {
-                        let id = sess.find_symbol(*module_id, access.member);
+                        let id = sess.find_binding(*module_id, access.member);
                         let slot = find_and_lower_top_level_binding(id, sess);
                         code.push(Instruction::GetGlobal(slot as u32));
                     }
@@ -159,7 +159,7 @@ impl Lower for ast::Ast {
             ast::Ast::Ident(ident) => {
                 let id = ident.binding_id;
 
-                assert!(id != BindingId::unknown(), "{}", ident.symbol);
+                assert!(id != BindingId::unknown(), "{}", ident.name);
 
                 match ident.ty.normalize(sess.tycx) {
                     // Note (Ron): We do nothing with modules, since they are not an actual value
@@ -236,8 +236,8 @@ impl Lower for ast::Ast {
                 let mut ordered_fields = lit.fields.clone();
 
                 ordered_fields.sort_by(|f1, f2| {
-                    let index_1 = ty.find_field_position(f1.symbol).unwrap();
-                    let index_2 = ty.find_field_position(f2.symbol).unwrap();
+                    let index_1 = ty.find_field_position(f1.name).unwrap();
+                    let index_2 = ty.find_field_position(f2.name).unwrap();
                     index_1.cmp(&index_2)
                 });
 
@@ -281,7 +281,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
             code.push(Instruction::SetLocal(code.last_local()));
         }
         ast::BindingKind::Intrinsic(intrinsic) => {
-            let pattern = binding.pattern.as_symbol_ref();
+            let pattern = binding.pattern.as_name_ref();
 
             let intrinsic_func = match intrinsic {
                 Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
@@ -298,7 +298,7 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
             }
 
             match &binding.pattern {
-                Pattern::Symbol(pattern) => {
+                Pattern::Name(pattern) => {
                     sess.add_local(code, pattern.id);
 
                     if binding.value.is_some() {
@@ -318,8 +318,8 @@ fn lower_local_binding(binding: &ast::Binding, sess: &mut InterpSess, code: &mut
                 }
                 Pattern::TupleUnpack(pattern) => lower_local_tuple_unpack(pattern, sess, code),
                 Pattern::Hybrid(pattern) => {
-                    if !pattern.symbol.ignore {
-                        sess.add_local(code, pattern.symbol.id);
+                    if !pattern.name.ignore {
+                        sess.add_local(code, pattern.name.id);
 
                         if binding.value.is_some() {
                             code.push(Instruction::Copy(0));
@@ -397,7 +397,7 @@ fn lower_local_struct_unpack(
             code.push(Instruction::Copy(0));
         }
 
-        let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+        let field_index = struct_ty.find_field_position(pattern.name).unwrap();
 
         code.push(Instruction::ConstIndex(field_index as u32));
         sess.add_local(code, pattern.id);
@@ -528,7 +528,7 @@ impl Lower for ast::Function {
 
                 for param in sig.params.iter() {
                     match &param.pattern {
-                        Pattern::Symbol(pattern) => {
+                        Pattern::Name(pattern) => {
                             if !pattern.ignore {
                                 sess.env_mut().insert(pattern.id, param_offset);
                             }
@@ -542,7 +542,7 @@ impl Lower for ast::Function {
                                     continue;
                                 }
 
-                                let field_index = ty.find_field_position(pattern.symbol).unwrap();
+                                let field_index = ty.find_field_position(pattern.name).unwrap();
                                 // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
                                 func_code.push(Instruction::Peek(param_offset as i32));
                                 func_code.push(Instruction::ConstIndex(field_index as u32));
@@ -563,8 +563,8 @@ impl Lower for ast::Function {
                             }
                         }
                         Pattern::Hybrid(pattern) => {
-                            if !pattern.symbol.ignore {
-                                sess.env_mut().insert(pattern.symbol.id, param_offset);
+                            if !pattern.name.ignore {
+                                sess.env_mut().insert(pattern.name.id, param_offset);
                             }
 
                             match &pattern.unpack {
@@ -578,7 +578,7 @@ impl Lower for ast::Function {
                                         }
 
                                         let field_index =
-                                            ty.find_field_position(pattern.symbol).unwrap();
+                                            ty.find_field_position(pattern.name).unwrap();
                                         // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
                                         func_code.push(Instruction::Peek(param_offset as i32));
                                         func_code.push(Instruction::ConstIndex(field_index as u32));
@@ -1216,7 +1216,7 @@ fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usi
 }
 
 fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (BindingId, Value) {
-    let pattern = binding.pattern.as_symbol_ref();
+    let pattern = binding.pattern.as_name_ref();
     let binding_info = sess.workspace.binding_infos.get(pattern.id).unwrap();
     let ty = binding_info.ty.normalize(sess.tycx);
 
@@ -1227,8 +1227,7 @@ fn lower_extern_function(sess: &mut InterpSess, binding: &ast::Binding) -> (Bind
             ast::FunctionKind::Extern { name, .. } => {
                 let function_type = ty.as_fn();
 
-                let extern_function =
-                    function_type_to_extern_function(pattern.symbol, function_type);
+                let extern_function = function_type_to_extern_function(pattern.name, function_type);
 
                 if !sess.interp.extern_functions.contains_key(&function.id) {
                     sess.interp
@@ -1263,7 +1262,7 @@ fn lower_top_level_binding(
             sess.insert_global(id, value)
         }
         ast::BindingKind::Intrinsic(intrinsic) => {
-            let pattern = binding.pattern.as_symbol_ref();
+            let pattern = binding.pattern.as_name_ref();
             sess.insert_global(pattern.id, Value::Intrinsic((*intrinsic).into()))
         }
         ast::BindingKind::Normal => {
@@ -1280,7 +1279,7 @@ fn lower_top_level_binding(
             let mut desired_slot = usize::MAX;
 
             match &binding.pattern {
-                Pattern::Symbol(pattern) => {
+                Pattern::Name(pattern) => {
                     let slot = sess.insert_global(pattern.id, Value::unit());
                     code.push(Instruction::SetGlobal(slot as u32));
 
@@ -1318,12 +1317,12 @@ fn lower_top_level_binding(
                     sess,
                 ),
                 Pattern::Hybrid(pattern) => {
-                    if !pattern.symbol.ignore {
-                        let slot = sess.insert_global(pattern.symbol.id, Value::unit());
+                    if !pattern.name.ignore {
+                        let slot = sess.insert_global(pattern.name.id, Value::unit());
                         code.push(Instruction::Copy(0));
                         code.push(Instruction::SetGlobal(slot as u32));
 
-                        if pattern.symbol.id == desired_id {
+                        if pattern.name.id == desired_id {
                             desired_slot = slot;
                         }
                     }
@@ -1431,7 +1430,7 @@ fn lower_top_level_binding_struct_unpack(
             code.push(Instruction::Copy(0));
         }
 
-        let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+        let field_index = struct_ty.find_field_position(pattern.name).unwrap();
 
         code.push(Instruction::ConstIndex(field_index as u32));
         let slot = sess.insert_global(pattern.id, Value::unit());

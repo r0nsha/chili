@@ -152,7 +152,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let ty = binding.ty.llvm_type(self);
 
             let global_value = match &binding.pattern {
-                Pattern::Symbol(pat) | Pattern::Hybrid(HybridPattern { symbol: pat, .. }) => {
+                Pattern::Name(pat) | Pattern::Hybrid(HybridPattern { name: pat, .. }) => {
                     self.global_decls.get(&pat.id).unwrap().into_global_value()
                 }
                 Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
@@ -187,7 +187,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             let global_ptr = global_value.as_pointer_value();
 
             match &binding.pattern {
-                Pattern::Symbol(_) => {
+                Pattern::Name(_) => {
                     if !is_const {
                         self.build_store(global_ptr, value);
                     }
@@ -243,7 +243,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 .get(&pattern.id)
                 .map(|d| d.into_pointer_value())
             {
-                let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+                let field_index = struct_ty.find_field_position(pattern.name).unwrap();
 
                 let field_value =
                     self.gen_struct_access(global_ptr.into(), field_index as u32, struct_llvm_type);

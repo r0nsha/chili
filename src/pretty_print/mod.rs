@@ -356,7 +356,7 @@ impl PrintTree for ast::Ast {
                 b.end_child();
             }
             ast::Ast::Ident(ident) => {
-                b.add_empty_child(format!("`{}` <{}>", ident.symbol, tycx.ty_kind(ident.ty)));
+                b.add_empty_child(format!("`{}` <{}>", ident.name, tycx.ty_kind(ident.ty)));
             }
             ast::Ast::ArrayLiteral(lit) => {
                 b.begin_child(format!("array literal <{}>", tycx.ty_kind(lit.ty)));
@@ -386,7 +386,7 @@ impl PrintTree for ast::Ast {
                 b.begin_child(format!("struct literal <{}>", tycx.ty_kind(lit.ty)));
                 lit.type_expr.print_tree(b, workspace, tycx);
                 for f in &lit.fields {
-                    b.begin_child(f.symbol.to_string());
+                    b.begin_child(f.name.to_string());
                     f.expr.print_tree(b, workspace, tycx);
                     b.end_child();
                 }

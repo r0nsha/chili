@@ -139,18 +139,18 @@ pub struct StructType {
 
 impl StructType {
     pub fn find_field(&self, field: Ustr) -> Option<&StructTypeField> {
-        self.fields.iter().find(|f| f.symbol == field)
+        self.fields.iter().find(|f| f.name == field)
     }
 
     pub fn find_field_position(&self, field: Ustr) -> Option<usize> {
-        self.fields.iter().position(|f| f.symbol == field)
+        self.fields.iter().position(|f| f.name == field)
     }
 
     pub fn find_field_full(&self, field: Ustr) -> Option<(usize, &StructTypeField)> {
         self.fields
             .iter()
             .enumerate()
-            .find(|(_, f)| f.symbol == field)
+            .find(|(_, f)| f.name == field)
     }
 }
 
@@ -179,7 +179,7 @@ impl PartialStructType {
             fields: self
                 .iter()
                 .map(|(&symbol, ty)| StructTypeField {
-                    symbol,
+                    name: symbol,
                     ty: ty.clone(),
                     span: Span::unknown(),
                 })
@@ -242,7 +242,7 @@ impl StructType {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StructTypeField {
-    pub symbol: Ustr,
+    pub name: Ustr,
     pub ty: Type,
     pub span: Span,
 }
@@ -250,7 +250,7 @@ pub struct StructTypeField {
 impl StructTypeField {
     pub fn temp(ty: Type) -> Self {
         Self {
-            symbol: ustr(""),
+            name: ustr(""),
             ty,
             span: Span::unknown(),
         }

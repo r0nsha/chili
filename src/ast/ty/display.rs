@@ -82,7 +82,7 @@ impl Display for StructType {
                 },
                 self.fields
                     .iter()
-                    .map(|f| format!("{}: {}", f.symbol, f.ty))
+                    .map(|f| format!("{}: {}", f.name, f.ty))
                     .collect::<Vec<String>>()
                     .join(", ")
             )

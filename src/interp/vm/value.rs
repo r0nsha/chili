@@ -538,7 +538,7 @@ impl Value {
                             .clone()
                             .try_into_const_value(tycx, &field.ty, eval_span)?;
                         fields.insert(
-                            field.symbol,
+                            field.name,
                             ConstElement {
                                 value,
                                 ty: tycx.bound(field.ty.clone(), field.span),

@@ -87,7 +87,7 @@ impl SyntaxError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn duplicate_symbol(
+    pub fn duplicate_binding(
         already_defined_span: Span,
         duplicate_span: Span,
         name: Ustr,
@@ -102,8 +102,8 @@ impl SyntaxError {
     }
 
     pub fn duplicate_struct_field(
-        defined_symbol_span: Span,
-        symbol_span: Span,
+        defined_field_span: Span,
+        field_span: Span,
         field_name: String,
     ) -> Diagnostic {
         Diagnostic::error()
@@ -111,9 +111,9 @@ impl SyntaxError {
                 "struct field `{}` is defined more than once",
                 field_name
             ))
-            .with_label(Label::primary(symbol_span, "field defined more than once"))
+            .with_label(Label::primary(field_span, "field defined more than once"))
             .with_label(Label::secondary(
-                defined_symbol_span,
+                defined_field_span,
                 format!("previous definition of `{}` here", field_name),
             ))
     }

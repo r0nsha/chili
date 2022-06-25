@@ -218,17 +218,17 @@ impl<'i> InterpSess<'i> {
         &mut self.env_stack.last_mut().unwrap().1
     }
 
-    pub fn find_symbol(&self, module_id: ModuleId, symbol: Ustr) -> BindingId {
+    pub fn find_binding(&self, module_id: ModuleId, name: Ustr) -> BindingId {
         self.workspace
             .binding_infos
             .iter()
-            .position(|(_, info)| info.module_id == module_id && info.symbol == symbol)
+            .position(|(_, info)| info.module_id == module_id && info.name == name)
             .map(BindingId::from)
             .unwrap_or_else(|| {
                 panic!(
                     "couldn't find member `{}` in module `{}`",
                     self.workspace.module_infos.get(module_id).unwrap().name,
-                    symbol
+                    name
                 )
             })
     }

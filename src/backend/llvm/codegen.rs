@@ -6,7 +6,7 @@ use super::{
 use crate::ast::{
     self,
     const_value::ConstValue,
-    pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
+    pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo},
 };
 use crate::ast::{ty::*, workspace::Workspace};
@@ -246,7 +246,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         linkage: Linkage,
     ) -> GlobalValue<'ctx> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
-        let global_value = self.module.add_global(ty, None, &binding_info.symbol);
+        let global_value = self.module.add_global(ty, None, &binding_info.name);
         global_value.set_linkage(linkage);
         global_value
     }
@@ -254,10 +254,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn find_binding_info_by_name(
         &mut self,
         module_name: impl Into<Ustr>,
-        symbol: impl Into<Ustr>,
+        name: impl Into<Ustr>,
     ) -> &BindingInfo {
         let module_name: Ustr = module_name.into();
-        let symbol: Ustr = symbol.into();
+        let name: Ustr = name.into();
 
         let module_id = self
             .workspace
@@ -271,16 +271,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .binding_infos
             .iter()
             .map(|(_, b)| b)
-            .find(|b| b.module_id == module_id && b.symbol == symbol)
-            .unwrap_or_else(|| panic!("couldn't find {} in {}", symbol, module_name))
+            .find(|b| b.module_id == module_id && b.name == name)
+            .unwrap_or_else(|| panic!("couldn't find {} in {}", name, module_name))
     }
 
     pub fn find_decl_by_name(
         &mut self,
         module_name: impl Into<Ustr>,
-        symbol: impl Into<Ustr>,
+        name: impl Into<Ustr>,
     ) -> CodegenDecl<'ctx> {
-        let id = self.find_binding_info_by_name(module_name, symbol).id;
+        let id = self.find_binding_info_by_name(module_name, name).id;
         self.gen_top_level_binding(id)
     }
 
@@ -296,7 +296,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         }
 
         match pattern {
-            Pattern::Symbol(SymbolPattern { id: binding_id, .. }) => {
+            Pattern::Name(NamePattern { id: binding_id, .. }) => {
                 self.gen_local_and_store_expr(state, *binding_id, &expr, ty);
             }
             Pattern::StructUnpack(pattern) => match ty.maybe_deref_once() {
@@ -318,19 +318,18 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             Pattern::Hybrid(pattern) => match &pattern.unpack {
                 UnpackPatternKind::Struct(unpack) => match ty.maybe_deref_once() {
                     Type::Module(_) => {
-                        self.gen_local_and_store_expr(state, pattern.symbol.id, &expr, ty);
+                        self.gen_local_and_store_expr(state, pattern.name.id, &expr, ty);
                         self.gen_binding_module_unpack_pattern(state, unpack);
                     }
                     Type::Struct(struct_ty) => {
-                        let ptr =
-                            self.gen_local_and_store_expr(state, pattern.symbol.id, &expr, ty);
+                        let ptr = self.gen_local_and_store_expr(state, pattern.name.id, &expr, ty);
 
                         self.gen_binding_struct_unpack_pattern(state, unpack, ty, &struct_ty, ptr);
                     }
                     ty => panic!("unexpected type: {}", ty),
                 },
                 UnpackPatternKind::Tuple(unpack) => {
-                    let ptr = self.gen_local_and_store_expr(state, pattern.symbol.id, &expr, ty);
+                    let ptr = self.gen_local_and_store_expr(state, pattern.name.id, &expr, ty);
                     self.gen_binding_tuple_unpack_pattern(state, unpack, ty, ptr);
                 }
             },
@@ -376,7 +375,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 continue;
             }
 
-            let field_index = struct_ty.find_field_position(pattern.symbol).unwrap();
+            let field_index = struct_ty.find_field_position(pattern.name).unwrap();
 
             let value = self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
 
@@ -428,7 +427,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         value: BasicValueEnum<'ctx>,
     ) {
         match pattern {
-            Pattern::Symbol(symbol) => {
+            Pattern::Name(symbol) => {
                 self.gen_local_with_alloca(state, symbol.id, value);
             }
             Pattern::StructUnpack(pattern) => {
@@ -438,7 +437,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.gen_binding_tuple_unpack_pattern_with_value(state, pattern, ty, value);
             }
             Pattern::Hybrid(pattern) => {
-                let ptr = self.gen_local_with_alloca(state, pattern.symbol.id, value);
+                let ptr = self.gen_local_with_alloca(state, pattern.name.id, value);
 
                 match &pattern.unpack {
                     UnpackPatternKind::Struct(unpack) => {
@@ -468,9 +467,9 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let struct_ty = ty.maybe_deref_once().into_struct();
 
         for i in 0..pattern.symbols.len() {
-            let SymbolPattern {
+            let NamePattern {
                 id: binding_id,
-                symbol,
+                name: symbol,
                 ignore,
                 ..
             } = pattern.symbols[i];
@@ -503,7 +502,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         value: BasicValueEnum<'ctx>,
     ) {
         for i in 0..pattern.symbols.len() {
-            let SymbolPattern {
+            let NamePattern {
                 id: binding_id,
                 ignore,
                 ..
@@ -588,7 +587,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .workspace
             .binding_infos
             .get(id)
-            .map_or(ustr(""), |b| b.symbol);
+            .map_or(ustr(""), |b| b.name);
 
         ptr.set_name(&name);
 
@@ -629,7 +628,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                         );
                     }
                     ast::BindingKind::Extern(_) | ast::BindingKind::Intrinsic(_) => {
-                        let pattern = binding.pattern.as_symbol_ref();
+                        let pattern = binding.pattern.as_name_ref();
 
                         let decl = if let Some(expr) = &binding.value {
                             if let ast::Ast::Const(ast::Const {
@@ -1020,7 +1019,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             let field = struct_ty
                                 .fields
                                 .iter()
-                                .find(|f| f.symbol == access.member)
+                                .find(|f| f.name == access.member)
                                 .unwrap();
 
                             let field_ty = field.ty.llvm_type(self);
@@ -1069,7 +1068,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                             .binding_infos
                             .iter()
                             .position(|(_, info)| {
-                                info.module_id == module_id && info.symbol == access.member
+                                info.module_id == module_id && info.name == access.member
                             })
                             .map(BindingId::from)
                             .unwrap_or_else(|| {

@@ -1,17 +1,15 @@
 use super::*;
-use crate::ast::pattern::{
-    HybridPattern, Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind,
-};
+use crate::ast::pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind};
 use crate::error::SyntaxError;
 use crate::span::To;
 
 impl Parser {
     pub fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
         if is!(self, Mut | Ident(_) | Placeholder) {
-            let pattern = self.parse_symbol_pattern().map(Pattern::Symbol)?;
+            let pattern = self.parse_name_pattern().map(Pattern::Name)?;
 
             if eat!(self, At) {
-                let pattern = pattern.into_symbol();
+                let pattern = pattern.into_name();
                 let start_span = pattern.span;
 
                 let unpack_pattern = match self.parse_unpack_pattern("an unpack pattern")? {
@@ -21,7 +19,7 @@ impl Parser {
                 };
 
                 Ok(Pattern::Hybrid(HybridPattern {
-                    symbol: pattern,
+                    name: pattern,
                     unpack: unpack_pattern,
                     span: start_span.to(self.previous_span()),
                 }))
@@ -62,7 +60,7 @@ impl Parser {
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
-                let mut symbol = self.parse_symbol_pattern()?;
+                let mut symbol = self.parse_name_pattern()?;
 
                 // This means the user used `_`, instead of `x: _` - which is illegal
                 if symbol.ignore {
@@ -107,7 +105,7 @@ impl Parser {
             self,
             CloseParen,
             Comma,
-            self.parse_symbol_pattern()?,
+            self.parse_name_pattern()?,
             ", or )"
         );
 
@@ -120,20 +118,20 @@ impl Parser {
         Ok(Pattern::TupleUnpack(unpack))
     }
 
-    pub fn parse_symbol_pattern(&mut self) -> DiagnosticResult<SymbolPattern> {
+    pub fn parse_name_pattern(&mut self) -> DiagnosticResult<NamePattern> {
         let is_mutable = eat!(self, Mut);
 
         let (symbol, ignore) = if eat!(self, Ident(_)) {
             (self.previous().symbol(), false)
         } else if eat!(self, Placeholder) {
-            (ustr(""), true)
+            (ustr(Placeholder.lexeme()), true)
         } else {
             return Err(SyntaxError::expected(self.span(), "an identifier or _"));
         };
 
-        Ok(SymbolPattern {
+        Ok(NamePattern {
             id: Default::default(),
-            symbol,
+            name: symbol,
             alias: None,
             is_mutable,
             span: self.previous_span(),

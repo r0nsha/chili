@@ -6,7 +6,7 @@ use super::{
 use crate::{
     ast::{
         self,
-        pattern::{Pattern, SymbolPattern, UnpackPattern, UnpackPatternKind},
+        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
         ty::{InferTy, PartialStructType, Type, TypeId},
         workspace::{BindingId, ModuleId, PartialBindingInfo},
     },
@@ -14,7 +14,7 @@ use crate::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult, SyntaxError,
     },
-    hir::const_value::ConstValue,
+    hir::{self, const_value::ConstValue},
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
 };
@@ -22,61 +22,65 @@ use indexmap::IndexMap;
 use ustr::Ustr;
 
 impl<'s> CheckSess<'s> {
-    pub fn get_global_symbol(&self, module_id: ModuleId, symbol: Ustr) -> Option<BindingId> {
+    pub fn get_global_binding_id(&self, module_id: ModuleId, name: Ustr) -> Option<BindingId> {
         self.global_scopes
             .get(&module_id)
-            .and_then(|module| module.symbols.get(&symbol).cloned())
+            .and_then(|module| module.bindings.get(&name).cloned())
     }
 
-    pub fn insert_global_symbol(&mut self, module_id: ModuleId, symbol: Ustr, id: BindingId) {
+    pub fn insert_global_binding_id(&mut self, module_id: ModuleId, name: Ustr, id: BindingId) {
         self.global_scopes
             .entry(module_id)
             .or_insert(Scope::new(
                 self.workspace.module_infos.get(module_id).unwrap().name,
                 ScopeKind::Global,
             ))
-            .symbols
-            .insert(symbol, id);
+            .bindings
+            .insert(name, id);
     }
 
-    pub fn get_symbol(&self, env: &Env, symbol: Ustr) -> Option<BindingId> {
-        env.find_symbol(symbol)
-            .or_else(|| self.get_global_symbol(env.module_id(), symbol))
+    pub fn get_binding_id(&self, env: &Env, name: Ustr) -> Option<BindingId> {
+        env.find_binding(name)
+            .or_else(|| self.get_global_binding_id(env.module_id(), name))
     }
 
-    pub fn bind_symbol(
+    pub fn bind_name(
         &mut self,
         env: &mut Env,
-        symbol: Ustr,
+        name: Ustr,
         visibility: ast::Visibility,
         ty: TypeId,
-        const_value: Option<ConstValue>,
+        value: hir::Node,
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
-    ) -> DiagnosticResult<BindingId> {
+    ) -> DiagnosticResult<hir::Binding> {
         let module_id = env.module_id();
         let scope_level = env.scope_level();
         let is_global = scope_level.is_global();
 
         if is_global {
             // check if there's already a binding with this symbol
-            if let Some(id) = self.get_global_symbol(module_id, symbol) {
+            if let Some(id) = self.get_global_binding_id(module_id, name) {
                 let already_defined = self.workspace.binding_infos.get(id).unwrap();
-                return Err(SyntaxError::duplicate_symbol(
+                return Err(SyntaxError::duplicate_binding(
                     already_defined.span,
                     span,
-                    already_defined.symbol,
+                    already_defined.name,
                 ));
             }
         }
 
         let partial_binding_info = PartialBindingInfo {
             module_id,
-            symbol,
+            name,
             visibility,
             ty,
-            const_value,
+            const_value: if is_mutable {
+                None
+            } else {
+                value.as_const_value().cloned()
+            },
             is_mutable,
             kind,
             scope_level,
@@ -91,42 +95,54 @@ impl<'s> CheckSess<'s> {
 
         if is_global {
             // insert the symbol into its module's global scope
-            self.insert_global_symbol(module_id, symbol, id);
+            self.insert_global_binding_id(module_id, name, id);
         } else {
             // insert the symbol into local scope
-            env.insert_symbol(symbol, id);
+            env.insert_binding(name, id);
         }
 
-        Ok(id)
+        Ok(hir::Binding {
+            module_id,
+            id,
+            name,
+            value: Box::new(value),
+            ty: self.tycx.common_types.unit,
+            span,
+        })
     }
 
-    pub fn bind_symbol_pattern(
+    pub fn bind_name_pattern(
         &mut self,
         env: &mut Env,
-        pattern: &mut SymbolPattern,
+        pattern: &mut NamePattern,
         visibility: ast::Visibility,
         ty: TypeId,
-        const_value: Option<ConstValue>,
+        value: hir::Node,
         kind: &ast::BindingKind,
-    ) -> DiagnosticResult<()> {
-        if !pattern.ignore {
-            pattern.id = self.bind_symbol(
-                env,
-                pattern.alias.unwrap_or(pattern.symbol),
-                visibility,
-                ty,
-                if pattern.is_mutable {
-                    None
-                } else {
-                    const_value
-                },
-                pattern.is_mutable,
-                kind.clone(),
-                pattern.span,
-            )?;
-        }
+    ) -> DiagnosticResult<hir::Node> {
+        let id = self.bind_name(
+            env,
+            pattern.alias.unwrap_or(pattern.name),
+            visibility,
+            ty,
+            value,
+            pattern.is_mutable,
+            kind.clone(),
+            pattern.span,
+        )?;
 
-        Ok(())
+        Ok(hir::Node::Binding(hir::Binding {
+            module_id: env.module_id(),
+            id,
+            name: pattern.name,
+            value: Box::new(hir::Node::Const(hir::Const {
+                value: ConstValue::Uint(0),
+                ty: index_type,
+                span: index_binding.span,
+            })),
+            ty: unit_type,
+            span: index_binding.span,
+        }))
     }
 
     pub fn bind_pattern(
@@ -138,10 +154,10 @@ impl<'s> CheckSess<'s> {
         const_value: Option<ConstValue>,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
-    ) -> DiagnosticResult<()> {
+    ) -> DiagnosticResult<hir::Node> {
         match pattern {
-            Pattern::Symbol(pattern) => {
-                self.bind_symbol_pattern(env, pattern, visibility, ty, const_value, kind)
+            Pattern::Name(pattern) => {
+                self.bind_name_pattern(env, pattern, visibility, ty, const_value, kind)
             }
             Pattern::StructUnpack(pattern) => self.bind_struct_unpack_pattern(
                 env,
@@ -162,9 +178,9 @@ impl<'s> CheckSess<'s> {
                 ty_origin_span,
             ),
             Pattern::Hybrid(pattern) => {
-                self.bind_symbol_pattern(
+                self.bind_name_pattern(
                     env,
-                    &mut pattern.symbol,
+                    &mut pattern.name,
                     visibility,
                     ty,
                     const_value.clone(),
@@ -214,13 +230,13 @@ impl<'s> CheckSess<'s> {
                         continue;
                     }
 
-                    let top_level_symbol_id = self.check_top_level_symbol(
+                    let top_level_name_id = self.check_top_level_binding(
                         CallerInfo {
                             module_id: env.module_id(),
                             span: pattern.span,
                         },
                         module_id,
-                        pattern.symbol,
+                        pattern.name,
                     )?;
 
                     // Note (Ron 19/06/2022):
@@ -229,22 +245,18 @@ impl<'s> CheckSess<'s> {
                     // the original symbol that started the check cycle is bound twice - causing a false `duplicate symbol error`
                     if env.scope_level().is_global()
                         && self
-                            .get_global_symbol(env.module_id(), pattern.symbol)
+                            .get_global_binding_id(env.module_id(), pattern.name)
                             .is_some()
                     {
                         continue;
                     }
 
                     self.workspace
-                        .add_binding_info_use(top_level_symbol_id, pattern.span);
+                        .add_binding_info_use(top_level_name_id, pattern.span);
 
-                    let binding_info = self
-                        .workspace
-                        .binding_infos
-                        .get(top_level_symbol_id)
-                        .unwrap();
+                    let binding_info = self.workspace.binding_infos.get(top_level_name_id).unwrap();
 
-                    self.bind_symbol_pattern(
+                    self.bind_name_pattern(
                         env,
                         pattern,
                         visibility,
@@ -254,7 +266,7 @@ impl<'s> CheckSess<'s> {
                     )?;
 
                     self.workspace
-                        .set_binding_info_redirect(pattern.id, top_level_symbol_id);
+                        .set_binding_info_redirect(pattern.id, top_level_name_id);
                 }
 
                 if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
@@ -272,7 +284,8 @@ impl<'s> CheckSess<'s> {
                         let binding_pattern = match binding.pattern.iter().next() {
                             Some(pattern) => {
                                 // check if the binding has already been checked
-                                if let Some(id) = self.get_global_symbol(module_id, pattern.symbol)
+                                if let Some(id) =
+                                    self.get_global_binding_id(module_id, pattern.name)
                                 {
                                     self.typed_ast.get_binding(id).unwrap().pattern.clone()
                                 } else {
@@ -292,16 +305,16 @@ impl<'s> CheckSess<'s> {
                             let binding_info =
                                 self.workspace.binding_infos.get(pattern.id).unwrap();
 
-                            let mut new_pattern = SymbolPattern {
+                            let mut new_pattern = NamePattern {
                                 id: BindingId::unknown(),
-                                symbol: pattern.symbol,
+                                name: pattern.name,
                                 alias: None,
                                 span: wildcard_symbol,
                                 is_mutable: false,
                                 ignore: false,
                             };
 
-                            self.bind_symbol_pattern(
+                            self.bind_name_pattern(
                                 env,
                                 &mut new_pattern,
                                 visibility,
@@ -325,7 +338,7 @@ impl<'s> CheckSess<'s> {
                     unpack_pattern
                         .symbols
                         .iter()
-                        .map(|symbol| (symbol.symbol, self.tycx.var(symbol.span).as_kind())),
+                        .map(|symbol| (symbol.name, self.tycx.var(symbol.span).as_kind())),
                 ));
 
                 let partial_struct_ty = self
@@ -347,24 +360,17 @@ impl<'s> CheckSess<'s> {
 
                     let ty = self
                         .tycx
-                        .bound(partial_struct[&pattern.symbol].clone(), pattern.span);
+                        .bound(partial_struct[&pattern.name].clone(), pattern.span);
 
                     let field_const_value = if pattern.is_mutable {
                         None
                     } else {
                         const_value
                             .as_ref()
-                            .map(|v| v.as_struct().get(&pattern.symbol).unwrap().clone().value)
+                            .map(|v| v.as_struct().get(&pattern.name).unwrap().clone().value)
                     };
 
-                    self.bind_symbol_pattern(
-                        env,
-                        pattern,
-                        visibility,
-                        ty,
-                        field_const_value,
-                        kind,
-                    )?;
+                    self.bind_name_pattern(env, pattern, visibility, ty, field_const_value, kind)?;
                 }
 
                 if let Some(wildcard_symbol) = unpack_pattern.wildcard_symbol {
@@ -374,20 +380,20 @@ impl<'s> CheckSess<'s> {
                                 if unpack_pattern
                                     .symbols
                                     .iter()
-                                    .find(|p| field.symbol == p.symbol)
+                                    .find(|p| field.name == p.name)
                                     .is_some()
                                 {
                                     // skip explicitly unpacked fields
                                     continue;
                                 }
 
-                                let field_const_value = const_value.as_ref().map(|v| {
-                                    v.as_struct().get(&field.symbol).unwrap().clone().value
-                                });
+                                let field_const_value = const_value
+                                    .as_ref()
+                                    .map(|v| v.as_struct().get(&field.name).unwrap().clone().value);
 
-                                let mut field_pattern = SymbolPattern {
+                                let mut field_pattern = NamePattern {
                                     id: BindingId::unknown(),
-                                    symbol: field.symbol,
+                                    name: field.name,
                                     alias: None,
                                     span: wildcard_symbol,
                                     is_mutable: false,
@@ -396,7 +402,7 @@ impl<'s> CheckSess<'s> {
 
                                 let ty = self.tycx.bound(field.ty.clone(), field.span);
 
-                                self.bind_symbol_pattern(
+                                self.bind_name_pattern(
                                     env,
                                     &mut field_pattern,
                                     visibility,
@@ -479,7 +485,7 @@ impl<'s> CheckSess<'s> {
                     .map(|v| v.as_tuple()[index].clone().value)
             };
 
-            self.bind_symbol_pattern(env, pattern, visibility, ty, element_const_value, kind)?;
+            self.bind_name_pattern(env, pattern, visibility, ty, element_const_value, kind)?;
         }
 
         Ok(())

@@ -56,8 +56,8 @@ pub struct BindingInfo {
     pub id: BindingId,
     // the module where this binding lives
     pub module_id: ModuleId,
-    // the symbol(name) used for the binding
-    pub symbol: Ustr,
+    // the name used for the binding
+    pub name: Ustr,
     pub visibility: Visibility,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
@@ -88,7 +88,7 @@ impl WithId<BindingId> for BindingInfo {
 #[derive(Debug, PartialEq, Clone)]
 pub struct PartialBindingInfo {
     pub module_id: ModuleId,
-    pub symbol: Ustr,
+    pub name: Ustr,
     pub visibility: Visibility,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
@@ -104,7 +104,7 @@ impl PartialBindingInfo {
         BindingInfo {
             id: BindingId::unknown(),
             module_id: self.module_id,
-            symbol: self.symbol,
+            name: self.name,
             visibility: self.visibility,
             ty: self.ty,
             const_value: self.const_value,

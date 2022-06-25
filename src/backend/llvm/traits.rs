@@ -4,7 +4,7 @@ use inkwell::{
 };
 use ustr::Ustr;
 
-use crate::ast::{pattern::SymbolPattern, ty::FunctionTypeKind, FunctionSig};
+use crate::ast::{pattern::NamePattern, ty::FunctionTypeKind, FunctionSig};
 
 pub(super) trait IsALoadInst {
     fn is_a_load_inst(&self) -> bool;
@@ -64,9 +64,9 @@ impl LlvmName for FunctionSig {
     }
 }
 
-impl LlvmName for SymbolPattern {
+impl LlvmName for NamePattern {
     fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        self.symbol.llvm_name(module_name)
+        self.name.llvm_name(module_name)
     }
 }
 

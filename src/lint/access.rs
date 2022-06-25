@@ -16,7 +16,7 @@ impl<'s> LintSess<'s> {
 
                 let msg = format!(
                     "use of possibly uninitialized value `{}`",
-                    binding_info.symbol
+                    binding_info.name
                 );
 
                 self.workspace.diagnostics.push(
@@ -36,7 +36,7 @@ impl<'s> LintSess<'s> {
         if init_state.is_init() && !binding_info.is_mutable {
             let msg = format!(
                 "cannot assignment twice to immutable variable `{}`",
-                binding_info.symbol
+                binding_info.name
             );
             let binding_span = binding_info.span;
 

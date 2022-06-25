@@ -105,7 +105,7 @@ impl Parser {
                     self.parse_expr()?
                 } else {
                     Ast::Ident(ast::Ident {
-                        symbol: id_token.symbol(),
+                        name: id_token.symbol(),
                         binding_id: Default::default(),
                         ty: Default::default(),
                         span: id_token.span,
@@ -115,7 +115,7 @@ impl Parser {
                 let span = expr.span();
 
                 StructLiteralField {
-                    symbol: id_token.symbol(),
+                    name: id_token.symbol(),
                     expr,
                     span: id_token.span.to(span),
                 }

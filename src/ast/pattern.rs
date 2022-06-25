@@ -5,7 +5,7 @@ use ustr::Ustr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
-    Symbol(SymbolPattern),
+    Name(NamePattern),
     StructUnpack(UnpackPattern),
     TupleUnpack(UnpackPattern),
     Hybrid(HybridPattern),
@@ -13,7 +13,7 @@ pub enum Pattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnpackPattern {
-    pub symbols: Vec<SymbolPattern>,
+    pub symbols: Vec<NamePattern>,
     pub span: Span,
     pub wildcard_symbol: Option<Span>,
 }
@@ -34,40 +34,40 @@ impl UnpackPatternKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct HybridPattern {
-    pub symbol: SymbolPattern,
+    pub name: NamePattern,
     pub unpack: UnpackPatternKind,
     pub span: Span,
 }
 
 impl Pattern {
-    pub fn is_symbol(&self) -> bool {
-        matches!(self, Pattern::Symbol(_))
+    pub fn is_name(&self) -> bool {
+        matches!(self, Pattern::Name(_))
     }
 
-    pub fn as_symbol_ref(&self) -> &SymbolPattern {
+    pub fn as_name_ref(&self) -> &NamePattern {
         match self {
-            Pattern::Symbol(s) => s,
+            Pattern::Name(s) => s,
             _ => panic!("expected Symbol, got {}", self),
         }
     }
 
-    pub fn as_symbol_mut(&mut self) -> &mut SymbolPattern {
+    pub fn as_name_mut(&mut self) -> &mut NamePattern {
         match self {
-            Pattern::Symbol(s) => s,
+            Pattern::Name(s) => s,
             _ => panic!("expected Symbol, got {}", self),
         }
     }
 
-    pub fn into_symbol(self) -> SymbolPattern {
+    pub fn into_name(self) -> NamePattern {
         match self {
-            Pattern::Symbol(s) => s,
+            Pattern::Name(s) => s,
             _ => panic!("expected Symbol, got {}", self),
         }
     }
 
     pub fn span(&self) -> Span {
         match self {
-            Pattern::Symbol(p) => p.span,
+            Pattern::Name(p) => p.span,
             Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.span,
             Pattern::Hybrid(p) => p.span,
         }
@@ -91,17 +91,17 @@ pub struct PatternIter<'a> {
 }
 
 impl<'a> Iterator for PatternIter<'a> {
-    type Item = &'a SymbolPattern;
+    type Item = &'a NamePattern;
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = match &self.pattern {
-            Pattern::Symbol(pat) => match self.pos {
+            Pattern::Name(pat) => match self.pos {
                 0 => Some(pat),
                 _ => None,
             },
             Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => pat.symbols.get(self.pos),
             Pattern::Hybrid(pat) => match self.pos {
-                0 => Some(&pat.symbol),
+                0 => Some(&pat.name),
                 _ => pat.unpack.as_inner().symbols.get(self.pos - 1),
             },
         };
@@ -118,12 +118,12 @@ impl Display for Pattern {
             f,
             "{}",
             match self {
-                Pattern::Symbol(pat) => pat.to_string(),
+                Pattern::Name(pat) => pat.to_string(),
                 Pattern::StructUnpack(pat) => format!("{{ {} }}", pat),
                 Pattern::TupleUnpack(pat) => format!("({})", pat),
                 Pattern::Hybrid(pat) => format!(
                     "{} @ {}",
-                    pat.symbol,
+                    pat.name,
                     match &pat.unpack {
                         UnpackPatternKind::Struct(pat) => format!("{{ {} }}", pat),
                         UnpackPatternKind::Tuple(pat) => format!("({})", pat),
@@ -156,22 +156,22 @@ impl Display for UnpackPattern {
 // }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct SymbolPattern {
+pub struct NamePattern {
     pub id: BindingId,
-    pub symbol: Ustr,
+    pub name: Ustr,
     pub alias: Option<Ustr>,
     pub span: Span,
     pub is_mutable: bool,
     pub ignore: bool,
 }
 
-impl Display for SymbolPattern {
+impl Display for NamePattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}{}",
             if self.is_mutable { "mut " } else { "" },
-            self.symbol
+            self.name
         )
     }
 }

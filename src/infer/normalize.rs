@@ -83,7 +83,7 @@ impl NormalizeCtx {
                         fields: st
                             .iter()
                             .map(|(name, ty)| StructTypeField {
-                                symbol: *name,
+                                name: *name,
                                 ty: self.normalize_kind(tycx, ty),
                                 span: Span::unknown(),
                             })
@@ -149,7 +149,7 @@ impl NormalizeCtx {
                             .fields
                             .iter()
                             .map(|f| StructTypeField {
-                                symbol: f.symbol,
+                                name: f.name,
                                 ty: self.normalize_kind(tycx, &f.ty),
                                 span: f.span,
                             })
@@ -193,7 +193,7 @@ impl NormalizeCtx {
                         fields: st
                             .iter()
                             .map(|(name, ty)| StructTypeField {
-                                symbol: *name,
+                                name: *name,
                                 ty: self.normalize_kind(tycx, ty),
                                 span: Span::unknown(),
                             })

@@ -79,17 +79,17 @@ impl Env {
         self.scope_level = self.scope_level.previous();
     }
 
-    pub fn insert_symbol(&mut self, symbol: Ustr, id: BindingId) {
-        self.scope_mut().insert_symbol(symbol, id);
+    pub fn insert_binding(&mut self, name: Ustr, id: BindingId) {
+        self.scope_mut().insert_binding(name, id);
     }
 
-    pub fn insert_function(&mut self, symbol: Ustr, id: hir::FunctionId) {
-        self.scope_mut().insert_function(symbol, id);
+    pub fn insert_function(&mut self, name: Ustr, id: hir::FunctionId) {
+        self.scope_mut().insert_function(name, id);
     }
 
-    pub fn find_symbol(&self, symbol: Ustr) -> Option<BindingId> {
+    pub fn find_binding(&self, name: Ustr) -> Option<BindingId> {
         for scope in self.scopes.iter().rev() {
-            if let Some(id) = scope.symbols.get(&symbol) {
+            if let Some(id) = scope.bindings.get(&name) {
                 return Some(*id);
             }
         }
@@ -97,9 +97,9 @@ impl Env {
         None
     }
 
-    pub fn find_function(&self, symbol: Ustr) -> Option<hir::FunctionId> {
+    pub fn find_function(&self, name: Ustr) -> Option<hir::FunctionId> {
         for scope in self.scopes.iter().rev() {
-            if let Some(id) = scope.functions.get(&symbol) {
+            if let Some(id) = scope.functions.get(&name) {
                 return Some(*id);
             }
         }
@@ -112,7 +112,7 @@ impl Env {
 pub struct Scope {
     pub kind: ScopeKind,
     pub name: String,
-    pub symbols: UstrMap<BindingId>,
+    pub bindings: UstrMap<BindingId>,
     pub functions: UstrMap<hir::FunctionId>,
 }
 
@@ -121,17 +121,17 @@ impl Scope {
         Self {
             kind,
             name: name.to_string(),
-            symbols: UstrMap::default(),
+            bindings: UstrMap::default(),
             functions: UstrMap::default(),
         }
     }
 
-    pub fn insert_symbol(&mut self, symbol: Ustr, id: BindingId) {
-        self.symbols.insert(symbol, id);
+    pub fn insert_binding(&mut self, name: Ustr, id: BindingId) {
+        self.bindings.insert(name, id);
     }
 
-    pub fn insert_function(&mut self, symbol: Ustr, id: hir::FunctionId) {
-        self.functions.insert(symbol, id);
+    pub fn insert_function(&mut self, name: Ustr, id: hir::FunctionId) {
+        self.functions.insert(name, id);
     }
 }
 

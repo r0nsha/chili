@@ -113,7 +113,7 @@ impl Lint for ast::Binding {
         // * don't allow types to be bounded to mutable bindings
         if is_a_type {
             match &self.pattern {
-                Pattern::Symbol(symbol) | Pattern::Hybrid(HybridPattern { symbol, .. }) => {
+                Pattern::Name(symbol) | Pattern::Hybrid(HybridPattern { name: symbol, .. }) => {
                     if symbol.is_mutable {
                         sess.workspace.diagnostics.push(
                             Diagnostic::error()

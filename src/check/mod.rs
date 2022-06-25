@@ -27,7 +27,7 @@ use crate::{
 use crate::{
     ast::{
         self,
-        pattern::{HybridPattern, Pattern, SymbolPattern, UnpackPatternKind},
+        pattern::{HybridPattern, NamePattern, Pattern, UnpackPatternKind},
         ty::{
             FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
             StructType, StructTypeField, StructTypeKind, Type, TypeId,
@@ -253,12 +253,12 @@ impl<'s> CheckSess<'s> {
     }
 
     fn add_builtin_types(&mut self) {
-        let mk = |sess: &mut CheckSess, symbol: &str, ty: TypeId| {
-            let symbol = ustr(symbol);
+        let mk = |sess: &mut CheckSess, name: &str, ty: TypeId| {
+            let symbol = ustr(name);
 
             let partial_binding_info = PartialBindingInfo {
                 module_id: Default::default(),
-                symbol,
+                name: symbol,
                 visibility: ast::Visibility::Public,
                 ty: sess
                     .tycx
@@ -433,11 +433,11 @@ impl Check for ast::Binding {
                 // - It is in global scope
                 // - Its name is the same as the required `entry_point_function_name`
                 if let Some(ConstValue::Function(_)) = value_node.as_const_value() {
-                    if let Pattern::Symbol(pattern) = &mut self.pattern {
+                    if let Pattern::Name(pattern) = &mut self.pattern {
                         if sess.workspace.build_options.need_entry_point_function()
                             && self.module_id == sess.workspace.root_module_id
                             && env.scope_level().is_global()
-                            && pattern.symbol
+                            && pattern.name
                                 == sess
                                     .workspace
                                     .build_options
@@ -465,8 +465,8 @@ impl Check for ast::Binding {
                 }))
             }
             BindingKind::Intrinsic(intrinsic) => {
-                let pattern = self.pattern.as_symbol_mut();
-                let name = pattern.symbol;
+                let pattern = self.pattern.as_name_mut();
+                let name = pattern.name;
 
                 todo!()
                 // let id = sess.typed_ast.functions.insert_with_id(ast::Function {
@@ -479,7 +479,7 @@ impl Check for ast::Binding {
 
                 // let const_value = ConstValue::Function(ConstFunction { id, name });
 
-                // sess.bind_symbol_pattern(
+                // sess.bind_name_pattern(
                 //     env,
                 //     pattern,
                 //     self.visibility,
@@ -502,8 +502,8 @@ impl Check for ast::Binding {
                     sess.workspace.extern_libraries.insert(lib.clone());
                 }
 
-                let pattern = self.pattern.as_symbol_mut();
-                let name = pattern.symbol;
+                let pattern = self.pattern.as_name_mut();
+                let name = pattern.name;
 
                 todo!()
 
@@ -520,7 +520,7 @@ impl Check for ast::Binding {
 
                 // let const_value = ConstValue::Function(ConstFunction { id, name });
 
-                // sess.bind_symbol_pattern(
+                // sess.bind_name_pattern(
                 //     env,
                 //     pattern,
                 //     self.visibility,
@@ -554,12 +554,12 @@ impl Check for ast::FunctionSig {
 
                 for pattern in param.pattern.iter() {
                     if let Some(already_defined_span) =
-                        defined_params.insert(pattern.symbol, pattern.span)
+                        defined_params.insert(pattern.name, pattern.span)
                     {
-                        return Err(SyntaxError::duplicate_symbol(
+                        return Err(SyntaxError::duplicate_binding(
                             already_defined_span,
                             pattern.span,
-                            pattern.symbol,
+                            pattern.name,
                         ));
                     }
                 }
@@ -576,9 +576,9 @@ impl Check for ast::FunctionSig {
                             let symbol = ustr("it");
 
                             self.params.push(ast::FunctionParam {
-                                pattern: Pattern::Symbol(SymbolPattern {
+                                pattern: Pattern::Name(NamePattern {
                                     id: Default::default(),
-                                    symbol,
+                                    name: symbol,
                                     alias: None,
                                     span: Span::unknown(),
                                     is_mutable: false,
@@ -1041,7 +1041,7 @@ impl Check for ast::Ast {
 
                             if let Some(ConstValue::Struct(const_fields)) = node.as_const_value() {
                                 hir::Node::Const(hir::Const {
-                                    value: const_fields[&field.symbol].value.clone(),
+                                    value: const_fields[&field.name].value.clone(),
                                     ty,
                                     span: access.span,
                                 })
@@ -1139,7 +1139,7 @@ impl Check for ast::Ast {
                         })
                     }
                     Type::Module(module_id) => {
-                        let id = sess.check_top_level_symbol(
+                        let id = sess.check_top_level_binding(
                             CallerInfo {
                                 module_id: env.module_id(),
                                 span: access.span,
@@ -1172,7 +1172,7 @@ impl Check for ast::Ast {
                 }
             }
             ast::Ast::Ident(ident) => {
-                if let Some(id) = env.find_function(ident.symbol) {
+                if let Some(id) = env.find_function(ident.name) {
                     let function = sess.cache.functions.get(id).unwrap();
 
                     Ok(hir::Node::Const(hir::Const {
@@ -1184,7 +1184,7 @@ impl Check for ast::Ast {
                         span: ident.span,
                     }))
                 } else {
-                    match sess.get_symbol(env, ident.symbol) {
+                    match sess.get_binding_id(env, ident.name) {
                         Some(id) => {
                             // this is a local binding
                             ident.binding_id = id;
@@ -1227,13 +1227,13 @@ impl Check for ast::Ast {
                         }
                         None => {
                             // this is either a top level binding, a builtin binding, or it doesn't exist
-                            let id = sess.check_top_level_symbol(
+                            let id = sess.check_top_level_binding(
                                 CallerInfo {
                                     module_id: env.module_id(),
                                     span: ident.span,
                                 },
                                 env.module_id(),
-                                ident.symbol,
+                                ident.name,
                             )?;
 
                             Ok(sess.id_or_const(id, ident.span))
@@ -1592,16 +1592,22 @@ impl Check for ast::Ast {
 
                 env.push_scope(ScopeKind::Block);
 
-                st.binding_id = sess.bind_symbol(
-                    env,
-                    st.name,
-                    ast::Visibility::Private,
-                    struct_ty_type_var,
-                    Some(ConstValue::Type(struct_ty_var)),
-                    false,
-                    ast::BindingKind::Normal,
-                    st.span,
-                )?;
+                st.binding_id = sess
+                    .bind_name(
+                        env,
+                        st.name,
+                        ast::Visibility::Private,
+                        struct_ty_type_var,
+                        hir::Node::Const(hir::Const {
+                            value: ConstValue::Type(struct_ty_var),
+                            ty: sess.tycx.common_types.anytype,
+                            span: st.span,
+                        }),
+                        false,
+                        ast::BindingKind::Normal,
+                        st.span,
+                    )?
+                    .id;
 
                 let mut field_map = UstrMap::<Span>::default();
                 let mut struct_ty_fields = vec![];
@@ -1621,7 +1627,7 @@ impl Check for ast::Ast {
                     }
 
                     struct_ty_fields.push(StructTypeField {
-                        symbol: field.name,
+                        name: field.name,
                         ty: ty.into(),
                         span: field.span,
                     });
@@ -1803,50 +1809,40 @@ impl Check for ast::For {
                     span: self.span,
                 });
 
-                let index_id = sess.bind_symbol(
+                let index_binding = sess.bind_name(
                     env,
                     index_binding.name,
                     ast::Visibility::Private,
                     index_type,
-                    None,
+                    hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(0),
+                        ty: index_type,
+                        span: index_binding.span,
+                    }),
                     false,
                     ast::BindingKind::Normal,
                     index_binding.span,
                 )?;
 
-                statements.push(hir::Node::Binding(hir::Binding {
-                    module_id: env.module_id(),
-                    id: index_id,
-                    name: index_binding.name,
-                    value: Box::new(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(0),
-                        ty: index_type,
-                        span: index_binding.span,
-                    })),
-                    ty: unit_type,
-                    span: index_binding.span,
-                }));
+                let index_id = index_binding.id;
+
+                statements.push(hir::Node::Binding(index_binding));
 
                 // let mut iter = start
-                let iter_id = sess.bind_symbol(
+                let iter_binding = sess.bind_name(
                     env,
                     self.iter_binding.name,
                     ast::Visibility::Private,
                     start_node.ty(),
-                    None,
+                    start_node,
                     false,
                     ast::BindingKind::Normal,
                     self.iter_binding.span,
                 )?;
 
-                statements.push(hir::Node::Binding(hir::Binding {
-                    module_id: env.module_id(),
-                    id: iter_id,
-                    name: self.iter_binding.name,
-                    value: Box::new(start_node),
-                    ty: unit_type,
-                    span: self.iter_binding.span,
-                }));
+                let iter_id = iter_binding.id;
+
+                statements.push(hir::Node::Binding(iter_binding));
 
                 let index_id_node = hir::Node::Id(hir::Id {
                     id: index_id,
@@ -1953,6 +1949,29 @@ impl Check for ast::For {
 
                         let statements: Vec<hir::Node> = vec![];
 
+                        // bind the value to a local variable, so we don't have to evaluate the expression every loop
+                        let value_name = sess.generate_name("iterator");
+                        let value_binding = sess.bind_name(
+                            env,
+                            value_name,
+                            ast::Visibility::Private,
+                            value_node.ty(),
+                            value_node,
+                            false,
+                            ast::BindingKind::Normal,
+                            value_node.span(),
+                        )?;
+
+                        let value_id = value_binding.id;
+
+                        statements.push(hir::Node::Binding(value_binding));
+
+                        let value_id_node = hir::Node::Id(hir::Id {
+                            id: value_id,
+                            ty: value_node.ty(),
+                            span: value_node.span(),
+                        });
+
                         // let mut index = 0
                         let index_binding =
                             self.index_binding.unwrap_or_else(|| ast::NameAndSpan {
@@ -1960,55 +1979,28 @@ impl Check for ast::For {
                                 span: self.span,
                             });
 
-                        let index_id = sess.bind_symbol(
+                        let index_binding = sess.bind_name(
                             env,
                             index_binding.name,
                             ast::Visibility::Private,
                             index_type,
-                            None,
+                            hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(0),
+                                ty: index_type,
+                                span: index_binding.span,
+                            }),
                             false,
                             ast::BindingKind::Normal,
                             index_binding.span,
                         )?;
 
-                        statements.push(hir::Node::Binding(hir::Binding {
-                            module_id: env.module_id(),
-                            id: index_id,
-                            name: index_binding.name,
-                            value: Box::new(hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(0),
-                                ty: index_type,
-                                span: index_binding.span,
-                            })),
-                            ty: unit_type,
-                            span: index_binding.span,
-                        }));
+                        let index_id = index_binding.id;
 
-                        let iter_type = sess
-                            .tycx
-                            .bound(inner.as_ref().clone(), self.iter_binding.span);
-
-                        // let mut iter = start
-                        let iter_id = sess.bind_symbol(
-                            env,
-                            self.iter_binding.name,
-                            ast::Visibility::Private,
-                            iter_type,
-                            None,
-                            false,
-                            ast::BindingKind::Normal,
-                            self.iter_binding.span,
-                        )?;
+                        statements.push(hir::Node::Binding(index_binding));
 
                         let index_id_node = hir::Node::Id(hir::Id {
                             id: index_id,
                             ty: index_type,
-                            span: self.span,
-                        });
-
-                        let iter_id_node = hir::Node::Id(hir::Id {
-                            id: iter_id,
-                            ty: iter_type,
                             span: self.span,
                         });
 
@@ -2020,7 +2012,7 @@ impl Check for ast::For {
                                 span: self.span,
                             }),
                             Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(iter_id_node.clone()),
+                                value: Box::new(value_id_node.clone()),
                                 member: ustr("len"),
                                 index: 1,
                                 ty: index_type,
@@ -2032,33 +2024,39 @@ impl Check for ast::For {
                         let condition = hir::Node::Builtin(hir::Builtin::Le(hir::Binary {
                             ty: bool_type,
                             span: self.span,
-                            lhs: Box::new(iter_id_node.clone()),
+                            lhs: Box::new(index_id_node.clone()),
                             rhs: Box::new(value_len_node),
                         }));
+
+                        // bind before block is checked: let iter = value[index]
+                        let iter_type = sess
+                            .tycx
+                            .bound(inner.as_ref().clone(), self.iter_binding.span);
+
+                        let iter_binding = sess.bind_name(
+                            env,
+                            self.iter_binding.name,
+                            ast::Visibility::Private,
+                            iter_type,
+                            hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
+                                value: Box::new(value_id_node),
+                                offset: Box::new(index_id_node.clone()),
+                                ty: iter_type,
+                                span: self.span,
+                            })),
+                            false,
+                            ast::BindingKind::Normal,
+                            self.iter_binding.span,
+                        )?;
 
                         // loop block { ... }
                         let mut block_node =
                             self.block.check(sess, env, None)?.into_sequence().unwrap();
 
                         // let iter = value[index]
-                        block_node.statements.insert(
-                            0,
-                            hir::Node::Binding(hir::Binding {
-                                module_id: env.module_id(),
-                                id: iter_id,
-                                name: self.iter_binding.name,
-                                value: Box::new(hir::Node::Builtin(hir::Builtin::Offset(
-                                    hir::Offset {
-                                        value: Box::new(iter_id_node),
-                                        offset: Box::new(index_id_node.clone()),
-                                        ty: iter_type,
-                                        span: self.span,
-                                    },
-                                ))),
-                                ty: unit_type,
-                                span: self.iter_binding.span,
-                            }),
-                        );
+                        block_node
+                            .statements
+                            .insert(0, hir::Node::Binding(iter_binding));
 
                         // index += 1
                         block_node
@@ -2176,7 +2174,7 @@ impl Check for ast::FunctionExpr {
             |sess| self.body.check(sess, env, None),
         )?;
 
-        todo!("unify the pattern sequence and the body here");
+        todo!("unify the pattern sequence and the body here. if this is a sequence, remove the first binding");
 
         let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
 
@@ -2811,21 +2809,21 @@ fn check_named_struct_literal(
     span: Span,
 ) -> Result {
     let mut field_set = UstrSet::default();
-    let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.symbol));
+    let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.name));
 
     let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
 
     for field in fields.iter_mut() {
-        if !field_set.insert(field.symbol) {
+        if !field_set.insert(field.name) {
             return Err(SyntaxError::struct_field_specified_more_than_once(
                 field.span,
-                field.symbol.to_string(),
+                field.name.to_string(),
             ));
         }
 
-        match struct_ty.find_field(field.symbol) {
+        match struct_ty.find_field(field.name) {
             Some(ty_field) => {
-                uninit_fields.remove(&field.symbol);
+                uninit_fields.remove(&field.name);
 
                 let expected_ty = sess.tycx.bound(ty_field.ty.clone(), ty_field.span);
                 let mut node = field.expr.check(sess, env, Some(expected_ty))?;
@@ -2849,14 +2847,14 @@ fn check_named_struct_literal(
                 field_nodes.push(hir::StructLiteralField {
                     ty: node.ty(),
                     span,
-                    name: field.symbol,
+                    name: field.name,
                     value: Box::new(node),
                 });
             }
             None => {
                 return Err(TypeError::invalid_struct_field(
                     field.span,
-                    field.symbol,
+                    field.name,
                     Type::Struct(struct_ty).display(&sess.tycx),
                 ));
             }
@@ -2908,17 +2906,17 @@ fn check_anonymous_struct_literal(
     };
 
     for field in fields {
-        if !field_set.insert(field.symbol) {
+        if !field_set.insert(field.name) {
             return Err(SyntaxError::struct_field_specified_more_than_once(
                 field.span,
-                field.symbol.to_string(),
+                field.name.to_string(),
             ));
         }
 
         let node = field.expr.check(sess, env, None)?;
 
         struct_ty.fields.push(StructTypeField {
-            symbol: field.symbol,
+            name: field.name,
             ty: node.ty().into(),
             span: field.span,
         });
@@ -2926,7 +2924,7 @@ fn check_anonymous_struct_literal(
         field_nodes.push(hir::StructLiteralField {
             ty: node.ty(),
             span,
-            name: field.symbol,
+            name: field.name,
             value: Box::new(node),
         });
     }

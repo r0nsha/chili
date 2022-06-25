@@ -1,7 +1,7 @@
 use super::*;
 use crate::ast::{
     path::RelativeTo,
-    pattern::{Pattern, SymbolPattern},
+    pattern::{NamePattern, Pattern},
     ty::TypeId,
     workspace::{BindingId, ModuleId},
     Binding, BindingKind, Intrinsic, Visibility,
@@ -28,7 +28,7 @@ impl Parser {
         require!(self, Eq, "=")?;
 
         let value = match &pattern {
-            Pattern::Symbol(pattern) => self.parse_decl_expr(pattern.symbol)?,
+            Pattern::Name(pattern) => self.parse_decl_expr(pattern.name)?,
             _ => self.parse_expr()?,
         };
 
@@ -67,9 +67,9 @@ impl Parser {
 
         let id = require!(self, Ident(_), "an identifier")?;
 
-        let pattern = Pattern::Symbol(SymbolPattern {
+        let pattern = Pattern::Name(NamePattern {
             id: BindingId::unknown(),
-            symbol: id.symbol(),
+            name: id.symbol(),
             alias: None,
             is_mutable,
             span: id.span,
@@ -80,7 +80,7 @@ impl Parser {
             todo!("parse extern variables")
         } else if eat!(self, Eq) {
             self.extern_lib = Some(lib.clone());
-            let value = self.parse_decl_expr(pattern.as_symbol_ref().symbol)?;
+            let value = self.parse_decl_expr(pattern.as_name_ref().name)?;
             self.extern_lib = None;
 
             Ok(ast::Binding {
@@ -112,9 +112,9 @@ impl Parser {
                 .with_label(Label::primary(id.span, "unknown intrinsic"))
         })?;
 
-        let pattern = Pattern::Symbol(SymbolPattern {
+        let pattern = Pattern::Name(NamePattern {
             id: BindingId::unknown(),
-            symbol: id.symbol(),
+            name: id.symbol(),
             alias: None,
             is_mutable: false,
             span: id.span,
@@ -123,7 +123,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let value = self.parse_decl_expr(pattern.as_symbol_ref().symbol)?;
+        let value = self.parse_decl_expr(pattern.as_name_ref().name)?;
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),

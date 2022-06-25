@@ -256,7 +256,7 @@ impl Parser {
                 self.parse_builtin(symbol, token.span)?
             } else {
                 Ast::Ident(ast::Ident {
-                    symbol,
+                    name: symbol,
                     binding_id: Default::default(),
                     ty: Default::default(),
                     span: token.span,
