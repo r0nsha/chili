@@ -97,7 +97,10 @@ impl TyCtx {
 
     #[inline]
     pub fn bind_value(&mut self, id: TypeId, value: InferenceValue) {
-        self.bindings[id] = value;
+        *self
+            .bindings
+            .get_mut(id)
+            .unwrap_or_else(|| panic!("type id not found: {:?}", id)) = value;
     }
 
     #[allow(unused)]

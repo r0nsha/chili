@@ -1,7 +1,7 @@
 let { println } = import!("std/fmt"); 
 
 let main = fn() {
-    let extern "c" printf: fn(input: [*]u8, ..args) -> int;
+    let extern "c" printf = fn(input: [*]u8, ..args) -> int;
     let print = fn() {
         printf("Hola\n".data);
         println("Hello from main.chili");    
