@@ -121,9 +121,9 @@ impl Parser {
             ignore: false,
         });
 
-        require!(self, Colon, ":")?;
+        require!(self, Eq, "=")?;
 
-        let ty_expr = self.parse_expr()?;
+        let value = self.parse_decl_expr(pattern.as_symbol_ref().symbol)?;
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
@@ -131,8 +131,8 @@ impl Parser {
             kind: ast::BindingKind::Intrinsic(intrinsic),
             pattern,
             ty: TypeId::unknown(),
-            ty_expr: Some(Box::new(ty_expr)),
-            value: None,
+            ty_expr: Some(Box::new(value)),
+            value: Box::new(value),
             span: start_span.to(self.previous_span()),
         })
     }

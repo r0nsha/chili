@@ -103,40 +103,28 @@ impl Lint for ast::Module {
 
 impl Lint for ast::Binding {
     fn lint(&self, sess: &mut LintSess) {
-        let init_state = if self.value.is_some()
-            || matches!(
-                self.kind,
-                BindingKind::Extern(_) | BindingKind::Intrinsic(_)
-            ) {
-            InitState::Init
-        } else {
-            InitState::NotInit
-        };
-
         for symbol in self.pattern.iter() {
-            sess.init_scopes.insert(symbol.id, init_state);
+            sess.init_scopes.insert(symbol.id, InitState::Init);
         }
 
         self.value.lint(sess);
 
-        if let Some(expr) = &self.value {
-            let is_a_type = expr.ty().normalize(sess.tycx).is_type();
+        let is_a_type = self.value.ty().normalize(sess.tycx).is_type();
 
-            // * don't allow types to be bounded to mutable bindings
-            if is_a_type {
-                match &self.pattern {
-                    Pattern::Symbol(symbol) | Pattern::Hybrid(HybridPattern { symbol, .. }) => {
-                        if symbol.is_mutable {
-                            sess.workspace.diagnostics.push(
-                                Diagnostic::error()
-                                    .with_message("variable of type `type` must be immutable")
-                                    .with_label(Label::primary(symbol.span, "variable is mutable"))
-                                    .with_note("try removing the `mut` from the declaration"),
-                            );
-                        }
+        // * don't allow types to be bounded to mutable bindings
+        if is_a_type {
+            match &self.pattern {
+                Pattern::Symbol(symbol) | Pattern::Hybrid(HybridPattern { symbol, .. }) => {
+                    if symbol.is_mutable {
+                        sess.workspace.diagnostics.push(
+                            Diagnostic::error()
+                                .with_message("variable of type `type` must be immutable")
+                                .with_label(Label::primary(symbol.span, "variable is mutable"))
+                                .with_note("try removing the `mut` from the declaration"),
+                        );
                     }
-                    Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
                 }
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
             }
         }
     }
