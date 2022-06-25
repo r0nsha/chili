@@ -813,18 +813,24 @@ impl Check for ast::Ast {
             }
             ast::Ast::While(while_) => {
                 let cond_ty = sess.tycx.common_types.bool;
-                let cond_node = while_.cond.check(sess, env, Some(cond_ty))?;
+                let cond_node = while_.condition.check(sess, env, Some(cond_ty))?;
 
                 cond_node
                     .ty
                     .unify(&cond_ty, &mut sess.tycx)
                     .or_coerce_into_ty(
-                        &mut while_.cond,
+                        &mut while_.condition,
                         cond_ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
-                    .or_report_err(&sess.tycx, cond_ty, None, cond_node.ty, while_.cond.span())?;
+                    .or_report_err(
+                        &sess.tycx,
+                        cond_ty,
+                        None,
+                        cond_node.ty,
+                        while_.condition.span(),
+                    )?;
 
                 env.push_scope(ScopeKind::Loop);
                 sess.loop_depth += 1;
@@ -834,8 +840,8 @@ impl Check for ast::Ast {
                 sess.loop_depth -= 1;
                 env.pop_scope();
 
-                if let Some(cond) = cond_node.const_value {
-                    if cond.into_bool() {
+                if let Some(condition) = cond_node.const_value {
+                    if condition.into_bool() {
                         Ok(Res::new(sess.tycx.common_types.never))
                     } else {
                         Ok(Res::new(sess.tycx.common_types.unit))
@@ -975,73 +981,7 @@ impl Check for ast::Ast {
 
                 Ok(Res::new(sess.tycx.common_types.never))
             }
-            ast::Ast::If(if_) => {
-                let unit = sess.tycx.common_types.unit;
-                let cond_ty = sess.tycx.common_types.bool;
-                let cond_node = if_.cond.check(sess, env, Some(cond_ty))?;
-
-                cond_node
-                    .ty
-                    .unify(&cond_ty, &mut sess.tycx)
-                    .or_coerce_into_ty(
-                        &mut if_.cond,
-                        cond_ty,
-                        &mut sess.tycx,
-                        sess.target_metrics.word_size,
-                    )
-                    .or_report_err(&sess.tycx, cond_ty, None, cond_node.ty, if_.cond.span())?;
-
-                // if the condition is compile-time known, only check the resulting branch
-                if let Some(cond_value) = cond_node.const_value {
-                    let node = if cond_value.into_bool() {
-                        let node = if_.then.check(sess, env, expected_ty)?;
-                        *self = if_.then.as_ref().clone();
-                        Ok(node)
-                    } else {
-                        if let Some(otherwise) = &mut if_.otherwise {
-                            let node = otherwise.check(sess, env, expected_ty)?;
-                            *self = otherwise.as_ref().clone();
-                            Ok(node)
-                        } else {
-                            *self = ast::Ast::Const(ast::Const {
-                                value: ConstValue::Unit(()),
-                                ty: unit,
-                                span: if_.span,
-                            });
-                            Ok(Res::new(unit))
-                        }
-                    };
-
-                    return node;
-                }
-
-                let then_node = if_.then.check(sess, env, expected_ty)?;
-
-                if let Some(otherwise) = &mut if_.otherwise {
-                    let otherwise_node = otherwise.check(sess, env, Some(then_node.ty))?;
-
-                    otherwise_node
-                        .ty
-                        .unify(&then_node.ty, &mut sess.tycx)
-                        .or_coerce(
-                            &mut if_.then,
-                            otherwise,
-                            &mut sess.tycx,
-                            sess.target_metrics.word_size,
-                        )
-                        .or_report_err(
-                            &sess.tycx,
-                            then_node.ty,
-                            Some(if_.then.span()),
-                            otherwise_node.ty,
-                            otherwise.span(),
-                        )?;
-
-                    Ok(Res::new(then_node.ty))
-                } else {
-                    Ok(Res::new(unit))
-                }
-            }
+            ast::Ast::If(if_) => if_.check(sess, env, expected_ty),
             ast::Ast::Block(block) => block.check(sess, env, expected_ty),
             ast::Ast::Binary(binary) => binary.check(sess, env, expected_ty),
             ast::Ast::Unary(unary) => unary.check(sess, env, expected_ty),
@@ -1734,15 +1674,34 @@ impl Check for ast::Ast {
                     })))
                 }
             }
-            ast::Ast::StructLiteral(lit) => {
-                let node = match &mut lit.type_expr {
-                    Some(type_expr) => {
-                        let node =
-                            type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                        let ty = sess.extract_const_type(&node)?;
+            ast::Ast::StructLiteral(lit) => match &mut lit.type_expr {
+                Some(type_expr) => {
+                    let node = type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+                    let ty = sess.extract_const_type(&node)?;
 
+                    let kind = ty.normalize(&sess.tycx);
+
+                    match kind {
+                        Type::Struct(struct_ty) => check_named_struct_literal(
+                            sess,
+                            env,
+                            struct_ty,
+                            &mut lit.fields,
+                            lit.span,
+                        ),
+                        _ => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "type `{}` does not support struct initialization syntax",
+                                    ty
+                                ))
+                                .with_label(Label::primary(type_expr.span(), "not a struct type")))
+                        }
+                    }
+                }
+                None => match expected_ty {
+                    Some(ty) => {
                         let kind = ty.normalize(&sess.tycx);
-
                         match kind {
                             Type::Struct(struct_ty) => check_named_struct_literal(
                                 sess,
@@ -1750,55 +1709,15 @@ impl Check for ast::Ast {
                                 struct_ty,
                                 &mut lit.fields,
                                 lit.span,
-                            )?,
+                            ),
                             _ => {
-                                return Err(Diagnostic::error()
-                                    .with_message(format!(
-                                        "type `{}` does not support struct initialization syntax",
-                                        ty
-                                    ))
-                                    .with_label(Label::primary(
-                                        type_expr.span(),
-                                        "not a struct type",
-                                    )))
+                                check_anonymous_struct_literal(sess, env, &mut lit.fields, lit.span)
                             }
                         }
                     }
-                    None => match expected_ty {
-                        Some(ty) => {
-                            let kind = ty.normalize(&sess.tycx);
-                            match kind {
-                                Type::Struct(struct_ty) => check_named_struct_literal(
-                                    sess,
-                                    env,
-                                    struct_ty,
-                                    &mut lit.fields,
-                                    lit.span,
-                                )?,
-                                _ => check_anonymous_struct_literal(
-                                    sess,
-                                    env,
-                                    &mut lit.fields,
-                                    lit.span,
-                                )?,
-                            }
-                        }
-                        None => {
-                            check_anonymous_struct_literal(sess, env, &mut lit.fields, lit.span)?
-                        }
-                    },
-                };
-
-                if let Some(const_value) = node.as_const_value() {
-                    Ok(hir::Node::Const(hir::Const {
-                        value: const_value.clone(),
-                        ty: node.ty(),
-                        span: lit.span,
-                    }))
-                } else {
-                    Ok(node)
-                }
-            }
+                    None => check_anonymous_struct_literal(sess, env, &mut lit.fields, lit.span),
+                },
+            },
             ast::Ast::Literal(lit) => {
                 let const_value: ConstValue = lit.kind.into();
 
@@ -2007,6 +1926,90 @@ impl Check for ast::Ast {
             }
             ast::Ast::Const(_) => panic!(),
             ast::Ast::Error(expr) => Ok(hir::Node::noop(sess.tycx.var(expr.span), expr.span)),
+        }
+    }
+}
+
+impl Check for ast::If {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+        let unit_type = sess.tycx.common_types.unit;
+        let bool_type = sess.tycx.common_types.bool;
+
+        let mut condition_node = self.condition.check(sess, env, Some(bool_type))?;
+
+        condition_node
+            .ty()
+            .unify(&bool_type, &mut sess.tycx)
+            .or_coerce_into_ty(
+                &mut condition_node,
+                bool_type,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            )
+            .or_report_err(
+                &sess.tycx,
+                bool_type,
+                None,
+                condition_node.ty(),
+                self.condition.span(),
+            )?;
+
+        // if the condition is compile-time known, only check the resulting branch
+        if let Some(ConstValue::Bool(condition)) = condition_node.as_const_value() {
+            if *condition {
+                self.then.check(sess, env, expected_ty)
+            } else {
+                if let Some(otherwise) = &mut self.otherwise {
+                    otherwise.check(sess, env, expected_ty)
+                } else {
+                    Ok(hir::Node::Const(hir::Const {
+                        value: ConstValue::Unit(()),
+                        ty: unit_type,
+                        span: self.span,
+                    }))
+                }
+            }
+        } else {
+            let mut then_node = self.then.check(sess, env, expected_ty)?;
+
+            let if_node = if let Some(otherwise) = &mut self.otherwise {
+                let mut otherwise_node = otherwise.check(sess, env, Some(then_node.ty()))?;
+
+                otherwise_node
+                    .ty()
+                    .unify(&then_node.ty(), &mut sess.tycx)
+                    .or_coerce(
+                        &mut then_node,
+                        &mut otherwise_node,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(
+                        &sess.tycx,
+                        then_node.ty(),
+                        Some(self.then.span()),
+                        otherwise_node.ty(),
+                        otherwise.span(),
+                    )?;
+
+                hir::If {
+                    ty: then_node.ty(),
+                    span: self.span,
+                    condition: Box::new(condition_node),
+                    then: Box::new(then_node),
+                    otherwise: Some(Box::new(otherwise_node)),
+                }
+            } else {
+                hir::If {
+                    ty: unit_type,
+                    span: self.span,
+                    condition: Box::new(condition_node),
+                    then: Box::new(then_node),
+                    otherwise: None,
+                }
+            };
+
+            Ok(hir::Node::Control(hir::Control::If(if_node)))
         }
     }
 }

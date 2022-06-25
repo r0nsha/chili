@@ -83,7 +83,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         require!(self, OpenCurly, "{")?;
         let then = self.parse_block_expr()?;
@@ -102,7 +102,7 @@ impl Parser {
         };
 
         Ok(Ast::If(ast::If {
-            cond: Box::new(cond),
+            condition: Box::new(condition),
             then: Box::new(then),
             otherwise,
             ty: Default::default(),
@@ -511,13 +511,13 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let cond = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(Ast::While(ast::While {
-            cond: Box::new(cond),
+            condition: Box::new(condition),
             block,
             ty: Default::default(),
             span: start_span.to(self.previous_span()),

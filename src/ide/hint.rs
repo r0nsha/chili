@@ -147,7 +147,7 @@ impl<'a> CollectHints<'a> for ast::Ast {
                 f.body.collect_hints(sess);
             }
             ast::Ast::While(while_) => {
-                while_.cond.collect_hints(sess);
+                while_.condition.collect_hints(sess);
                 while_.block.collect_hints(sess);
             }
             ast::Ast::For(for_) => {
@@ -167,7 +167,7 @@ impl<'a> CollectHints<'a> for ast::Ast {
                 ret.expr.collect_hints(sess);
             }
             ast::Ast::If(if_) => {
-                if_.cond.collect_hints(sess);
+                if_.condition.collect_hints(sess);
                 if_.then.collect_hints(sess);
                 if_.otherwise.collect_hints(sess);
             }

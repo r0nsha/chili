@@ -179,7 +179,7 @@ impl Lint for ast::Ast {
                 f.body.lint(sess);
             }
             ast::Ast::While(while_) => {
-                while_.cond.lint(sess);
+                while_.condition.lint(sess);
                 while_.block.lint(sess);
             }
             ast::Ast::For(for_) => {
@@ -199,7 +199,7 @@ impl Lint for ast::Ast {
                 ret.expr.lint(sess);
             }
             ast::Ast::If(if_) => {
-                if_.cond.lint(sess);
+                if_.condition.lint(sess);
                 if_.then.lint(sess);
                 if_.otherwise.lint(sess);
             }

@@ -11,7 +11,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         if_: &ast::If,
     ) -> BasicValueEnum<'ctx> {
-        let cond = self.gen_expr(state, &if_.cond, true).into_int_value();
+        let condition = self.gen_expr(state, &if_.condition, true).into_int_value();
 
         let then = |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
             cg.gen_expr(state, &if_.then, true)
@@ -27,7 +27,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             None
         };
 
-        self.gen_conditional(state, cond, then, else_)
+        self.gen_conditional(state, condition, then, else_)
     }
 
     pub fn gen_conditional<
@@ -36,7 +36,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     >(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        cond: IntValue<'ctx>,
+        condition: IntValue<'ctx>,
         then: Then,
         otherwise: Option<Else>,
     ) -> BasicValueEnum<'ctx> {
@@ -46,7 +46,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let mut merge_block: Option<BasicBlock<'ctx>> = None;
 
         self.builder
-            .build_conditional_branch(cond, then_block, else_block);
+            .build_conditional_branch(condition, then_block, else_block);
 
         self.start_block(state, then_block);
 

@@ -271,7 +271,7 @@ pub struct Return {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct If {
-    pub cond: Box<Ast>,
+    pub condition: Box<Ast>,
     pub then: Box<Ast>,
     pub otherwise: Option<Box<Ast>>,
     pub ty: TypeId,
@@ -443,7 +443,7 @@ pub struct Cast {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct While {
-    pub cond: Box<Ast>,
+    pub condition: Box<Ast>,
     pub block: Block,
     pub ty: TypeId,
     pub span: Span,

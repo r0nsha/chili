@@ -76,7 +76,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         &mut self,
         state: &mut CodegenState<'ctx>,
         name: impl AsRef<str>,
-        cond: IntValue<'ctx>,
+        condition: IntValue<'ctx>,
         message: BasicValueEnum<'ctx>,
         span: Span,
     ) {
@@ -86,7 +86,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let no_panic_block = self.append_basic_block(state, "__no_panic");
 
         self.builder
-            .build_conditional_branch(cond, panic_block, no_panic_block);
+            .build_conditional_branch(condition, panic_block, no_panic_block);
 
         self.start_block(state, panic_block);
         self.gen_panic(state, message, span);

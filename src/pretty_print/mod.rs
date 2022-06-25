@@ -238,7 +238,7 @@ impl PrintTree for ast::Ast {
             }
             ast::Ast::While(while_) => {
                 b.begin_child("while".to_string());
-                while_.cond.print_tree(b, workspace, tycx);
+                while_.condition.print_tree(b, workspace, tycx);
                 while_.block.print_tree(b, workspace, tycx);
                 b.end_child();
             }
@@ -286,7 +286,7 @@ impl PrintTree for ast::Ast {
             }
             ast::Ast::If(if_) => {
                 b.begin_child(format!("if <{}>", tycx.ty_kind(if_.ty)));
-                if_.cond.print_tree(b, workspace, tycx);
+                if_.condition.print_tree(b, workspace, tycx);
                 if_.then.print_tree(b, workspace, tycx);
 
                 if let Some(otherwise) = &if_.otherwise {

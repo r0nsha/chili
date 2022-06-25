@@ -182,7 +182,7 @@ impl<'a> Substitute<'a> for ast::Ast {
             },
             ast::Ast::Function(func) => func.substitute(sess),
             ast::Ast::While(while_) => {
-                while_.cond.substitute(sess);
+                while_.condition.substitute(sess);
                 while_.block.substitute(sess);
             }
             ast::Ast::For(for_) => {
@@ -203,7 +203,7 @@ impl<'a> Substitute<'a> for ast::Ast {
                 ret.expr.substitute(sess);
             }
             ast::Ast::If(if_) => {
-                if_.cond.substitute(sess);
+                if_.condition.substitute(sess);
                 if_.then.substitute(sess);
                 if_.otherwise.substitute(sess);
             }

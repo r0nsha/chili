@@ -24,7 +24,7 @@ let main = fn() {
 	let is_gt = big > small;
 	let is_eq = big == small;
 
-	let cond = if true {
+	let condition = if true {
 		let a i32 = 10;
 		a
 	} else {

@@ -23,7 +23,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         release_guard!(self);
 
         const NAME: &str = "__runtime_check_division_by_zero";
-        let cond = self.builder.build_int_compare(
+        let condition = self.builder.build_int_compare(
             IntPredicate::EQ,
             divisor,
             divisor.get_type().const_zero(),
@@ -32,7 +32,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let message = self
             .const_str_slice(NAME, "attempt to divide by zero")
             .into();
-        self.gen_conditional_panic(state, NAME, cond, message, span)
+        self.gen_conditional_panic(state, NAME, condition, message, span)
     }
 
     pub fn gen_runtime_check_null_pointer_deref(
@@ -44,17 +44,17 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         release_guard!(self);
 
         const NAME: &str = "__runtime_check_null_pointer_dereference";
-        let cond = self.builder.build_is_null(ptr, "");
+        let condition = self.builder.build_is_null(ptr, "");
         let message = self
             .const_str_slice(NAME, "attempt to dereference a null pointer")
             .into();
-        self.gen_conditional_panic(state, NAME, cond, message, span)
+        self.gen_conditional_panic(state, NAME, condition, message, span)
     }
 
     pub fn gen_runtime_check_overflow(
         &mut self,
         state: &mut CodegenState<'ctx>,
-        cond: IntValue<'ctx>,
+        condition: IntValue<'ctx>,
         span: Span,
         op: &str,
     ) {
@@ -64,7 +64,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let message = self
             .const_str_slice(&name, format!("attempt to {} with overflow", op))
             .into();
-        self.gen_conditional_panic(state, &name, cond, message, span);
+        self.gen_conditional_panic(state, &name, condition, message, span);
     }
 
     pub fn gen_runtime_check_index_out_of_bounds(
@@ -96,11 +96,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .builder
             .build_int_compare(IntPredicate::UGE, index, len, "");
 
-        let cond = self
+        let condition = self
             .builder
             .build_or(is_lower_than_zero, is_larger_than_len, "");
 
-        self.gen_conditional_panic(state, &NAME, cond, message, span);
+        self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
 
     pub fn gen_runtime_check_slice_end_before_start(
@@ -118,11 +118,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .const_str_slice(&NAME, "slice index starts at (start) but ends at (end)")
             .into();
 
-        let cond = self
+        let condition = self
             .builder
             .build_int_compare(IntPredicate::ULT, high, low, "");
 
-        self.gen_conditional_panic(state, &NAME, cond, message, span);
+        self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
 
     pub fn gen_runtime_check_slice_range_out_of_bounds(
@@ -152,10 +152,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             self.builder
                 .build_int_compare(IntPredicate::UGT, high, len, "");
 
-        let cond = self
+        let condition = self
             .builder
             .build_or(is_low_less_than_zero, is_high_larger_than_len, "");
 
-        self.gen_conditional_panic(state, &NAME, cond, message, span);
+        self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
 }

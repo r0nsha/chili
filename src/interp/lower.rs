@@ -803,7 +803,7 @@ impl Lower for ast::While {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         let loop_start = code.instructions.len();
 
-        self.cond
+        self.condition
             .lower(sess, code, LowerContext { take_ptr: false });
 
         let exit_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
@@ -826,7 +826,7 @@ impl Lower for ast::While {
 
 impl Lower for ast::If {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        self.cond
+        self.condition
             .lower(sess, code, LowerContext { take_ptr: false });
 
         let else_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));

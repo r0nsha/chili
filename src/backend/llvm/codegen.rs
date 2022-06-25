@@ -714,10 +714,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 self.builder.build_unconditional_branch(loop_head);
                 self.start_block(state, loop_head);
 
-                let cond = self.gen_expr(state, &while_.cond, true).into_int_value();
+                let condition = self
+                    .gen_expr(state, &while_.condition, true)
+                    .into_int_value();
 
                 self.builder
-                    .build_conditional_branch(cond, loop_body, loop_exit);
+                    .build_conditional_branch(condition, loop_body, loop_exit);
 
                 self.start_block(state, loop_body);
 
@@ -1169,12 +1171,12 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
                         let it_value = self.build_load(it.into()).into_int_value();
 
-                        let cond =
+                        let condition =
                             self.builder
                                 .build_int_compare(IntPredicate::SLT, it_value, end, "");
 
                         self.builder
-                            .build_conditional_branch(cond, loop_body, loop_exit);
+                            .build_conditional_branch(condition, loop_body, loop_exit);
 
                         self.start_block(state, loop_body);
 
