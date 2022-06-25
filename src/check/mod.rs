@@ -416,14 +416,18 @@ impl Check for ast::Binding {
                         });
                 }
 
-                sess.bind_pattern(
+                let is_function =
+                    matches!(value_node.as_const_value(), Some(ConstValue::Function(_)));
+
+                let value_span = value_node.span();
+                let bound_node = sess.bind_pattern(
                     env,
-                    &mut self.pattern,
+                    &self.pattern,
                     self.visibility,
                     self.ty,
                     value_node,
                     &self.kind,
-                    value_node.span(),
+                    value_span,
                 )?;
 
                 // If this binding matches the entry point function's requirements,
@@ -432,12 +436,12 @@ impl Check for ast::Binding {
                 // - Is declared in the root module
                 // - It is in global scope
                 // - Its name is the same as the required `entry_point_function_name`
-                if let Some(ConstValue::Function(_)) = value_node.as_const_value() {
-                    if let Pattern::Name(pattern) = &mut self.pattern {
+                if is_function {
+                    if let hir::Node::Binding(binding) = &bound_node {
                         if sess.workspace.build_options.need_entry_point_function()
                             && self.module_id == sess.workspace.root_module_id
                             && env.scope_level().is_global()
-                            && pattern.name
+                            && binding.name
                                 == sess
                                     .workspace
                                     .build_options
@@ -449,7 +453,7 @@ impl Check for ast::Binding {
                                 // TODO: Emit error that we can't have two entry point functions
                                 // TODO: Also, this should be moved to another place...
                             } else {
-                                sess.workspace.entry_point_function_id = Some(pattern.id);
+                                sess.workspace.entry_point_function_id = Some(binding.id);
                             }
                         }
                     }
@@ -465,7 +469,7 @@ impl Check for ast::Binding {
                 }))
             }
             BindingKind::Intrinsic(intrinsic) => {
-                let pattern = self.pattern.as_name_mut();
+                let pattern = self.pattern.as_name();
                 let name = pattern.name;
 
                 todo!()
@@ -502,7 +506,7 @@ impl Check for ast::Binding {
                     sess.workspace.extern_libraries.insert(lib.clone());
                 }
 
-                let pattern = self.pattern.as_name_mut();
+                let pattern = self.pattern.as_name();
                 let name = pattern.name;
 
                 todo!()
@@ -573,21 +577,7 @@ impl Check for ast::FunctionSig {
                 match ty.normalize(&sess.tycx) {
                     Type::Function(f) => {
                         if f.params.len() == 1 {
-                            let symbol = ustr("it");
-
-                            self.params.push(ast::FunctionParam {
-                                pattern: Pattern::Name(NamePattern {
-                                    id: Default::default(),
-                                    name: symbol,
-                                    alias: None,
-                                    span: Span::unknown(),
-                                    is_mutable: false,
-                                    ignore: false,
-                                }),
-                                type_expr: None,
-                                ty: sess.tycx.bound(f.params[0].clone(), self.span),
-                            });
-
+                            // let symbol = ustr("it");
                             param_types.push(f.params[0].clone());
                         }
                     }
@@ -602,7 +592,7 @@ impl Check for ast::FunctionSig {
             check_optional_type_expr(&self.return_type, sess, env, self.span)?
         };
 
-        let varargs = if let Some(varargs) = &mut self.varargs {
+        let varargs = if let Some(varargs) = &self.varargs {
             let ty = if varargs.type_expr.is_some() {
                 let ty = check_optional_type_expr(&varargs.type_expr, sess, env, self.span)?;
                 Some(ty.as_kind())
@@ -670,7 +660,7 @@ impl Check for ast::Ast {
                     }))
                 }
                 ast::BuiltinKind::SizeOf(expr) => {
-                    let ty = check_type_expr(&expr, sess, env, expr.span())?;
+                    let ty = check_type_expr(&expr, sess, env)?;
 
                     let size = ty
                         .normalize(&sess.tycx)
@@ -683,7 +673,7 @@ impl Check for ast::Ast {
                     }))
                 }
                 ast::BuiltinKind::AlignOf(expr) => {
-                    let ty = check_type_expr(&expr, sess, env, expr.span())?;
+                    let ty = check_type_expr(&expr, sess, env)?;
 
                     let align = ty
                         .normalize(&sess.tycx)
@@ -843,20 +833,21 @@ impl Check for ast::Ast {
                 let node = slice.expr.check(sess, env, None)?;
                 let expr_ty = node.ty().normalize(&sess.tycx);
 
-                let low = if let Some(low) = &mut slice.low {
-                    let low = low.check(sess, env, None)?;
+                let low_node = if let Some(low) = &slice.low {
+                    let mut low_node = low.check(sess, env, None)?;
 
-                    low.ty()
+                    low_node
+                        .ty()
                         .unify(&uint, &mut sess.tycx)
                         .or_coerce_into_ty(
-                            &mut low,
+                            &mut low_node,
                             uint,
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
                         )
-                        .or_report_err(&sess.tycx, uint, None, low.ty(), low.span())?;
+                        .or_report_err(&sess.tycx, uint, None, low_node.ty(), low_node.span())?;
 
-                    low
+                    low_node
                 } else {
                     hir::Node::Const(hir::Const {
                         value: ConstValue::Uint(0),
@@ -865,13 +856,14 @@ impl Check for ast::Ast {
                     })
                 };
 
-                let high = if let Some(high) = &mut slice.high {
-                    let mut high = high.check(sess, env, None)?;
+                let high_node = if let Some(high) = &slice.high {
+                    let mut high_node = high.check(sess, env, None)?;
 
-                    high.ty()
+                    high_node
+                        .ty()
                         .unify(&uint, &mut sess.tycx)
                         .or_coerce_into_ty(
-                            &mut high,
+                            &mut high_node,
                             uint,
                             &mut sess.tycx,
                             sess.target_metrics.word_size,
@@ -880,11 +872,11 @@ impl Check for ast::Ast {
                             &sess.tycx,
                             uint,
                             slice.low.as_ref().map(|e| e.span()),
-                            high.ty(),
-                            high.span(),
+                            high_node.ty(),
+                            high_node.span(),
                         )?;
 
-                    high
+                    high_node
                 } else {
                     match &expr_ty {
                         Type::Array(_, size) => hir::Node::Const(hir::Const {
@@ -893,7 +885,9 @@ impl Check for ast::Ast {
                             span: slice.span,
                         }),
                         Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
-                            value: Box::new(node),
+                            // Note (Ron 25/06/2022): This clones the node which is kinda bad.
+                            // But, this is good enough as a starting point.
+                            value: Box::new(node.clone()),
                             ty: uint,
                             span: slice.span,
                             member: ustr(BUILTIN_FIELD_LEN),
@@ -940,8 +934,8 @@ impl Check for ast::Ast {
                     ty,
                     span: slice.span,
                     value: Box::new(node),
-                    low: Box::new(low),
-                    high: Box::new(high),
+                    low: Box::new(low_node),
+                    high: Box::new(high_node),
                 })))
             }
             ast::Ast::Call(call) => call.check(sess, env, expected_ty),
@@ -1187,7 +1181,6 @@ impl Check for ast::Ast {
                     match sess.get_binding_id(env, ident.name) {
                         Some(id) => {
                             // this is a local binding
-                            ident.binding_id = id;
 
                             sess.workspace.add_binding_info_use(id, ident.span);
 
@@ -1241,7 +1234,7 @@ impl Check for ast::Ast {
                     }
                 }
             }
-            ast::Ast::ArrayLiteral(lit) => match &mut lit.kind {
+            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
                 ast::ArrayLiteralKind::List(elements) => {
                     let element_ty_span = elements.first().map_or(lit.span, |e| e.span());
                     let element_ty = sess.tycx.var(element_ty_span);
@@ -1438,7 +1431,7 @@ impl Check for ast::Ast {
                     })))
                 }
             }
-            ast::Ast::StructLiteral(lit) => match &mut lit.type_expr {
+            ast::Ast::StructLiteral(lit) => match &lit.type_expr {
                 Some(type_expr) => {
                     let node = type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
                     let ty = sess.extract_const_type(&node)?;
@@ -1446,13 +1439,9 @@ impl Check for ast::Ast {
                     let kind = ty.normalize(&sess.tycx);
 
                     match kind {
-                        Type::Struct(struct_ty) => check_named_struct_literal(
-                            sess,
-                            env,
-                            struct_ty,
-                            &mut lit.fields,
-                            lit.span,
-                        ),
+                        Type::Struct(struct_ty) => {
+                            check_named_struct_literal(sess, env, struct_ty, &lit.fields, lit.span)
+                        }
                         _ => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -1471,15 +1460,13 @@ impl Check for ast::Ast {
                                 sess,
                                 env,
                                 struct_ty,
-                                &mut lit.fields,
+                                &lit.fields,
                                 lit.span,
                             ),
-                            _ => {
-                                check_anonymous_struct_literal(sess, env, &mut lit.fields, lit.span)
-                            }
+                            _ => check_anonymous_struct_literal(sess, env, &lit.fields, lit.span),
                         }
                     }
-                    None => check_anonymous_struct_literal(sess, env, &mut lit.fields, lit.span),
+                    None => check_anonymous_struct_literal(sess, env, &lit.fields, lit.span),
                 },
             },
             ast::Ast::Literal(lit) => {
@@ -1571,7 +1558,7 @@ impl Check for ast::Ast {
                 }))
             }
             ast::Ast::StructType(st) => {
-                st.name = if st.name.is_empty() {
+                let name = if st.name.is_empty() {
                     get_anonymous_struct_name(st.span)
                 } else {
                     st.name
@@ -1579,7 +1566,7 @@ impl Check for ast::Ast {
 
                 // the struct's main type variable
                 let struct_ty_var = sess.tycx.bound(
-                    Type::Struct(StructType::opaque(st.name, st.binding_id, st.kind)),
+                    Type::Struct(StructType::opaque(name, st.binding_id, st.kind)),
                     st.span,
                 );
 
@@ -1592,10 +1579,10 @@ impl Check for ast::Ast {
 
                 env.push_scope(ScopeKind::Block);
 
-                st.binding_id = sess
+                let binding_id = sess
                     .bind_name(
                         env,
-                        st.name,
+                        name,
                         ast::Visibility::Private,
                         struct_ty_type_var,
                         hir::Node::Const(hir::Const {
@@ -1612,7 +1599,7 @@ impl Check for ast::Ast {
                 let mut field_map = UstrMap::<Span>::default();
                 let mut struct_ty_fields = vec![];
 
-                for field in st.fields.iter_mut() {
+                for field in st.fields.iter() {
                     let node = field
                         .ty
                         .check(sess, env, Some(sess.tycx.common_types.anytype))?;
@@ -1638,8 +1625,8 @@ impl Check for ast::Ast {
                 sess.self_types.pop();
 
                 let struct_ty = Type::Struct(StructType {
-                    name: st.name,
-                    binding_id: st.binding_id,
+                    name,
+                    binding_id,
                     kind: st.kind,
                     fields: struct_ty_fields,
                 });
@@ -1801,13 +1788,16 @@ impl Check for ast::For {
                 env.push_scope(ScopeKind::Loop);
                 sess.loop_depth += 1;
 
-                let statements: Vec<hir::Node> = vec![];
+                let mut statements: Vec<hir::Node> = vec![];
 
                 // let mut index = 0
-                let index_binding = self.index_binding.unwrap_or_else(|| ast::NameAndSpan {
-                    name: sess.generate_name("index"),
-                    span: self.span,
-                });
+                let index_binding =
+                    self.index_binding
+                        .clone()
+                        .unwrap_or_else(|| ast::NameAndSpan {
+                            name: sess.generate_name("index"),
+                            span: self.span,
+                        });
 
                 let index_binding = sess.bind_name(
                     env,
@@ -1828,12 +1818,14 @@ impl Check for ast::For {
 
                 statements.push(hir::Node::Binding(index_binding));
 
+                let iter_type = start_node.ty();
+
                 // let mut iter = start
                 let iter_binding = sess.bind_name(
                     env,
                     self.iter_binding.name,
                     ast::Visibility::Private,
-                    start_node.ty(),
+                    iter_type,
                     start_node,
                     false,
                     ast::BindingKind::Normal,
@@ -1852,7 +1844,7 @@ impl Check for ast::For {
 
                 let iter_id_node = hir::Node::Id(hir::Id {
                     id: iter_id,
-                    ty: start_node.ty(),
+                    ty: iter_type,
                     span: self.span,
                 });
 
@@ -1892,12 +1884,12 @@ impl Check for ast::For {
                     .push(hir::Node::Assignment(hir::Assignment {
                         lhs: Box::new(iter_id_node.clone()),
                         rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
-                            ty: start_node.ty(),
+                            ty: iter_type,
                             span: self.span,
                             lhs: Box::new(iter_id_node),
                             rhs: Box::new(hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(1),
-                                ty: start_node.ty(),
+                                ty: iter_type,
                                 span: self.span,
                             })),
                         }))),
@@ -1940,6 +1932,8 @@ impl Check for ast::For {
                 // }
 
                 let value_node = value.check(sess, env, None)?;
+                let (value_type, value_span) = (value.ty(), value.span());
+
                 let value_node_type = value_node.ty().normalize(&sess.tycx);
 
                 match value_node_type.maybe_deref_once() {
@@ -1947,7 +1941,7 @@ impl Check for ast::For {
                         env.push_scope(ScopeKind::Loop);
                         sess.loop_depth += 1;
 
-                        let statements: Vec<hir::Node> = vec![];
+                        let mut statements: Vec<hir::Node> = vec![];
 
                         // bind the value to a local variable, so we don't have to evaluate the expression every loop
                         let value_name = sess.generate_name("iterator");
@@ -1955,11 +1949,11 @@ impl Check for ast::For {
                             env,
                             value_name,
                             ast::Visibility::Private,
-                            value_node.ty(),
+                            value_type,
                             value_node,
                             false,
                             ast::BindingKind::Normal,
-                            value_node.span(),
+                            value_span,
                         )?;
 
                         let value_id = value_binding.id;
@@ -1968,16 +1962,18 @@ impl Check for ast::For {
 
                         let value_id_node = hir::Node::Id(hir::Id {
                             id: value_id,
-                            ty: value_node.ty(),
-                            span: value_node.span(),
+                            ty: value_type,
+                            span: value_span,
                         });
 
                         // let mut index = 0
                         let index_binding =
-                            self.index_binding.unwrap_or_else(|| ast::NameAndSpan {
-                                name: sess.generate_name("index"),
-                                span: self.span,
-                            });
+                            self.index_binding
+                                .clone()
+                                .unwrap_or_else(|| ast::NameAndSpan {
+                                    name: sess.generate_name("index"),
+                                    span: self.span,
+                                });
 
                         let index_binding = sess.bind_name(
                             env,
@@ -2132,7 +2128,7 @@ impl Check for ast::FunctionExpr {
 
         env.push_scope(ScopeKind::Function);
 
-        for (param, param_type) in self.sig.params.iter_mut().zip(function_type.params.iter()) {
+        for (param, param_type) in self.sig.params.iter().zip(function_type.params.iter()) {
             let ty = sess.tycx.bound(
                 param_type.clone(),
                 param
@@ -2329,7 +2325,7 @@ impl Check for ast::If {
         match condition_node.as_const_value() {
             Some(ConstValue::Bool(true)) => self.then.check(sess, env, expected_ty),
             Some(ConstValue::Bool(false)) => {
-                if let Some(otherwise) = &mut self.otherwise {
+                if let Some(otherwise) = &self.otherwise {
                     otherwise.check(sess, env, expected_ty)
                 } else {
                     Ok(hir::Node::Const(hir::Const {
@@ -2342,7 +2338,7 @@ impl Check for ast::If {
             _ => {
                 let mut then_node = self.then.check(sess, env, expected_ty)?;
 
-                let if_node = if let Some(otherwise) = &mut self.otherwise {
+                let if_node = if let Some(otherwise) = &self.otherwise {
                     let mut otherwise_node = otherwise.check(sess, env, Some(then_node.ty()))?;
 
                     otherwise_node
@@ -2510,11 +2506,12 @@ impl Check for ast::Binary {
 impl Check for ast::Unary {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let node = self.value.check(sess, env, None)?;
+        let node_ty = node.ty();
 
         match self.op {
             ast::UnaryOp::Ref(is_mutable) => {
                 let ty = sess.tycx.bound(
-                    Type::Pointer(Box::new(node.ty().into()), is_mutable),
+                    Type::Pointer(Box::new(node_ty.as_kind()), is_mutable),
                     self.span,
                 );
 
@@ -2531,11 +2528,11 @@ impl Check for ast::Unary {
                     .tycx
                     .bound(Type::Pointer(Box::new(pointee_ty.into()), false), self.span);
 
-                node.ty().unify(&ptr_ty, &mut sess.tycx).or_report_err(
+                node_ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     ptr_ty,
                     None,
-                    node.ty(),
+                    node_ty,
                     self.value.span(),
                 )?;
 
@@ -2549,21 +2546,21 @@ impl Check for ast::Unary {
                 let anyint = sess.tycx.anyint(self.span);
                 let bool = sess.tycx.common_types.bool;
 
-                node.ty()
+                node_ty
                     .unify(&bool, &mut sess.tycx)
-                    .or_else(|_| node.ty().unify(&anyint, &mut sess.tycx))
-                    .or_report_err(&sess.tycx, bool, None, node.ty(), self.value.span())?;
+                    .or_else(|_| node_ty.unify(&anyint, &mut sess.tycx))
+                    .or_report_err(&sess.tycx, bool, None, node_ty, self.value.span())?;
 
                 if let Some(const_value) = node.as_const_value() {
                     Ok(hir::Node::Const(hir::Const {
                         value: const_value.not(),
-                        ty: node.ty(),
+                        ty: node_ty,
                         span: self.span,
                     }))
                 } else {
                     Ok(hir::Node::Builtin(hir::Builtin::Not(hir::Unary {
                         value: Box::new(node),
-                        ty: node.ty(),
+                        ty: node_ty,
                         span: self.span,
                     })))
                 }
@@ -2571,24 +2568,24 @@ impl Check for ast::Unary {
             ast::UnaryOp::Neg => {
                 let anyint = sess.tycx.anyint(self.span);
 
-                node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
+                node_ty.unify(&anyint, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     anyint,
                     None,
-                    node.ty(),
+                    node_ty,
                     self.value.span(),
                 )?;
 
                 if let Some(const_value) = node.as_const_value() {
                     Ok(hir::Node::Const(hir::Const {
                         value: const_value.neg(),
-                        ty: node.ty(),
+                        ty: node_ty,
                         span: self.span,
                     }))
                 } else {
                     Ok(hir::Node::Builtin(hir::Builtin::Neg(hir::Unary {
                         value: Box::new(node),
-                        ty: node.ty(),
+                        ty: node_ty,
                         span: self.span,
                     })))
                 }
@@ -2596,11 +2593,11 @@ impl Check for ast::Unary {
             ast::UnaryOp::Plus => {
                 let anyint = sess.tycx.anyint(self.span);
 
-                node.ty().unify(&anyint, &mut sess.tycx).or_report_err(
+                node_ty.unify(&anyint, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     anyint,
                     None,
-                    node.ty(),
+                    node_ty,
                     self.value.span(),
                 )?;
 
@@ -2717,9 +2714,8 @@ impl Check for ast::Cast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let node = self.expr.check(sess, env, None)?;
 
-        let target_ty = if let Some(ty_expr) = &mut self.target {
-            let node = ty_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-            sess.extract_const_type(&node)?
+        let target_ty = if let Some(type_expr) = &self.target {
+            check_type_expr(type_expr, sess, env)?
         } else {
             match expected_ty {
                 Some(t) => t,
@@ -2806,7 +2802,7 @@ fn check_named_struct_literal(
     sess: &mut CheckSess,
     env: &mut Env,
     struct_ty: StructType,
-    fields: &mut Vec<ast::StructLiteralField>,
+    fields: &Vec<ast::StructLiteralField>,
     span: Span,
 ) -> Result {
     let mut field_set = UstrSet::default();
@@ -2814,7 +2810,7 @@ fn check_named_struct_literal(
 
     let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
 
-    for field in fields.iter_mut() {
+    for field in fields.iter() {
         if !field_set.insert(field.name) {
             return Err(SyntaxError::struct_field_specified_more_than_once(
                 field.span,
@@ -2890,7 +2886,7 @@ fn check_named_struct_literal(
 fn check_anonymous_struct_literal(
     sess: &mut CheckSess,
     env: &mut Env,
-    fields: &mut Vec<ast::StructLiteralField>,
+    fields: &Vec<ast::StructLiteralField>,
     span: Span,
 ) -> Result {
     let mut field_set = UstrSet::default();
@@ -2906,7 +2902,7 @@ fn check_anonymous_struct_literal(
         fields: vec![],
     };
 
-    for field in fields {
+    for field in fields.iter() {
         if !field_set.insert(field.name) {
             return Err(SyntaxError::struct_field_specified_more_than_once(
                 field.span,
@@ -2986,7 +2982,7 @@ pub(super) fn check_optional_type_expr<'s>(
     span: Span,
 ) -> DiagnosticResult<TypeId> {
     if let Some(type_expr) = type_expr {
-        check_type_expr(type_expr, sess, env, span)
+        check_type_expr(type_expr, sess, env)
     } else {
         Ok(sess.tycx.var(span))
     }
@@ -2996,7 +2992,6 @@ pub(super) fn check_type_expr<'s>(
     type_expr: &ast::Ast,
     sess: &mut CheckSess<'s>,
     env: &mut Env,
-    span: Span,
 ) -> DiagnosticResult<TypeId> {
     let node = type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
     sess.extract_const_type(&node)

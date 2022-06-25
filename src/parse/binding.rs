@@ -80,7 +80,7 @@ impl Parser {
             todo!("parse extern variables")
         } else if eat!(self, Eq) {
             self.extern_lib = Some(lib.clone());
-            let value = self.parse_decl_expr(pattern.as_name_ref().name)?;
+            let value = self.parse_decl_expr(pattern.as_name().name)?;
             self.extern_lib = None;
 
             Ok(ast::Binding {
@@ -123,7 +123,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let value = self.parse_decl_expr(pattern.as_name_ref().name)?;
+        let value = self.parse_decl_expr(pattern.as_name().name)?;
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
@@ -131,7 +131,7 @@ impl Parser {
             kind: ast::BindingKind::Intrinsic(intrinsic),
             pattern,
             ty: TypeId::unknown(),
-            type_expr: Some(Box::new(value)),
+            type_expr: None,
             value: Box::new(value),
             span: start_span.to(self.previous_span()),
         })

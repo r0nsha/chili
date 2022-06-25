@@ -163,23 +163,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             };
 
-            let value = if let Some(expr) = &binding.value {
-                let old_module_info = state.module_info;
-                state.module_info = *self.workspace.module_infos.get(binding.module_id).unwrap();
+            let old_module_info = state.module_info;
+            state.module_info = *self.workspace.module_infos.get(binding.module_id).unwrap();
 
-                let value = self.gen_expr(state, expr, true);
+            let value = self.gen_expr(state, &binding.value, true);
 
-                state.module_info = old_module_info;
+            state.module_info = old_module_info;
 
-                value
-            } else {
-                ty.const_zero()
-            };
-
-            let is_const = binding
-                .value
-                .as_ref()
-                .map_or(false, |expr| matches!(expr.as_ref(), ast::Ast::Const(..)));
+            let is_const = matches!(binding.value.as_ref(), ast::Ast::Const(..));
 
             let initializer = if is_const { value } else { ty.const_zero() };
 

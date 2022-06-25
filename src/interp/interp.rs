@@ -1,6 +1,6 @@
 use super::{
     ffi::Ffi,
-    lower::{Lower, LowerContext},
+    // lower::{Lower, LowerContext},
     vm::{
         display::dump_bytecode_to_file,
         instruction::{CompiledCode, Instruction},
@@ -109,7 +109,8 @@ impl<'i> InterpSess<'i> {
         self.env_stack.push((module_id, Env::default()));
 
         // lower expression tree into instructions
-        expr.lower(self, &mut start_code, LowerContext { take_ptr: false });
+        todo!("lower interp");
+        // expr.lower(self, &mut start_code, LowerContext { take_ptr: false });
         start_code.push(Instruction::Halt);
 
         let start_code = self.insert_init_instructions(start_code);

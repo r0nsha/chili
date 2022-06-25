@@ -165,20 +165,21 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.typed_ast.get_binding(id) {
-            if let Some(expr) = binding.value.as_ref() {
-                if let ast::Ast::Const(ast::Const {
-                    value: ConstValue::Function(function),
-                    ..
-                }) = expr.as_ref()
-                {
-                    let function = self.gen_function(function.id, None);
-                    self.insert_global_decl(id, CodegenDecl::Function(function))
-                } else {
-                    self.declare_global_binding(id, binding)
-                }
-            } else {
-                self.declare_global_binding(id, binding)
-            }
+            todo!();
+            // if let Some(expr) = binding.value.as_ref() {
+            //     if let ast::Ast::Const(ast::Const {
+            //         value: ConstValue::Function(function),
+            //         ..
+            //     }) = expr.as_ref()
+            //     {
+            //         let function = self.gen_function(function.id, None);
+            //         self.insert_global_decl(id, CodegenDecl::Function(function))
+            //     } else {
+            //         self.declare_global_binding(id, binding)
+            //     }
+            // } else {
+            //     self.declare_global_binding(id, binding)
+            // }
         } else {
             panic!("{:#?}", self.workspace.binding_infos.get(id))
         }
@@ -229,15 +230,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
 
         let global_value = self.add_global_uninit(id, ty, linkage);
 
-        let value = if let Some(const_value) = &binding_info.const_value {
-            self.gen_const_value(None, const_value, &self.tycx.ty_kind(binding_info.ty))
-        } else {
-            ty.const_zero()
-        };
+        todo!();
+        // let value = if let Some(const_value) = &binding_info.const_value {
+        //     self.gen_const_value(None, const_value, &self.tycx.ty_kind(binding_info.ty))
+        // } else {
+        //     ty.const_zero()
+        // };
 
-        global_value.set_initializer(&value);
+        // global_value.set_initializer(&value);
 
-        global_value
+        // global_value
     }
 
     pub fn add_global_uninit(
@@ -348,19 +350,20 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         pattern: &UnpackPattern,
     ) {
-        for pattern in pattern.symbols.iter() {
-            let redirect_id = self
-                .workspace
-                .binding_infos
-                .get(pattern.id)
-                .unwrap()
-                .redirects_to
-                .unwrap();
+        todo!();
+        // for pattern in pattern.symbols.iter() {
+        //     let redirect_id = self
+        //         .workspace
+        //         .binding_infos
+        //         .get(pattern.id)
+        //         .unwrap()
+        //         .redirects_to
+        //         .unwrap();
 
-            let decl = self.gen_top_level_binding(redirect_id);
+        //     let decl = self.gen_top_level_binding(redirect_id);
 
-            state.scopes.insert(pattern.id, decl);
-        }
+        //     state.scopes.insert(pattern.id, decl);
+        // }
     }
 
     pub fn gen_binding_struct_unpack_pattern(
@@ -615,32 +618,34 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             ast::Ast::Binding(binding) => {
                 match &binding.kind {
                     ast::BindingKind::Normal => {
-                        self.gen_binding_pattern_with_expr(
-                            state,
-                            &binding.pattern,
-                            &binding.ty.normalize(self.tycx),
-                            &binding.value,
-                        );
+                        todo!();
+                        // self.gen_binding_pattern_with_expr(
+                        //     state,
+                        //     &binding.pattern,
+                        //     &binding.ty.normalize(self.tycx),
+                        //     &binding.value,
+                        // );
                     }
                     ast::BindingKind::Extern(_) | ast::BindingKind::Intrinsic(_) => {
-                        let pattern = binding.pattern.as_name_ref();
+                        todo!();
+                        // let pattern = binding.pattern.as_name_ref();
 
-                        let decl = if let Some(expr) = &binding.value {
-                            if let ast::Ast::Const(ast::Const {
-                                value: ConstValue::Function(function),
-                                ..
-                            }) = expr.as_ref()
-                            {
-                                let function = self.gen_function(function.id, None);
-                                CodegenDecl::Function(function)
-                            } else {
-                                self.declare_global_binding(pattern.id, binding)
-                            }
-                        } else {
-                            self.declare_global_binding(pattern.id, binding)
-                        };
+                        // let decl = if let Some(expr) = &binding.value {
+                        //     if let ast::Ast::Const(ast::Const {
+                        //         value: ConstValue::Function(function),
+                        //         ..
+                        //     }) = expr.as_ref()
+                        //     {
+                        //         let function = self.gen_function(function.id, None);
+                        //         CodegenDecl::Function(function)
+                        //     } else {
+                        //         self.declare_global_binding(pattern.id, binding)
+                        //     }
+                        // } else {
+                        //     self.declare_global_binding(pattern.id, binding)
+                        // };
 
-                        state.scopes.insert(pattern.id, decl);
+                        // state.scopes.insert(pattern.id, decl);
                     }
                 }
 
@@ -736,135 +741,136 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 return self.gen_unit();
             }
             ast::Ast::For(for_) => {
-                let loop_head = self.append_basic_block(state, "loop_head");
-                let loop_body = self.append_basic_block(state, "loop_body");
-                let loop_exit = self.append_basic_block(state, "loop_exit");
+                todo!();
+                // let loop_head = self.append_basic_block(state, "loop_head");
+                // let loop_body = self.append_basic_block(state, "loop_body");
+                // let loop_exit = self.append_basic_block(state, "loop_exit");
 
-                let (start, end) = match &for_.iterator {
-                    ast::ForIter::Range(start, end) => {
-                        let start = self.gen_expr(state, start, true).into_int_value();
-                        let end = self.gen_expr(state, end, true).into_int_value();
-                        (start, end)
-                    }
-                    ast::ForIter::Value(value, ..) => {
-                        let start = self.ptr_sized_int_type.const_zero();
-                        let end = match value.ty().normalize(self.tycx).maybe_deref_once() {
-                            Type::Array(_, len) => {
-                                self.ptr_sized_int_type.const_int(len as u64, false)
-                            }
-                            Type::Slice(..) => {
-                                let agg = self.gen_expr(state, value, true);
-                                self.gen_load_slice_len(agg)
-                            }
-                            ty => unreachable!("unexpected type `{}`", ty),
-                        };
+                // let (start, end) = match &for_.iterator {
+                //     ast::ForIter::Range(start, end) => {
+                //         let start = self.gen_expr(state, start, true).into_int_value();
+                //         let end = self.gen_expr(state, end, true).into_int_value();
+                //         (start, end)
+                //     }
+                //     ast::ForIter::Value(value, ..) => {
+                //         let start = self.ptr_sized_int_type.const_zero();
+                //         let end = match value.ty().normalize(self.tycx).maybe_deref_once() {
+                //             Type::Array(_, len) => {
+                //                 self.ptr_sized_int_type.const_int(len as u64, false)
+                //             }
+                //             Type::Slice(..) => {
+                //                 let agg = self.gen_expr(state, value, true);
+                //                 self.gen_load_slice_len(agg)
+                //             }
+                //             ty => unreachable!("unexpected type `{}`", ty),
+                //         };
 
-                        (start, end)
-                    }
-                };
+                //         (start, end)
+                //     }
+                // };
 
-                state.push_scope();
+                // state.push_scope();
 
-                let it = match &for_.iterator {
-                    ast::ForIter::Range(_, _) => {
-                        self.gen_local_with_alloca(state, for_.iter_binding.id, start.into())
-                    }
-                    ast::ForIter::Value(value) => {
-                        // TODO: remove by_ref?
-                        let by_ref = value.ty().normalize(self.tycx).is_pointer();
+                // let it = match &for_.iterator {
+                //     ast::ForIter::Range(_, _) => {
+                //         self.gen_local_with_alloca(state, for_.iter_binding.id, start.into())
+                //     }
+                //     ast::ForIter::Value(value) => {
+                //         // TODO: remove by_ref?
+                //         let by_ref = value.ty().normalize(self.tycx).is_pointer();
 
-                        let agg = self.gen_expr(state, value, false).into_pointer_value();
-                        let agg = self.maybe_load_double_pointer(agg);
+                //         let agg = self.gen_expr(state, value, false).into_pointer_value();
+                //         let agg = self.maybe_load_double_pointer(agg);
 
-                        let item = self.gen_subscript(
-                            agg.into(),
-                            &value.ty().normalize(self.tycx),
-                            start,
-                            !by_ref,
-                        );
+                //         let item = self.gen_subscript(
+                //             agg.into(),
+                //             &value.ty().normalize(self.tycx),
+                //             start,
+                //             !by_ref,
+                //         );
 
-                        self.gen_local_with_alloca(state, for_.iter_binding.id, item)
-                    }
-                };
+                //         self.gen_local_with_alloca(state, for_.iter_binding.id, item)
+                //     }
+                // };
 
-                let it_index = self.gen_local_with_alloca(
-                    state,
-                    for_.index_binding
-                        .as_ref()
-                        .map_or(BindingId::unknown(), |x| x.id),
-                    start.into(),
-                );
+                // let it_index = self.gen_local_with_alloca(
+                //     state,
+                //     for_.index_binding
+                //         .as_ref()
+                //         .map_or(BindingId::unknown(), |x| x.id),
+                //     start.into(),
+                // );
 
-                self.builder.build_unconditional_branch(loop_head);
-                self.start_block(state, loop_head);
+                // self.builder.build_unconditional_branch(loop_head);
+                // self.start_block(state, loop_head);
 
-                let curr_index = self.build_load(it_index.into()).into_int_value();
+                // let curr_index = self.build_load(it_index.into()).into_int_value();
 
-                let continue_condition = self.builder.build_int_compare(
-                    match &for_.iterator {
-                        ast::ForIter::Range(..) => IntPredicate::SLE,
-                        ast::ForIter::Value(..) => IntPredicate::SLT,
-                    },
-                    curr_index,
-                    end,
-                    "for_loop_cond",
-                );
+                // let continue_condition = self.builder.build_int_compare(
+                //     match &for_.iterator {
+                //         ast::ForIter::Range(..) => IntPredicate::SLE,
+                //         ast::ForIter::Value(..) => IntPredicate::SLT,
+                //     },
+                //     curr_index,
+                //     end,
+                //     "for_loop_cond",
+                // );
 
-                self.builder
-                    .build_conditional_branch(continue_condition, loop_body, loop_exit);
+                // self.builder
+                //     .build_conditional_branch(continue_condition, loop_body, loop_exit);
 
-                self.start_block(state, loop_body);
+                // self.start_block(state, loop_body);
 
-                state.loop_blocks.push(LoopBlock {
-                    head: loop_head,
-                    exit: loop_exit,
-                });
+                // state.loop_blocks.push(LoopBlock {
+                //     head: loop_head,
+                //     exit: loop_exit,
+                // });
 
-                self.gen_block(state, &for_.block, false);
+                // self.gen_block(state, &for_.block, false);
 
-                if self.current_block().get_terminator().is_none() {
-                    let step = start.get_type().const_int(1, true);
+                // if self.current_block().get_terminator().is_none() {
+                //     let step = start.get_type().const_int(1, true);
 
-                    let next_index = self
-                        .builder
-                        .build_int_add(curr_index, step, "for_next_index");
+                //     let next_index = self
+                //         .builder
+                //         .build_int_add(curr_index, step, "for_next_index");
 
-                    self.build_store(it_index, next_index.into());
+                //     self.build_store(it_index, next_index.into());
 
-                    match &for_.iterator {
-                        ast::ForIter::Range(_, _) => {
-                            let it_value = self.build_load(it.into()).into_int_value();
-                            let next_it =
-                                self.builder.build_int_add(it_value, step, "for_next_index");
+                //     match &for_.iterator {
+                //         ast::ForIter::Range(_, _) => {
+                //             let it_value = self.build_load(it.into()).into_int_value();
+                //             let next_it =
+                //                 self.builder.build_int_add(it_value, step, "for_next_index");
 
-                            self.build_store(it, next_it.into());
-                        }
-                        ast::ForIter::Value(value) => {
-                            let by_ref = value.ty().normalize(self.tycx).is_pointer();
+                //             self.build_store(it, next_it.into());
+                //         }
+                //         ast::ForIter::Value(value) => {
+                //             let by_ref = value.ty().normalize(self.tycx).is_pointer();
 
-                            let agg = self.gen_expr(state, value, false).into_pointer_value();
-                            let agg = self.maybe_load_double_pointer(agg);
+                //             let agg = self.gen_expr(state, value, false).into_pointer_value();
+                //             let agg = self.maybe_load_double_pointer(agg);
 
-                            let item = self.gen_subscript(
-                                agg.into(),
-                                &value.ty().normalize(self.tycx),
-                                next_index,
-                                !by_ref,
-                            );
+                //             let item = self.gen_subscript(
+                //                 agg.into(),
+                //                 &value.ty().normalize(self.tycx),
+                //                 next_index,
+                //                 !by_ref,
+                //             );
 
-                            self.build_store(it, item);
-                        }
-                    }
+                //             self.build_store(it, item);
+                //         }
+                //     }
 
-                    self.builder.build_unconditional_branch(loop_head);
-                }
+                //     self.builder.build_unconditional_branch(loop_head);
+                // }
 
-                self.start_block(state, loop_exit);
+                // self.start_block(state, loop_exit);
 
-                state.loop_blocks.pop();
-                state.pop_scope();
+                // state.loop_blocks.pop();
+                // state.pop_scope();
 
-                self.gen_unit()
+                // self.gen_unit()
             }
             ast::Ast::Break(_) => {
                 let exit_block = state.loop_blocks.last().unwrap().exit;

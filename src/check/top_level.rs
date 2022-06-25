@@ -29,18 +29,21 @@ impl CheckTopLevel for ast::Binding {
             self.check(sess, &mut env, None)
         })?;
 
-        let bound_names = UstrMap::<BindingId>::default();
+        let mut bound_names = UstrMap::<BindingId>::default();
 
         match node {
             hir::Node::Binding(binding) => {
-                let id = sess.cache.bindings.insert(binding);
-                bound_names.insert(binding.name, id);
+                let (name, id) = (binding.name, binding.id);
+                sess.cache.bindings.insert(binding);
+                bound_names.insert(name, id);
             }
             hir::Node::Sequence(sequence) => {
                 for statement in sequence.statements.into_iter() {
                     let binding = statement.into_binding().unwrap();
                     let (name, id) = (binding.name, binding.id);
-                    let id = sess.cache.bindings.insert(binding);
+
+                    sess.cache.bindings.insert(binding);
+
                     bound_names.insert(name, id);
                 }
             }
@@ -87,20 +90,13 @@ impl<'s> CheckSess<'s> {
                 .iter()
                 .find(|binding| binding.pattern.iter().any(|pat| pat.name == name))
             {
-                // this symbol points to a binding
-                let mut binding = binding.clone();
-                binding.check_top_level(self)?;
-
-                let desired_pattern = binding.pattern.iter().find(|pat| pat.name == name).unwrap();
-
-                let desired_binding_info = self
-                    .workspace
-                    .binding_infos
-                    .get(desired_pattern.id)
-                    .unwrap();
+                let bound_names = binding.check_top_level(self)?;
+                let desired_id = *bound_names.get(&name).unwrap();
 
                 self.workspace
-                    .add_binding_info_use(desired_binding_info.id, caller_info.span);
+                    .add_binding_info_use(desired_id, caller_info.span);
+
+                let desired_binding_info = self.workspace.binding_infos.get(desired_id).unwrap();
 
                 self.validate_can_access_item(desired_binding_info, caller_info)?;
 
@@ -111,7 +107,6 @@ impl<'s> CheckSess<'s> {
 
                 Ok(builtin_id)
             } else {
-                // the symbol doesn't exist, return an error
                 let module_info = self.workspace.module_infos.get(module_id).unwrap();
 
                 let message = if module_info.name.is_empty() {

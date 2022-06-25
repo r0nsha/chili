@@ -44,7 +44,7 @@ impl Pattern {
         matches!(self, Pattern::Name(_))
     }
 
-    pub fn as_name_ref(&self) -> &NamePattern {
+    pub fn as_name(&self) -> &NamePattern {
         match self {
             Pattern::Name(s) => s,
             _ => panic!("expected Symbol, got {}", self),

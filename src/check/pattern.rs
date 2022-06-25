@@ -390,7 +390,7 @@ impl<'s> CheckSess<'s> {
                                     span: wildcard_symbol_span,
                                 }),
                                 binding_info.is_mutable,
-                                binding_info.kind,
+                                binding_info.kind.clone(),
                                 binding_info.span,
                             )?;
 
@@ -436,7 +436,7 @@ impl<'s> CheckSess<'s> {
                             span: pattern.span,
                         }),
                         _ => hir::Node::MemberAccess(hir::MemberAccess {
-                            value: Box::new(value),
+                            value: Box::new(value.clone()),
                             member: pattern.name,
                             index: index as _,
                             ty,
@@ -476,7 +476,7 @@ impl<'s> CheckSess<'s> {
                                         span: field.span,
                                     }),
                                     None => hir::Node::MemberAccess(hir::MemberAccess {
-                                        value: Box::new(value),
+                                        value: Box::new(value.clone()),
                                         member: field.name,
                                         index: index as _,
                                         ty,
@@ -567,7 +567,7 @@ impl<'s> CheckSess<'s> {
                     span: value.span(),
                 }),
                 None => hir::Node::MemberAccess(hir::MemberAccess {
-                    value: Box::new(value),
+                    value: Box::new(value.clone()),
                     member: ustr(&index.to_string()),
                     index: index as _,
                     ty,
