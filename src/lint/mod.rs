@@ -159,7 +159,7 @@ impl Lint for ast::Ast {
                 ast::BuiltinKind::Import(_) => (),
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr, _) => expr.lint(sess),
+                | ast::BuiltinKind::Run(expr) => expr.lint(sess),
                 ast::BuiltinKind::Panic(e) => e.lint(sess),
             },
             ast::Ast::Function(f) => {

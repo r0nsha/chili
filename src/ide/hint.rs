@@ -139,7 +139,7 @@ impl<'a> CollectHints<'a> for ast::Ast {
                 ast::BuiltinKind::Import(_) => (),
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr, _) => expr.collect_hints(sess),
+                | ast::BuiltinKind::Run(expr) => expr.collect_hints(sess),
                 ast::BuiltinKind::Panic(expr) => expr.collect_hints(sess),
             },
             ast::Ast::Function(f) => {

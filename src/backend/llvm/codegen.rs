@@ -687,15 +687,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     self.gen_panic(state, message, expr.span());
                     self.gen_unit()
                 }
-                ast::BuiltinKind::Run(_, result) => {
-                    let ty = expr.ty().normalize(self.tycx);
-                    let value = self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty);
+                ast::BuiltinKind::Run(_) => {
+                    todo!("remove this")
+                    // let ty = expr.ty().normalize(self.tycx);
+                    // let value = self.gen_const_value(Some(state), result.as_ref().unwrap(), &ty);
 
-                    if deref {
-                        self.build_load(value)
-                    } else {
-                        value
-                    }
+                    // if deref {
+                    //     self.build_load(value)
+                    // } else {
+                    //     value
+                    // }
                 }
             },
             ast::Ast::Function(_) => {

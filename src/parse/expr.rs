@@ -491,7 +491,7 @@ impl Parser {
             } else {
                 Some(Box::new(self.parse_expr()?))
             }),
-            "run" => BuiltinKind::Run(Box::new(self.parse_expr()?), None),
+            "run" => BuiltinKind::Run(Box::new(self.parse_expr()?)),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))

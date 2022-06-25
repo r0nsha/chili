@@ -176,7 +176,7 @@ impl<'a> Substitute<'a> for ast::Ast {
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr)
                 | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr, _) => expr.substitute(sess),
+                | ast::BuiltinKind::Run(expr) => expr.substitute(sess),
                 ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
                 ast::BuiltinKind::Import(_) => (),
             },

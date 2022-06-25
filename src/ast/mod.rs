@@ -422,7 +422,7 @@ pub enum BuiltinKind {
     SizeOf(Box<Ast>),
     AlignOf(Box<Ast>),
     Panic(Option<Box<Ast>>),
-    Run(Box<Ast>, Option<ConstValue>), // 1. expression to run | 2. the expression's result
+    Run(Box<Ast>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

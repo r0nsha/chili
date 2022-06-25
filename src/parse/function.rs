@@ -77,7 +77,7 @@ impl Parser {
 
                     let name = require!(self, Ident(_), "an identifier")?.symbol();
 
-                    let ty = if eat!(self, Colon) {
+                    let type_expr = if eat!(self, Colon) {
                         Some(Box::new(self.parse_expr()?))
                     } else {
                         None

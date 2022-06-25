@@ -215,8 +215,8 @@ impl PrintTree for ast::Ast {
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }
-                    ast::BuiltinKind::Run(expr, result) => {
-                        b.begin_child(format!("run!(resulted in: {:?})", result.as_ref().unwrap()));
+                    ast::BuiltinKind::Run(expr) => {
+                        b.begin_child("run!".to_string());
                         expr.print_tree(b, workspace, tycx);
                         b.end_child();
                     }

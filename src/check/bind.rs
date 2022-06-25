@@ -214,7 +214,7 @@ impl<'s> CheckSess<'s> {
                         continue;
                     }
 
-                    let (res, top_level_symbol_id) = self.check_top_level_symbol(
+                    let top_level_symbol_id = self.check_top_level_symbol(
                         CallerInfo {
                             module_id: env.module_id(),
                             span: pattern.span,
@@ -238,12 +238,18 @@ impl<'s> CheckSess<'s> {
                     self.workspace
                         .add_binding_info_use(top_level_symbol_id, pattern.span);
 
+                    let binding_info = self
+                        .workspace
+                        .binding_infos
+                        .get(top_level_symbol_id)
+                        .unwrap();
+
                     self.bind_symbol_pattern(
                         env,
                         pattern,
                         visibility,
-                        res.ty,
-                        res.const_value,
+                        binding_info.ty,
+                        binding_info.const_value,
                         kind,
                     )?;
 

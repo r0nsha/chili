@@ -4,21 +4,27 @@ mod const_fold;
 mod env;
 mod top_level;
 
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult, SyntaxError, TypeError,
-};
-use crate::infer::{
-    cast::CanCast,
-    coerce::{OrCoerce, OrCoerceIntoTy},
-    display::{DisplayTy, OrReportErr},
-    normalize::Normalize,
-    substitute::substitute,
-    ty_ctx::TyCtx,
-    unify::{occurs, UnifyTy, UnifyTyErr},
-};
 use crate::interp::interp::{Interp, InterpResult};
 use crate::span::Span;
+use crate::{
+    ast::ty::align::AlignOf,
+    infer::{
+        cast::CanCast,
+        coerce::{OrCoerce, OrCoerceIntoTy},
+        display::{DisplayTy, OrReportErr},
+        normalize::Normalize,
+        substitute::substitute,
+        ty_ctx::TyCtx,
+        unify::{occurs, UnifyTy, UnifyTyErr},
+    },
+};
+use crate::{
+    ast::ty::size::SizeOf,
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError, TypeError,
+    },
+};
 use crate::{
     ast::{
         self,
@@ -334,7 +340,7 @@ where
 
 impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        let ty = check_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
+        let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
 
         match &self.kind {
             BindingKind::Normal => {
@@ -533,7 +539,7 @@ impl Check for ast::FunctionSig {
 
             for param in self.params.iter() {
                 let param_type =
-                    check_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
+                    check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
 
                 for pattern in param.pattern.iter() {
                     if let Some(already_defined_span) =
@@ -582,12 +588,12 @@ impl Check for ast::FunctionSig {
         let return_type = if self.return_type.is_none() && self.kind.is_extern() {
             sess.tycx.common_types.unit
         } else {
-            check_type_expr(&self.return_type, sess, env, self.span)?
+            check_optional_type_expr(&self.return_type, sess, env, self.span)?
         };
 
         let varargs = if let Some(varargs) = &mut self.varargs {
             let ty = if varargs.type_expr.is_some() {
-                let ty = check_type_expr(&varargs.type_expr, sess, env, self.span)?;
+                let ty = check_optional_type_expr(&varargs.type_expr, sess, env, self.span)?;
                 Some(ty.as_kind())
             } else {
                 None
@@ -630,31 +636,9 @@ impl Check for ast::Ast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         match self {
             ast::Ast::Binding(binding) => binding.check(sess, env, None),
-            ast::Ast::Assignment(assignment) => {
-                let lhs_res = assignment.lhs.check(sess, env, None)?;
-                let rhs_res = assignment.rhs.check(sess, env, Some(lhs_res.ty))?;
-
-                rhs_res
-                    .ty
-                    .unify(&lhs_res.ty, &mut sess.tycx)
-                    .or_coerce_into_ty(
-                        &mut assignment.rhs,
-                        lhs_res.ty,
-                        &mut sess.tycx,
-                        sess.target_metrics.word_size,
-                    )
-                    .or_report_err(
-                        &sess.tycx,
-                        lhs_res.ty,
-                        Some(assignment.lhs.span()),
-                        rhs_res.ty,
-                        assignment.rhs.span(),
-                    )?;
-
-                Ok(Res::new(sess.tycx.common_types.unit))
-            }
+            ast::Ast::Assignment(assignment) => assignment.check(sess, env, expected_ty),
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_ty),
-            ast::Ast::Builtin(builtin) => match &mut builtin.kind {
+            ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::Import(import_path) => {
                     let path_str = import_path.to_str().unwrap();
 
@@ -674,35 +658,57 @@ impl Check for ast::Ast {
                         span: builtin.span,
                     }))
                 }
-                ast::BuiltinKind::SizeOf(expr) | ast::BuiltinKind::AlignOf(expr) => {
-                    let node = expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-                    sess.extract_const_type(&node)?;
-                    Ok(Res::new(sess.tycx.common_types.uint))
+                ast::BuiltinKind::SizeOf(expr) => {
+                    let ty = check_type_expr(&expr, sess, env, expr.span())?;
+
+                    let size = ty
+                        .normalize(&sess.tycx)
+                        .size_of(sess.target_metrics.word_size);
+
+                    Ok(hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(size as _),
+                        ty: sess.tycx.common_types.uint,
+                        span: expr.span(),
+                    }))
                 }
-                ast::BuiltinKind::Run(expr, run_result) => {
-                    let node = expr.check(sess, env, None)?;
+                ast::BuiltinKind::AlignOf(expr) => {
+                    let ty = check_type_expr(&expr, sess, env, expr.span())?;
 
-                    if sess.workspace.build_options.check_mode {
-                        Ok(Res::new(node.ty))
-                    } else {
-                        // TODO (Ron): unwrap interp result into a diagnostic
-                        let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
+                    let align = ty
+                        .normalize(&sess.tycx)
+                        .align_of(sess.target_metrics.word_size);
 
-                        let ty = node.ty.normalize(&sess.tycx);
+                    Ok(hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(align as _),
+                        ty: sess.tycx.common_types.uint,
+                        span: expr.span(),
+                    }))
+                }
+                ast::BuiltinKind::Run(expr) => {
+                    todo!("interpret the expression and return the result as a hir::Node::Const")
+                    // let node = expr.check(sess, env, None)?;
 
-                        match interp_value.try_into_const_value(&mut sess.tycx, &ty, builtin.span) {
-                            Ok(const_value) => {
-                                *run_result = Some(const_value.clone());
-                                Ok(Res::new_const(node.ty, const_value))
-                            }
-                            Err(value_str) => Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "compile-time evaluation cannot result in `{}`",
-                                    value_str,
-                                ))
-                                .with_label(Label::primary(builtin.span, "evaluated here"))),
-                        }
-                    }
+                    // if sess.workspace.build_options.check_mode {
+                    //     Ok(Res::new(node.ty))
+                    // } else {
+                    //     // TODO (Ron): unwrap interp result into a diagnostic
+                    //     let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
+
+                    //     let ty = node.ty.normalize(&sess.tycx);
+
+                    //     match interp_value.try_into_const_value(&mut sess.tycx, &ty, builtin.span) {
+                    //         Ok(const_value) => {
+                    //             *run_result = Some(const_value.clone());
+                    //             Ok(Res::new_const(node.ty, const_value))
+                    //         }
+                    //         Err(value_str) => Err(Diagnostic::error()
+                    //             .with_message(format!(
+                    //                 "compile-time evaluation cannot result in `{}`",
+                    //                 value_str,
+                    //             ))
+                    //             .with_label(Label::primary(builtin.span, "evaluated here"))),
+                    //     }
+                    // }
                 }
                 ast::BuiltinKind::Panic(expr) => {
                     if let Some(expr) = expr {
@@ -1897,6 +1903,36 @@ impl Check for ast::Ast {
     }
 }
 
+impl Check for ast::Assignment {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+        let lhs_node = self.lhs.check(sess, env, None)?;
+        let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
+
+        rhs_node
+            .ty()
+            .unify(&lhs_node.ty(), &mut sess.tycx)
+            .or_coerce_into_ty(
+                &mut rhs_node,
+                lhs_node.ty(),
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            )
+            .or_report_err(
+                &sess.tycx,
+                lhs_node.ty(),
+                Some(lhs_node.span()),
+                rhs_node.ty(),
+                rhs_node.span(),
+            )?;
+
+        Ok(hir::Node::Assignment(hir::Assignment {
+            ty: sess.tycx.common_types.unit,
+            span: self.span,
+            lhs: Box::new(lhs_node),
+            rhs: Box::new(rhs_node),
+        }))
+    }
+}
 impl Check for ast::Return {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let function_frame = sess
@@ -2630,16 +2666,25 @@ fn interp_expr(expr: &ast::Ast, sess: &mut CheckSess, module_id: ModuleId) -> In
     interp_sess.eval(expr, module_id)
 }
 
-pub(super) fn check_type_expr<'s>(
+pub(super) fn check_optional_type_expr<'s>(
     type_expr: &Option<Box<ast::Ast>>,
     sess: &mut CheckSess<'s>,
     env: &mut Env,
     span: Span,
 ) -> DiagnosticResult<TypeId> {
     if let Some(type_expr) = type_expr {
-        let node = type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
-        sess.extract_const_type(&node)
+        check_type_expr(type_expr, sess, env, span)
     } else {
         Ok(sess.tycx.var(span))
     }
+}
+
+pub(super) fn check_type_expr<'s>(
+    type_expr: &ast::Ast,
+    sess: &mut CheckSess<'s>,
+    env: &mut Env,
+    span: Span,
+) -> DiagnosticResult<TypeId> {
+    let node = type_expr.check(sess, env, Some(sess.tycx.common_types.anytype))?;
+    sess.extract_const_type(&node)
 }

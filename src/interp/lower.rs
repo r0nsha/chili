@@ -76,7 +76,7 @@ impl Lower for ast::Ast {
 
                     code.push(Instruction::Panic);
                 }
-                ast::BuiltinKind::Run(expr, _) => expr.lower(sess, code, ctx),
+                ast::BuiltinKind::Run(expr) => expr.lower(sess, code, ctx),
                 ast::BuiltinKind::Import(_) => sess.push_const_unit(code),
             },
             ast::Ast::Function(_) => panic!("should've been lower to ConstValue::Function"), // func.lower(sess, code, ctx),
