@@ -1,9 +1,10 @@
-use super::{Check, CheckSess, Result};
+use super::{Check, CheckSess};
 use crate::ast::ty::TypeId;
 use crate::error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult,
 };
+use crate::hir;
 use crate::span::Span;
 use crate::{
     ast::{
@@ -13,25 +14,40 @@ use crate::{
     },
     check::interp_expr,
 };
-use ustr::Ustr;
+use ustr::{Ustr, UstrMap};
 
 pub trait CheckTopLevel
 where
     Self: Sized,
 {
-    fn check_top_level(&mut self, sess: &mut CheckSess) -> Result;
+    fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>>;
 }
 
 impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&mut self, sess: &mut CheckSess) -> Result {
-        let res = sess.with_env(self.module_id, |sess, mut env| {
+    fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>> {
+        let node = sess.with_env(self.module_id, |sess, mut env| {
             self.check(sess, &mut env, None)
         })?;
 
-        sess.typed_ast
-            .push_binding(&self.pattern.ids(), self.clone());
+        let ids = UstrMap::<BindingId>::default();
 
-        Ok(res)
+        match node {
+            hir::Node::Binding(binding) => {
+                let id = sess.cache.bindings.insert(binding);
+                ids.insert(binding.name, id);
+            }
+            hir::Node::Sequence(sequence) => {
+                for statement in sequence.statements.into_iter() {
+                    let binding = statement.into_binding().unwrap();
+                    let (name, id) = (binding.name, binding.id);
+                    let id = sess.cache.bindings.insert(binding);
+                    ids.insert(name, id);
+                }
+            }
+            _ => (),
+        }
+
+        Ok(ids)
     }
 }
 

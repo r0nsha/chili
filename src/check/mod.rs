@@ -1,7 +1,7 @@
-mod bind;
 mod builtin;
 mod const_fold;
 mod env;
+mod pattern;
 mod top_level;
 
 use crate::interp::interp::{Interp, InterpResult};
@@ -2134,16 +2134,14 @@ impl Check for ast::FunctionExpr {
 
         env.push_scope(ScopeKind::Function);
 
-        for (param, param_ty) in self.sig.params.iter_mut().zip(function_type.params.iter()) {
+        for (param, param_type) in self.sig.params.iter_mut().zip(function_type.params.iter()) {
             let ty = sess.tycx.bound(
-                param_ty.clone(),
+                param_type.clone(),
                 param
                     .type_expr
                     .as_ref()
                     .map_or(param.pattern.span(), |e| e.span()),
             );
-
-            let span = param.pattern.span();
 
             sess.bind_pattern(
                 env,
@@ -2152,7 +2150,7 @@ impl Check for ast::FunctionExpr {
                 ty,
                 None,
                 &ast::BindingKind::Normal,
-                span,
+                param.pattern.span(),
             )?;
         }
 
@@ -2167,6 +2165,8 @@ impl Check for ast::FunctionExpr {
 
         env.insert_function(name, function_id);
 
+        todo!("create pattern bindings as a sequence here");
+
         let mut body_node = sess.with_function_frame(
             FunctionFrame {
                 return_ty: return_type,
@@ -2175,6 +2175,8 @@ impl Check for ast::FunctionExpr {
             },
             |sess| self.body.check(sess, env, None),
         )?;
+
+        todo!("unify the pattern sequence and the body here");
 
         let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
 
