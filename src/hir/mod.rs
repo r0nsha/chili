@@ -28,11 +28,11 @@ macro_rules! node_struct {
     ($name:ident, { $($field:ident : $ty:ty) , + $(,)? }) => {
         #[derive(Debug, Clone)]
         pub struct $name {
-            pub ty: TypeId,
-            pub span: Span,
             $(
                 pub $field: $ty
-            ),+
+            ),+,
+            pub ty: TypeId,
+            pub span: Span,
         }
     };
 }

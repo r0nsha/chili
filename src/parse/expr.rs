@@ -1,6 +1,6 @@
 use super::*;
 use crate::ast::{
-    self, ty::StructTypeKind, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndId, UnaryOp,
+    self, ty::StructTypeKind, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndSpan, UnaryOp,
     Visibility,
 };
 use crate::error::{
@@ -527,10 +527,10 @@ impl Parser {
     pub fn parse_for(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let iter_name = require!(self, Ident(_), "an identifier")?.symbol();
+        let iter_ident = require!(self, Ident(_), "an identifier")?;
 
-        let iter_index_name = if eat!(self, Comma) {
-            Some(require!(self, Ident(_), "an identifier")?.symbol())
+        let iter_index_ident = if eat!(self, Comma) {
+            Some(require!(self, Ident(_), "an identifier")?)
         } else {
             None
         };
@@ -550,8 +550,9 @@ impl Parser {
         let block = self.parse_block()?;
 
         Ok(Ast::For(ast::For {
-            iter_binding: NameAndId::new(iter_name),
-            index_binding: iter_index_name.map(|name| NameAndId::new(name)),
+            iter_binding: NameAndSpan::new(iter_ident.symbol(), iter_ident.span),
+            index_binding: iter_index_ident
+                .map(|ident| NameAndSpan::new(ident.symbol(), ident.span)),
             iterator,
             block,
             ty: Default::default(),

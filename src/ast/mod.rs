@@ -451,8 +451,8 @@ pub struct While {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct For {
-    pub iter_binding: NameAndId,
-    pub index_binding: Option<NameAndId>,
+    pub iter_binding: NameAndSpan,
+    pub index_binding: Option<NameAndSpan>,
     pub iterator: ForIter,
     pub block: Block,
     pub ty: TypeId,
@@ -701,17 +701,14 @@ impl Display for Intrinsic {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct NameAndId {
+pub struct NameAndSpan {
     pub name: Ustr,
-    pub id: BindingId,
+    pub span: Span,
 }
 
-impl NameAndId {
-    pub fn new(name: Ustr) -> Self {
-        Self {
-            name,
-            id: BindingId::unknown(),
-        }
+impl NameAndSpan {
+    pub fn new(name: Ustr, span: Span) -> Self {
+        Self { name, span }
     }
 }
 

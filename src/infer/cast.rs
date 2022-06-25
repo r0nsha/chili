@@ -1,10 +1,6 @@
 use super::unify::can_coerce_mut;
 use crate::ast::ty::*;
 
-pub trait CanCast<T> {
-    fn can_cast(&self, to: &T) -> bool;
-}
-
 pub fn can_cast_type(from: &Type, to: &Type) -> bool {
     from == to
         || match (from, to) {

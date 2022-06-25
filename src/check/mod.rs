@@ -9,7 +9,6 @@ use crate::span::Span;
 use crate::{
     ast::ty::align::AlignOf,
     infer::{
-        cast::CanCast,
         coerce::{OrCoerce, OrCoerceIntoTy},
         display::{DisplayTy, OrReportErr},
         normalize::Normalize,
@@ -159,6 +158,8 @@ pub struct CheckSess<'s> {
     // The current loop (while/for) depth
     // 0 meaning we are not in a loop, > 1 means we are in a loop
     pub loop_depth: usize,
+
+    pub unique_name_indices: UstrMap<usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -181,12 +182,13 @@ impl<'s> CheckSess<'s> {
             modules: old_asts,
             typed_ast: ast::TypedAst::default(),
             cache: hir::Cache::new(),
-            checked_modules: HashMap::default(),
-            global_scopes: HashMap::default(),
+            checked_modules: HashMap::new(),
+            global_scopes: HashMap::new(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
             self_types: vec![],
             loop_depth: 0,
+            unique_name_indices: UstrMap::default(),
         }
     }
 
@@ -326,6 +328,15 @@ impl<'s> CheckSess<'s> {
             }),
             None => hir::Node::Id(hir::Id { id, ty, span }),
         }
+    }
+
+    fn generate_name(&mut self, prefix: impl Into<Ustr>) -> Ustr {
+        let prefix = prefix.into();
+
+        let entry = self.unique_name_indices.entry(prefix).or_insert(0);
+        *entry += 1;
+
+        ustr(&format!("{}${}", prefix, *entry))
     }
 }
 
@@ -721,87 +732,7 @@ impl Check for ast::Ast {
             },
             ast::Ast::Function(function) => function.check(sess, env, expected_ty),
             ast::Ast::While(while_) => while_.check(sess, env, expected_ty),
-            ast::Ast::For(for_) => {
-                let iter_ty = match &mut for_.iterator {
-                    ast::ForIter::Range(start, end) => {
-                        let start_node = start.check(sess, env, None)?;
-                        let end_node = end.check(sess, env, None)?;
-
-                        let anyint = sess.tycx.anyint(start.span());
-
-                        start_node.ty.unify(&anyint, &mut sess.tycx).or_report_err(
-                            &sess.tycx,
-                            anyint,
-                            None,
-                            start_node.ty,
-                            start.span(),
-                        )?;
-
-                        start_node
-                            .ty
-                            .unify(&end_node.ty, &mut sess.tycx)
-                            .or_coerce(start, end, &mut sess.tycx, sess.target_metrics.word_size)
-                            .or_report_err(
-                                &sess.tycx,
-                                start_node.ty,
-                                Some(start.span()),
-                                end_node.ty,
-                                end.span(),
-                            )?;
-
-                        start_node.ty
-                    }
-                    ast::ForIter::Value(value) => {
-                        let node = value.check(sess, env, None)?;
-                        let ty = node.ty.normalize(&sess.tycx);
-
-                        match ty.maybe_deref_once() {
-                            Type::Array(inner, ..) | Type::Slice(inner, ..) => {
-                                sess.tycx.bound(*inner, value.span())
-                            }
-                            _ => {
-                                return Err(Diagnostic::error()
-                                    .with_message(format!("can't iterate over `{}`", ty))
-                                    .with_label(Label::primary(value.span(), "can't iterate")));
-                            }
-                        }
-                    }
-                };
-
-                env.push_scope(ScopeKind::Loop);
-                sess.loop_depth += 1;
-
-                for_.iter_binding.id = sess.bind_symbol(
-                    env,
-                    for_.iter_binding.name,
-                    ast::Visibility::Private,
-                    iter_ty,
-                    None,
-                    false,
-                    ast::BindingKind::Normal,
-                    for_.span, // TODO: use iter's actual span
-                )?;
-
-                if let Some(index_binding) = &mut for_.index_binding {
-                    index_binding.id = sess.bind_symbol(
-                        env,
-                        index_binding.name,
-                        ast::Visibility::Private,
-                        sess.tycx.common_types.uint,
-                        None,
-                        false,
-                        ast::BindingKind::Normal,
-                        for_.span, // TODO: use iter_index's actual span
-                    )?;
-                }
-
-                for_.block.check(sess, env, None)?;
-
-                sess.loop_depth -= 1;
-                env.pop_scope();
-
-                Ok(Res::new(sess.tycx.common_types.unit))
-            }
+            ast::Ast::For(for_) => for_.check(sess, env, expected_ty),
             ast::Ast::Break(term) if sess.loop_depth == 0 => {
                 Err(SyntaxError::outside_of_loop(term.span, "break"))
             }
@@ -869,7 +800,7 @@ impl Check for ast::Ast {
                     }
 
                     if let Some(ConstValue::Array(const_array)) = node.as_const_value() {
-                        Some(const_array.values[const_index as _].clone())
+                        Some(const_array.values[const_index as usize].clone())
                     } else {
                         None
                     }
@@ -1217,15 +1148,17 @@ impl Check for ast::Ast {
                             access.member,
                         )?;
 
-                        id_or_const(id, access.span)
+                        sess.id_or_const(id, access.span)
                     }
-                    ty => Err(Diagnostic::error()
-                        .with_message(format!(
-                            "type `{}` has no member `{}`",
-                            ty.display(&sess.tycx),
-                            access.member
-                        ))
-                        .with_label(Label::primary(access.expr.span(), ""))),
+                    ty => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "type `{}` has no member `{}`",
+                                ty.display(&sess.tycx),
+                                access.member
+                            ))
+                            .with_label(Label::primary(access.expr.span(), "")))
+                    }
                 };
 
                 if node_type.is_pointer() {
@@ -1240,15 +1173,13 @@ impl Check for ast::Ast {
             }
             ast::Ast::Ident(ident) => {
                 if let Some(id) = env.find_function(ident.symbol) {
-                    let function = sess.typed_ast.functions.get(id).unwrap();
-
-                    let const_value = ConstValue::Function(ConstFunction {
-                        id: hir::FunctionId::from(function.id.inner()),
-                        name: function.name(),
-                    });
+                    let function = sess.cache.functions.get(id).unwrap();
 
                     Ok(hir::Node::Const(hir::Const {
-                        value: const_value,
+                        value: ConstValue::Function(ConstFunction {
+                            id: hir::FunctionId::from(function.id.inner()),
+                            name: function.name,
+                        }),
                         ty: function.ty,
                         span: ident.span,
                     }))
@@ -1305,7 +1236,7 @@ impl Check for ast::Ast {
                                 ident.symbol,
                             )?;
 
-                            Ok(id_or_const(id, ident.span))
+                            Ok(sess.id_or_const(id, ident.span))
                         }
                     }
                 }
@@ -1805,6 +1736,373 @@ impl Check for ast::While {
             ty: while_node_type,
             span: self.span,
         })))
+    }
+}
+
+impl Check for ast::For {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+        let index_type = sess.tycx.common_types.uint;
+        let bool_type = sess.tycx.common_types.bool;
+        let unit_type = sess.tycx.common_types.unit;
+
+        match &self.iterator {
+            ast::ForIter::Range(start, end) => {
+                // Lowers the for loop into the following loop:
+                //
+                // -- Ast --
+                // for x, i in 0..10 {
+                //     printf("%d %d\n", i, x);
+                // }
+                //
+                // -- Hir --
+                // {
+                //     let mut i = 0;
+                //     let mut x = 0;
+                //     while i <= 10 {
+                //         printf("%d %d\n", i, x);
+                //         i += 1;
+                //         x += 1;
+                //     }
+                // }
+
+                let mut start_node = start.check(sess, env, None)?;
+                let mut end_node = end.check(sess, env, None)?;
+
+                let anyint = sess.tycx.anyint(start.span());
+
+                start_node
+                    .ty()
+                    .unify(&anyint, &mut sess.tycx)
+                    .or_report_err(&sess.tycx, anyint, None, start_node.ty(), start_node.span())?;
+
+                start_node
+                    .ty()
+                    .unify(&end_node.ty(), &mut sess.tycx)
+                    .or_coerce(
+                        &mut start_node,
+                        &mut end_node,
+                        &mut sess.tycx,
+                        sess.target_metrics.word_size,
+                    )
+                    .or_report_err(
+                        &sess.tycx,
+                        start_node.ty(),
+                        Some(start.span()),
+                        end_node.ty(),
+                        end.span(),
+                    )?;
+
+                env.push_scope(ScopeKind::Loop);
+                sess.loop_depth += 1;
+
+                let statements: Vec<hir::Node> = vec![];
+
+                // let mut index = 0
+                let index_binding = self.index_binding.unwrap_or_else(|| ast::NameAndSpan {
+                    name: sess.generate_name("index"),
+                    span: self.span,
+                });
+
+                let index_id = sess.bind_symbol(
+                    env,
+                    index_binding.name,
+                    ast::Visibility::Private,
+                    index_type,
+                    None,
+                    false,
+                    ast::BindingKind::Normal,
+                    index_binding.span,
+                )?;
+
+                statements.push(hir::Node::Binding(hir::Binding {
+                    module_id: env.module_id(),
+                    id: index_id,
+                    name: index_binding.name,
+                    value: Box::new(hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(0),
+                        ty: index_type,
+                        span: index_binding.span,
+                    })),
+                    ty: unit_type,
+                    span: index_binding.span,
+                }));
+
+                // let mut iter = start
+                let iter_id = sess.bind_symbol(
+                    env,
+                    self.iter_binding.name,
+                    ast::Visibility::Private,
+                    start_node.ty(),
+                    None,
+                    false,
+                    ast::BindingKind::Normal,
+                    self.iter_binding.span,
+                )?;
+
+                statements.push(hir::Node::Binding(hir::Binding {
+                    module_id: env.module_id(),
+                    id: iter_id,
+                    name: self.iter_binding.name,
+                    value: Box::new(start_node),
+                    ty: unit_type,
+                    span: self.iter_binding.span,
+                }));
+
+                let index_id_node = hir::Node::Id(hir::Id {
+                    id: index_id,
+                    ty: index_type,
+                    span: self.span,
+                });
+
+                let iter_id_node = hir::Node::Id(hir::Id {
+                    id: iter_id,
+                    ty: start_node.ty(),
+                    span: self.span,
+                });
+
+                // iter <= end
+                let condition = hir::Node::Builtin(hir::Builtin::Le(hir::Binary {
+                    ty: bool_type,
+                    span: self.span,
+                    lhs: Box::new(iter_id_node.clone()),
+                    rhs: Box::new(end_node),
+                }));
+
+                // loop block { ... }
+                let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
+
+                // index += 1
+                block_node
+                    .statements
+                    .push(hir::Node::Assignment(hir::Assignment {
+                        lhs: Box::new(index_id_node.clone()),
+                        rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                            ty: index_type,
+                            span: self.span,
+                            lhs: Box::new(index_id_node),
+                            rhs: Box::new(hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(1),
+                                ty: index_type,
+                                span: self.span,
+                            })),
+                        }))),
+                        ty: unit_type,
+                        span: self.span,
+                    }));
+
+                // iter += 1
+                block_node
+                    .statements
+                    .push(hir::Node::Assignment(hir::Assignment {
+                        lhs: Box::new(iter_id_node.clone()),
+                        rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                            ty: start_node.ty(),
+                            span: self.span,
+                            lhs: Box::new(iter_id_node),
+                            rhs: Box::new(hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(1),
+                                ty: start_node.ty(),
+                                span: self.span,
+                            })),
+                        }))),
+                        ty: unit_type,
+                        span: self.span,
+                    }));
+
+                sess.loop_depth -= 1;
+                env.pop_scope();
+
+                statements.push(hir::Node::Control(hir::Control::While(hir::While {
+                    condition: Box::new(condition),
+                    body: Box::new(hir::Node::Sequence(block_node)),
+                    ty: unit_type,
+                    span: self.span,
+                })));
+
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
+                    ty: unit_type,
+                    span: self.span,
+                }))
+            }
+            ast::ForIter::Value(value) => {
+                // Lowers the for loop into the following loop:
+                //
+                // -- Ast --
+                // for x, i in value {
+                //     printf("%d %d\n", i, x);
+                // }
+
+                // -- Hir --
+                // {
+                //     let mut i = 0;
+                //     while i < value.len() {
+                //         let x = value[i];
+                //         printf("%d %d\n", i, x);
+                //         i += 1;
+                //     }
+                // }
+
+                let value_node = value.check(sess, env, None)?;
+                let value_node_type = value_node.ty().normalize(&sess.tycx);
+
+                match value_node_type.maybe_deref_once() {
+                    Type::Array(inner, ..) | Type::Slice(inner, ..) => {
+                        env.push_scope(ScopeKind::Loop);
+                        sess.loop_depth += 1;
+
+                        let statements: Vec<hir::Node> = vec![];
+
+                        // let mut index = 0
+                        let index_binding =
+                            self.index_binding.unwrap_or_else(|| ast::NameAndSpan {
+                                name: sess.generate_name("index"),
+                                span: self.span,
+                            });
+
+                        let index_id = sess.bind_symbol(
+                            env,
+                            index_binding.name,
+                            ast::Visibility::Private,
+                            index_type,
+                            None,
+                            false,
+                            ast::BindingKind::Normal,
+                            index_binding.span,
+                        )?;
+
+                        statements.push(hir::Node::Binding(hir::Binding {
+                            module_id: env.module_id(),
+                            id: index_id,
+                            name: index_binding.name,
+                            value: Box::new(hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(0),
+                                ty: index_type,
+                                span: index_binding.span,
+                            })),
+                            ty: unit_type,
+                            span: index_binding.span,
+                        }));
+
+                        let iter_type = sess
+                            .tycx
+                            .bound(inner.as_ref().clone(), self.iter_binding.span);
+
+                        // let mut iter = start
+                        let iter_id = sess.bind_symbol(
+                            env,
+                            self.iter_binding.name,
+                            ast::Visibility::Private,
+                            iter_type,
+                            None,
+                            false,
+                            ast::BindingKind::Normal,
+                            self.iter_binding.span,
+                        )?;
+
+                        let index_id_node = hir::Node::Id(hir::Id {
+                            id: index_id,
+                            ty: index_type,
+                            span: self.span,
+                        });
+
+                        let iter_id_node = hir::Node::Id(hir::Id {
+                            id: iter_id,
+                            ty: iter_type,
+                            span: self.span,
+                        });
+
+                        // index <= value.len
+                        let value_len_node = match &value_node_type {
+                            Type::Array(_, size) => hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(*size as _),
+                                ty: index_type,
+                                span: self.span,
+                            }),
+                            Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(iter_id_node.clone()),
+                                member: ustr("len"),
+                                index: 1,
+                                ty: index_type,
+                                span: self.span,
+                            }),
+                            _ => unreachable!(),
+                        };
+
+                        let condition = hir::Node::Builtin(hir::Builtin::Le(hir::Binary {
+                            ty: bool_type,
+                            span: self.span,
+                            lhs: Box::new(iter_id_node.clone()),
+                            rhs: Box::new(value_len_node),
+                        }));
+
+                        // loop block { ... }
+                        let mut block_node =
+                            self.block.check(sess, env, None)?.into_sequence().unwrap();
+
+                        // let iter = value[index]
+                        block_node.statements.insert(
+                            0,
+                            hir::Node::Binding(hir::Binding {
+                                module_id: env.module_id(),
+                                id: iter_id,
+                                name: self.iter_binding.name,
+                                value: Box::new(hir::Node::Builtin(hir::Builtin::Offset(
+                                    hir::Offset {
+                                        value: Box::new(iter_id_node),
+                                        offset: Box::new(index_id_node.clone()),
+                                        ty: iter_type,
+                                        span: self.span,
+                                    },
+                                ))),
+                                ty: unit_type,
+                                span: self.iter_binding.span,
+                            }),
+                        );
+
+                        // index += 1
+                        block_node
+                            .statements
+                            .push(hir::Node::Assignment(hir::Assignment {
+                                lhs: Box::new(index_id_node.clone()),
+                                rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                                    ty: index_type,
+                                    span: self.span,
+                                    lhs: Box::new(index_id_node),
+                                    rhs: Box::new(hir::Node::Const(hir::Const {
+                                        value: ConstValue::Uint(1),
+                                        ty: index_type,
+                                        span: self.span,
+                                    })),
+                                }))),
+                                ty: unit_type,
+                                span: self.span,
+                            }));
+
+                        sess.loop_depth -= 1;
+                        env.pop_scope();
+
+                        statements.push(hir::Node::Control(hir::Control::While(hir::While {
+                            condition: Box::new(condition),
+                            body: Box::new(hir::Node::Sequence(block_node)),
+                            ty: unit_type,
+                            span: self.span,
+                        })));
+
+                        Ok(hir::Node::Sequence(hir::Sequence {
+                            statements,
+                            ty: unit_type,
+                            span: self.span,
+                        }))
+                    }
+                    _ => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("can't iterate over `{}`", value_node_type))
+                            .with_label(Label::primary(value.span(), "can't iterate")));
+                    }
+                }
+            }
+        }
     }
 }
 
