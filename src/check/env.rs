@@ -1,6 +1,6 @@
-use crate::ast::{
-    workspace::{BindingId, ModuleId, ModuleInfo, ScopeLevel},
-    FunctionId,
+use crate::{
+    ast::workspace::{BindingId, ModuleId, ModuleInfo, ScopeLevel},
+    hir,
 };
 use ustr::{ustr, Ustr, UstrMap};
 
@@ -83,7 +83,7 @@ impl Env {
         self.scope_mut().insert_symbol(symbol, id);
     }
 
-    pub fn insert_function(&mut self, symbol: Ustr, id: FunctionId) {
+    pub fn insert_function(&mut self, symbol: Ustr, id: hir::FunctionId) {
         self.scope_mut().insert_function(symbol, id);
     }
 
@@ -97,7 +97,7 @@ impl Env {
         None
     }
 
-    pub fn find_function(&self, symbol: Ustr) -> Option<FunctionId> {
+    pub fn find_function(&self, symbol: Ustr) -> Option<hir::FunctionId> {
         for scope in self.scopes.iter().rev() {
             if let Some(id) = scope.functions.get(&symbol) {
                 return Some(*id);
@@ -113,7 +113,7 @@ pub struct Scope {
     pub kind: ScopeKind,
     pub name: String,
     pub symbols: UstrMap<BindingId>,
-    pub functions: UstrMap<FunctionId>,
+    pub functions: UstrMap<hir::FunctionId>,
 }
 
 impl Scope {
@@ -130,7 +130,7 @@ impl Scope {
         self.symbols.insert(symbol, id);
     }
 
-    pub fn insert_function(&mut self, symbol: Ustr, id: FunctionId) {
+    pub fn insert_function(&mut self, symbol: Ustr, id: hir::FunctionId) {
         self.functions.insert(symbol, id);
     }
 }

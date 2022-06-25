@@ -1,20 +1,20 @@
 let ? = import!("std/build");
 
 let build = fn() {
-	let build_options = BuildOptions {
-        input_file: "src/main.chili",
-        output_file: "out/main",
-        target: BuildTarget_auto,
-        optimization_level: OptimizationLevel_debug,
-        run_executable: true,
-	};
+	// let build_options = BuildOptions {
+    //     input_file: "src/main.chili",
+    //     output_file: "out/main",
+    //     target: BuildTarget_auto,
+    //     optimization_level: OptimizationLevel_debug,
+    //     run_executable: true,
+	// };
 
-	let workspace = Workspace {
-		name: "hello",
-		build_options
-	};
+	// let workspace = Workspace {
+	// 	name: "hello",
+	// 	build_options
+	// };
 
-	start_workspace(workspace);
+	// start_workspace(workspace);
 };
 
-run!(build());
+// run!(build());

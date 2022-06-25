@@ -711,156 +711,16 @@ impl Check for ast::Ast {
                     // }
                 }
                 ast::BuiltinKind::Panic(expr) => {
-                    if let Some(expr) = expr {
-                        expr.check(sess, env, None)?;
-                    }
-                    Ok(Res::new(sess.tycx.common_types.unit))
+                    todo!("replace this with `pub let {{ default_panic_handler: panic }} = import!(\"panicking\");")
+                    // if let Some(expr) = expr {
+                    //     expr.check(sess, env, None)?;
+                    // }
+
+                    // Ok(Res::new(sess.tycx.common_types.unit))
                 }
             },
-            ast::Ast::Function(function) => {
-                let sig_node = function.sig.check(sess, env, expected_ty)?;
-                let fn_ty = sig_node.ty.normalize(&sess.tycx).into_fn();
-
-                let return_ty = sess.tycx.bound(
-                    fn_ty.ret.as_ref().clone(),
-                    function
-                        .sig
-                        .return_type
-                        .as_ref()
-                        .map_or(function.sig.span, |e| e.span()),
-                );
-
-                let return_ty_span = function
-                    .sig
-                    .return_type
-                    .as_ref()
-                    .map_or(function.sig.span, |e| e.span());
-
-                env.push_scope(ScopeKind::Function);
-
-                for (param, param_ty) in function.sig.params.iter_mut().zip(fn_ty.params.iter()) {
-                    let ty = sess.tycx.bound(
-                        param_ty.clone(),
-                        param
-                            .type_expr
-                            .as_ref()
-                            .map_or(param.pattern.span(), |e| e.span()),
-                    );
-
-                    let span = param.pattern.span();
-
-                    sess.bind_pattern(
-                        env,
-                        &mut param.pattern,
-                        ast::Visibility::Private,
-                        ty,
-                        None,
-                        &ast::BindingKind::Normal,
-                        span,
-                    )?;
-                }
-
-                function.id = sess.typed_ast.functions.insert_with_id(ast::Function {
-                    id: FunctionId::unknown(),
-                    module_id: env.module_id(),
-                    kind: ast::FunctionKind::Orphan {
-                        sig: function.sig.clone(),
-                        body: None,
-                    },
-                    ty: sig_node.ty,
-                    span: function.span,
-                });
-
-                env.insert_function(function.sig.name, function.id);
-
-                let body_node = sess.with_function_frame(
-                    FunctionFrame {
-                        return_ty,
-                        return_ty_span,
-                        scope_level: env.scope_level(),
-                    },
-                    |sess| function.body.check(sess, env, None),
-                )?;
-
-                let mut unify_node = body_node.ty.unify(&return_ty, &mut sess.tycx);
-
-                if let Some(last_expr) = function.body.statements.last_mut() {
-                    unify_node = unify_node.or_coerce_into_ty(
-                        last_expr,
-                        return_ty,
-                        &mut sess.tycx,
-                        sess.target_metrics.word_size,
-                    );
-                }
-
-                unify_node.or_report_err(
-                    &sess.tycx,
-                    return_ty,
-                    Some(return_ty_span),
-                    body_node.ty,
-                    function.body.span,
-                )?;
-
-                env.pop_scope();
-
-                sess.typed_ast
-                    .functions
-                    .get_mut(function.id)
-                    .unwrap()
-                    .set_body(function.body.clone());
-
-                let const_value = ConstValue::Function(ConstFunction {
-                    id: function.id,
-                    name: function.sig.name,
-                });
-
-                *self = ast::Ast::Const(ast::Const {
-                    value: const_value.clone(),
-                    ty: sig_node.ty,
-                    span: function.span,
-                });
-
-                Ok(Res::new_const(sig_node.ty, const_value))
-            }
-            ast::Ast::While(while_) => {
-                let cond_ty = sess.tycx.common_types.bool;
-                let cond_node = while_.condition.check(sess, env, Some(cond_ty))?;
-
-                cond_node
-                    .ty
-                    .unify(&cond_ty, &mut sess.tycx)
-                    .or_coerce_into_ty(
-                        &mut while_.condition,
-                        cond_ty,
-                        &mut sess.tycx,
-                        sess.target_metrics.word_size,
-                    )
-                    .or_report_err(
-                        &sess.tycx,
-                        cond_ty,
-                        None,
-                        cond_node.ty,
-                        while_.condition.span(),
-                    )?;
-
-                env.push_scope(ScopeKind::Loop);
-                sess.loop_depth += 1;
-
-                while_.block.check(sess, env, None)?;
-
-                sess.loop_depth -= 1;
-                env.pop_scope();
-
-                if let Some(condition) = cond_node.const_value {
-                    if condition.into_bool() {
-                        Ok(Res::new(sess.tycx.common_types.never))
-                    } else {
-                        Ok(Res::new(sess.tycx.common_types.unit))
-                    }
-                } else {
-                    Ok(Res::new(sess.tycx.common_types.unit))
-                }
-            }
+            ast::Ast::Function(function) => function.check(sess, env, expected_ty),
+            ast::Ast::While(while_) => while_.check(sess, env, expected_ty),
             ast::Ast::For(for_) => {
                 let iter_ty = match &mut for_.iterator {
                     ast::ForIter::Range(start, end) => {
@@ -1903,6 +1763,159 @@ impl Check for ast::Ast {
     }
 }
 
+impl Check for ast::While {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+        let bool_type = sess.tycx.common_types.bool;
+
+        let mut condition_node = self.condition.check(sess, env, Some(bool_type))?;
+
+        condition_node
+            .ty()
+            .unify(&bool_type, &mut sess.tycx)
+            .or_coerce_into_ty(
+                &mut condition_node,
+                bool_type,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            )
+            .or_report_err(
+                &sess.tycx,
+                bool_type,
+                None,
+                condition_node.ty(),
+                self.condition.span(),
+            )?;
+
+        env.push_scope(ScopeKind::Loop);
+        sess.loop_depth += 1;
+
+        let block_node = self.block.check(sess, env, None)?;
+
+        sess.loop_depth -= 1;
+        env.pop_scope();
+
+        let while_node_type = match condition_node.as_const_value() {
+            Some(ConstValue::Bool(true)) => sess.tycx.common_types.never,
+            _ => sess.tycx.common_types.unit,
+        };
+
+        Ok(hir::Node::Control(hir::Control::While(hir::While {
+            condition: Box::new(condition_node),
+            body: Box::new(block_node),
+            ty: while_node_type,
+            span: self.span,
+        })))
+    }
+}
+
+impl Check for ast::FunctionExpr {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+        let name = self.sig.name;
+
+        let sig_node = self.sig.check(sess, env, expected_ty)?;
+
+        let sig_ty = sig_node.ty();
+        let function_type = sess
+            .extract_const_type(&sig_node)?
+            .normalize(&sess.tycx)
+            .into_fn();
+
+        let return_type = sess.tycx.bound(
+            function_type.ret.as_ref().clone(),
+            self.sig
+                .return_type
+                .as_ref()
+                .map_or(self.sig.span, |e| e.span()),
+        );
+
+        let return_ty_span = self
+            .sig
+            .return_type
+            .as_ref()
+            .map_or(self.sig.span, |e| e.span());
+
+        env.push_scope(ScopeKind::Function);
+
+        for (param, param_ty) in self.sig.params.iter_mut().zip(function_type.params.iter()) {
+            let ty = sess.tycx.bound(
+                param_ty.clone(),
+                param
+                    .type_expr
+                    .as_ref()
+                    .map_or(param.pattern.span(), |e| e.span()),
+            );
+
+            let span = param.pattern.span();
+
+            sess.bind_pattern(
+                env,
+                &mut param.pattern,
+                ast::Visibility::Private,
+                ty,
+                None,
+                &ast::BindingKind::Normal,
+                span,
+            )?;
+        }
+
+        let function_id = sess.cache.functions.insert_with_id(hir::Function {
+            id: hir::FunctionId::unknown(),
+            module_id: env.module_id(),
+            name,
+            kind: hir::FunctionKind::Orphan { body: None },
+            ty: sig_ty,
+            span: self.span,
+        });
+
+        env.insert_function(name, function_id);
+
+        let mut body_node = sess.with_function_frame(
+            FunctionFrame {
+                return_ty: return_type,
+                return_ty_span,
+                scope_level: env.scope_level(),
+            },
+            |sess| self.body.check(sess, env, None),
+        )?;
+
+        let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
+
+        if let Some(last_statement) = body_node.as_sequence_mut().unwrap().statements.last_mut() {
+            unify_node = unify_node.or_coerce_into_ty(
+                last_statement,
+                return_type,
+                &mut sess.tycx,
+                sess.target_metrics.word_size,
+            );
+        }
+
+        unify_node.or_report_err(
+            &sess.tycx,
+            return_type,
+            Some(return_ty_span),
+            body_node.ty(),
+            self.body.span,
+        )?;
+
+        env.pop_scope();
+
+        sess.cache
+            .functions
+            .get_mut(function_id)
+            .unwrap()
+            .set_body(self.body.clone());
+
+        Ok(hir::Node::Const(hir::Const {
+            value: ConstValue::Function(ConstFunction {
+                id: function_id,
+                name,
+            }),
+            ty: sig_ty,
+            span: self.span,
+        }))
+    }
+}
+
 impl Check for ast::Assignment {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let lhs_node = self.lhs.check(sess, env, None)?;
@@ -1933,6 +1946,7 @@ impl Check for ast::Assignment {
         }))
     }
 }
+
 impl Check for ast::Return {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let function_frame = sess
@@ -2013,10 +2027,9 @@ impl Check for ast::If {
             )?;
 
         // if the condition is compile-time known, only check the resulting branch
-        if let Some(ConstValue::Bool(condition)) = condition_node.as_const_value() {
-            if *condition {
-                self.then.check(sess, env, expected_ty)
-            } else {
+        match condition_node.as_const_value() {
+            Some(ConstValue::Bool(true)) => self.then.check(sess, env, expected_ty),
+            Some(ConstValue::Bool(false)) => {
                 if let Some(otherwise) = &mut self.otherwise {
                     otherwise.check(sess, env, expected_ty)
                 } else {
@@ -2027,47 +2040,48 @@ impl Check for ast::If {
                     }))
                 }
             }
-        } else {
-            let mut then_node = self.then.check(sess, env, expected_ty)?;
+            _ => {
+                let mut then_node = self.then.check(sess, env, expected_ty)?;
 
-            let if_node = if let Some(otherwise) = &mut self.otherwise {
-                let mut otherwise_node = otherwise.check(sess, env, Some(then_node.ty()))?;
+                let if_node = if let Some(otherwise) = &mut self.otherwise {
+                    let mut otherwise_node = otherwise.check(sess, env, Some(then_node.ty()))?;
 
-                otherwise_node
-                    .ty()
-                    .unify(&then_node.ty(), &mut sess.tycx)
-                    .or_coerce(
-                        &mut then_node,
-                        &mut otherwise_node,
-                        &mut sess.tycx,
-                        sess.target_metrics.word_size,
-                    )
-                    .or_report_err(
-                        &sess.tycx,
-                        then_node.ty(),
-                        Some(self.then.span()),
-                        otherwise_node.ty(),
-                        otherwise.span(),
-                    )?;
+                    otherwise_node
+                        .ty()
+                        .unify(&then_node.ty(), &mut sess.tycx)
+                        .or_coerce(
+                            &mut then_node,
+                            &mut otherwise_node,
+                            &mut sess.tycx,
+                            sess.target_metrics.word_size,
+                        )
+                        .or_report_err(
+                            &sess.tycx,
+                            then_node.ty(),
+                            Some(self.then.span()),
+                            otherwise_node.ty(),
+                            otherwise.span(),
+                        )?;
 
-                hir::If {
-                    ty: then_node.ty(),
-                    span: self.span,
-                    condition: Box::new(condition_node),
-                    then: Box::new(then_node),
-                    otherwise: Some(Box::new(otherwise_node)),
-                }
-            } else {
-                hir::If {
-                    ty: unit_type,
-                    span: self.span,
-                    condition: Box::new(condition_node),
-                    then: Box::new(then_node),
-                    otherwise: None,
-                }
-            };
+                    hir::If {
+                        ty: then_node.ty(),
+                        span: self.span,
+                        condition: Box::new(condition_node),
+                        then: Box::new(then_node),
+                        otherwise: Some(Box::new(otherwise_node)),
+                    }
+                } else {
+                    hir::If {
+                        ty: unit_type,
+                        span: self.span,
+                        condition: Box::new(condition_node),
+                        then: Box::new(then_node),
+                        otherwise: None,
+                    }
+                };
 
-            Ok(hir::Node::Control(hir::Control::If(if_node)))
+                Ok(hir::Node::Control(hir::Control::If(if_node)))
+            }
         }
     }
 }
