@@ -83,8 +83,8 @@ impl Parser {
         let end_span = self.previous_span();
 
         Ok(Ast::Assignment(ast::Assignment {
-            lvalue: Box::new(expr),
-            rvalue: Box::new(rvalue),
+            lhs: Box::new(expr),
+            rhs: Box::new(rvalue),
             ty: Default::default(),
             span: start_span.to(end_span),
         }))
@@ -98,8 +98,8 @@ impl Parser {
         let rvalue_span = rvalue.span();
 
         Ok(Ast::Assignment(ast::Assignment {
-            lvalue: Box::new(lvalue.clone()),
-            rvalue: Box::new(Ast::Binary(ast::Binary {
+            lhs: Box::new(lvalue.clone()),
+            rhs: Box::new(Ast::Binary(ast::Binary {
                 lhs: Box::new(lvalue),
                 op,
                 rhs: Box::new(rvalue),

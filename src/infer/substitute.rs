@@ -169,8 +169,8 @@ impl<'a> Substitute<'a> for ast::Ast {
         match self {
             ast::Ast::Binding(binding) => binding.substitute(sess),
             ast::Ast::Assignment(assignment) => {
-                assignment.lvalue.substitute(sess);
-                assignment.rvalue.substitute(sess);
+                assignment.lhs.substitute(sess);
+                assignment.rhs.substitute(sess);
             }
             ast::Ast::Cast(info) => info.substitute(sess),
             ast::Ast::Builtin(builtin) => match &builtin.kind {

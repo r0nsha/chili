@@ -142,15 +142,15 @@ impl Lint for ast::Ast {
         match self {
             ast::Ast::Binding(binding) => binding.lint(sess),
             ast::Ast::Assignment(assignment) => {
-                assignment.rvalue.lint(sess);
+                assignment.rhs.lint(sess);
 
-                match assignment.lvalue.as_ref() {
+                match assignment.lhs.as_ref() {
                     ast::Ast::Ident(ident) => {
-                        sess.check_assign_lvalue_id_access(&assignment.lvalue, ident.binding_id);
+                        sess.check_assign_lvalue_id_access(&assignment.lhs, ident.binding_id);
                     }
                     _ => {
-                        sess.check_lvalue_access(&assignment.lvalue, assignment.lvalue.span());
-                        assignment.lvalue.lint(sess);
+                        sess.check_lvalue_access(&assignment.lhs, assignment.lhs.span());
+                        assignment.lhs.lint(sess);
                     }
                 };
             }

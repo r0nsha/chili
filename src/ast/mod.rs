@@ -427,8 +427,8 @@ pub enum BuiltinKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Assignment {
-    pub lvalue: Box<Ast>,
-    pub rvalue: Box<Ast>,
+    pub lhs: Box<Ast>,
+    pub rhs: Box<Ast>,
     pub ty: TypeId,
     pub span: Span,
 }

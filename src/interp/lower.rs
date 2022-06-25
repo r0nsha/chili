@@ -42,11 +42,11 @@ impl Lower for ast::Ast {
             }
             ast::Ast::Assignment(assignment) => {
                 assignment
-                    .rvalue
+                    .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
                 assignment
-                    .lvalue
+                    .lhs
                     .lower(sess, code, LowerContext { take_ptr: true });
 
                 code.push(Instruction::Assign);

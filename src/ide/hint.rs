@@ -131,8 +131,8 @@ impl<'a> CollectHints<'a> for ast::Ast {
         match self {
             ast::Ast::Binding(binding) => binding.collect_hints(sess),
             ast::Ast::Assignment(assignment) => {
-                assignment.lvalue.collect_hints(sess);
-                assignment.rvalue.collect_hints(sess);
+                assignment.lhs.collect_hints(sess);
+                assignment.rhs.collect_hints(sess);
             }
             ast::Ast::Cast(t) => t.expr.collect_hints(sess),
             ast::Ast::Builtin(b) => match &b.kind {

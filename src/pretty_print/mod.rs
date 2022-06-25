@@ -191,8 +191,8 @@ impl PrintTree for ast::Ast {
             ast::Ast::Binding(binding) => binding.print_tree(b, workspace, tycx),
             ast::Ast::Assignment(assignment) => {
                 b.begin_child("assignment".to_string());
-                assignment.lvalue.print_tree(b, workspace, tycx);
-                assignment.rvalue.print_tree(b, workspace, tycx);
+                assignment.lhs.print_tree(b, workspace, tycx);
+                assignment.rhs.print_tree(b, workspace, tycx);
                 b.end_child();
             }
             ast::Ast::Cast(cast) => {

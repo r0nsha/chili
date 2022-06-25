@@ -307,6 +307,20 @@ impl<'s> CheckSess<'s> {
             _ => true,
         }
     }
+
+    fn id_or_const(&self, id: BindingId, span: Span) -> hir::Node {
+        let binding_info = self.workspace.binding_infos.get(id).unwrap();
+        let ty = binding_info.ty;
+
+        match &binding_info.const_value {
+            Some(value) => hir::Node::Const(hir::Const {
+                value: value.clone(),
+                ty,
+                span,
+            }),
+            None => hir::Node::Id(hir::Id { id, ty, span }),
+        }
+    }
 }
 
 type Result<T = hir::Node> = DiagnosticResult<T>;
@@ -512,25 +526,29 @@ impl Check for ast::Binding {
 
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let (params, param_types): (Vec<_>, Vec<_>) = if !self.params.is_empty() {
+        let mut param_types: Vec<Type> = vec![];
+
+        if !self.params.is_empty() {
             let mut defined_params = UstrMap::default();
 
-            self.params.iter().map(|param| {
-                let ty = check_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
+            for param in self.params.iter() {
+                let param_type =
+                    check_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
 
-                param_types.push(param.ty.into());
-
-                for pat in param.pattern.iter() {
-                    if let Some(already_defined_span) = defined_params.insert(pat.symbol, pat.span)
+                for pattern in param.pattern.iter() {
+                    if let Some(already_defined_span) =
+                        defined_params.insert(pattern.symbol, pattern.span)
                     {
                         return Err(SyntaxError::duplicate_symbol(
                             already_defined_span,
-                            pat.span,
-                            pat.symbol,
+                            pattern.span,
+                            pattern.symbol,
                         ));
                     }
                 }
-            });
+
+                param_types.push(param_type.as_kind());
+            }
         } else {
             // if the function signature has no parameters, and the
             // parent type is a function with 1 parameter, add an implicit `it` parameter
@@ -611,28 +629,26 @@ impl Check for ast::FunctionSig {
 impl Check for ast::Ast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         match self {
-            ast::Ast::Binding(binding) => {
-                binding.check(sess, env, None)?;
-                Ok(Res::new(sess.tycx.common_types.unit))
-            }
+            ast::Ast::Binding(binding) => binding.check(sess, env, None),
             ast::Ast::Assignment(assignment) => {
-                let lres = assignment.lvalue.check(sess, env, None)?;
-                let rres = assignment.rvalue.check(sess, env, Some(lres.ty))?;
+                let lhs_res = assignment.lhs.check(sess, env, None)?;
+                let rhs_res = assignment.rhs.check(sess, env, Some(lhs_res.ty))?;
 
-                rres.ty
-                    .unify(&lres.ty, &mut sess.tycx)
+                rhs_res
+                    .ty
+                    .unify(&lhs_res.ty, &mut sess.tycx)
                     .or_coerce_into_ty(
-                        &mut assignment.rvalue,
-                        lres.ty,
+                        &mut assignment.rhs,
+                        lhs_res.ty,
                         &mut sess.tycx,
                         sess.target_metrics.word_size,
                     )
                     .or_report_err(
                         &sess.tycx,
-                        lres.ty,
-                        Some(assignment.lvalue.span()),
-                        rres.ty,
-                        assignment.rvalue.span(),
+                        lhs_res.ty,
+                        Some(assignment.lhs.span()),
+                        rhs_res.ty,
+                        assignment.rhs.span(),
                     )?;
 
                 Ok(Res::new(sess.tycx.common_types.unit))
@@ -1326,7 +1342,7 @@ impl Check for ast::Ast {
                         })
                     }
                     Type::Module(module_id) => {
-                        let (const_value, ty, id) = sess.check_top_level_symbol(
+                        let id = sess.check_top_level_symbol(
                             CallerInfo {
                                 module_id: env.module_id(),
                                 span: access.span,
@@ -1335,7 +1351,7 @@ impl Check for ast::Ast {
                             access.member,
                         )?;
 
-                        id_or_const(id, const_value, ty, access.span)
+                        id_or_const(id, access.span)
                     }
                     ty => Err(Diagnostic::error()
                         .with_message(format!(
@@ -1414,7 +1430,7 @@ impl Check for ast::Ast {
                         }
                         None => {
                             // this is either a top level binding, a builtin binding, or it doesn't exist
-                            let (const_value, ty, id) = sess.check_top_level_symbol(
+                            let id = sess.check_top_level_symbol(
                                 CallerInfo {
                                     module_id: env.module_id(),
                                     span: ident.span,
@@ -1423,7 +1439,7 @@ impl Check for ast::Ast {
                                 ident.symbol,
                             )?;
 
-                            Ok(id_or_const(id, const_value, ty, ident.span))
+                            Ok(id_or_const(id, ident.span))
                         }
                     }
                 }
@@ -2612,22 +2628,6 @@ fn interp_expr(expr: &ast::Ast, sess: &mut CheckSess, module_id: ModuleId) -> In
         .interp
         .create_session(sess.workspace, &sess.tycx, &sess.typed_ast);
     interp_sess.eval(expr, module_id)
-}
-
-fn id_or_const(
-    id: BindingId,
-    const_value: Option<&ConstValue>,
-    ty: TypeId,
-    span: Span,
-) -> hir::Node {
-    match const_value {
-        Some(const_value) => hir::Node::Const(hir::Const {
-            value: const_value.clone(),
-            ty,
-            span,
-        }),
-        None => hir::Node::Id(hir::Id { id, ty, span }),
-    }
 }
 
 pub(super) fn check_type_expr<'s>(

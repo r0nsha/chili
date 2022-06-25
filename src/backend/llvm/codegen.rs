@@ -654,10 +654,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             }
             ast::Ast::Assignment(assignment) => {
                 let left = self
-                    .gen_expr(state, &assignment.lvalue, false)
+                    .gen_expr(state, &assignment.lhs, false)
                     .into_pointer_value();
 
-                let right = self.gen_expr(state, &assignment.rvalue, true);
+                let right = self.gen_expr(state, &assignment.rhs, true);
 
                 // println!("left: {:#?}", left);
                 // println!("right: {:#?}", right);
