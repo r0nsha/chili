@@ -1162,16 +1162,8 @@ impl Check for ast::Ast {
 
                             let binding_info = sess.workspace.binding_infos.get(id).unwrap();
 
-                            let ty = binding_info.ty;
-
-                            if let Some(const_value) = &binding_info.const_value {
-                                Ok(hir::Node::Const(hir::Const {
-                                    value: const_value.clone(),
-                                    ty,
-                                    span: ident.span,
-                                }))
-                            } else {
-                                let binding_ty = ty.normalize(&sess.tycx);
+                            if binding_info.const_value.is_none() {
+                                let binding_ty = binding_info.ty.normalize(&sess.tycx);
 
                                 let min_scope_level = sess
                                     .function_frame()
@@ -1186,9 +1178,9 @@ impl Check for ast::Ast {
                                         .with_message("can't capture environment - closures are not implemented yet")
                                         .with_label(Label::primary(ident.span, "can't capture")));
                                 }
-
-                                Ok(sess.id_or_const(id, ident.span))
                             }
+
+                            Ok(sess.id_or_const(id, ident.span))
                         }
                         None => {
                             // this is either a top level binding, a builtin binding, or it doesn't exist

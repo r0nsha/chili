@@ -1,19 +1,16 @@
 use super::{Check, CheckSess};
 use crate::ast::ty::TypeId;
+use crate::ast::{
+    self,
+    ty::Type,
+    workspace::{BindingId, ModuleId},
+};
 use crate::error::{
     diagnostic::{Diagnostic, Label},
     DiagnosticResult,
 };
 use crate::hir;
 use crate::span::Span;
-use crate::{
-    ast::{
-        self,
-        ty::Type,
-        workspace::{BindingId, BindingInfo, ModuleId},
-    },
-    check::interp_expr,
-};
 use ustr::{Ustr, UstrMap};
 
 pub trait CheckTopLevel
@@ -73,8 +70,7 @@ impl<'s> CheckSess<'s> {
 
             self.workspace.add_binding_info_use(id, caller_info.span);
 
-            let binding_info = self.workspace.binding_infos.get(id).unwrap();
-            self.validate_can_access_item(binding_info, caller_info)?;
+            self.validate_can_access_item(id, caller_info)?;
 
             Ok(id)
         } else {
@@ -96,15 +92,9 @@ impl<'s> CheckSess<'s> {
                 self.workspace
                     .add_binding_info_use(desired_id, caller_info.span);
 
-                let desired_binding_info = self.workspace.binding_infos.get(desired_id).unwrap();
+                self.validate_can_access_item(desired_id, caller_info)?;
 
-                if desired_binding_info.name == "Workspace" {
-                    println!("{:#?}", desired_binding_info);
-                }
-
-                self.validate_can_access_item(desired_binding_info, caller_info)?;
-
-                Ok(desired_binding_info.id)
+                Ok(desired_id)
             } else if let Some(&builtin_id) = self.builtin_types.get(&name) {
                 self.workspace
                     .add_binding_info_use(builtin_id, caller_info.span);
@@ -137,9 +127,11 @@ impl<'s> CheckSess<'s> {
 
     pub fn validate_can_access_item(
         &self,
-        binding_info: &BindingInfo,
+        id: BindingId,
         caller_info: CallerInfo,
     ) -> DiagnosticResult<()> {
+        let binding_info = self.workspace.binding_infos.get(id).unwrap();
+
         if binding_info.visibility == ast::Visibility::Private
             && binding_info.module_id != caller_info.module_id
         {
