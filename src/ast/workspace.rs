@@ -15,7 +15,7 @@ use std::{
     collections::HashSet,
     path::{Path, PathBuf},
 };
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 pub struct Workspace {
     pub name: String,
@@ -219,6 +219,13 @@ pub struct PartialModuleInfo {
 impl PartialModuleInfo {
     pub fn new(name: Ustr, file_path: Ustr) -> Self {
         Self { name, file_path }
+    }
+
+    pub fn from_path<'a>(file_path: &'a Path) -> Self {
+        Self::new(
+            ustr(file_path.file_stem().unwrap().to_str().unwrap()),
+            ustr(file_path.to_str().unwrap()),
+        )
     }
 
     #[allow(unused)]

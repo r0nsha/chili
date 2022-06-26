@@ -466,7 +466,7 @@ impl Check for ast::Binding {
             }
             BindingKind::Intrinsic(intrinsic) => {
                 let pattern = self.pattern.as_name();
-                let name = pattern.name;
+                let qualified_name = get_qualified_name(env.scope_name(), pattern.name);
 
                 let node = self.value.check(sess, env, None)?;
                 let ty = match node.into_const_value().unwrap() {
@@ -477,7 +477,7 @@ impl Check for ast::Binding {
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
                     id: hir::FunctionId::unknown(),
-                    name: get_qualified_name(env.scope_name(), name),
+                    name: qualified_name,
                     kind: hir::FunctionKind::Intrinsic(*intrinsic),
                     ty,
                     span: self.span,
@@ -486,7 +486,7 @@ impl Check for ast::Binding {
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::Function(ConstFunction {
                         id: function_id,
-                        name,
+                        name: qualified_name,
                     }),
                     ty,
                     span: pattern.span,
@@ -2105,10 +2105,12 @@ impl Check for ast::FunctionExpr {
             param_bind_statements.push(bound_node);
         }
 
+        let qualified_name = get_qualified_name(env.scope_name(), name);
+
         let function_id = sess.cache.functions.insert_with_id(hir::Function {
             id: hir::FunctionId::unknown(),
             module_id: env.module_id(),
-            name: get_qualified_name(env.scope_name(), name),
+            name: qualified_name,
             kind: hir::FunctionKind::Orphan { body: None },
             ty: sig_type,
             span: self.span,
@@ -2160,7 +2162,7 @@ impl Check for ast::FunctionExpr {
         Ok(hir::Node::Const(hir::Const {
             value: ConstValue::Function(ConstFunction {
                 id: function_id,
-                name,
+                name: qualified_name,
             }),
             ty: sig_type,
             span: self.span,

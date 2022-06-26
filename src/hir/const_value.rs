@@ -1,4 +1,7 @@
-use crate::ast::{self, ty::TypeId};
+use crate::{
+    ast::{self, ty::TypeId},
+    infer::{display::DisplayTy, ty_ctx::TyCtx},
+};
 use indexmap::IndexMap;
 use paste::paste;
 use std::fmt::{self, Debug, Display};
@@ -522,6 +525,44 @@ impl ConstValue {
             (ConstValue::Int(v1), ConstValue::Uint(v2)) => ConstValue::Int(*v1 ^ *v2 as i64),
             (ConstValue::Uint(v2), ConstValue::Int(v1)) => ConstValue::Int((*v2 as i64) ^ *v1),
             _ => panic!("got {:?}", self),
+        }
+    }
+
+    pub fn display(&self, tycx: &TyCtx) -> String {
+        match self {
+            ConstValue::Unit(_) => "()".to_string(),
+            ConstValue::Type(t) => format!("type {}", t.display(tycx)),
+            ConstValue::Bool(v) => format!("{}", v),
+            ConstValue::Int(v) => format!("{}", v),
+            ConstValue::Uint(v) => format!("{}", v),
+            ConstValue::Float(v) => format!("{}", v),
+            ConstValue::Str(v) => format!("\"{}\"", v),
+            ConstValue::Array(array) => format!(
+                "[{}]",
+                array
+                    .values
+                    .iter()
+                    .map(|v| v.display(tycx))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
+            ConstValue::Tuple(elements) => format!(
+                "({})",
+                elements
+                    .iter()
+                    .map(|el| el.value.display(tycx))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
+            ConstValue::Struct(fields) => format!(
+                "{{ {} }}",
+                fields
+                    .iter()
+                    .map(|(name, el)| format!("{}: {}", name, el.value.display(tycx)))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
+            ConstValue::Function(f) => format!("fn {}", f.name),
         }
     }
 }

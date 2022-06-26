@@ -9,6 +9,8 @@ use crate::hir;
 use crate::infer::normalize::Normalize;
 use crate::infer::{display::DisplayTy, ty_ctx::TyCtx};
 
+use super::const_value::ConstValue;
+
 const INDENT: u16 = 2;
 
 #[allow(unused)]
@@ -109,7 +111,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Cache {
 
                 for binding in bindings {
                     binding.print(p);
-                    p.write("\n\n");
+                    p.write(";\n\n");
                 }
             });
 
@@ -123,24 +125,98 @@ impl<'a, W: Write> Print<'a, W> for hir::Cache {
     }
 }
 
-impl<'a, W: Write> Print<'a, W> for hir::Binding {
-    fn print(&self, p: &mut Printer<'a, W>) {}
-}
-
 impl<'a, W: Write> Print<'a, W> for hir::Node {
     fn print(&self, p: &mut Printer<'a, W>) {
         match self {
-            hir::Node::Const(_) => todo!(),
-            hir::Node::Binding(_) => todo!(),
-            hir::Node::Id(_) => todo!(),
-            hir::Node::Assignment(_) => todo!(),
-            hir::Node::MemberAccess(_) => todo!(),
-            hir::Node::Call(_) => todo!(),
-            hir::Node::Cast(_) => todo!(),
-            hir::Node::Sequence(_) => todo!(),
-            hir::Node::Control(_) => todo!(),
-            hir::Node::Builtin(_) => todo!(),
-            hir::Node::Literal(_) => todo!(),
+            hir::Node::Const(x) => x.print(p),
+            hir::Node::Binding(x) => x.print(p),
+            hir::Node::Id(x) => x.print(p),
+            hir::Node::Assignment(x) => x.print(p),
+            hir::Node::MemberAccess(x) => x.print(p),
+            hir::Node::Call(x) => x.print(p),
+            hir::Node::Cast(x) => x.print(p),
+            hir::Node::Sequence(x) => x.print(p),
+            hir::Node::Control(x) => x.print(p),
+            hir::Node::Builtin(x) => x.print(p),
+            hir::Node::Literal(x) => x.print(p),
         }
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Binding {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        p.write("let ");
+        p.write(&self.name);
+        // p.write(": ");
+        // p.write(
+        //     &p.workspace
+        //         .binding_infos
+        //         .get(self.id)
+        //         .unwrap()
+        //         .ty
+        //         .display(p.tycx),
+        // );
+        p.write(" = ");
+        self.value.print(p);
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Const {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        p.write(&self.value.display(p.tycx));
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Id {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Assignment {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::MemberAccess {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Call {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Cast {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Sequence {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Control {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Builtin {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Literal {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        todo!();
     }
 }

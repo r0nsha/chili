@@ -299,15 +299,7 @@ impl<'s> CheckSess<'s> {
         match bound_node {
             hir::Node::Binding(ref binding) => {
                 let id_node = self.id_or_const_by_id(binding.id, binding.span);
-                // let ty = self.workspace.binding_infos.get(binding.id).unwrap().ty;
-                // let id_node = hir::Node::Id(hir::Id {
-                //     id: binding.id,
-                //     ty,
-                //     span: binding.span,
-                // });
-
                 statements.push(bound_node);
-
                 id_node
             }
             hir::Node::Id(_) => bound_node,
@@ -328,6 +320,10 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tycx).maybe_deref_once() {
             Type::Module(module_id) => {
+                // TODO: This could cause bugs, need to check
+                //       that there is no way that the last statement isn't a binding
+                statements.pop();
+
                 for pattern in unpack_pattern.symbols.iter() {
                     let binding_id = self.check_top_level_binding(
                         CallerInfo {

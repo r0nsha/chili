@@ -61,10 +61,7 @@ fn generate_ast_inner(
         total_lines: 0,
     }));
 
-    let root_module_info = PartialModuleInfo::new(
-        ustr(""),
-        ustr(&root_file_path.to_str().unwrap().to_string()),
-    );
+    let root_module_info = PartialModuleInfo::from_path(&root_file_path);
 
     let thread_pool = ThreadPool::new(num_cpus::get());
     let (tx, rx) = channel::<Box<ParserResult>>();
