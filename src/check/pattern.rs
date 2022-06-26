@@ -1,6 +1,6 @@
 use super::{
     env::{Env, Scope, ScopeKind},
-    top_level::{CallerInfo, CheckTopLevel},
+    top_level::CallerInfo,
     CheckSess,
 };
 use crate::{
@@ -87,7 +87,7 @@ impl<'s> CheckSess<'s> {
             is_mutable,
             kind,
             scope_level,
-            scope_name: env.scope_name(),
+            qualified_name: get_qualified_name(env.scope_name(), name),
             span,
         };
 
@@ -593,5 +593,13 @@ impl<'s> CheckSess<'s> {
         }
 
         Ok(())
+    }
+}
+
+pub(super) fn get_qualified_name(scope_name: Ustr, name: Ustr) -> Ustr {
+    if scope_name.is_empty() {
+        name
+    } else {
+        ustr(&format!("{}.{}", scope_name, name))
     }
 }

@@ -66,8 +66,9 @@ pub struct BindingInfo {
     pub kind: BindingKind,
     // the scope depth of the binding
     pub scope_level: ScopeLevel,
-    // the scope name of the binding, i.e: `foo._.symbol._._`
-    pub scope_name: Ustr,
+    // the fully qualified name of the binding,
+    // including the module name and the binding name i.e: `module_name.binding_name`
+    pub qualified_name: Ustr,
     pub flags: BindingInfoFlags,
     // the amount of times this binding was used
     pub uses: Vec<Span>,
@@ -94,7 +95,7 @@ pub struct PartialBindingInfo {
     pub is_mutable: bool,
     pub kind: BindingKind,
     pub scope_level: ScopeLevel,
-    pub scope_name: Ustr,
+    pub qualified_name: Ustr,
     pub span: Span,
 }
 
@@ -110,7 +111,7 @@ impl PartialBindingInfo {
             is_mutable: self.is_mutable,
             kind: self.kind,
             scope_level: self.scope_level,
-            scope_name: self.scope_name,
+            qualified_name: self.qualified_name,
             flags: BindingInfoFlags::empty(),
             uses: vec![],
             span: self.span,

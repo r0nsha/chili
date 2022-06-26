@@ -55,6 +55,8 @@ use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
+use self::pattern::get_qualified_name;
+
 pub type CheckData = (ast::TypedAst, hir::Cache, TyCtx);
 
 pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
@@ -254,11 +256,11 @@ impl<'s> CheckSess<'s> {
 
     fn add_builtin_types(&mut self) {
         let mk = |sess: &mut CheckSess, name: &str, ty: TypeId| {
-            let symbol = ustr(name);
+            let name = ustr(name);
 
             let partial_binding_info = PartialBindingInfo {
                 module_id: Default::default(),
-                name: symbol,
+                name,
                 visibility: ast::Visibility::Public,
                 ty: sess
                     .tycx
@@ -267,7 +269,7 @@ impl<'s> CheckSess<'s> {
                 is_mutable: false,
                 kind: ast::BindingKind::Normal,
                 scope_level: ScopeLevel::Global,
-                scope_name: ustr(""),
+                qualified_name: name,
                 span: Span::unknown(),
             };
 
@@ -279,7 +281,7 @@ impl<'s> CheckSess<'s> {
             let info = sess.workspace.binding_infos.get_mut(id).unwrap();
             info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
 
-            sess.builtin_types.insert(symbol, id);
+            sess.builtin_types.insert(name, id);
         };
 
         mk(self, builtin::SYM_UNIT, self.tycx.common_types.unit);
@@ -475,7 +477,7 @@ impl Check for ast::Binding {
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
                     id: hir::FunctionId::unknown(),
-                    name,
+                    name: get_qualified_name(env.scope_name(), name),
                     kind: hir::FunctionKind::Intrinsic(*intrinsic),
                     ty,
                     span: self.span,
@@ -2106,7 +2108,7 @@ impl Check for ast::FunctionExpr {
         let function_id = sess.cache.functions.insert_with_id(hir::Function {
             id: hir::FunctionId::unknown(),
             module_id: env.module_id(),
-            name,
+            name: get_qualified_name(env.scope_name(), name),
             kind: hir::FunctionKind::Orphan { body: None },
             ty: sig_type,
             span: self.span,
