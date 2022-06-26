@@ -2,6 +2,8 @@ use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
+use itertools::Itertools;
+
 use crate::ast::{ty::Type, workspace::Workspace};
 use crate::hir;
 use crate::infer::normalize::Normalize;
@@ -41,16 +43,20 @@ impl<'a> Printer<'a> {
         }
     }
 
-    fn write(&mut self, s: &str) {
-        self.buf.write_all(s.as_bytes()).unwrap();
-    }
-
     fn indent(&mut self) {
         self.identation += INDENT;
     }
 
     fn dedent(&mut self) {
         self.identation -= INDENT;
+    }
+
+    fn write(&mut self, s: &str) {
+        self.buf.write_all(s.as_bytes()).unwrap();
+    }
+
+    fn write_comment(&mut self, s: &str) {
+        self.write(&format!("// {}", s))
     }
 }
 
@@ -88,6 +94,20 @@ impl<T: Print> Print for Box<T> {
 
 impl Print for hir::Cache {
     fn print(&self, p: &mut Printer) {
+        self.bindings
+            .iter()
+            .map(|(_, b)| b)
+            .group_by(|b| b.module_id)
+            .into_iter()
+            .for_each(|(module_id, bindings)| {
+                let module_info = p.workspace.module_infos.get(module_id).unwrap();
+
+                p.write_comment(&format!(
+                    "module: {} ({})\n",
+                    module_info.name, module_info.file_path
+                ));
+            });
+
         // for (_, binding) in self.bindings.iter() {
         //     binding.print(p);
         // }
