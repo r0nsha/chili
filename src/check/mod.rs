@@ -2060,11 +2060,8 @@ impl Check for ast::FunctionExpr {
 
         let sig_node = self.sig.check(sess, env, expected_ty)?;
 
-        let sig_ty = sig_node.ty();
-        let function_type = sess
-            .extract_const_type(&sig_node)?
-            .normalize(&sess.tycx)
-            .into_function();
+        let sig_type = sess.extract_const_type(&sig_node)?;
+        let function_type = sig_type.normalize(&sess.tycx).into_function();
 
         let return_type = sess.tycx.bound(
             function_type.return_type.as_ref().clone(),
@@ -2111,7 +2108,7 @@ impl Check for ast::FunctionExpr {
             module_id: env.module_id(),
             name,
             kind: hir::FunctionKind::Orphan { body: None },
-            ty: sig_ty,
+            ty: sig_type,
             span: self.span,
         });
 
@@ -2131,10 +2128,7 @@ impl Check for ast::FunctionExpr {
 
         *body_statements = param_bind_statements;
 
-        println!("1: {}", self.sig.name);
-        println!("body: {:?}\nreturn: {:?}", body_node.ty(), return_type,);
         let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
-        println!("2");
 
         if let Some(last_statement) = body_node.as_sequence_mut().unwrap().statements.last_mut() {
             unify_node = unify_node.or_coerce_into_ty(
@@ -2166,7 +2160,7 @@ impl Check for ast::FunctionExpr {
                 id: function_id,
                 name,
             }),
-            ty: sig_ty,
+            ty: sig_type,
             span: self.span,
         }))
     }
@@ -2347,7 +2341,7 @@ impl Check for ast::Binary {
         let mut lhs_node = self.lhs.check(sess, env, None)?;
         let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
 
-        let expected_ty = match &self.op {
+        let expected_type = match &self.op {
             ast::BinaryOp::Add
             | ast::BinaryOp::Sub
             | ast::BinaryOp::Mul
@@ -2361,23 +2355,23 @@ impl Check for ast::Binary {
             | ast::BinaryOp::Shr
             | ast::BinaryOp::BitOr
             | ast::BinaryOp::BitXor
-            | ast::BinaryOp::BitAnd => sess.tycx.anyint(self.span),
-
-            ast::BinaryOp::Eq | ast::BinaryOp::Ne | ast::BinaryOp::And | ast::BinaryOp::Or => {
-                sess.tycx.common_types.bool
-            }
+            | ast::BinaryOp::BitAnd => Some(sess.tycx.anyint(lhs_node.span())),
+            ast::BinaryOp::And | ast::BinaryOp::Or => Some(sess.tycx.common_types.bool),
+            _ => None,
         };
 
-        lhs_node
-            .ty()
-            .unify(&expected_ty, &mut sess.tycx)
-            .or_report_err(
-                &sess.tycx,
-                expected_ty,
-                None,
-                lhs_node.ty(),
-                self.lhs.span(),
-            )?;
+        if let Some(expected_type) = expected_type {
+            lhs_node
+                .ty()
+                .unify(&expected_type, &mut sess.tycx)
+                .or_report_err(
+                    &sess.tycx,
+                    expected_type,
+                    None,
+                    lhs_node.ty(),
+                    lhs_node.span(),
+                )?;
+        }
 
         rhs_node
             .ty()
@@ -2406,7 +2400,7 @@ impl Check for ast::Binary {
             | ast::BinaryOp::Shr
             | ast::BinaryOp::BitOr
             | ast::BinaryOp::BitXor
-            | ast::BinaryOp::BitAnd => self.lhs.ty(),
+            | ast::BinaryOp::BitAnd => lhs_node.ty(),
 
             ast::BinaryOp::Eq
             | ast::BinaryOp::Ne
@@ -2418,8 +2412,6 @@ impl Check for ast::Binary {
             | ast::BinaryOp::Or => sess.tycx.common_types.bool,
         };
 
-        let span = self.span;
-
         match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
             (Some(lhs), Some(rhs)) => {
                 let const_value = const_fold::binary(lhs, rhs, self.op, self.span)?;
@@ -2427,7 +2419,7 @@ impl Check for ast::Binary {
                 Ok(hir::Node::Const(hir::Const {
                     value: const_value,
                     ty,
-                    span,
+                    span: self.span,
                 }))
             }
             _ => {
@@ -2435,7 +2427,7 @@ impl Check for ast::Binary {
                     lhs: Box::new(lhs_node),
                     rhs: Box::new(rhs_node),
                     ty,
-                    span,
+                    span: self.span,
                 };
 
                 let builtin = match self.op {
@@ -2745,7 +2737,6 @@ impl Check for ast::Block {
             env.pop_scope();
 
             let last_statement = statements.last().unwrap();
-            println!("last stmt: {:?}", last_statement.ty());
 
             let yield_type = if self.yields {
                 last_statement.ty()
@@ -2754,8 +2745,6 @@ impl Check for ast::Block {
             } else {
                 unit_type
             };
-
-            println!("yield: {:?}", yield_type);
 
             if !self.yields {
                 statements.push(hir::Node::Const(hir::Const {
