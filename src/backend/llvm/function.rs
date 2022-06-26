@@ -35,7 +35,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         let module_info = *self.workspace.module_infos.get(function.module_id).unwrap();
-        let function_type = function.ty.normalize(self.tycx).into_fn();
+        let function_type = function.ty.normalize(self.tycx).into_function();
 
         match &function.kind {
             ast::FunctionKind::Orphan { sig, body } => {
@@ -196,7 +196,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         state: &mut CodegenState<'ctx>,
         call: &ast::Call,
     ) -> BasicValueEnum<'ctx> {
-        let callee_ty = call.callee.ty().normalize(self.tycx).into_fn();
+        let callee_ty = call.callee.ty().normalize(self.tycx).into_function();
 
         let mut args = vec![];
 
@@ -324,7 +324,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let result_ty = result_ty.llvm_type(self);
         let value = self.build_transmute(state, value, result_ty);
 
-        if callee_ty.ret.is_never() {
+        if callee_ty.return_type.is_never() {
             self.build_unreachable();
         }
 

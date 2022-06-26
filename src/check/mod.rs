@@ -116,7 +116,7 @@ fn ty_is_extern(ty: &Type) -> bool {
         | Type::Slice(inner, _) => ty_is_extern(inner),
 
         Type::Function(f) => {
-            ty_is_extern(&f.ret)
+            ty_is_extern(&f.return_type)
                 && f.varargs
                     .as_ref()
                     .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
@@ -604,7 +604,7 @@ impl Check for ast::FunctionSig {
         let function_type = sess.tycx.bound(
             Type::Function(FunctionType {
                 params: param_types,
-                ret: Box::new(return_type.into()),
+                return_type: Box::new(return_type.into()),
                 varargs,
                 kind: self.kind.clone(),
             }),
@@ -2064,10 +2064,10 @@ impl Check for ast::FunctionExpr {
         let function_type = sess
             .extract_const_type(&sig_node)?
             .normalize(&sess.tycx)
-            .into_fn();
+            .into_function();
 
         let return_type = sess.tycx.bound(
-            function_type.ret.as_ref().clone(),
+            function_type.return_type.as_ref().clone(),
             self.sig
                 .return_type
                 .as_ref()
@@ -2093,7 +2093,6 @@ impl Check for ast::FunctionExpr {
                     .map_or(param.pattern.span(), |e| e.span()),
             );
 
-            // TODO: support `value` as `Option<hir::Node>` in `bind_name`
             let bound_node = sess.bind_pattern(
                 env,
                 &param.pattern,
@@ -2132,7 +2131,10 @@ impl Check for ast::FunctionExpr {
 
         *body_statements = param_bind_statements;
 
+        println!("1: {}", self.sig.name);
+        println!("body: {:?}\nreturn: {:?}", body_node.ty(), return_type,);
         let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
+        println!("2");
 
         if let Some(last_statement) = body_node.as_sequence_mut().unwrap().statements.last_mut() {
             unify_node = unify_node.or_coerce_into_ty(
@@ -2628,7 +2630,9 @@ impl Check for ast::Call {
                 }
 
                 Ok(hir::Node::Call(hir::Call {
-                    ty: sess.tycx.bound(fn_ty.ret.as_ref().clone(), self.span),
+                    ty: sess
+                        .tycx
+                        .bound(fn_ty.return_type.as_ref().clone(), self.span),
                     span: self.span,
                     callee: Box::new(callee),
                     args,
@@ -2645,7 +2649,7 @@ impl Check for ast::Call {
 
                 let inferred_fn_ty = Type::Function(FunctionType {
                     params: self.args.iter().map(|arg| arg.ty().into()).collect(),
-                    ret: Box::new(return_ty.into()),
+                    return_type: Box::new(return_ty.into()),
                     varargs: None,
                     kind: FunctionTypeKind::Orphan,
                 });
@@ -2708,9 +2712,9 @@ impl Check for ast::Cast {
 
 impl Check for ast::Block {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        if self.statements.is_empty() {
-            let unit_type = sess.tycx.common_types.unit;
+        let unit_type = sess.tycx.common_types.unit;
 
+        if self.statements.is_empty() {
             Ok(hir::Node::Sequence(hir::Sequence {
                 statements: vec![hir::Node::Const(hir::Const {
                     value: ConstValue::Unit(()),
@@ -2727,22 +2731,31 @@ impl Check for ast::Block {
 
             let last_index = self.statements.len() - 1;
             for (i, expr) in self.statements.iter().enumerate() {
-                let expected_ty = if i == last_index { expected_ty } else { None };
+                let expected_ty = if i == last_index {
+                    expected_ty
+                } else {
+                    Some(unit_type)
+                };
+
                 let node = expr.check(sess, env, expected_ty)?;
+
                 statements.push(node);
             }
 
             env.pop_scope();
 
             let last_statement = statements.last().unwrap();
+            println!("last stmt: {:?}", last_statement.ty());
 
             let yield_type = if self.yields {
                 last_statement.ty()
             } else if last_statement.ty().normalize(&sess.tycx).is_never() {
                 sess.tycx.common_types.never
             } else {
-                sess.tycx.common_types.unit
+                unit_type
             };
+
+            println!("yield: {:?}", yield_type);
 
             if !self.yields {
                 statements.push(hir::Node::Const(hir::Const {

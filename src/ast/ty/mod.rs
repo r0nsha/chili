@@ -103,7 +103,7 @@ impl Default for FloatType {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionType {
     pub params: Vec<Type>,
-    pub ret: Box<Type>,
+    pub return_type: Box<Type>,
     pub varargs: Option<Box<FunctionTypeVarargs>>,
     pub kind: FunctionTypeKind,
 }
@@ -335,7 +335,7 @@ impl Type {
         matches!(self, Type::Bool)
     }
 
-    pub fn is_fn(&self) -> bool {
+    pub fn is_function(&self) -> bool {
         matches!(self, Type::Function(..))
     }
 
@@ -385,14 +385,14 @@ impl Type {
         }
     }
 
-    pub fn as_fn(&self) -> &FunctionType {
+    pub fn as_function(&self) -> &FunctionType {
         match self {
             Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
         }
     }
 
-    pub fn into_fn(self) -> FunctionType {
+    pub fn into_function(self) -> FunctionType {
         match self {
             Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),

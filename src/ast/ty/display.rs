@@ -120,7 +120,7 @@ impl Display for FunctionType {
                 },
                 None => "".to_string(),
             },
-            self.ret,
+            self.return_type,
         )
     }
 }

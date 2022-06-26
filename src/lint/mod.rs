@@ -33,10 +33,10 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
     // Check that an entry point function exists
     if workspace.build_options.need_entry_point_function() {
         if let Some(binding_info) = workspace.entry_point_function() {
-            let ty = binding_info.ty.normalize(tycx).into_fn();
+            let ty = binding_info.ty.normalize(tycx).into_function();
 
             // if this is the main function, check its type matches a fn() -> [unit | never]
-            if !(ty.ret.is_unit() || ty.ret.is_never())
+            if !(ty.return_type.is_unit() || ty.return_type.is_never())
                 || !ty.params.is_empty()
                 || ty.varargs.is_some()
             {

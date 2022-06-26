@@ -83,6 +83,21 @@ impl Pattern {
     pub fn ids(&self) -> Vec<BindingId> {
         self.iter().map(|p| p.id).collect::<Vec<BindingId>>()
     }
+
+    pub fn count(&self) -> usize {
+        match self {
+            Pattern::Name(_) => 1,
+            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.symbols.len(),
+            Pattern::Hybrid(p) => {
+                let unpack_pattern = match &p.unpack_pattern {
+                    UnpackPatternKind::Struct(p) => p,
+                    UnpackPatternKind::Tuple(p) => p,
+                };
+
+                1 + unpack_pattern.symbols.len()
+            }
+        }
+    }
 }
 
 pub struct PatternIter<'a> {

@@ -30,7 +30,10 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .unwrap()
             .into_function_value();
 
-        let fn_ty = entry_point_func_info.ty.normalize(self.tycx).into_fn();
+        let fn_ty = entry_point_func_info
+            .ty
+            .normalize(self.tycx)
+            .into_function();
 
         let name = self
             .workspace
@@ -81,7 +84,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                     .pointer_type(false)
                     .pointer_type(false),
             ],
-            ret: Box::new(Type::Uint(UintType::U32)),
+            return_type: Box::new(Type::Uint(UintType::U32)),
             varargs: None,
             kind: FunctionTypeKind::Orphan,
         };
@@ -126,7 +129,13 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         // we initialize the runtime known global bindings at the start of the program
         self.initialize_globals(&mut state);
 
-        self.gen_fn_call(&mut state, entry_point_func, &fn_ty, vec![], &fn_ty.ret);
+        self.gen_fn_call(
+            &mut state,
+            entry_point_func,
+            &fn_ty,
+            vec![],
+            &fn_ty.return_type,
+        );
 
         // TODO: if this is DLL Main, return 1 instead of 0
 

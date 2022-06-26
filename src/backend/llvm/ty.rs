@@ -114,7 +114,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let params: Vec<BasicMetadataTypeEnum> =
             f.params.iter().map(|p| p.llvm_type(self).into()).collect();
 
-        let ret = f.ret.llvm_type(self);
+        let ret = f.return_type.llvm_type(self);
 
         ret.fn_type(&params, f.varargs.is_some())
     }

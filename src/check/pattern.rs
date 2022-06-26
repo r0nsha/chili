@@ -25,16 +25,16 @@ impl<'s> CheckSess<'s> {
     pub fn get_global_binding_id(&self, module_id: ModuleId, name: Ustr) -> Option<BindingId> {
         self.global_scopes
             .get(&module_id)
-            .and_then(|module| module.bindings.get(&name).cloned())
+            .and_then(|global_scope| global_scope.bindings.get(&name).cloned())
     }
 
     pub fn insert_global_binding_id(&mut self, module_id: ModuleId, name: Ustr, id: BindingId) {
         self.global_scopes
             .entry(module_id)
-            .or_insert(Scope::new(
-                self.workspace.module_infos.get(module_id).unwrap().name,
-                ScopeKind::Global,
-            ))
+            .or_insert({
+                let module_name = self.workspace.module_infos.get(module_id).unwrap().name;
+                Scope::new(module_name, ScopeKind::Global)
+            })
             .bindings
             .insert(name, id);
     }
@@ -371,44 +371,36 @@ impl<'s> CheckSess<'s> {
                         .find(|m| m.module_id == module_id)
                         .unwrap_or_else(|| panic!("couldn't find {:?}", module_id));
 
-                    for binding in &module.bindings {
-                        if binding.visibility.is_private() {
+                    self.check_module(module)?;
+
+                    let all_module_binding_ids: Vec<BindingId> = self
+                        .global_scopes
+                        .get(&module_id)
+                        .unwrap()
+                        .bindings
+                        .values()
+                        .cloned()
+                        .collect();
+
+                    for &id in all_module_binding_ids.iter() {
+                        let binding_info = self.workspace.binding_infos.get(id).unwrap();
+
+                        if binding_info.visibility.is_private() {
                             continue;
                         }
 
-                        let any_item_is_bound = if binding.pattern.iter().count() > 0 {
-                            binding
-                                .pattern
-                                .iter()
-                                .any(|p| self.get_global_binding_id(module_id, p.name).is_some())
-                        } else {
-                            false
-                        };
+                        let (_, binding) = self.bind_name(
+                            env,
+                            binding_info.name,
+                            visibility,
+                            binding_info.ty,
+                            Some(self.id_or_const(binding_info, wildcard_symbol_span)),
+                            binding_info.is_mutable,
+                            binding_info.kind.clone(),
+                            wildcard_symbol_span,
+                        )?;
 
-                        let bound_ids: Vec<BindingId> = if any_item_is_bound {
-                            // check if the binding has already been checked
-                            binding.pattern.ids()
-                        } else {
-                            let bound_names = binding.check_top_level(self)?;
-                            bound_names.values().cloned().collect()
-                        };
-
-                        for id in bound_ids.into_iter() {
-                            let binding_info = self.workspace.binding_infos.get(id).unwrap();
-
-                            let (_, binding) = self.bind_name(
-                                env,
-                                binding_info.name,
-                                visibility,
-                                binding_info.ty,
-                                Some(self.id_or_const(binding_info, wildcard_symbol_span)),
-                                binding_info.is_mutable,
-                                binding_info.kind.clone(),
-                                wildcard_symbol_span,
-                            )?;
-
-                            statements.push(binding);
-                        }
+                        statements.push(binding);
                     }
                 }
             }

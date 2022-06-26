@@ -114,7 +114,7 @@ impl NormalizeCtx {
                     .iter()
                     .map(|p| self.normalize_kind(tycx, p))
                     .collect(),
-                ret: Box::new(self.normalize_kind(tycx, &f.ret)),
+                return_type: Box::new(self.normalize_kind(tycx, &f.return_type)),
                 varargs: f.varargs.as_ref().map(|v| {
                     Box::new(FunctionTypeVarargs {
                         ty: v.ty.as_ref().map(|ty| self.normalize_kind(tycx, ty)),

@@ -33,7 +33,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .ty
             .clone()
             .normalize(self.tycx)
-            .into_fn();
+            .into_function();
 
         let panic_info_llvm_type = panic_type.params.first().unwrap().llvm_type(self);
 
@@ -66,7 +66,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             panic_fn,
             &panic_type,
             vec![panic_info],
-            &panic_type.ret,
+            &panic_type.return_type,
         );
 
         self.build_unreachable();

@@ -306,7 +306,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
                 .iter()
                 .for_each(|p| extract_free_type_vars(p, free_types));
 
-            extract_free_type_vars(&f.ret, free_types);
+            extract_free_type_vars(&f.return_type, free_types);
 
             if let Some(ty) = f.varargs.as_ref().and_then(|v| v.ty.as_ref()) {
                 extract_free_type_vars(ty, free_types);

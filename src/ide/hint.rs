@@ -111,7 +111,7 @@ impl<'a> CollectHints<'a> for ast::FunctionSig {
         if let Some(ret) = self.return_type.as_ref() {
             ret.collect_hints(sess);
         } else {
-            let ret_ty = &self.ty.normalize(sess.tycx).into_fn().ret;
+            let ret_ty = &self.ty.normalize(sess.tycx).into_function().return_type;
             match ret_ty.as_ref() {
                 Type::Unit => (),
                 _ => sess.push_hint(self.span, ret_ty.to_string(), HintKind::ReturnType),
