@@ -4,6 +4,7 @@ mod env;
 mod pattern;
 mod top_level;
 
+use crate::ast::workspace::BindingInfo;
 use crate::interp::interp::{Interp, InterpResult};
 use crate::span::Span;
 use crate::{
@@ -315,17 +316,22 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    fn id_or_const(&self, id: BindingId, span: Span) -> hir::Node {
-        let binding_info = self.workspace.binding_infos.get(id).unwrap();
-        let ty = binding_info.ty;
+    pub(super) fn id_or_const_by_id(&self, id: BindingId, span: Span) -> hir::Node {
+        self.id_or_const(self.workspace.binding_infos.get(id).unwrap(), span)
+    }
 
+    pub(super) fn id_or_const(&self, binding_info: &BindingInfo, span: Span) -> hir::Node {
         match &binding_info.const_value {
             Some(value) => hir::Node::Const(hir::Const {
                 value: value.clone(),
-                ty,
+                ty: binding_info.ty,
                 span,
             }),
-            None => hir::Node::Id(hir::Id { id, ty, span }),
+            None => hir::Node::Id(hir::Id {
+                id: binding_info.id,
+                ty: binding_info.ty,
+                span,
+            }),
         }
     }
 
@@ -460,7 +466,11 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_name();
                 let name = pattern.name;
 
-                let ty = check_type_expr(&self.value, sess, env)?;
+                let node = self.value.check(sess, env, None)?;
+                let ty = match node.into_const_value().unwrap() {
+                    ConstValue::Type(ty) => ty,
+                    v => panic!("got {:?}", v),
+                };
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
@@ -484,7 +494,11 @@ impl Check for ast::Binding {
                     .map(|(_, node)| node)
             }
             BindingKind::Extern(lib) => {
-                let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
+                let node = self.value.check(sess, env, None)?;
+                let ty = match node.into_const_value().unwrap() {
+                    ConstValue::Type(ty) => ty,
+                    v => panic!("got {:?}", v),
+                };
 
                 if let Some(lib) = lib {
                     // Collect extern library to be linked later
@@ -527,10 +541,8 @@ impl Check for ast::FunctionSig {
             let mut defined_params = UstrMap::default();
 
             for param in self.params.iter() {
-                println!("1");
                 let param_type =
                     check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
-                println!("2");
 
                 for pattern in param.pattern.iter() {
                     if let Some(already_defined_span) =
@@ -1118,7 +1130,7 @@ impl Check for ast::Ast {
                             access.member,
                         )?;
 
-                        sess.id_or_const(id, access.span)
+                        sess.id_or_const_by_id(id, access.span)
                     }
                     ty => {
                         return Err(Diagnostic::error()
@@ -1180,7 +1192,7 @@ impl Check for ast::Ast {
                                 }
                             }
 
-                            Ok(sess.id_or_const(id, ident.span))
+                            Ok(sess.id_or_const_by_id(id, ident.span))
                         }
                         None => {
                             // this is either a top level binding, a builtin binding, or it doesn't exist
@@ -1193,7 +1205,7 @@ impl Check for ast::Ast {
                                 ident.name,
                             )?;
 
-                            Ok(sess.id_or_const(id, ident.span))
+                            Ok(sess.id_or_const_by_id(id, ident.span))
                         }
                     }
                 }
@@ -1609,17 +1621,7 @@ impl Check for ast::Ast {
                     }))
                 }
             }
-            ast::Ast::FunctionType(sig) => {
-                let node = sig.check(sess, env, expected_ty)?;
-
-                let ty = sess.tycx.bound(node.ty().as_kind().create_type(), sig.span);
-
-                Ok(hir::Node::Const(hir::Const {
-                    ty,
-                    span: sig.span,
-                    value: ConstValue::Type(node.ty()),
-                }))
-            }
+            ast::Ast::FunctionType(sig) => sig.check(sess, env, expected_ty),
             ast::Ast::SelfType(expr) => match sess.self_types.last() {
                 Some(&ty) => {
                     let ty = sess.tycx.bound(ty.as_kind().create_type(), expr.span);
@@ -2124,7 +2126,7 @@ impl Check for ast::FunctionExpr {
             },
             |sess| self.body.check(sess, env, None),
         )?;
-        panic!("{} {:#?}", self.sig.name, body_node);
+
         let body_statements = &mut body_node.as_sequence_mut().unwrap().statements;
         param_bind_statements.append(body_statements);
 
@@ -2706,50 +2708,55 @@ impl Check for ast::Cast {
 
 impl Check for ast::Block {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let unit_node = hir::Node::Const(hir::Const {
-            value: ConstValue::Unit(()),
-            ty: sess.tycx.common_types.unit,
-            span: self.span,
-        });
-
         if self.statements.is_empty() {
-            Ok(unit_node)
+            let unit_type = sess.tycx.common_types.unit;
+
+            Ok(hir::Node::Sequence(hir::Sequence {
+                statements: vec![hir::Node::Const(hir::Const {
+                    value: ConstValue::Unit(()),
+                    ty: unit_type,
+                    span: self.span,
+                })],
+                ty: unit_type,
+                span: self.span,
+            }))
         } else {
+            let mut statements: Vec<hir::Node> = vec![];
+
             env.push_scope(ScopeKind::Block);
 
             let last_index = self.statements.len() - 1;
-            let statements = self
-                .statements
-                .iter()
-                .enumerate()
-                .map(|(i, expr)| {
-                    expr.check(sess, env, if i == last_index { expected_ty } else { None })
-                })
-                .collect::<DiagnosticResult<Vec<_>>>()?;
+            for (i, expr) in self.statements.iter().enumerate() {
+                let expected_ty = if i == last_index { expected_ty } else { None };
+                let node = expr.check(sess, env, expected_ty)?;
+                statements.push(node);
+            }
 
             env.pop_scope();
 
-            let last_statement_ty = statements.last().unwrap().ty();
+            let last_statement = statements.last().unwrap();
 
-            if self.yields {
-                Ok(hir::Node::Sequence(hir::Sequence {
-                    ty: last_statement_ty,
-                    span: self.span,
-                    statements,
-                }))
+            let yield_type = if self.yields {
+                last_statement.ty()
+            } else if last_statement.ty().normalize(&sess.tycx).is_never() {
+                sess.tycx.common_types.never
             } else {
-                let ty = if last_statement_ty.normalize(&sess.tycx).is_never() {
-                    sess.tycx.common_types.never
-                } else {
-                    sess.tycx.common_types.unit
-                };
+                sess.tycx.common_types.unit
+            };
 
-                Ok(hir::Node::Const(hir::Const {
+            if !self.yields {
+                statements.push(hir::Node::Const(hir::Const {
                     value: ConstValue::Unit(()),
-                    ty,
-                    span: self.span,
-                }))
+                    ty: yield_type,
+                    span: last_statement.span(),
+                }));
             }
+
+            Ok(hir::Node::Sequence(hir::Sequence {
+                statements,
+                ty: yield_type,
+                span: self.span,
+            }))
         }
     }
 }

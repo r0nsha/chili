@@ -94,7 +94,7 @@ impl<'s> CheckSess<'s> {
         let id = self
             .workspace
             .binding_infos
-            .insert_with_id(partial_binding_info.into_binding_info());
+            .insert_with_id(partial_binding_info.clone().into_binding_info());
 
         if is_global {
             // insert the symbol into its module's global scope
@@ -298,12 +298,13 @@ impl<'s> CheckSess<'s> {
     ) -> hir::Node {
         match bound_node {
             hir::Node::Binding(ref binding) => {
-                let ty = self.workspace.binding_infos.get(binding.id).unwrap().ty;
-                let id_node = hir::Node::Id(hir::Id {
-                    id: binding.id,
-                    ty,
-                    span: binding.span,
-                });
+                let id_node = self.id_or_const_by_id(binding.id, binding.span);
+                // let ty = self.workspace.binding_infos.get(binding.id).unwrap().ty;
+                // let id_node = hir::Node::Id(hir::Id {
+                //     id: binding.id,
+                //     ty,
+                //     span: binding.span,
+                // });
 
                 statements.push(bound_node);
 
@@ -328,7 +329,7 @@ impl<'s> CheckSess<'s> {
         match ty.normalize(&self.tycx).maybe_deref_once() {
             Type::Module(module_id) => {
                 for pattern in unpack_pattern.symbols.iter() {
-                    let top_level_binding_id = self.check_top_level_binding(
+                    let binding_id = self.check_top_level_binding(
                         CallerInfo {
                             module_id: env.module_id(),
                             span: pattern.span,
@@ -349,22 +350,14 @@ impl<'s> CheckSess<'s> {
                         continue;
                     }
 
-                    let top_level_binding_info = self
-                        .workspace
-                        .binding_infos
-                        .get(top_level_binding_id)
-                        .unwrap();
+                    let binding_info = self.workspace.binding_infos.get(binding_id).unwrap();
 
                     let (_, binding) = self.bind_name_pattern(
                         env,
                         pattern,
                         visibility,
-                        top_level_binding_info.ty,
-                        Some(hir::Node::Id(hir::Id {
-                            id: top_level_binding_info.id,
-                            ty: top_level_binding_info.ty,
-                            span: pattern.span,
-                        })),
+                        binding_info.ty,
+                        Some(self.id_or_const(binding_info, pattern.span)),
                         kind,
                     )?;
 
@@ -383,21 +376,21 @@ impl<'s> CheckSess<'s> {
                             continue;
                         }
 
-                        let bound_ids = match binding.pattern.iter().next() {
-                            Some(pattern) => {
-                                // check if the binding has already been checked
-                                match self.get_global_binding_id(module_id, pattern.name) {
-                                    Some(_) => binding.pattern.ids(),
-                                    None => {
-                                        let bound_names = binding.check_top_level(self)?;
-                                        bound_names.values().cloned().collect::<Vec<BindingId>>()
-                                    }
-                                }
-                            }
-                            None => {
-                                let bound_names = binding.check_top_level(self)?;
-                                bound_names.values().cloned().collect::<Vec<BindingId>>()
-                            }
+                        let any_item_is_bound = if binding.pattern.iter().count() > 0 {
+                            binding
+                                .pattern
+                                .iter()
+                                .any(|p| self.get_global_binding_id(module_id, p.name).is_some())
+                        } else {
+                            false
+                        };
+
+                        let bound_ids: Vec<BindingId> = if any_item_is_bound {
+                            // check if the binding has already been checked
+                            binding.pattern.ids()
+                        } else {
+                            let bound_names = binding.check_top_level(self)?;
+                            bound_names.values().cloned().collect()
                         };
 
                         for id in bound_ids.into_iter() {
@@ -408,14 +401,10 @@ impl<'s> CheckSess<'s> {
                                 binding_info.name,
                                 visibility,
                                 binding_info.ty,
-                                Some(hir::Node::Id(hir::Id {
-                                    id: binding_info.id,
-                                    ty: binding_info.ty,
-                                    span: wildcard_symbol_span,
-                                })),
+                                Some(self.id_or_const(binding_info, wildcard_symbol_span)),
                                 binding_info.is_mutable,
                                 binding_info.kind.clone(),
-                                binding_info.span,
+                                wildcard_symbol_span,
                             )?;
 
                             statements.push(binding);

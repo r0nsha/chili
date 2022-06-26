@@ -198,7 +198,7 @@ impl TokenKind {
             Float(_) => "{float}",
             Str(_) => "{string}",
             Char(_) => "{char}",
-            Unknown(_) => "???",
+            Unknown(_) => "?",
             Eof => "EOF",
         }
     }

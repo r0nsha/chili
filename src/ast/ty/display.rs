@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 
 impl fmt::Display for TypeId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "???")
+        write!(f, "?")
     }
 }
 
@@ -61,7 +61,7 @@ impl Display for Type {
                 Type::Infer(_, InferTy::AnyInt) => "[integer]".to_string(),
                 Type::Infer(_, InferTy::AnyFloat) => "[float]".to_string(),
                 Type::Var(v) => v.to_string(),
-                Type::Unknown => "???".to_string(),
+                Type::Unknown => "?".to_string(),
             }
         )
     }
