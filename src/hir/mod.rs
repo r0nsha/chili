@@ -5,7 +5,7 @@ use crate::{
     ast::{
         ty::TypeId,
         workspace::{BindingId, ModuleId},
-        Block, ExternLibrary, Intrinsic,
+        ExternLibrary, Intrinsic,
     },
     common::id_cache::{IdCache, WithId},
     define_id_type,
@@ -18,7 +18,7 @@ use self::const_value::{ConstFunction, ConstValue};
 
 macro_rules! node_struct {
     ($name:ident) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, PartialEq, Clone)]
         pub struct $name {
             pub ty: TypeId,
             pub span: Span,
@@ -26,7 +26,7 @@ macro_rules! node_struct {
     };
 
     ($name:ident, { $($field:ident : $ty:ty) , + $(,)? }) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, PartialEq, Clone)]
         pub struct $name {
             $(
                 pub $field: $ty
@@ -76,7 +76,7 @@ impl WithId<FunctionId> for Function {
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum FunctionKind {
     Orphan {
-        body: Option<Block>, // The body will be filled after the function is fully checked
+        body: Option<Sequence>, // The body will be filled after the function is fully checked
     },
     Extern {
         lib: Option<ExternLibrary>,
@@ -94,7 +94,7 @@ impl Function {
 
     /// This is a noop if the function doesn't have a body.
     /// Returns whether the function has a body
-    pub fn set_body(&mut self, block: Block) -> bool {
+    pub fn set_body(&mut self, block: Sequence) -> bool {
         match &mut self.kind {
             FunctionKind::Orphan { body, .. } => {
                 *body = Some(block);
@@ -106,7 +106,7 @@ impl Function {
     }
 }
 
-#[derive(Debug, Clone, EnumAsInner)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Node {
     Const(Const),
     Binding(Binding),
@@ -133,7 +133,7 @@ node_struct!(MemberAccess, { value: Box<Node>, member: Ustr, index: u32 });
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
 node_struct!(Cast, { value: Box<Node> });
 
-node_struct!(Sequence, { statements: Vec<Node> });
+node_struct!(Sequence, { statements: Vec<Node>, is_block: bool });
 
 node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
@@ -152,7 +152,7 @@ node_struct!(TupleLiteral, { elements: Vec<Node> });
 node_struct!(ArrayLiteral, { elements: Vec<Node> });
 node_struct!(ArrayFillLiteral, { value: Box<Node>, len: usize });
 
-#[derive(Debug, Clone, EnumAsInner)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Control {
     If(If),
     While(While),
@@ -161,7 +161,7 @@ pub enum Control {
     Continue(Empty),
 }
 
-#[derive(Debug, Clone, EnumAsInner)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Builtin {
     Add(Binary),
     Sub(Binary),
@@ -196,7 +196,7 @@ pub enum Builtin {
     // TODO: Transmute(Transmute),
 }
 
-#[derive(Debug, Clone, EnumAsInner)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Literal {
     Struct(StructLiteral),
     Tuple(TupleLiteral),
@@ -349,6 +349,7 @@ impl Node {
             ty,
             span,
             statements: vec![],
+            is_block: false,
         })
     }
 }

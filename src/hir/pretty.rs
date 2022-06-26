@@ -57,8 +57,15 @@ impl<'a, W: Write> Printer<'a, W> {
         self.writer.write_all(s.as_bytes()).unwrap();
     }
 
+    fn write_indented(&mut self, s: &str) {
+        if self.identation > 0 {
+            self.write(&(0..=self.identation).map(|_| " ").collect::<String>());
+        }
+        self.write(s);
+    }
+
     fn write_comment(&mut self, s: &str) {
-        self.write(&format!("// {}", s))
+        self.write_indented(&format!("// {}", s))
     }
 }
 
@@ -96,12 +103,21 @@ impl<'a, W: Write, T: Print<'a, W>> Print<'a, W> for Box<T> {
 
 impl<'a, W: Write> Print<'a, W> for hir::Cache {
     fn print(&self, p: &mut Printer<'a, W>) {
+        enum Item<'a> {
+            Binding(&'a hir::Binding),
+            Function(&'a hir::Function),
+        }
+
         self.bindings
             .iter()
-            .map(|(_, b)| b)
-            .group_by(|b| b.module_id)
+            .map(|(_, b)| Item::Binding(b))
+            .chain(self.functions.iter().map(|(_, f)| Item::Function(f)))
+            .group_by(|item| match item {
+                Item::Binding(x) => x.module_id,
+                Item::Function(x) => x.module_id,
+            })
             .into_iter()
-            .for_each(|(module_id, bindings)| {
+            .for_each(|(module_id, items)| {
                 let module_info = p.workspace.module_infos.get(module_id).unwrap();
 
                 p.write_comment(&format!(
@@ -109,8 +125,12 @@ impl<'a, W: Write> Print<'a, W> for hir::Cache {
                     module_info.name, module_info.file_path
                 ));
 
-                for binding in bindings {
-                    binding.print(p);
+                for item in items {
+                    match item {
+                        Item::Binding(binding) => binding.print(p),
+                        Item::Function(function) => function.print(p),
+                    }
+
                     p.write(";\n\n");
                 }
             });
@@ -145,7 +165,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Node {
 
 impl<'a, W: Write> Print<'a, W> for hir::Binding {
     fn print(&self, p: &mut Printer<'a, W>) {
-        p.write("let ");
+        p.write_indented("let ");
         p.write(&self.name);
         // p.write(": ");
         // p.write(
@@ -158,6 +178,39 @@ impl<'a, W: Write> Print<'a, W> for hir::Binding {
         // );
         p.write(" = ");
         self.value.print(p);
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Function {
+    fn print(&self, p: &mut Printer<'a, W>) {
+        match &self.kind {
+            hir::FunctionKind::Orphan { .. } => p.write_indented("fn "),
+            hir::FunctionKind::Extern { lib } => {
+                if let Some(lib) = lib {
+                    p.write_indented(&format!("extern fn \"{}\" ", lib.path()))
+                } else {
+                    p.write_indented("extern fn ")
+                }
+            }
+            hir::FunctionKind::Intrinsic(_) => p.write_indented("intrinsic fn "),
+        }
+
+        p.write(&self.name);
+
+        let function_type = self.ty.normalize(p.tycx).into_function();
+
+        p.write("(");
+        for param in function_type.params.iter() {
+            p.write(&param.display(p.tycx));
+        }
+        p.write(") -> ");
+        p.write(&function_type.return_type.display(p.tycx));
+        p.write(" ");
+
+        match &self.kind {
+            hir::FunctionKind::Orphan { body } => body.as_ref().unwrap().print(p),
+            hir::FunctionKind::Extern { .. } | hir::FunctionKind::Intrinsic(..) => (),
+        }
     }
 }
 
@@ -199,7 +252,25 @@ impl<'a, W: Write> Print<'a, W> for hir::Cast {
 
 impl<'a, W: Write> Print<'a, W> for hir::Sequence {
     fn print(&self, p: &mut Printer<'a, W>) {
-        todo!();
+        if self.is_block {
+            p.write_indented("{\n");
+            p.indent();
+        }
+
+        for (index, statement) in self.statements.iter().enumerate() {
+            // statement.print(p);
+            p.write_indented("statement");
+            if index < self.statements.len() - 1 {
+                p.write(";\n");
+            } else {
+                p.write("\n");
+            }
+        }
+
+        if self.is_block {
+            p.dedent();
+            p.write_indented("}");
+        }
     }
 }
 

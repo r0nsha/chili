@@ -186,6 +186,7 @@ impl<'s> CheckSess<'s> {
                     statements,
                     ty: self.tycx.common_types.unit,
                     span: pattern.span,
+                    is_block: false,
                 }))
             }
             Pattern::TupleUnpack(pattern) => {
@@ -218,6 +219,7 @@ impl<'s> CheckSess<'s> {
                     statements,
                     ty: self.tycx.common_types.unit,
                     span: pattern.span,
+                    is_block: false,
                 }))
             }
             Pattern::Hybrid(pattern) => {
@@ -261,6 +263,7 @@ impl<'s> CheckSess<'s> {
                     statements,
                     ty: self.tycx.common_types.unit,
                     span: pattern.span,
+                    is_block: false,
                 }))
             }
         }

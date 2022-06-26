@@ -1873,6 +1873,7 @@ impl Check for ast::For {
                     statements,
                     ty: unit_type,
                     span: self.span,
+                    is_block: false,
                 }))
             }
             ast::ForIter::Value(value) => {
@@ -2043,6 +2044,7 @@ impl Check for ast::For {
                             statements,
                             ty: unit_type,
                             span: self.span,
+                            is_block: false,
                         }))
                     }
                     _ => {
@@ -2059,6 +2061,7 @@ impl Check for ast::For {
 impl Check for ast::FunctionExpr {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let name = self.sig.name;
+        let qualified_name = get_qualified_name(env.scope_name(), name);
 
         let sig_node = self.sig.check(sess, env, expected_ty)?;
 
@@ -2105,8 +2108,6 @@ impl Check for ast::FunctionExpr {
             param_bind_statements.push(bound_node);
         }
 
-        let qualified_name = get_qualified_name(env.scope_name(), name);
-
         let function_id = sess.cache.functions.insert_with_id(hir::Function {
             id: hir::FunctionId::unknown(),
             module_id: env.module_id(),
@@ -2118,23 +2119,24 @@ impl Check for ast::FunctionExpr {
 
         env.insert_function(name, function_id);
 
-        let mut body_node = sess.with_function_frame(
-            FunctionFrame {
-                return_ty: return_type,
-                return_ty_span,
-                scope_level: env.scope_level(),
-            },
-            |sess| self.body.check(sess, env, None),
-        )?;
+        let mut body_node = sess
+            .with_function_frame(
+                FunctionFrame {
+                    return_ty: return_type,
+                    return_ty_span,
+                    scope_level: env.scope_level(),
+                },
+                |sess| self.body.check(sess, env, None),
+            )?
+            .into_sequence()
+            .unwrap();
 
-        let body_statements = &mut body_node.as_sequence_mut().unwrap().statements;
-        param_bind_statements.append(body_statements);
+        param_bind_statements.append(&mut body_node.statements);
+        body_node.statements = param_bind_statements;
 
-        *body_statements = param_bind_statements;
+        let mut unify_node = body_node.ty.unify(&return_type, &mut sess.tycx);
 
-        let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
-
-        if let Some(last_statement) = body_node.as_sequence_mut().unwrap().statements.last_mut() {
+        if let Some(last_statement) = body_node.statements.last_mut() {
             unify_node = unify_node.or_coerce_into_ty(
                 last_statement,
                 return_type,
@@ -2147,7 +2149,7 @@ impl Check for ast::FunctionExpr {
             &sess.tycx,
             return_type,
             Some(return_ty_span),
-            body_node.ty(),
+            body_node.ty,
             self.body.span,
         )?;
 
@@ -2157,7 +2159,7 @@ impl Check for ast::FunctionExpr {
             .functions
             .get_mut(function_id)
             .unwrap()
-            .set_body(self.body.clone());
+            .set_body(body_node);
 
         Ok(hir::Node::Const(hir::Const {
             value: ConstValue::Function(ConstFunction {
@@ -2719,6 +2721,7 @@ impl Check for ast::Block {
                 })],
                 ty: unit_type,
                 span: self.span,
+                is_block: true,
             }))
         } else {
             let mut statements: Vec<hir::Node> = vec![];
@@ -2762,6 +2765,7 @@ impl Check for ast::Block {
                 statements,
                 ty: yield_type,
                 span: self.span,
+                is_block: true,
             }))
         }
     }
