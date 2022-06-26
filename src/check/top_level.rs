@@ -98,6 +98,10 @@ impl<'s> CheckSess<'s> {
 
                 let desired_binding_info = self.workspace.binding_infos.get(desired_id).unwrap();
 
+                if desired_binding_info.name == "Workspace" {
+                    println!("{:#?}", desired_binding_info);
+                }
+
                 self.validate_can_access_item(desired_binding_info, caller_info)?;
 
                 Ok(desired_binding_info.id)
@@ -176,11 +180,13 @@ impl<'s> CheckSess<'s> {
             }
 
             for expr in module.run_exprs.iter() {
-                let mut expr = expr.clone();
-                self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
+                // let expr = expr.clone();
+                let node =
+                    self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
 
                 if !self.workspace.build_options.check_mode {
-                    interp_expr(&expr, self, module_id).unwrap();
+                    todo!("interp node");
+                    // interp_expr(&expr, self, module_id).unwrap();
                 }
             }
 

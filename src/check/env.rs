@@ -56,13 +56,13 @@ impl Env {
             .collect::<Vec<&str>>()
             .join(".");
 
-        let str = if self.module_info.name.is_empty() {
-            scopes_str
+        if self.module_info.name.is_empty() {
+            ustr(&scopes_str)
+        } else if self.scopes.is_empty() {
+            self.module_info.name
         } else {
-            format!("{}.{}", self.module_info.name, scopes_str)
-        };
-
-        ustr(&str)
+            ustr(&format!("{}.{}", self.module_info.name, scopes_str))
+        }
     }
 
     pub fn push_scope(&mut self, kind: ScopeKind) {

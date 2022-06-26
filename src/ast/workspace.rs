@@ -175,7 +175,7 @@ impl Workspace {
 
     pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
         if let Some(binding_info) = self.binding_infos.get_mut(id) {
-            binding_info.uses.push(span);
+            binding_info.add_use(span);
         }
     }
 
@@ -290,5 +290,11 @@ impl ScopeLevel {
                 }
             }
         }
+    }
+}
+
+impl BindingInfo {
+    pub(crate) fn add_use(&mut self, span: Span) {
+        self.uses.push(span);
     }
 }

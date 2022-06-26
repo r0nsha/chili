@@ -27,7 +27,6 @@ use crate::{
 use crate::{
     ast::{
         self,
-        pattern::{HybridPattern, NamePattern, Pattern, UnpackPatternKind},
         ty::{
             FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
             StructType, StructTypeField, StructTypeKind, Type, TypeId,
@@ -35,7 +34,7 @@ use crate::{
         workspace::{
             BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
         },
-        BindingKind, FunctionId,
+        BindingKind,
     },
     hir::{
         self,
@@ -351,10 +350,10 @@ where
 
 impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
-
         match &self.kind {
             BindingKind::Normal => {
+                let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
+
                 let mut value_node = self.value.check(sess, env, Some(ty))?;
 
                 value_node
@@ -421,7 +420,7 @@ impl Check for ast::Binding {
                     &self.pattern,
                     self.visibility,
                     ty,
-                    value_node,
+                    Some(value_node),
                     &self.kind,
                     value_span,
                 )?;
@@ -461,6 +460,8 @@ impl Check for ast::Binding {
                 let pattern = self.pattern.as_name();
                 let name = pattern.name;
 
+                let ty = check_type_expr(&self.value, sess, env)?;
+
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
                     id: hir::FunctionId::unknown(),
@@ -479,9 +480,12 @@ impl Check for ast::Binding {
                     span: pattern.span,
                 });
 
-                sess.bind_name_pattern(env, pattern, self.visibility, ty, value, &self.kind)
+                sess.bind_name_pattern(env, pattern, self.visibility, ty, Some(value), &self.kind)
+                    .map(|(_, node)| node)
             }
             BindingKind::Extern(lib) => {
+                let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
+
                 if let Some(lib) = lib {
                     // Collect extern library to be linked later
                     sess.workspace.extern_libraries.insert(lib.clone());
@@ -508,7 +512,8 @@ impl Check for ast::Binding {
                     span: pattern.span,
                 });
 
-                sess.bind_name_pattern(env, pattern, self.visibility, ty, value, &self.kind)
+                sess.bind_name_pattern(env, pattern, self.visibility, ty, Some(value), &self.kind)
+                    .map(|(_, node)| node)
             }
         }
     }
@@ -522,8 +527,10 @@ impl Check for ast::FunctionSig {
             let mut defined_params = UstrMap::default();
 
             for param in self.params.iter() {
+                println!("1");
                 let param_type =
                     check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
+                println!("2");
 
                 for pattern in param.pattern.iter() {
                     if let Some(already_defined_span) =
@@ -1180,11 +1187,7 @@ impl Check for ast::Ast {
                                         .with_label(Label::primary(ident.span, "can't capture")));
                                 }
 
-                                Ok(hir::Node::Id(hir::Id {
-                                    id,
-                                    ty,
-                                    span: ident.span,
-                                }))
+                                Ok(sess.id_or_const(id, ident.span))
                             }
                         }
                         None => {
@@ -1548,22 +1551,20 @@ impl Check for ast::Ast {
 
                 env.push_scope(ScopeKind::Block);
 
-                let binding_id = sess
-                    .bind_name(
-                        env,
-                        name,
-                        ast::Visibility::Private,
-                        struct_ty_type_var,
-                        hir::Node::Const(hir::Const {
-                            value: ConstValue::Type(struct_ty_var),
-                            ty: sess.tycx.common_types.anytype,
-                            span: st.span,
-                        }),
-                        false,
-                        ast::BindingKind::Normal,
-                        st.span,
-                    )?
-                    .id;
+                let (binding_id, _) = sess.bind_name(
+                    env,
+                    name,
+                    ast::Visibility::Private,
+                    struct_ty_type_var,
+                    Some(hir::Node::Const(hir::Const {
+                        value: ConstValue::Type(struct_ty_var),
+                        ty: sess.tycx.common_types.anytype,
+                        span: st.span,
+                    })),
+                    false,
+                    ast::BindingKind::Normal,
+                    st.span,
+                )?;
 
                 let mut field_map = UstrMap::<Span>::default();
                 let mut struct_ty_fields = vec![];
@@ -1768,42 +1769,38 @@ impl Check for ast::For {
                             span: self.span,
                         });
 
-                let index_binding = sess.bind_name(
+                let (index_id, index_binding) = sess.bind_name(
                     env,
                     index_binding.name,
                     ast::Visibility::Private,
                     index_type,
-                    hir::Node::Const(hir::Const {
+                    Some(hir::Node::Const(hir::Const {
                         value: ConstValue::Uint(0),
                         ty: index_type,
                         span: index_binding.span,
-                    }),
+                    })),
                     false,
                     ast::BindingKind::Normal,
                     index_binding.span,
                 )?;
 
-                let index_id = index_binding.id;
-
-                statements.push(hir::Node::Binding(index_binding));
+                statements.push(index_binding);
 
                 let iter_type = start_node.ty();
 
                 // let mut iter = start
-                let iter_binding = sess.bind_name(
+                let (iter_id, iter_binding) = sess.bind_name(
                     env,
                     self.iter_binding.name,
                     ast::Visibility::Private,
                     iter_type,
-                    start_node,
+                    Some(start_node),
                     false,
                     ast::BindingKind::Normal,
                     self.iter_binding.span,
                 )?;
 
-                let iter_id = iter_binding.id;
-
-                statements.push(hir::Node::Binding(iter_binding));
+                statements.push(iter_binding);
 
                 let index_id_node = hir::Node::Id(hir::Id {
                     id: index_id,
@@ -1914,20 +1911,18 @@ impl Check for ast::For {
 
                         // bind the value to a local variable, so we don't have to evaluate the expression every loop
                         let value_name = sess.generate_name("iterator");
-                        let value_binding = sess.bind_name(
+                        let (value_id, value_binding) = sess.bind_name(
                             env,
                             value_name,
                             ast::Visibility::Private,
                             value_type,
-                            value_node,
+                            Some(value_node),
                             false,
                             ast::BindingKind::Normal,
                             value_span,
                         )?;
 
-                        let value_id = value_binding.id;
-
-                        statements.push(hir::Node::Binding(value_binding));
+                        statements.push(value_binding);
 
                         let value_id_node = hir::Node::Id(hir::Id {
                             id: value_id,
@@ -1944,24 +1939,22 @@ impl Check for ast::For {
                                     span: self.span,
                                 });
 
-                        let index_binding = sess.bind_name(
+                        let (index_id, index_binding) = sess.bind_name(
                             env,
                             index_binding.name,
                             ast::Visibility::Private,
                             index_type,
-                            hir::Node::Const(hir::Const {
+                            Some(hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(0),
                                 ty: index_type,
                                 span: index_binding.span,
-                            }),
+                            })),
                             false,
                             ast::BindingKind::Normal,
                             index_binding.span,
                         )?;
 
-                        let index_id = index_binding.id;
-
-                        statements.push(hir::Node::Binding(index_binding));
+                        statements.push(index_binding);
 
                         let index_id_node = hir::Node::Id(hir::Id {
                             id: index_id,
@@ -1998,17 +1991,17 @@ impl Check for ast::For {
                             .tycx
                             .bound(inner.as_ref().clone(), self.iter_binding.span);
 
-                        let iter_binding = sess.bind_name(
+                        let (_, iter_binding) = sess.bind_name(
                             env,
                             self.iter_binding.name,
                             ast::Visibility::Private,
                             iter_type,
-                            hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
+                            Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
                                 value: Box::new(value_id_node),
                                 offset: Box::new(index_id_node.clone()),
                                 ty: iter_type,
                                 span: self.span,
-                            })),
+                            }))),
                             false,
                             ast::BindingKind::Normal,
                             self.iter_binding.span,
@@ -2019,9 +2012,7 @@ impl Check for ast::For {
                             self.block.check(sess, env, None)?.into_sequence().unwrap();
 
                         // let iter = value[index]
-                        block_node
-                            .statements
-                            .insert(0, hir::Node::Binding(iter_binding));
+                        block_node.statements.insert(0, iter_binding);
 
                         // index += 1
                         block_node
@@ -2097,6 +2088,8 @@ impl Check for ast::FunctionExpr {
 
         env.push_scope(ScopeKind::Function);
 
+        let mut param_bind_statements: Vec<hir::Node> = vec![];
+
         for (param, param_type) in self.sig.params.iter().zip(function_type.params.iter()) {
             let ty = sess.tycx.bound(
                 param_type.clone(),
@@ -2109,13 +2102,15 @@ impl Check for ast::FunctionExpr {
             // TODO: support `value` as `Option<hir::Node>` in `bind_name`
             let bound_node = sess.bind_pattern(
                 env,
-                &mut param.pattern,
+                &param.pattern,
                 ast::Visibility::Private,
                 ty,
                 None,
                 &ast::BindingKind::Normal,
                 param.pattern.span(),
             )?;
+
+            param_bind_statements.push(bound_node);
         }
 
         let function_id = sess.cache.functions.insert_with_id(hir::Function {
@@ -2129,8 +2124,6 @@ impl Check for ast::FunctionExpr {
 
         env.insert_function(name, function_id);
 
-        todo!("create pattern bindings as a sequence here");
-
         let mut body_node = sess.with_function_frame(
             FunctionFrame {
                 return_ty: return_type,
@@ -2139,8 +2132,11 @@ impl Check for ast::FunctionExpr {
             },
             |sess| self.body.check(sess, env, None),
         )?;
+        panic!("{} {:#?}", self.sig.name, body_node);
+        let body_statements = &mut body_node.as_sequence_mut().unwrap().statements;
+        param_bind_statements.append(body_statements);
 
-        todo!("unify the pattern sequence and the body here. if this is a sequence, remove the first binding");
+        *body_statements = param_bind_statements;
 
         let mut unify_node = body_node.ty().unify(&return_type, &mut sess.tycx);
 
@@ -2181,7 +2177,7 @@ impl Check for ast::FunctionExpr {
 }
 
 impl Check for ast::Assignment {
-    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let lhs_node = self.lhs.check(sess, env, None)?;
         let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
 
