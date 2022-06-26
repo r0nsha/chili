@@ -43,7 +43,9 @@ impl<'vm> VM<'vm> {
                         OptimizationLevelValue::Debug => OptimizationLevel::Debug,
                         OptimizationLevelValue::Release => OptimizationLevel::Release,
                     },
-                    verbose: self.interp.build_options.verbose,
+                    emit_times: self.interp.build_options.emit_times,
+                    emit_hir: self.interp.build_options.emit_hir,
+                    emit_bytecode: self.interp.build_options.emit_bytecode,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
                     codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
                         emit_llvm_ir: match &self.interp.build_options.codegen_options {

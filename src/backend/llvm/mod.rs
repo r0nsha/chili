@@ -106,7 +106,7 @@ pub fn codegen<'w>(
         intrinsics: HashMap::default(),
     };
 
-    time! { workspace.build_options.verbose, "llvm", {
+    time! { workspace.build_options.emit_times, "llvm", {
         cg.start();
     }};
 
@@ -118,7 +118,7 @@ pub fn codegen<'w>(
         })
         .unwrap();
 
-    time! { workspace.build_options.verbose, "llvm opt", {
+    time! { workspace.build_options.emit_times, "llvm opt", {
         cg.optimize();
     }};
 
@@ -176,13 +176,13 @@ fn build_executable(
 
     let _ = std::fs::create_dir_all(output_path.parent().unwrap());
 
-    time! { build_options.verbose, "write obj",
+    time! { build_options.emit_times, "write obj",
         target_machine
             .write_to_file(&module, FileType::Object, &object_file)
             .unwrap()
     };
 
-    time! { build_options.verbose, "link",
+    time! { build_options.emit_times, "link",
         link(target_metrics, &executable_file, &object_file,&extern_libraries,)
     }
 

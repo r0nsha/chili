@@ -103,7 +103,6 @@ pub type Env = Scopes<BindingId, i16>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, expr: &ast::Ast, module_id: ModuleId) -> InterpResult {
-        let verbose = self.workspace.build_options.verbose;
         let mut start_code = CompiledCode::new();
 
         self.env_stack.push((module_id, Env::default()));
@@ -117,7 +116,7 @@ impl<'i> InterpSess<'i> {
 
         self.env_stack.pop();
 
-        if verbose {
+        if self.workspace.build_options.emit_bytecode {
             dump_bytecode_to_file(&self.interp, &start_code);
         }
 

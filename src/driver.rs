@@ -39,7 +39,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     let mut workspace = Workspace::new(name, build_options.clone(), root_dir, std_dir);
 
-    let all_sw = if workspace.build_options.verbose {
+    let all_sw = if workspace.build_options.emit_times {
         Some(Stopwatch::start_new("time"))
     } else {
         None
@@ -58,7 +58,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     }
 
     // Parse all source files into ast's
-    let (modules, stats) = time! { workspace.build_options.verbose, "parse", {
+    let (modules, stats) = time! { workspace.build_options.emit_times, "parse", {
             match crate::astgen::generate_ast(&mut workspace) {
                 Some(result) => result,
                 None => {
@@ -70,18 +70,13 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     };
 
     // Type inference, type checking, static analysis, const folding, etc..
-    let (typed_ast, cache, tycx) = time! { workspace.build_options.verbose, "check", {
-        let (typed_ast, cache, tycx) = crate::check::check(&mut workspace, modules);
-
-        if workspace.diagnostics.has_errors() {
-            workspace.emit_diagnostics();
-            return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
-        }
-
-        (typed_ast, cache, tycx)
+    let (typed_ast, cache, tycx) = time! { workspace.build_options.emit_times, "check", {
+        crate::check::check(&mut workspace, modules)
     }};
 
-    hir::pretty::print(&cache, &workspace, &tycx);
+    if workspace.build_options.emit_hir {
+        hir::pretty::print(&cache, &workspace, &tycx);
+    }
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
@@ -89,7 +84,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     }
 
     // Lint - does auxillary checks which are not required for compilation
-    time! { workspace.build_options.verbose, "lint",
+    time! { workspace.build_options.emit_times, "lint",
         crate::lint::lint(&mut workspace, &tycx, &typed_ast)
     }
 
@@ -104,7 +99,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
             let executable_path =
                 crate::backend::llvm::codegen(&workspace, &tycx, &typed_ast, codegen_options);
 
-            if workspace.build_options.verbose {
+            if workspace.build_options.emit_times {
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
             }
 
@@ -116,7 +111,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
             }
         }
         _ => {
-            if workspace.build_options.verbose {
+            if workspace.build_options.emit_times {
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
             }
         }

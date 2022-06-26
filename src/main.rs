@@ -39,15 +39,23 @@ struct Args {
 
     /// Print trace information verbosely.
     #[clap(long)]
-    verbose: bool,
+    emit_times: bool,
 
-    /// Omit colors from output.
+    /// Print trace information verbosely.
     #[clap(long)]
-    no_color: bool,
+    emit_hir: bool,
+
+    /// Print trace information verbosely.
+    #[clap(long)]
+    emit_bytecode: bool,
 
     /// Emit LLVM IR file.
     #[clap(long)]
     emit_llvm_ir: bool,
+
+    /// Omit colors from output.
+    #[clap(long)]
+    no_color: bool,
 
     /// Additional include paths, separated by ;.
     #[clap(long)]
@@ -101,7 +109,9 @@ fn cli() {
                     output_file: None,
                     target_platform: current_target_platform(),
                     optimization_level: OptimizationLevel::Debug,
-                    verbose: args.verbose,
+                    emit_times: args.emit_times,
+                    emit_hir: args.emit_hir,
+                    emit_bytecode: args.emit_bytecode,
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
@@ -120,7 +130,9 @@ fn cli() {
                     output_file: None,
                     target_platform: current_target_platform(),
                     optimization_level: OptimizationLevel::Debug,
-                    verbose: false,
+                    emit_times: false,
+                    emit_hir: false,
+                    emit_bytecode: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
                     codegen_options: CodegenOptions::Skip,
                     include_paths: get_include_paths(&args.include_paths),
@@ -146,7 +158,9 @@ fn cli() {
                     output_file: None,
                     target_platform: current_target_platform(),
                     optimization_level: OptimizationLevel::Debug,
-                    verbose: args.verbose,
+                    emit_times: args.emit_times,
+                    emit_hir: args.emit_hir,
+                    emit_bytecode: args.emit_bytecode,
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },

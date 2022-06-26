@@ -22,10 +22,16 @@ pub struct BuildOptions {
     /// Additional search paths for imports
     pub include_paths: Vec<PathBuf>,
 
-    /// Prints information verbosely, for example: timings
-    pub verbose: bool,
+    /// Print timing information of every compiler pass
+    pub emit_times: bool,
 
-    /// Prints information verbosely, for example: timings
+    /// Print the HIR into $CWD/hir.pretty.chili
+    pub emit_hir: bool,
+
+    /// Print the bytecode into $CWD/vm.out
+    pub emit_bytecode: bool,
+
+    /// Whether the workspace is running in check mode
     pub check_mode: bool,
 }
 

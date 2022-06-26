@@ -21,24 +21,24 @@ pub fn print(cache: &hir::Cache, workspace: &Workspace, tycx: &TyCtx) {
         .append(false)
         .open(Path::new("hir.pretty.chili"))
     {
-        let mut printer = Printer::new(workspace, tycx);
+        let mut printer = Printer::new(workspace, tycx, file);
         cache.print(&mut printer);
     }
 }
 
-struct Printer<'a> {
+struct Printer<'a, W: Write> {
     workspace: &'a Workspace,
     tycx: &'a TyCtx,
-    buf: BufWriter<Vec<u8>>,
+    writer: W,
     identation: u16,
 }
 
-impl<'a> Printer<'a> {
-    fn new(workspace: &'a Workspace, tycx: &'a TyCtx) -> Self {
+impl<'a, W: Write> Printer<'a, W> {
+    fn new(workspace: &'a Workspace, tycx: &'a TyCtx, writer: W) -> Self {
         Self {
             workspace,
             tycx,
-            buf: BufWriter::new(Vec::new()),
+            writer,
             identation: 0,
         }
     }
@@ -52,7 +52,7 @@ impl<'a> Printer<'a> {
     }
 
     fn write(&mut self, s: &str) {
-        self.buf.write_all(s.as_bytes()).unwrap();
+        self.writer.write_all(s.as_bytes()).unwrap();
     }
 
     fn write_comment(&mut self, s: &str) {
@@ -60,40 +60,40 @@ impl<'a> Printer<'a> {
     }
 }
 
-trait Print {
-    fn print(&self, p: &mut Printer);
+trait Print<'a, W: Write> {
+    fn print(&self, p: &mut Printer<'a, W>);
 }
 
-impl<T: Print> Print for Vec<T> {
-    fn print(&self, p: &mut Printer) {
+impl<'a, W: Write, T: Print<'a, W>> Print<'a, W> for Vec<T> {
+    fn print(&self, p: &mut Printer<'a, W>) {
         self.as_slice().print(p);
     }
 }
 
-impl<T: Print> Print for &[T] {
-    fn print(&self, p: &mut Printer) {
+impl<'a, W: Write, T: Print<'a, W>> Print<'a, W> for &[T] {
+    fn print(&self, p: &mut Printer<'a, W>) {
         self.iter().for_each(|element| {
             element.print(p);
         });
     }
 }
 
-impl<T: Print> Print for Option<T> {
-    fn print(&self, p: &mut Printer) {
+impl<'a, W: Write, T: Print<'a, W>> Print<'a, W> for Option<T> {
+    fn print(&self, p: &mut Printer<'a, W>) {
         if let Some(e) = self {
             e.print(p);
         }
     }
 }
 
-impl<T: Print> Print for Box<T> {
-    fn print(&self, p: &mut Printer) {
+impl<'a, W: Write, T: Print<'a, W>> Print<'a, W> for Box<T> {
+    fn print(&self, p: &mut Printer<'a, W>) {
         self.as_ref().print(p);
     }
 }
 
-impl Print for hir::Cache {
-    fn print(&self, p: &mut Printer) {
+impl<'a, W: Write> Print<'a, W> for hir::Cache {
+    fn print(&self, p: &mut Printer<'a, W>) {
         self.bindings
             .iter()
             .map(|(_, b)| b)
@@ -103,9 +103,14 @@ impl Print for hir::Cache {
                 let module_info = p.workspace.module_infos.get(module_id).unwrap();
 
                 p.write_comment(&format!(
-                    "module: {} ({})\n",
+                    "{} ({})\n\n",
                     module_info.name, module_info.file_path
                 ));
+
+                for binding in bindings {
+                    binding.print(p);
+                    p.write("\n\n");
+                }
             });
 
         // for (_, binding) in self.bindings.iter() {
@@ -118,8 +123,12 @@ impl Print for hir::Cache {
     }
 }
 
-impl Print for hir::Node {
-    fn print(&self, p: &mut Printer) {
+impl<'a, W: Write> Print<'a, W> for hir::Binding {
+    fn print(&self, p: &mut Printer<'a, W>) {}
+}
+
+impl<'a, W: Write> Print<'a, W> for hir::Node {
+    fn print(&self, p: &mut Printer<'a, W>) {
         match self {
             hir::Node::Const(_) => todo!(),
             hir::Node::Binding(_) => todo!(),
