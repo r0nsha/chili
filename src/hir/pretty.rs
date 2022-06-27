@@ -6,6 +6,8 @@ use crate::{
 use itertools::Itertools;
 use std::{fs::OpenOptions, io::Write, path::Path};
 
+use super::const_value::ConstValue;
+
 const INDENT: u16 = 2;
 
 #[allow(unused)]
@@ -179,7 +181,75 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
 
 impl<'a, W: Write> Print<'a, W> for hir::Const {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
-        p.write_indented(&self.value.display(p.tycx), is_line_start);
+        self.value.print(p, is_line_start)
+    }
+}
+
+impl<'a, W: Write> Print<'a, W> for ConstValue {
+    fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
+        match self {
+            ConstValue::Unit(_) => p.write_indented("()", is_line_start),
+            ConstValue::Type(t) => p.write_indented(&t.display(p.tycx), is_line_start),
+            ConstValue::Bool(v) => p.write_indented(&v.to_string(), is_line_start),
+            ConstValue::Int(v) => p.write_indented(&v.to_string(), is_line_start),
+            ConstValue::Uint(v) => p.write_indented(&v.to_string(), is_line_start),
+            ConstValue::Float(v) => p.write_indented(&v.to_string(), is_line_start),
+            ConstValue::Str(v) => p.write_indented(&format!("\"{}\"", v), is_line_start),
+            ConstValue::Array(array) => {
+                p.write_indented("[\n", is_line_start);
+                p.indent();
+
+                for (index, value) in array.values.iter().enumerate() {
+                    value.print(p, true);
+
+                    if index < array.values.len() - 1 {
+                        p.write(",\n");
+                    } else {
+                        p.write("\n");
+                    }
+                }
+
+                p.dedent();
+                p.write_indented("]", true);
+            }
+            ConstValue::Tuple(elements) => {
+                p.write_indented("(\n", is_line_start);
+                p.indent();
+
+                for (index, element) in elements.iter().enumerate() {
+                    element.value.print(p, true);
+
+                    if index < elements.len() - 1 {
+                        p.write(",\n");
+                    } else {
+                        p.write("\n");
+                    }
+                }
+
+                p.dedent();
+                p.write_indented(")", true);
+            }
+            ConstValue::Struct(fields) => {
+                p.write_indented("(\n", is_line_start);
+                p.indent();
+
+                for (index, (name, element)) in fields.iter().enumerate() {
+                    p.write_indented(name, true);
+                    p.write(": ");
+                    element.value.print(p, false);
+
+                    if index < fields.len() - 1 {
+                        p.write(",\n");
+                    } else {
+                        p.write("\n");
+                    }
+                }
+
+                p.dedent();
+                p.write_indented(")", true);
+            }
+            ConstValue::Function(f) => p.write_indented(&f.name, is_line_start),
+        }
     }
 }
 
@@ -356,6 +426,69 @@ impl<'a, W: Write> Print<'a, W> for hir::Builtin {
 
 impl<'a, W: Write> Print<'a, W> for hir::Literal {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
-        todo!();
+        match self {
+            hir::Literal::Struct(lit) => {
+                p.write_indented("(\n", is_line_start);
+                p.indent();
+
+                for (index, field) in lit.fields.iter().enumerate() {
+                    p.write_indented(&field.name, true);
+                    p.write(": ");
+                    field.value.print(p, false);
+
+                    if index < lit.fields.len() - 1 {
+                        p.write(",\n");
+                    } else {
+                        p.write("\n");
+                    }
+                }
+
+                p.dedent();
+                p.write_indented(")", true);
+            }
+            hir::Literal::Tuple(lit) => {
+                p.write_indented("(\n", is_line_start);
+                p.indent();
+
+                for (index, element) in lit.elements.iter().enumerate() {
+                    element.print(p, true);
+
+                    if index < lit.elements.len() - 1 {
+                        p.write(",\n");
+                    } else {
+                        p.write("\n");
+                    }
+                }
+
+                p.dedent();
+                p.write_indented(")", true);
+            }
+            hir::Literal::Array(lit) => {
+                p.write_indented("[\n", is_line_start);
+                p.indent();
+
+                for (index, element) in lit.elements.iter().enumerate() {
+                    element.print(p, true);
+
+                    if index < lit.elements.len() - 1 {
+                        p.write(",\n");
+                    } else {
+                        p.write("\n");
+                    }
+                }
+
+                p.dedent();
+                p.write_indented("]", true);
+            }
+            hir::Literal::ArrayFill(lit) => {
+                p.write_indented("[", is_line_start);
+
+                lit.value.print(p, false);
+                p.write("; ");
+                p.write(&lit.len.to_string());
+
+                p.write("]");
+            }
+        }
     }
 }
