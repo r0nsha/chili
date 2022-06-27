@@ -1,38 +1,426 @@
-// use super::{
-//     interp::{Env, InterpSess},
-//     vm::{
-//         byte_seq::{ByteSeq, PutValue},
-//         instruction::{CastInstruction, CompiledCode, Instruction},
-//         value::{Aggregate, Array, ExternFunction, Function, IntrinsicFunction, Value, ValueKind},
-//     },
-//     IS_64BIT, WORD_SIZE,
-// };
-// use crate::common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-// use crate::infer::normalize::Normalize;
-// use crate::{
-//     ast::{
-//         self,
-//         const_value::ConstValue,
-//         pattern::{Pattern, UnpackPattern, UnpackPatternKind},
-//         ty::{
-//             align::AlignOf, size::SizeOf, FloatType, FunctionType, FunctionTypeKind, InferTy,
-//             IntType, StructType, Type, TypeId, UintType,
-//         },
-//         workspace::BindingId,
-//         Intrinsic,
-//     },
-//     interp::vm::value::FunctionAddress,
-// };
-// use ustr::{ustr, Ustr};
+use super::{
+    interp::{Env, InterpSess},
+    vm::{
+        byte_seq::{ByteSeq, PutValue},
+        instruction::{CastInstruction, CompiledCode, Instruction},
+        value::{Aggregate, Array, ExternFunction, Function, IntrinsicFunction, Value, ValueKind},
+    },
+    IS_64BIT, WORD_SIZE,
+};
+use crate::{
+    ast::Intrinsic,
+    common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+    hir::{self, const_value::ConstValue},
+    infer::normalize::Normalize,
+    interp::vm::value::FunctionAddress,
+    types::{
+        align::AlignOf, size::SizeOf, FloatType, FunctionType, FunctionTypeKind, InferTy, IntType,
+        StructType, Type, TypeId, UintType,
+    },
+    workspace::BindingId,
+};
+use ustr::{ustr, Ustr};
 
-// #[derive(Clone, Copy)]
-// pub struct LowerContext {
-//     pub take_ptr: bool,
-// }
+#[derive(Clone, Copy)]
+pub struct LowerContext {
+    pub take_ptr: bool,
+}
 
-// pub trait Lower {
-//     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext);
-// }
+pub trait Lower {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext);
+}
+
+impl Lower for hir::Node {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        match self {
+            hir::Node::Const(x) => x.lower(sess, code, ctx),
+            hir::Node::Binding(x) => x.lower(sess, code, ctx),
+            hir::Node::Id(x) => x.lower(sess, code, ctx),
+            hir::Node::Assignment(x) => x.lower(sess, code, ctx),
+            hir::Node::MemberAccess(x) => x.lower(sess, code, ctx),
+            hir::Node::Call(x) => x.lower(sess, code, ctx),
+            hir::Node::Cast(x) => x.lower(sess, code, ctx),
+            hir::Node::Sequence(x) => x.lower(sess, code, ctx),
+            hir::Node::Control(x) => x.lower(sess, code, ctx),
+            hir::Node::Builtin(x) => x.lower(sess, code, ctx),
+            hir::Node::Literal(x) => x.lower(sess, code, ctx),
+        }
+    }
+}
+
+impl Lower for hir::Const {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+        let value = const_value_to_value(&self.value, self.ty, sess);
+        sess.push_const(code, value);
+    }
+}
+
+impl Lower for hir::Function {
+    fn lower(&self, sess: &mut InterpSess, _code: &mut CompiledCode, _ctx: LowerContext) {
+        if sess.interp.functions.contains_key(&self.id) || !sess.lowered_functions.insert(self.id) {
+            return;
+        }
+
+        let function_type = self.ty.normalize(sess.tycx).into_function();
+
+        match &self.kind {
+            hir::FunctionKind::Orphan { param_ids, body } => {
+                sess.env_mut().push_scope();
+
+                let mut function_code = CompiledCode::new();
+
+                for index in 0..function_type.params.len() {
+                    let offset = -(function_type.params.len() as i16) + index as i16;
+                    sess.env_mut().insert(param_ids[index], offset);
+                }
+
+                body.as_ref().unwrap().lower(
+                    sess,
+                    &mut function_code,
+                    LowerContext { take_ptr: false },
+                );
+
+                if !function_code.instructions.ends_with(&[Instruction::Return]) {
+                    function_code.push(Instruction::Return);
+                }
+
+                sess.env_mut().pop_scope();
+
+                sess.interp.functions.insert(
+                    self.id,
+                    Function {
+                        id: self.id,
+                        name: self.name,
+                        arg_types: function_type.params.iter().map(|p| p.ty.clone()).collect(),
+                        return_type: *function_type.return_type,
+                        code: function_code,
+                    },
+                );
+            }
+            hir::FunctionKind::Extern { lib } => {
+                sess.interp.extern_functions.insert(
+                    self.id,
+                    ExternFunction {
+                        lib_path: ustr(&lib.as_ref().unwrap().path()),
+                        name: self.name,
+                        param_tys: function_type.params.iter().map(|p| p.ty.clone()).collect(),
+                        return_ty: *function_type.return_type,
+                        variadic: function_type.varargs.is_some(),
+                    },
+                );
+            }
+            hir::FunctionKind::Intrinsic(_) => {
+                // Noop
+            }
+        }
+    }
+}
+
+impl Lower for hir::Binding {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!()
+    }
+}
+
+impl Lower for hir::Id {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        debug_assert!(self.id != BindingId::unknown());
+
+        match self.ty.normalize(sess.tycx) {
+            // Note (Ron): We do nothing with modules, since they are not an actual value
+            Type::Module(_) => (),
+            _ => {
+                if let Some(slot) = sess.env().value(self.id) {
+                    let slot = *slot as i32;
+                    code.push(if ctx.take_ptr {
+                        Instruction::PeekPtr(slot)
+                    } else {
+                        Instruction::Peek(slot)
+                    });
+                } else {
+                    let slot = sess
+                        .get_global(self.id)
+                        .unwrap_or_else(|| find_and_lower_top_level_binding(self.id, sess))
+                        as u32;
+
+                    code.push(if ctx.take_ptr {
+                        Instruction::GetGlobalPtr(slot)
+                    } else {
+                        Instruction::GetGlobal(slot)
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Lower for hir::Assignment {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!()
+    }
+}
+
+impl Lower for hir::MemberAccess {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        self.value.lower(sess, code, ctx);
+        code.push(if ctx.take_ptr {
+            Instruction::ConstIndexPtr(self.index)
+        } else {
+            Instruction::ConstIndex(self.index)
+        });
+    }
+}
+
+impl Lower for hir::Call {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        for arg in self.args.iter() {
+            arg.lower(sess, code, LowerContext { take_ptr: false });
+        }
+
+        self.callee
+            .lower(sess, code, LowerContext { take_ptr: false });
+
+        code.push(Instruction::Call(self.args.len() as u32));
+    }
+}
+
+impl Lower for hir::Cast {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!()
+    }
+}
+
+impl Lower for hir::Sequence {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        if self.is_block {
+            sess.env_mut().push_scope();
+        }
+
+        for (index, expr) in self.statements.iter().enumerate() {
+            let is_last = index == self.statements.len() - 1;
+
+            expr.lower(
+                sess,
+                code,
+                if is_last {
+                    ctx
+                } else {
+                    LowerContext { take_ptr: false }
+                },
+            );
+
+            if !is_last {
+                code.push(Instruction::Pop);
+            }
+        }
+
+        if self.is_block {
+            sess.env_mut().pop_scope();
+        }
+    }
+}
+
+impl Lower for hir::Control {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!()
+    }
+}
+
+impl Lower for hir::Builtin {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!()
+    }
+}
+
+impl Lower for hir::Literal {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+        todo!()
+    }
+}
+
+fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpSess) -> Value {
+    let ty = ty.normalize(sess.tycx);
+
+    match const_value {
+        ConstValue::Unit(_) => Value::unit(),
+        ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tycx)),
+        ConstValue::Bool(v) => Value::Bool(*v),
+        ConstValue::Int(v) => match ty {
+            Type::Int(int_ty) => match int_ty {
+                IntType::I8 => Value::I8(*v as _),
+                IntType::I16 => Value::I16(*v as _),
+                IntType::I32 => Value::I32(*v as _),
+                IntType::I64 => Value::I64(*v as _),
+                IntType::Int => Value::Int(*v as _),
+            },
+            Type::Uint(ty) => match ty {
+                UintType::U8 => Value::U8(*v as _),
+                UintType::U16 => Value::U16(*v as _),
+                UintType::U32 => Value::U32(*v as _),
+                UintType::U64 => Value::U64(*v as _),
+                UintType::Uint => Value::Uint(*v as _),
+            },
+            Type::Float(ty) => match ty {
+                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
+                FloatType::F64 => Value::F64(*v as _),
+                FloatType::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            Type::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            Type::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Uint(v) => match ty {
+            Type::Int(int_ty) => match int_ty {
+                IntType::I8 => Value::I8(*v as _),
+                IntType::I16 => Value::I16(*v as _),
+                IntType::I32 => Value::I32(*v as _),
+                IntType::I64 => Value::I64(*v as _),
+                IntType::Int => Value::Int(*v as _),
+            },
+            Type::Uint(ty) => match ty {
+                UintType::U8 => Value::U8(*v as _),
+                UintType::U16 => Value::U16(*v as _),
+                UintType::U32 => Value::U32(*v as _),
+                UintType::U64 => Value::U64(*v as _),
+                UintType::Uint => Value::Uint(*v as _),
+            },
+            Type::Float(ty) => match ty {
+                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
+                FloatType::F64 => Value::F64(*v as _),
+                FloatType::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            Type::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
+            Type::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Float(v) => match ty {
+            Type::Float(float_ty) => match float_ty {
+                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
+                FloatType::F64 => Value::F64(*v as _),
+                FloatType::Float => {
+                    if IS_64BIT {
+                        Value::F64(*v as _)
+                    } else {
+                        Value::F32(*v as _)
+                    }
+                }
+            },
+            Type::Infer(_, InferTy::AnyFloat) => {
+                if IS_64BIT {
+                    Value::F64(*v as _)
+                } else {
+                    Value::F32(*v as _)
+                }
+            }
+            _ => panic!("invalid ty {}", ty),
+        },
+        ConstValue::Str(v) => Value::from(*v),
+        ConstValue::Tuple(elements) => Value::Aggregate(Aggregate {
+            elements: elements
+                .iter()
+                .map(|el| const_value_to_value(&el.value, el.ty, sess))
+                .collect(),
+            ty,
+        }),
+        ConstValue::Struct(fields) => Value::Aggregate(Aggregate {
+            elements: fields
+                .values()
+                .map(|el| const_value_to_value(&el.value, el.ty, sess))
+                .collect(),
+            ty,
+        }),
+        ConstValue::Array(array) => {
+            let array_len = array.values.len();
+
+            let el_ty = array.element_ty;
+            let el_ty_kind = el_ty.normalize(sess.tycx);
+            let el_size = el_ty_kind.size_of(WORD_SIZE);
+
+            let mut bytes = ByteSeq::new(array_len * el_size);
+
+            for (index, const_value) in array.values.iter().enumerate() {
+                let value = const_value_to_value(const_value, el_ty, sess);
+
+                bytes.offset_mut(index * el_size).put_value(&value);
+            }
+
+            Value::Array(Array {
+                bytes,
+                ty: Type::Array(Box::new(el_ty_kind), array_len),
+            })
+        }
+        ConstValue::Function(f) => {
+            let function = sess.cache.functions.get(f.id).unwrap();
+
+            function.lower(
+                sess,
+                &mut CompiledCode::new(),
+                LowerContext { take_ptr: false },
+            );
+
+            Value::Function(FunctionAddress {
+                id: f.id,
+                name: f.name,
+            })
+        }
+    }
+}
+
+fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usize {
+    let binding = sess
+        .cache
+        .bindings
+        .get(id)
+        .unwrap_or_else(|| panic!("binding not found: {:?}", id));
+
+    lower_top_level_binding(binding, sess)
+}
+
+fn lower_top_level_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize {
+    sess.env_stack.push((binding.module_id, Env::default()));
+
+    let mut code = CompiledCode::new();
+
+    binding
+        .value
+        .lower(sess, &mut code, LowerContext { take_ptr: false });
+
+    sess.env_stack.pop();
+
+    let slot = sess.insert_global(binding.id, Value::unit());
+    code.push(Instruction::SetGlobal(slot as u32));
+
+    sess.push_const_unit(&mut code);
+
+    code.push(Instruction::Return);
+    sess.evaluated_globals.push(code);
+
+    slot
+}
 
 // impl Lower for ast::Ast {
 //     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
@@ -506,7 +894,7 @@
 //             ast::FunctionKind::Orphan { sig, body } => {
 //                 sess.env_mut().push_scope();
 
-//                 let mut func_code = CompiledCode::new();
+//                 let mut function_code = CompiledCode::new();
 
 //                 // set up function parameters
 //                 let mut param_offset = -(sig.params.len() as i16);
@@ -523,18 +911,18 @@
 //                             for pattern in pattern.symbols.iter() {
 //                                 let field_index = ty.find_field_position(pattern.name).unwrap();
 //                                 // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
-//                                 func_code.push(Instruction::Peek(param_offset as i32));
-//                                 func_code.push(Instruction::ConstIndex(field_index as u32));
-//                                 sess.add_local(&mut func_code, pattern.id);
-//                                 func_code.push(Instruction::SetLocal(func_code.last_local()));
+//                                 function_code.push(Instruction::Peek(param_offset as i32));
+//                                 function_code.push(Instruction::ConstIndex(field_index as u32));
+//                                 sess.add_local(&mut function_code, pattern.id);
+//                                 function_code.push(Instruction::SetLocal(function_code.last_local()));
 //                             }
 //                         }
 //                         Pattern::TupleUnpack(pattern) => {
 //                             for (index, pattern) in pattern.symbols.iter().enumerate() {
-//                                 func_code.push(Instruction::PeekPtr(param_offset as i32));
-//                                 func_code.push(Instruction::ConstIndex(index as u32));
-//                                 sess.add_local(&mut func_code, pattern.id);
-//                                 func_code.push(Instruction::SetLocal(func_code.last_local()));
+//                                 function_code.push(Instruction::PeekPtr(param_offset as i32));
+//                                 function_code.push(Instruction::ConstIndex(index as u32));
+//                                 sess.add_local(&mut function_code, pattern.id);
+//                                 function_code.push(Instruction::SetLocal(function_code.last_local()));
 //                             }
 //                         }
 //                         Pattern::Hybrid(pattern) => {
@@ -549,20 +937,20 @@
 //                                         let field_index =
 //                                             ty.find_field_position(pattern.name).unwrap();
 //                                         // TODO: we should be able to PeekPtr here - but we get a strange "capacity overflow" error
-//                                         func_code.push(Instruction::Peek(param_offset as i32));
-//                                         func_code.push(Instruction::ConstIndex(field_index as u32));
-//                                         sess.add_local(&mut func_code, pattern.id);
-//                                         func_code
-//                                             .push(Instruction::SetLocal(func_code.last_local()));
+//                                         function_code.push(Instruction::Peek(param_offset as i32));
+//                                         function_code.push(Instruction::ConstIndex(field_index as u32));
+//                                         sess.add_local(&mut function_code, pattern.id);
+//                                         function_code
+//                                             .push(Instruction::SetLocal(function_code.last_local()));
 //                                     }
 //                                 }
 //                                 UnpackPatternKind::Tuple(pattern) => {
 //                                     for (index, pattern) in pattern.symbols.iter().enumerate() {
-//                                         func_code.push(Instruction::PeekPtr(param_offset as i32));
-//                                         func_code.push(Instruction::ConstIndex(index as u32));
-//                                         sess.add_local(&mut func_code, pattern.id);
-//                                         func_code
-//                                             .push(Instruction::SetLocal(func_code.last_local()));
+//                                         function_code.push(Instruction::PeekPtr(param_offset as i32));
+//                                         function_code.push(Instruction::ConstIndex(index as u32));
+//                                         sess.add_local(&mut function_code, pattern.id);
+//                                         function_code
+//                                             .push(Instruction::SetLocal(function_code.last_local()));
 //                                     }
 //                                 }
 //                             }
@@ -574,12 +962,12 @@
 //                 lower_block(
 //                     body.as_ref().unwrap(),
 //                     sess,
-//                     &mut func_code,
+//                     &mut function_code,
 //                     LowerContext { take_ptr: false },
 //                 );
 
-//                 if !func_code.instructions.ends_with(&[Instruction::Return]) {
-//                     func_code.push(Instruction::Return);
+//                 if !function_code.instructions.ends_with(&[Instruction::Return]) {
+//                     function_code.push(Instruction::Return);
 //                 }
 
 //                 sess.env_mut().pop_scope();
@@ -593,7 +981,7 @@
 //                         name: sig.name,
 //                         arg_types: sig_ty.params,
 //                         return_type: *sig_ty.ret,
-//                         code: func_code,
+//                         code: function_code,
 //                     },
 //                 );
 //             }

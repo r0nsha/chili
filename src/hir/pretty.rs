@@ -175,7 +175,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
         p.write(&function_type.return_type.display(p.tycx));
 
         match &self.kind {
-            hir::FunctionKind::Orphan { body } => {
+            hir::FunctionKind::Orphan { body, .. } => {
                 p.write(" ");
                 body.as_ref().unwrap().print(p, false)
             }

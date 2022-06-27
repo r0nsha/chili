@@ -1094,7 +1094,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
                 }
             }
             ast::Ast::Ident(ident) => {
-                assert!(ident.binding_id != BindingId::unknown());
+                debug_assert!(ident.binding_id != BindingId::unknown());
 
                 let decl = match state.scopes.get(ident.binding_id) {
                     Some((_, decl)) => decl.clone(),

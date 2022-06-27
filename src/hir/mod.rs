@@ -74,6 +74,7 @@ impl WithId<FunctionId> for Function {
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum FunctionKind {
     Orphan {
+        param_ids: Vec<BindingId>,
         body: Option<Sequence>, // The body will be filled after the function is fully checked
     },
     Extern {

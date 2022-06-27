@@ -418,7 +418,7 @@ impl Check for ast::Binding {
                     matches!(value_node.as_const_value(), Some(ConstValue::Function(_)));
 
                 let value_span = value_node.span();
-                let bound_node = sess.bind_pattern(
+                let (_, bound_node) = sess.bind_pattern(
                     env,
                     &self.pattern,
                     self.visibility,
@@ -2089,6 +2089,7 @@ impl Check for ast::FunctionExpr {
 
         env.push_scope(ScopeKind::Function);
 
+        let mut param_ids: Vec<BindingId> = vec![];
         let mut param_bind_statements: Vec<hir::Node> = vec![];
 
         for (param, param_type) in self.sig.params.iter().zip(function_type.params.iter()) {
@@ -2100,7 +2101,7 @@ impl Check for ast::FunctionExpr {
                     .map_or(param.pattern.span(), |e| e.span()),
             );
 
-            let bound_node = sess.bind_pattern(
+            let (bound_id, bound_node) = sess.bind_pattern(
                 env,
                 &param.pattern,
                 ast::Visibility::Private,
@@ -2109,6 +2110,8 @@ impl Check for ast::FunctionExpr {
                 &ast::BindingKind::Normal,
                 param.pattern.span(),
             )?;
+
+            param_ids.push(bound_id);
 
             // If this is a single statement, we ignore it,
             // As it doesn't include any destructuring statements.
@@ -2122,7 +2125,10 @@ impl Check for ast::FunctionExpr {
             id: hir::FunctionId::unknown(),
             module_id: env.module_id(),
             name: qualified_name,
-            kind: hir::FunctionKind::Orphan { body: None },
+            kind: hir::FunctionKind::Orphan {
+                param_ids,
+                body: None,
+            },
             ty: sig_type,
             span: self.span,
         });

@@ -10,7 +10,7 @@ impl<T: ToString, const CAPACITY: usize> Stack<T, CAPACITY> {
     }
 
     pub fn push(&mut self, value: T) {
-        assert!(self.inner.len() <= self.inner.capacity(), "stack overflow");
+        debug_assert!(self.inner.len() <= self.inner.capacity(), "stack overflow");
         self.inner.push(value);
     }
 
