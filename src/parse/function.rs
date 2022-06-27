@@ -30,11 +30,13 @@ impl Parser {
     }
 
     pub fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FunctionSig> {
+        let is_extern = self.extern_lib.is_some();
+
         let start_span = self.previous_span();
 
-        let (params, varargs) = self.parse_fn_params()?;
+        let (params, varargs) = self.parse_fn_params(is_extern)?;
 
-        let ret_ty = if eat!(self, RightArrow) {
+        let return_type = if eat!(self, RightArrow) {
             Some(Box::new(
                 self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
             ))
@@ -46,7 +48,7 @@ impl Parser {
             name,
             params,
             varargs,
-            return_type: ret_ty,
+            return_type,
             kind: self
                 .extern_lib
                 .as_ref()
@@ -60,6 +62,7 @@ impl Parser {
 
     pub fn parse_fn_params(
         &mut self,
+        is_extern: bool,
     ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
         if !eat!(self, OpenParen) {
             return Ok((vec![], None));
@@ -79,6 +82,8 @@ impl Parser {
 
                     let type_expr = if eat!(self, Colon) {
                         Some(Box::new(self.parse_expr()?))
+                    } else if !is_extern {
+                        return Err(SyntaxError::expected(self.previous_span(), ":"));
                     } else {
                         None
                     };
@@ -100,6 +105,8 @@ impl Parser {
 
                 let ty = if eat!(self, Colon) {
                     Some(Box::new(self.parse_expr()?))
+                } else if is_extern {
+                    return Err(SyntaxError::expected(self.previous_span(), ":"));
                 } else {
                     None
                 };

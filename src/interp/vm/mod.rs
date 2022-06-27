@@ -393,9 +393,9 @@ impl<'vm> VM<'vm> {
                     self.next();
                 }
                 Instruction::Assign => {
-                    let lvalue = self.stack.pop().into_pointer();
-                    let rvalue = self.stack.pop();
-                    unsafe { lvalue.write_value(rvalue) }
+                    let lhs = self.stack.pop().into_pointer();
+                    let rhs = self.stack.pop();
+                    unsafe { lhs.write_value(rhs) }
                     self.next();
                 }
                 Instruction::Cast(cast) => {

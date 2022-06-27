@@ -1,10 +1,10 @@
 use super::types::*;
 use crate::{
-    ast,
+    hir,
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     span::{EndPosition, Position, Span},
     types::Type,
-    workspace::Workspace,
+    workspace::{BindingInfoFlags, Workspace},
 };
 
 pub(super) struct HintSess<'a> {
@@ -51,14 +51,38 @@ impl<'a, T: CollectHints<'a>> CollectHints<'a> for Box<T> {
     }
 }
 
-impl<'a> CollectHints<'a> for ast::Binding {
+impl<'a> CollectHints<'a> for hir::Node {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
-        if self.type_expr.is_none() {
-            let ty = self.ty.normalize(sess.tycx);
+        match self {
+            hir::Node::Const(x) => x.collect_hints(sess),
+            hir::Node::Binding(x) => x.collect_hints(sess),
+            hir::Node::Id(x) => x.collect_hints(sess),
+            hir::Node::Assignment(x) => x.collect_hints(sess),
+            hir::Node::MemberAccess(x) => x.collect_hints(sess),
+            hir::Node::Call(x) => x.collect_hints(sess),
+            hir::Node::Cast(x) => x.collect_hints(sess),
+            hir::Node::Sequence(x) => x.collect_hints(sess),
+            hir::Node::Control(x) => x.collect_hints(sess),
+            hir::Node::Builtin(x) => x.collect_hints(sess),
+            hir::Node::Literal(x) => x.collect_hints(sess),
+        }
+    }
+}
 
-            match ty {
+impl<'a> CollectHints<'a> for hir::Binding {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        let should_show_hint = sess
+            .workspace
+            .binding_infos
+            .get(self.id)
+            .unwrap()
+            .flags
+            .contains(BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED);
+
+        if should_show_hint {
+            match self.ty.normalize(sess.tycx) {
                 Type::Function(_) | Type::Module(_) | Type::Type(_) | Type::AnyType => (),
-                _ => sess.push_hint(self.pattern.span(), ty.to_string(), HintKind::Binding),
+                ty => sess.push_hint(self.span, ty.to_string(), HintKind::Binding),
             }
         }
 
@@ -66,171 +90,227 @@ impl<'a> CollectHints<'a> for ast::Binding {
     }
 }
 
-impl<'a> CollectHints<'a> for ast::Function {
+impl<'a> CollectHints<'a> for hir::Function {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         match &self.kind {
-            ast::FunctionKind::Orphan { sig, body } => {
-                sig.collect_hints(sess);
+            hir::FunctionKind::Orphan {
+                params,
+                inferred_return_type_span,
+                body,
+            } => {
+                for param in params.iter() {
+                    let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
+                    let ty = binding_info.ty.normalize(sess.tycx);
+
+                    if binding_info.flags.contains(
+                        BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED,
+                    ) {
+                        sess.push_hint(binding_info.span, ty.to_string(), HintKind::Binding)
+                    } else if binding_info
+                        .flags
+                        .contains(BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER)
+                    {
+                        let index_after_fn_kw = self.span.start.index + 2;
+                        let span_after_fn_kw = self
+                            .span
+                            .with_start(Position {
+                                index: index_after_fn_kw,
+                                line: self.span.start.line,
+                                column: self.span.start.column,
+                            })
+                            .with_end(EndPosition {
+                                index: index_after_fn_kw,
+                            });
+
+                        sess.push_hint(
+                            span_after_fn_kw,
+                            format!("{}: {}", binding_info.name, ty),
+                            HintKind::ImplicitParam,
+                        )
+                    }
+                }
+
+                if let Some(span) = inferred_return_type_span {
+                    match self
+                        .ty
+                        .normalize(sess.tycx)
+                        .into_function()
+                        .return_type
+                        .as_ref()
+                    {
+                        Type::Unit => (),
+                        return_type => {
+                            sess.push_hint(*span, return_type.to_string(), HintKind::ReturnType)
+                        }
+                    }
+                }
+
                 body.collect_hints(sess);
             }
-            ast::FunctionKind::Extern { .. } => (),
-            ast::FunctionKind::Intrinsic(_) => (),
+            hir::FunctionKind::Extern { .. } => (),
+            hir::FunctionKind::Intrinsic(_) => (),
         }
     }
 }
 
-impl<'a> CollectHints<'a> for ast::FunctionSig {
-    fn collect_hints(&self, sess: &mut HintSess<'a>) {
-        self.params
-            .iter()
-            .filter(|param| param.type_expr.is_none())
-            .for_each(|param| {
-                let ty = param.ty.normalize(sess.tycx);
-                let span = param.pattern.span();
-
-                if span.is_unknown() {
-                    // This parameter was inserted implicitly
-                    let index_after_fn_kw = self.span.start.index + 2;
-                    let span_after_fn_kw = self
-                        .span
-                        .with_start(Position {
-                            index: index_after_fn_kw,
-                            line: self.span.start.line,
-                            column: self.span.start.column,
-                        })
-                        .with_end(EndPosition {
-                            index: index_after_fn_kw,
-                        });
-
-                    sess.push_hint(
-                        span_after_fn_kw,
-                        format!("{}: {}", param.pattern, ty),
-                        HintKind::ImplicitParam,
-                    )
-                } else {
-                    sess.push_hint(param.pattern.span(), ty.to_string(), HintKind::Binding)
-                }
-            });
-
-        if let Some(ret) = self.return_type.as_ref() {
-            ret.collect_hints(sess);
-        } else {
-            let ret_ty = &self.ty.normalize(sess.tycx).into_function().return_type;
-            match ret_ty.as_ref() {
-                Type::Unit => (),
-                _ => sess.push_hint(self.span, ret_ty.to_string(), HintKind::ReturnType),
-            }
-        }
-    }
-}
-
-impl<'a> CollectHints<'a> for ast::Block {
+impl<'a> CollectHints<'a> for hir::Sequence {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         self.statements.collect_hints(sess);
     }
 }
 
-impl<'a> CollectHints<'a> for ast::Ast {
+impl<'a> CollectHints<'a> for hir::Const {
+    fn collect_hints(&self, _sess: &mut HintSess<'a>) {}
+}
+
+impl<'a> CollectHints<'a> for hir::Id {
+    fn collect_hints(&self, _sess: &mut HintSess<'a>) {}
+}
+
+impl<'a> CollectHints<'a> for hir::Assignment {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.lhs.collect_hints(sess);
+        self.rhs.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::MemberAccess {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Call {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.callee.collect_hints(sess);
+        self.args.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Cast {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Control {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         match self {
-            ast::Ast::Binding(binding) => binding.collect_hints(sess),
-            ast::Ast::Assignment(assignment) => {
-                assignment.lhs.collect_hints(sess);
-                assignment.rhs.collect_hints(sess);
+            hir::Control::If(x) => x.collect_hints(sess),
+            hir::Control::While(x) => x.collect_hints(sess),
+            hir::Control::Return(x) => x.collect_hints(sess),
+            hir::Control::Break(_) | hir::Control::Continue(_) => (),
+        }
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::If {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.condition.collect_hints(sess);
+        self.then.collect_hints(sess);
+        self.otherwise.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::While {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.condition.collect_hints(sess);
+        self.body.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Return {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Builtin {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        match self {
+            hir::Builtin::Add(x)
+            | hir::Builtin::Sub(x)
+            | hir::Builtin::Mul(x)
+            | hir::Builtin::Div(x)
+            | hir::Builtin::Rem(x)
+            | hir::Builtin::Shl(x)
+            | hir::Builtin::Shr(x)
+            | hir::Builtin::And(x)
+            | hir::Builtin::Or(x)
+            | hir::Builtin::Lt(x)
+            | hir::Builtin::Le(x)
+            | hir::Builtin::Gt(x)
+            | hir::Builtin::Ge(x)
+            | hir::Builtin::Eq(x)
+            | hir::Builtin::Ne(x)
+            | hir::Builtin::BitAnd(x)
+            | hir::Builtin::BitOr(x)
+            | hir::Builtin::BitXor(x) => x.collect_hints(sess),
+            hir::Builtin::Not(x) | hir::Builtin::Neg(x) | hir::Builtin::Deref(x) => {
+                x.collect_hints(sess)
             }
-            ast::Ast::Cast(t) => t.expr.collect_hints(sess),
-            ast::Ast::Builtin(b) => match &b.kind {
-                ast::BuiltinKind::Import(_) => (),
-                ast::BuiltinKind::SizeOf(expr)
-                | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr) => expr.collect_hints(sess),
-                ast::BuiltinKind::Panic(expr) => expr.collect_hints(sess),
-            },
-            ast::Ast::Function(f) => {
-                f.sig.collect_hints(sess);
-                f.body.collect_hints(sess);
-            }
-            ast::Ast::While(while_) => {
-                while_.condition.collect_hints(sess);
-                while_.block.collect_hints(sess);
-            }
-            ast::Ast::For(for_) => {
-                match &for_.iterator {
-                    ast::ForIter::Range(s, e) => {
-                        s.collect_hints(sess);
-                        e.collect_hints(sess);
-                    }
-                    ast::ForIter::Value(v) => {
-                        v.collect_hints(sess);
-                    }
+            hir::Builtin::Ref(x) => x.collect_hints(sess),
+            hir::Builtin::Offset(x) => x.collect_hints(sess),
+            hir::Builtin::Slice(x) => x.collect_hints(sess),
+        }
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Binary {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.lhs.collect_hints(sess);
+        self.rhs.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Unary {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Ref {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Offset {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+        self.offset.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Slice {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        self.value.collect_hints(sess);
+        self.low.collect_hints(sess);
+        self.high.collect_hints(sess);
+    }
+}
+
+impl<'a> CollectHints<'a> for hir::Literal {
+    fn collect_hints(&self, sess: &mut HintSess<'a>) {
+        match self {
+            hir::Literal::Struct(lit) => {
+                for field in lit.fields.iter() {
+                    field.value.collect_hints(sess);
                 }
-                for_.block.collect_hints(sess);
             }
-            ast::Ast::Break(_) | ast::Ast::Continue(_) => (),
-            ast::Ast::Return(ret) => {
-                ret.expr.collect_hints(sess);
-            }
-            ast::Ast::If(if_) => {
-                if_.condition.collect_hints(sess);
-                if_.then.collect_hints(sess);
-                if_.otherwise.collect_hints(sess);
-            }
-            ast::Ast::Block(block) => block.collect_hints(sess),
-            ast::Ast::Binary(binary) => {
-                binary.lhs.collect_hints(sess);
-                binary.rhs.collect_hints(sess);
-            }
-            ast::Ast::Unary(unary) => {
-                unary.value.collect_hints(sess);
-            }
-            ast::Ast::Subscript(sub) => {
-                sub.expr.collect_hints(sess);
-                sub.index.collect_hints(sess);
-            }
-            ast::Ast::Slice(slice) => {
-                slice.expr.collect_hints(sess);
-                slice.low.collect_hints(sess);
-                slice.high.collect_hints(sess);
-            }
-            ast::Ast::Call(call) => {
-                call.callee.collect_hints(sess);
-                call.args.collect_hints(sess);
-            }
-            ast::Ast::MemberAccess(access) => access.expr.collect_hints(sess),
-            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
-                ast::ArrayLiteralKind::List(l) => l.collect_hints(sess),
-                ast::ArrayLiteralKind::Fill { len, expr } => {
-                    len.collect_hints(sess);
-                    expr.collect_hints(sess);
-                }
-            },
-            ast::Ast::TupleLiteral(lit) => {
-                lit.elements.collect_hints(sess);
-            }
-            ast::Ast::StructLiteral(lit) => {
-                lit.type_expr.collect_hints(sess);
-                for field in &lit.fields {
-                    field.expr.collect_hints(sess);
+            hir::Literal::Tuple(lit) => {
+                for element in lit.elements.iter() {
+                    element.collect_hints(sess);
                 }
             }
-            ast::Ast::PointerType(e) | ast::Ast::MultiPointerType(e) | ast::Ast::SliceType(e) => {
-                e.inner.collect_hints(sess)
-            }
-            ast::Ast::ArrayType(at) => at.inner.collect_hints(sess),
-            ast::Ast::StructType(s) => {
-                for f in &s.fields {
-                    f.ty.collect_hints(sess);
+            hir::Literal::Array(lit) => {
+                for element in lit.elements.iter() {
+                    element.collect_hints(sess);
                 }
             }
-            ast::Ast::FunctionType(sig) => {
-                sig.collect_hints(sess);
+            hir::Literal::ArrayFill(lit) => {
+                lit.value.collect_hints(sess);
             }
-            ast::Ast::Ident(_)
-            | ast::Ast::Literal(_)
-            | ast::Ast::SelfType(_)
-            | ast::Ast::Const(_)
-            | ast::Ast::Placeholder(_)
-            | ast::Ast::Error(_) => (),
         }
     }
 }

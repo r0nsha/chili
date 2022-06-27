@@ -90,17 +90,17 @@ impl Parser {
         }))
     }
 
-    fn parse_compound_assign(&mut self, lvalue: Ast) -> DiagnosticResult<Ast> {
+    fn parse_compound_assign(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
         let op: BinaryOp = self.previous().kind.into();
         let rvalue = self.parse_expr()?;
 
-        let lvalue_span = lvalue.span();
+        let lvalue_span = lhs.span();
         let rvalue_span = rvalue.span();
 
         Ok(Ast::Assignment(ast::Assignment {
-            lhs: Box::new(lvalue.clone()),
+            lhs: Box::new(lhs.clone()),
             rhs: Box::new(Ast::Binary(ast::Binary {
-                lhs: Box::new(lvalue),
+                lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rvalue),
                 ty: Default::default(),

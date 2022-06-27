@@ -147,7 +147,7 @@ fn cli() {
                     ide::diagnostics(
                         &result.workspace,
                         result.tycx.as_ref(),
-                        result.typed_ast.as_ref(),
+                        result.cache.as_ref(),
                     );
                 } else if let Some(offset) = args.hover_info {
                     ide::hover_info(&result.workspace, result.tycx.as_ref(), offset);

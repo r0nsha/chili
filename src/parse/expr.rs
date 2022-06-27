@@ -61,7 +61,7 @@ impl Parser {
                 let binding = if eat!(self, Extern) {
                     self.parse_extern(Visibility::Private, start_span)?
                 } else {
-                    self.parse_binding(Visibility::Private, false)?
+                    self.parse_binding(Visibility::Private)?
                 };
 
                 Ok(Ast::Binding(binding))

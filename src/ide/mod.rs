@@ -4,8 +4,8 @@ mod util;
 
 use self::hint::{CollectHints, HintSess};
 use crate::{
-    ast::TypedAst,
     error::diagnostic::DiagnosticSeverity,
+    hir,
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     span::{EndPosition, Position, Span},
     types::Type,
@@ -14,7 +14,7 @@ use crate::{
 use types::*;
 use util::*;
 
-pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Option<&TypedAst>) {
+pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Option<&hir::Cache>) {
     let mut objects: Vec<IdeObject> = vec![];
 
     objects.extend(

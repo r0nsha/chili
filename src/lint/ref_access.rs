@@ -1,7 +1,7 @@
-use super::sess::LintSess;
+use super::LintSess;
 use crate::{
-    ast,
     error::diagnostic::{Diagnostic, Label},
+    hir,
     infer::{display::DisplayTy, normalize::Normalize},
     span::Span,
     types::Type,
@@ -15,11 +15,11 @@ enum RefAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub fn check_expr_can_be_mutably_referenced(&mut self, expr: &ast::Ast) {
+    pub fn check_node_can_be_mutably_referenced(&mut self, node: &hir::Node) {
         use RefAccessErr::*;
 
         let result = self
-            .check_expr_can_be_mutably_referenced_inner(expr, true)
+            .check_expr_can_be_mutably_referenced_inner(node, true)
             .map_err(|err| match err {
                 ImmutableReference { ty, span } => Diagnostic::error()
                     .with_message(format!(
@@ -53,7 +53,7 @@ impl<'s> LintSess<'s> {
 
     fn check_expr_can_be_mutably_referenced_inner(
         &self,
-        expr: &ast::Ast,
+        expr: &hir::Node,
         is_direct_ref: bool,
     ) -> Result<(), RefAccessErr> {
         use RefAccessErr::*;
@@ -61,7 +61,7 @@ impl<'s> LintSess<'s> {
         let ty = expr.ty().normalize(self.tycx);
 
         match expr {
-            ast::Ast::MemberAccess(access) => {
+            hir::Node::MemberAccess(access) => {
                 match self.check_expr_can_be_mutably_referenced_inner(expr, true) {
                     Ok(_) => match ty {
                         Type::Tuple(tys) => {
@@ -137,7 +137,7 @@ impl<'s> LintSess<'s> {
                     Err(err) => Err(err),
                 }
             }
-            ast::Ast::Ident(ident) => {
+            hir::Node::Id(id) => {
                 match ty {
                     Type::Slice(_, is_mutable)
                     | Type::MultiPointer(_, is_mutable)
@@ -154,13 +154,13 @@ impl<'s> LintSess<'s> {
                     _ => (),
                 }
 
-                let binding_info = self.workspace.binding_infos.get(ident.binding_id).unwrap();
+                let binding_info = self.workspace.binding_infos.get(id.id).unwrap();
 
                 if binding_info.is_mutable {
                     Ok(())
                 } else {
                     Err(ImmutableBinding {
-                        id: ident.binding_id,
+                        id: id.id,
                         span: expr.span(),
                     })
                 }

@@ -74,13 +74,21 @@ impl WithId<FunctionId> for Function {
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum FunctionKind {
     Orphan {
-        param_ids: Vec<BindingId>,
+        params: Vec<FunctionParam>,
+        inferred_return_type_span: Option<Span>, // This span will be filled when the function's return type is elided
         body: Option<Sequence>, // The body will be filled after the function is fully checked
     },
     Extern {
         lib: Option<ExternLibrary>,
     },
     Intrinsic(Intrinsic),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunctionParam {
+    pub id: BindingId,
+    pub ty: TypeId,
+    pub span: Span,
 }
 
 impl Function {
@@ -140,6 +148,7 @@ node_struct!(Return, { value: Box<Node> });
 
 node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(Unary, { value: Box<Node> });
+node_struct!(Ref, { value: Box<Node>, is_mutable: bool });
 
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
 node_struct!(Slice, { value: Box<Node>, low: Box<Node>, high: Box<Node> });
@@ -187,9 +196,9 @@ pub enum Builtin {
 
     Not(Unary),
     Neg(Unary),
-    Ref(Unary),
     Deref(Unary),
 
+    Ref(Ref),
     Offset(Offset),
     Slice(Slice),
     // TODO: Transmute(Transmute),
@@ -285,8 +294,9 @@ macro_rules! builtin_field_dispatch {
 
                     Self::Not(x) => x.$field,
                     Self::Neg(x) => x.$field,
-                    Self::Ref(x) => x.$field,
                     Self::Deref(x) => x.$field,
+
+                    Self::Ref(x) => x.$field,
                     Self::Offset(x) => x.$field,
                     Self::Slice(x) => x.$field,
                 }

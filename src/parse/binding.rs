@@ -12,11 +12,7 @@ use crate::{
 };
 
 impl Parser {
-    pub fn parse_binding(
-        &mut self,
-        visibility: Visibility,
-        require_value: bool,
-    ) -> DiagnosticResult<Binding> {
+    pub fn parse_binding(&mut self, visibility: Visibility) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
         let pattern = self.parse_pattern()?;

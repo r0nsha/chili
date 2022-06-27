@@ -3,21 +3,20 @@ use super::{
     ty_ctx::TyCtx,
 };
 use crate::{
-    ast,
     error::{
         diagnostic::{Diagnostic, Label},
         Diagnostics,
     },
+    hir,
     span::Span,
     types::*,
 };
-use core::panic;
 use std::collections::{HashMap, HashSet};
 
 pub fn substitute<'a>(
     diagnostics: &'a mut Diagnostics,
     tycx: &'a mut TyCtx,
-    typed_ast: &'a ast::TypedAst,
+    cache: &'a hir::Cache,
 ) {
     let mut sess = Sess {
         diagnostics,
@@ -27,7 +26,7 @@ pub fn substitute<'a>(
     };
 
     // substitute used types - extracting erroneous types
-    typed_ast.substitute(&mut sess);
+    cache.substitute(&mut sess);
 
     if sess.diagnostics.has_errors() {
         sess.emit_erroneous_types();
@@ -97,9 +96,13 @@ trait Substitute<'a> {
 
 impl<'a, T: Substitute<'a>> Substitute<'a> for Vec<T> {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        for element in self {
-            element.substitute(sess);
-        }
+        self.as_slice().substitute(sess);
+    }
+}
+
+impl<'a, T: Substitute<'a>> Substitute<'a> for &[T] {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.iter().for_each(|v| v.substitute(sess));
     }
 }
 
@@ -117,152 +120,215 @@ impl<'a, T: Substitute<'a>> Substitute<'a> for Box<T> {
     }
 }
 
-impl<'a> Substitute<'a> for ast::TypedAst {
+impl<'a> Substitute<'a> for hir::Cache {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.bindings.iter().for_each(|(_, b)| b.substitute(sess));
+        self.functions.iter().for_each(|(_, f)| f.substitute(sess));
     }
 }
 
-impl<'a> Substitute<'a> for ast::Binding {
+impl<'a> Substitute<'a> for hir::Node {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.type_expr.substitute(sess);
-        self.value.substitute(sess);
-    }
-}
-
-impl<'a> Substitute<'a> for ast::Block {
-    fn substitute(&self, sess: &mut Sess<'a>) {
-        self.statements.substitute(sess);
-    }
-}
-
-impl<'a> Substitute<'a> for ast::FunctionExpr {
-    fn substitute(&self, sess: &mut Sess<'a>) {
-        self.sig.substitute(sess);
-        self.body.substitute(sess);
-    }
-}
-
-impl<'a> Substitute<'a> for ast::FunctionSig {
-    fn substitute(&self, sess: &mut Sess<'a>) {
-        for param in self.params.iter() {
-            param.type_expr.substitute(sess);
-            param.ty.substitute(sess, param.pattern.span());
+        match self {
+            hir::Node::Const(x) => x.substitute(sess),
+            hir::Node::Binding(x) => x.substitute(sess),
+            hir::Node::Id(x) => x.substitute(sess),
+            hir::Node::Assignment(x) => x.substitute(sess),
+            hir::Node::MemberAccess(x) => x.substitute(sess),
+            hir::Node::Call(x) => x.substitute(sess),
+            hir::Node::Cast(x) => x.substitute(sess),
+            hir::Node::Sequence(x) => x.substitute(sess),
+            hir::Node::Control(x) => x.substitute(sess),
+            hir::Node::Builtin(x) => x.substitute(sess),
+            hir::Node::Literal(x) => x.substitute(sess),
         }
-        self.return_type.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Const {
+    fn substitute(&self, sess: &mut Sess<'a>) {
         self.ty.substitute(sess, self.span);
     }
 }
 
-impl<'a> Substitute<'a> for ast::Cast {
+impl<'a> Substitute<'a> for hir::Binding {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.expr.substitute(sess);
-        self.target.substitute(sess);
-        self.ty.substitute(
-            sess,
-            self.target.as_ref().map_or(self.expr.span(), |e| e.span()),
-        );
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
     }
 }
 
-impl<'a> Substitute<'a> for ast::Ast {
+impl<'a> Substitute<'a> for hir::Id {
     fn substitute(&self, sess: &mut Sess<'a>) {
-        self.ty().substitute(sess, self.span());
+        self.ty.substitute(sess, self.span);
+    }
+}
 
+impl<'a> Substitute<'a> for hir::Assignment {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.lhs.substitute(sess);
+        self.rhs.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::MemberAccess {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Call {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.callee.substitute(sess);
+        self.args.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Control {
+    fn substitute(&self, sess: &mut Sess<'a>) {
         match self {
-            ast::Ast::Binding(binding) => binding.substitute(sess),
-            ast::Ast::Assignment(assignment) => {
-                assignment.lhs.substitute(sess);
-                assignment.rhs.substitute(sess);
-            }
-            ast::Ast::Cast(info) => info.substitute(sess),
-            ast::Ast::Builtin(builtin) => match &builtin.kind {
-                ast::BuiltinKind::SizeOf(expr)
-                | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr) => expr.substitute(sess),
-                ast::BuiltinKind::Panic(expr) => expr.substitute(sess),
-                ast::BuiltinKind::Import(_) => (),
-            },
-            ast::Ast::Function(func) => func.substitute(sess),
-            ast::Ast::While(while_) => {
-                while_.condition.substitute(sess);
-                while_.block.substitute(sess);
-            }
-            ast::Ast::For(for_) => {
-                match &for_.iterator {
-                    ast::ForIter::Range(start, end) => {
-                        start.substitute(sess);
-                        end.substitute(sess);
-                    }
-                    ast::ForIter::Value(value) => {
-                        value.substitute(sess);
-                    }
-                }
-
-                for_.block.substitute(sess);
-            }
-            ast::Ast::Break(_) | ast::Ast::Continue(_) => (),
-            ast::Ast::Return(ret) => {
-                ret.expr.substitute(sess);
-            }
-            ast::Ast::If(if_) => {
+            hir::Control::If(if_) => {
+                if_.ty.substitute(sess, if_.span);
                 if_.condition.substitute(sess);
                 if_.then.substitute(sess);
                 if_.otherwise.substitute(sess);
             }
-            ast::Ast::Block(block) => {
-                block.statements.substitute(sess);
+            hir::Control::While(while_) => {
+                while_.ty.substitute(sess, while_.span);
+                while_.condition.substitute(sess);
+                while_.body.substitute(sess);
             }
-            ast::Ast::Binary(binary) => {
-                binary.lhs.substitute(sess);
-                binary.rhs.substitute(sess);
+            hir::Control::Return(return_) => {
+                return_.ty.substitute(sess, return_.span);
+                return_.value.substitute(sess);
             }
-            ast::Ast::Unary(unary) => unary.value.substitute(sess),
-            ast::Ast::Subscript(sub) => {
-                sub.expr.substitute(sess);
-                sub.index.substitute(sess);
+            hir::Control::Break(term) | hir::Control::Continue(term) => {
+                term.ty.substitute(sess, term.span)
             }
-            ast::Ast::Slice(slice) => {
-                slice.expr.substitute(sess);
-                slice.low.substitute(sess);
-                slice.high.substitute(sess);
-            }
-            ast::Ast::Call(call) => {
-                call.callee.substitute(sess);
-                call.args.substitute(sess);
-            }
-            ast::Ast::MemberAccess(access) => access.expr.substitute(sess),
-            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
-                ast::ArrayLiteralKind::List(elements) => elements.substitute(sess),
-                ast::ArrayLiteralKind::Fill { expr, len } => {
-                    len.substitute(sess);
-                    expr.substitute(sess);
-                }
-            },
-            ast::Ast::TupleLiteral(lit) => lit.elements.substitute(sess),
-            ast::Ast::StructLiteral(lit) => {
-                lit.type_expr.substitute(sess);
-                for f in lit.fields.iter() {
-                    f.expr.substitute(sess);
-                }
-            }
-            ast::Ast::PointerType(expr)
-            | ast::Ast::MultiPointerType(expr)
-            | ast::Ast::SliceType(expr) => expr.inner.substitute(sess),
-            ast::Ast::ArrayType(at) => at.inner.substitute(sess),
-            ast::Ast::StructType(struct_type, ..) => {
-                for f in struct_type.fields.iter() {
-                    f.ty.substitute(sess);
-                }
-            }
-            ast::Ast::FunctionType(sig) => sig.substitute(sess),
-            ast::Ast::Ident(_)
-            | ast::Ast::Literal(_)
-            | ast::Ast::SelfType(_)
-            | ast::Ast::Const(_)
-            | ast::Ast::Placeholder(_) => (),
-            ast::Ast::Error(_) => panic!("unexpected error node"),
         }
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Builtin {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        match self {
+            hir::Builtin::Add(x) => x.substitute(sess),
+            hir::Builtin::Sub(x) => x.substitute(sess),
+            hir::Builtin::Mul(x) => x.substitute(sess),
+            hir::Builtin::Div(x) => x.substitute(sess),
+            hir::Builtin::Rem(x) => x.substitute(sess),
+            hir::Builtin::Shl(x) => x.substitute(sess),
+            hir::Builtin::Shr(x) => x.substitute(sess),
+            hir::Builtin::And(x) => x.substitute(sess),
+            hir::Builtin::Or(x) => x.substitute(sess),
+            hir::Builtin::Lt(x) => x.substitute(sess),
+            hir::Builtin::Le(x) => x.substitute(sess),
+            hir::Builtin::Gt(x) => x.substitute(sess),
+            hir::Builtin::Ge(x) => x.substitute(sess),
+            hir::Builtin::Eq(x) => x.substitute(sess),
+            hir::Builtin::Ne(x) => x.substitute(sess),
+            hir::Builtin::BitAnd(x) => x.substitute(sess),
+            hir::Builtin::BitOr(x) => x.substitute(sess),
+            hir::Builtin::BitXor(x) => x.substitute(sess),
+            hir::Builtin::Not(x) => x.substitute(sess),
+            hir::Builtin::Neg(x) => x.substitute(sess),
+            hir::Builtin::Ref(x) => x.substitute(sess),
+            hir::Builtin::Deref(x) => x.substitute(sess),
+            hir::Builtin::Offset(x) => x.substitute(sess),
+            hir::Builtin::Slice(x) => x.substitute(sess),
+        }
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Binary {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.lhs.substitute(sess);
+        self.rhs.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Unary {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Ref {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Offset {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
+        self.offset.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Slice {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
+        self.low.substitute(sess);
+        self.high.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Function {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        match &self.kind {
+            hir::FunctionKind::Orphan { body, .. } => body.substitute(sess),
+            hir::FunctionKind::Extern { .. } | hir::FunctionKind::Intrinsic(..) => (),
+        }
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Literal {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        match self {
+            hir::Literal::Struct(lit) => {
+                lit.ty.substitute(sess, lit.span);
+                for field in lit.fields.iter() {
+                    field.ty.substitute(sess, field.span);
+                    field.value.substitute(sess);
+                }
+            }
+            hir::Literal::Tuple(lit) => {
+                lit.ty.substitute(sess, lit.span);
+                lit.elements.substitute(sess);
+            }
+            hir::Literal::Array(lit) => {
+                lit.ty.substitute(sess, lit.span);
+                lit.elements.substitute(sess);
+            }
+            hir::Literal::ArrayFill(lit) => {
+                lit.ty.substitute(sess, lit.span);
+                lit.value.substitute(sess);
+            }
+        }
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Sequence {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.statements.substitute(sess);
+    }
+}
+
+impl<'a> Substitute<'a> for hir::Cast {
+    fn substitute(&self, sess: &mut Sess<'a>) {
+        self.ty.substitute(sess, self.span);
+        self.value.substitute(sess);
     }
 }
 

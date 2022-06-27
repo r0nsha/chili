@@ -60,14 +60,14 @@ impl Lower for hir::Function {
         let function_type = self.ty.normalize(sess.tycx).into_function();
 
         match &self.kind {
-            hir::FunctionKind::Orphan { param_ids, body } => {
+            hir::FunctionKind::Orphan { params, body, .. } => {
                 sess.env_mut().push_scope();
 
                 let mut function_code = CompiledCode::new();
 
                 for index in 0..function_type.params.len() {
                     let offset = -(function_type.params.len() as i16) + index as i16;
-                    sess.env_mut().insert(param_ids[index], offset);
+                    sess.env_mut().insert(params[index].id, offset);
                 }
 
                 body.as_ref().unwrap().lower(

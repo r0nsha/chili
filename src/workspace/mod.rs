@@ -124,8 +124,14 @@ impl PartialBindingInfo {
 
 bitflags! {
     pub struct BindingInfoFlags : u8 {
-        // whether this binding is a builtin type, such as u8, i32, int, etc...
+        // Whether this binding is a builtin type, such as u8, i32, int, etc...
         const BUILTIN_TYPE = 1 << 0;
+        // Whether this binding comes from the user's code (this is turned off for compiler-generated bindings).
+        const IS_USER_DEFINED = 1 << 1;
+        // Whether the type of this binding was inferred. This depends on IS_USER_BINDING.
+        const TYPE_WAS_INFERRED = 1 << 2;
+        // Whether this the implicit "it" parameter.
+        const IS_IMPLICIT_IT_FN_PARAMETER = 1 << 3;
     }
 }
 

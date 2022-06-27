@@ -46,7 +46,7 @@ use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-pub type CheckData = (ast::TypedAst, hir::Cache, TyCtx);
+pub type CheckData = (hir::Cache, TyCtx);
 
 pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
     let mut sess = CheckSess::new(workspace, &module);
@@ -60,30 +60,26 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
         return sess.into_data();
     }
 
-    substitute(
-        &mut sess.workspace.diagnostics,
-        &mut sess.tycx,
-        &sess.typed_ast,
-    );
+    substitute(&mut sess.workspace.diagnostics, &mut sess.tycx, &sess.cache);
 
-    for binding in sess
-        .typed_ast
-        .bindings
-        .iter()
-        .map(|(_, b)| b)
-        .filter(|b| b.kind.is_extern())
-    {
-        if !ty_is_extern(&binding.ty.normalize(&sess.tycx)) {
-            sess.workspace.diagnostics.push(
-                Diagnostic::error()
-                    .with_message("type is not valid in extern context")
-                    .with_label(Label::primary(
-                        binding.type_expr.as_ref().unwrap().span(),
-                        "cannot be used in extern context",
-                    )),
-            )
-        }
-    }
+    // for binding in sess
+    //     .cache
+    //     .bindings
+    //     .iter()
+    //     .map(|(_, b)| b)
+    //     .filter(|b| b.kind.is_extern())
+    // {
+    //     if !ty_is_extern(&binding.ty.normalize(&sess.tycx)) {
+    //         sess.workspace.diagnostics.push(
+    //             Diagnostic::error()
+    //                 .with_message("type is not valid in extern context")
+    //                 .with_label(Label::primary(
+    //                     binding.type_expr.as_ref().unwrap().span(),
+    //                     "cannot be used in extern context",
+    //                 )),
+    //         )
+    //     }
+    // }
 
     sess.into_data()
 }
@@ -131,8 +127,6 @@ pub struct CheckSess<'s> {
     // The ast's being processed
     pub modules: &'s Vec<ast::Module>,
 
-    // The new typed ast being generated
-    pub typed_ast: ast::TypedAst,
     pub cache: hir::Cache,
     pub checked_modules: HashMap<ModuleId, TypeId>,
 
@@ -171,7 +165,6 @@ impl<'s> CheckSess<'s> {
             interp,
             tycx: TyCtx::default(),
             modules: old_asts,
-            typed_ast: ast::TypedAst::default(),
             cache: hir::Cache::new(),
             checked_modules: HashMap::new(),
             global_scopes: HashMap::new(),
@@ -194,7 +187,7 @@ impl<'s> CheckSess<'s> {
     }
 
     fn into_data(self) -> CheckData {
-        (self.typed_ast, self.cache, self.tycx)
+        (self.cache, self.tycx)
     }
 
     pub fn with_function_frame<T, F: FnMut(&mut Self) -> T>(
@@ -426,6 +419,11 @@ impl Check for ast::Binding {
                     Some(value_node),
                     &self.kind,
                     value_span,
+                    if self.type_expr.is_some() {
+                        BindingInfoFlags::IS_USER_DEFINED
+                    } else {
+                        BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED
+                    },
                 )?;
 
                 // If this binding matches the entry point function's requirements,
@@ -487,8 +485,16 @@ impl Check for ast::Binding {
                     span: pattern.span,
                 });
 
-                sess.bind_name_pattern(env, pattern, self.visibility, ty, Some(value), &self.kind)
-                    .map(|(_, node)| node)
+                sess.bind_name_pattern(
+                    env,
+                    pattern,
+                    self.visibility,
+                    ty,
+                    Some(value),
+                    &self.kind,
+                    BindingInfoFlags::IS_USER_DEFINED,
+                )
+                .map(|(_, node)| node)
             }
             BindingKind::Extern(lib) => {
                 let node = self.value.check(sess, env, None)?;
@@ -523,8 +529,16 @@ impl Check for ast::Binding {
                     span: pattern.span,
                 });
 
-                sess.bind_name_pattern(env, pattern, self.visibility, ty, Some(value), &self.kind)
-                    .map(|(_, node)| node)
+                sess.bind_name_pattern(
+                    env,
+                    pattern,
+                    self.visibility,
+                    ty,
+                    Some(value),
+                    &self.kind,
+                    BindingInfoFlags::IS_USER_DEFINED,
+                )
+                .map(|(_, node)| node)
             }
         }
     }
@@ -826,7 +840,7 @@ impl Check for ast::Ast {
                 let uint = sess.tycx.common_types.uint;
 
                 let node = slice.expr.check(sess, env, None)?;
-                let expr_ty = node.ty().normalize(&sess.tycx);
+                let node_type = node.ty().normalize(&sess.tycx);
 
                 let low_node = if let Some(low) = &slice.low {
                     let mut low_node = low.check(sess, env, None)?;
@@ -873,7 +887,7 @@ impl Check for ast::Ast {
 
                     high_node
                 } else {
-                    match &expr_ty {
+                    match &node_type {
                         Type::Array(_, size) => hir::Node::Const(hir::Const {
                             value: ConstValue::Uint(*size as _),
                             ty: uint,
@@ -899,14 +913,24 @@ impl Check for ast::Ast {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot slice type `{}`",
-                                    expr_ty.display(&sess.tycx)
+                                    node_type.display(&sess.tycx)
                                 ))
                                 .with_label(Label::primary(slice.expr.span(), "cannot slice")))
                         }
                     }
                 };
 
-                let (result_ty, is_mutable) = match expr_ty {
+                if slice.high.is_none() && node_type.is_multi_pointer() {
+                    return Err(Diagnostic::error()
+                        .with_message(
+                            "multi pointer has unknown length, so you must specify the ending index",
+                        )
+                        .with_label(Label::primary(
+                            slice.expr.span(),"multi pointer has unknown length"
+                        )));
+                }
+
+                let (result_ty, is_mutable) = match node_type {
                     Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
                     Type::Slice(inner, is_mutable) | Type::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
@@ -915,7 +939,7 @@ impl Check for ast::Ast {
                         return Err(Diagnostic::error()
                             .with_message(format!(
                                 "cannot slice type `{}`",
-                                expr_ty.display(&sess.tycx)
+                                node_type.display(&sess.tycx)
                             ))
                             .with_label(Label::primary(slice.expr.span(), "cannot slice")))
                     }
@@ -1575,6 +1599,7 @@ impl Check for ast::Ast {
                     false,
                     ast::BindingKind::Normal,
                     st.span,
+                    BindingInfoFlags::empty(),
                 )?;
 
                 let mut field_map = UstrMap::<Span>::default();
@@ -1783,6 +1808,11 @@ impl Check for ast::For {
                     false,
                     ast::BindingKind::Normal,
                     index_binding.span,
+                    if self.index_binding.is_some() {
+                        BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED
+                    } else {
+                        BindingInfoFlags::empty()
+                    },
                 )?;
 
                 statements.push(index_binding);
@@ -1799,6 +1829,7 @@ impl Check for ast::For {
                     false,
                     ast::BindingKind::Normal,
                     self.iter_binding.span,
+                    BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED,
                 )?;
 
                 statements.push(iter_binding);
@@ -1922,6 +1953,7 @@ impl Check for ast::For {
                             false,
                             ast::BindingKind::Normal,
                             value_span,
+                            BindingInfoFlags::empty(),
                         )?;
 
                         statements.push(value_binding);
@@ -1954,6 +1986,12 @@ impl Check for ast::For {
                             false,
                             ast::BindingKind::Normal,
                             index_binding.span,
+                            if self.index_binding.is_some() {
+                                BindingInfoFlags::IS_USER_DEFINED
+                                    & BindingInfoFlags::TYPE_WAS_INFERRED
+                            } else {
+                                BindingInfoFlags::empty()
+                            },
                         )?;
 
                         statements.push(index_binding);
@@ -2007,6 +2045,7 @@ impl Check for ast::For {
                             false,
                             ast::BindingKind::Normal,
                             self.iter_binding.span,
+                            BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED,
                         )?;
 
                         // loop block { ... }
@@ -2089,35 +2128,78 @@ impl Check for ast::FunctionExpr {
 
         env.push_scope(ScopeKind::Function);
 
-        let mut param_ids: Vec<BindingId> = vec![];
+        let mut params: Vec<hir::FunctionParam> = vec![];
         let mut param_bind_statements: Vec<hir::Node> = vec![];
 
-        for (param, param_type) in self.sig.params.iter().zip(function_type.params.iter()) {
-            let ty = sess.tycx.bound(
-                param_type.ty.clone(),
-                param
-                    .type_expr
-                    .as_ref()
-                    .map_or(param.pattern.span(), |e| e.span()),
-            );
+        for (index, param_type) in function_type.params.iter().enumerate() {
+            match self.sig.params.get(index) {
+                Some(param) => {
+                    let ty = sess.tycx.bound(
+                        param_type.ty.clone(),
+                        param
+                            .type_expr
+                            .as_ref()
+                            .map_or(param.pattern.span(), |e| e.span()),
+                    );
 
-            let (bound_id, bound_node) = sess.bind_pattern(
-                env,
-                &param.pattern,
-                ast::Visibility::Private,
-                ty,
-                None,
-                &ast::BindingKind::Normal,
-                param.pattern.span(),
-            )?;
+                    let (bound_id, bound_node) = sess.bind_pattern(
+                        env,
+                        &param.pattern,
+                        ast::Visibility::Private,
+                        ty,
+                        None,
+                        &ast::BindingKind::Normal,
+                        param.pattern.span(),
+                        if param.type_expr.is_some() {
+                            BindingInfoFlags::IS_USER_DEFINED
+                        } else {
+                            BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED
+                        },
+                    )?;
 
-            param_ids.push(bound_id);
+                    params.push(hir::FunctionParam {
+                        id: bound_id,
+                        ty,
+                        span: param.pattern.span(),
+                    });
 
-            // If this is a single statement, we ignore it,
-            // As it doesn't include any destructuring statements.
-            match bound_node.into_sequence() {
-                Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                Err(_) => (),
+                    // If this is a single statement, we ignore it,
+                    // As it doesn't include any destructuring statements.
+                    match bound_node.into_sequence() {
+                        Ok(sequence) => param_bind_statements.extend(sequence.statements),
+                        Err(_) => (),
+                    }
+                }
+                None => {
+                    // This parameter was inserted implicitly
+                    let span = self.sig.span;
+                    let ty = sess.tycx.bound(param_type.ty.clone(), span);
+
+                    let (bound_id, bound_node) = sess.bind_name(
+                        env,
+                        param_type.name,
+                        ast::Visibility::Private,
+                        ty,
+                        None,
+                        false,
+                        ast::BindingKind::Normal,
+                        span,
+                        BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
+                    )?;
+
+                    params.push(hir::FunctionParam {
+                        id: bound_id,
+                        ty,
+                        span,
+                    });
+
+                    // If this is a single statement, we ignore it,
+                    // As it doesn't include any destructuring statements.
+                    match bound_node.into_sequence() {
+                        Ok(sequence) => param_bind_statements.extend(sequence.statements),
+                        Err(_) => (),
+                    }
+                }
             }
         }
 
@@ -2126,7 +2208,12 @@ impl Check for ast::FunctionExpr {
             module_id: env.module_id(),
             name: qualified_name,
             kind: hir::FunctionKind::Orphan {
-                param_ids,
+                params,
+                inferred_return_type_span: if self.sig.return_type.is_some() {
+                    None
+                } else {
+                    Some(self.sig.span)
+                },
                 body: None,
             },
             ty: sig_type,
@@ -2490,10 +2577,11 @@ impl Check for ast::Unary {
                     self.span,
                 );
 
-                Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Unary {
+                Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
+                    value: Box::new(node),
+                    is_mutable,
                     ty,
                     span: self.span,
-                    value: Box::new(node),
                 })))
             }
             ast::UnaryOp::Deref => {

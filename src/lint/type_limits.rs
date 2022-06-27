@@ -1,7 +1,7 @@
-use super::sess::LintSess;
+use super::LintSess;
 use crate::{
-    ast::{self, const_value::ConstValue},
     error::diagnostic::{Diagnostic, Label},
+    hir::{self, const_value::ConstValue},
     infer::normalize::Normalize,
     span::Span,
     types::{IntType, Type, TypeId, UintType},
@@ -9,47 +9,49 @@ use crate::{
 use std::fmt::Display;
 
 impl<'s> LintSess<'s> {
-    pub fn check_type_limits(&mut self, e: &ast::Ast) {
-        if let ast::Ast::Const(const_value) = e {
-            match &const_value.value {
-                ConstValue::Int(value) => match &e.ty().normalize(self.tycx) {
-                    Type::Int(int_ty) => self.check_int_limits(int_ty, *value, e),
-                    Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, e),
-                    _ => (),
-                },
-                ConstValue::Uint(value) => match &e.ty().normalize(self.tycx) {
-                    Type::Int(int_ty) => self.check_int_limits(int_ty, *value as _, e),
-                    Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, e),
-                    _ => (),
-                },
+    pub fn check_type_limits(&mut self, const_: &hir::Const) {
+        match &const_.value {
+            ConstValue::Int(value) => match &const_.ty.normalize(self.tycx) {
+                Type::Int(int_ty) => self.check_int_limits(int_ty, *value, const_),
+                Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, const_),
                 _ => (),
-            }
+            },
+            ConstValue::Uint(value) => match &const_.ty.normalize(self.tycx) {
+                Type::Int(int_ty) => self.check_int_limits(int_ty, *value as _, const_),
+                Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, const_),
+                _ => (),
+            },
+            _ => (),
         }
     }
 
-    fn check_int_limits(&mut self, int_ty: &IntType, value: i64, e: &ast::Ast) {
+    fn check_int_limits(&mut self, int_ty: &IntType, value: i64, const_: &hir::Const) {
         let (min, max) = int_ty_range(*int_ty);
         if value < min || value > max {
             self.workspace
                 .diagnostics
-                .push(overflow_err(value, &e.ty(), min, max, e.span()))
+                .push(overflow_err(value, &const_.ty, min, max, const_.span))
         }
     }
 
-    fn check_uint_limits(&mut self, uint_ty: &UintType, value: i64, e: &ast::Ast) {
+    fn check_uint_limits(&mut self, uint_ty: &UintType, value: i64, const_: &hir::Const) {
         let (min, max) = uint_ty_range(*uint_ty);
 
         if value.is_negative() {
             self.workspace
                 .diagnostics
-                .push(overflow_err(value, &e.ty(), min, max, e.span()))
+                .push(overflow_err(value, &const_.ty, min, max, const_.span))
         } else {
             let value = value as u64;
 
             if value < min || value > max {
-                self.workspace
-                    .diagnostics
-                    .push(overflow_err(value, &e.ty(), min, max, e.span()))
+                self.workspace.diagnostics.push(overflow_err(
+                    value,
+                    &const_.ty,
+                    min,
+                    max,
+                    const_.span,
+                ))
             }
         }
     }

@@ -1,7 +1,7 @@
-use super::sess::LintSess;
+use super::LintSess;
 use crate::{
-    ast,
     error::diagnostic::{Diagnostic, Label},
+    hir,
     infer::{display::DisplayTy, normalize::Normalize},
     span::Span,
     types::Type,
@@ -15,11 +15,11 @@ pub enum LvalueAccessErr {
 }
 
 impl<'s> LintSess<'s> {
-    pub fn check_lvalue_access(&mut self, expr: &ast::Ast, expr_span: Span) {
+    pub fn check_lvalue_access(&mut self, node: &hir::Node, expr_span: Span) {
         use LvalueAccessErr::*;
 
         let result = self
-            .check_lvalue_mutability_inner(expr)
+            .check_lvalue_mutability_inner(node)
             .map_err(|err| -> Diagnostic {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
@@ -59,35 +59,34 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_lvalue_mutability_inner(&self, expr: &ast::Ast) -> Result<(), LvalueAccessErr> {
+    fn check_lvalue_mutability_inner(&self, node: &hir::Node) -> Result<(), LvalueAccessErr> {
         use LvalueAccessErr::*;
 
-        match expr {
-            ast::Ast::Unary(unary) => match &unary.op {
-                ast::UnaryOp::Deref => {
-                    let ty = unary.value.ty().normalize(self.tycx);
+        match node {
+            hir::Node::Builtin(hir::Builtin::Deref(unary)) => {
+                let ty = unary.value.ty().normalize(self.tycx);
 
-                    if let Type::Pointer(_, is_mutable) = ty {
-                        if is_mutable {
-                            Ok(())
-                        } else {
-                            Err(ImmutableReference {
-                                ty,
-                                span: unary.value.span(),
-                            })
-                        }
+                if let Type::Pointer(_, is_mutable) = ty {
+                    if is_mutable {
+                        Ok(())
                     } else {
-                        unreachable!("got {}", unary.value.ty())
+                        Err(ImmutableReference {
+                            ty,
+                            span: unary.value.span(),
+                        })
                     }
+                } else {
+                    unreachable!("got {}", unary.value.ty())
                 }
-                _ => Err(InvalidLvalue),
-            },
-            ast::Ast::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.expr),
-            ast::Ast::Subscript(sub) => self.check_lvalue_mutability_inner(&sub.expr),
-            ast::Ast::Ident(ident) => {
-                let binding_info = self.workspace.binding_infos.get(ident.binding_id).unwrap();
+            }
+            hir::Node::Builtin(hir::Builtin::Offset(offset)) => {
+                self.check_lvalue_mutability_inner(&offset.value)
+            }
+            hir::Node::MemberAccess(access) => self.check_lvalue_mutability_inner(&access.value),
+            hir::Node::Id(id) => {
+                let binding_info = self.workspace.binding_infos.get(id.id).unwrap();
 
-                let ty = expr.ty().normalize(self.tycx);
+                let ty = node.ty().normalize(self.tycx);
                 match ty {
                     Type::Pointer(_, is_mutable)
                     | Type::MultiPointer(_, is_mutable)
@@ -97,7 +96,7 @@ impl<'s> LintSess<'s> {
                         } else {
                             Err(LvalueAccessErr::ImmutableReference {
                                 ty,
-                                span: expr.span(),
+                                span: node.span(),
                             })
                         }
                     }
@@ -106,8 +105,8 @@ impl<'s> LintSess<'s> {
                             Ok(())
                         } else {
                             Err(LvalueAccessErr::ImmutableIdent {
-                                id: ident.binding_id,
-                                span: expr.span(),
+                                id: id.id,
+                                span: node.span(),
                             })
                         }
                     }

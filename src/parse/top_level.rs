@@ -46,7 +46,7 @@ impl Parser {
             } else if eat!(self, Builtin) {
                 self.parse_builtin_binding(visibility, start_span)?
             } else {
-                self.parse_binding(visibility, true)?
+                self.parse_binding(visibility)?
             };
 
             module.bindings.push(binding);

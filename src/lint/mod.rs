@@ -1,36 +1,19 @@
 mod access;
 mod lvalue_access;
 mod ref_access;
-mod sess;
 mod type_limits;
 
 use crate::{
-    ast::{
-        self,
-        pattern::{HybridPattern, Pattern},
-    },
-    common::scopes::Scopes,
     error::diagnostic::{Diagnostic, Label},
+    hir,
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     span::Span,
     workspace::Workspace,
 };
-use sess::{InitState, LintSess};
 
-pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) {
-    let mut sess = LintSess {
-        workspace,
-        tycx,
-        init_scopes: Scopes::default(),
-    };
-
-    sess.init_scopes.push_scope();
-
-    for (_, binding) in typed_ast.bindings.iter() {
-        binding.lint(&mut sess);
-    }
-
-    sess.init_scopes.pop_scope();
+pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, cache: &hir::Cache) {
+    let mut sess = LintSess { workspace, tycx };
+    cache.lint(&mut sess);
 
     // Check that an entry point function exists
     if workspace.build_options.need_entry_point_function() {
@@ -68,6 +51,11 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) 
     }
 }
 
+pub struct LintSess<'s> {
+    pub workspace: &'s mut Workspace,
+    pub tycx: &'s TyCtx,
+}
+
 trait Lint {
     fn lint(&self, sess: &mut LintSess);
 }
@@ -94,187 +82,204 @@ impl<T: Lint> Lint for Box<T> {
     }
 }
 
-impl Lint for ast::Module {
+impl Lint for hir::Cache {
     fn lint(&self, sess: &mut LintSess) {
-        for binding in self.bindings.iter() {
+        for (_, binding) in self.bindings.iter() {
             binding.lint(sess);
         }
-    }
-}
 
-impl Lint for ast::Binding {
-    fn lint(&self, sess: &mut LintSess) {
-        for symbol in self.pattern.iter() {
-            sess.init_scopes.insert(symbol.id, InitState::Init);
-        }
-
-        self.value.lint(sess);
-
-        let is_a_type = self.value.ty().normalize(sess.tycx).is_type();
-
-        // * don't allow types to be bounded to mutable bindings
-        if is_a_type {
-            match &self.pattern {
-                Pattern::Name(symbol)
-                | Pattern::Hybrid(HybridPattern {
-                    name_pattern: symbol,
-                    ..
-                }) => {
-                    if symbol.is_mutable {
-                        sess.workspace.diagnostics.push(
-                            Diagnostic::error()
-                                .with_message("variable of type `type` must be immutable")
-                                .with_label(Label::primary(symbol.span, "variable is mutable"))
-                                .with_note("try removing the `mut` from the declaration"),
-                        );
-                    }
-                }
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => (),
-            }
+        for (_, function) in self.functions.iter() {
+            function.lint(sess);
         }
     }
 }
 
-impl Lint for ast::Block {
-    fn lint(&self, sess: &mut LintSess) {
-        sess.init_scopes.push_scope();
-        self.statements.lint(sess);
-        sess.init_scopes.pop_scope();
-    }
-}
-
-impl Lint for ast::Ast {
+impl Lint for hir::Node {
     fn lint(&self, sess: &mut LintSess) {
         match self {
-            ast::Ast::Binding(binding) => binding.lint(sess),
-            ast::Ast::Assignment(assignment) => {
-                assignment.rhs.lint(sess);
+            hir::Node::Const(x) => x.lint(sess),
+            hir::Node::Binding(x) => x.lint(sess),
+            hir::Node::Id(x) => x.lint(sess),
+            hir::Node::Assignment(x) => x.lint(sess),
+            hir::Node::MemberAccess(x) => x.lint(sess),
+            hir::Node::Call(x) => x.lint(sess),
+            hir::Node::Cast(x) => x.lint(sess),
+            hir::Node::Sequence(x) => x.lint(sess),
+            hir::Node::Control(x) => x.lint(sess),
+            hir::Node::Builtin(x) => x.lint(sess),
+            hir::Node::Literal(x) => x.lint(sess),
+        }
+    }
+}
 
-                match assignment.lhs.as_ref() {
-                    ast::Ast::Ident(ident) => {
-                        sess.check_assign_lvalue_id_access(&assignment.lhs, ident.binding_id);
-                    }
-                    _ => {
-                        sess.check_lvalue_access(&assignment.lhs, assignment.lhs.span());
-                        assignment.lhs.lint(sess);
-                    }
-                };
+impl Lint for hir::Binding {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+    }
+}
+
+impl Lint for hir::Function {
+    fn lint(&self, sess: &mut LintSess) {
+        match &self.kind {
+            hir::FunctionKind::Orphan { body, .. } => body.lint(sess),
+            hir::FunctionKind::Extern { .. } | hir::FunctionKind::Intrinsic(..) => (),
+        }
+    }
+}
+
+impl Lint for hir::Sequence {
+    fn lint(&self, sess: &mut LintSess) {
+        self.statements.lint(sess);
+    }
+}
+
+impl Lint for hir::Const {
+    fn lint(&self, sess: &mut LintSess) {
+        sess.check_type_limits(self);
+    }
+}
+
+impl Lint for hir::Id {
+    fn lint(&self, _sess: &mut LintSess) {}
+}
+
+impl Lint for hir::Assignment {
+    fn lint(&self, sess: &mut LintSess) {
+        match self.lhs.as_ref() {
+            hir::Node::Id(id) => {
+                sess.check_assign_lvalue_id_access(&self.lhs, id.id);
             }
-            ast::Ast::Cast(t) => t.expr.lint(sess),
-            ast::Ast::Builtin(builtin) => match &builtin.kind {
-                ast::BuiltinKind::Import(_) => (),
-                ast::BuiltinKind::SizeOf(expr)
-                | ast::BuiltinKind::AlignOf(expr)
-                | ast::BuiltinKind::Run(expr) => expr.lint(sess),
-                ast::BuiltinKind::Panic(e) => e.lint(sess),
-            },
-            ast::Ast::Function(f) => {
-                f.body.lint(sess);
+            _ => {
+                sess.check_lvalue_access(&self.lhs, self.lhs.span());
+                self.lhs.lint(sess);
             }
-            ast::Ast::While(while_) => {
-                while_.condition.lint(sess);
-                while_.block.lint(sess);
-            }
-            ast::Ast::For(for_) => {
-                match &for_.iterator {
-                    ast::ForIter::Range(s, e) => {
-                        s.lint(sess);
-                        e.lint(sess);
-                    }
-                    ast::ForIter::Value(v) => {
-                        v.lint(sess);
-                    }
-                }
-                for_.block.lint(sess);
-            }
-            ast::Ast::Break(_) | ast::Ast::Continue(_) => (),
-            ast::Ast::Return(ret) => {
-                ret.expr.lint(sess);
-            }
-            ast::Ast::If(if_) => {
+        }
+    }
+}
+
+impl Lint for hir::MemberAccess {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+    }
+}
+
+impl Lint for hir::Call {
+    fn lint(&self, sess: &mut LintSess) {
+        self.callee.lint(sess);
+        self.args.lint(sess);
+    }
+}
+
+impl Lint for hir::Cast {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+    }
+}
+
+impl Lint for hir::Control {
+    fn lint(&self, sess: &mut LintSess) {
+        match self {
+            hir::Control::If(if_) => {
                 if_.condition.lint(sess);
                 if_.then.lint(sess);
                 if_.otherwise.lint(sess);
             }
-            ast::Ast::Block(block) => block.lint(sess),
-            ast::Ast::Binary(binary) => {
-                binary.lhs.lint(sess);
-                binary.rhs.lint(sess);
+            hir::Control::While(while_) => {
+                while_.condition.lint(sess);
+                while_.body.lint(sess);
             }
-            ast::Ast::Unary(unary) => {
-                unary.value.lint(sess);
-
-                if let ast::UnaryOp::Ref(is_mutable_ref) = &unary.op {
-                    if *is_mutable_ref {
-                        sess.check_expr_can_be_mutably_referenced(&unary.value);
-                    }
-                }
-            }
-            ast::Ast::Subscript(sub) => {
-                sub.expr.lint(sess);
-                sub.index.lint(sess);
-            }
-            ast::Ast::Slice(slice) => {
-                slice.expr.lint(sess);
-                slice.low.lint(sess);
-                slice.high.lint(sess);
-
-                if slice.high.is_none() {
-                    if slice.expr.ty().normalize(sess.tycx).is_multi_pointer() {
-                        sess.workspace.diagnostics.push(Diagnostic::error()
-                        .with_message(
-                            "multi pointer has unknown length, so you must specify the ending index",
-                        )
-                        .with_label(Label::primary(
-                            slice.expr.span(),"multi pointer has unknown length"
-                        )));
-                    }
-                }
-            }
-            ast::Ast::Call(call) => {
-                call.callee.lint(sess);
-                call.args.lint(sess);
-            }
-            ast::Ast::MemberAccess(access) => access.expr.lint(sess),
-            ast::Ast::ArrayLiteral(lit) => match &lit.kind {
-                ast::ArrayLiteralKind::List(l) => l.lint(sess),
-                ast::ArrayLiteralKind::Fill { len, expr } => {
-                    len.lint(sess);
-                    expr.lint(sess);
-                }
-            },
-            ast::Ast::TupleLiteral(lit) => {
-                lit.elements.lint(sess);
-            }
-            ast::Ast::StructLiteral(lit) => {
-                lit.type_expr.lint(sess);
-                for field in &lit.fields {
-                    field.expr.lint(sess);
-                }
-            }
-            ast::Ast::PointerType(e) | ast::Ast::MultiPointerType(e) | ast::Ast::SliceType(e) => {
-                e.inner.lint(sess)
-            }
-            ast::Ast::ArrayType(at) => at.inner.lint(sess),
-            ast::Ast::StructType(s) => {
-                for f in &s.fields {
-                    f.ty.lint(sess);
-                }
-            }
-            ast::Ast::FunctionType(sig) => {
-                for p in &sig.params {
-                    p.type_expr.lint(sess);
-                }
-                sig.return_type.lint(sess);
-            }
-            ast::Ast::Ident(ident) => sess.check_id_access(ident.binding_id, self.span()),
-            ast::Ast::Literal(_) => {
-                panic!("Literal expression should have been lowered to a ConstValue")
-            }
-            ast::Ast::SelfType(_) | ast::Ast::Const(_) | ast::Ast::Placeholder(_) => (),
-            ast::Ast::Error(_) => panic!("unexpected error node"),
+            hir::Control::Return(return_) => return_.value.lint(sess),
+            hir::Control::Break(_) | hir::Control::Continue(_) => (),
         }
+    }
+}
 
-        sess.check_type_limits(self);
+impl Lint for hir::Builtin {
+    fn lint(&self, sess: &mut LintSess) {
+        match self {
+            hir::Builtin::Add(x)
+            | hir::Builtin::Sub(x)
+            | hir::Builtin::Mul(x)
+            | hir::Builtin::Div(x)
+            | hir::Builtin::Rem(x)
+            | hir::Builtin::Shl(x)
+            | hir::Builtin::Shr(x)
+            | hir::Builtin::And(x)
+            | hir::Builtin::Or(x)
+            | hir::Builtin::Lt(x)
+            | hir::Builtin::Le(x)
+            | hir::Builtin::Gt(x)
+            | hir::Builtin::Ge(x)
+            | hir::Builtin::Eq(x)
+            | hir::Builtin::Ne(x)
+            | hir::Builtin::BitAnd(x)
+            | hir::Builtin::BitOr(x)
+            | hir::Builtin::BitXor(x) => x.lint(sess),
+            hir::Builtin::Not(x) | hir::Builtin::Neg(x) | hir::Builtin::Deref(x) => x.lint(sess),
+            hir::Builtin::Ref(x) => x.lint(sess),
+            hir::Builtin::Offset(x) => x.lint(sess),
+            hir::Builtin::Slice(x) => x.lint(sess),
+        }
+    }
+}
+
+impl Lint for hir::Binary {
+    fn lint(&self, sess: &mut LintSess) {
+        self.lhs.lint(sess);
+        self.rhs.lint(sess);
+    }
+}
+
+impl Lint for hir::Unary {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+    }
+}
+
+impl Lint for hir::Ref {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+
+        if self.is_mutable {
+            sess.check_node_can_be_mutably_referenced(&self.value);
+        }
+    }
+}
+
+impl Lint for hir::Offset {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+        self.offset.lint(sess);
+    }
+}
+
+impl Lint for hir::Slice {
+    fn lint(&self, sess: &mut LintSess) {
+        self.value.lint(sess);
+        self.low.lint(sess);
+        self.high.lint(sess);
+    }
+}
+
+impl Lint for hir::Literal {
+    fn lint(&self, sess: &mut LintSess) {
+        match self {
+            hir::Literal::Struct(lit) => {
+                for field in lit.fields.iter() {
+                    field.value.lint(sess);
+                }
+            }
+            hir::Literal::Tuple(lit) => {
+                for element in lit.elements.iter() {
+                    element.lint(sess);
+                }
+            }
+            hir::Literal::Array(lit) => {
+                for element in lit.elements.iter() {
+                    element.lint(sess);
+                }
+            }
+            hir::Literal::ArrayFill(lit) => lit.value.lint(sess),
+        }
     }
 }
