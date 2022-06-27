@@ -1,14 +1,20 @@
 let ? = import!("std/build");
 
 let build = fn() {
-	add(5, 10);
-	add_destructed(.{ a: 1, b: 3});
+	let build_options = BuildOptions {
+        input_file: "src/main.chili",
+        output_file: "out/main",
+        target: BuildTarget_auto,
+        optimization_level: OptimizationLevel_debug,
+        run_executable: true,
+	};
+
+	let workspace = Workspace {
+		name: "hello",
+		build_options
+	};
+
+	start_workspace(workspace);
 };
 
-let add = fn(a: int, b: int) -> int { 
-	a + b 
-};
-
-let add_destructed = fn({ a, b }: struct { a: int, b: int }) -> int { 
-	a + b 
-};
+run!(build());
