@@ -3,8 +3,8 @@ use super::{
     ty_ctx::TyCtx,
     unify::{can_coerce_mut, UnifyTyResult},
 };
-use crate::ast::ty::{size::SizeOf, *};
 use crate::hir;
+use crate::types::{size::SizeOf, *};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {

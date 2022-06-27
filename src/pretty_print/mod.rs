@@ -1,6 +1,7 @@
 use crate::{
-    ast::{self, ty::Type},
+    ast,
     infer::{display::DisplayTy, ty_ctx::TyCtx},
+    types::Type,
     workspace::Workspace,
 };
 use ptree::{

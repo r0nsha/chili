@@ -1,15 +1,13 @@
 use super::{Check, CheckSess};
 use crate::{
-    ast::{
-        self,
-        ty::{Type, TypeId},
-    },
+    ast,
     error::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult,
     },
     hir,
     span::Span,
+    types::{Type, TypeId},
     workspace::{BindingId, ModuleId},
 };
 use ustr::{Ustr, UstrMap};

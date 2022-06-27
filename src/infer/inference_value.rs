@@ -1,4 +1,4 @@
-use crate::ast::ty::{PartialStructType, Type};
+use crate::types::{PartialStructType, Type};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

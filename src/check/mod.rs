@@ -6,14 +6,7 @@ mod top_level;
 
 use self::pattern::get_qualified_name;
 use crate::{
-    ast::{
-        self,
-        ty::{
-            align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeVarargs,
-            InferTy, PartialStructType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
-        },
-        BindingKind,
-    },
+    ast::{self, BindingKind},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -37,6 +30,10 @@ use crate::{
     },
     interp::interp::{Interp, InterpResult},
     span::Span,
+    types::{
+        align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy,
+        PartialStructType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
+    },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel,
         Workspace,

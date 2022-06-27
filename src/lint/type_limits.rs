@@ -1,12 +1,11 @@
 use super::sess::LintSess;
-use crate::ast::{
-    self,
-    const_value::ConstValue,
-    ty::{IntType, Type, TypeId, UintType},
+use crate::{
+    ast::{self, const_value::ConstValue},
+    error::diagnostic::{Diagnostic, Label},
+    infer::normalize::Normalize,
+    span::Span,
+    types::{IntType, Type, TypeId, UintType},
 };
-use crate::error::diagnostic::{Diagnostic, Label};
-use crate::infer::normalize::Normalize;
-use crate::span::Span;
 use std::fmt::Display;
 
 impl<'s> LintSess<'s> {

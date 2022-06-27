@@ -1,5 +1,5 @@
 use super::unify::can_coerce_mut;
-use crate::ast::ty::*;
+use crate::types::*;
 
 pub fn can_cast_type(from: &Type, to: &Type) -> bool {
     from == to

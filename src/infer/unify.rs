@@ -1,10 +1,12 @@
 use super::{
     display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, ty_ctx::TyCtx,
 };
-use crate::ast::ty::*;
-use crate::common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN};
-use crate::error::diagnostic::{Diagnostic, Label};
-use crate::span::Span;
+use crate::{
+    common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+    error::diagnostic::{Diagnostic, Label},
+    span::Span,
+    types::*,
+};
 use ustr::ustr;
 
 pub trait UnifyTy<T>

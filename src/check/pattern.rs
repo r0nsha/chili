@@ -7,7 +7,6 @@ use crate::{
     ast::{
         self,
         pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-        ty::{InferTy, PartialStructType, Type, TypeId},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -16,6 +15,7 @@ use crate::{
     hir,
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
+    types::{InferTy, PartialStructType, Type, TypeId},
     workspace::{BindingId, ModuleId, PartialBindingInfo},
 };
 use indexmap::IndexMap;

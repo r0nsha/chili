@@ -1,4 +1,4 @@
-use super::ty::TypeId;
+use crate::types::TypeId;
 use indexmap::IndexMap;
 use paste::paste;
 use std::fmt::{self, Display};

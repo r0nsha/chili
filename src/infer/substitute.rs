@@ -2,12 +2,15 @@ use super::{
     normalize::{Concrete, Normalize},
     ty_ctx::TyCtx,
 };
-use crate::ast::{self, ty::*};
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    Diagnostics,
+use crate::{
+    ast,
+    error::{
+        diagnostic::{Diagnostic, Label},
+        Diagnostics,
+    },
+    span::Span,
+    types::*,
 };
-use crate::span::Span;
 use core::panic;
 use std::collections::{HashMap, HashSet};
 

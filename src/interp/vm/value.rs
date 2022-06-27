@@ -4,13 +4,15 @@ use super::{
     byte_seq::{ByteSeq, GetValue},
     instruction::CompiledCode,
 };
-use crate::ast::{
-    const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    ty::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
-    FunctionId, Intrinsic,
+use crate::{
+    ast::{
+        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+        FunctionId, Intrinsic,
+    },
+    infer::ty_ctx::TyCtx,
+    span::Span,
+    types::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
 };
-use crate::infer::ty_ctx::TyCtx;
-use crate::span::Span;
 use byteorder::{NativeEndian, WriteBytesExt};
 use indexmap::IndexMap;
 use paste::paste;

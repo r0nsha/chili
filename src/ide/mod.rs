@@ -4,10 +4,11 @@ mod util;
 
 use self::hint::{CollectHints, HintSess};
 use crate::{
-    ast::{ty::Type, TypedAst},
+    ast::TypedAst,
     error::diagnostic::DiagnosticSeverity,
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     span::{EndPosition, Position, Span},
+    types::Type,
     workspace::Workspace,
 };
 use types::*;

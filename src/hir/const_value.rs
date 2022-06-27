@@ -1,6 +1,7 @@
 use crate::{
-    ast::{self, ty::TypeId},
+    ast,
     infer::{display::DisplayTy, ty_ctx::TyCtx},
+    types::TypeId,
 };
 use indexmap::IndexMap;
 use paste::paste;

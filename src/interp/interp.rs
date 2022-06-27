@@ -1,6 +1,5 @@
 use super::{
     ffi::Ffi,
-    // lower::{Lower, LowerContext},
     vm::{
         display::dump_bytecode_to_file,
         instruction::{CompiledCode, Instruction},
@@ -9,9 +8,10 @@ use super::{
     },
 };
 use crate::{
-    ast::{self, ty::Type, FunctionId},
+    ast,
     common::{build_options::BuildOptions, scopes::Scopes},
     infer::ty_ctx::TyCtx,
+    types::Type,
     workspace::{BindingId, ModuleId, Workspace},
 };
 use std::collections::{HashMap, HashSet};
@@ -26,8 +26,8 @@ pub struct Interp {
     pub globals: Globals,
     pub constants: Constants,
 
-    pub functions: HashMap<FunctionId, Function>,
-    pub extern_functions: HashMap<FunctionId, ExternFunction>,
+    pub functions: HashMap<ast::FunctionId, Function>,
+    pub extern_functions: HashMap<ast::FunctionId, ExternFunction>,
 
     pub ffi: Ffi,
     pub build_options: BuildOptions,
@@ -66,7 +66,7 @@ impl Interp {
         }
     }
 
-    pub fn get_function(&self, id: FunctionId) -> Option<FunctionValue> {
+    pub fn get_function(&self, id: ast::FunctionId) -> Option<FunctionValue> {
         self.functions
             .get(&id)
             .map(FunctionValue::Orphan)
@@ -87,7 +87,7 @@ pub struct InterpSess<'i> {
     pub evaluated_globals: Vec<CompiledCode>,
 
     // Functions currently lowered, cached to prevent infinite recursion in recursive functions
-    pub lowered_functions: HashSet<FunctionId>,
+    pub lowered_functions: HashSet<ast::FunctionId>,
 }
 
 // labels are used for patching call instruction after lowering
@@ -119,7 +119,7 @@ impl<'i> InterpSess<'i> {
         let mut vm = self.create_vm();
 
         let start_func = Function {
-            id: FunctionId::unknown(),
+            id: ast::FunctionId::unknown(),
             name: ustr("__vm_start"),
             arg_types: vec![],
             return_type: Type::Unit,
@@ -138,7 +138,7 @@ impl<'i> InterpSess<'i> {
         for (i, global_eval_code) in self.evaluated_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
 
-            let id = FunctionId::from(usize::MAX - i);
+            let id = ast::FunctionId::from(usize::MAX - i);
             let name = ustr(&format!("global_init_{}", i));
 
             self.interp.functions.insert(

@@ -1,7 +1,5 @@
 use super::codegen::{Codegen, CodegenState};
-use crate::ast::{self, ty::*};
-use crate::infer::normalize::Normalize;
-use crate::span::Span;
+use crate::{ast, infer::normalize::Normalize, span::Span, types::*};
 use inkwell::{
     types::IntType,
     values::{BasicValue, BasicValueEnum, FunctionValue, IntValue},

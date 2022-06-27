@@ -2,7 +2,7 @@ use super::{
     super::{IS_64BIT, WORD_SIZE},
     value::{Pointer, Value},
 };
-use crate::ast::ty::{FloatType, InferTy, IntType, Type, UintType};
+use crate::types::{FloatType, InferTy, IntType, Type, UintType};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Debug, Clone)]

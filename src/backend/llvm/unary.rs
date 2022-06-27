@@ -1,6 +1,5 @@
 use super::codegen::{Codegen, CodegenState};
-use crate::ast::{self, ty::*};
-use crate::infer::normalize::Normalize;
+use crate::{ast, infer::normalize::Normalize, types::*};
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {

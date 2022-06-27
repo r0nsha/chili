@@ -1,8 +1,6 @@
 pub mod const_value;
 pub mod pattern;
-pub mod ty;
 
-use crate::workspace::{BindingId, ModuleId, ModuleInfo};
 use crate::{
     common::{
         id_cache::{IdCache, WithId},
@@ -12,6 +10,8 @@ use crate::{
     error::DiagnosticResult,
     span::{FileId, Span},
     token::TokenKind,
+    types::*,
+    workspace::{BindingId, ModuleId, ModuleInfo},
 };
 use const_value::{ConstFunction, ConstValue};
 use enum_as_inner::EnumAsInner;
@@ -24,7 +24,6 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
 };
-use ty::*;
 use ustr::{ustr, Ustr};
 
 #[derive(Debug, Clone)]

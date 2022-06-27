@@ -1,9 +1,10 @@
 use super::sess::LintSess;
 use crate::{
-    ast::{self, ty::Type},
+    ast,
     error::diagnostic::{Diagnostic, Label},
     infer::{display::DisplayTy, normalize::Normalize},
     span::Span,
+    types::Type,
     workspace::BindingId,
 };
 

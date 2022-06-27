@@ -7,7 +7,7 @@ use super::{
     },
     IS_64BIT, WORD_SIZE,
 };
-use crate::ast::ty::{align::AlignOf, size::SizeOf, *};
+use crate::types::{align::AlignOf, size::SizeOf, *};
 use bumpalo::Bump;
 use libffi::{
     low::{ffi_cif, CodePtr},

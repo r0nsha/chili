@@ -1,5 +1,5 @@
-use crate::ast::{ty::TypeId, BindingKind, ExternLibrary, Visibility};
 use crate::{
+    ast::{BindingKind, ExternLibrary, Visibility},
     common::{
         build_options::{BuildOptions, DiagnosticOptions},
         id_cache::{IdCache, WithId},
@@ -8,6 +8,7 @@ use crate::{
     error::{emit_diagnostics, emitter::ColorMode, Diagnostics},
     hir::const_value::ConstValue,
     span::{FileId, Span},
+    types::TypeId,
 };
 use bitflags::bitflags;
 use std::{

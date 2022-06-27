@@ -2,12 +2,12 @@ use super::*;
 use crate::{
     ast::{
         pattern::{NamePattern, Pattern},
-        ty::TypeId,
         Binding, BindingKind, Intrinsic, Visibility,
     },
     common::path::RelativeTo,
     error::diagnostic::Label,
     span::To,
+    types::TypeId,
     workspace::{BindingId, ModuleId},
 };
 

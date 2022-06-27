@@ -1,8 +1,9 @@
 use super::types::*;
 use crate::{
-    ast::{self, ty::Type},
+    ast,
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     span::{EndPosition, Position, Span},
+    types::Type,
     workspace::Workspace,
 };
 

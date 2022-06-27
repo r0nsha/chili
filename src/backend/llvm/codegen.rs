@@ -8,7 +8,6 @@ use crate::{
         self,
         const_value::ConstValue,
         pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-        ty::*,
         FunctionId, Intrinsic,
     },
     common::{
@@ -18,6 +17,7 @@ use crate::{
         target::TargetMetrics,
     },
     infer::{normalize::Normalize, ty_ctx::TyCtx},
+    types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
 use inkwell::{

@@ -4,9 +4,9 @@ use super::{
     ty::IntoLlvmType,
 };
 use crate::{
-    ast::ty::*,
     backend::llvm::traits::{IsALoadInst, IsAggregateType},
     common::mem::calculate_align,
+    types::*,
     workspace::BindingId,
 };
 use inkwell::{

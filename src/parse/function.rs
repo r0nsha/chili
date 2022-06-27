@@ -1,10 +1,10 @@
 use super::*;
-use crate::ast::{
-    ty::{FunctionTypeKind, TypeId},
-    FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs,
+use crate::{
+    ast::{FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs},
+    error::{DiagnosticResult, SyntaxError},
+    span::To,
+    types::{FunctionTypeKind, TypeId},
 };
-use crate::error::{DiagnosticResult, SyntaxError};
-use crate::span::To;
 use ustr::Ustr;
 
 impl Parser {

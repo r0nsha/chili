@@ -2,8 +2,8 @@ use super::{
     abi::{self, AbiFunction, AbiType},
     codegen::Codegen,
 };
-use crate::ast::ty::{size::SizeOf, *};
 use crate::infer::normalize::Normalize;
+use crate::types::{size::SizeOf, *};
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},
     AddressSpace,

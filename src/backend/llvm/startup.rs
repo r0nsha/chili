@@ -2,12 +2,14 @@ use super::{
     codegen::{Codegen, CodegenState},
     ty::IntoLlvmType,
 };
-use crate::ast::{
-    self,
-    pattern::{HybridPattern, Pattern, UnpackPattern, UnpackPatternKind},
-    ty::*,
+use crate::{
+    ast::{
+        self,
+        pattern::{HybridPattern, Pattern, UnpackPattern, UnpackPatternKind},
+    },
+    infer::normalize::Normalize,
+    types::*,
 };
-use crate::infer::normalize::Normalize;
 use inkwell::{
     module::Linkage,
     values::{BasicValue, PointerValue},

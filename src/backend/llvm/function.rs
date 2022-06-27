@@ -5,11 +5,7 @@ use super::{
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::{
-    ast::{self, ty::*, FunctionId},
-    infer::normalize::Normalize,
-    workspace::BindingId,
-};
+use crate::{ast, infer::normalize::Normalize, types::*, workspace::BindingId};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
@@ -23,7 +19,7 @@ use inkwell::{
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_function(
         &mut self,
-        id: FunctionId,
+        id: ast::FunctionId,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         self.functions.get(&id).cloned().unwrap_or_else(|| {

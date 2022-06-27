@@ -1,10 +1,12 @@
+use crate::{
+    ast::{pattern::NamePattern, FunctionSig},
+    types::FunctionTypeKind,
+};
 use inkwell::{
     types::{AnyType, AnyTypeEnum, BasicTypeEnum},
     values::{AnyValueEnum, BasicValue, BasicValueEnum, InstructionOpcode},
 };
 use ustr::Ustr;
-
-use crate::ast::{pattern::NamePattern, ty::FunctionTypeKind, FunctionSig};
 
 pub(super) trait IsALoadInst {
     fn is_a_load_inst(&self) -> bool;

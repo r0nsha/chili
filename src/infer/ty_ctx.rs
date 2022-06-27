@@ -1,8 +1,8 @@
 use super::{inference_value::InferenceValue, normalize::Normalize};
 use crate::{
-    ast::ty::{FloatType, IntType, PartialStructType, Type, TypeId, UintType},
     common::id_cache::IdCache,
     span::Span,
+    types::{FloatType, IntType, PartialStructType, Type, TypeId, UintType},
 };
 
 pub struct TyCtx {

@@ -1,14 +1,14 @@
 use super::*;
-use crate::ast::{
-    self, ty::StructTypeKind, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndSpan, UnaryOp,
-    Visibility,
+use crate::{
+    ast::{self, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndSpan, UnaryOp, Visibility},
+    error::{
+        diagnostic::{Diagnostic, Label},
+        *,
+    },
+    span::{Span, To},
+    token::TokenKind::*,
+    types::StructTypeKind,
 };
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    *,
-};
-use crate::span::{Span, To};
-use crate::token::TokenKind::*;
 use std::vec;
 use ustr::ustr;
 

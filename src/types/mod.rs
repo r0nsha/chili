@@ -2,8 +2,8 @@ pub mod align;
 pub mod display;
 pub mod size;
 
-use super::ExternLibrary;
 use crate::{
+    ast::ExternLibrary,
     define_id_type,
     span::Span,
     workspace::{BindingId, ModuleId},
