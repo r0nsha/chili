@@ -562,7 +562,7 @@ impl ConstValue {
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
-            ConstValue::Function(f) => format!("fn {}", f.name),
+            ConstValue::Function(f) => f.name.to_string(),
         }
     }
 }

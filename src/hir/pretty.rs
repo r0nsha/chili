@@ -159,8 +159,12 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
         let function_type = self.ty.normalize(p.tycx).into_function();
 
         p.write("(");
-        for param in function_type.params.iter() {
+        for (index, param) in function_type.params.iter().enumerate() {
             p.write(&param.display(p.tycx));
+
+            if index < function_type.params.len() - 1 {
+                p.write(", ");
+            }
         }
         p.write(") -> ");
         p.write(&function_type.return_type.display(p.tycx));
@@ -255,7 +259,30 @@ impl<'a, W: Write> Print<'a, W> for hir::Sequence {
 
 impl<'a, W: Write> Print<'a, W> for hir::Control {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
-        todo!();
+        match self {
+            hir::Control::If(if_) => {
+                p.write_indented("if ", is_line_start);
+                if_.condition.print(p, false);
+
+                if_.then.print(p, false);
+
+                if let Some(otherwise) = &if_.otherwise {
+                    p.write(" else ");
+                    otherwise.print(p, false);
+                }
+            }
+            hir::Control::While(while_) => {
+                p.write_indented("while ", is_line_start);
+                while_.condition.print(p, false);
+                while_.body.print(p, false);
+            }
+            hir::Control::Return(return_) => {
+                p.write_indented("return ", is_line_start);
+                return_.value.print(p, false);
+            }
+            hir::Control::Break(_) => p.write_indented("break", is_line_start),
+            hir::Control::Continue(_) => p.write_indented("continue", is_line_start),
+        }
     }
 }
 

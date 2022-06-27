@@ -486,7 +486,7 @@ impl Check for ast::Binding {
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::Function(ConstFunction {
                         id: function_id,
-                        name: qualified_name,
+                        name: pattern.name,
                     }),
                     ty,
                     span: pattern.span,
@@ -2105,7 +2105,12 @@ impl Check for ast::FunctionExpr {
                 param.pattern.span(),
             )?;
 
-            param_bind_statements.push(bound_node);
+            // If this is a single statement, we ignore it,
+            // As it doesn't include any destructuring statements.
+            match bound_node.into_sequence() {
+                Ok(sequence) => param_bind_statements.extend(sequence.statements),
+                Err(_) => (),
+            }
         }
 
         let function_id = sess.cache.functions.insert_with_id(hir::Function {
@@ -2164,7 +2169,7 @@ impl Check for ast::FunctionExpr {
         Ok(hir::Node::Const(hir::Const {
             value: ConstValue::Function(ConstFunction {
                 id: function_id,
-                name: qualified_name,
+                name,
             }),
             ty: sig_type,
             span: self.span,
