@@ -1,5 +1,5 @@
-use crate::ast::workspace::Workspace;
 use crate::span::Span;
+use crate::workspace::Workspace;
 
 #[inline]
 pub fn is_offset_in_span_and_root_module(workspace: &Workspace, offset: usize, span: Span) -> bool {

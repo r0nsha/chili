@@ -2,11 +2,12 @@ pub mod align;
 pub mod display;
 pub mod size;
 
-use super::{
+use super::ExternLibrary;
+use crate::{
+    define_id_type,
+    span::Span,
     workspace::{BindingId, ModuleId},
-    ExternLibrary,
 };
-use crate::{define_id_type, span::Span};
 use indexmap::IndexMap;
 use std::ops::{Deref, DerefMut};
 use ustr::{ustr, Ustr};

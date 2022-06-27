@@ -1,5 +1,8 @@
-use crate::ast::{self, ty::Type, workspace::Workspace};
-use crate::infer::{display::DisplayTy, ty_ctx::TyCtx};
+use crate::{
+    ast::{self, ty::Type},
+    infer::{display::DisplayTy, ty_ctx::TyCtx},
+    workspace::Workspace,
+};
 use ptree::{
     print_config::UTF_CHARS_BOLD, print_tree_with, Color, PrintConfig, Style, TreeBuilder,
 };

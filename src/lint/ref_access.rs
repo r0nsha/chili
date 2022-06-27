@@ -1,12 +1,11 @@
 use super::sess::LintSess;
-use crate::ast::{
-    self,
-    ty::Type,
+use crate::{
+    ast::{self, ty::Type},
+    error::diagnostic::{Diagnostic, Label},
+    infer::{display::DisplayTy, normalize::Normalize},
+    span::Span,
     workspace::{BindingId, BindingInfo, ModuleId},
 };
-use crate::error::diagnostic::{Diagnostic, Label};
-use crate::infer::{display::DisplayTy, normalize::Normalize};
-use crate::span::Span;
 use ustr::Ustr;
 
 enum RefAccessErr {

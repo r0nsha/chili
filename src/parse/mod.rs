@@ -7,16 +7,12 @@ mod pattern;
 mod postfix_expr;
 mod top_level;
 
-use crate::error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError};
-use crate::span::{EndPosition, Position, Span};
-use crate::token::{lexer::Lexer, Token, TokenKind::*};
 use crate::{
-    ast::{
-        self,
-        workspace::{ModuleInfo, PartialModuleInfo},
-        Ast, ExternLibrary,
-    },
-    span::To,
+    ast::{self, Ast, ExternLibrary},
+    error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
+    span::{EndPosition, Position, Span, To},
+    token::{lexer::Lexer, Token, TokenKind::*},
+    workspace::{ModuleInfo, PartialModuleInfo},
 };
 use bitflags::bitflags;
 use parking_lot::{Mutex, MutexGuard};

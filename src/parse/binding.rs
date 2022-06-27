@@ -1,13 +1,15 @@
 use super::*;
-use crate::ast::{
-    path::RelativeTo,
-    pattern::{NamePattern, Pattern},
-    ty::TypeId,
+use crate::{
+    ast::{
+        pattern::{NamePattern, Pattern},
+        ty::TypeId,
+        Binding, BindingKind, Intrinsic, Visibility,
+    },
+    common::path::RelativeTo,
+    error::diagnostic::Label,
+    span::To,
     workspace::{BindingId, ModuleId},
-    Binding, BindingKind, Intrinsic, Visibility,
 };
-use crate::error::diagnostic::Label;
-use crate::span::To;
 
 impl Parser {
     pub fn parse_binding(

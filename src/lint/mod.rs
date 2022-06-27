@@ -4,15 +4,17 @@ mod ref_access;
 mod sess;
 mod type_limits;
 
-use crate::ast::{
-    self,
-    pattern::{HybridPattern, Pattern},
+use crate::{
+    ast::{
+        self,
+        pattern::{HybridPattern, Pattern},
+    },
+    common::scopes::Scopes,
+    error::diagnostic::{Diagnostic, Label},
+    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    span::Span,
     workspace::Workspace,
 };
-use crate::common::scopes::Scopes;
-use crate::error::diagnostic::{Diagnostic, Label};
-use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
-use crate::span::Span;
 use sess::{InitState, LintSess};
 
 pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, typed_ast: &ast::TypedAst) {

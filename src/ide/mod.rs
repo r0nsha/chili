@@ -2,14 +2,16 @@ mod hint;
 mod types;
 mod util;
 
-use crate::ast::{ty::Type, workspace::Workspace, TypedAst};
-use crate::error::diagnostic::DiagnosticSeverity;
-use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
-use crate::span::{EndPosition, Position, Span};
+use self::hint::{CollectHints, HintSess};
+use crate::{
+    ast::{ty::Type, TypedAst},
+    error::diagnostic::DiagnosticSeverity,
+    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    span::{EndPosition, Position, Span},
+    workspace::Workspace,
+};
 use types::*;
 use util::*;
-
-use self::hint::{CollectHints, HintSess};
 
 pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Option<&TypedAst>) {
     let mut objects: Vec<IdeObject> = vec![];

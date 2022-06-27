@@ -1,9 +1,9 @@
-use crate::ast::{
-    self, compiler_info,
-    path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
-    workspace::{PartialModuleInfo, Workspace},
+use crate::{
+    ast,
+    common::path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
+    parse::{spawn_parser, ParserCache, ParserResult},
+    workspace::{compiler_info, PartialModuleInfo, Workspace},
 };
-use crate::parse::{spawn_parser, ParserCache, ParserResult};
 use parking_lot::Mutex;
 use std::{
     collections::HashSet,
@@ -11,7 +11,6 @@ use std::{
     sync::{mpsc::channel, Arc},
 };
 use threadpool::ThreadPool;
-use ustr::ustr;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AstGenerationStats {

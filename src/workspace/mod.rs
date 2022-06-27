@@ -1,4 +1,4 @@
-use super::{ty::TypeId, BindingKind, ExternLibrary, Visibility};
+use crate::ast::{ty::TypeId, BindingKind, ExternLibrary, Visibility};
 use crate::{
     common::{
         build_options::{BuildOptions, DiagnosticOptions},
@@ -16,6 +16,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use ustr::{ustr, Ustr};
+
+pub mod compiler_info;
 
 pub struct Workspace {
     pub name: String,

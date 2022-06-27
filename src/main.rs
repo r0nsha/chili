@@ -14,6 +14,7 @@ mod parse;
 mod pretty_print;
 mod span;
 mod token;
+pub mod workspace;
 
 use crate::common::{
     build_options::{BuildOptions, CodegenOptions, DiagnosticOptions, OptimizationLevel},

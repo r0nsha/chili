@@ -1,12 +1,13 @@
-pub mod compiler_info;
 pub mod const_value;
-pub mod path;
 pub mod pattern;
 pub mod ty;
-pub mod workspace;
 
+use crate::workspace::{BindingId, ModuleId, ModuleInfo};
 use crate::{
-    common::id_cache::{IdCache, WithId},
+    common::{
+        id_cache::{IdCache, WithId},
+        path::{try_resolve_relative_path, RelativeTo},
+    },
     define_id_type,
     error::DiagnosticResult,
     span::{FileId, Span},
@@ -15,7 +16,6 @@ use crate::{
 use const_value::{ConstFunction, ConstValue};
 use enum_as_inner::EnumAsInner;
 use paste::paste;
-use path::{try_resolve_relative_path, RelativeTo};
 use pattern::Pattern;
 use std::{
     collections::HashMap,
@@ -26,7 +26,6 @@ use std::{
 };
 use ty::*;
 use ustr::{ustr, Ustr};
-use workspace::{BindingId, ModuleId, ModuleInfo};
 
 #[derive(Debug, Clone)]
 pub struct Module {

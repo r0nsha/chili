@@ -5,8 +5,11 @@ use super::{
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::ast::{self, ty::*, workspace::BindingId, FunctionId};
-use crate::infer::normalize::Normalize;
+use crate::{
+    ast::{self, ty::*, FunctionId},
+    infer::normalize::Normalize,
+    workspace::BindingId,
+};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,

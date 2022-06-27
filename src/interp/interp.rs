@@ -8,15 +8,11 @@ use super::{
         Constants, Globals, VM,
     },
 };
-use crate::infer::ty_ctx::TyCtx;
-use crate::{ast::FunctionId, common::scopes::Scopes};
 use crate::{
-    ast::{
-        self,
-        ty::Type,
-        workspace::{BindingId, ModuleId, Workspace},
-    },
-    common::build_options::BuildOptions,
+    ast::{self, ty::Type, FunctionId},
+    common::{build_options::BuildOptions, scopes::Scopes},
+    infer::ty_ctx::TyCtx,
+    workspace::{BindingId, ModuleId, Workspace},
 };
 use std::collections::{HashMap, HashSet};
 use ustr::{ustr, Ustr};

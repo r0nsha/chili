@@ -4,12 +4,30 @@ mod env;
 mod pattern;
 mod top_level;
 
-use crate::ast::workspace::BindingInfo;
-use crate::interp::interp::{Interp, InterpResult};
-use crate::span::Span;
+use self::pattern::get_qualified_name;
 use crate::{
-    ast::ty::align::AlignOf,
+    ast::{
+        self,
+        ty::{
+            align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeVarargs,
+            InferTy, PartialStructType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        },
+        BindingKind,
+    },
+    common::{
+        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+        target::TargetMetrics,
+    },
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError, TypeError,
+    },
+    hir::{
+        self,
+        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+    },
     infer::{
+        cast::can_cast_type,
         coerce::{OrCoerce, OrCoerceIntoTy},
         display::{DisplayTy, OrReportErr},
         normalize::Normalize,
@@ -17,45 +35,18 @@ use crate::{
         ty_ctx::TyCtx,
         unify::{occurs, UnifyTy, UnifyTyErr},
     },
-};
-use crate::{
-    ast::ty::size::SizeOf,
-    error::{
-        diagnostic::{Diagnostic, Label},
-        DiagnosticResult, SyntaxError, TypeError,
+    interp::interp::{Interp, InterpResult},
+    span::Span,
+    workspace::{
+        BindingId, BindingInfo, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel,
+        Workspace,
     },
-};
-use crate::{
-    ast::{
-        self,
-        ty::{
-            FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy, PartialStructType,
-            StructType, StructTypeField, StructTypeKind, Type, TypeId,
-        },
-        workspace::{
-            BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
-        },
-        BindingKind,
-    },
-    hir::{
-        self,
-        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-    },
-};
-use crate::{
-    common::{
-        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        target::TargetMetrics,
-    },
-    infer::cast::can_cast_type,
 };
 use env::{Env, Scope, ScopeKind};
 use indexmap::IndexMap;
 use std::{collections::HashMap, iter::repeat_with};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
-
-use self::pattern::get_qualified_name;
 
 pub type CheckData = (ast::TypedAst, hir::Cache, TyCtx);
 
@@ -343,7 +334,7 @@ impl<'s> CheckSess<'s> {
         let entry = self.unique_name_indices.entry(prefix).or_insert(0);
         *entry += 1;
 
-        ustr(&format!("{}${}", prefix, *entry))
+        ustr(&format!("{}@{}", prefix, *entry))
     }
 }
 

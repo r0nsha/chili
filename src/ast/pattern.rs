@@ -1,5 +1,4 @@
-use super::workspace::BindingId;
-use crate::span::Span;
+use crate::{span::Span, workspace::BindingId};
 use std::fmt::Display;
 use ustr::Ustr;
 

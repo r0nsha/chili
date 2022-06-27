@@ -1,4 +1,4 @@
-use super::workspace::PartialModuleInfo;
+use super::PartialModuleInfo;
 use std::path::{Path, PathBuf};
 use ustr::ustr;
 

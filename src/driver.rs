@@ -1,14 +1,15 @@
-use crate::ast::{workspace::Workspace, TypedAst};
-use crate::astgen::AstGenerationStats;
-use crate::error::diagnostic::Diagnostic;
-use crate::hir;
-use crate::infer::ty_ctx::TyCtx;
 use crate::{
+    ast::TypedAst,
+    astgen::AstGenerationStats,
     common::{
         build_options::{BuildOptions, CodegenOptions},
         Stopwatch,
     },
+    error::diagnostic::Diagnostic,
+    hir,
+    infer::ty_ctx::TyCtx,
     time,
+    workspace::{compiler_info, Workspace},
 };
 use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
@@ -35,7 +36,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     let source_file = &build_options.source_file;
 
     let root_dir = source_file.parent().unwrap().to_path_buf();
-    let std_dir = crate::ast::compiler_info::std_module_root_dir();
+    let std_dir = compiler_info::std_module_root_dir();
 
     let mut workspace = Workspace::new(name, build_options.clone(), root_dir, std_dir);
 

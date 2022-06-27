@@ -1,6 +1,6 @@
 use crate::{
-    ast::workspace::{BindingId, ModuleId, ModuleInfo, ScopeLevel},
     hir,
+    workspace::{BindingId, ModuleId, ModuleInfo, ScopeLevel},
 };
 use ustr::{ustr, Ustr, UstrMap};
 

@@ -4,10 +4,11 @@ use super::{
     ty::IntoLlvmType,
 };
 use crate::{
-    ast::{ty::*, workspace::BindingId},
-    backend::llvm::traits::IsAggregateType,
+    ast::ty::*,
+    backend::llvm::traits::{IsALoadInst, IsAggregateType},
+    common::mem::calculate_align,
+    workspace::BindingId,
 };
-use crate::{backend::llvm::traits::IsALoadInst, common::mem::calculate_align};
 use inkwell::{
     basic_block::BasicBlock,
     types::{AnyType, BasicType, BasicTypeEnum},

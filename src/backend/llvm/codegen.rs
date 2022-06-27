@@ -1,34 +1,34 @@
-use super::ty::IntoLlvmType;
 use super::{
     abi::{align_of, size_of},
     traits::IsALoadInst,
+    ty::IntoLlvmType,
 };
-use crate::ast::{
-    self,
-    const_value::ConstValue,
-    pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-    workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo},
+use crate::{
+    ast::{
+        self,
+        const_value::ConstValue,
+        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
+        ty::*,
+        FunctionId, Intrinsic,
+    },
+    common::{
+        build_options,
+        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+        scopes::Scopes,
+        target::TargetMetrics,
+    },
+    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
-use crate::ast::{ty::*, workspace::Workspace};
-use crate::ast::{FunctionId, Intrinsic};
-use crate::common::build_options;
-use crate::common::{
-    builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-    scopes::Scopes,
-    target::TargetMetrics,
-};
-use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
-use inkwell::passes::PassManagerBuilder;
-use inkwell::OptimizationLevel;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
-    passes::PassManager,
+    passes::{PassManager, PassManagerBuilder},
     types::{BasicType, BasicTypeEnum, IntType},
     values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
-    AddressSpace, IntPredicate,
+    AddressSpace, IntPredicate, OptimizationLevel,
 };
 use std::collections::HashMap;
 use ustr::{ustr, Ustr, UstrMap};

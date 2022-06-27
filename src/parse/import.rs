@@ -1,11 +1,11 @@
 use super::*;
-use crate::ast::{
-    compiler_info,
-    path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
-};
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult, SyntaxError,
+use crate::{
+    common::path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError,
+    },
+    workspace::compiler_info,
 };
 use std::path::Path;
 use ustr::ustr;

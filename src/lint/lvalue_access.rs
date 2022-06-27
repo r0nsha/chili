@@ -1,8 +1,11 @@
 use super::sess::LintSess;
-use crate::ast::{self, ty::Type, workspace::BindingId};
-use crate::error::diagnostic::{Diagnostic, Label};
-use crate::infer::{display::DisplayTy, normalize::Normalize};
-use crate::span::Span;
+use crate::{
+    ast::{self, ty::Type},
+    error::diagnostic::{Diagnostic, Label},
+    infer::{display::DisplayTy, normalize::Normalize},
+    span::Span,
+    workspace::BindingId,
+};
 
 pub enum LvalueAccessErr {
     ImmutableReference { ty: Type, span: Span },

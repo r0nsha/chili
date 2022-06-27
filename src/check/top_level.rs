@@ -1,16 +1,17 @@
 use super::{Check, CheckSess};
-use crate::ast::ty::TypeId;
-use crate::ast::{
-    self,
-    ty::Type,
+use crate::{
+    ast::{
+        self,
+        ty::{Type, TypeId},
+    },
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult,
+    },
+    hir,
+    span::Span,
     workspace::{BindingId, ModuleId},
 };
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult,
-};
-use crate::hir;
-use crate::span::Span;
 use ustr::{Ustr, UstrMap};
 
 pub trait CheckTopLevel

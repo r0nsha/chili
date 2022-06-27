@@ -13,16 +13,15 @@ mod ty;
 mod unary;
 mod util;
 
-use crate::ast;
-use crate::ast::workspace::Workspace;
-use crate::common::build_options;
-use crate::infer::ty_ctx::TyCtx;
 use crate::{
+    ast,
     common::{
-        build_options::{BuildOptions, EnabledCodegenOptions},
+        build_options::{self, BuildOptions, EnabledCodegenOptions},
         target::{Arch, Os, TargetMetrics},
     },
+    infer::ty_ctx::TyCtx,
     time,
+    workspace::Workspace,
 };
 use codegen::Codegen;
 use execute::Execute;

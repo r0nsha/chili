@@ -2,14 +2,11 @@ pub mod const_value;
 pub mod pretty;
 
 use crate::{
-    ast::{
-        ty::TypeId,
-        workspace::{BindingId, ModuleId},
-        ExternLibrary, Intrinsic,
-    },
+    ast::{ty::TypeId, ExternLibrary, Intrinsic},
     common::id_cache::{IdCache, WithId},
     define_id_type,
     span::Span,
+    workspace::{BindingId, ModuleId},
 };
 use enum_as_inner::EnumAsInner;
 use ustr::Ustr;

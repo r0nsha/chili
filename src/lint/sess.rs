@@ -1,6 +1,8 @@
-use crate::ast::workspace::{BindingId, Workspace};
-use crate::common::scopes::Scopes;
-use crate::infer::ty_ctx::TyCtx;
+use crate::{
+    common::scopes::Scopes,
+    infer::ty_ctx::TyCtx,
+    workspace::{BindingId, Workspace},
+};
 
 pub struct LintSess<'s> {
     pub workspace: &'s mut Workspace,

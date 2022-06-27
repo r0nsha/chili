@@ -8,7 +8,6 @@ use crate::{
         self,
         pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
         ty::{InferTy, PartialStructType, Type, TypeId},
-        workspace::{BindingId, ModuleId, PartialBindingInfo},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -17,6 +16,7 @@ use crate::{
     hir,
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
+    workspace::{BindingId, ModuleId, PartialBindingInfo},
 };
 use indexmap::IndexMap;
 use ustr::{ustr, Ustr};

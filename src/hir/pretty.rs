@@ -1,9 +1,10 @@
+use itertools::Itertools;
+
 use crate::{
-    ast::workspace::Workspace,
     hir,
     infer::{display::DisplayTy, normalize::Normalize, ty_ctx::TyCtx},
+    workspace::Workspace,
 };
-use itertools::Itertools;
 use std::{fs::OpenOptions, io::Write, path::Path};
 
 use super::const_value::ConstValue;

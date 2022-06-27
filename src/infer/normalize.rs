@@ -1,6 +1,5 @@
 use super::{inference_value::InferenceValue, ty_ctx::TyCtx};
-use crate::ast::{ty::*, workspace::BindingId};
-use crate::span::Span;
+use crate::{ast::ty::*, span::Span, workspace::BindingId};
 use indexmap::IndexMap;
 use ustr::ustr;
 

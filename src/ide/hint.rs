@@ -1,7 +1,10 @@
 use super::types::*;
-use crate::ast::{self, ty::Type, workspace::Workspace};
-use crate::infer::{normalize::Normalize, ty_ctx::TyCtx};
-use crate::span::{EndPosition, Position, Span};
+use crate::{
+    ast::{self, ty::Type},
+    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    span::{EndPosition, Position, Span},
+    workspace::Workspace,
+};
 
 pub(super) struct HintSess<'a> {
     pub(super) workspace: &'a Workspace,

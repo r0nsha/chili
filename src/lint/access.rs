@@ -1,8 +1,10 @@
 use super::sess::{InitState, LintSess};
-use crate::ast;
-use crate::ast::workspace::BindingId;
-use crate::error::diagnostic::{Diagnostic, Label};
-use crate::span::Span;
+use crate::{
+    ast,
+    error::diagnostic::{Diagnostic, Label},
+    span::Span,
+    workspace::BindingId,
+};
 
 impl<'s> LintSess<'s> {
     pub fn check_id_access(&mut self, binding_id: BindingId, span: Span) {
