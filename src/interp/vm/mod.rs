@@ -237,19 +237,19 @@ impl<'vm> VM<'vm> {
                 Instruction::Eq => {
                     comp_op!(self, ==);
                 }
-                Instruction::Neq => {
+                Instruction::Ne => {
                     comp_op!(self, !=);
                 }
                 Instruction::Lt => {
                     comp_op!(self, <);
                 }
-                Instruction::LtEq => {
+                Instruction::Le => {
                     comp_op!(self, <=);
                 }
                 Instruction::Gt => {
                     comp_op!(self, >);
                 }
-                Instruction::GtEq => {
+                Instruction::Ge => {
                     comp_op!(self, >=);
                 }
                 Instruction::And => {
@@ -299,7 +299,11 @@ impl<'vm> VM<'vm> {
                     }
                 }
                 Instruction::Call(arg_count) => match self.stack.pop() {
-                    Value::Function(addr) => match self.interp.get_function(addr.id).unwrap() {
+                    Value::Function(addr) => match self
+                        .interp
+                        .get_function(addr.id)
+                        .unwrap_or_else(|| panic!("couldn't find '{}' {:?}", addr.name, addr.id))
+                    {
                         FunctionValue::Orphan(function) => {
                             self.push_frame(function as *const Function);
                         }

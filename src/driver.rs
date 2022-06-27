@@ -75,13 +75,11 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         crate::check::check(&mut workspace, modules)
     }};
 
-    if workspace.build_options.emit_hir {
-        hir::pretty::print(&cache, &workspace, &tycx);
-    }
-
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
         return StartWorkspaceResult::new(workspace, Some(tycx), Some(typed_ast));
+    } else if workspace.build_options.emit_hir {
+        hir::pretty::print(&cache, &workspace, &tycx);
     }
 
     // Lint - does auxillary checks which are not required for compilation
