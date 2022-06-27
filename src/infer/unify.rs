@@ -62,7 +62,7 @@ impl UnifyTy<Type> for Type {
 
             (Type::Function(f1), Type::Function(f2)) => {
                 for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
-                    p1.unify(p2, tycx)?;
+                    p1.ty.unify(&p2.ty, tycx)?;
                 }
 
                 f1.return_type.unify(f2.return_type.as_ref(), tycx)?;
@@ -300,7 +300,7 @@ pub fn occurs(var: TypeId, kind: &Type, tycx: &TyCtx) -> bool {
             }
         }
         Type::Function(f) => {
-            f.params.iter().any(|p| occurs(var, p, tycx)) || occurs(var, &f.return_type, tycx)
+            f.params.iter().any(|p| occurs(var, &p.ty, tycx)) || occurs(var, &f.return_type, tycx)
         }
         Type::Array(ty, _) => occurs(var, ty, tycx),
         Type::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx)),

@@ -110,7 +110,7 @@ impl Display for FunctionType {
             "fn({}{}) -> {}",
             self.params
                 .iter()
-                .map(|p| p.to_string())
+                .map(|p| format!("{}: {}", p.name, p.ty.to_string()))
                 .collect::<Vec<String>>()
                 .join(", "),
             match &self.varargs {

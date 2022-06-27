@@ -6,7 +6,7 @@ mod top_level;
 
 use self::pattern::get_qualified_name;
 use crate::{
-    ast::{self, BindingKind},
+    ast::{self, pattern::Pattern, BindingKind},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -31,8 +31,9 @@ use crate::{
     interp::interp::{Interp, InterpResult},
     span::Span,
     types::{
-        align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeVarargs, InferTy,
-        PartialStructType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
+        FunctionTypeVarargs, InferTy, PartialStructType, StructType, StructTypeField,
+        StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel,
@@ -110,7 +111,7 @@ fn ty_is_extern(ty: &Type) -> bool {
                 && f.varargs
                     .as_ref()
                     .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
-                && f.params.iter().all(ty_is_extern)
+                && f.params.iter().map(|p| &p.ty).all(ty_is_extern)
         }
 
         Type::Tuple(tys) => tys.iter().all(ty_is_extern),
@@ -525,7 +526,7 @@ impl Check for ast::Binding {
 
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
-        let mut param_types: Vec<Type> = vec![];
+        let mut param_types: Vec<FunctionTypeParam> = vec![];
 
         if !self.params.is_empty() {
             let mut defined_params = UstrMap::default();
@@ -546,7 +547,14 @@ impl Check for ast::FunctionSig {
                     }
                 }
 
-                param_types.push(param_type.as_kind());
+                param_types.push(FunctionTypeParam {
+                    name: match &param.pattern {
+                        Pattern::Name(p) => p.name,
+                        Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
+                        Pattern::Hybrid(p) => p.name_pattern.name,
+                    },
+                    ty: param_type.as_kind(),
+                });
             }
         } else {
             // if the function signature has no parameters, and the
@@ -555,8 +563,10 @@ impl Check for ast::FunctionSig {
                 match ty.normalize(&sess.tycx) {
                     Type::Function(f) => {
                         if f.params.len() == 1 {
-                            // let symbol = ustr("it");
-                            param_types.push(f.params[0].clone());
+                            param_types.push(FunctionTypeParam {
+                                name: ustr("it"),
+                                ty: f.params[0].ty.clone(),
+                            });
                         }
                     }
                     _ => (),
@@ -2076,7 +2086,7 @@ impl Check for ast::FunctionExpr {
 
         for (param, param_type) in self.sig.params.iter().zip(function_type.params.iter()) {
             let ty = sess.tycx.bound(
-                param_type.clone(),
+                param_type.ty.clone(),
                 param
                     .type_expr
                     .as_ref()
@@ -2598,7 +2608,7 @@ impl Check for ast::Call {
 
                 for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = fn_ty.params.get(index) {
-                        let param_ty = sess.tycx.bound(param.clone(), self.span);
+                        let param_ty = sess.tycx.bound(param.ty.clone(), self.span);
                         let mut node = arg.check(sess, env, Some(param_ty))?;
 
                         node.ty()
@@ -2639,7 +2649,14 @@ impl Check for ast::Call {
                 let return_ty = sess.tycx.var(self.span);
 
                 let inferred_fn_ty = Type::Function(FunctionType {
-                    params: self.args.iter().map(|arg| arg.ty().into()).collect(),
+                    params: self
+                        .args
+                        .iter()
+                        .map(|arg| FunctionTypeParam {
+                            name: ustr(""),
+                            ty: arg.ty().into(),
+                        })
+                        .collect(),
                     return_type: Box::new(return_ty.into()),
                     varargs: None,
                     kind: FunctionTypeKind::Orphan,

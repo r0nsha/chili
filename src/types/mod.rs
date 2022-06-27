@@ -103,10 +103,16 @@ impl Default for FloatType {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionType {
-    pub params: Vec<Type>,
+    pub params: Vec<FunctionTypeParam>,
     pub return_type: Box<Type>,
     pub varargs: Option<Box<FunctionTypeVarargs>>,
     pub kind: FunctionTypeKind,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct FunctionTypeParam {
+    pub name: Ustr,
+    pub ty: Type,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

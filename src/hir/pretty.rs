@@ -163,7 +163,9 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
 
         p.write("(");
         for (index, param) in function_type.params.iter().enumerate() {
-            p.write(&param.display(p.tycx));
+            p.write(&param.name);
+            p.write(": ");
+            p.write(&param.ty.display(p.tycx));
 
             if index < function_type.params.len() - 1 {
                 p.write(", ");

@@ -150,6 +150,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .binding_infos
             .get(id)
             .map_or(ustr(""), |b| b.name);
+
         self.build_alloca_inner(state, llvm_ty, &name)
     }
 

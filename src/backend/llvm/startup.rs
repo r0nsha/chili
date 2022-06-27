@@ -15,6 +15,7 @@ use inkwell::{
     values::{BasicValue, PointerValue},
     AddressSpace,
 };
+use ustr::ustr;
 
 impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_entry_point_function(&mut self) {
@@ -81,10 +82,16 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         // };
         let startup_fn_type = FunctionType {
             params: vec![
-                Type::Uint(UintType::U32),
-                Type::Uint(UintType::U8)
-                    .pointer_type(false)
-                    .pointer_type(false),
+                FunctionTypeParam {
+                    name: ustr("argc"),
+                    ty: Type::Uint(UintType::U32),
+                },
+                FunctionTypeParam {
+                    name: ustr("argv"),
+                    ty: Type::Uint(UintType::U8)
+                        .pointer_type(false)
+                        .pointer_type(false),
+                },
             ],
             return_type: Box::new(Type::Uint(UintType::U32)),
             varargs: None,

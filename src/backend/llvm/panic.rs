@@ -35,7 +35,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
             .normalize(self.tycx)
             .into_function();
 
-        let panic_info_llvm_type = panic_type.params.first().unwrap().llvm_type(self);
+        let panic_info_llvm_type = panic_type.params.first().unwrap().ty.llvm_type(self);
 
         let program = self
             .const_str_slice("panic_program", self.workspace.name.as_ref())

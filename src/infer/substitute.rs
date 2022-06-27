@@ -307,7 +307,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
         Type::Function(f) => {
             f.params
                 .iter()
-                .for_each(|p| extract_free_type_vars(p, free_types));
+                .for_each(|p| extract_free_type_vars(&p.ty, free_types));
 
             extract_free_type_vars(&f.return_type, free_types);
 

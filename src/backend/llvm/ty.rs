@@ -111,8 +111,11 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
-        let params: Vec<BasicMetadataTypeEnum> =
-            f.params.iter().map(|p| p.llvm_type(self).into()).collect();
+        let params: Vec<BasicMetadataTypeEnum> = f
+            .params
+            .iter()
+            .map(|p| p.ty.llvm_type(self).into())
+            .collect();
 
         let ret = f.return_type.llvm_type(self);
 
