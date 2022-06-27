@@ -328,11 +328,17 @@ impl<'s> CheckSess<'s> {
 
     fn generate_name(&mut self, prefix: impl Into<Ustr>) -> Ustr {
         let prefix = prefix.into();
-
         let entry = self.unique_name_indices.entry(prefix).or_insert(0);
+        let name = ustr(&format!("{}@{}", prefix, *entry));
         *entry += 1;
+        name
+    }
 
-        ustr(&format!("{}@{}", prefix, *entry))
+    pub(super) fn eval(&mut self, node: &hir::Node, module_id: ModuleId) -> InterpResult {
+        let mut interp_sess = self
+            .interp
+            .create_session(self.workspace, &self.tycx, &self.cache);
+        interp_sess.eval(node, module_id)
     }
 }
 
@@ -674,30 +680,31 @@ impl Check for ast::Ast {
                     }))
                 }
                 ast::BuiltinKind::Run(expr) => {
-                    todo!("interpret the expression and return the result as a hir::Node::Const")
-                    // let node = expr.check(sess, env, None)?;
+                    let node = expr.check(sess, env, None)?;
 
-                    // if sess.workspace.build_options.check_mode {
-                    //     Ok(Res::new(node.ty))
-                    // } else {
-                    //     // TODO (Ron): unwrap interp result into a diagnostic
-                    //     let interp_value = interp_expr(&expr, sess, env.module_id()).unwrap();
+                    if sess.workspace.build_options.check_mode {
+                        Ok(node)
+                    } else {
+                        // TODO (Ron): map interp result into a diagnostic
+                        let interp_result = sess.eval(&node, env.module_id()).unwrap();
 
-                    //     let ty = node.ty.normalize(&sess.tycx);
+                        let ty = node.ty().normalize(&sess.tycx);
 
-                    //     match interp_value.try_into_const_value(&mut sess.tycx, &ty, builtin.span) {
-                    //         Ok(const_value) => {
-                    //             *run_result = Some(const_value.clone());
-                    //             Ok(Res::new_const(node.ty, const_value))
-                    //         }
-                    //         Err(value_str) => Err(Diagnostic::error()
-                    //             .with_message(format!(
-                    //                 "compile-time evaluation cannot result in `{}`",
-                    //                 value_str,
-                    //             ))
-                    //             .with_label(Label::primary(builtin.span, "evaluated here"))),
-                    //     }
-                    // }
+                        match interp_result.try_into_const_value(&mut sess.tycx, &ty, builtin.span)
+                        {
+                            Ok(value) => Ok(hir::Node::Const(hir::Const {
+                                value,
+                                ty: node.ty(),
+                                span: builtin.span,
+                            })),
+                            Err(value_str) => Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "compile-time evaluation cannot result in `{}`",
+                                    value_str,
+                                ))
+                                .with_label(Label::primary(builtin.span, "evaluated here"))),
+                        }
+                    }
                 }
                 ast::BuiltinKind::Panic(expr) => {
                     todo!("replace this with `pub let {{ default_panic_handler: panic }} = import!(\"panicking\");")
@@ -1974,7 +1981,7 @@ impl Check for ast::For {
                             _ => unreachable!(),
                         };
 
-                        let condition = hir::Node::Builtin(hir::Builtin::Le(hir::Binary {
+                        let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
                             ty: bool_type,
                             span: self.span,
                             lhs: Box::new(index_id_node.clone()),
@@ -2950,13 +2957,6 @@ fn make_struct_literal_node(
 
 fn get_anonymous_struct_name(span: Span) -> Ustr {
     ustr(&format!("struct:{}:{}", span.start.line, span.start.column))
-}
-
-fn interp_expr(expr: &ast::Ast, sess: &mut CheckSess, module_id: ModuleId) -> InterpResult {
-    let mut interp_sess = sess
-        .interp
-        .create_session(sess.workspace, &sess.tycx, &sess.typed_ast);
-    interp_sess.eval(expr, module_id)
 }
 
 pub(super) fn check_optional_type_expr<'s>(

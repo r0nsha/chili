@@ -8,8 +8,8 @@ use super::{
     },
 };
 use crate::{
-    ast,
     common::{build_options::BuildOptions, scopes::Scopes},
+    hir,
     infer::ty_ctx::TyCtx,
     types::Type,
     workspace::{BindingId, ModuleId, Workspace},
@@ -26,8 +26,8 @@ pub struct Interp {
     pub globals: Globals,
     pub constants: Constants,
 
-    pub functions: HashMap<ast::FunctionId, Function>,
-    pub extern_functions: HashMap<ast::FunctionId, ExternFunction>,
+    pub functions: HashMap<hir::FunctionId, Function>,
+    pub extern_functions: HashMap<hir::FunctionId, ExternFunction>,
 
     pub ffi: Ffi,
     pub build_options: BuildOptions,
@@ -52,13 +52,13 @@ impl Interp {
         &'i mut self,
         workspace: &'i Workspace,
         tycx: &'i TyCtx,
-        typed_ast: &'i ast::TypedAst,
+        cache: &'i hir::Cache,
     ) -> InterpSess<'i> {
         InterpSess {
             interp: self,
             workspace,
             tycx,
-            typed_ast,
+            cache,
             env_stack: vec![],
             // labels: vec![],
             evaluated_globals: vec![],
@@ -66,7 +66,7 @@ impl Interp {
         }
     }
 
-    pub fn get_function(&self, id: ast::FunctionId) -> Option<FunctionValue> {
+    pub fn get_function(&self, id: hir::FunctionId) -> Option<FunctionValue> {
         self.functions
             .get(&id)
             .map(FunctionValue::Orphan)
@@ -78,7 +78,7 @@ pub struct InterpSess<'i> {
     pub interp: &'i mut Interp,
     pub workspace: &'i Workspace,
     pub tycx: &'i TyCtx,
-    pub typed_ast: &'i ast::TypedAst,
+    pub cache: &'i hir::Cache,
     pub env_stack: Vec<(ModuleId, Env)>,
 
     // pub labels: Vec<Label>,
@@ -87,7 +87,7 @@ pub struct InterpSess<'i> {
     pub evaluated_globals: Vec<CompiledCode>,
 
     // Functions currently lowered, cached to prevent infinite recursion in recursive functions
-    pub lowered_functions: HashSet<ast::FunctionId>,
+    pub lowered_functions: HashSet<hir::FunctionId>,
 }
 
 // labels are used for patching call instruction after lowering
@@ -98,7 +98,7 @@ pub struct InterpSess<'i> {
 pub type Env = Scopes<BindingId, i16>;
 
 impl<'i> InterpSess<'i> {
-    pub fn eval(&'i mut self, expr: &ast::Ast, module_id: ModuleId) -> InterpResult {
+    pub fn eval(&'i mut self, node: &hir::Node, module_id: ModuleId) -> InterpResult {
         let mut start_code = CompiledCode::new();
 
         self.env_stack.push((module_id, Env::default()));
@@ -119,7 +119,7 @@ impl<'i> InterpSess<'i> {
         let mut vm = self.create_vm();
 
         let start_func = Function {
-            id: ast::FunctionId::unknown(),
+            id: hir::FunctionId::unknown(),
             name: ustr("__vm_start"),
             arg_types: vec![],
             return_type: Type::Unit,
@@ -138,7 +138,7 @@ impl<'i> InterpSess<'i> {
         for (i, global_eval_code) in self.evaluated_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
 
-            let id = ast::FunctionId::from(usize::MAX - i);
+            let id = hir::FunctionId::from(usize::MAX - i);
             let name = ustr(&format!("global_init_{}", i));
 
             self.interp.functions.insert(

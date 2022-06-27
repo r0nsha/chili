@@ -174,8 +174,7 @@ impl<'s> CheckSess<'s> {
                     self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
 
                 if !self.workspace.build_options.check_mode {
-                    todo!("interp node");
-                    // interp_expr(&expr, self, module_id).unwrap();
+                    self.eval(&node, module_id).unwrap();
                 }
             }
 

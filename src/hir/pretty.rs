@@ -72,7 +72,7 @@ trait Print<'a, W: Write> {
 }
 
 impl<'a, W: Write> Print<'a, W> for hir::Cache {
-    fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
+    fn print(&self, p: &mut Printer<'a, W>, _is_line_start: bool) {
         enum Item<'a> {
             Binding(&'a hir::Binding),
             Function(&'a hir::Function),
@@ -173,10 +173,12 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
         }
         p.write(") -> ");
         p.write(&function_type.return_type.display(p.tycx));
-        p.write(" ");
 
         match &self.kind {
-            hir::FunctionKind::Orphan { body } => body.as_ref().unwrap().print(p, false),
+            hir::FunctionKind::Orphan { body } => {
+                p.write(" ");
+                body.as_ref().unwrap().print(p, false)
+            }
             hir::FunctionKind::Extern { .. } | hir::FunctionKind::Intrinsic(..) => (),
         }
     }
@@ -337,6 +339,8 @@ impl<'a, W: Write> Print<'a, W> for hir::Control {
                 p.write_indented("if ", is_line_start);
                 if_.condition.print(p, false);
 
+                p.write(" ");
+
                 if_.then.print(p, false);
 
                 if let Some(otherwise) = &if_.otherwise {
@@ -347,6 +351,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Control {
             hir::Control::While(while_) => {
                 p.write_indented("while ", is_line_start);
                 while_.condition.print(p, false);
+                p.write(" ");
                 while_.body.print(p, false);
             }
             hir::Control::Return(return_) => {
@@ -411,7 +416,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Builtin {
             }
             hir::Builtin::Offset(offset) => {
                 offset.value.print(p, is_line_start);
-                p.write("[offset: ");
+                p.write("[");
                 offset.offset.print(p, false);
                 p.write("]");
             }

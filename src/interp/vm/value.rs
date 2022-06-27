@@ -5,9 +5,10 @@ use super::{
     instruction::CompiledCode,
 };
 use crate::{
-    ast::{
+    ast::Intrinsic,
+    hir::{
+        self,
         const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
-        FunctionId, Intrinsic,
     },
     infer::ty_ctx::TyCtx,
     span::Span,
@@ -284,7 +285,7 @@ pub struct Array {
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub id: FunctionId,
+    pub id: hir::FunctionId,
     pub name: Ustr,
     pub arg_types: Vec<Type>,
     pub return_type: Type,
@@ -293,7 +294,7 @@ pub struct Function {
 
 #[derive(Debug, Clone)]
 pub struct FunctionAddress {
-    pub id: FunctionId,
+    pub id: hir::FunctionId,
     pub name: Ustr,
 }
 
