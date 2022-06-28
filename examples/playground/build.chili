@@ -5,11 +5,21 @@ let { printf } = import!("std/c");
 let build = fn() {
 	println("Hello World");
 
-	let array = .[1, 2, 3];
-	for x, i in array {
-		printf("array[%d] = %d\n".data, i, x);
-		println("Hello World");
-	}
+	let IntArray = [3]int;
+	let array: IntArray = [1, 2, 3];
+
+	let Buffer = [*]u8;
+	let BufferMut = [*mut]u8;
+	let data: Buffer = "array[%d] = %d\n".data;
+
+	let Slice = []u8;
+	let slice: Slice = array[..];
+
+	let SliceMut = []mut u8;
+	let slice: SliceMut = array[..];
+
+	let single_item_array = ["foo"];
+
 	// let build_options = BuildOptions {
     //     input_file: "src/main.chili",
     //     output_file: "out/main",
