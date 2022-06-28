@@ -133,6 +133,8 @@ bitflags! {
         const TYPE_WAS_INFERRED = 1 << 2;
         // Whether this the implicit "it" parameter.
         const IS_IMPLICIT_IT_FN_PARAMETER = 1 << 3;
+        // Whether this binding should store a constant value
+        const NO_CONST_FOLD = 1 << 3;
     }
 }
 

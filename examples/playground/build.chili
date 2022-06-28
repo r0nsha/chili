@@ -1,12 +1,14 @@
 let ? = import!("std/build");
 let { println } = import!("std/fmt");
+let { printf } = import!("std/c");
 
 let build = fn() {
 	println("Hello World");
 
 	let array = .[1, 2, 3];
 	for x, i in array {
-
+		printf("array[%d] = %d\n".data, i, x);
+		println("Hello World");
 	}
 	// let build_options = BuildOptions {
     //     input_file: "src/main.chili",

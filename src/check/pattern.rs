@@ -77,7 +77,7 @@ impl<'s> CheckSess<'s> {
             name,
             visibility,
             ty,
-            const_value: if is_mutable {
+            const_value: if is_mutable || flags.contains(BindingInfoFlags::NO_CONST_FOLD) {
                 None
             } else {
                 value

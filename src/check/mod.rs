@@ -716,7 +716,7 @@ impl Check for ast::Ast {
                         }
                     }
                 }
-                ast::BuiltinKind::Panic(expr) => {
+                ast::BuiltinKind::Panic(_) => {
                     todo!("replace this with `pub let {{ default_panic_handler: panic }} = import!(\"panicking\");")
                     // if let Some(expr) = expr {
                     //     expr.check(sess, env, None)?;
@@ -1680,7 +1680,7 @@ impl Check for ast::Ast {
 }
 
 impl Check for ast::While {
-    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let bool_type = sess.tycx.common_types.bool;
 
         let mut condition_node = self.condition.check(sess, env, Some(bool_type))?;
@@ -1725,7 +1725,7 @@ impl Check for ast::While {
 }
 
 impl Check for ast::For {
-    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let index_type = sess.tycx.common_types.uint;
         let bool_type = sess.tycx.common_types.bool;
         let unit_type = sess.tycx.common_types.unit;
@@ -1805,9 +1805,11 @@ impl Check for ast::For {
                     ast::BindingKind::Orphan,
                     index_binding.span,
                     if self.index_binding.is_some() {
-                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
+                        BindingInfoFlags::IS_USER_DEFINED
+                            | BindingInfoFlags::TYPE_WAS_INFERRED
+                            | BindingInfoFlags::NO_CONST_FOLD
                     } else {
-                        BindingInfoFlags::empty()
+                        BindingInfoFlags::NO_CONST_FOLD
                     },
                 )?;
 
@@ -1825,7 +1827,9 @@ impl Check for ast::For {
                     false,
                     ast::BindingKind::Orphan,
                     self.iter_binding.span,
-                    BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
+                    BindingInfoFlags::IS_USER_DEFINED
+                        | BindingInfoFlags::TYPE_WAS_INFERRED
+                        | BindingInfoFlags::NO_CONST_FOLD,
                 )?;
 
                 statements.push(iter_binding);
@@ -1927,7 +1931,7 @@ impl Check for ast::For {
                 // }
 
                 let value_node = value.check(sess, env, None)?;
-                let (value_type, value_span) = (value.ty(), value.span());
+                let (value_type, value_span) = (value_node.ty(), value_node.span());
 
                 let value_node_type = value_node.ty().normalize(&sess.tycx);
 
@@ -1985,8 +1989,9 @@ impl Check for ast::For {
                             if self.index_binding.is_some() {
                                 BindingInfoFlags::IS_USER_DEFINED
                                     | BindingInfoFlags::TYPE_WAS_INFERRED
+                                    | BindingInfoFlags::NO_CONST_FOLD
                             } else {
-                                BindingInfoFlags::empty()
+                                BindingInfoFlags::NO_CONST_FOLD
                             },
                         )?;
 
@@ -2041,7 +2046,9 @@ impl Check for ast::For {
                             false,
                             ast::BindingKind::Orphan,
                             self.iter_binding.span,
-                            BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
+                            BindingInfoFlags::IS_USER_DEFINED
+                                | BindingInfoFlags::TYPE_WAS_INFERRED
+                                | BindingInfoFlags::NO_CONST_FOLD,
                         )?;
 
                         // loop block { ... }
@@ -2305,7 +2312,7 @@ impl Check for ast::Assignment {
 }
 
 impl Check for ast::Return {
-    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         let function_frame = sess
             .function_frame()
             .ok_or(SyntaxError::outside_of_function(self.span, "return"))?;

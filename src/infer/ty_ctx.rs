@@ -75,7 +75,7 @@ impl TyCtx {
     #[inline]
     pub fn value_of(&self, id: TypeId) -> &InferenceValue {
         match self.bindings.get(id) {
-            Some(ty) => ty,
+            Some(value) => value,
             None => &InferenceValue::Unbound,
         }
     }

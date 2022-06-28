@@ -380,7 +380,7 @@ impl Lower for hir::Return {
 }
 
 impl Lower for hir::Builtin {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         match self {
             hir::Builtin::Add(binary) => {
                 binary
@@ -607,7 +607,12 @@ impl Lower for hir::Builtin {
                 sess.push_const(code, Value::Uint(value_inner_type_size));
 
                 code.push(Instruction::Mul);
-                code.push(Instruction::Offset);
+
+                code.push(if ctx.take_ptr {
+                    Instruction::IndexPtr
+                } else {
+                    Instruction::Index
+                });
             }
             hir::Builtin::Slice(slice) => {
                 let value_type = slice.value.ty().normalize(sess.tycx);

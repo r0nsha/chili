@@ -230,7 +230,7 @@ impl<'i> InterpSess<'i> {
     }
 
     pub fn add_local(&mut self, code: &mut CompiledCode, id: BindingId) {
-        code.locals += 1;
         self.env_mut().insert(id, code.locals as i16);
+        code.locals += 1;
     }
 }

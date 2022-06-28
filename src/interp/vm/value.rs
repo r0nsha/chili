@@ -711,7 +711,8 @@ impl Pointer {
             Self::F32(_) => Type::Float(FloatType::F32),
             Self::F64(_) => Type::Float(FloatType::F64),
             Self::Bool(_) => Type::Bool,
-            Self::Aggregate(_) => todo!(),
+            Self::Aggregate(agg) => unsafe { &**agg }.ty.clone(),
+            Self::Array(arr) => unsafe { &**arr }.ty.clone(),
             Self::Pointer(p) => Type::Pointer(
                 if p.is_null() {
                     Box::new(Type::Uint(UintType::U8))
@@ -721,7 +722,7 @@ impl Pointer {
                 true,
             ),
             Self::Function(_) => todo!(),
-            _ => panic!(),
+            value => panic!("{:?}", value),
         }
     }
 
