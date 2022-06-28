@@ -19,7 +19,7 @@ impl<'s> LintSess<'s> {
         use RefAccessErr::*;
 
         let result = self
-            .check_expr_can_be_mutably_referenced_inner(node, true)
+            .check_node_can_be_mutably_referenced_inner(node, true)
             .map_err(|err| match err {
                 ImmutableReference { ty, span } => Diagnostic::error()
                     .with_message(format!(
@@ -51,18 +51,18 @@ impl<'s> LintSess<'s> {
         }
     }
 
-    fn check_expr_can_be_mutably_referenced_inner(
+    fn check_node_can_be_mutably_referenced_inner(
         &self,
-        expr: &hir::Node,
+        node: &hir::Node,
         is_direct_ref: bool,
     ) -> Result<(), RefAccessErr> {
         use RefAccessErr::*;
 
-        let ty = expr.ty().normalize(self.tycx);
+        let ty = node.ty().normalize(self.tycx);
 
-        match expr {
+        match node {
             hir::Node::MemberAccess(access) => {
-                match self.check_expr_can_be_mutably_referenced_inner(expr, true) {
+                match self.check_node_can_be_mutably_referenced_inner(node, true) {
                     Ok(_) => match ty {
                         Type::Tuple(tys) => {
                             let index = access.member.parse::<usize>().unwrap();
@@ -76,7 +76,7 @@ impl<'s> LintSess<'s> {
                                 {
                                     Err(ImmutableReference {
                                         ty,
-                                        span: expr.span(),
+                                        span: node.span(),
                                     })
                                 }
                                 _ => Ok(()),
@@ -98,7 +98,7 @@ impl<'s> LintSess<'s> {
                                 {
                                     Err(ImmutableReference {
                                         ty,
-                                        span: expr.span(),
+                                        span: node.span(),
                                     })
                                 }
                                 _ => Ok(()),
@@ -117,7 +117,7 @@ impl<'s> LintSess<'s> {
                                 {
                                     Err(ImmutableReference {
                                         ty,
-                                        span: expr.span(),
+                                        span: node.span(),
                                     })
                                 }
                                 _ => {
@@ -126,7 +126,7 @@ impl<'s> LintSess<'s> {
                                     } else {
                                         Err(ImmutableBinding {
                                             id: binding_info.id,
-                                            span: expr.span(),
+                                            span: node.span(),
                                         })
                                     }
                                 }
@@ -147,7 +147,7 @@ impl<'s> LintSess<'s> {
                         } else {
                             return Err(ImmutableReference {
                                 ty,
-                                span: expr.span(),
+                                span: node.span(),
                             });
                         }
                     }
@@ -161,7 +161,7 @@ impl<'s> LintSess<'s> {
                 } else {
                     Err(ImmutableBinding {
                         id: id.id,
-                        span: expr.span(),
+                        span: node.span(),
                     })
                 }
             }
