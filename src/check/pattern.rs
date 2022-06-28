@@ -54,7 +54,7 @@ impl<'s> CheckSess<'s> {
         is_mutable: bool,
         kind: ast::BindingKind,
         span: Span,
-        additional_flags: BindingInfoFlags,
+        flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         let module_id = env.module_id();
         let scope_level = env.scope_level();
@@ -90,6 +90,7 @@ impl<'s> CheckSess<'s> {
             scope_level,
             qualified_name: get_qualified_name(env.scope_name(), name),
             span,
+            flags,
         };
 
         let id = self
@@ -129,7 +130,7 @@ impl<'s> CheckSess<'s> {
         ty: TypeId,
         value: Option<hir::Node>,
         kind: &ast::BindingKind,
-        additional_flags: BindingInfoFlags,
+        flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         self.bind_name(
             env,
@@ -140,7 +141,7 @@ impl<'s> CheckSess<'s> {
             pattern.is_mutable,
             kind.clone(),
             pattern.span,
-            additional_flags,
+            flags,
         )
     }
 
@@ -153,12 +154,12 @@ impl<'s> CheckSess<'s> {
         value: Option<hir::Node>,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
-        additional_flags: BindingInfoFlags,
+        flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         // Note (Ron 25/06/2022): There is a lot of duplicate code here. This should be organized better...
         match pattern {
             Pattern::Name(pattern) => {
-                self.bind_name_pattern(env, pattern, visibility, ty, value, kind, additional_flags)
+                self.bind_name_pattern(env, pattern, visibility, ty, value, kind, flags)
             }
             Pattern::StructUnpack(pattern) => {
                 let mut statements = vec![];
@@ -173,7 +174,7 @@ impl<'s> CheckSess<'s> {
                     kind,
                     pattern,
                     &mut statements,
-                    additional_flags,
+                    flags,
                 )?;
 
                 self.bind_struct_unpack_pattern(
@@ -185,7 +186,7 @@ impl<'s> CheckSess<'s> {
                     id_node,
                     kind,
                     ty_origin_span,
-                    additional_flags,
+                    flags,
                 )?;
 
                 Ok((
@@ -211,7 +212,7 @@ impl<'s> CheckSess<'s> {
                     kind,
                     pattern,
                     &mut statements,
-                    additional_flags,
+                    flags,
                 )?;
 
                 self.bind_tuple_unpack_pattern(
@@ -223,7 +224,7 @@ impl<'s> CheckSess<'s> {
                     id_node,
                     kind,
                     ty_origin_span,
-                    additional_flags,
+                    flags,
                 )?;
 
                 Ok((
@@ -246,7 +247,7 @@ impl<'s> CheckSess<'s> {
                     ty,
                     value.clone(),
                     kind,
-                    additional_flags,
+                    flags,
                 )?;
 
                 let id_node = self.get_id_node_for_unpack_pattern(bound_node, &mut statements);
@@ -261,7 +262,7 @@ impl<'s> CheckSess<'s> {
                         id_node,
                         kind,
                         ty_origin_span,
-                        additional_flags,
+                        flags,
                     )?,
                     UnpackPatternKind::Tuple(pattern) => self.bind_tuple_unpack_pattern(
                         &mut statements,
@@ -272,7 +273,7 @@ impl<'s> CheckSess<'s> {
                         id_node,
                         kind,
                         ty_origin_span,
-                        additional_flags,
+                        flags,
                     )?,
                 }
 
@@ -299,7 +300,7 @@ impl<'s> CheckSess<'s> {
         kind: &ast::BindingKind,
         pattern: &UnpackPattern,
         statements: &mut Vec<hir::Node>,
-        additional_flags: BindingInfoFlags,
+        flags: BindingInfoFlags,
     ) -> Result<(BindingId, hir::Node), Diagnostic> {
         let (id, bound_node) = self.bind_name(
             env,
@@ -310,7 +311,7 @@ impl<'s> CheckSess<'s> {
             false,
             kind.clone(),
             pattern.span,
-            additional_flags,
+            flags,
         )?;
 
         let id_node = self.get_id_node_for_unpack_pattern(bound_node, statements);
@@ -344,7 +345,7 @@ impl<'s> CheckSess<'s> {
         value: hir::Node,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
-        additional_flags: BindingInfoFlags,
+        flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tycx).maybe_deref_once() {
             Type::Module(module_id) => {
@@ -383,7 +384,7 @@ impl<'s> CheckSess<'s> {
                         binding_info.ty,
                         Some(self.id_or_const(binding_info, pattern.span)),
                         kind,
-                        additional_flags,
+                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
                     )?;
 
                     statements.push(binding);
@@ -423,7 +424,7 @@ impl<'s> CheckSess<'s> {
                             binding_info.is_mutable,
                             binding_info.kind.clone(),
                             wildcard_symbol_span,
-                            additional_flags,
+                            flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
 
                         statements.push(binding);
@@ -482,7 +483,7 @@ impl<'s> CheckSess<'s> {
                         ty,
                         Some(field_value),
                         kind,
-                        additional_flags,
+                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
                     )?;
 
                     statements.push(bound_node);
@@ -533,7 +534,7 @@ impl<'s> CheckSess<'s> {
                                     false,
                                     kind.clone(),
                                     wildcard_symbol_span,
-                                    additional_flags,
+                                    flags - BindingInfoFlags::IS_USER_DEFINED,
                                 )?;
 
                                 statements.push(bound_node);
@@ -579,7 +580,7 @@ impl<'s> CheckSess<'s> {
         value: hir::Node,
         kind: &ast::BindingKind,
         ty_origin_span: Span,
-        additional_flags: BindingInfoFlags,
+        flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
         let elements = pattern
             .symbols
@@ -622,7 +623,7 @@ impl<'s> CheckSess<'s> {
                 ty,
                 Some(element_value),
                 kind,
-                additional_flags,
+                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
             )?;
 
             statements.push(bound_node);

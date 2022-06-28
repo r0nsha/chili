@@ -71,16 +71,14 @@ impl<'a> CollectHints<'a> for hir::Node {
 
 impl<'a> CollectHints<'a> for hir::Binding {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
-        let should_show_hint = sess
-            .workspace
-            .binding_infos
-            .get(self.id)
-            .unwrap()
+        let binding_info = sess.workspace.binding_infos.get(self.id).unwrap();
+
+        let should_show_hint = binding_info
             .flags
-            .contains(BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED);
+            .contains(BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED);
 
         if should_show_hint {
-            match self.ty.normalize(sess.tycx) {
+            match binding_info.ty.normalize(sess.tycx) {
                 Type::Function(_) | Type::Module(_) | Type::Type(_) | Type::AnyType => (),
                 ty => sess.push_hint(self.span, ty.to_string(), HintKind::Binding),
             }
@@ -103,7 +101,7 @@ impl<'a> CollectHints<'a> for hir::Function {
                     let ty = binding_info.ty.normalize(sess.tycx);
 
                     if binding_info.flags.contains(
-                        BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED,
+                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
                     ) {
                         sess.push_hint(binding_info.span, ty.to_string(), HintKind::Binding)
                     } else if binding_info

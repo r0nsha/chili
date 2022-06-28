@@ -92,7 +92,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     }
 
     // Code generation
-    todo!("codegen");
+    // todo!("codegen");
     // match &workspace.build_options.codegen_options {
     //     CodegenOptions::Codegen(codegen_options) => {
     //         let executable_path =

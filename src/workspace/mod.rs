@@ -100,6 +100,7 @@ pub struct PartialBindingInfo {
     pub scope_level: ScopeLevel,
     pub qualified_name: Ustr,
     pub span: Span,
+    pub flags: BindingInfoFlags,
 }
 
 impl PartialBindingInfo {
@@ -115,7 +116,7 @@ impl PartialBindingInfo {
             kind: self.kind,
             scope_level: self.scope_level,
             qualified_name: self.qualified_name,
-            flags: BindingInfoFlags::empty(),
+            flags: self.flags,
             uses: vec![],
             span: self.span,
         }

@@ -253,15 +253,13 @@ impl<'s> CheckSess<'s> {
                 scope_level: ScopeLevel::Global,
                 qualified_name: name,
                 span: Span::unknown(),
+                flags: BindingInfoFlags::BUILTIN_TYPE,
             };
 
             let id = sess
                 .workspace
                 .binding_infos
                 .insert_with_id(partial_binding_info.into_binding_info());
-
-            let info = sess.workspace.binding_infos.get_mut(id).unwrap();
-            info.flags.insert(BindingInfoFlags::BUILTIN_TYPE);
 
             sess.builtin_types.insert(name, id);
         };
@@ -422,7 +420,7 @@ impl Check for ast::Binding {
                     if self.type_expr.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
                     } else {
-                        BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED
+                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
                     },
                 )?;
 
@@ -1809,7 +1807,7 @@ impl Check for ast::For {
                     ast::BindingKind::Normal,
                     index_binding.span,
                     if self.index_binding.is_some() {
-                        BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED
+                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
                     } else {
                         BindingInfoFlags::empty()
                     },
@@ -1829,7 +1827,7 @@ impl Check for ast::For {
                     false,
                     ast::BindingKind::Normal,
                     self.iter_binding.span,
-                    BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED,
+                    BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
                 )?;
 
                 statements.push(iter_binding);
@@ -1988,7 +1986,7 @@ impl Check for ast::For {
                             index_binding.span,
                             if self.index_binding.is_some() {
                                 BindingInfoFlags::IS_USER_DEFINED
-                                    & BindingInfoFlags::TYPE_WAS_INFERRED
+                                    | BindingInfoFlags::TYPE_WAS_INFERRED
                             } else {
                                 BindingInfoFlags::empty()
                             },
@@ -2045,7 +2043,7 @@ impl Check for ast::For {
                             false,
                             ast::BindingKind::Normal,
                             self.iter_binding.span,
-                            BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED,
+                            BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
                         )?;
 
                         // loop block { ... }
@@ -2153,7 +2151,7 @@ impl Check for ast::FunctionExpr {
                         if param.type_expr.is_some() {
                             BindingInfoFlags::IS_USER_DEFINED
                         } else {
-                            BindingInfoFlags::IS_USER_DEFINED & BindingInfoFlags::TYPE_WAS_INFERRED
+                            BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
                         },
                     )?;
 
