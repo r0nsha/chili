@@ -249,7 +249,7 @@ impl<'s> CheckSess<'s> {
                     .bound_maybe_spanned(ty.as_kind().create_type(), None),
                 const_value: Some(ConstValue::Type(ty)),
                 is_mutable: false,
-                kind: ast::BindingKind::Normal,
+                kind: ast::BindingKind::Orphan,
                 scope_level: ScopeLevel::Global,
                 qualified_name: name,
                 span: Span::unknown(),
@@ -345,7 +345,7 @@ where
 impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         match &self.kind {
-            BindingKind::Normal => {
+            BindingKind::Orphan => {
                 let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
 
                 let mut value_node = self.value.check(sess, env, Some(ty))?;
@@ -1595,7 +1595,7 @@ impl Check for ast::Ast {
                         span: st.span,
                     })),
                     false,
-                    ast::BindingKind::Normal,
+                    ast::BindingKind::Orphan,
                     st.span,
                     BindingInfoFlags::empty(),
                 )?;
@@ -1804,7 +1804,7 @@ impl Check for ast::For {
                         span: index_binding.span,
                     })),
                     false,
-                    ast::BindingKind::Normal,
+                    ast::BindingKind::Orphan,
                     index_binding.span,
                     if self.index_binding.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
@@ -1825,7 +1825,7 @@ impl Check for ast::For {
                     iter_type,
                     Some(start_node),
                     false,
-                    ast::BindingKind::Normal,
+                    ast::BindingKind::Orphan,
                     self.iter_binding.span,
                     BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
                 )?;
@@ -1949,7 +1949,7 @@ impl Check for ast::For {
                             value_type,
                             Some(value_node),
                             false,
-                            ast::BindingKind::Normal,
+                            ast::BindingKind::Orphan,
                             value_span,
                             BindingInfoFlags::empty(),
                         )?;
@@ -1982,7 +1982,7 @@ impl Check for ast::For {
                                 span: index_binding.span,
                             })),
                             false,
-                            ast::BindingKind::Normal,
+                            ast::BindingKind::Orphan,
                             index_binding.span,
                             if self.index_binding.is_some() {
                                 BindingInfoFlags::IS_USER_DEFINED
@@ -2041,7 +2041,7 @@ impl Check for ast::For {
                                 span: self.span,
                             }))),
                             false,
-                            ast::BindingKind::Normal,
+                            ast::BindingKind::Orphan,
                             self.iter_binding.span,
                             BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
                         )?;
@@ -2146,7 +2146,7 @@ impl Check for ast::FunctionExpr {
                         ast::Visibility::Private,
                         ty,
                         None,
-                        &ast::BindingKind::Normal,
+                        &ast::BindingKind::Orphan,
                         param.pattern.span(),
                         if param.type_expr.is_some() {
                             BindingInfoFlags::IS_USER_DEFINED
@@ -2180,7 +2180,7 @@ impl Check for ast::FunctionExpr {
                         ty,
                         None,
                         false,
-                        ast::BindingKind::Normal,
+                        ast::BindingKind::Orphan,
                         span,
                         BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
                     )?;

@@ -617,7 +617,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         let value = match expr {
             ast::Ast::Binding(binding) => {
                 match &binding.kind {
-                    ast::BindingKind::Normal => {
+                    ast::BindingKind::Orphan => {
                         todo!();
                         // self.gen_binding_pattern_with_expr(
                         //     state,

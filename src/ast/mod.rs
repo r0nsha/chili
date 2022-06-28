@@ -643,14 +643,14 @@ pub struct Binding {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
-    Normal,
+    Orphan,
     Intrinsic(Intrinsic),
     Extern(Option<ExternLibrary>),
 }
 
 impl BindingKind {
-    pub fn is_normal(&self) -> bool {
-        matches!(self, BindingKind::Normal)
+    pub fn is_orphan(&self) -> bool {
+        matches!(self, BindingKind::Orphan)
     }
 
     pub fn is_extern(&self) -> bool {
@@ -664,7 +664,7 @@ impl Display for BindingKind {
             f,
             "{}",
             match self {
-                BindingKind::Normal => "normal",
+                BindingKind::Orphan => "orphan",
                 BindingKind::Intrinsic(_) => "intrinsic",
                 BindingKind::Extern(_) => "extern",
             }

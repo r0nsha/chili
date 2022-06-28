@@ -33,7 +33,7 @@ impl Parser {
         Ok(Binding {
             module_id: Default::default(),
             visibility,
-            kind: BindingKind::Normal,
+            kind: BindingKind::Orphan,
             pattern,
             ty: TypeId::unknown(),
             type_expr: ty_expr,
