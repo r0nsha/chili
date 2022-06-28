@@ -63,24 +63,21 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 
     substitute(&mut sess.workspace.diagnostics, &mut sess.tycx, &sess.cache);
 
-    // for binding in sess
-    //     .cache
-    //     .bindings
-    //     .iter()
-    //     .map(|(_, b)| b)
-    //     .filter(|b| b.kind.is_extern())
-    // {
-    //     if !ty_is_extern(&binding.ty.normalize(&sess.tycx)) {
-    //         sess.workspace.diagnostics.push(
-    //             Diagnostic::error()
-    //                 .with_message("type is not valid in extern context")
-    //                 .with_label(Label::primary(
-    //                     binding.type_expr.as_ref().unwrap().span(),
-    //                     "cannot be used in extern context",
-    //                 )),
-    //         )
-    //     }
-    // }
+    for function in sess
+        .cache
+        .functions
+        .iter()
+        .map(|(_, f)| f)
+        .filter(|f| matches!(&f.kind, hir::FunctionKind::Extern { .. }))
+    {
+        if !ty_is_extern(&function.ty.normalize(&sess.tycx)) {
+            sess.workspace.diagnostics.push(
+                Diagnostic::error()
+                    .with_message("function type is not valid in extern context")
+                    .with_label(Label::primary(function.span, "invalid extern type")),
+            )
+        }
+    }
 
     sess.into_data()
 }
@@ -478,7 +475,7 @@ impl Check for ast::Binding {
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::Function(ConstFunction {
                         id: function_id,
-                        name: pattern.name,
+                        name: qualified_name,
                     }),
                     ty,
                     span: pattern.span,
