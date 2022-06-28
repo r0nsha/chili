@@ -1,6 +1,7 @@
 mod builtin;
 mod const_fold;
 mod env;
+mod lvalue_access;
 mod pattern;
 mod top_level;
 
@@ -2294,6 +2295,8 @@ impl Check for ast::Assignment {
                 rhs_node.ty(),
                 rhs_node.span(),
             )?;
+
+        sess.check_lvalue_access(&lhs_node);
 
         Ok(hir::Node::Assignment(hir::Assignment {
             ty: sess.tycx.common_types.unit,

@@ -1,5 +1,3 @@
-mod access;
-mod lvalue_access;
 mod ref_access;
 mod type_limits;
 
@@ -145,15 +143,7 @@ impl Lint for hir::Id {
 
 impl Lint for hir::Assignment {
     fn lint(&self, sess: &mut LintSess) {
-        match self.lhs.as_ref() {
-            hir::Node::Id(id) => {
-                sess.check_assign_lvalue_id_access(&self.lhs, id.id);
-            }
-            _ => {
-                sess.check_lvalue_access(&self.lhs, self.lhs.span());
-                self.lhs.lint(sess);
-            }
-        }
+        self.lhs.lint(sess);
     }
 }
 
