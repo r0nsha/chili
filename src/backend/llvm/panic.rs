@@ -1,4 +1,4 @@
-use super::codegen::{CodegenState, Generator};
+use super::codegen::{FunctionState, Generator};
 use super::ty::IntoLlvmType;
 use crate::infer::normalize::Normalize;
 use crate::span::Span;
@@ -8,7 +8,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     #[allow(unused)]
     pub fn gen_panic_with_message(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         msg: impl AsRef<str>,
         span: Span,
     ) {
@@ -18,7 +18,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_panic(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         message: BasicValueEnum<'ctx>,
         span: Span,
     ) {
@@ -74,7 +74,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_conditional_panic(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         name: impl AsRef<str>,
         condition: IntValue<'ctx>,
         message: BasicValueEnum<'ctx>,

@@ -1,6 +1,8 @@
 pub mod const_value;
 pub mod pretty;
 
+use std::collections::HashMap;
+
 use crate::{
     ast::{ExternLibrary, Intrinsic},
     common::id_cache::{IdCache, WithId},
@@ -38,14 +40,16 @@ macro_rules! node_struct {
 define_id_type!(FunctionId);
 
 pub struct Cache {
-    pub bindings: IdCache<BindingId, Binding>,
+    // TODO: This BindingId is not the same BindingId used in workspace.
+    // TODO: We causes some confusion, and should be fixed.
+    pub bindings: HashMap<BindingId, Binding>,
     pub functions: IdCache<FunctionId, Function>,
 }
 
 impl Cache {
     pub fn new() -> Self {
         Self {
-            bindings: IdCache::new(),
+            bindings: HashMap::new(),
             functions: IdCache::new(),
         }
     }

@@ -967,7 +967,7 @@ fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usi
     let binding = sess
         .cache
         .bindings
-        .get(id)
+        .get(&id)
         .unwrap_or_else(|| panic!("binding not found: {:?}", id));
 
     lower_top_level_binding(binding, sess)

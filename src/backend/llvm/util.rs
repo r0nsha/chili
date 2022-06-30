@@ -1,6 +1,6 @@
 use super::{
     abi::{align_of, size_of},
-    codegen::{CodegenState, Generator},
+    codegen::{FunctionState, Generator},
     ty::IntoLlvmType,
 };
 use crate::{
@@ -102,17 +102,17 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.builder.get_insert_block().unwrap()
     }
 
-    pub fn append_basic_block(&self, state: &CodegenState<'ctx>, name: &str) -> BasicBlock<'ctx> {
+    pub fn append_basic_block(&self, state: &FunctionState<'ctx>, name: &str) -> BasicBlock<'ctx> {
         self.context.append_basic_block(state.function, name)
     }
 
-    pub fn start_block(&self, state: &mut CodegenState<'ctx>, block: BasicBlock<'ctx>) {
+    pub fn start_block(&self, state: &mut FunctionState<'ctx>, block: BasicBlock<'ctx>) {
         state.curr_block = block;
         self.builder.position_at_end(block);
     }
 
     #[allow(unused)]
-    pub fn print_current_state(&self, state: &CodegenState<'ctx>) {
+    pub fn print_current_state(&self, state: &FunctionState<'ctx>) {
         let current_block = self.current_block();
         println!(
             "function: {}\n\tblock: {}\n\tterminated: {}",
@@ -124,7 +124,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn build_alloca(
         &self,
-        state: &CodegenState<'ctx>,
+        state: &FunctionState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,
     ) -> PointerValue<'ctx> {
         self.build_alloca_inner(state, llvm_ty, "")
@@ -132,7 +132,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn build_alloca_named(
         &self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,
         id: BindingId,
     ) -> PointerValue<'ctx> {
@@ -156,7 +156,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn build_alloca_inner(
         &self,
-        state: &CodegenState<'ctx>,
+        state: &FunctionState<'ctx>,
         llvm_ty: BasicTypeEnum<'ctx>,
         name: &str,
     ) -> PointerValue<'ctx> {
@@ -261,7 +261,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn build_copy_value_to_ptr(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
         dst_type: BasicTypeEnum<'ctx>,
         align: u32,
@@ -333,7 +333,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn build_transmute(
         &self,
-        state: &CodegenState<'ctx>,
+        state: &FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
         dst_type: BasicTypeEnum<'ctx>,
     ) -> BasicValueEnum<'ctx> {

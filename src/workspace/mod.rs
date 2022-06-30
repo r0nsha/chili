@@ -46,6 +46,7 @@ pub struct Workspace {
     // BindingInfoId -> BindingInfo
     pub binding_infos: IdCache<BindingId, BindingInfo>,
 
+    // TODO: Move entry_point_function_id to `hir::Cache`
     // The entry point function's id (usually named "main"). Resolved during semantic analysis
     pub entry_point_function_id: Option<BindingId>,
 

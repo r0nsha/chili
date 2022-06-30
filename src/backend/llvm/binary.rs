@@ -1,4 +1,4 @@
-use super::codegen::{CodegenState, Generator};
+use super::codegen::{FunctionState, Generator};
 use crate::{ast, infer::normalize::Normalize, span::Span, types::*};
 use inkwell::{
     types::IntType,
@@ -9,70 +9,71 @@ use inkwell::{
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_binary(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         binary: &ast::Binary,
     ) -> BasicValueEnum<'ctx> {
-        let ty = binary.lhs.ty().normalize(self.tycx);
+        todo!();
+        // let ty = binary.lhs.ty().normalize(self.tycx);
 
-        let lhs = self.gen_expr(state, &binary.lhs, true);
-        let rhs = self.gen_expr(state, &binary.rhs, true);
+        // let lhs = self.gen_expr(state, &binary.lhs, true);
+        // let rhs = self.gen_expr(state, &binary.rhs, true);
 
-        let (lhs, rhs) = if lhs.is_pointer_value() {
-            (
-                self.builder
-                    .build_ptr_to_int(lhs.into_pointer_value(), self.ptr_sized_int_type, "")
-                    .as_basic_value_enum(),
-                self.builder
-                    .build_ptr_to_int(rhs.into_pointer_value(), self.ptr_sized_int_type, "")
-                    .as_basic_value_enum(),
-            )
-        } else {
-            (lhs, rhs)
-        };
+        // let (lhs, rhs) = if lhs.is_pointer_value() {
+        //     (
+        //         self.builder
+        //             .build_ptr_to_int(lhs.into_pointer_value(), self.ptr_sized_int_type, "")
+        //             .as_basic_value_enum(),
+        //         self.builder
+        //             .build_ptr_to_int(rhs.into_pointer_value(), self.ptr_sized_int_type, "")
+        //             .as_basic_value_enum(),
+        //     )
+        // } else {
+        //     (lhs, rhs)
+        // };
 
-        match binary.op {
-            ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, binary.span),
-            ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, binary.span),
-            ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, binary.span),
-            ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, binary.span),
-            ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, binary.span),
-            ast::BinaryOp::Eq
-            | ast::BinaryOp::Ne
-            | ast::BinaryOp::Lt
-            | ast::BinaryOp::Le
-            | ast::BinaryOp::Gt
-            | ast::BinaryOp::Ge => {
-                if ty.is_float() {
-                    self.builder
-                        .build_float_compare(
-                            binary.op.into_float_predicate(),
-                            lhs.into_float_value(),
-                            rhs.into_float_value(),
-                            "",
-                        )
-                        .into()
-                } else {
-                    self.builder
-                        .build_int_compare(
-                            binary.op.into_int_predicate(ty.is_signed_int()),
-                            lhs.into_int_value(),
-                            rhs.into_int_value(),
-                            "",
-                        )
-                        .into()
-                }
-            }
-            ast::BinaryOp::And | ast::BinaryOp::BitAnd => self.gen_and(lhs, rhs),
-            ast::BinaryOp::Or | ast::BinaryOp::BitOr => self.gen_or(lhs, rhs),
-            ast::BinaryOp::Shl => self.gen_shl(lhs, rhs),
-            ast::BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
-            ast::BinaryOp::BitXor => self.gen_xor(lhs, rhs),
-        }
+        // match binary.op {
+        //     ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Eq
+        //     | ast::BinaryOp::Ne
+        //     | ast::BinaryOp::Lt
+        //     | ast::BinaryOp::Le
+        //     | ast::BinaryOp::Gt
+        //     | ast::BinaryOp::Ge => {
+        //         if ty.is_float() {
+        //             self.builder
+        //                 .build_float_compare(
+        //                     binary.op.into_float_predicate(),
+        //                     lhs.into_float_value(),
+        //                     rhs.into_float_value(),
+        //                     "",
+        //                 )
+        //                 .into()
+        //         } else {
+        //             self.builder
+        //                 .build_int_compare(
+        //                     binary.op.into_int_predicate(ty.is_signed_int()),
+        //                     lhs.into_int_value(),
+        //                     rhs.into_int_value(),
+        //                     "",
+        //                 )
+        //                 .into()
+        //         }
+        //     }
+        //     ast::BinaryOp::And | ast::BinaryOp::BitAnd => self.gen_and(lhs, rhs),
+        //     ast::BinaryOp::Or | ast::BinaryOp::BitOr => self.gen_or(lhs, rhs),
+        //     ast::BinaryOp::Shl => self.gen_shl(lhs, rhs),
+        //     ast::BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
+        //     ast::BinaryOp::BitXor => self.gen_xor(lhs, rhs),
+        // }
     }
 
     fn gen_add(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: Type,
@@ -102,7 +103,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn gen_sub(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: Type,
@@ -132,7 +133,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn gen_mul(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: Type,
@@ -162,7 +163,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn gen_div(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: Type,
@@ -191,7 +192,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn gen_rem(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         lhs: BasicValueEnum<'ctx>,
         rhs: BasicValueEnum<'ctx>,
         ty: Type,
@@ -310,7 +311,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn gen_call_overflow_fn(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         f: FunctionValue<'ctx>,
         lhs: IntValue<'ctx>,
         rhs: IntValue<'ctx>,

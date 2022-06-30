@@ -1,4 +1,4 @@
-use super::codegen::{CodegenState, Generator};
+use super::codegen::{FunctionState, Generator};
 use crate::span::Span;
 use inkwell::{
     values::{IntValue, PointerValue},
@@ -21,7 +21,7 @@ macro_rules! release_guard {
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_runtime_check_division_by_zero(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         divisor: IntValue<'ctx>,
         span: Span,
     ) {
@@ -42,7 +42,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_runtime_check_null_pointer_deref(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         ptr: PointerValue<'ctx>,
         span: Span,
     ) {
@@ -58,7 +58,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_runtime_check_overflow(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         condition: IntValue<'ctx>,
         span: Span,
         op: &str,
@@ -74,7 +74,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_runtime_check_index_out_of_bounds(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         index: IntValue<'ctx>,
         len: IntValue<'ctx>,
         span: Span,
@@ -110,7 +110,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_runtime_check_slice_end_before_start(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
         span: Span,
@@ -132,7 +132,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_runtime_check_slice_range_out_of_bounds(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
         len: IntValue<'ctx>,

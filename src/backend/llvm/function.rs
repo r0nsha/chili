@@ -1,11 +1,10 @@
 use super::{
     abi::{AbiFunction, AbiType},
-    codegen::{CodegenState, Generator},
-    traits::LlvmName,
+    codegen::{FunctionState, Generator},
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::{ast, infer::normalize::Normalize, types::*, workspace::BindingId};
+use crate::{ast, hir, infer::normalize::Normalize, types::*, workspace::BindingId};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
@@ -19,8 +18,8 @@ use inkwell::{
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_function(
         &mut self,
-        id: ast::FunctionId,
-        prev_state: Option<CodegenState<'ctx>>,
+        id: hir::FunctionId,
+        prev_state: Option<FunctionState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         self.functions.get(&id).cloned().unwrap_or_else(|| {
             todo!()
@@ -31,25 +30,22 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     fn gen_function_inner(
         &mut self,
-        function: &ast::Function,
-        prev_state: Option<CodegenState<'ctx>>,
+        function: &hir::Function,
+        prev_state: Option<FunctionState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         let module_info = *self.workspace.module_infos.get(function.module_id).unwrap();
         let function_type = function.ty.normalize(self.tycx).into_function();
 
         match &function.kind {
-            ast::FunctionKind::Orphan { sig, body } => {
+            hir::FunctionKind::Orphan { params, body, .. } => {
                 let prev_block = if let Some(ref prev_state) = prev_state {
                     Some(prev_state.curr_block)
                 } else {
                     self.builder.get_insert_block()
                 };
 
-                let function_value = self.declare_fn_sig(
-                    &function_type,
-                    sig.llvm_name(module_info.name),
-                    Some(Linkage::Private),
-                );
+                let function_value =
+                    self.declare_fn_sig(&function_type, function.name, Some(Linkage::Private));
 
                 self.functions.insert(function.id, function_value);
 
@@ -63,13 +59,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .get_first_param()
                         .unwrap()
                         .into_pointer_value();
-                    return_ptr.set_name(&format!("{}.result", sig.name));
+                    return_ptr.set_name(&format!("{}.result", function.name));
                     Some(return_ptr)
                 } else {
                     None
                 };
 
-                let mut state = CodegenState::new(
+                let mut state = FunctionState::new(
                     module_info,
                     function_value,
                     function_type,
@@ -86,13 +82,15 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 state.push_scope();
 
-                let mut params = function_value.get_params();
+                let mut function_params = function_value.get_params();
 
                 if abi_fn.ret.kind.is_indirect() {
-                    params.remove(0);
+                    function_params.remove(0);
                 }
 
-                for (index, (&value, param)) in params.iter().zip(sig.params.iter()).enumerate() {
+                for (index, (&value, param)) in
+                    function_params.iter().zip(params.iter()).enumerate()
+                {
                     let value = if abi_fn.params[index].kind.is_indirect() {
                         self.build_load(value)
                     } else {
@@ -108,19 +106,21 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                     let value = self.build_transmute(&state, value, llvm_param_ty);
 
-                    self.gen_binding_pattern_with_value(
-                        &mut state,
-                        &param.pattern,
-                        &param_ty,
-                        value,
-                    );
+                    todo!();
+                    // self.gen_binding_pattern_with_value(
+                    //     &mut state,
+                    //     &param.pattern,
+                    //     &param_ty,
+                    //     value,
+                    // );
                 }
 
-                let return_value = self.gen_block(&mut state, body.as_ref().unwrap(), true);
+                todo!();
+                // let return_value = self.gen_block(&mut state, body.as_ref().unwrap(), true);
 
-                if self.current_block().get_terminator().is_none() {
-                    self.gen_return(&mut state, Some(return_value));
-                }
+                // if self.current_block().get_terminator().is_none() {
+                //     self.gen_return(&mut state, Some(return_value));
+                // }
 
                 state.pop_scope();
 
@@ -133,15 +133,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 function_value
             }
-            ast::FunctionKind::Extern { name, lib: _ } => {
-                self.extern_functions.get(name).cloned().unwrap_or_else(|| {
+            hir::FunctionKind::Extern { .. } => self
+                .extern_functions
+                .get(&function.name)
+                .cloned()
+                .unwrap_or_else(|| {
                     let function_type = self.fn_type(&function_type);
-                    let function = self.get_or_add_function(name, function_type, None);
-                    self.extern_functions.insert(*name, function);
-                    function
-                })
-            }
-            ast::FunctionKind::Intrinsic(intrinsic) => {
+                    let function_value =
+                        self.get_or_add_function(function.name, function_type, None);
+
+                    self.extern_functions.insert(function.name, function_value);
+
+                    function_value
+                }),
+            hir::FunctionKind::Intrinsic(intrinsic) => {
                 self.gen_intrinsic(intrinsic, &function_type)
             }
         }
@@ -193,46 +198,48 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub fn gen_fn_call_expr(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         call: &ast::Call,
     ) -> BasicValueEnum<'ctx> {
-        let callee_ty = call.callee.ty().normalize(self.tycx).into_function();
+        todo!();
 
-        let mut args = vec![];
+        // let callee_ty = call.callee.ty().normalize(self.tycx).into_function();
 
-        for (index, arg) in call.args.iter().enumerate() {
-            let value = self.gen_expr(state, arg, true);
-            args.push((value, index));
-        }
+        // let mut args = vec![];
 
-        args.sort_by_key(|&(_, i)| i);
-
-        let args: Vec<BasicValueEnum> = args.iter().map(|(a, _)| *a).collect();
-
-        let callee_ptr = self
-            .gen_expr(state, &call.callee, false)
-            .into_pointer_value();
-
-        // println!("callee: {:#?}", callee_ptr.get_type());
-
-        // for arg in args.iter() {
-        //     println!("arg: {:#?}", arg);
+        // for (index, arg) in call.args.iter().enumerate() {
+        //     let value = self.gen_expr(state, arg, true);
+        //     args.push((value, index));
         // }
 
-        let callable_value: CallableValue = callee_ptr.try_into().unwrap();
+        // args.sort_by_key(|&(_, i)| i);
 
-        self.gen_fn_call(
-            state,
-            callable_value,
-            &callee_ty,
-            args,
-            &call.ty.normalize(self.tycx),
-        )
+        // let args: Vec<BasicValueEnum> = args.iter().map(|(a, _)| *a).collect();
+
+        // let callee_ptr = self
+        //     .gen_expr(state, &call.callee, false)
+        //     .into_pointer_value();
+
+        // // println!("callee: {:#?}", callee_ptr.get_type());
+
+        // // for arg in args.iter() {
+        // //     println!("arg: {:#?}", arg);
+        // // }
+
+        // let callable_value: CallableValue = callee_ptr.try_into().unwrap();
+
+        // self.gen_fn_call(
+        //     state,
+        //     callable_value,
+        //     &callee_ty,
+        //     args,
+        //     &call.ty.normalize(self.tycx),
+        // )
     }
 
     pub fn gen_fn_call(
         &mut self,
-        state: &mut CodegenState<'ctx>,
+        state: &mut FunctionState<'ctx>,
         callee: impl Into<CallableValue<'ctx>>,
         callee_ty: &FunctionType,
         args: Vec<BasicValueEnum<'ctx>>,

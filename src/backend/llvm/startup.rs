@@ -1,5 +1,5 @@
 use super::{
-    codegen::{CodegenState, Generator},
+    codegen::{FunctionState, Generator},
     ty::IntoLlvmType,
 };
 use crate::{
@@ -122,7 +122,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let root_module_info = self.workspace.get_root_module_info();
 
-        let mut state = CodegenState::new(
+        let mut state = FunctionState::new(
             *root_module_info,
             function,
             startup_fn_type,
@@ -160,7 +160,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.builder.build_unconditional_branch(entry_block);
     }
 
-    fn initialize_globals(&mut self, state: &mut CodegenState<'ctx>) {
+    fn initialize_globals(&mut self, state: &mut FunctionState<'ctx>) {
         for (_, binding) in self.cache.bindings.iter() {
             // if all patterns are const, then there is no value to generate at runtime - so we skip
             todo!()

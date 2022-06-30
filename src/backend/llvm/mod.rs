@@ -1,6 +1,10 @@
 mod abi;
 mod binary;
 mod codegen;
+mod codegen_builtin;
+mod codegen_control;
+mod codegen_literal;
+mod codegen_node;
 mod conditional;
 mod function;
 mod intrinsics;

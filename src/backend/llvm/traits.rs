@@ -1,12 +1,7 @@
-use crate::{
-    ast::{pattern::NamePattern, FunctionSig},
-    types::FunctionTypeKind,
-};
 use inkwell::{
     types::{AnyType, AnyTypeEnum, BasicTypeEnum},
     values::{AnyValueEnum, BasicValue, BasicValueEnum, InstructionOpcode},
 };
-use ustr::Ustr;
 
 pub(super) trait IsALoadInst {
     fn is_a_load_inst(&self) -> bool;
@@ -49,37 +44,5 @@ impl<'ctx> IsAggregateType for AnyTypeEnum<'ctx> {
 impl<'ctx> IsAggregateType for BasicTypeEnum<'ctx> {
     fn is_aggregate_type(&self) -> bool {
         self.as_any_type_enum().is_aggregate_type()
-    }
-}
-
-pub(super) trait LlvmName {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String;
-}
-
-impl LlvmName for FunctionSig {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        // let module_name
-        match &self.kind {
-            FunctionTypeKind::Extern { .. } => self.name.to_string(),
-            _ => self.name.llvm_name(module_name),
-        }
-    }
-}
-
-impl LlvmName for NamePattern {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        self.name.llvm_name(module_name)
-    }
-}
-
-impl LlvmName for Ustr {
-    fn llvm_name(&self, module_name: impl AsRef<str>) -> String {
-        let module_name = module_name.as_ref();
-
-        if module_name == "" {
-            format!("root#{}", self)
-        } else {
-            format!("{}.{}", module_name, self)
-        }
     }
 }

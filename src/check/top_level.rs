@@ -30,7 +30,7 @@ impl CheckTopLevel for ast::Binding {
         match node {
             hir::Node::Binding(binding) => {
                 let (name, id) = (binding.name, binding.id);
-                sess.cache.bindings.insert(binding);
+                sess.cache.bindings.insert(id, binding);
                 bound_names.insert(name, id);
             }
             hir::Node::Sequence(sequence) => {
@@ -38,7 +38,7 @@ impl CheckTopLevel for ast::Binding {
                     let binding = statement.into_binding().unwrap();
                     let (name, id) = (binding.name, binding.id);
 
-                    sess.cache.bindings.insert(binding);
+                    sess.cache.bindings.insert(id, binding);
 
                     bound_names.insert(name, id);
                 }
