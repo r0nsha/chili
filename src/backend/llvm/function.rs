@@ -22,9 +22,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         prev_state: Option<FunctionState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         self.functions.get(&id).cloned().unwrap_or_else(|| {
-            todo!()
-            // let function = self.cache.functions.get(id).unwrap();
-            // self.gen_function_inner(function, prev_state)
+            let function = self.cache.functions.get(id).unwrap();
+            self.gen_function_inner(function, prev_state)
         })
     }
 
