@@ -16,6 +16,7 @@ use crate::{
         scopes::Scopes,
         target::TargetMetrics,
     },
+    hir,
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
@@ -64,16 +65,16 @@ impl<'ctx> CodegenDecl<'ctx> {
     }
 }
 
-pub struct Codegen<'cg, 'ctx> {
-    pub workspace: &'cg Workspace,
-    pub tycx: &'cg TyCtx,
-    pub typed_ast: &'cg ast::TypedAst,
+pub struct Generator<'g, 'ctx> {
+    pub workspace: &'g Workspace,
+    pub tycx: &'g TyCtx,
+    pub cache: &'g hir::Cache,
 
     pub target_metrics: TargetMetrics,
 
     pub context: &'ctx Context,
-    pub module: &'cg Module<'ctx>,
-    pub builder: &'cg Builder<'ctx>,
+    pub module: &'g Module<'ctx>,
+    pub builder: &'g Builder<'ctx>,
     pub ptr_sized_int_type: IntType<'ctx>,
 
     pub global_decls: HashMap<BindingId, CodegenDecl<'ctx>>,
@@ -132,8 +133,9 @@ pub struct LoopBlock<'ctx> {
     exit: BasicBlock<'ctx>,
 }
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn start(&mut self) {
+        println!("{:?}", self.workspace.entry_point_function_id.unwrap());
         self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
         self.gen_entry_point_function();
     }
@@ -164,7 +166,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     pub fn gen_top_level_binding(&mut self, id: BindingId) -> CodegenDecl<'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
-        } else if let Some(binding) = self.typed_ast.get_binding(id) {
+        } else if let Some(binding) = self.cache.bindings.get(id) {
             todo!();
             // if let Some(expr) = binding.value.as_ref() {
             //     if let ast::Ast::Const(ast::Const {

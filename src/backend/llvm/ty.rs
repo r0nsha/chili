@@ -1,80 +1,82 @@
 use super::{
     abi::{self, AbiFunction, AbiType},
-    codegen::Codegen,
+    codegen::Generator,
 };
-use crate::infer::normalize::Normalize;
-use crate::types::{size::SizeOf, *};
+use crate::{
+    infer::normalize::Normalize,
+    types::{size::SizeOf, *},
+};
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},
     AddressSpace,
 };
 use std::cmp::Ordering;
 
-pub trait IntoLlvmType<'cg, 'ctx> {
-    fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx>;
+pub trait IntoLlvmType<'g, 'ctx> {
+    fn llvm_type(&self, generator: &mut Generator<'g, 'ctx>) -> BasicTypeEnum<'ctx>;
 }
 
-impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for TypeId {
-    fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
-        let kind = self.normalize(cg.tycx);
-        kind.llvm_type(cg)
+impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for TypeId {
+    fn llvm_type(&self, generator: &mut Generator<'g, 'ctx>) -> BasicTypeEnum<'ctx> {
+        let kind = self.normalize(generator.tycx);
+        kind.llvm_type(generator)
     }
 }
 
-impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Type {
-    fn llvm_type(&self, cg: &mut Codegen<'cg, 'ctx>) -> BasicTypeEnum<'ctx> {
+impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
+    fn llvm_type(&self, generator: &mut Generator<'g, 'ctx>) -> BasicTypeEnum<'ctx> {
         match self {
-            Type::Bool => cg.context.bool_type().into(),
+            Type::Bool => generator.context.bool_type().into(),
             Type::Int(inner) => match inner {
-                IntType::I8 => cg.context.i8_type().into(),
-                IntType::I16 => cg.context.i16_type().into(),
-                IntType::I32 => cg.context.i32_type().into(),
-                IntType::I64 => cg.context.i64_type().into(),
-                IntType::Int => cg.ptr_sized_int_type.into(),
+                IntType::I8 => generator.context.i8_type().into(),
+                IntType::I16 => generator.context.i16_type().into(),
+                IntType::I32 => generator.context.i32_type().into(),
+                IntType::I64 => generator.context.i64_type().into(),
+                IntType::Int => generator.ptr_sized_int_type.into(),
             },
             Type::Uint(inner) => match inner {
-                UintType::U8 => cg.context.i8_type().into(),
-                UintType::U16 => cg.context.i16_type().into(),
-                UintType::U32 => cg.context.i32_type().into(),
-                UintType::U64 => cg.context.i64_type().into(),
-                UintType::Uint => cg.ptr_sized_int_type.into(),
+                UintType::U8 => generator.context.i8_type().into(),
+                UintType::U16 => generator.context.i16_type().into(),
+                UintType::U32 => generator.context.i32_type().into(),
+                UintType::U64 => generator.context.i64_type().into(),
+                UintType::Uint => generator.ptr_sized_int_type.into(),
             },
             Type::Float(inner) => match inner {
-                FloatType::F16 => cg.context.f16_type().into(),
-                FloatType::F32 => cg.context.f32_type().into(),
-                FloatType::F64 => cg.context.f64_type().into(),
-                FloatType::Float => if cg.target_metrics.word_size == 8 {
-                    cg.context.f64_type()
+                FloatType::F16 => generator.context.f16_type().into(),
+                FloatType::F32 => generator.context.f32_type().into(),
+                FloatType::F64 => generator.context.f64_type().into(),
+                FloatType::Float => if generator.target_metrics.word_size == 8 {
+                    generator.context.f64_type()
                 } else {
-                    cg.context.f32_type()
+                    generator.context.f32_type()
                 }
                 .into(),
             },
             Type::Pointer(inner, _) | Type::MultiPointer(inner, ..) => {
-                let ty = inner.llvm_type(cg);
+                let ty = inner.llvm_type(generator);
                 ty.ptr_type(AddressSpace::Generic).into()
             }
-            Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => cg.unit_type(),
-            Type::Function(func) => cg
+            Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => generator.unit_type(),
+            Type::Function(func) => generator
                 .abi_compliant_fn_type(func)
                 .ptr_type(AddressSpace::Generic)
                 .into(),
-            Type::Array(inner, size) => inner.llvm_type(cg).array_type(*size as u32).into(),
-            Type::Slice(inner, ..) => cg.slice_type(inner),
-            Type::Tuple(tys) => cg
+            Type::Array(inner, size) => inner.llvm_type(generator).array_type(*size as u32).into(),
+            Type::Slice(inner, ..) => generator.slice_type(inner),
+            Type::Tuple(tys) => generator
                 .context
                 .struct_type(
                     &tys.iter()
-                        .map(|ty| ty.llvm_type(cg))
+                        .map(|ty| ty.llvm_type(generator))
                         .collect::<Vec<BasicTypeEnum>>(),
                     false,
                 )
                 .into(),
             Type::Struct(struct_ty) => {
                 let struct_type = if struct_ty.name.is_empty() {
-                    cg.create_anonymous_struct_type(struct_ty)
+                    generator.create_anonymous_struct_type(struct_ty)
                 } else {
-                    cg.get_or_create_named_struct_type(struct_ty)
+                    generator.get_or_create_named_struct_type(struct_ty)
                 };
 
                 struct_type.into()
@@ -86,7 +88,7 @@ impl<'cg, 'ctx> IntoLlvmType<'cg, 'ctx> for Type {
     }
 }
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn unit_type(&self) -> BasicTypeEnum<'ctx> {
         self.context.struct_type(&[], false).into()
     }

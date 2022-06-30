@@ -1,8 +1,8 @@
-use super::codegen::Codegen;
+use super::codegen::Generator;
 use crate::{ast, types::FunctionType};
 use inkwell::{module::Linkage, values::FunctionValue};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn gen_intrinsic(
         &mut self,
         intrinsic: &ast::Intrinsic,
@@ -29,7 +29,7 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
         create_fn: F,
     ) -> FunctionValue<'ctx>
     where
-        F: FnOnce(&mut Codegen<'cg, 'ctx>) -> FunctionValue<'ctx>,
+        F: FnOnce(&mut Generator<'g, 'ctx>) -> FunctionValue<'ctx>,
     {
         self.intrinsics.get(intrinsic).cloned().unwrap_or_else(|| {
             let function = create_fn(self);

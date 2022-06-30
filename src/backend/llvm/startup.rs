@@ -1,5 +1,5 @@
 use super::{
-    codegen::{Codegen, CodegenState},
+    codegen::{CodegenState, Generator},
     ty::IntoLlvmType,
 };
 use crate::{
@@ -17,7 +17,7 @@ use inkwell::{
 };
 use ustr::ustr;
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_entry_point_function(&mut self) {
         let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
 
@@ -161,68 +161,69 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     fn initialize_globals(&mut self, state: &mut CodegenState<'ctx>) {
-        for (_, binding) in self.typed_ast.bindings.iter() {
+        for (_, binding) in self.cache.bindings.iter() {
             // if all patterns are const, then there is no value to generate at runtime - so we skip
-            if binding.pattern.iter().all(|p| !p.is_mutable) {
-                continue;
-            }
+            todo!()
+            // if binding.pattern.iter().all(|p| !p.is_mutable) {
+            //     continue;
+            // }
 
-            let ty = binding.ty.llvm_type(self);
+            // let ty = binding.ty.llvm_type(self);
 
-            let global_value = match &binding.pattern {
-                Pattern::Name(pat)
-                | Pattern::Hybrid(HybridPattern {
-                    name_pattern: pat, ..
-                }) => self.global_decls.get(&pat.id).unwrap().into_global_value(),
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
-                    let global_value = self.module.add_global(ty, None, "");
-                    global_value.set_linkage(Linkage::Private);
-                    global_value
-                }
-            };
+            // let global_value = match &binding.pattern {
+            //     Pattern::Name(pat)
+            //     | Pattern::Hybrid(HybridPattern {
+            //         name_pattern: pat, ..
+            //     }) => self.global_decls.get(&pat.id).unwrap().into_global_value(),
+            //     Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => {
+            //         let global_value = self.module.add_global(ty, None, "");
+            //         global_value.set_linkage(Linkage::Private);
+            //         global_value
+            //     }
+            // };
 
-            let old_module_info = state.module_info;
-            state.module_info = *self.workspace.module_infos.get(binding.module_id).unwrap();
+            // let old_module_info = state.module_info;
+            // state.module_info = *self.workspace.module_infos.get(binding.module_id).unwrap();
 
-            let value = self.gen_expr(state, &binding.value, true);
+            // let value = self.gen_expr(state, &binding.value, true);
 
-            state.module_info = old_module_info;
+            // state.module_info = old_module_info;
 
-            let is_const = matches!(binding.value.as_ref(), ast::Ast::Const(..));
+            // let is_const = matches!(binding.value.as_ref(), ast::Ast::Const(..));
 
-            let initializer = if is_const { value } else { ty.const_zero() };
+            // let initializer = if is_const { value } else { ty.const_zero() };
 
-            global_value.set_initializer(&initializer);
+            // global_value.set_initializer(&initializer);
 
-            let global_ptr = global_value.as_pointer_value();
+            // let global_ptr = global_value.as_pointer_value();
 
-            match &binding.pattern {
-                Pattern::Name(_) => {
-                    if !is_const {
-                        self.build_store(global_ptr, value);
-                    }
-                }
-                Pattern::StructUnpack(pattern) => {
-                    self.initialize_global_struct_unpack(binding, pattern, global_ptr);
-                }
-                Pattern::TupleUnpack(pattern) => {
-                    self.initialize_global_tuple_unpack(binding, pattern, global_ptr);
-                }
-                Pattern::Hybrid(pattern) => {
-                    if !is_const {
-                        self.build_store(global_ptr, value);
-                    }
+            // match &binding.pattern {
+            //     Pattern::Name(_) => {
+            //         if !is_const {
+            //             self.build_store(global_ptr, value);
+            //         }
+            //     }
+            //     Pattern::StructUnpack(pattern) => {
+            //         self.initialize_global_struct_unpack(binding, pattern, global_ptr);
+            //     }
+            //     Pattern::TupleUnpack(pattern) => {
+            //         self.initialize_global_tuple_unpack(binding, pattern, global_ptr);
+            //     }
+            //     Pattern::Hybrid(pattern) => {
+            //         if !is_const {
+            //             self.build_store(global_ptr, value);
+            //         }
 
-                    match &pattern.unpack_pattern {
-                        UnpackPatternKind::Struct(pattern) => {
-                            self.initialize_global_struct_unpack(binding, pattern, global_ptr)
-                        }
-                        UnpackPatternKind::Tuple(pattern) => {
-                            self.initialize_global_tuple_unpack(binding, pattern, global_ptr)
-                        }
-                    }
-                }
-            }
+            //         match &pattern.unpack_pattern {
+            //             UnpackPatternKind::Struct(pattern) => {
+            //                 self.initialize_global_struct_unpack(binding, pattern, global_ptr)
+            //             }
+            //             UnpackPatternKind::Tuple(pattern) => {
+            //                 self.initialize_global_tuple_unpack(binding, pattern, global_ptr)
+            //             }
+            //         }
+            //     }
+            // }
         }
     }
 

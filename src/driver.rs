@@ -93,28 +93,28 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     // Code generation
     // todo!("codegen");
-    // match &workspace.build_options.codegen_options {
-    //     CodegenOptions::Codegen(codegen_options) => {
-    //         let executable_path =
-    //             crate::backend::llvm::codegen(&workspace, &tycx, &typed_ast, codegen_options);
+    match &workspace.build_options.codegen_options {
+        CodegenOptions::Codegen(codegen_options) => {
+            let executable_path =
+                crate::backend::llvm::codegen(&workspace, &tycx, &cache, codegen_options);
 
-    //         if workspace.build_options.emit_times {
-    //             print_stats(stats, all_sw.unwrap().elapsed().as_millis());
-    //         }
+            if workspace.build_options.emit_times {
+                print_stats(stats, all_sw.unwrap().elapsed().as_millis());
+            }
 
-    //         if codegen_options.run_executable {
-    //             Command::new(&executable_path)
-    //                 .spawn()
-    //                 .ok()
-    //                 .unwrap_or_else(|| panic!("{}", executable_path));
-    //         }
-    //     }
-    //     _ => {
-    //         if workspace.build_options.emit_times {
-    //             print_stats(stats, all_sw.unwrap().elapsed().as_millis());
-    //         }
-    //     }
-    // }
+            if codegen_options.run_executable {
+                Command::new(&executable_path)
+                    .spawn()
+                    .ok()
+                    .unwrap_or_else(|| panic!("{}", executable_path));
+            }
+        }
+        _ => {
+            if workspace.build_options.emit_times {
+                print_stats(stats, all_sw.unwrap().elapsed().as_millis());
+            }
+        }
+    }
 
     StartWorkspaceResult::new(workspace, Some(tycx), Some(cache))
 }

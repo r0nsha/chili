@@ -1,4 +1,4 @@
-use super::codegen::{Codegen, CodegenState};
+use super::codegen::{CodegenState, Generator};
 use crate::span::Span;
 use inkwell::{
     values::{IntValue, PointerValue},
@@ -6,14 +6,19 @@ use inkwell::{
 };
 
 macro_rules! release_guard {
-    ($cg: expr) => {{
-        if $cg.workspace.build_options.optimization_level.is_release() {
+    ($generator: expr) => {{
+        if $generator
+            .workspace
+            .build_options
+            .optimization_level
+            .is_release()
+        {
             return;
         }
     }};
 }
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_runtime_check_division_by_zero(
         &mut self,
         state: &mut CodegenState<'ctx>,

@@ -1,6 +1,6 @@
 use super::{
     abi::{AbiFunction, AbiType},
-    codegen::{Codegen, CodegenState},
+    codegen::{CodegenState, Generator},
     traits::LlvmName,
     ty::IntoLlvmType,
     CallingConv,
@@ -16,15 +16,16 @@ use inkwell::{
     },
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_function(
         &mut self,
         id: ast::FunctionId,
         prev_state: Option<CodegenState<'ctx>>,
     ) -> FunctionValue<'ctx> {
         self.functions.get(&id).cloned().unwrap_or_else(|| {
-            let function = self.typed_ast.functions.get(id).unwrap();
-            self.gen_function_inner(function, prev_state)
+            todo!()
+            // let function = self.cache.functions.get(id).unwrap();
+            // self.gen_function_inner(function, prev_state)
         })
     }
 

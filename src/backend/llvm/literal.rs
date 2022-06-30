@@ -1,5 +1,5 @@
 use super::{
-    codegen::{Codegen, CodegenState},
+    codegen::{CodegenState, Generator},
     ty::IntoLlvmType,
 };
 use crate::{ast, types::*};
@@ -9,7 +9,7 @@ use inkwell::{
     AddressSpace,
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_struct_literal(
         &mut self,
         state: &mut CodegenState<'ctx>,

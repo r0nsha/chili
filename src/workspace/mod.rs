@@ -42,14 +42,14 @@ pub struct Workspace {
     // ModuleId -> ModuleInfo
     pub module_infos: IdCache<ModuleId, ModuleInfo>,
 
-    // Bindings resolved during name resolution
+    // Bindings resolved during semantic analysis
     // BindingInfoId -> BindingInfo
     pub binding_infos: IdCache<BindingId, BindingInfo>,
 
-    // The entry point function's id (usually main). Resolved during name resolution
+    // The entry point function's id (usually named "main"). Resolved during semantic analysis
     pub entry_point_function_id: Option<BindingId>,
 
-    // Extern libraries needed to be linked. Resolved during name resolution
+    // Extern libraries needed to be linked. Resolved during semantic analysis
     pub extern_libraries: HashSet<ExternLibrary>,
 }
 

@@ -1,11 +1,11 @@
-use super::codegen::{Codegen, CodegenState};
+use super::codegen::{CodegenState, Generator};
 use crate::ast;
 use inkwell::{
     basic_block::BasicBlock,
     values::{BasicValueEnum, IntValue},
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_if_expr(
         &mut self,
         state: &mut CodegenState<'ctx>,
@@ -13,14 +13,14 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let condition = self.gen_expr(state, &if_.condition, true).into_int_value();
 
-        let then = |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
-            cg.gen_expr(state, &if_.then, true)
+        let then = |generator: &mut Generator<'g, 'ctx>, state: &mut CodegenState<'ctx>| {
+            generator.gen_expr(state, &if_.then, true)
         };
 
         let else_ = if let Some(otherwise) = &if_.otherwise {
             Some(
-                |cg: &mut Codegen<'cg, 'ctx>, state: &mut CodegenState<'ctx>| {
-                    cg.gen_expr(state, otherwise, true)
+                |generator: &mut Generator<'g, 'ctx>, state: &mut CodegenState<'ctx>| {
+                    generator.gen_expr(state, otherwise, true)
                 },
             )
         } else {
@@ -31,8 +31,8 @@ impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
     }
 
     pub fn gen_conditional<
-        Then: FnOnce(&mut Codegen<'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
-        Else: FnOnce(&mut Codegen<'cg, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
+        Then: FnOnce(&mut Generator<'g, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
+        Else: FnOnce(&mut Generator<'g, 'ctx>, &mut CodegenState<'ctx>) -> BasicValueEnum<'ctx>,
     >(
         &mut self,
         state: &mut CodegenState<'ctx>,

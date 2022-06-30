@@ -1,10 +1,10 @@
-use super::codegen::{Codegen, CodegenState};
+use super::codegen::{CodegenState, Generator};
 use super::ty::IntoLlvmType;
 use crate::infer::normalize::Normalize;
 use crate::span::Span;
 use inkwell::values::{BasicValue, BasicValueEnum, IntValue};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     #[allow(unused)]
     pub fn gen_panic_with_message(
         &mut self,

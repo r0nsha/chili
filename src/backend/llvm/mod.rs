@@ -19,11 +19,12 @@ use crate::{
         build_options::{self, BuildOptions, EnabledCodegenOptions},
         target::{Arch, Os, TargetMetrics},
     },
+    hir,
     infer::ty_ctx::TyCtx,
     time,
     workspace::Workspace,
 };
-use codegen::Codegen;
+use codegen::Generator;
 use execute::Execute;
 use inkwell::{
     context::Context,
@@ -44,7 +45,7 @@ use ustr::UstrMap;
 pub fn codegen<'w>(
     workspace: &Workspace,
     tycx: &TyCtx,
-    typed_ast: &ast::TypedAst,
+    cache: &hir::Cache,
     codegen_options: &EnabledCodegenOptions,
 ) -> String {
     let context = Context::create();
@@ -88,10 +89,10 @@ pub fn codegen<'w>(
     module.set_data_layout(&target_machine.get_target_data().get_data_layout());
     module.set_triple(&target_machine.get_triple());
 
-    let mut cg = Codegen {
+    let mut cg = Generator {
         workspace,
         tycx,
-        typed_ast,
+        cache,
         target_metrics: target_metrics.clone(),
         context: &context,
         module: &module,

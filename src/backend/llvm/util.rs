@@ -1,6 +1,6 @@
 use super::{
     abi::{align_of, size_of},
-    codegen::{Codegen, CodegenState},
+    codegen::{CodegenState, Generator},
     ty::IntoLlvmType,
 };
 use crate::{
@@ -21,7 +21,7 @@ use inkwell::{
 use std::mem;
 use ustr::{ustr, Ustr};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_unit(&self) -> BasicValueEnum<'ctx> {
         self.context.const_struct(&[], false).into()
     }

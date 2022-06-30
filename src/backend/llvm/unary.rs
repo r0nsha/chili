@@ -1,8 +1,8 @@
-use super::codegen::{Codegen, CodegenState};
+use super::codegen::{CodegenState, Generator};
 use crate::{ast, infer::normalize::Normalize, types::*};
 use inkwell::{values::BasicValueEnum, IntPredicate};
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_unary(
         &mut self,
         state: &mut CodegenState<'ctx>,

@@ -1,4 +1,4 @@
-use super::codegen::{Codegen, CodegenState};
+use super::codegen::{CodegenState, Generator};
 use crate::{ast, infer::normalize::Normalize, span::Span, types::*};
 use inkwell::{
     types::IntType,
@@ -6,7 +6,7 @@ use inkwell::{
     FloatPredicate, IntPredicate,
 };
 
-impl<'cg, 'ctx> Codegen<'cg, 'ctx> {
+impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub fn gen_binary(
         &mut self,
         state: &mut CodegenState<'ctx>,
