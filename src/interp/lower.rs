@@ -593,12 +593,15 @@ impl Lower for hir::Builtin {
                     .value
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                let value_inner_type_size = offset
-                    .value
-                    .ty()
-                    .normalize(sess.tycx)
-                    .inner()
-                    .size_of(WORD_SIZE);
+                let value_type = offset.value.ty().normalize(sess.tycx);
+                let value_inner_type_size = value_type.inner().size_of(WORD_SIZE);
+
+                match value_type {
+                    Type::Slice(..) => {
+                        code.push(Instruction::ConstIndex(0));
+                    }
+                    _ => (),
+                }
 
                 offset
                     .offset

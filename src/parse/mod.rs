@@ -216,6 +216,11 @@ impl Parser {
     }
 
     #[inline]
+    pub fn revert(&mut self, count: usize) {
+        self.current -= count;
+    }
+
+    #[inline]
     pub fn is_end(&self) -> bool {
         self.peek().kind == Eof
     }

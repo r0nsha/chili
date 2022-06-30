@@ -3,37 +3,20 @@ let { println } = import!("std/fmt");
 let { printf } = import!("std/c");
 
 let build = fn() {
-	println("Hello World");
+	let build_options = BuildOptions {
+        input_file: "src/main.chili",
+        output_file: "out/main",
+        target: BuildTarget_auto,
+        optimization_level: OptimizationLevel_debug,
+        run_executable: true,
+	};
 
-	let IntArray = [3]int;
-	let array: IntArray = [1, 2, 3];
+	let workspace = Workspace {
+		name: "hello",
+		build_options
+	};
 
-	let Buffer = [*]u8;
-	let BufferMut = [*mut]u8;
-	let data: Buffer = "array[%d] = %d\n".data;
-
-	let Slice = []u8;
-	let slice: Slice = array[..];
-
-	let SliceMut = []mut u8;
-	let slice: SliceMut = array[..];
-
-	let single_item_array = ["foo"];
-
-	// let build_options = BuildOptions {
-    //     input_file: "src/main.chili",
-    //     output_file: "out/main",
-    //     target: BuildTarget_auto,
-    //     optimization_level: OptimizationLevel_debug,
-    //     run_executable: true,
-	// };
-
-	// let workspace = Workspace {
-	// 	name: "hello",
-	// 	build_options
-	// };
-
-	// start_workspace(workspace);
+	start_workspace(workspace);
 };
 
 run!(build());

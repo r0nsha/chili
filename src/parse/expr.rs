@@ -287,16 +287,13 @@ impl Parser {
         } else if eat!(self, OpenCurly) {
             self.parse_block_expr()?
         } else if eat!(self, OpenBracket) {
-            self.parse_array_type()?
+            self.parse_array_type_or_literal()?
         } else if eat!(self, Dot) {
             let start_span = self.previous_span();
 
             if eat!(self, OpenCurly) {
                 // anonymous struct literal
                 self.parse_struct_literal(None, start_span)?
-            } else if eat!(self, OpenBracket) {
-                // array literal
-                self.parse_array_literal(start_span)?
             } else {
                 return Err(SyntaxError::expected(
                     self.span(),
@@ -349,56 +346,94 @@ impl Parser {
         self.parse_postfix_expr(expr)
     }
 
-    fn parse_array_type(&mut self) -> DiagnosticResult<Ast> {
+    fn parse_array_type_or_literal(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
         if eat!(self, Star) {
-            // multi-pointer type
             // Note (Ron): multi-pointers will be removed once we have:
             //     1. parametric polymorphism
             //     2. methods
             //     3. ptr offset builtin function
 
-            let is_mutable = eat!(self, Mut);
+            if eat!(self, Mut) {
+                // [*mut]T
+                require!(self, CloseBracket, "]")?;
 
-            require!(self, CloseBracket, "]")?;
+                let inner = self.parse_expr()?;
 
-            let inner = self.parse_expr()?;
+                Ok(Ast::MultiPointerType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable: true,
+                    ty: Default::default(),
+                    span: start_span.to(self.previous_span()),
+                }))
+            } else if eat!(self, CloseBracket) {
+                // [*]T
+                let inner = self.parse_expr()?;
 
-            let ty = Ast::MultiPointerType(ast::ExprAndMut {
-                inner: Box::new(inner),
-                is_mutable,
-                ty: Default::default(),
-                span: start_span.to(self.previous_span()),
-            });
-
-            Ok(ty)
+                Ok(Ast::MultiPointerType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable: false,
+                    ty: Default::default(),
+                    span: start_span.to(self.previous_span()),
+                }))
+            } else {
+                // [...array literal]
+                self.revert(1);
+                self.parse_array_literal(start_span)
+            }
         } else if eat!(self, CloseBracket) {
-            // slice type
             // Note (Ron): syntax for mut slices will probably be removed once we have unsized types
 
-            let is_mutable = eat!(self, Mut);
-            let ty = self.parse_expr()?;
+            if eat!(self, Mut) {
+                // []mut T
+                let inner = self.parse_expr()?;
 
-            Ok(Ast::SliceType(ast::ExprAndMut {
-                inner: Box::new(ty),
-                is_mutable,
-                ty: Default::default(),
-                span: start_span.to(self.previous_span()),
-            }))
+                Ok(Ast::SliceType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable: true,
+                    ty: Default::default(),
+                    span: start_span.to(self.previous_span()),
+                }))
+            } else if self.peek().kind.is_expr_start() {
+                // []T
+                let inner = self.parse_expr()?;
+
+                Ok(Ast::SliceType(ast::ExprAndMut {
+                    inner: Box::new(inner),
+                    is_mutable: false,
+                    ty: Default::default(),
+                    span: start_span.to(self.previous_span()),
+                }))
+            } else {
+                // [] - empty array literal
+                Ok(Ast::ArrayLiteral(ast::ArrayLiteral {
+                    kind: ast::ArrayLiteralKind::List(vec![]),
+                    ty: Default::default(),
+                    span: start_span.to(self.previous_span()),
+                }))
+            }
         } else {
-            // array type
+            let array_literal = self.parse_array_literal(start_span)?;
 
-            let size = self.parse_expr()?;
-            require!(self, CloseBracket, "]")?;
-            let ty = self.parse_expr()?;
+            match array_literal {
+                Ast::ArrayLiteral(ast::ArrayLiteral {
+                    kind: ast::ArrayLiteralKind::List(elements),
+                    ..
+                }) if elements.len() == 1 && self.peek().kind.is_expr_start() => {
+                    let size = &elements[0];
 
-            Ok(Ast::ArrayType(ast::ArrayType {
-                inner: Box::new(ty),
-                size: Box::new(size),
-                ty: Default::default(),
-                span: start_span.to(self.previous_span()),
-            }))
+                    let inner = self.parse_expr()?;
+
+                    Ok(Ast::ArrayType(ast::ArrayType {
+                        inner: Box::new(inner),
+                        size: Box::new(size.clone()),
+                        ty: Default::default(),
+                        span: start_span.to(self.previous_span()),
+                    }))
+                }
+                _ => Ok(array_literal),
+            }
         }
     }
 
