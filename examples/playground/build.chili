@@ -1,6 +1,4 @@
 let ? = import!("std/build");
-let { println } = import!("std/fmt");
-let { printf } = import!("std/c");
 
 let build = fn() {
 	let build_options = BuildOptions {

@@ -43,7 +43,10 @@ use crate::{
 };
 use env::{Env, Scope, ScopeKind};
 use indexmap::IndexMap;
-use std::{collections::HashMap, iter::repeat_with};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::repeat_with,
+};
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -114,7 +117,14 @@ fn ty_is_extern(ty: &Type) -> bool {
     }
 }
 
-pub struct CheckSess<'s> {
+#[derive(Debug)]
+pub(super) struct QueuedModule {
+    pub(super) module_type: TypeId,
+    pub(super) all_complete: bool,
+    pub(super) complete_bindings: HashSet<usize>, // Binding index -> Completion status
+}
+
+pub(super) struct CheckSess<'s> {
     pub workspace: &'s mut Workspace,
     pub target_metrics: TargetMetrics,
 
@@ -126,7 +136,7 @@ pub struct CheckSess<'s> {
     pub modules: &'s Vec<ast::Module>,
 
     pub cache: hir::Cache,
-    pub checked_modules: HashMap<ModuleId, TypeId>,
+    pub queued_modules: HashMap<ModuleId, QueuedModule>,
 
     // Information that's relevant for the global context
     pub global_scopes: HashMap<ModuleId, Scope>,
@@ -164,7 +174,7 @@ impl<'s> CheckSess<'s> {
             tycx: TyCtx::default(),
             modules: old_asts,
             cache: hir::Cache::new(),
-            checked_modules: HashMap::new(),
+            queued_modules: HashMap::new(),
             global_scopes: HashMap::new(),
             builtin_types: UstrMap::default(),
             function_frames: vec![],
@@ -333,7 +343,7 @@ impl<'s> CheckSess<'s> {
 
 type Result<T = hir::Node> = DiagnosticResult<T>;
 
-pub trait Check
+pub(super) trait Check
 where
     Self: Sized,
 {

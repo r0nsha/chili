@@ -89,12 +89,14 @@ impl<'s> CheckSess<'s> {
             // check if there's already a binding with this symbol
             ScopeLevel::Global => {
                 if let Some(id) = self.get_global_binding_id(module_id, name) {
-                    let already_defined = self.workspace.binding_infos.get(id).unwrap();
-                    return Err(SyntaxError::duplicate_binding(
-                        already_defined.span,
-                        span,
-                        already_defined.name,
-                    ));
+                    let defined_binding_info = self.workspace.binding_infos.get(id).unwrap();
+                    if defined_binding_info.span != span {
+                        return Err(SyntaxError::duplicate_binding(
+                            defined_binding_info.span,
+                            span,
+                            defined_binding_info.name,
+                        ));
+                    }
                 } else {
                     // insert the symbol into its module's global scope
                     self.insert_global_binding_id(module_id, name, id);
@@ -156,7 +158,6 @@ impl<'s> CheckSess<'s> {
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
-        // Note (Ron 25/06/2022): There is a lot of duplicate code here. This should be organized better...
         match pattern {
             Pattern::Name(pattern) => {
                 self.bind_name_pattern(env, pattern, visibility, ty, value, kind, flags)
@@ -353,29 +354,14 @@ impl<'s> CheckSess<'s> {
                 //       that there is no way that the last statement isn't a binding
                 statements.pop();
 
+                self.check_module_by_id(module_id)?;
+
+                let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
+
                 for pattern in unpack_pattern.symbols.iter() {
-                    let binding_id = self.check_top_level_binding(
-                        CallerInfo {
-                            module_id: env.module_id(),
-                            span: pattern.span,
-                        },
-                        module_id,
-                        pattern.name,
-                    )?;
+                    let id = *module_bindings.get(&pattern.name).unwrap();
 
-                    // Note (Ron 19/06/2022):
-                    // This is a HACK, to avoid binding the same symbol twice.
-                    // When two mutually recursive modules are checking each other,
-                    // the original symbol that started the check cycle is bound twice - causing a false `duplicate symbol error`
-                    if env.scope_level().is_global()
-                        && self
-                            .get_global_binding_id(env.module_id(), pattern.name)
-                            .is_some()
-                    {
-                        continue;
-                    }
-
-                    let binding_info = self.workspace.binding_infos.get(binding_id).unwrap();
+                    let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                     let (_, binding) = self.bind_name_pattern(
                         env,
@@ -391,18 +377,7 @@ impl<'s> CheckSess<'s> {
                 }
 
                 if let Some(wildcard_symbol_span) = unpack_pattern.wildcard_symbol {
-                    self.check_module_by_id(module_id)?;
-
-                    let all_module_binding_ids: Vec<BindingId> = self
-                        .global_scopes
-                        .get(&module_id)
-                        .unwrap()
-                        .bindings
-                        .values()
-                        .cloned()
-                        .collect();
-
-                    for &id in all_module_binding_ids.iter() {
+                    for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                         if binding_info.visibility.is_private() {

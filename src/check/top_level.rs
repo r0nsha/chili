@@ -1,4 +1,4 @@
-use super::{Check, CheckSess};
+use super::{Check, CheckSess, QueuedModule};
 use crate::{
     ast,
     error::{
@@ -10,9 +10,10 @@ use crate::{
     types::{Type, TypeId},
     workspace::{BindingId, ModuleId},
 };
+use std::collections::HashSet;
 use ustr::{Ustr, UstrMap};
 
-pub trait CheckTopLevel
+pub(super) trait CheckTopLevel
 where
     Self: Sized,
 {
@@ -63,15 +64,12 @@ impl<'s> CheckSess<'s> {
         module_id: ModuleId,
         name: Ustr,
     ) -> DiagnosticResult<BindingId> {
-        // check if the binding has already been checked
         if let Some(id) = self.get_global_binding_id(module_id, name) {
-            // this binding has already been checked, so just return its data
             self.workspace.add_binding_info_use(id, caller_info.span);
             self.validate_can_access_item(id, caller_info)?;
 
             Ok(id)
         } else {
-            // this binding hasn't been checked yet - check it and then return its data
             let module = self
                 .modules
                 .iter()
@@ -155,40 +153,62 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn check_module(&mut self, module: &ast::Module) -> DiagnosticResult<TypeId> {
-        if let Some(module_type) = self.checked_modules.get(&module.id) {
-            Ok(*module_type)
-        } else {
-            let module_id = module.id;
+        match self.queued_modules.get(&module.id) {
+            Some(QueuedModule {
+                module_type,
+                all_complete: true,
+                ..
+            }) => Ok(*module_type),
+            _ => {
+                let module_type = match self.queued_modules.get(&module.id) {
+                    Some(queued) => queued.module_type,
+                    None => {
+                        let module_type = self
+                            .tycx
+                            .bound(Type::Module(module.id), Span::initial(module.file_id));
 
-            let module_type = self
-                .tycx
-                .bound(Type::Module(module_id), Span::initial(module.file_id));
+                        self.queued_modules.insert(
+                            module.id,
+                            QueuedModule {
+                                module_type,
+                                all_complete: false,
+                                complete_bindings: HashSet::new(),
+                            },
+                        );
 
-            self.checked_modules.insert(module.id, module_type);
+                        module_type
+                    }
+                };
 
-            for binding in module.bindings.iter() {
-                // 6/6/2022: a binding's pattern has a count of 0 only when a single wildcard symbol is used
-                if binding.pattern.iter().count() == 0
-                    || binding.pattern.iter().all(|pattern| {
-                        self.get_global_binding_id(module_id, pattern.name)
-                            .is_none()
-                    })
-                {
-                    binding.clone().check_top_level(self)?;
+                for (index, binding) in module.bindings.iter().enumerate() {
+                    if self
+                        .queued_modules
+                        .get_mut(&module.id)
+                        .unwrap()
+                        .complete_bindings
+                        .insert(index)
+                    {
+                        binding.check_top_level(self)?;
+                    }
                 }
-            }
 
-            for expr in module.run_exprs.iter() {
-                // let expr = expr.clone();
-                let node =
-                    self.with_env(module_id, |sess, mut env| expr.check(sess, &mut env, None))?;
+                self.queued_modules
+                    .get_mut(&module.id)
+                    .unwrap()
+                    .all_complete = true;
 
-                if !self.workspace.build_options.check_mode {
-                    self.eval(&node, module_id).unwrap();
+                for expr in module.run_exprs.iter() {
+                    // let expr = expr.clone();
+                    let node =
+                        self.with_env(module.id, |sess, mut env| expr.check(sess, &mut env, None))?;
+
+                    if !self.workspace.build_options.check_mode {
+                        self.eval(&node, module.id).unwrap();
+                    }
                 }
-            }
 
-            Ok(module_type)
+                Ok(module_type)
+            }
         }
     }
 }
