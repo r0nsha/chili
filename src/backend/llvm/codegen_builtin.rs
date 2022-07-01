@@ -40,6 +40,63 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
+        // let ty = binary.lhs.ty().normalize(self.tycx);
+
+        // let lhs = self.gen_expr(state, &binary.lhs, true);
+        // let rhs = self.gen_expr(state, &binary.rhs, true);
+
+        // let (lhs, rhs) = if lhs.is_pointer_value() {
+        //     (
+        //         self.builder
+        //             .build_ptr_to_int(lhs.into_pointer_value(), self.ptr_sized_int_type, "")
+        //             .as_basic_value_enum(),
+        //         self.builder
+        //             .build_ptr_to_int(rhs.into_pointer_value(), self.ptr_sized_int_type, "")
+        //             .as_basic_value_enum(),
+        //     )
+        // } else {
+        //     (lhs, rhs)
+        // };
+
+        // match binary.op {
+        //     ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, binary.span),
+        //     ast::BinaryOp::Eq
+        //     | ast::BinaryOp::Ne
+        //     | ast::BinaryOp::Lt
+        //     | ast::BinaryOp::Le
+        //     | ast::BinaryOp::Gt
+        //     | ast::BinaryOp::Ge => {
+        //         if ty.is_float() {
+        //             self.builder
+        //                 .build_float_compare(
+        //                     binary.op.into_float_predicate(),
+        //                     lhs.into_float_value(),
+        //                     rhs.into_float_value(),
+        //                     "",
+        //                 )
+        //                 .into()
+        //         } else {
+        //             self.builder
+        //                 .build_int_compare(
+        //                     binary.op.into_int_predicate(ty.is_signed_int()),
+        //                     lhs.into_int_value(),
+        //                     rhs.into_int_value(),
+        //                     "",
+        //                 )
+        //                 .into()
+        //         }
+        //     }
+        //     ast::BinaryOp::And | ast::BinaryOp::BitAnd => self.gen_and(lhs, rhs),
+        //     ast::BinaryOp::Or | ast::BinaryOp::BitOr => self.gen_or(lhs, rhs),
+        //     ast::BinaryOp::Shl => self.gen_shl(lhs, rhs),
+        //     ast::BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
+        //     ast::BinaryOp::BitXor => self.gen_xor(lhs, rhs),
+        // }
+
         match self {
             hir::Builtin::Add(_) => todo!(),
             hir::Builtin::Sub(_) => todo!(),
@@ -68,9 +125,9 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 let slice_value = slice.value.codegen(generator, state);
                 let ty = slice.value.ty().normalize(generator.tycx);
 
-                let data = match ty {
-                    Type::Slice(..) => generator.gep_slice_data(slice_value),
-                    Type::MultiPointer(..) | Type::Array(..) => slice_value.into_pointer_value(),
+                let sliced_value = match ty {
+                    Type::Slice(..) => generator.gep_slice_data(slice_value).as_basic_value_enum(),
+                    Type::MultiPointer(..) | Type::Array(..) => slice_value,
                     _ => unreachable!("got {}", ty),
                 };
 
@@ -108,7 +165,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
 
                 generator.build_slice(
                     slice_ptr,
-                    data.into(),
+                    sliced_value,
                     low,
                     high,
                     ty.element_type().unwrap(),

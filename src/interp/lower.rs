@@ -326,14 +326,14 @@ impl Lower for hir::If {
         self.condition
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let else_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+        let otherwise_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
 
         self.then
             .lower(sess, code, LowerContext { take_ptr: false });
 
         let exit_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
 
-        patch_jmp(code, else_jmp);
+        patch_jmp(code, otherwise_jmp);
 
         if let Some(otherwise) = &self.otherwise {
             otherwise.lower(sess, code, LowerContext { take_ptr: false });
