@@ -18,7 +18,7 @@ use inkwell::{
 use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn gen_entry_point_function(&mut self) {
+    pub(super) fn gen_entry_point_function(&mut self) {
         let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
 
         let entry_point_func_info = self

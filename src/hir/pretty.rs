@@ -417,7 +417,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Builtin {
             hir::Builtin::Offset(offset) => {
                 offset.value.print(p, is_line_start);
                 p.write("[");
-                offset.offset.print(p, false);
+                offset.index.print(p, false);
                 p.write("]");
             }
             hir::Builtin::Slice(slice) => {

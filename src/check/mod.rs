@@ -830,7 +830,7 @@ impl Check for ast::Ast {
                                 ty,
                                 span: sub.span,
                                 value: Box::new(node),
-                                offset: Box::new(offset_node),
+                                index: Box::new(offset_node),
                             })))
                         }
                     }
@@ -1378,7 +1378,7 @@ impl Check for ast::Ast {
                         .map(|node| node.as_const_value().unwrap())
                         .collect();
 
-                    let is_tuple_type = const_values.iter().all(|v| v.is_type());
+                    let is_tuple_type = const_values.iter().all(|v| v.as_type().is_some());
 
                     if is_tuple_type {
                         let element_tys: Vec<Type> = elements
@@ -1387,6 +1387,7 @@ impl Check for ast::Ast {
                                 node.as_const_value()
                                     .unwrap()
                                     .as_type()
+                                    .unwrap()
                                     .normalize(&sess.tycx)
                                     .clone()
                             })
@@ -2049,7 +2050,7 @@ impl Check for ast::For {
                             iter_type,
                             Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
                                 value: Box::new(value_id_node),
-                                offset: Box::new(index_id_node.clone()),
+                                index: Box::new(index_id_node.clone()),
                                 ty: iter_type,
                                 span: self.span,
                             }))),

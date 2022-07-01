@@ -1,38 +1,6 @@
-use super::{
-    abi::{align_of, size_of},
-    codegen::{Codegen, FunctionState, Generator},
-    traits::IsALoadInst,
-    ty::IntoLlvmType,
-};
-use crate::{
-    ast::{
-        self,
-        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-        FunctionId, Intrinsic,
-    },
-    common::{
-        build_options,
-        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        scopes::Scopes,
-        target::TargetMetrics,
-    },
-    hir::{self, const_value::ConstValue},
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
-    types::*,
-    workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
-};
-use inkwell::{
-    basic_block::BasicBlock,
-    builder::Builder,
-    context::Context,
-    module::{Linkage, Module},
-    passes::{PassManager, PassManagerBuilder},
-    types::{BasicType, BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
-    AddressSpace, IntPredicate, OptimizationLevel,
-};
-use std::collections::HashMap;
-use ustr::{ustr, Ustr, UstrMap};
+use super::codegen::{Codegen, FunctionState, Generator, LoopBlock};
+use crate::hir;
+use inkwell::values::BasicValueEnum;
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Control {
     fn codegen(
@@ -44,8 +12,16 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Control {
             hir::Control::If(x) => x.codegen(generator, state),
             hir::Control::While(x) => x.codegen(generator, state),
             hir::Control::Return(x) => x.codegen(generator, state),
-            hir::Control::Break(_) => todo!(),
-            hir::Control::Continue(_) => todo!(),
+            hir::Control::Break(_) => {
+                let exit_block = state.loop_blocks.last().unwrap().exit;
+                generator.builder.build_unconditional_branch(exit_block);
+                generator.unit_value()
+            }
+            hir::Control::Continue(_) => {
+                let head_block = state.loop_blocks.last().unwrap().head;
+                generator.builder.build_unconditional_branch(head_block);
+                generator.unit_value()
+            }
         }
     }
 }
@@ -82,7 +58,37 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::While {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        todo!()
+        let loop_head = generator.append_basic_block(state, "loop_head");
+        let loop_body = generator.append_basic_block(state, "loop_body");
+        let loop_exit = generator.append_basic_block(state, "loop_exit");
+
+        generator.builder.build_unconditional_branch(loop_head);
+        generator.start_block(state, loop_head);
+
+        let condition = self.condition.codegen(generator, state).into_int_value();
+
+        generator
+            .builder
+            .build_conditional_branch(condition, loop_body, loop_exit);
+
+        generator.start_block(state, loop_body);
+
+        state.loop_blocks.push(LoopBlock {
+            head: loop_head,
+            exit: loop_exit,
+        });
+
+        self.body.codegen(generator, state);
+
+        state.loop_blocks.pop();
+
+        if generator.current_block().get_terminator().is_none() {
+            generator.builder.build_unconditional_branch(loop_head);
+        }
+
+        generator.start_block(state, loop_exit);
+
+        return generator.unit_value();
     }
 }
 
@@ -92,6 +98,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Return {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        todo!()
+        let value = self.value.codegen(generator, state);
+        generator.gen_return(state, Some(value));
+        generator.unit_value()
     }
 }

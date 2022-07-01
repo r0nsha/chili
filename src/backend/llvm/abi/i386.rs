@@ -6,7 +6,7 @@ use inkwell::{
 };
 
 #[allow(unused)]
-pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
+pub(super) fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
     AbiFunction {
         params: get_params(info, fn_ty.get_param_types()),
         ret: get_return(info, fn_ty.get_return_type().unwrap()),
@@ -15,7 +15,10 @@ pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFuncti
 }
 
 #[allow(unused)]
-pub fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
+pub(super) fn get_params<'ctx>(
+    info: AbiInfo<'ctx>,
+    params: Vec<BasicTypeEnum<'ctx>>,
+) -> Vec<AbiTy<'ctx>> {
     params
         .iter()
         .map(|&param| {
@@ -33,7 +36,7 @@ pub fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -
         .collect()
 }
 
-pub fn get_return<'ctx>(info: AbiInfo<'ctx>, ret: BasicTypeEnum<'ctx>) -> AbiTy<'ctx> {
+pub(super) fn get_return<'ctx>(info: AbiInfo<'ctx>, ret: BasicTypeEnum<'ctx>) -> AbiTy<'ctx> {
     if ret.is_aggregate_type() {
         let size = size_of(ret, info.word_size);
         match size {
@@ -52,7 +55,7 @@ pub fn get_return<'ctx>(info: AbiInfo<'ctx>, ret: BasicTypeEnum<'ctx>) -> AbiTy<
     }
 }
 
-pub fn non_struct<'ctx>(
+pub(super) fn non_struct<'ctx>(
     info: AbiInfo<'ctx>,
     ty: BasicTypeEnum<'ctx>,
     is_return: bool,

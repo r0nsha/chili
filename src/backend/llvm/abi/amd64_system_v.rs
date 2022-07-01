@@ -5,7 +5,7 @@ use inkwell::{
     types::{AnyType, BasicTypeEnum, FunctionType},
 };
 
-pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
+pub(super) fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
     AbiFunction {
         params: get_params(info, fn_ty.get_param_types()),
         ret: get_return(info, fn_ty.get_return_type().unwrap()),
@@ -13,14 +13,17 @@ pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFuncti
     }
 }
 
-pub fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
+pub(super) fn get_params<'ctx>(
+    info: AbiInfo<'ctx>,
+    params: Vec<BasicTypeEnum<'ctx>>,
+) -> Vec<AbiTy<'ctx>> {
     params
         .iter()
         .map(|&param| amd64_sysv_type(info, param, Amd64TypeAttributeKind::ByVal))
         .collect()
 }
 
-pub fn get_return<'ctx>(info: AbiInfo<'ctx>, ret_ty: BasicTypeEnum<'ctx>) -> AbiTy<'ctx> {
+pub(super) fn get_return<'ctx>(info: AbiInfo<'ctx>, ret_ty: BasicTypeEnum<'ctx>) -> AbiTy<'ctx> {
     amd64_sysv_type(info, ret_ty, Amd64TypeAttributeKind::StructRect)
 }
 
@@ -121,7 +124,7 @@ fn amd64_sysv_type<'ctx>(
     }
 }
 
-pub fn non_struct<'ctx>(info: AbiInfo<'ctx>, ty: BasicTypeEnum<'ctx>) -> AbiTy<'ctx> {
+pub(super) fn non_struct<'ctx>(info: AbiInfo<'ctx>, ty: BasicTypeEnum<'ctx>) -> AbiTy<'ctx> {
     let mut abi_ty = AbiTy::direct(ty);
 
     if ty.is_int_type() && ty.into_int_type().get_bit_width() == 1 {

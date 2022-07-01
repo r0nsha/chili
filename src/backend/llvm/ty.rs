@@ -12,7 +12,7 @@ use inkwell::{
 };
 use std::cmp::Ordering;
 
-pub trait IntoLlvmType<'g, 'ctx> {
+pub(super) trait IntoLlvmType<'g, 'ctx> {
     fn llvm_type(&self, generator: &mut Generator<'g, 'ctx>) -> BasicTypeEnum<'ctx>;
 }
 
@@ -89,15 +89,15 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
 }
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn unit_type(&self) -> BasicTypeEnum<'ctx> {
+    pub(super) fn unit_type(&self) -> BasicTypeEnum<'ctx> {
         self.context.struct_type(&[], false).into()
     }
 
-    pub fn raw_pointer_type(&self) -> PointerType<'ctx> {
+    pub(super) fn raw_pointer_type(&self) -> PointerType<'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub fn slice_type(&mut self, element_ty: &Type) -> BasicTypeEnum<'ctx> {
+    pub(super) fn slice_type(&mut self, element_ty: &Type) -> BasicTypeEnum<'ctx> {
         self.context
             .struct_type(
                 &[
@@ -112,7 +112,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .into()
     }
 
-    pub fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
+    pub(super) fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
         let params: Vec<BasicMetadataTypeEnum> = f
             .params
             .iter()
@@ -124,13 +124,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ret.fn_type(&params, f.varargs.is_some())
     }
 
-    pub fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
+    pub(super) fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
         let fn_type = self.fn_type(f);
 
         abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
     }
 
-    pub fn abi_compliant_fn_type(
+    pub(super) fn abi_compliant_fn_type(
         &mut self,
         f: &FunctionType,
     ) -> inkwell::types::FunctionType<'ctx> {
@@ -138,7 +138,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
 
-    pub fn abi_fn_to_type(
+    pub(super) fn abi_fn_to_type(
         &mut self,
         abi_fn: &AbiFunction<'ctx>,
     ) -> inkwell::types::FunctionType<'ctx> {
@@ -183,7 +183,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn get_or_create_named_struct_type(
+    pub(super) fn get_or_create_named_struct_type(
         &mut self,
         struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
@@ -193,7 +193,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn create_named_struct_type(
+    pub(super) fn create_named_struct_type(
         &mut self,
         struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {
@@ -206,7 +206,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         struct_type
     }
 
-    pub fn create_anonymous_struct_type(
+    pub(super) fn create_anonymous_struct_type(
         &mut self,
         struct_ty: &StructType,
     ) -> inkwell::types::StructType<'ctx> {

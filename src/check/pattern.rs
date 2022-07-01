@@ -441,6 +441,7 @@ impl<'s> CheckSess<'s> {
                         Some(const_value) if pattern.is_mutable => hir::Node::Const(hir::Const {
                             value: const_value
                                 .as_struct()
+                                .unwrap()
                                 .get(&pattern.name)
                                 .unwrap()
                                 .clone()
@@ -488,6 +489,7 @@ impl<'s> CheckSess<'s> {
                                     Some(const_value) => hir::Node::Const(hir::Const {
                                         value: const_value
                                             .as_struct()
+                                            .unwrap()
                                             .get(&field.name)
                                             .unwrap()
                                             .clone()
@@ -584,7 +586,7 @@ impl<'s> CheckSess<'s> {
 
             let element_value = match value.as_const_value() {
                 Some(const_value) => hir::Node::Const(hir::Const {
-                    value: const_value.as_tuple()[index].clone().value,
+                    value: const_value.as_tuple().unwrap()[index].clone().value,
                     ty: value.ty(),
                     span: value.span(),
                 }),

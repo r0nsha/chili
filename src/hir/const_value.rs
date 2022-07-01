@@ -1,93 +1,16 @@
+use super::FunctionId;
 use crate::{
     ast,
     infer::{display::DisplayTy, ty_ctx::TyCtx},
     types::TypeId,
 };
+use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use paste::paste;
 use std::fmt::{self, Debug, Display};
 use ustr::Ustr;
 
-use super::FunctionId;
-
-macro_rules! impl_value {
-    ($($variant:ident($ty:ty)) , + $(,)?) => {
-        #[derive(Debug, PartialEq, Clone, Copy)]
-        pub enum ConstValueKind {
-            $(
-                $variant
-            ),+
-        }
-
-        impl fmt::Display for ConstValueKind {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", match self {
-                    $(
-                        ConstValueKind::$variant => String::from(stringify!($variant))
-                    ),+
-                })
-            }
-        }
-
-        #[derive(Debug, PartialEq, Clone)]
-        pub enum ConstValue {
-            $(
-                $variant($ty)
-            ),+
-        }
-
-        impl ConstValue {
-            #[allow(dead_code)]
-            pub fn kind(&self) -> ConstValueKind {
-                match self {
-                    $(
-                        ConstValue::$variant(_) => ConstValueKind::$variant
-                    ),+
-                }
-            }
-
-            paste! {
-                $(
-                    pub fn [<is_ $variant:snake>](&self) -> bool {
-                        match self {
-                            Self::$variant(_) => true,
-                            _ => false
-                        }
-                    }
-                )+
-
-                $(
-                    pub fn [<into_ $variant:snake>](self) -> $ty {
-                        match self {
-                            Self::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
-                        }
-                    }
-                )+
-
-                $(
-                    pub fn [<as_ $variant:snake>](&self) -> &$ty {
-                        match self {
-                            Self::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
-                        }
-                    }
-                )+
-
-                $(
-                    pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
-                        match self {
-                            Self::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
-                        }
-                    }
-                )+
-            }
-        }
-    };
-}
-
-impl_value! {
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
+pub enum ConstValue {
     Unit(()),
     Type(TypeId),
     Bool(bool),

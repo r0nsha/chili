@@ -22,23 +22,27 @@ use std::mem;
 use ustr::{ustr, Ustr};
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn unit_value(&self) -> BasicValueEnum<'ctx> {
+    pub(super) fn unit_value(&self) -> BasicValueEnum<'ctx> {
         self.context.const_struct(&[], false).into()
     }
 
-    pub fn gep_slice_data(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
-        self.gep_at_index(slice, 0, "data").into_pointer_value()
+    pub(super) fn gep_slice_data(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
+        self.gep_struct(slice, 0, "data").into_pointer_value()
     }
 
-    pub fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
-        self.gep_at_index(slice, 1, "len").into_int_value()
+    pub(super) fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
+        self.gep_struct(slice, 1, "len").into_int_value()
     }
 
-    pub fn const_str(&mut self, name: &str, value: &str) -> GlobalValue<'ctx> {
+    pub(super) fn const_str(&mut self, name: &str, value: &str) -> GlobalValue<'ctx> {
         self.builder.build_global_string_ptr(value, name)
     }
 
-    pub fn const_str_slice(&mut self, name: &str, value: impl Into<Ustr>) -> StructValue<'ctx> {
+    pub(super) fn const_str_slice(
+        &mut self,
+        name: &str,
+        value: impl Into<Ustr>,
+    ) -> StructValue<'ctx> {
         let value = value.into();
         let cached_str = self.static_strs.get(&value).map(|v| *v);
 
@@ -49,7 +53,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     #[inline]
-    pub fn const_slice(
+    pub(super) fn const_slice(
         &mut self,
         ptr: PointerValue<'ctx>,
         len: IntValue<'ctx>,
@@ -58,11 +62,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     #[inline]
-    pub fn const_struct(&mut self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
+    pub(super) fn const_struct(&mut self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
         self.context.const_struct(&values, false)
     }
 
-    pub fn build_slice(
+    pub(super) fn build_slice(
         &mut self,
         ptr: PointerValue<'ctx>,
         sliced_value: BasicValueEnum<'ctx>,
@@ -97,21 +101,25 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.build_store(len_ptr, slice_len.into());
     }
 
-    pub fn current_block(&self) -> BasicBlock<'ctx> {
+    pub(super) fn current_block(&self) -> BasicBlock<'ctx> {
         self.builder.get_insert_block().unwrap()
     }
 
-    pub fn append_basic_block(&self, state: &FunctionState<'ctx>, name: &str) -> BasicBlock<'ctx> {
+    pub(super) fn append_basic_block(
+        &self,
+        state: &FunctionState<'ctx>,
+        name: &str,
+    ) -> BasicBlock<'ctx> {
         self.context.append_basic_block(state.function, name)
     }
 
-    pub fn start_block(&self, state: &mut FunctionState<'ctx>, block: BasicBlock<'ctx>) {
+    pub(super) fn start_block(&self, state: &mut FunctionState<'ctx>, block: BasicBlock<'ctx>) {
         state.current_block = block;
         self.builder.position_at_end(block);
     }
 
     #[allow(unused)]
-    pub fn print_current_state(&self, state: &FunctionState<'ctx>) {
+    pub(super) fn print_current_state(&self, state: &FunctionState<'ctx>) {
         let current_block = self.current_block();
         println!(
             "function: {}\n\tblock: {}\n\tterminated: {}",
@@ -121,24 +129,24 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         );
     }
 
-    pub fn build_alloca(
+    pub(super) fn build_alloca(
         &self,
         state: &FunctionState<'ctx>,
-        llvm_ty: BasicTypeEnum<'ctx>,
+        llvm_type: BasicTypeEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        self.build_alloca_inner(state, llvm_ty, "")
+        self.build_alloca_inner(state, llvm_type, "")
     }
 
-    pub fn build_alloca_named(
+    pub(super) fn build_alloca_named(
         &self,
         state: &mut FunctionState<'ctx>,
-        llvm_ty: BasicTypeEnum<'ctx>,
+        llvm_type: BasicTypeEnum<'ctx>,
         id: BindingId,
     ) -> PointerValue<'ctx> {
         if let Some((depth, decl)) = state.scopes.get(id) {
             let is_same_depth = depth == state.scopes.depth();
             let ptr = decl.into_pointer_value();
-            let is_same_type = ptr.get_type().get_element_type() == llvm_ty.as_any_type_enum();
+            let is_same_type = ptr.get_type().get_element_type() == llvm_type.as_any_type_enum();
             if is_same_depth && is_same_type {
                 return ptr;
             }
@@ -150,36 +158,36 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .get(id)
             .map_or(ustr(""), |b| b.name);
 
-        self.build_alloca_inner(state, llvm_ty, &name)
+        self.build_alloca_inner(state, llvm_type, &name)
     }
 
     fn build_alloca_inner(
         &self,
         state: &FunctionState<'ctx>,
-        llvm_ty: BasicTypeEnum<'ctx>,
+        llvm_type: BasicTypeEnum<'ctx>,
         name: &str,
     ) -> PointerValue<'ctx> {
         self.builder.position_at_end(state.decl_block);
 
-        let is_array = llvm_ty.is_pointer_type()
-            && llvm_ty
+        let is_array = llvm_type.is_pointer_type()
+            && llvm_type
                 .into_pointer_type()
                 .get_element_type()
                 .is_array_type();
 
-        let llvm_ty = if is_array {
-            llvm_ty
+        let llvm_type = if is_array {
+            llvm_type
                 .into_pointer_type()
                 .get_element_type()
                 .try_into()
                 .unwrap()
         } else {
-            llvm_ty
+            llvm_type
         };
 
-        let ptr = self.builder.build_alloca(llvm_ty, &name);
+        let ptr = self.builder.build_alloca(llvm_type, &name);
 
-        let align = align_of(llvm_ty, self.target_metrics.word_size);
+        let align = align_of(llvm_type, self.target_metrics.word_size);
         ptr.as_instruction_value()
             .unwrap()
             .set_alignment(align as _)
@@ -190,20 +198,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub fn build_load(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
+    pub(super) fn build_load(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
         match ptr.get_type().get_element_type() {
             AnyTypeEnum::FunctionType(_) | AnyTypeEnum::ArrayType(_) => ptr.into(),
             _ => self.builder.build_load(ptr, ""),
         }
     }
 
-    pub fn get_operand(&self, value: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
+    pub(super) fn get_operand(&self, value: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
         let inst = value.as_instruction_value().unwrap();
         let operand = inst.get_operand(0).unwrap();
         operand.unwrap_left()
     }
 
-    pub fn build_store(&self, ptr: PointerValue<'ctx>, value: BasicValueEnum<'ctx>) {
+    pub(super) fn build_store(&self, ptr: PointerValue<'ctx>, value: BasicValueEnum<'ctx>) {
         let ty = value.get_type();
         if ty.is_pointer_type() {
             let ptr_type = ty.into_pointer_type();
@@ -218,13 +226,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.builder.build_store(ptr, value);
     }
 
-    pub fn build_unreachable(&self) {
+    pub(super) fn build_unreachable(&self) {
         if self.current_block().get_terminator().is_none() {
             self.builder.build_unreachable();
         }
     }
 
-    pub fn maybe_load_double_pointer(&self, ptr: PointerValue<'ctx>) -> PointerValue<'ctx> {
+    pub(super) fn maybe_load_double_pointer(&self, ptr: PointerValue<'ctx>) -> PointerValue<'ctx> {
         if ptr.get_type().get_element_type().is_pointer_type() {
             self.build_load(ptr.into()).into_pointer_value()
         } else {
@@ -233,12 +241,17 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     #[allow(unused)]
-    pub fn build_memset_zero(&mut self, ptr: PointerValue<'ctx>, ty: &TypeId) {
+    pub(super) fn build_memset_zero(&mut self, ptr: PointerValue<'ctx>, ty: &TypeId) {
         self.build_memset(ptr, ty, self.context.i8_type().const_zero())
     }
 
     #[allow(unused)]
-    pub fn build_memset(&mut self, ptr: PointerValue<'ctx>, ty: &TypeId, value: IntValue<'ctx>) {
+    pub(super) fn build_memset(
+        &mut self,
+        ptr: PointerValue<'ctx>,
+        ty: &TypeId,
+        value: IntValue<'ctx>,
+    ) {
         let ty = ty.llvm_type(self);
         let bytes_to_set = ty.size_of().unwrap();
         self.builder
@@ -251,7 +264,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap();
     }
 
-    pub fn build_copy_value_to_ptr(
+    pub(super) fn build_copy_value_to_ptr(
         &mut self,
         state: &mut FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
@@ -272,7 +285,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     #[allow(unused)]
-    pub fn build_copy_overlapping(
+    pub(super) fn build_copy_overlapping(
         &self,
         src_ptr: PointerValue<'ctx>,
         dst_ptr: PointerValue<'ctx>,
@@ -297,7 +310,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap();
     }
 
-    pub fn build_copy_nonoverlapping(
+    pub(super) fn build_copy_nonoverlapping(
         &self,
         src_ptr: PointerValue<'ctx>,
         dst_ptr: PointerValue<'ctx>,
@@ -323,7 +336,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap();
     }
 
-    pub fn build_transmute(
+    pub(super) fn build_transmute(
         &self,
         state: &FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
@@ -469,7 +482,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn gen_struct_access(
+    pub(super) fn gen_struct_access(
         &self,
         agg_or_ptr: BasicValueEnum<'ctx>,
         index: u32,
@@ -505,56 +518,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn gen_subscript(
-        &mut self,
-        agg: BasicValueEnum<'ctx>,
-        agg_ty: &Type,
-        index: IntValue<'ctx>,
-        deref: bool,
-    ) -> BasicValueEnum<'ctx> {
-        let ty = agg_ty.maybe_deref_once();
-
-        let agg = match ty {
-            Type::Array(..) | Type::MultiPointer(..) => {
-                self.maybe_load_double_pointer(agg.into_pointer_value())
-            }
-            Type::Slice(..) => {
-                let value = if agg.is_pointer_value() {
-                    self.maybe_load_double_pointer(agg.into_pointer_value())
-                        .into()
-                } else {
-                    agg
-                };
-
-                let agg = self.gep_slice_data(value.into());
-                self.build_load(agg.into()).into_pointer_value()
-            }
-
-            ty => unreachable!("{}", ty),
-        };
-
-        let access = unsafe {
-            match ty {
-                Type::Array(..) => self.builder.build_in_bounds_gep(
-                    agg,
-                    &[index.get_type().const_zero(), index],
-                    "array_subscript",
-                ),
-                Type::MultiPointer(..) | Type::Slice(..) => {
-                    self.builder.build_in_bounds_gep(agg, &[index], "subscript")
-                }
-                ty => unreachable!("{}", ty),
-            }
-        };
-
-        if deref {
-            self.build_load(access.into())
-        } else {
-            access.into()
-        }
-    }
-
-    pub(super) fn gep_at_index(
+    pub(super) fn gep_struct(
         &self,
         load: BasicValueEnum<'ctx>,
         field_index: u32,

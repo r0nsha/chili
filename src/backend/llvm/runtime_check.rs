@@ -19,7 +19,7 @@ macro_rules! release_guard {
 }
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn gen_runtime_check_division_by_zero(
+    pub(super) fn gen_runtime_check_division_by_zero(
         &mut self,
         state: &mut FunctionState<'ctx>,
         divisor: IntValue<'ctx>,
@@ -40,7 +40,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_conditional_panic(state, NAME, condition, message, span)
     }
 
-    pub fn gen_runtime_check_null_pointer_deref(
+    pub(super) fn gen_runtime_check_null_pointer_deref(
         &mut self,
         state: &mut FunctionState<'ctx>,
         ptr: PointerValue<'ctx>,
@@ -56,7 +56,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_conditional_panic(state, NAME, condition, message, span)
     }
 
-    pub fn gen_runtime_check_overflow(
+    pub(super) fn gen_runtime_check_overflow(
         &mut self,
         state: &mut FunctionState<'ctx>,
         condition: IntValue<'ctx>,
@@ -72,7 +72,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_conditional_panic(state, &name, condition, message, span);
     }
 
-    pub fn gen_runtime_check_index_out_of_bounds(
+    pub(super) fn gen_runtime_check_index_out_of_bounds(
         &mut self,
         state: &mut FunctionState<'ctx>,
         index: IntValue<'ctx>,
@@ -108,7 +108,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
 
-    pub fn gen_runtime_check_slice_end_before_start(
+    pub(super) fn gen_runtime_check_slice_end_before_start(
         &mut self,
         state: &mut FunctionState<'ctx>,
         low: IntValue<'ctx>,
@@ -130,7 +130,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
 
-    pub fn gen_runtime_check_slice_range_out_of_bounds(
+    pub(super) fn gen_runtime_check_slice_range_out_of_bounds(
         &mut self,
         state: &mut FunctionState<'ctx>,
         low: IntValue<'ctx>,

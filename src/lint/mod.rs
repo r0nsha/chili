@@ -239,7 +239,7 @@ impl Lint for hir::Ref {
 impl Lint for hir::Offset {
     fn lint(&self, sess: &mut LintSess) {
         self.value.lint(sess);
-        self.offset.lint(sess);
+        self.index.lint(sess);
     }
 }
 

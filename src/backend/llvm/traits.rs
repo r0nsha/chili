@@ -9,9 +9,9 @@ pub(super) trait IsALoadInst {
 
 impl<'ctx> IsALoadInst for BasicValueEnum<'ctx> {
     fn is_a_load_inst(&self) -> bool {
-        self.as_instruction_value().map_or(false, |inst| {
-            matches!(inst.get_opcode(), InstructionOpcode::Load)
-        })
+        self.as_instruction_value()
+            .map(|inst| matches!(inst.get_opcode(), InstructionOpcode::Load))
+            .unwrap_or_default()
     }
 }
 

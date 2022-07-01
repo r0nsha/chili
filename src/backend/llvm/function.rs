@@ -19,7 +19,7 @@ use inkwell::{
 };
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn gen_function(
+    pub(super) fn gen_function(
         &mut self,
         id: hir::FunctionId,
         prev_state: Option<FunctionState<'ctx>>,
@@ -147,7 +147,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn declare_fn_sig(
+    pub(super) fn declare_fn_sig(
         &mut self,
         ty: &FunctionType,
         name: impl AsRef<str>,
@@ -191,7 +191,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         function.set_call_conventions(CallingConv::C as _);
     }
 
-    pub fn gen_function_call(
+    pub(super) fn gen_function_call(
         &mut self,
         state: &mut FunctionState<'ctx>,
         callee: impl Into<CallableValue<'ctx>>,
@@ -322,7 +322,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn get_or_add_function(
+    pub(super) fn get_or_add_function(
         &self,
         name: impl AsRef<str>,
         function_type: inkwell::types::FunctionType<'ctx>,

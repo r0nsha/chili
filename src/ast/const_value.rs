@@ -1,6 +1,6 @@
 use crate::types::TypeId;
+use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use paste::paste;
 use std::fmt::{self, Display};
 use ustr::Ustr;
 
@@ -23,7 +23,7 @@ macro_rules! impl_value {
             }
         }
 
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Debug, PartialEq, Clone, EnumAsInner)]
         pub enum ConstValue {
             $(
                 $variant($ty)
@@ -38,44 +38,6 @@ macro_rules! impl_value {
                         ConstValue::$variant(_) => ConstValueKind::$variant
                     ),+
                 }
-            }
-
-            paste! {
-                $(
-                    pub fn [<is_ $variant:snake>](&self) -> bool {
-                        match self {
-                            Self::$variant(_) => true,
-                            _ => false
-                        }
-                    }
-                )+
-
-                $(
-                    pub fn [<into_ $variant:snake>](self) -> $ty {
-                        match self {
-                            Self::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
-                        }
-                    }
-                )+
-
-                $(
-                    pub fn [<as_ $variant:snake>](&self) -> &$ty {
-                        match self {
-                            Self::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
-                        }
-                    }
-                )+
-
-                $(
-                    pub fn [<as_ $variant:snake _mut>](&mut self) -> &mut $ty {
-                        match self {
-                            Self::$variant(v) => v,
-                            _ => panic!("got {}, expected {}", self.to_string(), stringify!($variant))
-                        }
-                    }
-                )+
             }
         }
     };

@@ -154,7 +154,7 @@ node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(Unary, { value: Box<Node> });
 node_struct!(Ref, { value: Box<Node>, is_mutable: bool });
 
-node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
+node_struct!(Offset, { value: Box<Node>, index: Box<Node> });
 node_struct!(Slice, { value: Box<Node>, low: Box<Node>, high: Box<Node> });
 // node_struct!(Transmute, { value: Box<Node> });
 

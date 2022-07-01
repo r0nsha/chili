@@ -2,7 +2,7 @@ use super::super::traits::IsAggregateType;
 use super::{i386, size_of, AbiFunction, AbiInfo, AbiTy};
 use inkwell::types::{BasicTypeEnum, FunctionType};
 
-pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
+pub(super) fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFunction<'ctx> {
     AbiFunction {
         params: get_params(info, fn_ty.get_param_types()),
         ret: i386::get_return(info, fn_ty.get_return_type().unwrap()),
@@ -10,7 +10,10 @@ pub fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> AbiFuncti
     }
 }
 
-pub fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
+pub(super) fn get_params<'ctx>(
+    info: AbiInfo<'ctx>,
+    params: Vec<BasicTypeEnum<'ctx>>,
+) -> Vec<AbiTy<'ctx>> {
     params
         .iter()
         .map(|&param| {

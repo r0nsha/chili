@@ -6,7 +6,7 @@ use inkwell::values::{BasicValue, BasicValueEnum, IntValue};
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     #[allow(unused)]
-    pub fn gen_panic_with_message(
+    pub(super) fn gen_panic_with_message(
         &mut self,
         state: &mut FunctionState<'ctx>,
         msg: impl AsRef<str>,
@@ -16,7 +16,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_panic(state, message, span)
     }
 
-    pub fn gen_panic(
+    pub(super) fn gen_panic(
         &mut self,
         state: &mut FunctionState<'ctx>,
         message: BasicValueEnum<'ctx>,
@@ -72,7 +72,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.build_unreachable();
     }
 
-    pub fn gen_conditional_panic(
+    pub(super) fn gen_conditional_panic(
         &mut self,
         state: &mut FunctionState<'ctx>,
         name: impl AsRef<str>,

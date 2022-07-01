@@ -5,7 +5,7 @@ use inkwell::{
 };
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn gen_conditional<
+    pub(super) fn gen_conditional<
         Then: FnOnce(&mut Generator<'g, 'ctx>, &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx>,
         Else: FnOnce(&mut Generator<'g, 'ctx>, &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx>,
     >(

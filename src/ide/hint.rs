@@ -276,7 +276,7 @@ impl<'a> CollectHints<'a> for hir::Ref {
 impl<'a> CollectHints<'a> for hir::Offset {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         self.value.collect_hints(sess);
-        self.offset.collect_hints(sess);
+        self.index.collect_hints(sess);
     }
 }
 

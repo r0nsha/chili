@@ -4,17 +4,8 @@ use super::{
     ty::IntoLlvmType,
 };
 use crate::{
-    ast::{
-        self,
-        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-        FunctionId, Intrinsic,
-    },
-    common::{
-        build_options,
-        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        scopes::Scopes,
-        target::TargetMetrics,
-    },
+    ast::{self, Intrinsic},
+    common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir::{self, const_value::ConstValue},
     infer::{normalize::Normalize, ty_ctx::TyCtx},
     types::*,
@@ -26,9 +17,9 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
-    types::{BasicType, BasicTypeEnum, IntType},
+    types::{BasicTypeEnum, IntType},
     values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
-    AddressSpace, IntPredicate, OptimizationLevel,
+    OptimizationLevel,
 };
 use std::{collections::HashMap, fmt::Debug};
 use ustr::{ustr, Ustr, UstrMap};
@@ -41,21 +32,21 @@ pub enum Decl<'ctx> {
 }
 
 impl<'ctx> Decl<'ctx> {
-    pub fn into_function_value(&self) -> FunctionValue<'ctx> {
+    pub(super) fn into_function_value(&self) -> FunctionValue<'ctx> {
         match self {
             Decl::Function(f) => *f,
             _ => panic!("can't get function value of {:?}", self),
         }
     }
 
-    pub fn into_global_value(&self) -> GlobalValue<'ctx> {
+    pub(super) fn into_global_value(&self) -> GlobalValue<'ctx> {
         match self {
             Decl::Global(g) => *g,
             _ => panic!("can't get global value of {:?}", self),
         }
     }
 
-    pub fn into_pointer_value(&self) -> PointerValue<'ctx> {
+    pub(super) fn into_pointer_value(&self) -> PointerValue<'ctx> {
         match self {
             Decl::Function(f) => f.as_global_value().as_pointer_value(),
             Decl::Global(g) => g.as_pointer_value(),
@@ -64,40 +55,40 @@ impl<'ctx> Decl<'ctx> {
     }
 }
 
-pub struct Generator<'g, 'ctx> {
-    pub workspace: &'g Workspace,
-    pub tycx: &'g TyCtx,
-    pub cache: &'g hir::Cache,
+pub(super) struct Generator<'g, 'ctx> {
+    pub(super) workspace: &'g Workspace,
+    pub(super) tycx: &'g TyCtx,
+    pub(super) cache: &'g hir::Cache,
 
-    pub target_metrics: TargetMetrics,
+    pub(super) target_metrics: TargetMetrics,
 
-    pub context: &'ctx Context,
-    pub module: &'g Module<'ctx>,
-    pub builder: &'g Builder<'ctx>,
-    pub ptr_sized_int_type: IntType<'ctx>,
+    pub(super) context: &'ctx Context,
+    pub(super) module: &'g Module<'ctx>,
+    pub(super) builder: &'g Builder<'ctx>,
+    pub(super) ptr_sized_int_type: IntType<'ctx>,
 
-    pub global_decls: HashMap<BindingId, Decl<'ctx>>,
-    pub types: HashMap<BindingId, BasicTypeEnum<'ctx>>,
-    pub static_strs: UstrMap<PointerValue<'ctx>>,
-    pub functions: HashMap<hir::FunctionId, FunctionValue<'ctx>>,
-    pub extern_functions: UstrMap<FunctionValue<'ctx>>,
-    pub intrinsics: HashMap<Intrinsic, FunctionValue<'ctx>>,
+    pub(super) global_decls: HashMap<BindingId, Decl<'ctx>>,
+    pub(super) types: HashMap<BindingId, BasicTypeEnum<'ctx>>,
+    pub(super) static_strs: UstrMap<PointerValue<'ctx>>,
+    pub(super) functions: HashMap<hir::FunctionId, FunctionValue<'ctx>>,
+    pub(super) extern_functions: UstrMap<FunctionValue<'ctx>>,
+    pub(super) intrinsics: HashMap<Intrinsic, FunctionValue<'ctx>>,
 }
 
 #[derive(Clone)]
-pub struct FunctionState<'ctx> {
-    pub module_info: ModuleInfo,
-    pub function: FunctionValue<'ctx>,
-    pub fn_type: FunctionType,
-    pub return_ptr: Option<PointerValue<'ctx>>,
-    pub loop_blocks: Vec<LoopBlock<'ctx>>,
-    pub decl_block: BasicBlock<'ctx>,
-    pub current_block: BasicBlock<'ctx>,
-    pub scopes: Scopes<BindingId, Decl<'ctx>>, // TODO: switch to BindingInfoId
+pub(super) struct FunctionState<'ctx> {
+    pub(super) module_info: ModuleInfo,
+    pub(super) function: FunctionValue<'ctx>,
+    pub(super) fn_type: FunctionType,
+    pub(super) return_ptr: Option<PointerValue<'ctx>>,
+    pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
+    pub(super) decl_block: BasicBlock<'ctx>,
+    pub(super) current_block: BasicBlock<'ctx>,
+    pub(super) scopes: Scopes<BindingId, Decl<'ctx>>, // TODO: switch to BindingInfoId
 }
 
 impl<'ctx> FunctionState<'ctx> {
-    pub fn new(
+    pub(super) fn new(
         module_info: ModuleInfo,
         function: FunctionValue<'ctx>,
         fn_type: FunctionType,
@@ -117,28 +108,28 @@ impl<'ctx> FunctionState<'ctx> {
         }
     }
 
-    pub fn push_scope(&mut self) {
+    pub(super) fn push_scope(&mut self) {
         self.scopes.push_scope();
     }
 
-    pub fn pop_scope(&mut self) {
+    pub(super) fn pop_scope(&mut self) {
         self.scopes.pop_scope();
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct LoopBlock<'ctx> {
-    head: BasicBlock<'ctx>,
-    exit: BasicBlock<'ctx>,
+pub(super) struct LoopBlock<'ctx> {
+    pub(super) head: BasicBlock<'ctx>,
+    pub(super) exit: BasicBlock<'ctx>,
 }
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn start(&mut self) {
+    pub(super) fn start(&mut self) {
         self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
         self.gen_entry_point_function();
     }
 
-    pub fn optimize(&mut self) {
+    pub(super) fn optimize(&mut self) {
         let pass_manager_builder = PassManagerBuilder::create();
 
         let optimization_level: OptimizationLevel =
@@ -161,7 +152,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         link_time_optimizations.run_on(&self.module);
     }
 
-    pub fn gen_top_level_binding(&mut self, id: BindingId) -> Decl<'ctx> {
+    pub(super) fn gen_top_level_binding(&mut self, id: BindingId) -> Decl<'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.cache.bindings.get(&id) {
@@ -176,12 +167,16 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn insert_global_decl(&mut self, id: BindingId, decl: Decl<'ctx>) -> Decl<'ctx> {
+    pub(super) fn insert_global_decl(&mut self, id: BindingId, decl: Decl<'ctx>) -> Decl<'ctx> {
         self.global_decls.insert(id, decl);
         decl
     }
 
-    pub fn declare_global_binding(&mut self, id: BindingId, binding: &hir::Binding) -> Decl<'ctx> {
+    pub(super) fn declare_global_binding(
+        &mut self,
+        id: BindingId,
+        binding: &hir::Binding,
+    ) -> Decl<'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
         // the global value will is initialized by the entry point function
 
@@ -206,7 +201,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // }
     }
 
-    pub fn add_global(&mut self, id: BindingId, linkage: Linkage) -> GlobalValue<'ctx> {
+    pub(super) fn add_global(&mut self, id: BindingId, linkage: Linkage) -> GlobalValue<'ctx> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
         let ty = binding_info.ty.llvm_type(self);
@@ -225,7 +220,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // global_value
     }
 
-    pub fn add_global_uninit(
+    pub(super) fn add_global_uninit(
         &mut self,
         id: BindingId,
         ty: BasicTypeEnum<'ctx>,
@@ -237,7 +232,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         global_value
     }
 
-    pub fn find_binding_info_by_name(
+    pub(super) fn find_binding_info_by_name(
         &mut self,
         module_name: impl Into<Ustr>,
         name: impl Into<Ustr>,
@@ -261,7 +256,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap_or_else(|| panic!("couldn't find {} in {}", name, module_name))
     }
 
-    pub fn find_decl_by_name(
+    pub(super) fn find_decl_by_name(
         &mut self,
         module_name: impl Into<Ustr>,
         name: impl Into<Ustr>,
@@ -270,248 +265,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_top_level_binding(id)
     }
 
-    pub fn gen_binding_pattern_with_expr(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &Pattern,
-        ty: &Type,
-        expr: &Option<Box<ast::Ast>>,
-    ) {
-        if ty.is_type() {
-            return;
-        }
-
-        match pattern {
-            Pattern::Name(NamePattern { id: binding_id, .. }) => {
-                self.gen_local_and_store_expr(state, *binding_id, &expr, ty);
-            }
-            Pattern::StructUnpack(pattern) => match ty.maybe_deref_once() {
-                Type::Module(_) => {
-                    self.gen_binding_module_unpack_pattern(state, pattern);
-                }
-                Type::Struct(struct_ty) => {
-                    let ptr = self.gen_local_and_store_expr(state, BindingId::unknown(), &expr, ty);
-
-                    self.gen_binding_struct_unpack_pattern(state, pattern, ty, &struct_ty, ptr);
-                }
-                ty => panic!("unexpected type: {}", ty),
-            },
-            Pattern::TupleUnpack(pattern) => {
-                let ptr = self.gen_local_and_store_expr(state, BindingId::unknown(), &expr, ty);
-
-                self.gen_binding_tuple_unpack_pattern(state, pattern, ty, ptr);
-            }
-            Pattern::Hybrid(pattern) => match &pattern.unpack_pattern {
-                UnpackPatternKind::Struct(unpack) => match ty.maybe_deref_once() {
-                    Type::Module(_) => {
-                        self.gen_local_and_store_expr(state, pattern.name_pattern.id, &expr, ty);
-                        self.gen_binding_module_unpack_pattern(state, unpack);
-                    }
-                    Type::Struct(struct_ty) => {
-                        let ptr = self.gen_local_and_store_expr(
-                            state,
-                            pattern.name_pattern.id,
-                            &expr,
-                            ty,
-                        );
-
-                        self.gen_binding_struct_unpack_pattern(state, unpack, ty, &struct_ty, ptr);
-                    }
-                    ty => panic!("unexpected type: {}", ty),
-                },
-                UnpackPatternKind::Tuple(unpack) => {
-                    let ptr =
-                        self.gen_local_and_store_expr(state, pattern.name_pattern.id, &expr, ty);
-                    self.gen_binding_tuple_unpack_pattern(state, unpack, ty, ptr);
-                }
-            },
-        }
-    }
-
-    pub fn gen_binding_module_unpack_pattern(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &UnpackPattern,
-    ) {
-        todo!();
-        // for pattern in pattern.symbols.iter() {
-        //     let redirect_id = self
-        //         .workspace
-        //         .binding_infos
-        //         .get(pattern.id)
-        //         .unwrap()
-        //         .redirects_to
-        //         .unwrap();
-
-        //     let decl = self.gen_top_level_binding(redirect_id);
-
-        //     state.scopes.insert(pattern.id, decl);
-        // }
-    }
-
-    pub fn gen_binding_struct_unpack_pattern(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &UnpackPattern,
-        ty: &Type,
-        struct_ty: &StructType,
-        ptr: PointerValue<'ctx>,
-    ) {
-        let struct_llvm_type = Some(ty.llvm_type(self));
-
-        for pattern in pattern.symbols.iter() {
-            let field_index = struct_ty.find_field_position(pattern.name).unwrap();
-
-            let value = self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
-
-            self.local_with_alloca(
-                state,
-                pattern.id,
-                if ty.is_pointer() {
-                    value
-                } else {
-                    todo!()
-                    // self.build_load(value)
-                },
-            );
-        }
-    }
-
-    pub fn gen_binding_tuple_unpack_pattern(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &UnpackPattern,
-        ty: &Type,
-        ptr: PointerValue<'ctx>,
-    ) {
-        let llvm_type = Some(ty.llvm_type(self));
-
-        for (i, pattern) in pattern.symbols.iter().enumerate() {
-            let value = self.gen_struct_access(ptr.into(), i as u32, llvm_type);
-
-            self.local_with_alloca(
-                state,
-                pattern.id,
-                if ty.is_pointer() {
-                    value
-                } else {
-                    todo!()
-                    // self.build_load(value)
-                },
-            );
-        }
-    }
-
-    pub fn gen_binding_pattern_with_value(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &Pattern,
-        ty: &Type,
-        value: BasicValueEnum<'ctx>,
-    ) {
-        match pattern {
-            Pattern::Name(symbol) => {
-                self.local_with_alloca(state, symbol.id, value);
-            }
-            Pattern::StructUnpack(pattern) => {
-                self.gen_binding_struct_unpack_pattern_with_value(state, pattern, ty, value);
-            }
-            Pattern::TupleUnpack(pattern) => {
-                self.gen_binding_tuple_unpack_pattern_with_value(state, pattern, ty, value);
-            }
-            Pattern::Hybrid(pattern) => {
-                let ptr = self.local_with_alloca(state, pattern.name_pattern.id, value);
-
-                match &pattern.unpack_pattern {
-                    UnpackPatternKind::Struct(unpack) => {
-                        self.gen_binding_struct_unpack_pattern(
-                            state,
-                            unpack,
-                            ty,
-                            ty.maybe_deref_once().as_struct(),
-                            ptr,
-                        );
-                    }
-                    UnpackPatternKind::Tuple(unpack) => {
-                        self.gen_binding_tuple_unpack_pattern(state, unpack, ty, ptr);
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn gen_binding_struct_unpack_pattern_with_value(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &UnpackPattern,
-        ty: &Type,
-        value: BasicValueEnum<'ctx>,
-    ) {
-        let struct_ty = ty.maybe_deref_once().into_struct();
-
-        for i in 0..pattern.symbols.len() {
-            let NamePattern {
-                id: binding_id,
-                name: symbol,
-                ignore,
-                ..
-            } = pattern.symbols[i];
-
-            if ignore {
-                continue;
-            }
-
-            let field_index = struct_ty.find_field_position(symbol).unwrap();
-
-            let llvm_type = Some(ty.llvm_type(self));
-
-            let value = self.gen_struct_access(value, field_index as u32, llvm_type);
-
-            let value = if ty.is_pointer() {
-                value
-            } else {
-                todo!()
-                // self.build_load(value)
-            };
-
-            self.local_with_alloca(state, binding_id, value);
-        }
-    }
-
-    pub fn gen_binding_tuple_unpack_pattern_with_value(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        pattern: &UnpackPattern,
-        ty: &Type,
-        value: BasicValueEnum<'ctx>,
-    ) {
-        for i in 0..pattern.symbols.len() {
-            let NamePattern {
-                id: binding_id,
-                ignore,
-                ..
-            } = pattern.symbols[i];
-
-            if ignore {
-                continue;
-            }
-
-            let llvm_type = Some(ty.llvm_type(self));
-
-            let value = self.gen_struct_access(value, i as u32, llvm_type);
-
-            let value = if ty.is_pointer() {
-                value
-            } else {
-                todo!()
-                // self.build_load(value)
-            };
-
-            self.local_with_alloca(state, binding_id, value);
-        }
-    }
-
-    pub fn local_uninit(
+    pub(super) fn local_uninit(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -523,7 +277,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub fn local_with_alloca(
+    pub(super) fn local_with_alloca(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -535,7 +289,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub fn local_or_load_addr(
+    pub(super) fn local_or_load_addr(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -548,7 +302,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn build_alloca_or_load_addr(
+    pub(super) fn build_alloca_or_load_addr(
         &mut self,
         state: &mut FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
@@ -591,7 +345,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    // pub fn gen_expr(
+    // pub(super)  fn gen_expr(
     //     &mut self,
     //     state: &mut CodegenState<'ctx>,
     //     expr: &ast::Ast,
@@ -859,8 +613,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //             match derefed_ty {
     //                 Type::Tuple(_) => {
     //                     let index = access.member.parse::<usize>().unwrap();
-    //                     let llvm_ty = Some(derefed_ty.llvm_type(self));
-    //                     let value = self.gen_struct_access(value, index as u32, llvm_ty);
+    //                     let llvm_type = Some(derefed_ty.llvm_type(self));
+    //                     let value = self.gen_struct_access(value, index as u32, llvm_type);
 
     //                     if deref {
     //                         self.build_load(value)
@@ -978,8 +732,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //                         _ => unreachable!("got ty `{}`", ty),
     //                     };
 
-    //                     let llvm_ty = ty.llvm_type(self);
-    //                     let array_ptr = self.build_alloca(state, llvm_ty);
+    //                     let llvm_type = ty.llvm_type(self);
+    //                     let array_ptr = self.build_alloca(state, llvm_type);
 
     //                     for index in 0..size {
     //                         let access = unsafe {
@@ -1085,8 +839,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //                 .map(|e| self.gen_expr(state, e, true))
     //                 .collect();
 
-    //             let llvm_ty = expr.ty().llvm_type(self);
-    //             let tuple = self.build_alloca(state, llvm_ty);
+    //             let llvm_type = expr.ty().llvm_type(self);
+    //             let tuple = self.build_alloca(state, llvm_type);
 
     //             for (i, value) in values.iter().enumerate() {
     //                 let ptr = self.builder.build_struct_gep(tuple, i as u32, "").unwrap();
@@ -1131,7 +885,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //     value
     // }
 
-    pub fn gen_block(
+    pub(super) fn gen_block(
         &mut self,
         state: &mut FunctionState<'ctx>,
         block: &ast::Block,
@@ -1158,7 +912,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // }
     }
 
-    pub fn gen_const_value(
+    pub(super) fn gen_const_value(
         &mut self,
         state: Option<&FunctionState<'ctx>>,
         const_value: &ConstValue,
@@ -1252,7 +1006,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn gen_local_and_store_expr(
+    pub(super) fn gen_local_and_store_expr(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -1270,7 +1024,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // }
     }
 
-    pub fn gen_cast(
+    pub(super) fn gen_cast(
         &mut self,
         state: &mut FunctionState<'ctx>,
         expr: &Box<ast::Ast>,
@@ -1286,7 +1040,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // )
     }
 
-    fn gen_cast_inner(
+    pub(super) fn gen_cast_inner(
         &mut self,
         state: &mut FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
@@ -1408,7 +1162,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn gen_return(
+    pub(super) fn gen_return(
         &mut self,
         state: &mut FunctionState<'ctx>,
         value: Option<BasicValueEnum<'ctx>>,

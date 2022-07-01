@@ -12,7 +12,7 @@ use inkwell::{
     types::{AnyType, AnyTypeEnum, BasicTypeEnum, FunctionType},
 };
 
-pub fn get_abi_compliant_fn<'ctx>(
+pub(super) fn get_abi_compliant_fn<'ctx>(
     context: &'ctx Context,
     target_metrics: &TargetMetrics,
     fn_ty: FunctionType<'ctx>,
@@ -31,12 +31,12 @@ pub fn get_abi_compliant_fn<'ctx>(
     }
 }
 
-pub fn size_of<'ctx>(llvm_ty: BasicTypeEnum<'ctx>, word_size: usize) -> usize {
-    size_of_any(llvm_ty.as_any_type_enum(), word_size)
+pub(super) fn size_of<'ctx>(llvm_type: BasicTypeEnum<'ctx>, word_size: usize) -> usize {
+    size_of_any(llvm_type.as_any_type_enum(), word_size)
 }
 
-pub fn size_of_any<'ctx>(llvm_ty: AnyTypeEnum<'ctx>, word_size: usize) -> usize {
-    match llvm_ty {
+pub(super) fn size_of_any<'ctx>(llvm_type: AnyTypeEnum<'ctx>, word_size: usize) -> usize {
+    match llvm_type {
         AnyTypeEnum::VoidType(_) => 0,
         AnyTypeEnum::IntType(t) => bit_width_to_size(t.get_bit_width()),
         AnyTypeEnum::FloatType(t) => bit_width_to_size(t.get_bit_width()),
@@ -58,21 +58,21 @@ pub fn size_of_any<'ctx>(llvm_ty: AnyTypeEnum<'ctx>, word_size: usize) -> usize 
                     offset = calculate_align_from_offset(offset, align);
                     offset += size_of(field, word_size);
                 }
-                offset = calculate_align_from_offset(offset, align_of_any(llvm_ty, word_size));
+                offset = calculate_align_from_offset(offset, align_of_any(llvm_type, word_size));
                 offset
             }
         }
         AnyTypeEnum::VectorType(_) => todo!("size of vector type"),
-        _ => panic!("got unsized type: {:?}", llvm_ty),
+        _ => panic!("got unsized type: {:?}", llvm_type),
     }
 }
 
-pub fn align_of<'ctx>(llvm_ty: BasicTypeEnum<'ctx>, word_size: usize) -> usize {
-    align_of_any(llvm_ty.as_any_type_enum(), word_size)
+pub(super) fn align_of<'ctx>(llvm_type: BasicTypeEnum<'ctx>, word_size: usize) -> usize {
+    align_of_any(llvm_type.as_any_type_enum(), word_size)
 }
 
-pub fn align_of_any<'ctx>(llvm_ty: AnyTypeEnum<'ctx>, word_size: usize) -> usize {
-    match llvm_ty {
+pub(super) fn align_of_any<'ctx>(llvm_type: AnyTypeEnum<'ctx>, word_size: usize) -> usize {
+    match llvm_type {
         AnyTypeEnum::VoidType(_) => 1,
         AnyTypeEnum::IntType(t) => {
             let size = bit_width_to_size(t.get_bit_width());
@@ -95,7 +95,7 @@ pub fn align_of_any<'ctx>(llvm_ty: AnyTypeEnum<'ctx>, word_size: usize) -> usize
             }
         }
         AnyTypeEnum::VectorType(_) => todo!("size of vector type"),
-        _ => panic!("got unsized type: {:?}", llvm_ty),
+        _ => panic!("got unsized type: {:?}", llvm_type),
     }
 }
 
@@ -122,7 +122,7 @@ pub struct AbiTy<'ctx> {
 }
 
 impl<'ctx> AbiTy<'ctx> {
-    pub fn direct(ty: BasicTypeEnum<'ctx>) -> Self {
+    pub(super) fn direct(ty: BasicTypeEnum<'ctx>) -> Self {
         Self {
             ty,
             kind: AbiType::Direct,
@@ -132,7 +132,7 @@ impl<'ctx> AbiTy<'ctx> {
         }
     }
 
-    pub fn indirect(ty: BasicTypeEnum<'ctx>) -> Self {
+    pub(super) fn indirect(ty: BasicTypeEnum<'ctx>) -> Self {
         Self {
             ty,
             kind: AbiType::Indirect,
@@ -142,7 +142,7 @@ impl<'ctx> AbiTy<'ctx> {
         }
     }
 
-    pub fn ignore(ty: BasicTypeEnum<'ctx>) -> Self {
+    pub(super) fn ignore(ty: BasicTypeEnum<'ctx>) -> Self {
         Self {
             ty,
             kind: AbiType::Ignore,
@@ -152,7 +152,11 @@ impl<'ctx> AbiTy<'ctx> {
         }
     }
 
-    pub fn indirect_byval(context: &Context, ty: BasicTypeEnum<'ctx>, word_size: usize) -> Self {
+    pub(super) fn indirect_byval(
+        context: &Context,
+        ty: BasicTypeEnum<'ctx>,
+        word_size: usize,
+    ) -> Self {
         Self {
             ty,
             kind: AbiType::Indirect,
@@ -168,18 +172,18 @@ impl<'ctx> AbiTy<'ctx> {
         }
     }
 
-    pub fn with_cast_to<'a>(&'a mut self, cast_to: BasicTypeEnum<'ctx>) -> &'a mut Self {
+    pub(super) fn with_cast_to<'a>(&'a mut self, cast_to: BasicTypeEnum<'ctx>) -> &'a mut Self {
         self.cast_to = Some(cast_to);
         self
     }
 
-    pub fn with_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
+    pub(super) fn with_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
         self.attr = Some(attr);
         self
     }
 
     #[allow(unused)]
-    pub fn with_align_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
+    pub(super) fn with_align_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
         self.align_attr = Some(attr);
         self
     }
@@ -194,21 +198,21 @@ pub enum AbiType {
 
 impl AbiType {
     #[allow(unused)]
-    pub fn is_direct(&self) -> bool {
+    pub(super) fn is_direct(&self) -> bool {
         match self {
             AbiType::Direct => true,
             _ => false,
         }
     }
 
-    pub fn is_indirect(&self) -> bool {
+    pub(super) fn is_indirect(&self) -> bool {
         match self {
             AbiType::Indirect => true,
             _ => false,
         }
     }
 
-    pub fn is_ignore(&self) -> bool {
+    pub(super) fn is_ignore(&self) -> bool {
         match self {
             AbiType::Ignore => true,
             _ => false,

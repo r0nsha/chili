@@ -269,7 +269,7 @@ impl<'a> Substitute<'a> for hir::Offset {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.ty.substitute(sess, self.span);
         self.value.substitute(sess);
-        self.offset.substitute(sess);
+        self.index.substitute(sess);
     }
 }
 

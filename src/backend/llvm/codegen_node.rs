@@ -1,41 +1,14 @@
 use super::{
-    abi::{align_of, size_of},
     codegen::{Codegen, Decl, FunctionState, Generator},
-    traits::IsALoadInst,
     ty::IntoLlvmType,
 };
-use crate::{
-    ast::{
-        self,
-        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-        FunctionId, Intrinsic,
-    },
-    common::{
-        build_options,
-        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        scopes::Scopes,
-        target::TargetMetrics,
-    },
-    hir::{self, const_value::ConstValue},
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
-    types::*,
-    workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, ScopeLevel, Workspace},
-};
+use crate::{hir, infer::normalize::Normalize, types::*};
 use inkwell::{
-    basic_block::BasicBlock,
-    builder::Builder,
-    context::Context,
-    module::{Linkage, Module},
-    passes::{PassManager, PassManagerBuilder},
-    types::{BasicType, BasicTypeEnum, IntType},
-    values::{
-        BasicValue, BasicValueEnum, CallableValue, FunctionValue, GlobalValue, InstructionOpcode,
-        PointerValue,
-    },
-    AddressSpace, IntPredicate, OptimizationLevel,
+    module::Linkage,
+    types::BasicType,
+    values::{BasicValue, BasicValueEnum, CallableValue, InstructionOpcode},
+    AddressSpace,
 };
-use std::collections::HashMap;
-use ustr::{ustr, Ustr, UstrMap};
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
     fn codegen(
@@ -102,6 +75,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
         generator.local_with_alloca(state, self.id, value);
+        // let ptr = generator.local_or_load_addr(state, self.id, value);
+        // state.scopes.insert(self.id, Decl::Local(ptr));
         generator.unit_value()
     }
 }
@@ -163,7 +138,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
         let value = self.value.codegen(generator, state);
 
         match value.as_instruction_value().map(|inst| inst.get_opcode()) {
-            Some(InstructionOpcode::Load) => generator.gep_at_index(value, self.member_index, ""),
+            Some(InstructionOpcode::Load) => generator.gep_struct(value, self.member_index, ""),
             _ => generator
                 .builder
                 .build_extract_value(value.into_struct_value(), self.member_index, "")
@@ -217,7 +192,124 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        todo!()
+        let value = self.value.codegen(generator, state);
+
+        let from_ty = &self.value.ty().normalize(generator.tycx);
+        let target_ty = &self.ty.normalize(generator.tycx);
+
+        if from_ty == target_ty {
+            return value;
+        }
+
+        const INST_NAME: &str = "cast";
+
+        let cast_type = target_ty.llvm_type(generator);
+
+        match (from_ty, target_ty) {
+            (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => generator
+                .builder
+                .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
+                .into(),
+            (Type::Int(_) | Type::Uint(_), Type::Int(_) | Type::Uint(_)) => generator
+                .builder
+                .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
+                .into(),
+
+            (Type::Int(_), Type::Float(_)) => generator
+                .builder
+                .build_signed_int_to_float(
+                    value.into_int_value(),
+                    cast_type.into_float_type(),
+                    INST_NAME,
+                )
+                .into(),
+
+            (Type::Uint(_), Type::Float(_)) => generator
+                .builder
+                .build_unsigned_int_to_float(
+                    value.into_int_value(),
+                    cast_type.into_float_type(),
+                    INST_NAME,
+                )
+                .into(),
+
+            (Type::Float(_), Type::Int(_)) => generator
+                .builder
+                .build_float_to_signed_int(
+                    value.into_float_value(),
+                    cast_type.into_int_type(),
+                    INST_NAME,
+                )
+                .into(),
+            (Type::Float(_), Type::Uint(_)) => generator
+                .builder
+                .build_float_to_unsigned_int(
+                    value.into_float_value(),
+                    cast_type.into_int_type(),
+                    INST_NAME,
+                )
+                .into(),
+            (Type::Float(_), Type::Float(_)) => generator
+                .builder
+                .build_float_cast(
+                    value.into_float_value(),
+                    cast_type.into_float_type(),
+                    INST_NAME,
+                )
+                .into(),
+
+            (
+                Type::Pointer(..) | Type::MultiPointer(..),
+                Type::Pointer(..) | Type::MultiPointer(..),
+            ) => generator
+                .builder
+                .build_pointer_cast(
+                    value.into_pointer_value(),
+                    cast_type.into_pointer_type(),
+                    INST_NAME,
+                )
+                .into(),
+
+            // pointer <=> int | uint
+            (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => generator
+                .builder
+                .build_ptr_to_int(
+                    value.into_pointer_value(),
+                    cast_type.into_int_type(),
+                    INST_NAME,
+                )
+                .into(),
+
+            // int | uint <=> pointer
+            (Type::Int(..) | Type::Uint(..), Type::Pointer(..)) => generator
+                .builder
+                .build_int_to_ptr(
+                    value.into_int_value(),
+                    cast_type.into_pointer_type(),
+                    INST_NAME,
+                )
+                .into(),
+
+            (Type::Pointer(t, _), Type::Slice(t_slice, ..)) => match t.as_ref() {
+                Type::Array(_, size) => {
+                    let slice_ty = generator.slice_type(t_slice);
+                    let ptr = generator.build_alloca(state, slice_ty);
+
+                    generator.build_slice(
+                        ptr,
+                        value,
+                        generator.ptr_sized_int_type.const_zero(),
+                        generator.ptr_sized_int_type.const_int(*size as u64, false),
+                        t_slice.as_ref(),
+                    );
+
+                    generator.build_load(ptr.into())
+                }
+                _ => unreachable!(),
+            },
+
+            _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
+        }
     }
 }
 

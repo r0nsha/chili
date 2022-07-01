@@ -139,7 +139,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 generator.builder.build_load(value, "deref")
             }
             hir::Builtin::Ref(ref_) => ref_.codegen(generator, state),
-            hir::Builtin::Offset(_) => todo!(),
+            hir::Builtin::Offset(offset) => offset.codegen(generator, state),
             hir::Builtin::Slice(slice) => slice.codegen(generator, state),
         }
     }
@@ -246,7 +246,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             );
         }
 
-        let slice_llvm_ty = value_type.llvm_type(generator);
+        let slice_llvm_ty = self.ty.llvm_type(generator);
         let slice_ptr = generator.build_alloca(state, slice_llvm_ty);
 
         generator.build_slice(
@@ -535,5 +535,55 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Ref {
             }
             _ => panic!(),
         }
+    }
+}
+
+impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
+    fn codegen(
+        &self,
+        generator: &mut Generator<'g, 'ctx>,
+        state: &mut FunctionState<'ctx>,
+    ) -> BasicValueEnum<'ctx> {
+        let value = self.value.codegen(generator, state);
+        let index = self.index.codegen(generator, state).into_int_value();
+
+        let ty = self.value.ty().normalize(generator.tycx);
+
+        let len = match ty.maybe_deref_once() {
+            Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
+            Type::Slice(..) => Some(generator.gep_slice_len(value)),
+            Type::MultiPointer(..) => None,
+            ty => unreachable!("got {}", ty),
+        };
+
+        if let Some(len) = len {
+            generator.gen_runtime_check_index_out_of_bounds(state, index, len, self.span);
+        }
+
+        let derefed_ty = ty.maybe_deref_once();
+
+        let ptr = match derefed_ty {
+            Type::Array(..) | Type::MultiPointer(..) => value.into_pointer_value(),
+            Type::Slice(..) => generator.gep_slice_data(value),
+            ty => unreachable!("{}", ty),
+        };
+
+        let ptr_offset = match derefed_ty {
+            Type::Array(..) => unsafe {
+                generator.builder.build_in_bounds_gep(
+                    ptr,
+                    &[index.get_type().const_zero(), index],
+                    "offset",
+                )
+            },
+            Type::MultiPointer(..) | Type::Slice(..) => unsafe {
+                generator
+                    .builder
+                    .build_in_bounds_gep(ptr, &[index], "offset")
+            },
+            ty => unreachable!("{}", ty),
+        };
+
+        generator.builder.build_load(ptr_offset, "")
     }
 }

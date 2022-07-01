@@ -117,6 +117,7 @@ impl Lower for hir::Binding {
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
 
+        println!("{} -> {:?}", self.name, self.id);
         sess.add_local(code, self.id);
         code.push(Instruction::SetLocal(code.last_local()));
 
@@ -604,7 +605,7 @@ impl Lower for hir::Builtin {
                 }
 
                 offset
-                    .offset
+                    .index
                     .lower(sess, code, LowerContext { take_ptr: false });
 
                 sess.push_const(code, Value::Uint(value_inner_type_size));
