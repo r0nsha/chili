@@ -1,39 +1,13 @@
 use super::{
-    abi::{align_of, size_of},
     codegen::{Codegen, FunctionState, Generator},
-    traits::IsALoadInst,
     ty::IntoLlvmType,
 };
-use crate::{
-    ast::{
-        self,
-        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
-        FunctionId, Intrinsic,
-    },
-    common::{
-        build_options,
-        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        scopes::Scopes,
-        target::TargetMetrics,
-    },
-    hir::{self, const_value::ConstValue},
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
-    span::Span,
-    types::*,
-    workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
-};
+use crate::{ast, hir, infer::normalize::Normalize, span::Span, types::*};
 use inkwell::{
-    basic_block::BasicBlock,
-    builder::Builder,
-    context::Context,
-    module::{Linkage, Module},
-    passes::{PassManager, PassManagerBuilder},
-    types::{BasicType, BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, IntValue, PointerValue},
-    AddressSpace, FloatPredicate, IntPredicate, OptimizationLevel,
+    types::IntType,
+    values::{BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode, IntValue},
+    FloatPredicate, IntPredicate,
 };
-use std::collections::HashMap;
-use ustr::{ustr, Ustr, UstrMap};
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
     fn codegen(
@@ -41,63 +15,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        // let ty = binary.lhs.ty().normalize(self.tycx);
-
-        // let lhs = self.gen_expr(state, &binary.lhs, true);
-        // let rhs = self.gen_expr(state, &binary.rhs, true);
-
-        // let (lhs, rhs) = if lhs.is_pointer_value() {
-        //     (
-        //         self.builder
-        //             .build_ptr_to_int(lhs.into_pointer_value(), self.ptr_sized_int_type, "")
-        //             .as_basic_value_enum(),
-        //         self.builder
-        //             .build_ptr_to_int(rhs.into_pointer_value(), self.ptr_sized_int_type, "")
-        //             .as_basic_value_enum(),
-        //     )
-        // } else {
-        //     (lhs, rhs)
-        // };
-
-        // match binary.op {
-        //     ast::BinaryOp::Add => self.gen_add(state, lhs, rhs, ty, binary.span),
-        //     ast::BinaryOp::Sub => self.gen_sub(state, lhs, rhs, ty, binary.span),
-        //     ast::BinaryOp::Mul => self.gen_mul(state, lhs, rhs, ty, binary.span),
-        //     ast::BinaryOp::Div => self.gen_div(state, lhs, rhs, ty, binary.span),
-        //     ast::BinaryOp::Rem => self.gen_rem(state, lhs, rhs, ty, binary.span),
-        //     ast::BinaryOp::Eq
-        //     | ast::BinaryOp::Ne
-        //     | ast::BinaryOp::Lt
-        //     | ast::BinaryOp::Le
-        //     | ast::BinaryOp::Gt
-        //     | ast::BinaryOp::Ge => {
-        //         if ty.is_float() {
-        //             self.builder
-        //                 .build_float_compare(
-        //                     binary.op.into_float_predicate(),
-        //                     lhs.into_float_value(),
-        //                     rhs.into_float_value(),
-        //                     "",
-        //                 )
-        //                 .into()
-        //         } else {
-        //             self.builder
-        //                 .build_int_compare(
-        //                     binary.op.into_int_predicate(ty.is_signed_int()),
-        //                     lhs.into_int_value(),
-        //                     rhs.into_int_value(),
-        //                     "",
-        //                 )
-        //                 .into()
-        //         }
-        //     }
-        //     ast::BinaryOp::And | ast::BinaryOp::BitAnd => self.gen_and(lhs, rhs),
-        //     ast::BinaryOp::Or | ast::BinaryOp::BitOr => self.gen_or(lhs, rhs),
-        //     ast::BinaryOp::Shl => self.gen_shl(lhs, rhs),
-        //     ast::BinaryOp::Shr => self.gen_shr(lhs, rhs, ty),
-        //     ast::BinaryOp::BitXor => self.gen_xor(lhs, rhs),
-        // }
-
         match self {
             hir::Builtin::Add(binary) => {
                 let (lhs, rhs, ty) = gen_binary(binary, generator, state);
@@ -187,10 +104,41 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 let (lhs, rhs, _) = gen_binary(binary, generator, state);
                 generator.gen_xor(lhs, rhs)
             }
-            hir::Builtin::Not(_) => todo!(),
-            hir::Builtin::Neg(_) => todo!(),
-            hir::Builtin::Deref(_) => todo!(),
-            hir::Builtin::Ref(_) => todo!(),
+            hir::Builtin::Not(unary) => {
+                let value = unary.value.codegen(generator, state).into_int_value();
+
+                match unary.ty.normalize(generator.tycx) {
+                    Type::Int(_) | Type::Uint(_) => {
+                        generator.builder.build_not(value, "not").into()
+                    }
+                    Type::Bool => {
+                        let false_value = generator.context.custom_width_int_type(1).const_zero();
+
+                        generator
+                            .builder
+                            .build_int_compare(IntPredicate::EQ, value, false_value, "bnot")
+                            .into()
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            hir::Builtin::Neg(unary) => match unary.ty.normalize(generator.tycx) {
+                Type::Int(_) => {
+                    let value = unary.value.codegen(generator, state).into_int_value();
+                    generator.builder.build_int_neg(value, "ineg").into()
+                }
+                Type::Float(_) => {
+                    let value = unary.value.codegen(generator, state).into_float_value();
+                    generator.builder.build_float_neg(value, "fneg").into()
+                }
+                _ => unreachable!("{}", &unary.value.ty()),
+            },
+            hir::Builtin::Deref(unary) => {
+                let value = unary.value.codegen(generator, state).into_pointer_value();
+                generator.gen_runtime_check_null_pointer_deref(state, value, unary.span);
+                generator.builder.build_load(value, "deref")
+            }
+            hir::Builtin::Ref(ref_) => ref_.codegen(generator, state),
             hir::Builtin::Offset(_) => todo!(),
             hir::Builtin::Slice(slice) => slice.codegen(generator, state),
         }
@@ -573,62 +521,19 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 }
 
-trait IntoIntPredicate {
-    fn into_int_predicate(self, is_signed: bool) -> IntPredicate;
-}
+impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Ref {
+    fn codegen(
+        &self,
+        generator: &mut Generator<'g, 'ctx>,
+        state: &mut FunctionState<'ctx>,
+    ) -> BasicValueEnum<'ctx> {
+        let value = self.value.codegen(generator, state);
 
-impl IntoIntPredicate for ast::BinaryOp {
-    fn into_int_predicate(self, is_signed: bool) -> IntPredicate {
-        match self {
-            ast::BinaryOp::Eq => IntPredicate::EQ,
-            ast::BinaryOp::Ne => IntPredicate::NE,
-            ast::BinaryOp::Lt => {
-                if is_signed {
-                    IntPredicate::SLT
-                } else {
-                    IntPredicate::ULT
-                }
+        match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
+                inst.get_operand(0).unwrap().left().unwrap()
             }
-            ast::BinaryOp::Le => {
-                if is_signed {
-                    IntPredicate::SLE
-                } else {
-                    IntPredicate::ULE
-                }
-            }
-            ast::BinaryOp::Gt => {
-                if is_signed {
-                    IntPredicate::SGT
-                } else {
-                    IntPredicate::UGT
-                }
-            }
-            ast::BinaryOp::Ge => {
-                if is_signed {
-                    IntPredicate::SGE
-                } else {
-                    IntPredicate::UGE
-                }
-            }
-            _ => panic!("got {}", self),
-        }
-    }
-}
-
-trait IntoFloatPredicate {
-    fn into_float_predicate(self) -> FloatPredicate;
-}
-
-impl IntoFloatPredicate for ast::BinaryOp {
-    fn into_float_predicate(self) -> FloatPredicate {
-        match self {
-            ast::BinaryOp::Eq => FloatPredicate::OEQ,
-            ast::BinaryOp::Ne => FloatPredicate::ONE,
-            ast::BinaryOp::Lt => FloatPredicate::OLT,
-            ast::BinaryOp::Le => FloatPredicate::OLE,
-            ast::BinaryOp::Gt => FloatPredicate::OGT,
-            ast::BinaryOp::Ge => FloatPredicate::OGE,
-            _ => panic!("got {}", self),
+            _ => panic!(),
         }
     }
 }

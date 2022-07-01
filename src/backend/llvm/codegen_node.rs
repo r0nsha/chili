@@ -129,7 +129,28 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assignment {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        todo!()
+        let lhs = self.lhs.codegen(generator, state);
+
+        let lhs = match lhs.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => inst
+                .get_operand(0)
+                .unwrap()
+                .left()
+                .unwrap()
+                .into_pointer_value(),
+            _ => lhs.into_pointer_value(),
+        };
+
+        let rhs = self.rhs.codegen(generator, state);
+
+        let lhs = generator.builder.build_pointer_cast(
+            lhs,
+            rhs.get_type().ptr_type(AddressSpace::Generic),
+            "",
+        );
+
+        generator.builder.build_store(lhs, rhs);
+        generator.unit_value()
     }
 }
 
@@ -141,109 +162,13 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
 
-        match value.as_instruction_value().map(|instr| instr.get_opcode()) {
+        match value.as_instruction_value().map(|inst| inst.get_opcode()) {
             Some(InstructionOpcode::Load) => generator.gep_at_index(value, self.member_index, ""),
             _ => generator
                 .builder
                 .build_extract_value(value.into_struct_value(), self.member_index, "")
                 .unwrap(),
         }
-
-        // let accessed_ty = self.value.ty().normalize(generator.tycx);
-
-        // let value = if accessed_ty.is_pointer() {
-        //     self.build_load(value)
-        // } else {
-        //     value
-        // };
-
-        // let derefed_ty = accessed_ty.maybe_deref_once();
-        // match derefed_ty {
-        //     Type::Tuple(_) => {
-        //         let index = access.member.parse::<usize>().unwrap();
-        //         let llvm_ty = Some(derefed_ty.llvm_type(self));
-        //         let value = self.gen_struct_access(value, index as u32, llvm_ty);
-
-        //         if deref {
-        //             self.build_load(value)
-        //         } else {
-        //             value
-        //         }
-        //     }
-        //     Type::Struct(ref struct_ty) => {
-        //         let struct_llvm_ty = Some(derefed_ty.llvm_type(self));
-
-        //         if struct_ty.is_union() {
-        //             let field = struct_ty
-        //                 .fields
-        //                 .iter()
-        //                 .find(|f| f.name == access.member)
-        //                 .unwrap();
-
-        //             let field_ty = field.ty.llvm_type(self);
-
-        //             let casted_ptr = self.builder.build_pointer_cast(
-        //                 value.into_pointer_value(),
-        //                 field_ty.ptr_type(AddressSpace::Generic),
-        //                 "",
-        //             );
-
-        //             let value = casted_ptr.into();
-
-        //             if deref {
-        //                 self.build_load(value)
-        //             } else {
-        //                 value
-        //             }
-        //         } else {
-        //             let field_index = struct_ty.find_field_position(access.member).unwrap();
-        //             let value = self.gen_struct_access(value, field_index as u32, struct_llvm_ty);
-
-        //             if deref {
-        //                 self.build_load(value)
-        //             } else {
-        //                 value
-        //             }
-        //         }
-        //     }
-        //     Type::Array(_, len) => match access.member.as_str() {
-        //         BUILTIN_FIELD_LEN => self.ptr_sized_int_type.const_int(len as _, false).into(),
-        //         _ => unreachable!("got field `{}`", access.member),
-        //     },
-        //     Type::Slice(..) => match access.member.as_str() {
-        //         BUILTIN_FIELD_LEN => self.gen_load_slice_len(value).into(),
-        //         BUILTIN_FIELD_DATA => self
-        //             .maybe_load_double_pointer(self.gen_load_slice_data(value))
-        //             .into(),
-        //         _ => unreachable!("got field `{}`", access.member),
-        //     },
-        //     Type::Module(module_id) => {
-        //         let id = self
-        //             .workspace
-        //             .binding_infos
-        //             .iter()
-        //             .position(|(_, info)| info.module_id == module_id && info.name == access.member)
-        //             .map(BindingId::from)
-        //             .unwrap_or_else(|| {
-        //                 panic!(
-        //                     "couldn't find member `{}` in module `{}`",
-        //                     self.workspace.module_infos.get(module_id).unwrap().name,
-        //                     access.member
-        //                 )
-        //             });
-
-        //         let decl = self.gen_top_level_binding(id);
-
-        //         let ptr = decl.into_pointer_value();
-
-        //         if deref {
-        //             self.build_load(ptr.into())
-        //         } else {
-        //             ptr.into()
-        //         }
-        //     }
-        //     _ => unreachable!("invalid ty `{}`", accessed_ty),
-        // }
     }
 }
 
