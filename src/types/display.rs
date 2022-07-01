@@ -45,7 +45,7 @@ impl Display for Type {
                 Type::Function(func) => func.to_string(),
                 Type::Array(inner, size) => format!("[{}]{}", size, inner),
                 Type::Slice(inner, is_mutable) =>
-                    format!("[{}]{}", if *is_mutable { "mut" } else { "" }, inner,),
+                    format!("[]{}{}", if *is_mutable { "mut " } else { "" }, inner,),
                 Type::Tuple(tys) | Type::Infer(_, InferTy::PartialTuple(tys)) => format!(
                     "({})",
                     tys.iter()

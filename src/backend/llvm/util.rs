@@ -26,14 +26,12 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.const_struct(&[], false).into()
     }
 
-    pub fn gen_load_slice_data(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
-        self.gen_struct_access(slice, 0, None).into_pointer_value()
+    pub fn gep_slice_data(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
+        self.gep_at_index(slice, 0, "data").into_pointer_value()
     }
 
-    pub fn gen_load_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
-        todo!();
-        // let value = self.gen_struct_access(slice, 1, None);
-        // self.build_load(value).into_int_value()
+    pub fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
+        self.gep_at_index(slice, 1, "len").into_int_value()
     }
 
     pub fn const_str(&mut self, name: &str, value: &str) -> GlobalValue<'ctx> {
@@ -64,7 +62,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.const_struct(&values, false)
     }
 
-    pub fn gen_slice(
+    pub fn build_slice(
         &mut self,
         ptr: PointerValue<'ctx>,
         sliced_value: BasicValueEnum<'ctx>,
@@ -528,7 +526,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     agg
                 };
 
-                let agg = self.gen_load_slice_data(value.into());
+                let agg = self.gep_slice_data(value.into());
                 self.build_load(agg.into()).into_pointer_value()
             }
 
@@ -557,7 +555,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub(super) fn gep_at_index(
-        &mut self,
+        &self,
         load: BasicValueEnum<'ctx>,
         field_index: u32,
         field_name: &str,

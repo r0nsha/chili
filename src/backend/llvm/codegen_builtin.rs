@@ -64,7 +64,58 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
             hir::Builtin::Deref(_) => todo!(),
             hir::Builtin::Ref(_) => todo!(),
             hir::Builtin::Offset(_) => todo!(),
-            hir::Builtin::Slice(_) => todo!(),
+            hir::Builtin::Slice(slice) => {
+                let slice_value = slice.value.codegen(generator, state);
+                let ty = slice.value.ty().normalize(generator.tycx);
+
+                let data = match ty {
+                    Type::Slice(..) => generator.gep_slice_data(slice_value),
+                    Type::MultiPointer(..) | Type::Array(..) => slice_value.into_pointer_value(),
+                    _ => unreachable!("got {}", ty),
+                };
+
+                let low = slice.low.codegen(generator, state).into_int_value();
+                let high = slice.high.codegen(generator, state).into_int_value();
+
+                generator.gen_runtime_check_slice_end_before_start(
+                    state,
+                    low,
+                    high,
+                    slice.value.span(),
+                );
+
+                let len = match ty {
+                    Type::Slice(..) => Some(generator.gep_slice_len(slice_value)),
+                    Type::Array(_, size) => {
+                        Some(generator.ptr_sized_int_type.const_int(size as _, false))
+                    }
+                    Type::MultiPointer(..) => None,
+                    _ => unreachable!("got {}", ty),
+                };
+
+                if let Some(len) = len {
+                    generator.gen_runtime_check_slice_range_out_of_bounds(
+                        state,
+                        low,
+                        high,
+                        len,
+                        slice.value.span(),
+                    );
+                }
+
+                let slice_llvm_ty = slice.value.ty().llvm_type(generator);
+                let slice_ptr = generator.build_alloca(state, slice_llvm_ty);
+
+                generator.build_slice(
+                    slice_ptr,
+                    data.into(),
+                    low,
+                    high,
+                    ty.element_type().unwrap(),
+                );
+
+                slice_ptr.into()
+            }
         }
     }
 }

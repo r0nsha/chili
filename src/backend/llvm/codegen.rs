@@ -1391,7 +1391,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     let slice_ty = self.slice_type(t_slice);
                     let ptr = self.build_alloca(state, slice_ty);
 
-                    self.gen_slice(
+                    self.build_slice(
                         ptr,
                         value,
                         self.ptr_sized_int_type.const_zero(),
