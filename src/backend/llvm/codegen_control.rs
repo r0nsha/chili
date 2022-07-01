@@ -38,7 +38,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Control {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         match self {
             hir::Control::If(x) => x.codegen(generator, state),
@@ -54,7 +54,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::If {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }
@@ -64,7 +64,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::While {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }
@@ -74,7 +74,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Return {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }

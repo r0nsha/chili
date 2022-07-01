@@ -1,7 +1,7 @@
 let { println } = import!("std/fmt"); 
 
 let main = fn {
-    let print = fn { println("Hello from main.chili") };
-    run!(print());
-    print();
+    let print = fn(s: str) { println(s) };
+    run!(print("Hello at compile time"));
+    print("Hello at run time");
 };

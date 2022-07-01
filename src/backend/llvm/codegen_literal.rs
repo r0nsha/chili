@@ -38,7 +38,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Literal {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         match self {
             hir::Literal::Struct(x) => x.codegen(generator, state),
@@ -53,7 +53,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }
@@ -63,7 +63,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }
@@ -73,7 +73,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayLiteral {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }
@@ -83,7 +83,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayFillLiteral {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         todo!()
     }

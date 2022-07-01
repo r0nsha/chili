@@ -61,7 +61,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let panic_info = self.build_load(panic_info.into());
 
-        self.gen_fn_call(
+        self.gen_function_call(
             state,
             panic_fn,
             &panic_type,

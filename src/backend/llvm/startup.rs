@@ -138,7 +138,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // we initialize the runtime known global bindings at the start of the program
         self.initialize_globals(&mut state);
 
-        self.gen_fn_call(
+        self.gen_function_call(
             &mut state,
             entry_point_func,
             &fn_ty,

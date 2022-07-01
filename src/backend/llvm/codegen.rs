@@ -30,36 +30,36 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum CodegenDecl<'ctx> {
+pub enum Decl<'ctx> {
     Function(FunctionValue<'ctx>),
     Global(GlobalValue<'ctx>),
     Local(PointerValue<'ctx>),
 }
 
-impl<'ctx> CodegenDecl<'ctx> {
+impl<'ctx> Decl<'ctx> {
     pub fn into_function_value(&self) -> FunctionValue<'ctx> {
         match self {
-            CodegenDecl::Function(f) => *f,
+            Decl::Function(f) => *f,
             _ => panic!("can't get function value of {:?}", self),
         }
     }
 
     pub fn into_global_value(&self) -> GlobalValue<'ctx> {
         match self {
-            CodegenDecl::Global(g) => *g,
+            Decl::Global(g) => *g,
             _ => panic!("can't get global value of {:?}", self),
         }
     }
 
     pub fn into_pointer_value(&self) -> PointerValue<'ctx> {
         match self {
-            CodegenDecl::Function(f) => f.as_global_value().as_pointer_value(),
-            CodegenDecl::Global(g) => g.as_pointer_value(),
-            CodegenDecl::Local(p) => *p,
+            Decl::Function(f) => f.as_global_value().as_pointer_value(),
+            Decl::Global(g) => g.as_pointer_value(),
+            Decl::Local(p) => *p,
         }
     }
 }
@@ -76,7 +76,7 @@ pub struct Generator<'g, 'ctx> {
     pub builder: &'g Builder<'ctx>,
     pub ptr_sized_int_type: IntType<'ctx>,
 
-    pub global_decls: HashMap<BindingId, CodegenDecl<'ctx>>,
+    pub global_decls: HashMap<BindingId, Decl<'ctx>>,
     pub types: HashMap<BindingId, BasicTypeEnum<'ctx>>,
     pub static_strs: UstrMap<PointerValue<'ctx>>,
     pub functions: HashMap<hir::FunctionId, FunctionValue<'ctx>>,
@@ -92,8 +92,8 @@ pub struct FunctionState<'ctx> {
     pub return_ptr: Option<PointerValue<'ctx>>,
     pub loop_blocks: Vec<LoopBlock<'ctx>>,
     pub decl_block: BasicBlock<'ctx>,
-    pub curr_block: BasicBlock<'ctx>,
-    pub scopes: Scopes<BindingId, CodegenDecl<'ctx>>, // TODO: switch to BindingInfoId
+    pub current_block: BasicBlock<'ctx>,
+    pub scopes: Scopes<BindingId, Decl<'ctx>>, // TODO: switch to BindingInfoId
 }
 
 impl<'ctx> FunctionState<'ctx> {
@@ -112,7 +112,7 @@ impl<'ctx> FunctionState<'ctx> {
             return_ptr,
             loop_blocks: vec![],
             decl_block,
-            curr_block: entry_block,
+            current_block: entry_block,
             scopes: Scopes::default(),
         }
     }
@@ -161,13 +161,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         link_time_optimizations.run_on(&self.module);
     }
 
-    pub fn gen_top_level_binding(&mut self, id: BindingId) -> CodegenDecl<'ctx> {
+    pub fn gen_top_level_binding(&mut self, id: BindingId) -> Decl<'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
             return *decl;
         } else if let Some(binding) = self.cache.bindings.get(&id) {
             if let Some(ConstValue::Function(function)) = binding.value.as_const_value() {
                 let function = self.gen_function(function.id, None);
-                self.insert_global_decl(id, CodegenDecl::Function(function))
+                self.insert_global_decl(id, Decl::Function(function))
             } else {
                 self.declare_global_binding(id, binding)
             }
@@ -176,20 +176,12 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub fn insert_global_decl(
-        &mut self,
-        id: BindingId,
-        decl: CodegenDecl<'ctx>,
-    ) -> CodegenDecl<'ctx> {
+    pub fn insert_global_decl(&mut self, id: BindingId, decl: Decl<'ctx>) -> Decl<'ctx> {
         self.global_decls.insert(id, decl);
         decl
     }
 
-    pub fn declare_global_binding(
-        &mut self,
-        id: BindingId,
-        binding: &hir::Binding,
-    ) -> CodegenDecl<'ctx> {
+    pub fn declare_global_binding(&mut self, id: BindingId, binding: &hir::Binding) -> Decl<'ctx> {
         // forward declare the global value, i.e: `let answer = 42`
         // the global value will is initialized by the entry point function
 
@@ -210,7 +202,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         //         self.add_global(id, Linkage::Private)
         //     };
 
-        //     self.insert_global_decl(id, CodegenDecl::Global(global_value))
+        //     self.insert_global_decl(id, Decl::Global(global_value))
         // }
     }
 
@@ -273,7 +265,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         &mut self,
         module_name: impl Into<Ustr>,
         name: impl Into<Ustr>,
-    ) -> CodegenDecl<'ctx> {
+    ) -> Decl<'ctx> {
         let id = self.find_binding_info_by_name(module_name, name).id;
         self.gen_top_level_binding(id)
     }
@@ -372,7 +364,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
             let value = self.gen_struct_access(ptr.into(), field_index as u32, struct_llvm_type);
 
-            self.gen_local_with_alloca(
+            self.local_with_alloca(
                 state,
                 pattern.id,
                 if ty.is_pointer() {
@@ -396,7 +388,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         for (i, pattern) in pattern.symbols.iter().enumerate() {
             let value = self.gen_struct_access(ptr.into(), i as u32, llvm_type);
 
-            self.gen_local_with_alloca(
+            self.local_with_alloca(
                 state,
                 pattern.id,
                 if ty.is_pointer() {
@@ -417,7 +409,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     ) {
         match pattern {
             Pattern::Name(symbol) => {
-                self.gen_local_with_alloca(state, symbol.id, value);
+                self.local_with_alloca(state, symbol.id, value);
             }
             Pattern::StructUnpack(pattern) => {
                 self.gen_binding_struct_unpack_pattern_with_value(state, pattern, ty, value);
@@ -426,7 +418,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 self.gen_binding_tuple_unpack_pattern_with_value(state, pattern, ty, value);
             }
             Pattern::Hybrid(pattern) => {
-                let ptr = self.gen_local_with_alloca(state, pattern.name_pattern.id, value);
+                let ptr = self.local_with_alloca(state, pattern.name_pattern.id, value);
 
                 match &pattern.unpack_pattern {
                     UnpackPatternKind::Struct(unpack) => {
@@ -479,7 +471,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 self.build_load(value)
             };
 
-            self.gen_local_with_alloca(state, binding_id, value);
+            self.local_with_alloca(state, binding_id, value);
         }
     }
 
@@ -511,11 +503,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 self.build_load(value)
             };
 
-            self.gen_local_with_alloca(state, binding_id, value);
+            self.local_with_alloca(state, binding_id, value);
         }
     }
 
-    pub fn gen_local_uninit(
+    pub fn local_uninit(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -527,7 +519,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub fn gen_local_with_alloca(
+    pub fn local_with_alloca(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -539,7 +531,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub fn gen_local_or_load_addr(
+    pub fn local_or_load_addr(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -548,7 +540,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         if value.is_a_load_inst() {
             self.get_operand(value).into_pointer_value()
         } else {
-            self.gen_local_with_alloca(state, id, value)
+            self.local_with_alloca(state, id, value)
         }
     }
 
@@ -591,7 +583,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap();
 
         if id != BindingId::unknown() {
-            state.scopes.insert(id, CodegenDecl::Local(ptr));
+            state.scopes.insert(id, Decl::Local(ptr));
         }
     }
 
@@ -602,7 +594,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //     deref: bool,
     // ) -> BasicValueEnum<'ctx> {
     //     if self.current_block().get_terminator().is_some() {
-    //         return self.gen_unit();
+    //         return self.unit_value();
     //     }
 
     //     let value = match expr {
@@ -628,7 +620,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //                     //     }) = expr.as_ref()
     //                     //     {
     //                     //         let function = self.gen_function(function.id, None);
-    //                     //         CodegenDecl::Function(function)
+    //                     //         Decl::Function(function)
     //                     //     } else {
     //                     //         self.declare_global_binding(pattern.id, binding)
     //                     //     }
@@ -640,7 +632,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //                 }
     //             }
 
-    //             self.gen_unit()
+    //             self.unit_value()
     //         }
     //         ast::Ast::Assignment(assignment) => {
     //             let left = self
@@ -654,11 +646,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     //             self.build_store(left, right);
 
-    //             self.gen_unit()
+    //             self.unit_value()
     //         }
     //         ast::Ast::Cast(info) => self.gen_cast(state, &info.expr, &info.ty),
     //         ast::Ast::Builtin(builtin) => match &builtin.kind {
-    //             ast::BuiltinKind::Import(_) => self.gen_unit(), // panic!("unexpected import builtin"),
+    //             ast::BuiltinKind::Import(_) => self.unit_value(), // panic!("unexpected import builtin"),
     //             ast::BuiltinKind::SizeOf(expr) => match expr.ty().normalize(self.tycx) {
     //                 Type::Type(ty) => ty.llvm_type(self).size_of().unwrap().into(),
     //                 ty => unreachable!("got {}", ty),
@@ -675,7 +667,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //                 };
 
     //                 self.gen_panic(state, message, expr.span());
-    //                 self.gen_unit()
+    //                 self.unit_value()
     //             }
     //             ast::BuiltinKind::Run(_) => {
     //                 todo!("remove this")
@@ -729,19 +721,19 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     //             self.start_block(state, loop_exit);
 
-    //             return self.gen_unit();
+    //             return self.unit_value();
     //         }
     //         ast::Ast::Break(_) => {
     //             let exit_block = state.loop_blocks.last().unwrap().exit;
     //             self.builder.build_unconditional_branch(exit_block);
 
-    //             self.gen_unit()
+    //             self.unit_value()
     //         }
     //         ast::Ast::Continue(_) => {
     //             let head_block = state.loop_blocks.last().unwrap().head;
     //             self.builder.build_unconditional_branch(head_block);
 
-    //             self.gen_unit()
+    //             self.unit_value()
     //         }
     //         ast::Ast::Return(ret) => {
     //             let value = ret
@@ -751,7 +743,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     //             self.gen_return(state, value);
 
-    //             self.gen_unit()
+    //             self.unit_value()
     //         }
     //         ast::Ast::If(if_) => self.gen_if_expr(state, if_),
     //         ast::Ast::Block(block) => self.gen_block(state, block, deref),
@@ -1080,7 +1072,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //         ast::Ast::TupleLiteral(lit) => {
     //             let ty = expr.ty().normalize(self.tycx);
     //             if ty.is_type() {
-    //                 return self.gen_unit();
+    //                 return self.unit_value();
     //             }
 
     //             let values: Vec<BasicValueEnum> = lit
@@ -1118,7 +1110,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     //         | ast::Ast::StructType(..)
     //         | ast::Ast::SelfType(..)
     //         | ast::Ast::Placeholder(..)
-    //         | ast::Ast::FunctionType(..) => self.gen_unit(),
+    //         | ast::Ast::FunctionType(..) => self.unit_value(),
 
     //         ast::Ast::Const(const_value) => {
     //             let ty = expr.ty().normalize(self.tycx);
@@ -1142,7 +1134,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         deref: bool,
     ) -> BasicValueEnum<'ctx> {
         todo!();
-        // let mut yielded_value = self.gen_unit();
+        // let mut yielded_value = self.unit_value();
 
         // state.push_scope();
 
@@ -1169,7 +1161,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ty: &Type,
     ) -> BasicValueEnum<'ctx> {
         match const_value {
-            ConstValue::Unit(_) | ConstValue::Type(_) => self.gen_unit(),
+            ConstValue::Unit(_) | ConstValue::Type(_) => self.unit_value(),
             ConstValue::Bool(v) => self
                 .context
                 .bool_type()
@@ -1239,14 +1231,19 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     .into()
             }
             ConstValue::Function(f) => {
-                let function = self.gen_function(f.id, state.cloned());
-                function.as_global_value().as_pointer_value().into()
-                // let decl = match state.and_then(|s| s.scopes.get(f.id)) {
-                //     Some((_, decl)) => decl.clone(),
-                //     None => self.gen_top_level_binding(f.id),
-                // };
+                let prev_block = if let Some(state) = state {
+                    Some(state.current_block)
+                } else {
+                    self.builder.get_insert_block()
+                };
 
-                // decl.into_pointer_value().into()
+                let function = self.gen_function(f.id, state.cloned());
+
+                if let Some(previous_block) = prev_block {
+                    self.builder.position_at_end(previous_block);
+                }
+
+                function.as_global_value().as_pointer_value().into()
             }
         }
     }
@@ -1262,7 +1259,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // if let Some(expr) = expr {
         //     let value = self.gen_expr(state, expr, true);
         //     let ptr = self.gen_local_or_load_addr(state, id, value);
-        //     state.scopes.insert(id, CodegenDecl::Local(ptr));
+        //     state.scopes.insert(id, Decl::Local(ptr));
         //     ptr
         // } else {
         //     self.gen_local_uninit(state, id, ty)
@@ -1432,13 +1429,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     }
                 }
                 _ => {
-                    self.build_store(return_ptr, self.gen_unit());
+                    self.build_store(return_ptr, self.unit_value());
                 }
             };
 
             self.builder.build_return(None);
         } else {
-            let value = value.unwrap_or_else(|| self.gen_unit());
+            let value = value.unwrap_or_else(|| self.unit_value());
 
             let value = self.build_transmute(
                 state,
@@ -1451,10 +1448,17 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 }
 
-pub(super) trait Codegen<'g, 'ctx> {
+pub(super) trait Codegen<'g, 'ctx>
+where
+    Self: Debug,
+{
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx>;
+
+    fn codegen_global(&self, _generator: &mut Generator<'g, 'ctx>) -> Decl<'ctx> {
+        unimplemented!("{:?}", self)
+    }
 }

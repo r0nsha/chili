@@ -38,7 +38,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
     fn codegen(
         &self,
         generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState,
+        state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         match self {
             hir::Builtin::Add(_) => todo!(),

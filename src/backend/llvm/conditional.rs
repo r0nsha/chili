@@ -56,7 +56,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let then_value = if otherwise.is_some() {
             then_value
         } else {
-            self.gen_unit()
+            self.unit_value()
         };
 
         let then_has_terminator = self.current_block().get_terminator().is_some();
@@ -75,7 +75,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let else_value = if let Some(else_) = otherwise {
             else_(self, state)
         } else {
-            self.gen_unit()
+            self.unit_value()
         };
 
         let else_has_terminator = self.current_block().get_terminator().is_some();
@@ -111,7 +111,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             }
 
             match (then_has_terminator, else_has_terminator) {
-                (true, true) => self.gen_unit(),
+                (true, true) => self.unit_value(),
                 (true, false) => else_value,
                 (false, true) => then_value,
                 _ => panic!(),

@@ -4,7 +4,10 @@ use super::{
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::{ast, hir, infer::normalize::Normalize, types::*, workspace::BindingId};
+use crate::{
+    ast, backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*,
+    workspace::BindingId,
+};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
@@ -21,132 +24,125 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: hir::FunctionId,
         prev_state: Option<FunctionState<'ctx>>,
     ) -> FunctionValue<'ctx> {
-        self.functions.get(&id).cloned().unwrap_or_else(|| {
-            let function = self.cache.functions.get(id).unwrap();
-            self.gen_function_inner(function, prev_state)
-        })
-    }
+        match self.functions.get(&id) {
+            Some(function) => *function,
+            None => {
+                let function = self.cache.functions.get(id).unwrap();
+                let module_info = *self.workspace.module_infos.get(function.module_id).unwrap();
+                let function_type = function.ty.normalize(self.tycx).into_function();
 
-    fn gen_function_inner(
-        &mut self,
-        function: &hir::Function,
-        prev_state: Option<FunctionState<'ctx>>,
-    ) -> FunctionValue<'ctx> {
-        let module_info = *self.workspace.module_infos.get(function.module_id).unwrap();
-        let function_type = function.ty.normalize(self.tycx).into_function();
+                match &function.kind {
+                    hir::FunctionKind::Orphan { params, body, .. } => {
+                        let prev_block = if let Some(ref prev_state) = prev_state {
+                            Some(prev_state.current_block)
+                        } else {
+                            self.builder.get_insert_block()
+                        };
 
-        match &function.kind {
-            hir::FunctionKind::Orphan { params, body, .. } => {
-                let prev_block = if let Some(ref prev_state) = prev_state {
-                    Some(prev_state.curr_block)
-                } else {
-                    self.builder.get_insert_block()
-                };
+                        let function_value = self.declare_fn_sig(
+                            &function_type,
+                            function.name,
+                            Some(Linkage::Private),
+                        );
 
-                let function_value =
-                    self.declare_fn_sig(&function_type, function.name, Some(Linkage::Private));
+                        self.functions.insert(function.id, function_value);
 
-                self.functions.insert(function.id, function_value);
+                        let decl_block = self.context.append_basic_block(function_value, "decls");
+                        let entry_block = self.context.append_basic_block(function_value, "entry");
 
-                let decl_block = self.context.append_basic_block(function_value, "decls");
-                let entry_block = self.context.append_basic_block(function_value, "entry");
+                        let abi_fn = self.get_abi_compliant_fn(&function_type);
 
-                let abi_fn = self.get_abi_compliant_fn(&function_type);
+                        let return_ptr = if abi_fn.ret.kind.is_indirect() {
+                            let return_ptr = function_value
+                                .get_first_param()
+                                .unwrap()
+                                .into_pointer_value();
+                            return_ptr.set_name(&format!("{}.result", function.name));
+                            Some(return_ptr)
+                        } else {
+                            None
+                        };
 
-                let return_ptr = if abi_fn.ret.kind.is_indirect() {
-                    let return_ptr = function_value
-                        .get_first_param()
-                        .unwrap()
-                        .into_pointer_value();
-                    return_ptr.set_name(&format!("{}.result", function.name));
-                    Some(return_ptr)
-                } else {
-                    None
-                };
+                        let mut state = FunctionState::new(
+                            module_info,
+                            function_value,
+                            function_type,
+                            return_ptr,
+                            decl_block,
+                            entry_block,
+                        );
 
-                let mut state = FunctionState::new(
-                    module_info,
-                    function_value,
-                    function_type,
-                    return_ptr,
-                    decl_block,
-                    entry_block,
-                );
+                        if let Some(prev_state) = prev_state {
+                            state.scopes = prev_state.scopes;
+                        }
 
-                if let Some(prev_state) = prev_state {
-                    state.scopes = prev_state.scopes;
+                        self.start_block(&mut state, entry_block);
+
+                        state.push_scope();
+
+                        let mut function_params = function_value.get_params();
+
+                        if abi_fn.ret.kind.is_indirect() {
+                            function_params.remove(0);
+                        }
+
+                        for (index, (&value, param)) in
+                            function_params.iter().zip(params.iter()).enumerate()
+                        {
+                            let value = if abi_fn.params[index].kind.is_indirect() {
+                                self.build_load(value)
+                            } else {
+                                value
+                            };
+
+                            let param_ty = match param.ty.normalize(self.tycx) {
+                                Type::Type(inner) => *inner,
+                                t => t,
+                            };
+
+                            let llvm_param_ty = param_ty.llvm_type(self);
+
+                            let transmuted_value =
+                                self.build_transmute(&state, value, llvm_param_ty);
+
+                            self.local_with_alloca(&mut state, param.id, transmuted_value);
+                        }
+
+                        let return_value = body.as_ref().unwrap().codegen(self, &mut state);
+
+                        if self.current_block().get_terminator().is_none() {
+                            self.gen_return(&mut state, Some(return_value));
+                        }
+
+                        state.pop_scope();
+
+                        self.start_block(&mut state, decl_block);
+                        self.builder.build_unconditional_branch(entry_block);
+
+                        if let Some(prev_block) = prev_block {
+                            self.builder.position_at_end(prev_block);
+                        }
+
+                        function_value
+                    }
+                    hir::FunctionKind::Extern { .. } => {
+                        match self.extern_functions.get(&function.name) {
+                            Some(function) => *function,
+                            None => {
+                                let function_type = self.fn_type(&function_type);
+                                let function_value =
+                                    self.get_or_add_function(function.name, function_type, None);
+
+                                self.extern_functions.insert(function.name, function_value);
+
+                                function_value
+                            }
+                        }
+                    }
+                    hir::FunctionKind::Intrinsic(intrinsic) => {
+                        self.gen_intrinsic(intrinsic, &function_type)
+                    }
                 }
-
-                self.start_block(&mut state, entry_block);
-
-                state.push_scope();
-
-                let mut function_params = function_value.get_params();
-
-                if abi_fn.ret.kind.is_indirect() {
-                    function_params.remove(0);
-                }
-
-                for (index, (&value, param)) in
-                    function_params.iter().zip(params.iter()).enumerate()
-                {
-                    let value = if abi_fn.params[index].kind.is_indirect() {
-                        self.build_load(value)
-                    } else {
-                        value
-                    };
-
-                    let param_ty = match param.ty.normalize(self.tycx) {
-                        Type::Type(inner) => *inner,
-                        t => t,
-                    };
-
-                    let llvm_param_ty = param_ty.llvm_type(self);
-
-                    let value = self.build_transmute(&state, value, llvm_param_ty);
-
-                    todo!();
-                    // self.gen_binding_pattern_with_value(
-                    //     &mut state,
-                    //     &param.pattern,
-                    //     &param_ty,
-                    //     value,
-                    // );
-                }
-
-                todo!();
-                // let return_value = self.gen_block(&mut state, body.as_ref().unwrap(), true);
-
-                // if self.current_block().get_terminator().is_none() {
-                //     self.gen_return(&mut state, Some(return_value));
-                // }
-
-                state.pop_scope();
-
-                self.start_block(&mut state, decl_block);
-                self.builder.build_unconditional_branch(entry_block);
-
-                if let Some(prev_block) = prev_block {
-                    self.builder.position_at_end(prev_block);
-                }
-
-                function_value
-            }
-            hir::FunctionKind::Extern { .. } => self
-                .extern_functions
-                .get(&function.name)
-                .cloned()
-                .unwrap_or_else(|| {
-                    let function_type = self.fn_type(&function_type);
-                    let function_value =
-                        self.get_or_add_function(function.name, function_type, None);
-
-                    self.extern_functions.insert(function.name, function_value);
-
-                    function_value
-                }),
-            hir::FunctionKind::Intrinsic(intrinsic) => {
-                self.gen_intrinsic(intrinsic, &function_type)
             }
         }
     }
@@ -195,48 +191,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         function.set_call_conventions(CallingConv::C as _);
     }
 
-    pub fn gen_fn_call_expr(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        call: &ast::Call,
-    ) -> BasicValueEnum<'ctx> {
-        todo!();
-
-        // let callee_ty = call.callee.ty().normalize(self.tycx).into_function();
-
-        // let mut args = vec![];
-
-        // for (index, arg) in call.args.iter().enumerate() {
-        //     let value = self.gen_expr(state, arg, true);
-        //     args.push((value, index));
-        // }
-
-        // args.sort_by_key(|&(_, i)| i);
-
-        // let args: Vec<BasicValueEnum> = args.iter().map(|(a, _)| *a).collect();
-
-        // let callee_ptr = self
-        //     .gen_expr(state, &call.callee, false)
-        //     .into_pointer_value();
-
-        // // println!("callee: {:#?}", callee_ptr.get_type());
-
-        // // for arg in args.iter() {
-        // //     println!("arg: {:#?}", arg);
-        // // }
-
-        // let callable_value: CallableValue = callee_ptr.try_into().unwrap();
-
-        // self.gen_fn_call(
-        //     state,
-        //     callable_value,
-        //     &callee_ty,
-        //     args,
-        //     &call.ty.normalize(self.tycx),
-        // )
-    }
-
-    pub fn gen_fn_call(
+    pub fn gen_function_call(
         &mut self,
         state: &mut FunctionState<'ctx>,
         callee: impl Into<CallableValue<'ctx>>,
@@ -286,7 +241,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                         ptr
                     } else if !callee_ty.kind.is_extern() {
-                        self.gen_local_or_load_addr(state, BindingId::unknown(), arg)
+                        self.local_or_load_addr(state, BindingId::unknown(), arg)
                     } else {
                         self.build_copy_value_to_ptr(state, arg, arg_type, 16)
                     };
@@ -312,10 +267,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let value = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = self.build_alloca(state, abi_fn.ret.ty);
             return_ptr.set_name("__call_result");
-            self.gen_call_inner(callee, processed_args, Some(return_ptr));
+            self.gen_function_call_inner(callee, processed_args, Some(return_ptr));
             self.build_load(return_ptr.into())
         } else {
-            let value = self.gen_call_inner(callee, processed_args, None);
+            let value = self.gen_function_call_inner(callee, processed_args, None);
             let value = self.build_transmute(
                 state,
                 value,
@@ -337,7 +292,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         value
     }
 
-    fn gen_call_inner(
+    fn gen_function_call_inner(
         &mut self,
         callee: impl Into<CallableValue<'ctx>>,
         mut args: Vec<BasicMetadataValueEnum<'ctx>>,
@@ -363,7 +318,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         match ret.try_as_basic_value().left() {
             Some(value) => value,
-            None => self.gen_unit(),
+            None => self.unit_value(),
         }
     }
 

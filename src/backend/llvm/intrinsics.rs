@@ -16,7 +16,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let entry_block = cg.context.append_basic_block(function, "entry");
 
                 cg.builder.position_at_end(entry_block);
-                cg.builder.build_return(Some(&cg.gen_unit()));
+                cg.builder.build_return(Some(&cg.unit_value()));
 
                 function
             }),

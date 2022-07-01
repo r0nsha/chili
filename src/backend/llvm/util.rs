@@ -22,7 +22,7 @@ use std::mem;
 use ustr::{ustr, Ustr};
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub fn gen_unit(&self) -> BasicValueEnum<'ctx> {
+    pub fn unit_value(&self) -> BasicValueEnum<'ctx> {
         self.context.const_struct(&[], false).into()
     }
 
@@ -107,7 +107,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub fn start_block(&self, state: &mut FunctionState<'ctx>, block: BasicBlock<'ctx>) {
-        state.curr_block = block;
+        state.current_block = block;
         self.builder.position_at_end(block);
     }
 
@@ -186,7 +186,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .set_alignment(align as _)
             .unwrap();
 
-        self.builder.position_at_end(state.curr_block);
+        self.builder.position_at_end(state.current_block);
 
         ptr
     }
@@ -269,7 +269,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let dst_align = align_of(dst_type, self.target_metrics.word_size);
         let align = align.min(dst_align as _);
 
-        let ptr = self.gen_local_with_alloca(state, BindingId::unknown(), value);
+        let ptr = self.local_with_alloca(state, BindingId::unknown(), value);
 
         ptr.as_instruction_value()
             .unwrap()
