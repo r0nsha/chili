@@ -65,7 +65,7 @@ impl<'s> LintSess<'s> {
                 match self.check_node_can_be_mutably_referenced_inner(node, true) {
                     Ok(_) => match ty {
                         Type::Tuple(tys) => {
-                            let index = access.member.parse::<usize>().unwrap();
+                            let index = access.member_name.parse::<usize>().unwrap();
                             let ty = tys[index].normalize(self.tycx);
 
                             match ty {
@@ -86,7 +86,7 @@ impl<'s> LintSess<'s> {
                             let ty = struct_ty
                                 .fields
                                 .iter()
-                                .find(|f| f.name == access.member)
+                                .find(|f| f.name == access.member_name)
                                 .map(|f| f.ty.normalize(self.tycx))
                                 .unwrap();
 
@@ -106,7 +106,7 @@ impl<'s> LintSess<'s> {
                         }
                         Type::Module(module_id) => {
                             let binding_info =
-                                self.find_binding_info_in_module(module_id, access.member);
+                                self.find_binding_info_in_module(module_id, access.member_name);
                             let ty = binding_info.ty.normalize(self.tycx);
 
                             match ty {

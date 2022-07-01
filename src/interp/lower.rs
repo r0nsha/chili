@@ -170,9 +170,9 @@ impl Lower for hir::MemberAccess {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
         self.value.lower(sess, code, ctx);
         code.push(if ctx.take_ptr {
-            Instruction::ConstIndexPtr(self.index)
+            Instruction::ConstIndexPtr(self.member_index)
         } else {
-            Instruction::ConstIndex(self.index)
+            Instruction::ConstIndex(self.member_index)
         });
     }
 }

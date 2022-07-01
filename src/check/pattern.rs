@@ -469,8 +469,8 @@ impl<'s> CheckSess<'s> {
                         }),
                         _ => hir::Node::MemberAccess(hir::MemberAccess {
                             value: Box::new(value.clone()),
-                            member: pattern.name,
-                            index: index as _,
+                            member_name: pattern.name,
+                            member_index: index as _,
                             ty,
                             span: pattern.span,
                         }),
@@ -516,8 +516,8 @@ impl<'s> CheckSess<'s> {
                                     }),
                                     None => hir::Node::MemberAccess(hir::MemberAccess {
                                         value: Box::new(value.clone()),
-                                        member: field.name,
-                                        index: index as _,
+                                        member_name: field.name,
+                                        member_index: index as _,
                                         ty,
                                         span: field.span,
                                     }),
@@ -609,8 +609,8 @@ impl<'s> CheckSess<'s> {
                 }),
                 None => hir::Node::MemberAccess(hir::MemberAccess {
                     value: Box::new(value.clone()),
-                    member: ustr(&index.to_string()),
-                    index: index as _,
+                    member_name: ustr(&index.to_string()),
+                    member_index: index as _,
                     ty,
                     span: value.span(),
                 }),

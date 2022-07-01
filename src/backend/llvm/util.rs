@@ -11,7 +11,7 @@ use crate::{
 };
 use inkwell::{
     basic_block::BasicBlock,
-    types::{AnyType, BasicType, BasicTypeEnum},
+    types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
     values::{
         BasicValue, BasicValueEnum, GlobalValue, InstructionOpcode, IntValue, PointerValue,
         StructValue,
@@ -31,8 +31,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub fn gen_load_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
-        let value = self.gen_struct_access(slice, 1, None);
-        self.build_load(value).into_int_value()
+        todo!();
+        // let value = self.gen_struct_access(slice, 1, None);
+        // self.build_load(value).into_int_value()
     }
 
     pub fn const_str(&mut self, name: &str, value: &str) -> GlobalValue<'ctx> {
@@ -191,17 +192,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub fn build_load(&self, value: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
-        if value.is_pointer_value() {
-            let ptr = value.into_pointer_value();
-            let element_type = ptr.get_type().get_element_type();
-            if element_type.is_function_type() || element_type.is_array_type() {
-                value
-            } else {
-                self.builder.build_load(ptr, "")
-            }
-        } else {
-            value
+    pub fn build_load(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
+        match ptr.get_type().get_element_type() {
+            AnyTypeEnum::FunctionType(_) | AnyTypeEnum::ArrayType(_) => ptr.into(),
+            _ => self.builder.build_load(ptr, ""),
         }
     }
 
@@ -560,5 +554,29 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         } else {
             access.into()
         }
+    }
+
+    pub(super) fn gep_at_index(
+        &mut self,
+        load: BasicValueEnum<'ctx>,
+        field_index: u32,
+        field_name: &str,
+    ) -> BasicValueEnum<'ctx> {
+        let instruction = load.as_instruction_value().unwrap();
+        assert_eq!(instruction.get_opcode(), InstructionOpcode::Load);
+
+        let pointer = instruction
+            .get_operand(0)
+            .unwrap()
+            .left()
+            .unwrap()
+            .into_pointer_value();
+
+        let gep = self
+            .builder
+            .build_struct_gep(pointer, field_index, field_name)
+            .unwrap();
+
+        self.builder.build_load(gep, field_name)
     }
 }

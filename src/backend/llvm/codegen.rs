@@ -370,7 +370,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 if ty.is_pointer() {
                     value
                 } else {
-                    self.build_load(value)
+                    todo!()
+                    // self.build_load(value)
                 },
             );
         }
@@ -394,7 +395,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 if ty.is_pointer() {
                     value
                 } else {
-                    self.build_load(value)
+                    todo!()
+                    // self.build_load(value)
                 },
             );
         }
@@ -468,7 +470,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             let value = if ty.is_pointer() {
                 value
             } else {
-                self.build_load(value)
+                todo!()
+                // self.build_load(value)
             };
 
             self.local_with_alloca(state, binding_id, value);
@@ -500,7 +503,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             let value = if ty.is_pointer() {
                 value
             } else {
-                self.build_load(value)
+                todo!()
+                // self.build_load(value)
             };
 
             self.local_with_alloca(state, binding_id, value);

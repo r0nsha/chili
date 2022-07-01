@@ -895,8 +895,8 @@ impl Check for ast::Ast {
                             value: Box::new(node.clone()),
                             ty: uint,
                             span: slice.span,
-                            member: ustr(BUILTIN_FIELD_LEN),
-                            index: 1,
+                            member_name: ustr(BUILTIN_FIELD_LEN),
+                            member_index: 1,
                         }),
                         Type::MultiPointer(..) => {
                             return Err(Diagnostic::error()
@@ -1021,8 +1021,8 @@ impl Check for ast::Ast {
                                             ty,
                                             span: access.span,
                                             value: Box::new(node),
-                                            member: access.member,
-                                            index: index as _,
+                                            member_name: access.member,
+                                            member_index: index as _,
                                         })
                                     }
                                 }
@@ -1061,8 +1061,8 @@ impl Check for ast::Ast {
                                     ty,
                                     span: access.span,
                                     value: Box::new(node),
-                                    member: access.member,
-                                    index: index as _,
+                                    member_name: access.member,
+                                    member_index: index as _,
                                 })
                             }
                         }
@@ -1094,8 +1094,8 @@ impl Check for ast::Ast {
                                         ty,
                                         span: access.span,
                                         value: Box::new(node),
-                                        member: access.member,
-                                        index: index as _,
+                                        member_name: access.member,
+                                        member_index: index as _,
                                     })
                                 }
                             }
@@ -1129,8 +1129,8 @@ impl Check for ast::Ast {
                                 ty,
                                 span: access.span,
                                 value: Box::new(node),
-                                member: access.member,
-                                index: 1,
+                                member_name: access.member,
+                                member_index: 1,
                             })
                         }
                     }
@@ -1143,8 +1143,8 @@ impl Check for ast::Ast {
                                 .bound(Type::MultiPointer(inner.clone(), *is_mutable), access.span),
                             span: access.span,
                             value: Box::new(node),
-                            member: access.member,
-                            index: 0,
+                            member_name: access.member,
+                            member_index: 0,
                         })
                     }
                     Type::Module(module_id) => {
@@ -2012,8 +2012,8 @@ impl Check for ast::For {
                             }),
                             Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
                                 value: Box::new(value_id_node.clone()),
-                                member: ustr("len"),
-                                index: 1,
+                                member_name: ustr("len"),
+                                member_index: 1,
                                 ty: index_type,
                                 span: self.span,
                             }),

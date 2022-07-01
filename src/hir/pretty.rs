@@ -279,7 +279,7 @@ impl<'a, W: Write> Print<'a, W> for hir::MemberAccess {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
         self.value.print(p, is_line_start);
         p.write(".");
-        p.write(&self.member);
+        p.write(&self.member_name);
     }
 }
 

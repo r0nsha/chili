@@ -139,7 +139,7 @@ node_struct!(Const, { value: ConstValue });
 node_struct!(Binding, { module_id: ModuleId, id: BindingId, name: Ustr, value: Box<Node> });
 node_struct!(Id, { id: BindingId });
 node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
-node_struct!(MemberAccess, { value: Box<Node>, member: Ustr, index: u32 });
+node_struct!(MemberAccess, { value: Box<Node>, member_name: Ustr, member_index: u32 });
 
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
 node_struct!(Cast, { value: Box<Node> });

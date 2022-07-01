@@ -90,7 +90,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                             function_params.iter().zip(params.iter()).enumerate()
                         {
                             let value = if abi_fn.params[index].kind.is_indirect() {
-                                self.build_load(value)
+                                self.build_load(value.into_pointer_value())
                             } else {
                                 value
                             };
