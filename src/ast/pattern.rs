@@ -109,14 +109,16 @@ impl<'a> Iterator for PatternIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = match &self.pattern {
-            Pattern::Name(pat) => match self.pos {
-                0 => Some(pat),
+            Pattern::Name(pattern) => match self.pos {
+                0 => Some(pattern),
                 _ => None,
             },
-            Pattern::StructUnpack(pat) | Pattern::TupleUnpack(pat) => pat.symbols.get(self.pos),
-            Pattern::Hybrid(pat) => match self.pos {
-                0 => Some(&pat.name_pattern),
-                _ => pat.unpack_pattern.as_inner().symbols.get(self.pos - 1),
+            Pattern::StructUnpack(pattern) | Pattern::TupleUnpack(pattern) => {
+                pattern.symbols.get(self.pos)
+            }
+            Pattern::Hybrid(pattern) => match self.pos {
+                0 => Some(&pattern.name_pattern),
+                _ => pattern.unpack_pattern.as_inner().symbols.get(self.pos - 1),
             },
         };
 
@@ -132,15 +134,15 @@ impl Display for Pattern {
             f,
             "{}",
             match self {
-                Pattern::Name(pat) => pat.to_string(),
-                Pattern::StructUnpack(pat) => format!("{{ {} }}", pat),
-                Pattern::TupleUnpack(pat) => format!("({})", pat),
-                Pattern::Hybrid(pat) => format!(
+                Pattern::Name(pattern) => pattern.to_string(),
+                Pattern::StructUnpack(pattern) => format!("{{ {} }}", pattern),
+                Pattern::TupleUnpack(pattern) => format!("({})", pattern),
+                Pattern::Hybrid(pattern) => format!(
                     "{} @ {}",
-                    pat.name_pattern,
-                    match &pat.unpack_pattern {
-                        UnpackPatternKind::Struct(pat) => format!("{{ {} }}", pat),
-                        UnpackPatternKind::Tuple(pat) => format!("({})", pat),
+                    pattern.name_pattern,
+                    match &pattern.unpack_pattern {
+                        UnpackPatternKind::Struct(pattern) => format!("{{ {} }}", pattern),
+                        UnpackPatternKind::Tuple(pattern) => format!("({})", pattern),
                     }
                 ),
             }
@@ -185,7 +187,13 @@ impl Display for NamePattern {
             f,
             "{}{}",
             if self.is_mutable { "mut " } else { "" },
-            self.name
+            self.alias()
         )
+    }
+}
+
+impl NamePattern {
+    pub fn alias(&self) -> Ustr {
+        self.alias.unwrap_or(self.name)
     }
 }
