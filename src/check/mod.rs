@@ -826,12 +826,12 @@ impl Check for ast::Ast {
                                 span: sub.span,
                             }))
                         } else {
-                            Ok(hir::Node::Offset(hir::Offset {
+                            Ok(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
                                 ty,
                                 span: sub.span,
                                 value: Box::new(node),
                                 offset: Box::new(offset_node),
-                            }))
+                            })))
                         }
                     }
                     _ => Err(Diagnostic::error()
@@ -955,13 +955,13 @@ impl Check for ast::Ast {
                     .tycx
                     .bound(Type::Slice(result_ty, is_mutable), slice.span);
 
-                Ok(hir::Node::Slice(hir::Slice {
+                Ok(hir::Node::Builtin(hir::Builtin::Slice(hir::Slice {
                     ty,
                     span: slice.span,
                     value: Box::new(node),
                     low: Box::new(low_node),
                     high: Box::new(high_node),
-                }))
+                })))
             }
             ast::Ast::Call(call) => call.check(sess, env, expected_ty),
             ast::Ast::MemberAccess(access) => {
@@ -1181,12 +1181,11 @@ impl Check for ast::Ast {
                 };
 
                 if node_type.is_pointer() {
-                    Ok(hir::Node::Unary(hir::Unary {
-                        value: Box::new(new_node),
-                        op: hir::UnaryOp::Deref,
+                    Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
                         ty: sess.tycx.bound(node_type_deref, new_node.span()),
                         span: access.span,
-                    }))
+                        value: Box::new(new_node),
+                    })))
                 } else {
                     Ok(new_node)
                 }
@@ -1858,13 +1857,12 @@ impl Check for ast::For {
                 });
 
                 // iter <= end
-                let condition = hir::Node::Binary(hir::Binary {
-                    lhs: Box::new(iter_id_node.clone()),
-                    rhs: Box::new(end_node),
-                    op: hir::BinaryOp::Le,
+                let condition = hir::Node::Builtin(hir::Builtin::Le(hir::Binary {
                     ty: bool_type,
                     span: self.span,
-                });
+                    lhs: Box::new(iter_id_node.clone()),
+                    rhs: Box::new(end_node),
+                }));
 
                 // loop block { ... }
                 let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
@@ -1874,17 +1872,16 @@ impl Check for ast::For {
                     .statements
                     .push(hir::Node::Assignment(hir::Assignment {
                         lhs: Box::new(index_id_node.clone()),
-                        rhs: Box::new(hir::Node::Binary(hir::Binary {
+                        rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                            ty: index_type,
+                            span: self.span,
                             lhs: Box::new(index_id_node),
                             rhs: Box::new(hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(1),
                                 ty: index_type,
                                 span: self.span,
                             })),
-                            op: hir::BinaryOp::Add,
-                            ty: index_type,
-                            span: self.span,
-                        })),
+                        }))),
                         ty: unit_type,
                         span: self.span,
                     }));
@@ -1894,17 +1891,16 @@ impl Check for ast::For {
                     .statements
                     .push(hir::Node::Assignment(hir::Assignment {
                         lhs: Box::new(iter_id_node.clone()),
-                        rhs: Box::new(hir::Node::Binary(hir::Binary {
+                        rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                            ty: iter_type,
+                            span: self.span,
                             lhs: Box::new(iter_id_node),
                             rhs: Box::new(hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(1),
                                 ty: iter_type,
                                 span: self.span,
                             })),
-                            op: hir::BinaryOp::Add,
-                            ty: iter_type,
-                            span: self.span,
-                        })),
+                        }))),
                         ty: unit_type,
                         span: self.span,
                     }));
@@ -2034,13 +2030,12 @@ impl Check for ast::For {
                             _ => unreachable!(),
                         };
 
-                        let condition = hir::Node::Binary(hir::Binary {
+                        let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
                             ty: bool_type,
                             span: self.span,
-                            op: hir::BinaryOp::Lt,
                             lhs: Box::new(index_id_node.clone()),
                             rhs: Box::new(value_len_node),
-                        });
+                        }));
 
                         // bind before block is checked: let iter = value[index]
                         let iter_type = sess
@@ -2052,12 +2047,12 @@ impl Check for ast::For {
                             self.iter_binding.name,
                             ast::Visibility::Private,
                             iter_type,
-                            Some(hir::Node::Offset(hir::Offset {
+                            Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
                                 value: Box::new(value_id_node),
                                 offset: Box::new(index_id_node.clone()),
                                 ty: iter_type,
                                 span: self.span,
-                            })),
+                            }))),
                             false,
                             ast::BindingKind::Orphan,
                             self.iter_binding.span,
@@ -2078,17 +2073,16 @@ impl Check for ast::For {
                             .statements
                             .push(hir::Node::Assignment(hir::Assignment {
                                 lhs: Box::new(index_id_node.clone()),
-                                rhs: Box::new(hir::Node::Binary(hir::Binary {
+                                rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                                    ty: index_type,
+                                    span: self.span,
                                     lhs: Box::new(index_id_node),
                                     rhs: Box::new(hir::Node::Const(hir::Const {
                                         value: ConstValue::Uint(1),
                                         ty: index_type,
                                         span: self.span,
                                     })),
-                                    op: hir::BinaryOp::Add,
-                                    ty: index_type,
-                                    span: self.span,
-                                })),
+                                }))),
                                 ty: unit_type,
                                 span: self.span,
                             }));
@@ -2552,13 +2546,37 @@ impl Check for ast::Binary {
                     span: self.span,
                 }))
             }
-            _ => Ok(hir::Node::Binary(hir::Binary {
-                lhs: Box::new(lhs_node),
-                rhs: Box::new(rhs_node),
-                op: self.op.into(),
-                ty,
-                span: self.span,
-            })),
+            _ => {
+                let binary = hir::Binary {
+                    lhs: Box::new(lhs_node),
+                    rhs: Box::new(rhs_node),
+                    ty,
+                    span: self.span,
+                };
+
+                let builtin = match self.op {
+                    ast::BinaryOp::Add => hir::Builtin::Add(binary),
+                    ast::BinaryOp::Sub => hir::Builtin::Sub(binary),
+                    ast::BinaryOp::Mul => hir::Builtin::Mul(binary),
+                    ast::BinaryOp::Div => hir::Builtin::Div(binary),
+                    ast::BinaryOp::Rem => hir::Builtin::Rem(binary),
+                    ast::BinaryOp::Eq => hir::Builtin::Eq(binary),
+                    ast::BinaryOp::Ne => hir::Builtin::Ne(binary),
+                    ast::BinaryOp::Lt => hir::Builtin::Lt(binary),
+                    ast::BinaryOp::Le => hir::Builtin::Le(binary),
+                    ast::BinaryOp::Gt => hir::Builtin::Gt(binary),
+                    ast::BinaryOp::Ge => hir::Builtin::Ge(binary),
+                    ast::BinaryOp::And => hir::Builtin::And(binary),
+                    ast::BinaryOp::Or => hir::Builtin::Or(binary),
+                    ast::BinaryOp::Shl => hir::Builtin::Shl(binary),
+                    ast::BinaryOp::Shr => hir::Builtin::Shr(binary),
+                    ast::BinaryOp::BitAnd => hir::Builtin::BitAnd(binary),
+                    ast::BinaryOp::BitOr => hir::Builtin::BitOr(binary),
+                    ast::BinaryOp::BitXor => hir::Builtin::BitXor(binary),
+                };
+
+                Ok(hir::Node::Builtin(builtin))
+            }
         }
     }
 }
@@ -2574,12 +2592,12 @@ impl Check for ast::Unary {
                     self.span,
                 );
 
-                Ok(hir::Node::Unary(hir::Unary {
+                Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
                     value: Box::new(node),
-                    op: hir::UnaryOp::Ref(is_mutable),
+                    is_mutable,
                     ty,
                     span: self.span,
-                }))
+                })))
             }
             ast::UnaryOp::Deref => {
                 let pointee_ty = sess.tycx.var(self.span);
