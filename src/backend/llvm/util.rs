@@ -74,17 +74,15 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         high: IntValue<'ctx>,
         element_ty: &Type,
     ) {
-        dbg!(sliced_value);
-
-        // let data_to_slice = self.builder.build_bitcast(
-        //     sliced_value,
-        //     element_ty.llvm_type(self).ptr_type(AddressSpace::Generic),
-        //     "bitcast_slice_data",
-        // );
+        let data_to_slice = self.builder.build_bitcast(
+            sliced_value,
+            element_ty.llvm_type(self).ptr_type(AddressSpace::Generic),
+            "bitcast_slice_data",
+        );
 
         let data = unsafe {
             self.builder.build_in_bounds_gep(
-                sliced_value.into_pointer_value(),
+                data_to_slice.into_pointer_value(),
                 &[low],
                 "slice_low_addr",
             )

@@ -166,7 +166,7 @@ impl<'s> CheckSess<'s> {
                 let mut statements = vec![];
 
                 let name = self.generate_name("v");
-                let (id, id_node) = self.bind_name_pattern_for_unpack_pattern(
+                let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
                     name,
                     visibility,
@@ -204,7 +204,7 @@ impl<'s> CheckSess<'s> {
                 let mut statements = vec![];
 
                 let name = self.generate_name("v");
-                let (id, id_node) = self.bind_name_pattern_for_unpack_pattern(
+                let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
                     name,
                     visibility,
@@ -291,7 +291,7 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    fn bind_name_pattern_for_unpack_pattern(
+    fn bind_temp_name_for_unpack_pattern(
         &mut self,
         env: &mut Env,
         name: Ustr,
@@ -312,7 +312,7 @@ impl<'s> CheckSess<'s> {
             false,
             kind.clone(),
             pattern.span,
-            flags,
+            flags - BindingInfoFlags::IS_USER_DEFINED,
         )?;
 
         let id_node = self.get_id_node_for_unpack_pattern(bound_node, statements);
