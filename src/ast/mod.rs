@@ -28,9 +28,9 @@ use ustr::{ustr, Ustr};
 
 #[derive(Debug, Clone)]
 pub struct Module {
+    pub id: ModuleId,
+    pub info: ModuleInfo,
     pub file_id: FileId,
-    pub module_id: ModuleId,
-    pub module_info: ModuleInfo,
     pub bindings: Vec<Binding>,
     pub run_exprs: Vec<Ast>,
 }
@@ -39,8 +39,8 @@ impl Module {
     pub fn new(file_id: FileId, module_info: ModuleInfo) -> Self {
         Self {
             file_id,
-            module_id: Default::default(),
-            module_info,
+            id: Default::default(),
+            info: module_info,
             bindings: vec![],
             run_exprs: vec![],
         }

@@ -55,7 +55,7 @@ pub fn print_ast(module: &ast::Module, workspace: &Workspace, tycx: &TyCtx) {
 
     let mut b = TreeBuilder::new(format!(
         "'{}' - {}",
-        module.module_info.name, module.module_info.file_path
+        module.info.name, module.info.file_path
     ));
 
     module.print_tree(&mut b, workspace, tycx);

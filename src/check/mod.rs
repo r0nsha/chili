@@ -650,7 +650,7 @@ impl Check for ast::Ast {
                     let module = sess
                         .modules
                         .iter()
-                        .find(|m| m.module_info.file_path == path_str)
+                        .find(|m| m.info.file_path == path_str)
                         .unwrap_or_else(|| {
                             panic!("couldn't find ast for module with path: {}", path_str)
                         });

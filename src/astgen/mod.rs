@@ -29,14 +29,14 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
 
     // Add all module_infos to the workspace
     for module in modules.iter_mut() {
-        module.module_id = workspace.module_infos.insert(module.module_info);
+        module.id = workspace.module_infos.insert(module.info);
 
-        if module.module_info.file_path.as_str() == root_file_path.to_str().unwrap() {
-            workspace.root_module_id = module.module_id;
+        if module.info.file_path.as_str() == root_file_path.to_str().unwrap() {
+            workspace.root_module_id = module.id;
         }
 
         module.bindings.iter_mut().for_each(|binding| {
-            binding.module_id = module.module_id;
+            binding.module_id = module.id;
         });
     }
 

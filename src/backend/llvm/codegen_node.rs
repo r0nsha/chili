@@ -103,39 +103,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
         let value = self.value.codegen(generator, state);
         generator.local_with_alloca(state, self.id, value);
         generator.unit_value()
-
-        //             match &binding.kind {
-        //                 ast::BindingKind::Orphan => {
-        //                     todo!();
-        //                     // self.gen_binding_pattern_with_expr(
-        //                     //     state,
-        //                     //     &binding.pattern,
-        //                     //     &binding.ty.normalize(self.tycx),
-        //                     //     &binding.value,
-        //                     // );
-        //                 }
-        //                 ast::BindingKind::Extern(_) | ast::BindingKind::Intrinsic(_) => {
-        //                     todo!();
-        //                     // let pattern = binding.pattern.as_name_ref();
-
-        //                     // let decl = if let Some(expr) = &binding.value {
-        //                     //     if let ast::Ast::Const(ast::Const {
-        //                     //         value: ConstValue::Function(function),
-        //                     //         ..
-        //                     //     }) = expr.as_ref()
-        //                     //     {
-        //                     //         let function = self.gen_function(function.id, None);
-        //                     //         Decl::Function(function)
-        //                     //     } else {
-        //                     //         self.declare_global_binding(pattern.id, binding)
-        //                     //     }
-        //                     // } else {
-        //                     //     self.declare_global_binding(pattern.id, binding)
-        //                     // };
-
-        //                     // state.scopes.insert(pattern.id, decl);
-        //                 }
-        //             }
     }
 }
 
