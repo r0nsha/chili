@@ -1,6 +1,5 @@
 use super::{
     env::{Env, Scope, ScopeKind},
-    top_level::CallerInfo,
     CheckSess,
 };
 use crate::{
@@ -136,7 +135,7 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         self.bind_name(
             env,
-            pattern.alias.unwrap_or(pattern.name),
+            pattern.alias(),
             visibility,
             ty,
             value,
@@ -405,7 +404,7 @@ impl<'s> CheckSess<'s> {
                     unpack_pattern
                         .symbols
                         .iter()
-                        .map(|symbol| (symbol.name, self.tycx.var(symbol.span).as_kind())),
+                        .map(|pattern| (pattern.name, self.tycx.var(pattern.span).as_kind())),
                 ));
 
                 let partial_struct_ty = self

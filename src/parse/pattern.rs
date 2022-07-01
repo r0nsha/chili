@@ -13,8 +13,8 @@ impl Parser {
                 let start_span = pattern.span;
 
                 let unpack_pattern = match self.parse_unpack_pattern("an unpack pattern")? {
-                    Pattern::StructUnpack(pat) => UnpackPatternKind::Struct(pat),
-                    Pattern::TupleUnpack(pat) => UnpackPatternKind::Tuple(pat),
+                    Pattern::StructUnpack(pattern) => UnpackPatternKind::Struct(pattern),
+                    Pattern::TupleUnpack(pattern) => UnpackPatternKind::Tuple(pattern),
                     _ => panic!(),
                 };
 

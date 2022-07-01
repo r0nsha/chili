@@ -79,7 +79,7 @@ impl<'s> CheckSess<'s> {
             if let Some(binding) = module
                 .bindings
                 .iter()
-                .find(|binding| binding.pattern.iter().any(|pat| pat.name == name))
+                .find(|binding| binding.pattern.iter().any(|pattern| pattern.name == name))
             {
                 let bound_names = binding.check_top_level(self)?;
                 let desired_id = *bound_names.get(&name).unwrap();

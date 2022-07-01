@@ -400,14 +400,14 @@ impl Check for ast::Binding {
                 if is_type_or_module {
                     self.pattern
                         .iter()
-                        .filter(|pat| pat.is_mutable)
-                        .for_each(|pat| {
+                        .filter(|pattern| pattern.is_mutable)
+                        .for_each(|pattern| {
                             sess.workspace.diagnostics.push(
                                 Diagnostic::error()
                                     .with_message(
                                         "variable of type `type` or `module` must be immutable",
                                     )
-                                    .with_label(Label::primary(pat.span, "variable is mutable"))
+                                    .with_label(Label::primary(pattern.span, "variable is mutable"))
                                     .with_note("try removing the `mut` from the declaration"),
                             );
                         });
@@ -562,13 +562,13 @@ impl Check for ast::FunctionSig {
                     check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
 
                 for pattern in param.pattern.iter() {
-                    if let Some(already_defined_span) =
-                        defined_params.insert(pattern.name, pattern.span)
-                    {
+                    let name = pattern.name;
+
+                    if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
                         return Err(SyntaxError::duplicate_binding(
                             already_defined_span,
                             pattern.span,
-                            pattern.name,
+                            name,
                         ));
                     }
                 }
