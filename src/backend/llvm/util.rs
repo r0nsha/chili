@@ -536,4 +536,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         self.builder.build_load(gep, field_name)
     }
+
+    pub(super) fn build_struct(
+        &mut self,
+        state: &mut FunctionState<'ctx>,
+        llvm_type: BasicTypeEnum<'ctx>,
+        values: &[BasicValueEnum<'ctx>],
+    ) -> PointerValue<'ctx> {
+        let ptr = self.build_alloca(state, llvm_type.into());
+
+        for (i, value) in values.iter().enumerate() {
+            let field_ptr = self.builder.build_struct_gep(ptr, i as _, "").unwrap();
+            self.build_store(field_ptr, *value);
+        }
+
+        ptr
+    }
 }

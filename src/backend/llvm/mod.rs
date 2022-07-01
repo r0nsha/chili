@@ -7,7 +7,6 @@ mod codegen_node;
 mod conditional;
 mod function;
 mod intrinsics;
-mod literal;
 mod panic;
 mod runtime_check;
 mod startup;

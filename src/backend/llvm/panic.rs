@@ -53,7 +53,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .ptr_sized_int_type
             .const_int(span.start.column as _, false);
 
-        let panic_info = self.gen_struct(
+        let panic_info = self.build_struct(
             state,
             panic_info_llvm_type.into(),
             &[program, message, file_path, line.into(), column.into()],

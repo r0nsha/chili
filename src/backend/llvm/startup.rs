@@ -1,20 +1,6 @@
-use super::{
-    codegen::{Codegen, FunctionState, Generator},
-    ty::IntoLlvmType,
-};
-use crate::{
-    ast::{
-        self,
-        pattern::{HybridPattern, Pattern, UnpackPattern, UnpackPatternKind},
-    },
-    infer::normalize::Normalize,
-    types::*,
-};
-use inkwell::{
-    module::Linkage,
-    values::{BasicValue, PointerValue},
-    AddressSpace,
-};
+use super::codegen::{Codegen, FunctionState, Generator};
+use crate::{infer::normalize::Normalize, types::*};
+use inkwell::{module::Linkage, values::BasicValue, AddressSpace};
 use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {

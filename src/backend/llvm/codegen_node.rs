@@ -2,7 +2,11 @@ use super::{
     codegen::{Codegen, Decl, FunctionState, Generator},
     ty::IntoLlvmType,
 };
-use crate::{hir, infer::normalize::Normalize, types::*};
+use crate::{
+    hir::{self, const_value::ConstValue},
+    infer::normalize::Normalize,
+    types::*,
+};
 use inkwell::{
     module::Linkage,
     types::BasicType,
@@ -55,16 +59,29 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
             let ty = binding_info.ty.normalize(generator.tycx);
             let llvm_type = ty.llvm_type(generator);
 
-            let value = if let Some(const_value) = self.value.as_const_value() {
-                generator.gen_const_value(None, const_value, &ty)
-            } else {
-                llvm_type.const_zero()
-            };
+            match self.value.as_const_value() {
+                Some(ConstValue::Function(function)) => {
+                    let function = generator.gen_function(function.id, None);
+                    generator.insert_global_decl(self.id, Decl::Function(function))
+                }
+                Some(const_value) => {
+                    let global_value =
+                        generator.add_global_uninit(self.id, llvm_type, Linkage::Private);
 
-            let global_value = generator.add_global_uninit(self.id, llvm_type, Linkage::Private);
-            global_value.set_initializer(&value);
+                    let value = generator.gen_const_value(None, const_value, &ty);
+                    global_value.set_initializer(&value);
 
-            generator.insert_global_decl(self.id, Decl::Global(global_value))
+                    generator.insert_global_decl(self.id, Decl::Global(global_value))
+                }
+                None => {
+                    let global_value =
+                        generator.add_global_uninit(self.id, llvm_type, Linkage::Private);
+
+                    global_value.set_initializer(&llvm_type.const_zero());
+
+                    generator.insert_global_decl(self.id, Decl::Global(global_value))
+                }
+            }
         }
     }
 

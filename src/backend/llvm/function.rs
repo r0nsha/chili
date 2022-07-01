@@ -5,7 +5,7 @@ use super::{
     CallingConv,
 };
 use crate::{
-    ast, backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*,
+    backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*,
     workspace::BindingId,
 };
 use inkwell::{
