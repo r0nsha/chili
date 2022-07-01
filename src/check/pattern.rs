@@ -1,5 +1,6 @@
 use super::{
     env::{Env, Scope, ScopeKind},
+    top_level::CallerInfo,
     CheckSess,
 };
 use crate::{
@@ -358,7 +359,19 @@ impl<'s> CheckSess<'s> {
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
                 for pattern in unpack_pattern.symbols.iter() {
-                    let id = *module_bindings.get(&pattern.name).unwrap();
+                    let id = match module_bindings.get(&pattern.name) {
+                        Some(id) => *id,
+                        None => {
+                            return Err(self.name_not_found_error(
+                                module_id,
+                                pattern.name,
+                                CallerInfo {
+                                    module_id: env.module_id(),
+                                    span: pattern.span,
+                                },
+                            ))
+                        }
+                    };
 
                     let binding_info = self.workspace.binding_infos.get(id).unwrap();
 

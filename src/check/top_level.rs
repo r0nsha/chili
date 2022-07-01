@@ -96,28 +96,37 @@ impl<'s> CheckSess<'s> {
 
                 Ok(builtin_id)
             } else {
-                let module_info = self.workspace.module_infos.get(module_id).unwrap();
-
-                let message = if module_info.name.is_empty() {
-                    format!("cannot find value `{}` in this scope", name)
-                } else {
-                    format!(
-                        "cannot find value `{}` in module `{}`",
-                        name, module_info.name
-                    )
-                };
-
-                let label_message = if module_info.name.is_empty() {
-                    "not found in this scope".to_string()
-                } else {
-                    format!("not found in `{}`", module_info.name)
-                };
-
-                Err(Diagnostic::error()
-                    .with_message(message)
-                    .with_label(Label::primary(caller_info.span, label_message)))
+                Err(self.name_not_found_error(module_id, name, caller_info))
             }
         }
+    }
+
+    pub(super) fn name_not_found_error(
+        &mut self,
+        module_id: ModuleId,
+        name: Ustr,
+        caller_info: CallerInfo,
+    ) -> Diagnostic {
+        let module_info = self.workspace.module_infos.get(module_id).unwrap();
+
+        let message = if module_info.name.is_empty() {
+            format!("cannot find value `{}` in this scope", name)
+        } else {
+            format!(
+                "cannot find value `{}` in module `{}`",
+                name, module_info.name
+            )
+        };
+
+        let label_message = if module_info.name.is_empty() {
+            "not found in this scope".to_string()
+        } else {
+            format!("not found in `{}`", module_info.name)
+        };
+
+        Diagnostic::error()
+            .with_message(message)
+            .with_label(Label::primary(caller_info.span, label_message))
     }
 
     pub fn validate_can_access_item(
