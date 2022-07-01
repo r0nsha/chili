@@ -16,7 +16,7 @@ use crate::{
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
     types::{InferTy, PartialStructType, Type, TypeId},
-    workspace::{BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo},
+    workspace::{BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel},
 };
 use indexmap::IndexMap;
 use ustr::{ustr, Ustr};
@@ -58,19 +58,6 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         let module_id = env.module_id();
         let scope_level = env.scope_level();
-        let is_global = scope_level.is_global();
-
-        if is_global {
-            // check if there's already a binding with this symbol
-            if let Some(id) = self.get_global_binding_id(module_id, name) {
-                let already_defined = self.workspace.binding_infos.get(id).unwrap();
-                return Err(SyntaxError::duplicate_binding(
-                    already_defined.span,
-                    span,
-                    already_defined.name,
-                ));
-            }
-        }
 
         let partial_binding_info = PartialBindingInfo {
             module_id,
@@ -98,12 +85,25 @@ impl<'s> CheckSess<'s> {
             .binding_infos
             .insert_with_id(partial_binding_info.clone().into_binding_info());
 
-        if is_global {
-            // insert the symbol into its module's global scope
-            self.insert_global_binding_id(module_id, name, id);
-        } else {
-            // insert the symbol into local scope
-            env.insert_binding(name, id);
+        match scope_level {
+            // check if there's already a binding with this symbol
+            ScopeLevel::Global => {
+                if let Some(id) = self.get_global_binding_id(module_id, name) {
+                    let already_defined = self.workspace.binding_infos.get(id).unwrap();
+                    return Err(SyntaxError::duplicate_binding(
+                        already_defined.span,
+                        span,
+                        already_defined.name,
+                    ));
+                } else {
+                    // insert the symbol into its module's global scope
+                    self.insert_global_binding_id(module_id, name, id);
+                }
+            }
+            ScopeLevel::Scope(_) => {
+                // insert the symbol into local scope
+                env.insert_binding(name, id);
+            }
         }
 
         let node = if let Some(value) = value {
@@ -391,13 +391,7 @@ impl<'s> CheckSess<'s> {
                 }
 
                 if let Some(wildcard_symbol_span) = unpack_pattern.wildcard_symbol {
-                    let module = self
-                        .modules
-                        .iter()
-                        .find(|m| m.module_id == module_id)
-                        .unwrap_or_else(|| panic!("couldn't find {:?}", module_id));
-
-                    self.check_module(module)?;
+                    self.check_module_by_id(module_id)?;
 
                     let all_module_binding_ids: Vec<BindingId> = self
                         .global_scopes

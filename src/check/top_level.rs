@@ -75,7 +75,7 @@ impl<'s> CheckSess<'s> {
             let module = self
                 .modules
                 .iter()
-                .find(|m| m.module_id == module_id)
+                .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
             if let Some(binding) = module
@@ -144,17 +144,27 @@ impl<'s> CheckSess<'s> {
         }
     }
 
+    pub fn check_module_by_id(&mut self, id: ModuleId) -> DiagnosticResult<TypeId> {
+        let module = self
+            .modules
+            .iter()
+            .find(|m| m.id == id)
+            .unwrap_or_else(|| panic!("couldn't find {:?}", id));
+
+        self.check_module(module)
+    }
+
     pub fn check_module(&mut self, module: &ast::Module) -> DiagnosticResult<TypeId> {
-        if let Some(module_type) = self.checked_modules.get(&module.module_id) {
+        if let Some(module_type) = self.checked_modules.get(&module.id) {
             Ok(*module_type)
         } else {
-            let module_id = module.module_id;
+            let module_id = module.id;
 
             let module_type = self
                 .tycx
                 .bound(Type::Module(module_id), Span::initial(module.file_id));
 
-            self.checked_modules.insert(module.module_id, module_type);
+            self.checked_modules.insert(module.id, module_type);
 
             for binding in module.bindings.iter() {
                 // 6/6/2022: a binding's pattern has a count of 0 only when a single wildcard symbol is used
