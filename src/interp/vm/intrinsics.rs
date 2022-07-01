@@ -50,7 +50,7 @@ impl<'vm> VM<'vm> {
                     codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
                         emit_llvm_ir: match &self.interp.build_options.codegen_options {
                             CodegenOptions::Codegen(o) => o.emit_llvm_ir,
-                            CodegenOptions::Skip => false,
+                            CodegenOptions::Skip(emit_llvm_ir) => *emit_llvm_ir,
                         },
                         run_executable: workspace.build_options.run_executable,
                     }),

@@ -103,7 +103,7 @@ pub enum DiagnosticOptions {
 #[derive(Debug, Clone)]
 pub enum CodegenOptions {
     Codegen(EnabledCodegenOptions),
-    Skip,
+    Skip(/* emit_llvm_ir: */ bool),
 }
 
 #[derive(Debug, Clone)]

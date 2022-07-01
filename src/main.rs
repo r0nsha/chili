@@ -136,7 +136,7 @@ fn cli() {
                     emit_hir: false,
                     emit_bytecode: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
-                    codegen_options: CodegenOptions::Skip,
+                    codegen_options: CodegenOptions::Skip(false),
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: true,
                 };
@@ -166,7 +166,7 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
-                    codegen_options: CodegenOptions::Skip,
+                    codegen_options: CodegenOptions::Skip(args.emit_llvm_ir),
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: false,
                 };

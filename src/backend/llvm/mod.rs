@@ -41,7 +41,7 @@ use inkwell::{
 use path_absolutize::Absolutize;
 use std::{
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Command,
 };
 use ustr::UstrMap;
@@ -126,11 +126,8 @@ pub fn codegen<'w>(
         cg.optimize();
     }};
 
-    if codegen_options.emit_llvm_ir {
-        dump_ir(&module, &workspace.build_options.source_file);
-    }
-
     let executable_path = build_executable(
+        codegen_options,
         &workspace.build_options,
         &target_machine,
         &target_metrics,
@@ -150,11 +147,8 @@ impl From<build_options::OptimizationLevel> for OptimizationLevel {
     }
 }
 
-fn dump_ir(module: &Module, path: &Path) {
-    module.print_to_file(path.with_extension("ll")).unwrap();
-}
-
 fn build_executable(
+    codegen_options: &EnabledCodegenOptions,
     build_options: &BuildOptions,
     target_machine: &TargetMachine,
     target_metrics: &TargetMetrics,
@@ -165,6 +159,12 @@ fn build_executable(
         .output_file
         .as_ref()
         .unwrap_or_else(|| &build_options.source_file);
+
+    if codegen_options.emit_llvm_ir {
+        module
+            .print_to_file(output_path.with_extension("ll"))
+            .unwrap();
+    }
 
     let object_file = if target_metrics.os == Os::Windows {
         output_path.with_extension("obj")
