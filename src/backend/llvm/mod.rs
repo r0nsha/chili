@@ -1,7 +1,6 @@
 mod abi;
-mod binary;
 mod codegen;
-mod codegen_builtin;
+mod codegen_binary;
 mod codegen_control;
 mod codegen_literal;
 mod codegen_node;

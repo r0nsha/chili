@@ -1,7 +1,8 @@
 let { println } = import!("std/fmt"); 
+let { printf } = import!("std/c"); 
 
 let main = fn {
-    let print = fn(s: str) { println(s) };
-    run!(print("Hello at compile time"));
-    print("Hello at run time");
+    let array = [1, 2, 3][..];
+    printf("%d\n".data, array.len);
+    println("Hello World");
 };

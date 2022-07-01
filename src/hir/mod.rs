@@ -1,10 +1,10 @@
 pub mod const_value;
 pub mod pretty;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
-    ast::{ExternLibrary, Intrinsic},
+    ast::{self, ExternLibrary, Intrinsic},
     common::id_cache::{IdCache, WithId},
     define_id_type,
     span::Span,
@@ -128,7 +128,10 @@ pub enum Node {
     Cast(Cast),
     Sequence(Sequence),
     Control(Control),
-    Builtin(Builtin),
+    Binary(Binary),
+    Unary(Unary),
+    Offset(Offset),
+    Slice(Slice),
     Literal(Literal),
 }
 
@@ -150,8 +153,8 @@ node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
 node_struct!(Return, { value: Box<Node> });
 
-node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node> });
-node_struct!(Unary, { value: Box<Node> });
+node_struct!(Binary, { lhs: Box<Node>, rhs: Box<Node>, op: BinaryOp });
+node_struct!(Unary, { value: Box<Node>, op: UnaryOp });
 node_struct!(Ref, { value: Box<Node>, is_mutable: bool });
 
 node_struct!(Offset, { value: Box<Node>, offset: Box<Node> });
@@ -231,7 +234,10 @@ macro_rules! node_field_dispatch {
                     Self::Cast(x) => x.$field,
                     Self::Sequence(x) => x.$field,
                     Self::Control(x) => x.$field(),
-                    Self::Builtin(x) => x.$field(),
+                    Self::Binary(x) => x.$field,
+                    Self::Unary(x) => x.$field,
+                    Self::Offset(x) => x.$field,
+                    Self::Slice(x) => x.$field,
                     Self::Literal(x) => x.$field(),
                 }
             }
@@ -337,6 +343,118 @@ macro_rules! literal_field_dispatch {
 }
 
 literal_field_dispatch!();
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Rem,
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    And,
+    Or,
+    Shl,
+    Shr,
+    BitAnd,
+    BitOr,
+    BitXor,
+}
+
+impl Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use BinaryOp::*;
+        write!(
+            f,
+            "{}",
+            match self {
+                Add => "+",
+                Sub => "-",
+                Mul => "*",
+                Div => "/",
+                Rem => "%",
+                Eq => "==",
+                Ne => "!=",
+                Lt => "<",
+                Le => "<=",
+                Gt => ">",
+                Ge => ">=",
+                And => "&&",
+                Or => "||",
+                Shl => "<<",
+                Shr => ">>",
+                BitAnd => "&",
+                BitOr => "|",
+                BitXor => "^",
+            }
+        )
+    }
+}
+
+impl From<ast::BinaryOp> for BinaryOp {
+    fn from(op: ast::BinaryOp) -> Self {
+        match op {
+            ast::BinaryOp::Add => BinaryOp::Add,
+            ast::BinaryOp::Sub => BinaryOp::Sub,
+            ast::BinaryOp::Mul => BinaryOp::Mul,
+            ast::BinaryOp::Div => BinaryOp::Div,
+            ast::BinaryOp::Rem => BinaryOp::Rem,
+            ast::BinaryOp::Eq => BinaryOp::Eq,
+            ast::BinaryOp::Ne => BinaryOp::Ne,
+            ast::BinaryOp::Lt => BinaryOp::Lt,
+            ast::BinaryOp::Le => BinaryOp::Le,
+            ast::BinaryOp::Gt => BinaryOp::Gt,
+            ast::BinaryOp::Ge => BinaryOp::Ge,
+            ast::BinaryOp::And => BinaryOp::And,
+            ast::BinaryOp::Or => BinaryOp::Or,
+            ast::BinaryOp::Shl => BinaryOp::Shl,
+            ast::BinaryOp::Shr => BinaryOp::Shr,
+            ast::BinaryOp::BitAnd => BinaryOp::BitAnd,
+            ast::BinaryOp::BitOr => BinaryOp::BitOr,
+            ast::BinaryOp::BitXor => BinaryOp::BitXor,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum UnaryOp {
+    Ref(bool),
+    Deref,
+    Neg,
+    Not,
+}
+
+impl Display for UnaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                UnaryOp::Ref(_) => "&".to_string(),
+                UnaryOp::Deref => "*".to_string(),
+                UnaryOp::Neg => "-".to_string(),
+                UnaryOp::Not => "!".to_string(),
+            }
+        )
+    }
+}
+
+impl From<ast::UnaryOp> for UnaryOp {
+    fn from(op: ast::UnaryOp) -> Self {
+        match op {
+            ast::UnaryOp::Ref(is_mutable) => UnaryOp::Ref(is_mutable),
+            ast::UnaryOp::Deref => UnaryOp::Deref,
+            ast::UnaryOp::Neg => UnaryOp::Neg,
+            ast::UnaryOp::Not => UnaryOp::Not,
+            ast::UnaryOp::Plus => panic!(),
+        }
+    }
+}
 
 impl Node {
     pub fn is_const(&self) -> bool {
