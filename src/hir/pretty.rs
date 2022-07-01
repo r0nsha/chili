@@ -176,8 +176,12 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
 
         match &self.kind {
             hir::FunctionKind::Orphan { body, .. } => {
-                p.write(" ");
-                body.as_ref().unwrap().print(p, false)
+                if let Some(body) = body.as_ref() {
+                    p.write(" ");
+                    body.print(p, false)
+                } else {
+                    p.write(" <no body>");
+                }
             }
             hir::FunctionKind::Extern { .. } | hir::FunctionKind::Intrinsic(..) => (),
         }

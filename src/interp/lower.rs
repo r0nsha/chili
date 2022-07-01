@@ -117,7 +117,6 @@ impl Lower for hir::Binding {
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        println!("{} -> {:?}", self.name, self.id);
         sess.add_local(code, self.id);
         code.push(Instruction::SetLocal(code.last_local()));
 
@@ -127,8 +126,6 @@ impl Lower for hir::Binding {
 
 impl Lower for hir::Id {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        debug_assert!(self.id != BindingId::unknown());
-
         match self.ty.normalize(sess.tycx) {
             Type::Module(_) => {
                 // Note (Ron): We do nothing with modules, since they are not an actual value

@@ -963,7 +963,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let values: Vec<BasicValueEnum> = array
                     .values
                     .iter()
-                    .map(|v| self.gen_const_value(state, v, &el_ty))
+                    .map(|value| self.gen_const_value(state, value, &el_ty))
                     .collect();
 
                 el_ty.llvm_type(self).const_array(&values).into()
@@ -971,7 +971,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             ConstValue::Tuple(elements) => {
                 let values = elements
                     .iter()
-                    .map(|el| self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx)))
+                    .map(|element| {
+                        self.gen_const_value(
+                            state,
+                            &element.value,
+                            &element.ty.normalize(self.tycx),
+                        )
+                    })
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.const_struct(&values).into()
@@ -979,7 +985,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             ConstValue::Struct(fields) => {
                 let values = fields
                     .values()
-                    .map(|el| self.gen_const_value(state, &el.value, &el.ty.normalize(self.tycx)))
+                    .map(|element| {
+                        self.gen_const_value(
+                            state,
+                            &element.value,
+                            &element.ty.normalize(self.tycx),
+                        )
+                    })
                     .collect::<Vec<BasicValueEnum>>();
 
                 // self.context.const_struct(&values, false).into();
@@ -1024,143 +1036,143 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // }
     }
 
-    pub(super) fn gen_cast(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        expr: &Box<ast::Ast>,
-        target_ty: &TypeId,
-    ) -> BasicValueEnum<'ctx> {
-        todo!();
-        // let value = self.gen_expr(state, expr, true);
-        // self.gen_cast_inner(
-        //     state,
-        //     value,
-        //     &expr.ty().normalize(self.tycx),
-        //     &target_ty.normalize(self.tycx),
-        // )
-    }
+    // pub(super) fn gen_cast(
+    //     &mut self,
+    //     state: &mut FunctionState<'ctx>,
+    //     expr: &Box<ast::Ast>,
+    //     target_ty: &TypeId,
+    // ) -> BasicValueEnum<'ctx> {
+    //     todo!();
+    // let value = self.gen_expr(state, expr, true);
+    // self.gen_cast_inner(
+    //     state,
+    //     value,
+    //     &expr.ty().normalize(self.tycx),
+    //     &target_ty.normalize(self.tycx),
+    // )
+    // }
 
-    pub(super) fn gen_cast_inner(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        value: BasicValueEnum<'ctx>,
-        from_ty: &Type,
-        target_ty: &Type,
-    ) -> BasicValueEnum<'ctx> {
-        if from_ty == target_ty {
-            return value;
-        }
+    // pub(super) fn gen_cast_inner(
+    //     &mut self,
+    //     state: &mut FunctionState<'ctx>,
+    //     value: BasicValueEnum<'ctx>,
+    //     from_ty: &Type,
+    //     target_ty: &Type,
+    // ) -> BasicValueEnum<'ctx> {
+    //     if from_ty == target_ty {
+    //         return value;
+    //     }
 
-        const INST_NAME: &str = "cast";
+    //     const INST_NAME: &str = "cast";
 
-        let cast_type = target_ty.llvm_type(self);
+    //     let cast_type = target_ty.llvm_type(self);
 
-        match (from_ty, target_ty) {
-            (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => self
-                .builder
-                .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
-                .into(),
-            (Type::Int(_) | Type::Uint(_), Type::Int(_) | Type::Uint(_)) => self
-                .builder
-                .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
-                .into(),
+    //     match (from_ty, target_ty) {
+    //         (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => self
+    //             .builder
+    //             .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
+    //             .into(),
+    //         (Type::Int(_) | Type::Uint(_), Type::Int(_) | Type::Uint(_)) => self
+    //             .builder
+    //             .build_int_cast(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
+    //             .into(),
 
-            (Type::Int(_), Type::Float(_)) => self
-                .builder
-                .build_signed_int_to_float(
-                    value.into_int_value(),
-                    cast_type.into_float_type(),
-                    INST_NAME,
-                )
-                .into(),
+    //         (Type::Int(_), Type::Float(_)) => self
+    //             .builder
+    //             .build_signed_int_to_float(
+    //                 value.into_int_value(),
+    //                 cast_type.into_float_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
 
-            (Type::Uint(_), Type::Float(_)) => self
-                .builder
-                .build_unsigned_int_to_float(
-                    value.into_int_value(),
-                    cast_type.into_float_type(),
-                    INST_NAME,
-                )
-                .into(),
+    //         (Type::Uint(_), Type::Float(_)) => self
+    //             .builder
+    //             .build_unsigned_int_to_float(
+    //                 value.into_int_value(),
+    //                 cast_type.into_float_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
 
-            (Type::Float(_), Type::Int(_)) => self
-                .builder
-                .build_float_to_signed_int(
-                    value.into_float_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
-                .into(),
-            (Type::Float(_), Type::Uint(_)) => self
-                .builder
-                .build_float_to_unsigned_int(
-                    value.into_float_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
-                .into(),
-            (Type::Float(_), Type::Float(_)) => self
-                .builder
-                .build_float_cast(
-                    value.into_float_value(),
-                    cast_type.into_float_type(),
-                    INST_NAME,
-                )
-                .into(),
+    //         (Type::Float(_), Type::Int(_)) => self
+    //             .builder
+    //             .build_float_to_signed_int(
+    //                 value.into_float_value(),
+    //                 cast_type.into_int_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
+    //         (Type::Float(_), Type::Uint(_)) => self
+    //             .builder
+    //             .build_float_to_unsigned_int(
+    //                 value.into_float_value(),
+    //                 cast_type.into_int_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
+    //         (Type::Float(_), Type::Float(_)) => self
+    //             .builder
+    //             .build_float_cast(
+    //                 value.into_float_value(),
+    //                 cast_type.into_float_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
 
-            (
-                Type::Pointer(..) | Type::MultiPointer(..),
-                Type::Pointer(..) | Type::MultiPointer(..),
-            ) => self
-                .builder
-                .build_pointer_cast(
-                    value.into_pointer_value(),
-                    cast_type.into_pointer_type(),
-                    INST_NAME,
-                )
-                .into(),
+    //         (
+    //             Type::Pointer(..) | Type::MultiPointer(..),
+    //             Type::Pointer(..) | Type::MultiPointer(..),
+    //         ) => self
+    //             .builder
+    //             .build_pointer_cast(
+    //                 value.into_pointer_value(),
+    //                 cast_type.into_pointer_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
 
-            // pointer <=> int | uint
-            (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => self
-                .builder
-                .build_ptr_to_int(
-                    value.into_pointer_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
-                .into(),
+    //         // pointer <=> int | uint
+    //         (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => self
+    //             .builder
+    //             .build_ptr_to_int(
+    //                 value.into_pointer_value(),
+    //                 cast_type.into_int_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
 
-            // int | uint <=> pointer
-            (Type::Int(..) | Type::Uint(..), Type::Pointer(..)) => self
-                .builder
-                .build_int_to_ptr(
-                    value.into_int_value(),
-                    cast_type.into_pointer_type(),
-                    INST_NAME,
-                )
-                .into(),
+    //         // int | uint <=> pointer
+    //         (Type::Int(..) | Type::Uint(..), Type::Pointer(..)) => self
+    //             .builder
+    //             .build_int_to_ptr(
+    //                 value.into_int_value(),
+    //                 cast_type.into_pointer_type(),
+    //                 INST_NAME,
+    //             )
+    //             .into(),
 
-            (Type::Pointer(t, _), Type::Slice(t_slice, ..)) => match t.as_ref() {
-                Type::Array(_, size) => {
-                    let slice_ty = self.slice_type(t_slice);
-                    let ptr = self.build_alloca(state, slice_ty);
+    //         (Type::Pointer(t, _), Type::Slice(t_slice, ..)) => match t.as_ref() {
+    //             Type::Array(_, size) => {
+    //                 let slice_ty = self.slice_type(t_slice);
+    //                 let ptr = self.build_alloca(state, slice_ty);
 
-                    self.build_slice(
-                        ptr,
-                        value,
-                        self.ptr_sized_int_type.const_zero(),
-                        self.ptr_sized_int_type.const_int(*size as u64, false),
-                        t_slice.as_ref(),
-                    );
+    //                 self.build_slice(
+    //                     ptr,
+    //                     value,
+    //                     self.ptr_sized_int_type.const_zero(),
+    //                     self.ptr_sized_int_type.const_int(*size as u64, false),
+    //                     t_slice.as_ref(),
+    //                 );
 
-                    self.build_load(ptr.into())
-                }
-                _ => unreachable!(),
-            },
+    //                 self.build_load(ptr.into())
+    //             }
+    //             _ => unreachable!(),
+    //         },
 
-            _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
-        }
-    }
+    //         _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
+    //     }
+    // }
 
     pub(super) fn gen_return(
         &mut self,

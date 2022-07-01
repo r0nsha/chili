@@ -438,7 +438,7 @@ impl<'s> CheckSess<'s> {
                         .bound(partial_struct[&pattern.name].clone(), pattern.span);
 
                     let field_value = match value.as_const_value() {
-                        Some(const_value) if pattern.is_mutable => hir::Node::Const(hir::Const {
+                        Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {
                             value: const_value
                                 .as_struct()
                                 .unwrap()
@@ -446,7 +446,7 @@ impl<'s> CheckSess<'s> {
                                 .unwrap()
                                 .clone()
                                 .value,
-                            ty: value.ty(),
+                            ty,
                             span: pattern.span,
                         }),
                         _ => hir::Node::MemberAccess(hir::MemberAccess {
@@ -485,6 +485,8 @@ impl<'s> CheckSess<'s> {
                                     continue;
                                 }
 
+                                let ty = self.tycx.bound(field.ty.clone(), field.span);
+
                                 let field_value = match value.as_const_value() {
                                     Some(const_value) => hir::Node::Const(hir::Const {
                                         value: const_value
@@ -492,9 +494,9 @@ impl<'s> CheckSess<'s> {
                                             .unwrap()
                                             .get(&field.name)
                                             .unwrap()
-                                            .clone()
-                                            .value,
-                                        ty: value.ty(),
+                                            .value
+                                            .clone(),
+                                        ty,
                                         span: field.span,
                                     }),
                                     None => hir::Node::MemberAccess(hir::MemberAccess {
@@ -505,8 +507,6 @@ impl<'s> CheckSess<'s> {
                                         span: field.span,
                                     }),
                                 };
-
-                                let ty = self.tycx.bound(field.ty.clone(), field.span);
 
                                 let (_, bound_node) = self.bind_name(
                                     env,
@@ -585,12 +585,12 @@ impl<'s> CheckSess<'s> {
             let ty = self.tycx.bound(elements[index].clone(), pattern.span);
 
             let element_value = match value.as_const_value() {
-                Some(const_value) => hir::Node::Const(hir::Const {
-                    value: const_value.as_tuple().unwrap()[index].clone().value,
-                    ty: value.ty(),
+                Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {
+                    value: const_value.as_tuple().unwrap()[index].value.clone(),
+                    ty,
                     span: value.span(),
                 }),
-                None => hir::Node::MemberAccess(hir::MemberAccess {
+                _ => hir::Node::MemberAccess(hir::MemberAccess {
                     value: Box::new(value.clone()),
                     member_name: ustr(&index.to_string()),
                     member_index: index as _,

@@ -74,15 +74,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         high: IntValue<'ctx>,
         element_ty: &Type,
     ) {
-        let data = self.builder.build_bitcast(
-            sliced_value,
-            element_ty.llvm_type(self).ptr_type(AddressSpace::Generic),
-            "bitcast_slice_data",
-        );
+        dbg!(sliced_value);
+
+        // let data_to_slice = self.builder.build_bitcast(
+        //     sliced_value,
+        //     element_ty.llvm_type(self).ptr_type(AddressSpace::Generic),
+        //     "bitcast_slice_data",
+        // );
 
         let data = unsafe {
-            self.builder
-                .build_in_bounds_gep(data.into_pointer_value(), &[low], "slice_low_addr")
+            self.builder.build_in_bounds_gep(
+                sliced_value.into_pointer_value(),
+                &[low],
+                "slice_low_addr",
+            )
         };
 
         let data_ptr = self.builder.build_struct_gep(ptr, 0, "slice_data").unwrap();
@@ -229,14 +234,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn build_unreachable(&self) {
         if self.current_block().get_terminator().is_none() {
             self.builder.build_unreachable();
-        }
-    }
-
-    pub(super) fn maybe_load_double_pointer(&self, ptr: PointerValue<'ctx>) -> PointerValue<'ctx> {
-        if ptr.get_type().get_element_type().is_pointer_type() {
-            self.build_load(ptr.into()).into_pointer_value()
-        } else {
-            ptr
         }
     }
 
@@ -489,7 +486,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         struct_ty: Option<BasicTypeEnum<'ctx>>,
     ) -> BasicValueEnum<'ctx> {
         if agg_or_ptr.is_pointer_value() {
-            let agg_or_ptr = self.maybe_load_double_pointer(agg_or_ptr.into_pointer_value());
+            let agg_or_ptr = agg_or_ptr.into_pointer_value();
             let el_type = agg_or_ptr.get_type().get_element_type();
 
             if el_type.is_struct_type() {

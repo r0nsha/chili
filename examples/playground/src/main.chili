@@ -8,17 +8,19 @@ let main = fn {
 
     // print("Hello at run time");
 
-    // let array = [1, 2, 3];
-    // for x in array {
-    //     printf("%d\n".data, x);
-    // }
+    let array = [1, 2, 3];
+    for x in array {
+        printf("%d\n".data, x);
+    }
 
-    // let slice = array[..];
+    let slice = array[..];
     // for x in slice {
     //     printf("%d\n".data, x);
     // }
 
     let { x, y } = .{ x: 1, y: 2 };
-    run!(printf("x: %d, y: %d\n".data, x, y));
+    printf("x: %d, y: %d\n".data, x, y);
+    
+    let (x, y) = (1, 2);
     printf("x: %d, y: %d\n".data, x, y);
 };

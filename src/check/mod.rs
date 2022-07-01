@@ -700,7 +700,11 @@ impl Check for ast::Ast {
                     }))
                 }
                 ast::BuiltinKind::Run(expr) => {
-                    let node = expr.check(sess, env, None)?;
+                    // Note (Ron 02/07/2022):
+                    // The inner expression of `run!` isn't allowed to capture its outer environment yet.
+                    let node = sess.with_env(env.module_id(), |sess, mut env| {
+                        expr.check(sess, &mut env, None)
+                    })?;
 
                     if sess.workspace.build_options.check_mode {
                         Ok(node)
@@ -1404,15 +1408,12 @@ impl Check for ast::Ast {
                             span: lit.span,
                         }))
                     } else {
-                        let element_tys: Vec<TypeId> =
-                            lit.elements.iter().map(|e| e.ty()).collect();
+                        let element_tys: Vec<TypeId> = elements.iter().map(|el| el.ty()).collect();
 
                         let element_ty_kinds: Vec<Type> =
                             element_tys.iter().map(|ty| ty.as_kind()).collect();
 
-                        let kind = Type::Tuple(element_ty_kinds.clone());
-
-                        let ty = sess.tycx.bound(kind.clone(), lit.span);
+                        let ty = sess.tycx.bound(Type::Tuple(element_ty_kinds), lit.span);
 
                         let const_value = ConstValue::Tuple(
                             const_values
@@ -1425,14 +1426,14 @@ impl Check for ast::Ast {
                         );
 
                         Ok(hir::Node::Const(hir::Const {
-                            value: const_value.clone(),
+                            value: const_value,
                             ty,
                             span: lit.span,
                         }))
                     }
                 } else {
                     let element_tys: Vec<Type> =
-                        lit.elements.iter().map(|e| e.ty().as_kind()).collect();
+                        elements.iter().map(|e| e.ty().as_kind()).collect();
 
                     let kind = Type::Tuple(element_tys);
 
