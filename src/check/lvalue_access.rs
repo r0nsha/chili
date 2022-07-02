@@ -1,6 +1,9 @@
 use super::CheckSess;
 use crate::{
-    error::diagnostic::{Diagnostic, Label},
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult,
+    },
     hir,
     infer::{display::DisplayTy, normalize::Normalize},
     span::Span,
@@ -10,25 +13,24 @@ use crate::{
 
 pub enum LvalueAccessErr {
     ImmutableReference { ty: Type, span: Span },
-    ImmutableIdent { id: BindingId, span: Span },
+    ImmutableId { id: BindingId, span: Span },
     InvalidLvalue,
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_lvalue_access(&mut self, node: &hir::Node) {
+    pub fn check_lvalue_access(&mut self, node: &hir::Node) -> DiagnosticResult<()> {
         use LvalueAccessErr::*;
 
-        let result = self
-            .check_lvalue_access_inner(node)
+        self.check_lvalue_access_inner(node)
             .map_err(|err| -> Diagnostic {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
                         .with_message(format!(
-                            "cannot assign to the value, it is behind an immutable `{}`",
+                            "cannot assign to this value, as it is behind an immutable `{}`",
                             ty.display(&self.tycx)
                         ))
                         .with_label(Label::primary(span, "cannot assign")),
-                    ImmutableIdent { id, span } => {
+                    ImmutableId { id, span } => {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                         Diagnostic::error()
@@ -36,7 +38,7 @@ impl<'s> CheckSess<'s> {
                                 "cannot assign to `{}`, as it is not declared as mutable",
                                 binding_info.name
                             ))
-                            .with_label(Label::primary(span, "cannot assignment"))
+                            .with_label(Label::primary(span, "cannot assign"))
                             .with_label(Label::secondary(
                                 binding_info.span,
                                 format!(
@@ -46,17 +48,13 @@ impl<'s> CheckSess<'s> {
                             ))
                     }
                     InvalidLvalue => Diagnostic::error()
-                        .with_message("invalid left-hand side of assignment")
+                        .with_message("invalid left-hand side of assign")
                         .with_label(Label::primary(
                             node.span(),
                             "cannot assign to this expression",
                         )),
                 }
-            });
-
-        if let Err(diag) = result {
-            self.workspace.diagnostics.push(diag);
-        }
+            })
     }
 
     fn check_lvalue_access_inner(&self, node: &hir::Node) -> Result<(), LvalueAccessErr> {
@@ -104,7 +102,7 @@ impl<'s> CheckSess<'s> {
                         if binding_info.is_mutable {
                             Ok(())
                         } else {
-                            Err(LvalueAccessErr::ImmutableIdent {
+                            Err(LvalueAccessErr::ImmutableId {
                                 id: id.id,
                                 span: node.span(),
                             })

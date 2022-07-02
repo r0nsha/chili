@@ -120,7 +120,7 @@ impl Display for Instruction {
                 Instruction::Offset => "offset".to_string(),
                 Instruction::ConstIndex(index) => format!("const_index {}", index),
                 Instruction::ConstIndexPtr(index) => format!("const_index_ptr {}", index),
-                Instruction::Assign => "assignment".to_string(),
+                Instruction::Assign => "assign".to_string(),
                 Instruction::Cast(cast) => format!("cast {:?}", cast),
                 Instruction::AggregateAlloc => "aggregate_alloc".to_string(),
                 Instruction::AggregatePush => "aggregate_push".to_string(),

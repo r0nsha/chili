@@ -153,6 +153,8 @@ pub(super) struct CheckSess<'s> {
     pub loop_depth: usize,
 
     pub unique_name_indices: UstrMap<usize>,
+
+    pub in_lvalue_context: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -181,6 +183,7 @@ impl<'s> CheckSess<'s> {
             self_types: vec![],
             loop_depth: 0,
             unique_name_indices: UstrMap::default(),
+            in_lvalue_context: false,
         }
     }
 
@@ -312,12 +315,12 @@ impl<'s> CheckSess<'s> {
 
     pub(super) fn id_or_const(&self, binding_info: &BindingInfo, span: Span) -> hir::Node {
         match &binding_info.const_value {
-            Some(value) => hir::Node::Const(hir::Const {
+            Some(value) if !self.in_lvalue_context => hir::Node::Const(hir::Const {
                 value: value.clone(),
                 ty: binding_info.ty,
                 span,
             }),
-            None => hir::Node::Id(hir::Id {
+            _ => hir::Node::Id(hir::Id {
                 id: binding_info.id,
                 ty: binding_info.ty,
                 span,
@@ -2290,7 +2293,10 @@ impl Check for ast::Function {
 
 impl Check for ast::Assignment {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
+        sess.in_lvalue_context = true;
         let lhs_node = self.lhs.check(sess, env, None)?;
+        sess.in_lvalue_context = false;
+
         let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
 
         rhs_node
@@ -2310,7 +2316,7 @@ impl Check for ast::Assignment {
                 rhs_node.span(),
             )?;
 
-        sess.check_lvalue_access(&lhs_node);
+        sess.check_lvalue_access(&lhs_node)?;
 
         Ok(hir::Node::Assignment(hir::Assignment {
             ty: sess.tycx.common_types.unit,
