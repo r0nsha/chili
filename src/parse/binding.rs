@@ -1,13 +1,10 @@
 use super::*;
 use crate::{
-    ast::{
-        pattern::{NamePattern, Pattern},
-        Binding, BindingKind, Intrinsic, Visibility,
-    },
+    ast::{pattern::Pattern, Binding, BindingKind, Intrinsic, Visibility},
     common::path::RelativeTo,
     error::diagnostic::Label,
     span::To,
-    workspace::{BindingId, ModuleId},
+    workspace::ModuleId,
 };
 
 impl Parser {
@@ -32,10 +29,11 @@ impl Parser {
         Ok(Binding {
             module_id: Default::default(),
             visibility,
-            kind: BindingKind::Orphan,
-            pattern,
-            type_expr: ty_expr,
-            value: Box::new(value),
+            kind: BindingKind::Orphan {
+                pattern,
+                type_expr: ty_expr,
+                value: Box::new(value),
+            },
             span: start_span.to(self.previous_span()),
         })
     }
@@ -59,34 +57,28 @@ impl Parser {
             None
         };
 
-        let is_mutable = eat!(self, Mut);
+        // let is_mutable = eat!(self, Mut);
 
         let id = require!(self, Ident(_), "an identifier")?;
         let name = id.name();
-
-        let pattern = Pattern::Name(NamePattern {
-            id: BindingId::unknown(),
-            name,
-            alias: None,
-            is_mutable,
-            span: id.span,
-            ignore: false,
-        });
 
         if eat!(self, Colon) {
             todo!("parse extern variables")
         } else if eat!(self, Eq) {
             require!(self, Fn, "fn")?;
-
-            let value = self.parse_function_sig(name, Some(lib.clone()))?;
+            let function_type = self.parse_function_sig(name, Some(lib.clone()))?;
 
             Ok(ast::Binding {
                 module_id: ModuleId::unknown(),
                 visibility,
-                kind: ast::BindingKind::Extern(lib),
-                pattern,
-                type_expr: None,
-                value: Box::new(ast::Ast::FunctionType(value)),
+                kind: ast::BindingKind::ExternFunction {
+                    name: ast::NameAndSpan {
+                        name,
+                        span: id.span,
+                    },
+                    lib,
+                    function_type,
+                },
                 span: start_span.to(self.previous_span()),
             })
         } else {
@@ -100,34 +92,29 @@ impl Parser {
         start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
         let id = require!(self, Ident(_), "an identifier")?;
-        let symbol = id.name();
+        let name = id.name();
 
-        let intrinsic = Intrinsic::from_str(&symbol).ok_or_else(|| {
+        let intrinsic = Intrinsic::from_str(&name).ok_or_else(|| {
             Diagnostic::error()
-                .with_message(format!("unknown intrinsic `{}`", symbol))
+                .with_message(format!("unknown intrinsic `{}`", name))
                 .with_label(Label::primary(id.span, "unknown intrinsic"))
         })?;
 
-        let pattern = Pattern::Name(NamePattern {
-            id: BindingId::unknown(),
-            name: id.name(),
-            alias: None,
-            is_mutable: false,
-            span: id.span,
-            ignore: false,
-        });
-
         require!(self, Eq, "=")?;
-
-        let value = self.parse_decl_expr(pattern.as_name().name)?;
+        require!(self, Fn, "fn")?;
+        let function_type = self.parse_function_sig(name, None)?;
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
             visibility,
-            kind: ast::BindingKind::Intrinsic(intrinsic),
-            pattern,
-            type_expr: None,
-            value: Box::new(value),
+            kind: ast::BindingKind::Intrinsic {
+                name: ast::NameAndSpan {
+                    name,
+                    span: id.span,
+                },
+                intrinsic,
+                function_type,
+            },
             span: start_span.to(self.previous_span()),
         })
     }

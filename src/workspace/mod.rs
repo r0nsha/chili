@@ -67,7 +67,7 @@ pub struct BindingInfo {
     pub const_value: Option<ConstValue>,
     // what kind of access the binding has
     pub is_mutable: bool,
-    pub kind: BindingKind,
+    pub kind: BindingInfoKind,
     // the scope depth of the binding
     pub scope_level: ScopeLevel,
     // the fully qualified name of the binding,
@@ -77,6 +77,34 @@ pub struct BindingInfo {
     // the amount of times this binding was used
     pub uses: Vec<Span>,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BindingInfoKind {
+    Orphan,
+    ExternFunction,
+    ExternVariable,
+    Intrinsic,
+}
+
+impl BindingInfoKind {
+    pub fn is_extern(&self) -> bool {
+        matches!(
+            self,
+            BindingInfoKind::ExternFunction | BindingInfoKind::ExternVariable
+        )
+    }
+}
+
+impl From<&BindingKind> for BindingInfoKind {
+    fn from(kind: &BindingKind) -> Self {
+        match kind {
+            BindingKind::Orphan { .. } => BindingInfoKind::Orphan,
+            BindingKind::ExternFunction { .. } => BindingInfoKind::ExternFunction,
+            BindingKind::ExternVariable { .. } => BindingInfoKind::ExternVariable,
+            BindingKind::Intrinsic { .. } => BindingInfoKind::Intrinsic,
+        }
+    }
 }
 
 impl WithId<BindingId> for BindingInfo {
@@ -97,7 +125,7 @@ pub struct PartialBindingInfo {
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     pub is_mutable: bool,
-    pub kind: BindingKind,
+    pub kind: BindingInfoKind,
     pub scope_level: ScopeLevel,
     pub qualified_name: Ustr,
     pub span: Span,

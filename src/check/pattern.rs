@@ -16,7 +16,9 @@ use crate::{
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
     types::{InferTy, PartialStructType, Type, TypeId},
-    workspace::{BindingId, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel},
+    workspace::{
+        BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel,
+    },
 };
 use indexmap::IndexMap;
 use ustr::{ustr, Ustr};
@@ -52,7 +54,7 @@ impl<'s> CheckSess<'s> {
         ty: TypeId,
         value: Option<hir::Node>,
         is_mutable: bool,
-        kind: ast::BindingKind,
+        kind: BindingInfoKind,
         span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
@@ -131,7 +133,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: TypeId,
         value: Option<hir::Node>,
-        kind: &ast::BindingKind,
+        kind: BindingInfoKind,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         self.bind_name(
@@ -141,7 +143,7 @@ impl<'s> CheckSess<'s> {
             ty,
             value,
             pattern.is_mutable,
-            kind.clone(),
+            kind,
             pattern.span,
             flags,
         )
@@ -154,7 +156,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: TypeId,
         value: Option<hir::Node>,
-        kind: &ast::BindingKind,
+        kind: BindingInfoKind,
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
@@ -298,7 +300,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: TypeId,
         value: Option<hir::Node>,
-        kind: &ast::BindingKind,
+        kind: BindingInfoKind,
         pattern: &UnpackPattern,
         statements: &mut Vec<hir::Node>,
         flags: BindingInfoFlags,
@@ -310,7 +312,7 @@ impl<'s> CheckSess<'s> {
             ty,
             value,
             false,
-            kind.clone(),
+            kind,
             pattern.span,
             flags - BindingInfoFlags::IS_USER_DEFINED,
         )?;
@@ -344,7 +346,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: TypeId,
         value: hir::Node,
-        kind: &ast::BindingKind,
+        kind: BindingInfoKind,
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
@@ -407,7 +409,7 @@ impl<'s> CheckSess<'s> {
                             binding_info.ty,
                             Some(self.id_or_const(binding_info, wildcard_symbol_span)),
                             binding_info.is_mutable,
-                            binding_info.kind.clone(),
+                            binding_info.kind,
                             wildcard_symbol_span,
                             flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
@@ -519,7 +521,7 @@ impl<'s> CheckSess<'s> {
                                     ty,
                                     Some(field_value),
                                     false,
-                                    kind.clone(),
+                                    kind,
                                     wildcard_symbol_span,
                                     flags - BindingInfoFlags::IS_USER_DEFINED,
                                 )?;
@@ -565,7 +567,7 @@ impl<'s> CheckSess<'s> {
         visibility: ast::Visibility,
         ty: TypeId,
         value: hir::Node,
-        kind: &ast::BindingKind,
+        kind: BindingInfoKind,
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {

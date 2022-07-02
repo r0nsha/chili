@@ -37,8 +37,8 @@ use crate::{
         StructTypeKind, Type, TypeId,
     },
     workspace::{
-        BindingId, BindingInfo, BindingInfoFlags, ModuleId, PartialBindingInfo, ScopeLevel,
-        Workspace,
+        BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo,
+        ScopeLevel, Workspace,
     },
 };
 use env::{Env, Scope, ScopeKind};
@@ -260,7 +260,7 @@ impl<'s> CheckSess<'s> {
                     .bound_maybe_spanned(ty.as_kind().create_type(), None),
                 const_value: Some(ConstValue::Type(ty)),
                 is_mutable: false,
-                kind: ast::BindingKind::Orphan,
+                kind: BindingInfoKind::Orphan,
                 scope_level: ScopeLevel::Global,
                 qualified_name: name,
                 span: Span::unknown(),
@@ -366,10 +366,14 @@ where
 impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
         match &self.kind {
-            BindingKind::Orphan => {
-                let ty = check_optional_type_expr(&self.type_expr, sess, env, self.pattern.span())?;
+            BindingKind::Orphan {
+                pattern,
+                type_expr,
+                value,
+            } => {
+                let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
 
-                let mut value_node = self.value.check(sess, env, Some(ty))?;
+                let mut value_node = value.check(sess, env, Some(ty))?;
 
                 value_node
                     .ty()
@@ -383,9 +387,9 @@ impl Check for ast::Binding {
                     .or_report_err(
                         &sess.tycx,
                         ty,
-                        self.type_expr.as_ref().map(|e| e.span()),
+                        type_expr.as_ref().map(|e| e.span()),
                         value_node.ty(),
-                        self.value.span(),
+                        value.span(),
                     )?;
 
                 let ty_kind = ty.normalize(&sess.tycx);
@@ -398,11 +402,11 @@ impl Check for ast::Binding {
                 if env.scope_level().is_global()
                     && !value_node.is_const()
                     && !is_type_or_module
-                    && !self.pattern.iter().any(|p| p.is_mutable)
+                    && !pattern.iter().any(|p| p.is_mutable)
                 {
                     return Err(Diagnostic::error()
                         .with_message(format!("immutable top level binding must be constant"))
-                        .with_label(Label::primary(self.pattern.span(), "must be constant"))
+                        .with_label(Label::primary(pattern.span(), "must be constant"))
                         .with_label(Label::secondary(
                             value_node.span(),
                             "doesn't resolve to a constant value",
@@ -411,7 +415,7 @@ impl Check for ast::Binding {
 
                 // Bindings of type `type` and `module` cannot be assigned to mutable bindings
                 if is_type_or_module {
-                    self.pattern
+                    pattern
                         .iter()
                         .filter(|pattern| pattern.is_mutable)
                         .for_each(|pattern| {
@@ -432,13 +436,13 @@ impl Check for ast::Binding {
                 let value_span = value_node.span();
                 let (_, bound_node) = sess.bind_pattern(
                     env,
-                    &self.pattern,
+                    &pattern,
                     self.visibility,
                     ty,
                     Some(value_node),
-                    &self.kind,
+                    BindingInfoKind::from(&self.kind),
                     value_span,
-                    if self.type_expr.is_some() {
+                    if type_expr.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
                     } else {
                         BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
@@ -476,12 +480,69 @@ impl Check for ast::Binding {
 
                 Ok(bound_node)
             }
-            BindingKind::Intrinsic(intrinsic) => {
-                let pattern = self.pattern.as_name();
-                let qualified_name = get_qualified_name(env.scope_name(), pattern.name);
+            BindingKind::ExternFunction {
+                name: ast::NameAndSpan { name, span },
+                lib,
+                function_type,
+            } => {
+                let function_type_node = function_type.check(sess, env, None)?;
+                let ty = match function_type_node.into_const_value().unwrap() {
+                    ConstValue::Type(ty) => ty,
+                    v => panic!("got {:?}", v),
+                };
 
-                let node = self.value.check(sess, env, None)?;
-                let ty = match node.into_const_value().unwrap() {
+                if let Some(lib) = lib {
+                    // Collect extern library to be linked later
+                    sess.workspace.extern_libraries.insert(lib.clone());
+                }
+
+                let function_id = sess.cache.functions.insert_with_id(hir::Function {
+                    module_id: env.module_id(),
+                    id: hir::FunctionId::unknown(),
+                    name: *name,
+                    kind: hir::FunctionKind::Extern { lib: lib.clone() },
+                    ty,
+                    span: self.span,
+                });
+
+                let function_value = hir::Node::Const(hir::Const {
+                    value: ConstValue::Function(ConstFunction {
+                        id: function_id,
+                        name: *name,
+                    }),
+                    ty,
+                    span: *span,
+                });
+
+                sess.bind_name(
+                    env,
+                    *name,
+                    self.visibility,
+                    ty,
+                    Some(function_value),
+                    false,
+                    BindingInfoKind::from(&self.kind),
+                    *span,
+                    BindingInfoFlags::IS_USER_DEFINED,
+                )
+                .map(|(_, node)| node)
+            }
+            BindingKind::ExternVariable {
+                name: ast::NameAndSpan { name, span },
+                lib,
+                type_expr,
+            } => {
+                todo!();
+            }
+            BindingKind::Intrinsic {
+                name: ast::NameAndSpan { name, span },
+                intrinsic,
+                function_type,
+            } => {
+                let qualified_name = get_qualified_name(env.scope_name(), *name);
+
+                let function_type_node = function_type.check(sess, env, None)?;
+                let ty = match function_type_node.into_const_value().unwrap() {
                     ConstValue::Type(ty) => ty,
                     v => panic!("got {:?}", v),
                 };
@@ -495,66 +556,24 @@ impl Check for ast::Binding {
                     span: self.span,
                 });
 
-                let value = hir::Node::Const(hir::Const {
+                let function_value = hir::Node::Const(hir::Const {
                     value: ConstValue::Function(ConstFunction {
                         id: function_id,
                         name: qualified_name,
                     }),
                     ty,
-                    span: pattern.span,
+                    span: *span,
                 });
 
-                sess.bind_name_pattern(
+                sess.bind_name(
                     env,
-                    pattern,
+                    *name,
                     self.visibility,
                     ty,
-                    Some(value),
-                    &self.kind,
-                    BindingInfoFlags::IS_USER_DEFINED,
-                )
-                .map(|(_, node)| node)
-            }
-            BindingKind::Extern(lib) => {
-                let node = self.value.check(sess, env, None)?;
-                let ty = match node.into_const_value().unwrap() {
-                    ConstValue::Type(ty) => ty,
-                    v => panic!("got {:?}", v),
-                };
-
-                if let Some(lib) = lib {
-                    // Collect extern library to be linked later
-                    sess.workspace.extern_libraries.insert(lib.clone());
-                }
-
-                let pattern = self.pattern.as_name();
-                let name = pattern.name;
-
-                let function_id = sess.cache.functions.insert_with_id(hir::Function {
-                    module_id: env.module_id(),
-                    id: hir::FunctionId::unknown(),
-                    name,
-                    kind: hir::FunctionKind::Extern { lib: lib.clone() },
-                    ty,
-                    span: self.span,
-                });
-
-                let value = hir::Node::Const(hir::Const {
-                    value: ConstValue::Function(ConstFunction {
-                        id: function_id,
-                        name,
-                    }),
-                    ty,
-                    span: pattern.span,
-                });
-
-                sess.bind_name_pattern(
-                    env,
-                    pattern,
-                    self.visibility,
-                    ty,
-                    Some(value),
-                    &self.kind,
+                    Some(function_value),
+                    false,
+                    BindingInfoKind::from(&self.kind),
+                    *span,
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
                 .map(|(_, node)| node)
@@ -1617,7 +1636,7 @@ impl Check for ast::Ast {
                         span: st.span,
                     })),
                     false,
-                    ast::BindingKind::Orphan,
+                    BindingInfoKind::Orphan,
                     st.span,
                     BindingInfoFlags::empty(),
                 )?;
@@ -1825,7 +1844,7 @@ impl Check for ast::For {
                         span: index_binding.span,
                     })),
                     false,
-                    ast::BindingKind::Orphan,
+                    BindingInfoKind::Orphan,
                     index_binding.span,
                     if self.index_binding.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
@@ -1848,7 +1867,7 @@ impl Check for ast::For {
                     iter_type,
                     Some(start_node),
                     false,
-                    ast::BindingKind::Orphan,
+                    BindingInfoKind::Orphan,
                     self.iter_binding.span,
                     BindingInfoFlags::IS_USER_DEFINED
                         | BindingInfoFlags::TYPE_WAS_INFERRED
@@ -1974,7 +1993,7 @@ impl Check for ast::For {
                             value_type,
                             Some(value_node),
                             false,
-                            ast::BindingKind::Orphan,
+                            BindingInfoKind::Orphan,
                             value_span,
                             BindingInfoFlags::empty(),
                         )?;
@@ -2007,7 +2026,7 @@ impl Check for ast::For {
                                 span: index_binding.span,
                             })),
                             false,
-                            ast::BindingKind::Orphan,
+                            BindingInfoKind::Orphan,
                             index_binding.span,
                             if self.index_binding.is_some() {
                                 BindingInfoFlags::IS_USER_DEFINED
@@ -2067,7 +2086,7 @@ impl Check for ast::For {
                                 span: self.span,
                             }))),
                             false,
-                            ast::BindingKind::Orphan,
+                            BindingInfoKind::Orphan,
                             self.iter_binding.span,
                             BindingInfoFlags::IS_USER_DEFINED
                                 | BindingInfoFlags::TYPE_WAS_INFERRED
@@ -2174,7 +2193,7 @@ impl Check for ast::Function {
                         ast::Visibility::Private,
                         ty,
                         None,
-                        &ast::BindingKind::Orphan,
+                        BindingInfoKind::Orphan,
                         param.pattern.span(),
                         if param.type_expr.is_some() {
                             BindingInfoFlags::IS_USER_DEFINED
@@ -2208,7 +2227,7 @@ impl Check for ast::Function {
                         ty,
                         None,
                         false,
-                        ast::BindingKind::Orphan,
+                        BindingInfoKind::Orphan,
                         span,
                         BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
                     )?;
@@ -2627,7 +2646,7 @@ impl Check for ast::Unary {
                         node_type,
                         Some(node),
                         is_mutable,
-                        ast::BindingKind::Orphan,
+                        BindingInfoKind::Orphan,
                         self.span,
                         BindingInfoFlags::NO_CONST_FOLD,
                     )?;

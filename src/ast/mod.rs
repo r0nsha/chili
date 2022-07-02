@@ -486,26 +486,39 @@ pub struct Binding {
     pub module_id: ModuleId,
     pub visibility: Visibility,
     pub kind: BindingKind,
-    pub pattern: Pattern,
-    pub type_expr: Option<Box<Ast>>,
-    pub value: Box<Ast>,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
-    Orphan,
-    Intrinsic(Intrinsic),
-    Extern(Option<ExternLibrary>),
+    Orphan {
+        pattern: Pattern,
+        type_expr: Option<Box<Ast>>,
+        value: Box<Ast>,
+    },
+    ExternFunction {
+        name: NameAndSpan,
+        lib: Option<ExternLibrary>,
+        function_type: FunctionSig,
+    },
+    ExternVariable {
+        name: NameAndSpan,
+        lib: Option<ExternLibrary>,
+        type_expr: Box<Ast>,
+    },
+    Intrinsic {
+        name: NameAndSpan,
+        intrinsic: Intrinsic,
+        function_type: FunctionSig,
+    },
 }
 
 impl BindingKind {
-    pub fn is_orphan(&self) -> bool {
-        matches!(self, BindingKind::Orphan)
-    }
-
     pub fn is_extern(&self) -> bool {
-        matches!(self, BindingKind::Extern(_))
+        matches!(
+            self,
+            BindingKind::ExternFunction { .. } | BindingKind::ExternVariable { .. }
+        )
     }
 }
 
@@ -515,9 +528,10 @@ impl Display for BindingKind {
             f,
             "{}",
             match self {
-                BindingKind::Orphan => "orphan",
-                BindingKind::Intrinsic(_) => "intrinsic",
-                BindingKind::Extern(_) => "extern",
+                BindingKind::Orphan { .. } => "orphan",
+                BindingKind::ExternFunction { .. } => "extern function",
+                BindingKind::ExternVariable { .. } => "extern variable",
+                BindingKind::Intrinsic { .. } => "intrinsic",
             }
         )
     }
