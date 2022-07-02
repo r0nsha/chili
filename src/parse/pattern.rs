@@ -72,7 +72,7 @@ impl Parser {
                         symbol.ignore = true;
                     } else {
                         let id_token = require!(self, Ident(_), "an identifier")?;
-                        symbol.alias = Some(id_token.symbol());
+                        symbol.alias = Some(id_token.name());
                     }
                 }
 
@@ -122,7 +122,7 @@ impl Parser {
         let is_mutable = eat!(self, Mut);
 
         let (symbol, ignore) = if eat!(self, Ident(_)) {
-            (self.previous().symbol(), false)
+            (self.previous().name(), false)
         } else if eat!(self, Placeholder) {
             (ustr(Placeholder.lexeme()), true)
         } else {

@@ -13,7 +13,7 @@ use ustr::ustr;
 impl Parser {
     pub fn parse_builtin_import(&mut self) -> DiagnosticResult<ast::BuiltinKind> {
         let token = require!(self, Str(_), "string")?;
-        let path = token.symbol().as_str();
+        let path = token.name().as_str();
 
         let cache = self.cache.lock();
 

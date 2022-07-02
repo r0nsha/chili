@@ -43,7 +43,7 @@ impl Parser {
 
             let binding = if eat!(self, Extern) {
                 self.parse_extern(visibility, start_span)?
-            } else if eat!(self, Builtin) {
+            } else if eat!(self, Intrinsic) {
                 self.parse_builtin_binding(visibility, start_span)?
             } else {
                 self.parse_binding(visibility)?
@@ -54,7 +54,7 @@ impl Parser {
             Ok(())
         } else if eat!(self, Ident(_)) {
             let token = self.previous().clone();
-            let symbol = token.symbol();
+            let symbol = token.name();
 
             require!(self, Bang, "!")?;
             require!(self, OpenParen, "(")?;

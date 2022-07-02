@@ -15,7 +15,7 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn symbol(&self) -> Ustr {
+    pub fn name(&self) -> Ustr {
         match &self.kind {
             TokenKind::Ident(name) => *name,
             TokenKind::Str(value) => ustr(value),
@@ -93,7 +93,7 @@ pub enum TokenKind {
     Let,
     Fn,
     Extern,
-    Builtin,
+    Intrinsic,
     Pub,
     Mut,
     In,
@@ -181,7 +181,7 @@ impl TokenKind {
             Let => "let",
             Fn => "fn",
             Extern => "extern",
-            Builtin => "builtin",
+            Intrinsic => "intrinsic",
             Pub => "pub",
             Mut => "mut",
             In => "in",
@@ -227,7 +227,7 @@ impl TokenKind {
                 | Let
                 | Fn
                 | Extern
-                | Builtin
+                | Intrinsic
                 | Pub
                 | Struct
                 | Union

@@ -113,7 +113,6 @@ pub struct Parser {
     module_info: ModuleInfo,
     decl_name_frames: Vec<Ustr>,
     restrictions: Restrictions,
-    extern_lib: Option<Option<ExternLibrary>>,
 }
 
 #[derive(Debug)]
@@ -151,7 +150,6 @@ impl Parser {
             module_info: partial_module_info.into(),
             decl_name_frames: Default::default(),
             restrictions: Restrictions::empty(),
-            extern_lib: None,
         }
     }
 

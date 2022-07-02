@@ -8,11 +8,14 @@ use crate::{
 use ustr::Ustr;
 
 impl Parser {
-    pub fn parse_fn(&mut self) -> DiagnosticResult<Ast> {
-        let name = self.get_decl_name();
+    pub fn parse_function(
+        &mut self,
+        name: Ustr,
+        extern_lib: Option<Option<ExternLibrary>>,
+    ) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let sig = self.parse_fn_sig(name)?;
+        let sig = self.parse_function_sig(name, extern_lib)?;
 
         if eat!(self, OpenCurly) {
             let body = self.parse_block()?;
@@ -27,12 +30,16 @@ impl Parser {
         }
     }
 
-    pub fn parse_fn_sig(&mut self, name: Ustr) -> DiagnosticResult<FunctionSig> {
-        let is_extern = self.extern_lib.is_some();
+    pub fn parse_function_sig(
+        &mut self,
+        name: Ustr,
+        extern_lib: Option<Option<ExternLibrary>>,
+    ) -> DiagnosticResult<FunctionSig> {
+        let is_extern = extern_lib.is_some();
 
         let start_span = self.previous_span();
 
-        let (params, varargs) = self.parse_fn_params(is_extern)?;
+        let (params, varargs) = self.parse_function_params(is_extern)?;
 
         let return_type = if eat!(self, RightArrow) {
             Some(Box::new(
@@ -47,17 +54,14 @@ impl Parser {
             params,
             varargs,
             return_type,
-            kind: self
-                .extern_lib
-                .as_ref()
-                .map_or(FunctionTypeKind::Orphan, |lib| FunctionTypeKind::Extern {
-                    lib: lib.clone(),
-                }),
+            kind: extern_lib.as_ref().map_or(FunctionTypeKind::Orphan, |lib| {
+                FunctionTypeKind::Extern { lib: lib.clone() }
+            }),
             span: start_span.to(self.previous_span()),
         })
     }
 
-    pub fn parse_fn_params(
+    pub fn parse_function_params(
         &mut self,
         is_extern: bool,
     ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
@@ -75,7 +79,7 @@ impl Parser {
                 if eat!(self, DotDot) {
                     let start_span = self.previous_span();
 
-                    let name = require!(self, Ident(_), "an identifier")?.symbol();
+                    let name = require!(self, Ident(_), "an identifier")?.name();
 
                     let type_expr = if eat!(self, Colon) {
                         Some(Box::new(self.parse_expr()?))

@@ -64,7 +64,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|fn|extern|builtin|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|fn|extern|intrinsic|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -169,7 +169,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(let\\s*)((extern|builtin)\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*)?(let\\s*)((extern|intrinsic)\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "name": "support.function.builtin.chili",

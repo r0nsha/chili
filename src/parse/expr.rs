@@ -238,7 +238,7 @@ impl Parser {
             const SELF_SYMBOL: &str = "Self";
 
             let token = self.previous().clone();
-            let symbol = token.symbol();
+            let symbol = token.name();
 
             if symbol == SELF_SYMBOL {
                 Ast::SelfType(ast::Empty { span: token.span })
@@ -316,7 +316,8 @@ impl Parser {
                 }
             }
         } else if eat!(self, Fn) {
-            self.parse_fn()?
+            let name = self.get_decl_name();
+            self.parse_function(name, None)?
         } else if eat!(self, Struct) {
             self.parse_struct_type()?
         } else if eat!(self, Union) {
@@ -425,7 +426,7 @@ impl Parser {
 
             let token = require!(self, Ident(_), SYM_PACKED)?;
 
-            if token.symbol() != SYM_PACKED {
+            if token.name() != SYM_PACKED {
                 return Err(SyntaxError::expected(token.span, "packed"));
             }
 
@@ -471,7 +472,7 @@ impl Parser {
             Comma,
             {
                 let id = require!(self, Ident(_), "an identifier")?;
-                let name = id.symbol();
+                let name = id.name();
 
                 require!(self, Colon, ":")?;
 
@@ -558,9 +559,8 @@ impl Parser {
         let block = self.parse_block()?;
 
         Ok(Ast::For(ast::For {
-            iter_binding: NameAndSpan::new(iter_ident.symbol(), iter_ident.span),
-            index_binding: iter_index_ident
-                .map(|ident| NameAndSpan::new(ident.symbol(), ident.span)),
+            iter_binding: NameAndSpan::new(iter_ident.name(), iter_ident.span),
+            index_binding: iter_index_ident.map(|ident| NameAndSpan::new(ident.name(), ident.span)),
             iterator,
             block,
             span: start_span.to(self.previous_span()),

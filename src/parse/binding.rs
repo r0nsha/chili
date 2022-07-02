@@ -45,7 +45,7 @@ impl Parser {
         visibility: ast::Visibility,
         start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
-        let lib = eat!(self, Str(_)).then(|| self.previous().symbol());
+        let lib = eat!(self, Str(_)).then(|| self.previous().name());
 
         let lib = if let Some(lib) = lib {
             let lib = ast::ExternLibrary::try_from_str(
@@ -62,10 +62,11 @@ impl Parser {
         let is_mutable = eat!(self, Mut);
 
         let id = require!(self, Ident(_), "an identifier")?;
+        let name = id.name();
 
         let pattern = Pattern::Name(NamePattern {
             id: BindingId::unknown(),
-            name: id.symbol(),
+            name,
             alias: None,
             is_mutable,
             span: id.span,
@@ -75,9 +76,9 @@ impl Parser {
         if eat!(self, Colon) {
             todo!("parse extern variables")
         } else if eat!(self, Eq) {
-            self.extern_lib = Some(lib.clone());
-            let value = self.parse_decl_expr(pattern.as_name().name)?;
-            self.extern_lib = None;
+            require!(self, Fn, "fn")?;
+
+            let value = self.parse_function_sig(name, Some(lib.clone()))?;
 
             Ok(ast::Binding {
                 module_id: ModuleId::unknown(),
@@ -85,7 +86,7 @@ impl Parser {
                 kind: ast::BindingKind::Extern(lib),
                 pattern,
                 type_expr: None,
-                value: Box::new(value),
+                value: Box::new(ast::Ast::FunctionType(value)),
                 span: start_span.to(self.previous_span()),
             })
         } else {
@@ -99,7 +100,7 @@ impl Parser {
         start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
         let id = require!(self, Ident(_), "an identifier")?;
-        let symbol = id.symbol();
+        let symbol = id.name();
 
         let intrinsic = Intrinsic::from_str(&symbol).ok_or_else(|| {
             Diagnostic::error()
@@ -109,7 +110,7 @@ impl Parser {
 
         let pattern = Pattern::Name(NamePattern {
             id: BindingId::unknown(),
-            name: id.symbol(),
+            name: id.name(),
             alias: None,
             is_mutable: false,
             span: id.span,
