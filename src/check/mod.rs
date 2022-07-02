@@ -309,6 +309,16 @@ impl<'s> CheckSess<'s> {
         }
     }
 
+    pub(super) fn is_lvalue(&self, node: &hir::Node) -> bool {
+        match node {
+            hir::Node::MemberAccess(_)
+            | hir::Node::Id(_)
+            | hir::Node::Builtin(hir::Builtin::Deref(_))
+            | hir::Node::Builtin(hir::Builtin::Offset(_)) => true,
+            _ => false,
+        }
+    }
+
     pub(super) fn id_or_const_by_id(&self, id: BindingId, span: Span) -> hir::Node {
         self.id_or_const(self.workspace.binding_infos.get(id).unwrap(), span)
     }
@@ -778,8 +788,8 @@ impl Check for ast::Ast {
                     .or_report_err(&sess.tycx, uint, None, offset_node.ty(), sub.index.span())?;
 
                 let node = sub.expr.check(sess, env, None)?;
-                let node_type = node.ty().normalize(&sess.tycx);
-                let node_type_deref = node_type.maybe_deref_once();
+                let node_typepe = node.ty().normalize(&sess.tycx);
+                let node_typepe_deref = node_typepe.maybe_deref_once();
 
                 let const_value = if let Some(ConstValue::Int(const_index)) =
                     offset_node.as_const_value()
@@ -796,7 +806,7 @@ impl Check for ast::Ast {
                     }
 
                     // compile-time array bounds check
-                    if let Type::Array(_, size) = node_type_deref {
+                    if let Type::Array(_, size) = node_typepe_deref {
                         if const_index >= size as _ {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -820,7 +830,7 @@ impl Check for ast::Ast {
                     None
                 };
 
-                match node_type_deref {
+                match node_typepe_deref {
                     Type::Array(inner, ..)
                     | Type::Slice(inner, ..)
                     | Type::MultiPointer(inner, ..) => {
@@ -844,7 +854,7 @@ impl Check for ast::Ast {
                     _ => Err(Diagnostic::error()
                         .with_message(format!(
                             "cannot index type `{}`",
-                            node_type.display(&sess.tycx)
+                            node_typepe.display(&sess.tycx)
                         ))
                         .with_label(Label::primary(sub.expr.span(), "cannot index"))),
                 }
@@ -853,7 +863,7 @@ impl Check for ast::Ast {
                 let uint = sess.tycx.common_types.uint;
 
                 let node = slice.expr.check(sess, env, None)?;
-                let node_type = node.ty().normalize(&sess.tycx);
+                let node_typepe = node.ty().normalize(&sess.tycx);
 
                 let low_node = if let Some(low) = &slice.low {
                     let mut low_node = low.check(sess, env, None)?;
@@ -900,7 +910,7 @@ impl Check for ast::Ast {
 
                     high_node
                 } else {
-                    match &node_type {
+                    match &node_typepe {
                         Type::Array(_, size) => hir::Node::Const(hir::Const {
                             value: ConstValue::Uint(*size as _),
                             ty: uint,
@@ -926,14 +936,14 @@ impl Check for ast::Ast {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot slice type `{}`",
-                                    node_type.display(&sess.tycx)
+                                    node_typepe.display(&sess.tycx)
                                 ))
                                 .with_label(Label::primary(slice.expr.span(), "cannot slice")))
                         }
                     }
                 };
 
-                if slice.high.is_none() && node_type.is_multi_pointer() {
+                if slice.high.is_none() && node_typepe.is_multi_pointer() {
                     return Err(Diagnostic::error()
                         .with_message(
                             "multi pointer has unknown length, so you must specify the ending index",
@@ -943,7 +953,7 @@ impl Check for ast::Ast {
                         )));
                 }
 
-                let (result_ty, is_mutable) = match node_type {
+                let (result_ty, is_mutable) = match node_typepe {
                     Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
                     Type::Slice(inner, is_mutable) | Type::MultiPointer(inner, is_mutable) => {
                         (inner, is_mutable)
@@ -952,7 +962,7 @@ impl Check for ast::Ast {
                         return Err(Diagnostic::error()
                             .with_message(format!(
                                 "cannot slice type `{}`",
-                                node_type.display(&sess.tycx)
+                                node_typepe.display(&sess.tycx)
                             ))
                             .with_label(Label::primary(slice.expr.span(), "cannot slice")))
                     }
@@ -1012,10 +1022,10 @@ impl Check for ast::Ast {
                     _ => (),
                 }
 
-                let node_type = node.ty().normalize(&sess.tycx);
-                let node_type_deref = node_type.maybe_deref_once();
+                let node_typepe = node.ty().normalize(&sess.tycx);
+                let node_typepe_deref = node_typepe.maybe_deref_once();
 
-                let new_node = match &node_type_deref {
+                let new_node = match &node_typepe_deref {
                     ty @ Type::Tuple(elements)
                     | ty @ Type::Infer(_, InferTy::PartialTuple(elements)) => {
                         match member_tuple_index {
@@ -1187,9 +1197,9 @@ impl Check for ast::Ast {
                     }
                 };
 
-                if node_type.is_pointer() {
+                if node_typepe.is_pointer() {
                     Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                        ty: sess.tycx.bound(node_type_deref, new_node.span()),
+                        ty: sess.tycx.bound(node_typepe_deref, new_node.span()),
                         span: access.span,
                         value: Box::new(new_node),
                     })))
@@ -1723,7 +1733,7 @@ impl Check for ast::While {
         sess.loop_depth -= 1;
         env.pop_scope();
 
-        let while_node_type = match condition_node.as_const_value() {
+        let while_node_typepe = match condition_node.as_const_value() {
             Some(ConstValue::Bool(true)) => sess.tycx.common_types.never,
             _ => sess.tycx.common_types.unit,
         };
@@ -1731,7 +1741,7 @@ impl Check for ast::While {
         Ok(hir::Node::Control(hir::Control::While(hir::While {
             condition: Box::new(condition_node),
             body: Box::new(block_node),
-            ty: while_node_type,
+            ty: while_node_typepe,
             span: self.span,
         })))
     }
@@ -1946,9 +1956,9 @@ impl Check for ast::For {
                 let value_node = value.check(sess, env, None)?;
                 let (value_type, value_span) = (value_node.ty(), value_node.span());
 
-                let value_node_type = value_node.ty().normalize(&sess.tycx);
+                let value_node_typepe = value_node.ty().normalize(&sess.tycx);
 
-                match value_node_type.maybe_deref_once() {
+                match value_node_typepe.maybe_deref_once() {
                     Type::Array(inner, ..) | Type::Slice(inner, ..) => {
                         env.push_scope(ScopeKind::Loop);
                         sess.loop_depth += 1;
@@ -2017,7 +2027,7 @@ impl Check for ast::For {
                         });
 
                         // index <= value.len
-                        let value_len_node = match &value_node_type {
+                        let value_len_node = match &value_node_typepe {
                             Type::Array(_, size) => hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(*size as _),
                                 ty: index_type,
@@ -2109,7 +2119,7 @@ impl Check for ast::For {
                     }
                     _ => {
                         return Err(Diagnostic::error()
-                            .with_message(format!("can't iterate over `{}`", value_node_type))
+                            .with_message(format!("can't iterate over `{}`", value_node_typepe))
                             .with_label(Label::primary(value.span(), "can't iterate")));
                     }
                 }
@@ -2316,7 +2326,7 @@ impl Check for ast::Assignment {
                 rhs_node.span(),
             )?;
 
-        sess.check_lvalue_access(&lhs_node)?;
+        sess.check_mutable_lvalue_access(&lhs_node)?;
 
         Ok(hir::Node::Assignment(hir::Assignment {
             ty: sess.tycx.common_types.unit,
@@ -2588,35 +2598,76 @@ impl Check for ast::Binary {
 }
 impl Check for ast::Unary {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_ty: Option<TypeId>) -> Result {
-        let node = self.value.check(sess, env, None)?;
-        let node_ty = node.ty();
-
         match self.op {
             ast::UnaryOp::Ref(is_mutable) => {
-                let ty = sess.tycx.bound(
-                    Type::Pointer(Box::new(node_ty.as_kind()), is_mutable),
+                sess.in_lvalue_context = true;
+                let node = self.value.check(sess, env, None)?;
+                sess.in_lvalue_context = false;
+
+                let node_type = node.ty();
+                let ptr_type = sess.tycx.bound(
+                    Type::Pointer(Box::new(node_type.as_kind()), is_mutable),
                     self.span,
                 );
 
-                Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
-                    value: Box::new(node),
-                    is_mutable,
-                    ty,
-                    span: self.span,
-                })))
+                if sess.is_lvalue(&node) {
+                    Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
+                        value: Box::new(node),
+                        is_mutable,
+                        ty: ptr_type,
+                        span: self.span,
+                    })))
+                } else {
+                    let rvalue_name = sess.generate_name("rval");
+
+                    let (id, bound_node) = sess.bind_name(
+                        env,
+                        rvalue_name,
+                        ast::Visibility::Private,
+                        node_type,
+                        Some(node),
+                        is_mutable,
+                        ast::BindingKind::Orphan,
+                        self.span,
+                        BindingInfoFlags::NO_CONST_FOLD,
+                    )?;
+
+                    let id_node = hir::Node::Id(hir::Id {
+                        id,
+                        ty: node_type,
+                        span: self.span,
+                    });
+
+                    let ref_node = hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
+                        value: Box::new(id_node),
+                        is_mutable,
+                        ty: ptr_type,
+                        span: self.span,
+                    }));
+
+                    Ok(hir::Node::Sequence(hir::Sequence {
+                        statements: vec![bound_node, ref_node],
+                        ty: ptr_type,
+                        span: self.span,
+                        is_block: false,
+                    }))
+                }
             }
             ast::UnaryOp::Deref => {
+                let node = self.value.check(sess, env, None)?;
+                let node_type = node.ty();
+
                 let pointee_ty = sess.tycx.var(self.span);
 
                 let ptr_ty = sess
                     .tycx
                     .bound(Type::Pointer(Box::new(pointee_ty.into()), false), self.span);
 
-                node_ty.unify(&ptr_ty, &mut sess.tycx).or_report_err(
+                node_type.unify(&ptr_ty, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     ptr_ty,
                     None,
-                    node_ty,
+                    node_type,
                     self.value.span(),
                 )?;
 
@@ -2627,61 +2678,70 @@ impl Check for ast::Unary {
                 })))
             }
             ast::UnaryOp::Not => {
+                let node = self.value.check(sess, env, None)?;
+                let node_type = node.ty();
+
                 let anyint = sess.tycx.anyint(self.span);
                 let bool = sess.tycx.common_types.bool;
 
-                node_ty
+                node_type
                     .unify(&bool, &mut sess.tycx)
-                    .or_else(|_| node_ty.unify(&anyint, &mut sess.tycx))
-                    .or_report_err(&sess.tycx, bool, None, node_ty, self.value.span())?;
+                    .or_else(|_| node_type.unify(&anyint, &mut sess.tycx))
+                    .or_report_err(&sess.tycx, bool, None, node_type, self.value.span())?;
 
                 if let Some(const_value) = node.as_const_value() {
                     Ok(hir::Node::Const(hir::Const {
                         value: const_value.not(),
-                        ty: node_ty,
+                        ty: node_type,
                         span: self.span,
                     }))
                 } else {
                     Ok(hir::Node::Builtin(hir::Builtin::Not(hir::Unary {
                         value: Box::new(node),
-                        ty: node_ty,
+                        ty: node_type,
                         span: self.span,
                     })))
                 }
             }
             ast::UnaryOp::Neg => {
+                let node = self.value.check(sess, env, None)?;
+                let node_type = node.ty();
+
                 let anyint = sess.tycx.anyint(self.span);
 
-                node_ty.unify(&anyint, &mut sess.tycx).or_report_err(
+                node_type.unify(&anyint, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     anyint,
                     None,
-                    node_ty,
+                    node_type,
                     self.value.span(),
                 )?;
 
                 if let Some(const_value) = node.as_const_value() {
                     Ok(hir::Node::Const(hir::Const {
                         value: const_value.neg(),
-                        ty: node_ty,
+                        ty: node_type,
                         span: self.span,
                     }))
                 } else {
                     Ok(hir::Node::Builtin(hir::Builtin::Neg(hir::Unary {
                         value: Box::new(node),
-                        ty: node_ty,
+                        ty: node_type,
                         span: self.span,
                     })))
                 }
             }
             ast::UnaryOp::Plus => {
+                let node = self.value.check(sess, env, None)?;
+                let node_type = node.ty();
+
                 let anyint = sess.tycx.anyint(self.span);
 
-                node_ty.unify(&anyint, &mut sess.tycx).or_report_err(
+                node_type.unify(&anyint, &mut sess.tycx).or_report_err(
                     &sess.tycx,
                     anyint,
                     None,
-                    node_ty,
+                    node_type,
                     self.value.span(),
                 )?;
 

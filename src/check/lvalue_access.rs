@@ -18,7 +18,7 @@ pub enum LvalueAccessErr {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_lvalue_access(&mut self, node: &hir::Node) -> DiagnosticResult<()> {
+    pub fn check_mutable_lvalue_access(&mut self, node: &hir::Node) -> DiagnosticResult<()> {
         use LvalueAccessErr::*;
 
         self.check_lvalue_access_inner(node)

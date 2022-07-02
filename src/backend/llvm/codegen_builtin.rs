@@ -533,7 +533,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Ref {
             Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
                 inst.get_operand(0).unwrap().left().unwrap()
             }
-            _ => panic!(),
+            _ => panic!("{:?}", value),
         }
     }
 }

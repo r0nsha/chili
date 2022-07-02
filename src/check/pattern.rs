@@ -359,19 +359,23 @@ impl<'s> CheckSess<'s> {
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
                 for pattern in unpack_pattern.symbols.iter() {
+                    let caller_info = CallerInfo {
+                        module_id: env.module_id(),
+                        span: pattern.span,
+                    };
+
                     let id = match module_bindings.get(&pattern.name) {
                         Some(id) => *id,
                         None => {
                             return Err(self.name_not_found_error(
                                 module_id,
                                 pattern.name,
-                                CallerInfo {
-                                    module_id: env.module_id(),
-                                    span: pattern.span,
-                                },
+                                caller_info,
                             ))
                         }
                     };
+
+                    self.validate_can_access_item(id, caller_info)?;
 
                     let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
