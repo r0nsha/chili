@@ -7,7 +7,6 @@ use crate::{
     common::path::RelativeTo,
     error::diagnostic::Label,
     span::To,
-    types::TypeId,
     workspace::{BindingId, ModuleId},
 };
 
@@ -35,7 +34,6 @@ impl Parser {
             visibility,
             kind: BindingKind::Orphan,
             pattern,
-            ty: TypeId::unknown(),
             type_expr: ty_expr,
             value: Box::new(value),
             span: start_span.to(self.previous_span()),
@@ -86,7 +84,6 @@ impl Parser {
                 visibility,
                 kind: ast::BindingKind::Extern(lib),
                 pattern,
-                ty: TypeId::unknown(),
                 type_expr: None,
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
@@ -128,7 +125,6 @@ impl Parser {
             visibility,
             kind: ast::BindingKind::Intrinsic(intrinsic),
             pattern,
-            ty: TypeId::unknown(),
             type_expr: None,
             value: Box::new(value),
             span: start_span.to(self.previous_span()),

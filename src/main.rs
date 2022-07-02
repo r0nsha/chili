@@ -11,7 +11,6 @@ mod infer;
 mod interp;
 mod lint;
 mod parse;
-mod pretty_print;
 mod span;
 mod token;
 mod types;

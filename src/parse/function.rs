@@ -3,7 +3,7 @@ use crate::{
     ast::{FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs},
     error::{DiagnosticResult, SyntaxError},
     span::To,
-    types::{FunctionTypeKind, TypeId},
+    types::FunctionTypeKind,
 };
 use ustr::Ustr;
 
@@ -21,7 +21,6 @@ impl Parser {
                 sig,
                 body,
                 id: FunctionId::unknown(),
-                ty: Default::default(),
                 span: start_span.to(self.previous_span()),
             }))
         } else {
@@ -55,7 +54,6 @@ impl Parser {
                 .map_or(FunctionTypeKind::Orphan, |lib| FunctionTypeKind::Extern {
                     lib: lib.clone(),
                 }),
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         })
     }
@@ -114,7 +112,6 @@ impl Parser {
                 FunctionParam {
                     pattern,
                     type_expr: ty,
-                    ty: TypeId::unknown(),
                 }
             },
             ", or )"

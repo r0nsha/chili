@@ -2767,8 +2767,7 @@ impl Check for ast::Call {
                 let return_ty = sess.tycx.var(self.span);
 
                 let inferred_fn_ty = Type::Function(FunctionType {
-                    params: self
-                        .args
+                    params: args
                         .iter()
                         .map(|arg| FunctionTypeParam {
                             name: ustr(""),

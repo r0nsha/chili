@@ -94,8 +94,8 @@ pub enum Ast {
     Function(FunctionExpr),
     While(While),
     For(For),
-    Break(Terminator),
-    Continue(Terminator),
+    Break(Empty),
+    Continue(Empty),
     Return(Return),
     If(If),
     Block(Block),
@@ -208,33 +208,28 @@ macro_rules! ast_field_dispatch {
     };
 }
 
-ast_field_dispatch!(ty, TypeId);
 ast_field_dispatch!(span, Span);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Empty {
-    pub ty: TypeId,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ArrayLiteral {
     pub kind: ArrayLiteralKind,
-    pub ty: TypeId,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Const {
     pub value: ConstValue,
-    pub ty: TypeId,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TupleLiteral {
     pub elements: Vec<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -242,7 +237,6 @@ pub struct TupleLiteral {
 pub struct ArrayType {
     pub inner: Box<Ast>,
     pub size: Box<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -250,20 +244,12 @@ pub struct ArrayType {
 pub struct ExprAndMut {
     pub inner: Box<Ast>,
     pub is_mutable: bool,
-    pub ty: TypeId,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Terminator {
-    pub ty: TypeId,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Return {
     pub expr: Option<Box<Ast>>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -272,7 +258,6 @@ pub struct If {
     pub condition: Box<Ast>,
     pub then: Box<Ast>,
     pub otherwise: Option<Box<Ast>>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -280,7 +265,6 @@ pub struct If {
 pub struct Block {
     pub statements: Vec<Ast>,
     pub yields: bool,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -289,7 +273,6 @@ pub struct Binary {
     pub lhs: Box<Ast>,
     pub rhs: Box<Ast>,
     pub op: BinaryOp,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -297,7 +280,6 @@ pub struct Binary {
 pub struct Unary {
     pub op: UnaryOp,
     pub value: Box<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -305,7 +287,6 @@ pub struct Unary {
 pub struct Subscript {
     pub expr: Box<Ast>,
     pub index: Box<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -314,7 +295,6 @@ pub struct Slice {
     pub expr: Box<Ast>,
     pub low: Option<Box<Ast>>,
     pub high: Option<Box<Ast>>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -324,7 +304,6 @@ pub struct StructType {
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
     pub binding_id: BindingId,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -346,7 +325,6 @@ pub struct StructLiteralField {
 pub struct Call {
     pub callee: Box<Ast>,
     pub args: Vec<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -354,7 +332,6 @@ pub struct Call {
 pub struct MemberAccess {
     pub expr: Box<Ast>,
     pub member: Ustr,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -362,7 +339,6 @@ pub struct MemberAccess {
 pub struct Ident {
     pub name: Ustr,
     pub binding_id: BindingId,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -370,7 +346,6 @@ pub struct Ident {
 pub struct StructLiteral {
     pub type_expr: Option<Box<Ast>>,
     pub fields: Vec<StructLiteralField>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -383,7 +358,6 @@ pub enum ArrayLiteralKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Literal {
     pub kind: LiteralKind,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -397,20 +371,9 @@ pub enum LiteralKind {
     Char(char),
 }
 
-impl LiteralKind {
-    pub fn into_ast(self, ty: TypeId, span: Span) -> Ast {
-        Ast::Literal(Literal {
-            kind: self,
-            ty,
-            span,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct Builtin {
     pub kind: BuiltinKind,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -427,7 +390,6 @@ pub enum BuiltinKind {
 pub struct Assignment {
     pub lhs: Box<Ast>,
     pub rhs: Box<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -435,7 +397,6 @@ pub struct Assignment {
 pub struct Cast {
     pub expr: Box<Ast>,
     pub target: Option<Box<Ast>>,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -443,7 +404,6 @@ pub struct Cast {
 pub struct While {
     pub condition: Box<Ast>,
     pub block: Block,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -453,7 +413,6 @@ pub struct For {
     pub index_binding: Option<NameAndSpan>,
     pub iterator: ForIter,
     pub block: Block,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -468,7 +427,6 @@ pub struct FunctionExpr {
     pub id: FunctionId,
     pub sig: FunctionSig,
     pub body: Block,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -479,7 +437,6 @@ pub struct FunctionSig {
     pub return_type: Option<Box<Ast>>,
     pub varargs: Option<FunctionVarargs>,
     pub kind: FunctionTypeKind,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -488,7 +445,6 @@ pub struct Function {
     pub id: FunctionId,
     pub module_id: ModuleId,
     pub kind: FunctionKind,
-    pub ty: TypeId,
     pub span: Span,
 }
 
@@ -556,7 +512,6 @@ pub struct FunctionVarargs {
 pub struct FunctionParam {
     pub pattern: Pattern,
     pub type_expr: Option<Box<Ast>>,
-    pub ty: TypeId,
 }
 
 impl ToString for FunctionParam {
@@ -637,7 +592,6 @@ pub struct Binding {
     pub pattern: Pattern,
     pub type_expr: Option<Box<Ast>>,
     pub value: Box<Ast>,
-    pub ty: TypeId,
     pub span: Span,
 }
 

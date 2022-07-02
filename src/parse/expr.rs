@@ -26,7 +26,6 @@ macro_rules! parse_binary {
                     lhs: Box::new(expr),
                     op,
                     rhs: Box::new(rhs),
-                    ty: Default::default(),
                     span,
                 }
             );
@@ -105,7 +104,6 @@ impl Parser {
             condition: Box::new(condition),
             then: Box::new(then),
             otherwise,
-            ty: Default::default(),
             span: span.to(self.previous_span()),
         }))
     }
@@ -127,10 +125,7 @@ impl Parser {
                     self.cache.lock().diagnostics.push(diag);
                     self.skip_until_recovery_point();
 
-                    ast::Ast::Error(ast::Empty {
-                        ty: Default::default(),
-                        span,
-                    })
+                    ast::Ast::Error(ast::Empty { span })
                 });
 
             exprs.push(expr);
@@ -156,7 +151,6 @@ impl Parser {
         Ok(Block {
             statements: exprs,
             yields,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         })
     }
@@ -230,7 +224,6 @@ impl Parser {
             let expr = Ast::Unary(ast::Unary {
                 op,
                 value: Box::new(lhs),
-                ty: Default::default(),
                 span,
             });
 
@@ -248,23 +241,18 @@ impl Parser {
             let symbol = token.symbol();
 
             if symbol == SELF_SYMBOL {
-                Ast::SelfType(ast::Empty {
-                    ty: Default::default(),
-                    span: token.span,
-                })
+                Ast::SelfType(ast::Empty { span: token.span })
             } else if eat!(self, Bang) {
                 self.parse_builtin(symbol, token.span)?
             } else {
                 Ast::Ident(ast::Ident {
                     name: symbol,
                     binding_id: Default::default(),
-                    ty: Default::default(),
                     span: token.span,
                 })
             }
         } else if eat!(self, Placeholder) {
             Ast::Placeholder(ast::Empty {
-                ty: Default::default(),
                 span: self.previous_span(),
             })
         } else if eat!(self, Star) {
@@ -275,7 +263,6 @@ impl Parser {
             Ast::PointerType(ast::ExprAndMut {
                 inner: Box::new(expr),
                 is_mutable,
-                ty: Default::default(),
                 span: start_span.to(self.previous_span()),
             })
         } else if eat!(self, If) {
@@ -313,7 +300,6 @@ impl Parser {
             if eat!(self, CloseParen) {
                 Ast::TupleLiteral(ast::TupleLiteral {
                     elements: vec![],
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 })
             } else {
@@ -364,7 +350,6 @@ impl Parser {
                 Ok(Ast::MultiPointerType(ast::ExprAndMut {
                     inner: Box::new(inner),
                     is_mutable: true,
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 }))
             } else if eat!(self, CloseBracket) {
@@ -374,7 +359,6 @@ impl Parser {
                 Ok(Ast::MultiPointerType(ast::ExprAndMut {
                     inner: Box::new(inner),
                     is_mutable: false,
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 }))
             } else {
@@ -392,7 +376,6 @@ impl Parser {
                 Ok(Ast::SliceType(ast::ExprAndMut {
                     inner: Box::new(inner),
                     is_mutable: true,
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 }))
             } else if self.peek().kind.is_expr_start() {
@@ -402,14 +385,12 @@ impl Parser {
                 Ok(Ast::SliceType(ast::ExprAndMut {
                     inner: Box::new(inner),
                     is_mutable: false,
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 }))
             } else {
                 // [] - empty array literal
                 Ok(Ast::ArrayLiteral(ast::ArrayLiteral {
                     kind: ast::ArrayLiteralKind::List(vec![]),
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 }))
             }
@@ -428,7 +409,6 @@ impl Parser {
                     Ok(Ast::ArrayType(ast::ArrayType {
                         inner: Box::new(inner),
                         size: Box::new(size.clone()),
-                        ty: Default::default(),
                         span: start_span.to(self.previous_span()),
                     }))
                 }
@@ -466,7 +446,6 @@ impl Parser {
             fields,
             kind,
             binding_id: Default::default(),
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -484,7 +463,6 @@ impl Parser {
             fields,
             kind: StructTypeKind::Union,
             binding_id: Default::default(),
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -538,7 +516,6 @@ impl Parser {
 
         Ok(Ast::Builtin(ast::Builtin {
             kind,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -554,7 +531,6 @@ impl Parser {
         Ok(Ast::While(ast::While {
             condition: Box::new(condition),
             block,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -590,7 +566,6 @@ impl Parser {
                 .map(|ident| NameAndSpan::new(ident.symbol(), ident.span)),
             iterator,
             block,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -600,14 +575,8 @@ impl Parser {
         let span = token.span;
 
         match token.kind {
-            Break => Ok(Ast::Break(ast::Terminator {
-                ty: Default::default(),
-                span,
-            })),
-            Continue => Ok(Ast::Continue(ast::Terminator {
-                ty: Default::default(),
-                span,
-            })),
+            Break => Ok(Ast::Break(ast::Empty { span })),
+            Continue => Ok(Ast::Continue(ast::Empty { span })),
             Return => {
                 let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
@@ -618,7 +587,6 @@ impl Parser {
 
                 Ok(Ast::Return(ast::Return {
                     expr,
-                    ty: Default::default(),
                     span: span.to(self.previous_span()),
                 }))
             }

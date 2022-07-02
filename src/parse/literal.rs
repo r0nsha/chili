@@ -20,11 +20,7 @@ impl Parser {
             _ => panic!("unexpected literal `{}`", token.lexeme),
         };
 
-        Ok(Ast::Literal(ast::Literal {
-            kind,
-            ty: Default::default(),
-            span,
-        }))
+        Ok(Ast::Literal(ast::Literal { kind, span }))
     }
 
     pub fn parse_array_literal(&mut self, start_span: Span) -> DiagnosticResult<Ast> {
@@ -44,7 +40,6 @@ impl Parser {
                             expr: Box::new(expr),
                             len: Box::new(len),
                         },
-                        ty: Default::default(),
                         span: start_span.to(self.previous_span()),
                     }));
                 }
@@ -63,7 +58,6 @@ impl Parser {
 
         Ok(Ast::ArrayLiteral(ast::ArrayLiteral {
             kind: ast::ArrayLiteralKind::List(elements),
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -80,7 +74,6 @@ impl Parser {
 
         Ok(Ast::TupleLiteral(ast::TupleLiteral {
             elements,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -107,7 +100,6 @@ impl Parser {
                     Ast::Ident(ast::Ident {
                         name: id_token.symbol(),
                         binding_id: Default::default(),
-                        ty: Default::default(),
                         span: id_token.span,
                     })
                 };
@@ -126,7 +118,6 @@ impl Parser {
         Ok(Ast::StructLiteral(ast::StructLiteral {
             type_expr,
             fields,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }

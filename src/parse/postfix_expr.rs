@@ -63,7 +63,6 @@ impl Parser {
                         Ast::Call(Call {
                             callee: Box::new(expr),
                             args: vec![fn_arg],
-                            ty: Default::default(),
                             span,
                         })
                     }
@@ -85,7 +84,6 @@ impl Parser {
         Ok(Ast::Assignment(ast::Assignment {
             lhs: Box::new(expr),
             rhs: Box::new(rvalue),
-            ty: Default::default(),
             span: start_span.to(end_span),
         }))
     }
@@ -103,10 +101,8 @@ impl Parser {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rvalue),
-                ty: Default::default(),
                 span: rvalue_span,
             })),
-            ty: Default::default(),
             span: lvalue_span.to(rvalue_span),
         }))
     }
@@ -123,7 +119,6 @@ impl Parser {
         Ok(Ast::Cast(Cast {
             expr: Box::new(expr),
             target: ty_expr,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -137,14 +132,12 @@ impl Parser {
             Ident(id) => Ast::MemberAccess(ast::MemberAccess {
                 expr: Box::new(expr),
                 member: id,
-                ty: Default::default(),
                 span: start_span.to(token.span),
             }),
 
             Int(i) => Ast::MemberAccess(ast::MemberAccess {
                 expr: Box::new(expr),
                 member: ustr(&i.to_string()),
-                ty: Default::default(),
                 span: start_span.to(token.span),
             }),
 
@@ -155,7 +148,6 @@ impl Parser {
                 let first_access = Ast::MemberAccess(ast::MemberAccess {
                     expr: Box::new(expr),
                     member: ustr(components[0]),
-                    ty: Default::default(),
                     span: start_span.to(token.span.with_end(EndPosition {
                         index: token.span.end.index - components[0].len() + 1,
                     })),
@@ -164,7 +156,6 @@ impl Parser {
                 Ast::MemberAccess(ast::MemberAccess {
                     expr: Box::new(first_access),
                     member: ustr(components[0]),
-                    ty: Default::default(),
                     span: start_span.to(token.span),
                 })
             }
@@ -172,7 +163,6 @@ impl Parser {
             Star => Ast::Unary(ast::Unary {
                 op: UnaryOp::Deref,
                 value: Box::new(expr),
-                ty: Default::default(),
                 span: start_span.to(token.span),
             }),
 
@@ -196,7 +186,6 @@ impl Parser {
         Ok(Ast::Call(Call {
             callee: Box::new(callee),
             args,
-            ty: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -218,7 +207,6 @@ impl Parser {
                         expr: Box::new(expr),
                         low: Some(Box::new(index)),
                         high,
-                        ty: Default::default(),
                         span: start_span.to(self.previous_span()),
                     }));
                 }
@@ -228,7 +216,6 @@ impl Parser {
                 Ok(Ast::Subscript(ast::Subscript {
                     expr: Box::new(expr),
                     index: Box::new(index),
-                    ty: Default::default(),
                     span: start_span.to(self.previous_span()),
                 }))
             }
@@ -245,7 +232,6 @@ impl Parser {
                         expr: Box::new(expr),
                         low: None,
                         high,
-                        ty: Default::default(),
                         span: start_span.to(self.previous_span()),
                     }))
                 } else {

@@ -286,7 +286,6 @@ impl Recover<Ast> for DiagnosticResult<Ast> {
                 let start_span = parser.previous_span();
                 parser.skip_until_recovery_point();
                 ast::Ast::Error(ast::Empty {
-                    ty: Default::default(),
                     span: start_span.to(parser.previous_span()),
                 })
             }
