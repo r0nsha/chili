@@ -235,24 +235,24 @@ fn link(
         }
     };
 
-    if cfg!(windows) {
-        let mut lib_paths = vec![];
-        let mut libs = vec![];
+    let mut lib_paths = vec![];
+    let mut libs = vec![];
 
-        for lib in extern_libraries.iter() {
-            match lib {
-                ast::ExternLibrary::System(lib_name) => {
-                    if !is_libc(lib_name) {
-                        libs.push(lib_name.clone())
-                    }
-                }
-                ast::ExternLibrary::Path(path) => {
-                    lib_paths.push(path.lib_dir().to_str().unwrap().to_string());
-                    libs.push(path.lib_name().to_str().unwrap().to_string());
+    for lib in extern_libraries.iter() {
+        match lib {
+            ast::ExternLibrary::System(lib_name) => {
+                if !is_libc(lib_name) {
+                    libs.push(lib_name.clone())
                 }
             }
+            ast::ExternLibrary::Path(path) => {
+                lib_paths.push(path.lib_dir().to_str().unwrap().to_string());
+                libs.push(path.lib_name().to_str().unwrap().to_string());
+            }
         }
+    }
 
+    if cfg!(windows) {
         Command::new("lld-link")
             .arg(format!("/out:{}", executable_file.to_str().unwrap()))
             .arg("/entry:mainCRTStartup")
@@ -269,29 +269,15 @@ fn link(
             .execute_output()
             .unwrap();
     } else {
-        let libs: Vec<String> = extern_libraries
-            .iter()
-            .map(|lib| match lib {
-                ast::ExternLibrary::System(lib_name) => {
-                    if !is_libc(lib_name) {
-                        Some(format!("-l{}", lib_name))
-                    } else {
-                        None
-                    }
-                }
-                ast::ExternLibrary::Path(path) => Some(format!("-l:{}", path.to_string())),
-            })
-            .flatten()
-            .collect();
-
         Command::new("clang")
             .arg("-Wno-unused-command-line-argument")
             .arg(object_file.to_str().unwrap())
             .arg(format!("-o{}", executable_file.to_str().unwrap()))
+            .args(lib_paths.iter().map(|path| format!("-L{}", path)))
             .arg("-lc")
             .arg("-lm")
+            .args(libs.iter().map(|path| format!("-l:{}", path)))
             .arg("-no-pie")
-            .args(libs)
             .args(link_flags)
             .execute_output()
             .unwrap();

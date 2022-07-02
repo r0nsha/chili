@@ -87,15 +87,6 @@ pub enum BindingInfoKind {
     Intrinsic,
 }
 
-impl BindingInfoKind {
-    pub fn is_extern(&self) -> bool {
-        matches!(
-            self,
-            BindingInfoKind::ExternFunction | BindingInfoKind::ExternVariable
-        )
-    }
-}
-
 impl From<&BindingKind> for BindingInfoKind {
     fn from(kind: &BindingKind) -> Self {
         match kind {
