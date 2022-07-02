@@ -18,7 +18,7 @@ use crate::{
     },
     hir::{
         self,
-        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+        const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
     },
     infer::{
         cast::can_cast_type,
@@ -485,6 +485,8 @@ impl Check for ast::Binding {
                 lib,
                 function_type,
             } => {
+                let (name, span) = (*name, *span);
+
                 let function_type_node = function_type.check(sess, env, None)?;
                 let ty = match function_type_node.into_const_value().unwrap() {
                     ConstValue::Type(ty) => ty,
@@ -492,14 +494,13 @@ impl Check for ast::Binding {
                 };
 
                 if let Some(lib) = lib {
-                    // Collect extern library to be linked later
                     sess.workspace.extern_libraries.insert(lib.clone());
                 }
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
                     id: hir::FunctionId::unknown(),
-                    name: *name,
+                    name,
                     kind: hir::FunctionKind::Extern { lib: lib.clone() },
                     ty,
                     span: self.span,
@@ -508,21 +509,21 @@ impl Check for ast::Binding {
                 let function_value = hir::Node::Const(hir::Const {
                     value: ConstValue::Function(ConstFunction {
                         id: function_id,
-                        name: *name,
+                        name,
                     }),
                     ty,
-                    span: *span,
+                    span,
                 });
 
                 sess.bind_name(
                     env,
-                    *name,
+                    name,
                     self.visibility,
                     ty,
                     Some(function_value),
                     false,
                     BindingInfoKind::from(&self.kind),
-                    *span,
+                    span,
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
                 .map(|(_, node)| node)
@@ -530,16 +531,47 @@ impl Check for ast::Binding {
             BindingKind::ExternVariable {
                 name: ast::NameAndSpan { name, span },
                 lib,
+                is_mutable,
                 type_expr,
             } => {
-                todo!();
+                let (name, span) = (*name, *span);
+
+                if let Some(lib) = lib {
+                    sess.workspace.extern_libraries.insert(lib.clone());
+                }
+
+                let ty = check_type_expr(type_expr, sess, env)?;
+
+                let value = hir::Node::Const(hir::Const {
+                    value: ConstValue::ExternVariable(ConstExternVariable {
+                        name,
+                        lib: lib.clone(),
+                        ty,
+                    }),
+                    ty,
+                    span,
+                });
+
+                sess.bind_name(
+                    env,
+                    name,
+                    self.visibility,
+                    ty,
+                    Some(value),
+                    *is_mutable,
+                    BindingInfoKind::from(&self.kind),
+                    span,
+                    BindingInfoFlags::IS_USER_DEFINED,
+                )
+                .map(|(_, node)| node)
             }
             BindingKind::Intrinsic {
                 name: ast::NameAndSpan { name, span },
                 intrinsic,
                 function_type,
             } => {
-                let qualified_name = get_qualified_name(env.scope_name(), *name);
+                let (name, span) = (*name, *span);
+                let qualified_name = get_qualified_name(env.scope_name(), name);
 
                 let function_type_node = function_type.check(sess, env, None)?;
                 let ty = match function_type_node.into_const_value().unwrap() {
@@ -562,18 +594,18 @@ impl Check for ast::Binding {
                         name: qualified_name,
                     }),
                     ty,
-                    span: *span,
+                    span,
                 });
 
                 sess.bind_name(
                     env,
-                    *name,
+                    name,
                     self.visibility,
                     ty,
                     Some(function_value),
                     false,
                     BindingInfoKind::from(&self.kind),
-                    *span,
+                    span,
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
                 .map(|(_, node)| node)
@@ -774,17 +806,26 @@ impl Check for ast::Ast {
             ast::Ast::Function(function) => function.check(sess, env, expected_ty),
             ast::Ast::While(while_) => while_.check(sess, env, expected_ty),
             ast::Ast::For(for_) => for_.check(sess, env, expected_ty),
-            ast::Ast::Break(term) if sess.loop_depth == 0 => {
-                Err(SyntaxError::outside_of_loop(term.span, "break"))
+            ast::Ast::Break(term) => {
+                if sess.loop_depth > 0 {
+                    Ok(hir::Node::Control(hir::Control::Break(hir::Empty {
+                        ty: sess.tycx.common_types.never,
+                        span: term.span,
+                    })))
+                } else {
+                    Err(SyntaxError::outside_of_loop(term.span, "break"))
+                }
             }
-            ast::Ast::Continue(term) if sess.loop_depth == 0 => {
-                Err(SyntaxError::outside_of_loop(term.span, "continue"))
+            ast::Ast::Continue(term) => {
+                if sess.loop_depth > 0 {
+                    Ok(hir::Node::Control(hir::Control::Continue(hir::Empty {
+                        ty: sess.tycx.common_types.never,
+                        span: term.span,
+                    })))
+                } else {
+                    Err(SyntaxError::outside_of_loop(term.span, "continue"))
+                }
             }
-            ast::Ast::Break(term) | ast::Ast::Continue(term) => Ok(hir::Node::Const(hir::Const {
-                value: ConstValue::Unit(()),
-                ty: sess.tycx.common_types.never,
-                span: term.span,
-            })),
             ast::Ast::Return(return_) => return_.check(sess, env, expected_ty),
             ast::Ast::If(if_) => if_.check(sess, env, expected_ty),
             ast::Ast::Block(block) => block.check(sess, env, expected_ty),
@@ -2573,7 +2614,7 @@ impl Check for ast::Binary {
 
         match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
             (Some(lhs), Some(rhs)) => {
-                let const_value = const_fold::binary(lhs, rhs, self.op, self.span)?;
+                let const_value = const_fold::binary(lhs, rhs, self.op, self.span, &sess.tycx)?;
 
                 Ok(hir::Node::Const(hir::Const {
                     value: const_value,

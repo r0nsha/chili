@@ -5,14 +5,17 @@ use super::{
     instruction::CompiledCode,
 };
 use crate::{
-    ast::Intrinsic,
+    ast::{ExternLibrary, Intrinsic},
     hir::{
         self,
-        const_value::{ConstArray, ConstElement, ConstFunction, ConstValue},
+        const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
     },
     infer::ty_ctx::TyCtx,
+    interp::interp::Interp,
     span::Span,
-    types::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, UintType},
+    types::{
+        align::AlignOf, size::SizeOf, FloatType, FunctionType, InferTy, IntType, Type, UintType,
+    },
 };
 use byteorder::{NativeEndian, WriteBytesExt};
 use indexmap::IndexMap;
@@ -245,6 +248,7 @@ impl_value! {
     Array(Array),
     Pointer(Pointer),
     Function(FunctionAddress),
+    ExternVariable(ExternVariable),
     Intrinsic(IntrinsicFunction),
     Type(Type),
 }
@@ -287,8 +291,7 @@ pub struct Array {
 pub struct Function {
     pub id: hir::FunctionId,
     pub name: Ustr,
-    pub arg_types: Vec<Type>,
-    pub return_type: Type,
+    pub ty: FunctionType,
     pub code: CompiledCode,
 }
 
@@ -305,6 +308,13 @@ pub struct ExternFunction {
     pub param_tys: Vec<Type>,
     pub return_ty: Type,
     pub variadic: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternVariable {
+    pub name: Ustr,
+    pub lib: ExternLibrary,
+    pub ty: Type,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -463,7 +473,7 @@ impl Value {
         }
     }
 
-    pub fn get_ty_kind(&self) -> Type {
+    pub fn get_ty_kind(&self, interp: &Interp) -> Type {
         match self {
             Self::I8(_) => Type::Int(IntType::I8),
             Self::I16(_) => Type::Int(IntType::I16),
@@ -481,8 +491,9 @@ impl Value {
             Self::Aggregate(agg) => agg.ty.clone(),
             Self::Array(arr) => arr.ty.clone(),
             Self::Pointer(p) => Type::Pointer(Box::new(p.get_ty_kind()), true),
-            Self::Function(_) => todo!(),
-            _ => panic!(),
+            Self::Function(f) => Type::Function(interp.functions.get(&f.id).unwrap().ty.clone()),
+            Self::ExternVariable(v) => v.ty.clone(),
+            Self::Intrinsic(_) | Self::Type(_) => todo!(),
         }
     }
 
@@ -609,6 +620,11 @@ impl Value {
             Self::Function(f) => Ok(ConstValue::Function(ConstFunction {
                 id: f.id,
                 name: f.name,
+            })),
+            Self::ExternVariable(v) => Ok(ConstValue::ExternVariable(ConstExternVariable {
+                name: v.name,
+                lib: Some(v.lib.clone()),
+                ty: tycx.bound(v.ty, eval_span),
             })),
             Self::Pointer(_) => Err("pointer"),
             Self::Intrinsic(_) => Err("intrinsic function"),
@@ -783,7 +799,8 @@ impl Display for Value {
                 Value::Aggregate(v) => v.to_string(),
                 Value::Array(v) => v.to_string(),
                 Value::Pointer(p) => p.to_string(),
-                Value::Function(v) => v.to_string(),
+                Value::Function(f) => f.to_string(),
+                Value::ExternVariable(v) => v.to_string(),
                 Value::Intrinsic(v) => v.to_string(),
                 Value::Type(ty) => format!("type {}", ty),
             }
@@ -861,6 +878,12 @@ impl Display for ExternFunction {
     }
 }
 
+impl Display for ExternVariable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "extern var {}", self.name)
+    }
+}
+
 impl Display for Pointer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = if self.as_inner_raw().is_null() {
@@ -884,7 +907,8 @@ impl Display for Pointer {
                     Pointer::Aggregate(v) => (**v).to_string(),
                     Pointer::Array(v) => (**v).to_string(),
                     Pointer::Pointer(p) => (**p).to_string(),
-                    Pointer::Function(v) => (**v).to_string(),
+                    Pointer::Function(f) => (**f).to_string(),
+                    Pointer::ExternVariable(v) => (**v).to_string(),
                     Pointer::Intrinsic(v) => (**v).to_string(),
                     Pointer::Type(ty) => format!("type {}", (**ty)),
                 }

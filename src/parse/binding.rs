@@ -13,7 +13,7 @@ impl Parser {
 
         let pattern = self.parse_pattern()?;
 
-        let ty_expr = if eat!(self, Colon) {
+        let type_expr = if eat!(self, Colon) {
             Some(Box::new(self.parse_expr()?))
         } else {
             None
@@ -31,7 +31,7 @@ impl Parser {
             visibility,
             kind: BindingKind::Orphan {
                 pattern,
-                type_expr: ty_expr,
+                type_expr,
                 value: Box::new(value),
             },
             span: start_span.to(self.previous_span()),
@@ -57,33 +57,54 @@ impl Parser {
             None
         };
 
-        // let is_mutable = eat!(self, Mut);
+        let is_mutable = eat!(self, Mut);
 
         let id = require!(self, Ident(_), "an identifier")?;
         let name = id.name();
 
-        if eat!(self, Colon) {
-            todo!("parse extern variables")
+        let name_and_span = ast::NameAndSpan {
+            name,
+            span: id.span,
+        };
+
+        let kind = if is_mutable {
+            require!(self, Colon, ":")?;
+            let type_expr = self.parse_expr()?;
+
+            ast::BindingKind::ExternVariable {
+                name: name_and_span,
+                lib,
+                is_mutable,
+                type_expr: Box::new(type_expr),
+            }
+        } else if eat!(self, Colon) {
+            let type_expr = self.parse_expr()?;
+
+            ast::BindingKind::ExternVariable {
+                name: name_and_span,
+                lib,
+                is_mutable,
+                type_expr: Box::new(type_expr),
+            }
         } else if eat!(self, Eq) {
             require!(self, Fn, "fn")?;
             let function_type = self.parse_function_sig(name, Some(lib.clone()))?;
 
-            Ok(ast::Binding {
-                module_id: ModuleId::unknown(),
-                visibility,
-                kind: ast::BindingKind::ExternFunction {
-                    name: ast::NameAndSpan {
-                        name,
-                        span: id.span,
-                    },
-                    lib,
-                    function_type,
-                },
-                span: start_span.to(self.previous_span()),
-            })
+            ast::BindingKind::ExternFunction {
+                name: name_and_span,
+                lib,
+                function_type,
+            }
         } else {
-            Err(SyntaxError::expected(self.previous_span(), ": or ="))
-        }
+            return Err(SyntaxError::expected(self.previous_span(), ": or ="));
+        };
+
+        Ok(ast::Binding {
+            module_id: ModuleId::unknown(),
+            visibility,
+            kind,
+            span: start_span.to(self.previous_span()),
+        })
     }
 
     pub fn parse_builtin_binding(

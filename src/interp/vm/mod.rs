@@ -1,6 +1,7 @@
 use self::value::FunctionValue;
 
 use super::{
+    ffi::RawPointer,
     interp::Interp,
     vm::{
         byte_seq::{ByteSeq, PutValue},
@@ -11,6 +12,7 @@ use super::{
 };
 use colored::Colorize;
 use std::{fmt::Display, ptr};
+use ustr::ustr;
 
 pub mod byte_seq;
 mod cast;
@@ -181,7 +183,20 @@ impl<'vm> VM<'vm> {
                     self.next();
                 }
                 Instruction::PushConst(addr) => {
-                    self.stack.push(self.get_const(addr).clone());
+                    let value = match self.get_const(addr).clone() {
+                        Value::ExternVariable(variable) => {
+                            let symbol = unsafe {
+                                self.interp
+                                    .ffi
+                                    .load_symbol(ustr(&variable.lib.path()), variable.name)
+                            };
+
+                            unsafe { Value::from_type_and_ptr(&variable.ty, *symbol as RawPointer) }
+                        }
+                        value => value,
+                    };
+
+                    self.stack.push(value);
                     self.next();
                 }
                 Instruction::Add => {
@@ -292,38 +307,42 @@ impl<'vm> VM<'vm> {
                         break return_value;
                     } else {
                         self.stack
-                            .truncate(frame.stack_slot - frame.func().arg_types.len());
+                            .truncate(frame.stack_slot - frame.func().ty.params.len());
                         self.frame = self.frames.last_mut() as _;
                         self.stack.push(return_value);
                         self.next();
                     }
                 }
                 Instruction::Call(arg_count) => match self.stack.pop() {
-                    Value::Function(addr) => match self
-                        .interp
-                        .get_function(addr.id)
-                        .unwrap_or_else(|| panic!("couldn't find '{}' {:?}", addr.name, addr.id))
-                    {
-                        FunctionValue::Orphan(function) => {
-                            self.push_frame(function as *const Function);
+                    Value::Function(addr) => {
+                        match self.interp.get_function(addr.id).unwrap_or_else(|| {
+                            panic!("couldn't find '{}' {:?}", addr.name, addr.id)
+                        }) {
+                            FunctionValue::Orphan(function) => {
+                                self.push_frame(function as *const Function);
+                            }
+                            FunctionValue::Extern(function) => {
+                                let mut values = (0..arg_count)
+                                    .into_iter()
+                                    .map(|_| self.stack.pop())
+                                    .collect::<Vec<Value>>();
+
+                                values.reverse();
+
+                                let function = function.clone();
+                                let vm_ptr = self as *mut _;
+                                let interp_ptr = self.interp as *const _;
+
+                                let result = unsafe {
+                                    self.interp.ffi.call(function, values, vm_ptr, interp_ptr)
+                                };
+
+                                self.stack.push(result);
+
+                                self.next();
+                            }
                         }
-                        FunctionValue::Extern(function) => {
-                            let mut values = (0..arg_count)
-                                .into_iter()
-                                .map(|_| self.stack.pop())
-                                .collect::<Vec<Value>>();
-
-                            values.reverse();
-
-                            let function = function.clone();
-                            let vm_ptr = self as *mut VM;
-
-                            let result = unsafe { self.interp.ffi.call(vm_ptr, function, values) };
-                            self.stack.push(result);
-
-                            self.next();
-                        }
-                    },
+                    }
                     Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
                     value => panic!("tried to call uncallable value `{}`", value.to_string()),
                 },
@@ -558,7 +577,7 @@ impl<'vm> VM<'vm> {
                         if index == frame_slot {
                             // frame slot
                             value.to_string().bright_yellow()
-                        } else if index > frame_slot - frame.func().arg_types.len()
+                        } else if index > frame_slot - frame.func().ty.params.len()
                             && index <= frame_slot + frame.func().code.locals as usize
                         {
                             // local value

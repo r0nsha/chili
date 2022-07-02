@@ -380,20 +380,23 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     .const_named_struct(&values)
                     .into()
             }
-            ConstValue::Function(f) => {
+            ConstValue::Function(function) => {
                 let prev_block = if let Some(state) = state {
                     Some(state.current_block)
                 } else {
                     self.builder.get_insert_block()
                 };
 
-                let function = self.gen_function(f.id, state.cloned());
+                let function = self.gen_function(function.id, state.cloned());
 
                 if let Some(previous_block) = prev_block {
                     self.builder.position_at_end(previous_block);
                 }
 
                 function.as_global_value().as_pointer_value().into()
+            }
+            ConstValue::ExternVariable(variable) => {
+                todo!()
             }
         }
     }

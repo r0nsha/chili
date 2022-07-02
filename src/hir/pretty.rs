@@ -258,6 +258,7 @@ impl<'a, W: Write> Print<'a, W> for ConstValue {
                 p.write_indented(")", true);
             }
             ConstValue::Function(f) => p.write_indented(&f.name, is_line_start),
+            ConstValue::ExternVariable(v) => p.write_indented(&v.name, is_line_start),
         }
     }
 }

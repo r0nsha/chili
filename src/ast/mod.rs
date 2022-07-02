@@ -504,6 +504,7 @@ pub enum BindingKind {
     ExternVariable {
         name: NameAndSpan,
         lib: Option<ExternLibrary>,
+        is_mutable: bool,
         type_expr: Box<Ast>,
     },
     Intrinsic {

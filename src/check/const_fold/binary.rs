@@ -5,6 +5,7 @@ use crate::{
         DiagnosticResult, SyntaxError,
     },
     hir::const_value::ConstValue,
+    infer::ty_ctx::TyCtx,
     span::Span,
 };
 
@@ -13,8 +14,9 @@ pub fn binary(
     rhs: &ConstValue,
     op: ast::BinaryOp,
     span: Span,
+    tycx: &TyCtx,
 ) -> DiagnosticResult<ConstValue> {
-    let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span);
+    let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span, tycx);
 
     match op {
         ast::BinaryOp::Add => lhs.add(rhs).ok_or_else(|| int_overflow("adding")),
@@ -46,11 +48,19 @@ pub fn binary(
     }
 }
 
-fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span) -> Diagnostic {
+fn int_overflow(
+    action: &str,
+    lhs: &ConstValue,
+    rhs: &ConstValue,
+    span: Span,
+    tycx: &TyCtx,
+) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!(
             "integer overflowed while {} {} and {} at compile-time",
-            action, lhs, rhs
+            action,
+            lhs.display(tycx),
+            rhs.display(tycx)
         ))
         .with_label(Label::primary(span, "integer overflow"))
 }

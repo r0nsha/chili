@@ -80,6 +80,7 @@ impl TyCtx {
         }
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn ty_kind(&self, ty: TypeId) -> Type {
         ty.normalize(self)

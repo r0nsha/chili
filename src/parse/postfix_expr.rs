@@ -110,7 +110,7 @@ impl Parser {
     fn parse_as(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let ty_expr = if eat!(self, Placeholder) {
+        let type_expr = if eat!(self, Placeholder) {
             None
         } else {
             Some(Box::new(self.parse_expr()?))
@@ -118,7 +118,7 @@ impl Parser {
 
         Ok(Ast::Cast(Cast {
             expr: Box::new(expr),
-            target: ty_expr,
+            target: type_expr,
             span: start_span.to(self.previous_span()),
         }))
     }

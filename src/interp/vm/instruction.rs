@@ -54,8 +54,13 @@ pub enum Instruction {
     ArrayFill(u32),
     Copy(u32),
     Roll(u32),
+
+    #[allow(unused)]
     Increment,
+
+    #[allow(unused)]
     Panic,
+
     Halt,
 }
 

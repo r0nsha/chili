@@ -3,7 +3,10 @@ use super::{
     vm::{
         byte_seq::{ByteSeq, PutValue},
         instruction::{CastInstruction, CompiledCode, Instruction},
-        value::{Aggregate, Array, ExternFunction, Function, IntrinsicFunction, Value, ValueKind},
+        value::{
+            Aggregate, Array, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value,
+            ValueKind,
+        },
     },
     IS_64BIT, WORD_SIZE,
 };
@@ -87,8 +90,7 @@ impl Lower for hir::Function {
                     Function {
                         id: self.id,
                         name: self.name,
-                        arg_types: function_type.params.iter().map(|p| p.ty.clone()).collect(),
-                        return_type: *function_type.return_type,
+                        ty: function_type,
                         code: function_code,
                     },
                 );
@@ -958,6 +960,11 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                 }
             }
         }
+        ConstValue::ExternVariable(variable) => Value::ExternVariable(ExternVariable {
+            name: variable.name,
+            lib: variable.lib.clone().unwrap(),
+            ty: variable.ty.normalize(sess.tycx),
+        }),
     }
 }
 

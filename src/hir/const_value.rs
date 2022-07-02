@@ -1,12 +1,12 @@
 use super::FunctionId;
 use crate::{
-    ast,
+    ast::{self, ExternLibrary},
     infer::{display::DisplayTy, ty_ctx::TyCtx},
     types::TypeId,
 };
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use std::fmt::{self, Debug, Display};
+use std::fmt::Debug;
 use ustr::Ustr;
 
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
@@ -22,6 +22,7 @@ pub enum ConstValue {
     Tuple(Vec<ConstElement>),
     Struct(ConstStruct),
     Function(ConstFunction),
+    ExternVariable(ConstExternVariable),
 }
 
 pub type ConstStruct = IndexMap<Ustr, ConstElement>;
@@ -45,6 +46,13 @@ pub struct ConstFunction {
     pub name: Ustr,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct ConstExternVariable {
+    pub name: Ustr,
+    pub lib: Option<ExternLibrary>,
+    pub ty: TypeId,
+}
+
 impl From<ast::LiteralKind> for ConstValue {
     fn from(lit: ast::LiteralKind) -> Self {
         match lit {
@@ -55,50 +63,6 @@ impl From<ast::LiteralKind> for ConstValue {
             ast::LiteralKind::Str(v) => ConstValue::Str(v),
             ast::LiteralKind::Char(v) => ConstValue::Uint(v as u64),
         }
-    }
-}
-
-impl Display for ConstValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ConstValue::Unit(_) => "()".to_string(),
-                ConstValue::Type(t) => format!("type {}", t),
-                ConstValue::Bool(v) => format!("{}", v),
-                ConstValue::Int(v) => format!("{}", v),
-                ConstValue::Uint(v) => format!("{}", v),
-                ConstValue::Float(v) => format!("{}", v),
-                ConstValue::Str(v) => format!("\"{}\"", v),
-                ConstValue::Array(array) => format!(
-                    "[{}]",
-                    array
-                        .values
-                        .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                ),
-                ConstValue::Tuple(elements) => format!(
-                    "({})",
-                    elements
-                        .iter()
-                        .map(|el| el.value.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                ),
-                ConstValue::Struct(fields) => format!(
-                    "{{ {} }}",
-                    fields
-                        .iter()
-                        .map(|(name, el)| format!("{}: {}", name, el.value.to_string()))
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                ),
-                ConstValue::Function(f) => format!("fn {}", f.name),
-            }
-        )
     }
 }
 
@@ -452,6 +416,7 @@ impl ConstValue {
         }
     }
 
+    #[allow(unused)]
     pub fn display(&self, tycx: &TyCtx) -> String {
         match self {
             ConstValue::Unit(_) => "()".to_string(),
@@ -487,6 +452,7 @@ impl ConstValue {
                     .join(", "),
             ),
             ConstValue::Function(f) => f.name.to_string(),
+            ConstValue::ExternVariable(v) => v.name.to_string(),
         }
     }
 }

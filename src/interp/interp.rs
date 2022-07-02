@@ -12,7 +12,7 @@ use crate::{
     common::{build_options::BuildOptions, scopes::Scopes},
     hir,
     infer::ty_ctx::TyCtx,
-    types::Type,
+    types::{FunctionType, FunctionTypeKind, Type},
     workspace::{BindingId, ModuleId, Workspace},
 };
 use std::collections::{HashMap, HashSet};
@@ -121,8 +121,12 @@ impl<'i> InterpSess<'i> {
         let start_func = Function {
             id: hir::FunctionId::unknown(),
             name: ustr("__vm_start"),
-            arg_types: vec![],
-            return_type: Type::Unit,
+            ty: FunctionType {
+                params: vec![],
+                return_type: Box::new(Type::Unit),
+                varargs: None,
+                kind: FunctionTypeKind::Orphan,
+            },
             code: start_code,
         };
 
@@ -146,8 +150,12 @@ impl<'i> InterpSess<'i> {
                 Function {
                     id,
                     name,
-                    arg_types: vec![],
-                    return_type: Type::Unit,
+                    ty: FunctionType {
+                        params: vec![],
+                        return_type: Box::new(Type::Unit),
+                        varargs: None,
+                        kind: FunctionTypeKind::Orphan,
+                    },
                     code: global_eval_code.clone(),
                 },
             );
@@ -214,6 +222,7 @@ impl<'i> InterpSess<'i> {
         &mut self.env_stack.last_mut().unwrap().1
     }
 
+    #[allow(unused)]
     pub fn find_binding(&self, module_id: ModuleId, name: Ustr) -> BindingId {
         self.workspace
             .binding_infos

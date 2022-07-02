@@ -30,6 +30,7 @@ macro_rules! define_id_type {
                 Self(usize::MAX)
             }
 
+            #[allow(unused)]
             pub fn inner(&self) -> usize {
                 self.0
             }
@@ -59,6 +60,7 @@ impl<I, V> IdCache<I, V> {
         }
     }
 
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.inner.len()
     }

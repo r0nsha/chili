@@ -1,8 +1,7 @@
 pub mod const_value;
 pub mod pretty;
 
-use std::collections::HashMap;
-
+use self::const_value::ConstValue;
 use crate::{
     ast::{ExternLibrary, Intrinsic},
     common::id_cache::{IdCache, WithId},
@@ -12,9 +11,8 @@ use crate::{
     workspace::{BindingId, ModuleId},
 };
 use enum_as_inner::EnumAsInner;
+use std::collections::HashMap;
 use ustr::Ustr;
-
-use self::const_value::{ConstFunction, ConstValue};
 
 macro_rules! node_struct {
     ($name:ident) => {
@@ -96,13 +94,6 @@ pub struct FunctionParam {
 }
 
 impl Function {
-    pub fn as_const_function(&self) -> ConstFunction {
-        ConstFunction {
-            id: self.id,
-            name: self.name,
-        }
-    }
-
     /// This is a noop if the function doesn't have a body.
     /// Returns whether the function has a body
     pub fn set_body(&mut self, block: Sequence) -> bool {

@@ -1,4 +1,5 @@
 use super::{
+    interp::Interp,
     vm::{
         byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
@@ -79,9 +80,10 @@ impl Ffi {
 
     pub unsafe fn call(
         &mut self,
-        vm: *mut VM,
         func: ExternFunction,
         mut args: Vec<Value>,
+        vm: *mut VM,
+        interp: *const Interp,
     ) -> Value {
         let symbol = self.load_symbol(func.lib_path, func.name);
 
@@ -89,7 +91,7 @@ impl Ffi {
             let variadic_arg_types: Vec<Type> = args
                 .iter()
                 .skip(func.param_tys.len())
-                .map(Value::get_ty_kind)
+                .map(|value| value.get_ty_kind(&*interp))
                 .collect();
 
             FfiFunction::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
@@ -187,8 +189,16 @@ impl FfiFunction {
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Function(addr) => match (*vm).interp.get_function(addr.id).unwrap() {
                     FunctionValue::Orphan(function) => {
-                        let ffi_function =
-                            FfiFunction::new(&function.arg_types, &function.return_type);
+                        let ffi_function = FfiFunction::new(
+                            &function
+                                .ty
+                                .params
+                                .iter()
+                                .map(|p| &p.ty)
+                                .cloned()
+                                .collect::<Vec<Type>>(),
+                            &function.ty.return_type,
+                        );
 
                         let user_data = bump.alloc(ClosureUserData { vm, function });
 
@@ -239,13 +249,13 @@ unsafe extern "C" fn closure_callback(
     userdata: &ClosureUserData,
 ) {
     let mut func = (&*userdata.function).clone();
-    let arg_count = func.arg_types.len();
+    let arg_count = func.ty.params.len();
 
     // set up function args
     if arg_count > 0 {
         let args = std::slice::from_raw_parts(args, arg_count);
-        for (arg_type, arg) in func.arg_types.iter().zip(args) {
-            let value = Value::from_type_and_ptr(arg_type, *arg as RawPointer);
+        for (param, arg) in func.ty.params.iter().zip(args) {
+            let value = Value::from_type_and_ptr(&param.ty, *arg as RawPointer);
             (*userdata.vm).stack.push(value);
         }
     }
