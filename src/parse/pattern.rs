@@ -9,7 +9,7 @@ impl Parser {
             let pattern = self.parse_name_pattern().map(Pattern::Name)?;
 
             if eat!(self, At) {
-                let pattern = pattern.into_name();
+                let pattern = pattern.into_name().unwrap();
                 let start_span = pattern.span;
 
                 let unpack_pattern = match self.parse_unpack_pattern("an unpack pattern")? {

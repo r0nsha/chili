@@ -104,6 +104,7 @@ pub fn codegen<'w>(
         static_strs: UstrMap::default(),
         functions: HashMap::default(),
         extern_functions: UstrMap::default(),
+        extern_variables: UstrMap::default(),
         intrinsics: HashMap::default(),
     };
 

@@ -9,7 +9,6 @@ use crate::{
     types::*,
     workspace::{ModuleId, ModuleInfo},
 };
-use enum_as_inner::EnumAsInner;
 use paste::paste;
 use pattern::Pattern;
 use std::{
@@ -386,18 +385,6 @@ pub struct FunctionSig {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone, EnumAsInner)]
-pub enum FunctionKind {
-    Orphan {
-        sig: FunctionSig,
-        body: Option<Block>, // The body will be filled after the function is fully checked
-    },
-    Extern {
-        name: Ustr,
-        lib: Option<ExternLibrary>,
-    },
-    Intrinsic(Intrinsic),
-}
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionVarargs {
     pub name: Ustr,
@@ -514,15 +501,6 @@ pub enum BindingKind {
     },
 }
 
-impl BindingKind {
-    pub fn is_extern(&self) -> bool {
-        matches!(
-            self,
-            BindingKind::ExternFunction { .. } | BindingKind::ExternVariable { .. }
-        )
-    }
-}
-
 impl Display for BindingKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -585,10 +563,6 @@ pub enum Visibility {
 impl Visibility {
     pub fn is_private(&self) -> bool {
         matches!(self, Visibility::Private)
-    }
-
-    pub fn is_public(&self) -> bool {
-        matches!(self, Visibility::Public)
     }
 }
 

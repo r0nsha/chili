@@ -1,8 +1,9 @@
 use crate::{span::Span, workspace::BindingId};
+use enum_as_inner::EnumAsInner;
 use std::fmt::Display;
 use ustr::Ustr;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Pattern {
     Name(NamePattern),
     StructUnpack(UnpackPattern),
@@ -39,31 +40,6 @@ pub struct HybridPattern {
 }
 
 impl Pattern {
-    pub fn is_name(&self) -> bool {
-        matches!(self, Pattern::Name(_))
-    }
-
-    pub fn as_name(&self) -> &NamePattern {
-        match self {
-            Pattern::Name(s) => s,
-            _ => panic!("expected Symbol, got {}", self),
-        }
-    }
-
-    pub fn as_name_mut(&mut self) -> &mut NamePattern {
-        match self {
-            Pattern::Name(s) => s,
-            _ => panic!("expected Symbol, got {}", self),
-        }
-    }
-
-    pub fn into_name(self) -> NamePattern {
-        match self {
-            Pattern::Name(s) => s,
-            _ => panic!("expected Symbol, got {}", self),
-        }
-    }
-
     pub fn span(&self) -> Span {
         match self {
             Pattern::Name(p) => p.span,
@@ -79,10 +55,12 @@ impl Pattern {
         }
     }
 
+    #[allow(unused)]
     pub fn ids(&self) -> Vec<BindingId> {
         self.iter().map(|p| p.id).collect::<Vec<BindingId>>()
     }
 
+    #[allow(unused)]
     pub fn count(&self) -> usize {
         match self {
             Pattern::Name(_) => 1,

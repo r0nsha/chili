@@ -39,6 +39,7 @@ impl<'ctx> Decl<'ctx> {
         }
     }
 
+    #[allow(unused)]
     pub(super) fn into_global_value(&self) -> GlobalValue<'ctx> {
         match self {
             Decl::Global(g) => *g,
@@ -72,6 +73,7 @@ pub(super) struct Generator<'g, 'ctx> {
     pub(super) static_strs: UstrMap<PointerValue<'ctx>>,
     pub(super) functions: HashMap<hir::FunctionId, FunctionValue<'ctx>>,
     pub(super) extern_functions: UstrMap<FunctionValue<'ctx>>,
+    pub(super) extern_variables: UstrMap<GlobalValue<'ctx>>,
     pub(super) intrinsics: HashMap<Intrinsic, FunctionValue<'ctx>>,
 }
 
@@ -210,18 +212,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     ) -> Decl<'ctx> {
         let id = self.find_binding_info_by_name(module_name, name).id;
         self.gen_top_level_binding(id)
-    }
-
-    pub(super) fn local_uninit(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        id: BindingId,
-        ty: &Type,
-    ) -> PointerValue<'ctx> {
-        let ty = ty.llvm_type(self);
-        let ptr = self.build_alloca_named(state, ty, id);
-        self.gen_local_inner(state, id, ptr);
-        ptr
     }
 
     pub(super) fn local_with_alloca(
@@ -387,16 +377,33 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     self.builder.get_insert_block()
                 };
 
-                let function = self.gen_function(function.id, state.cloned());
+                let function_value = self.gen_function(function.id, state.cloned());
 
                 if let Some(previous_block) = prev_block {
                     self.builder.position_at_end(previous_block);
                 }
 
-                function.as_global_value().as_pointer_value().into()
+                function_value.as_global_value().as_pointer_value().into()
             }
             ConstValue::ExternVariable(variable) => {
-                todo!()
+                let global_value = self
+                    .extern_variables
+                    .get(&variable.name)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        let llvm_type = variable.ty.llvm_type(self);
+
+                        let global_value = self.module.add_global(llvm_type, None, &variable.name);
+                        global_value.set_linkage(Linkage::External);
+
+                        self.extern_variables.insert(variable.name, global_value);
+
+                        global_value
+                    });
+
+                let ptr = global_value.as_pointer_value();
+
+                self.build_load(ptr)
             }
         }
     }
