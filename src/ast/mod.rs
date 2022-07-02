@@ -1,30 +1,24 @@
-pub mod const_value;
 pub mod pattern;
 
 use crate::{
-    common::{
-        id_cache::{IdCache, WithId},
-        path::{try_resolve_relative_path, RelativeTo},
-    },
+    common::path::{try_resolve_relative_path, RelativeTo},
     define_id_type,
     error::DiagnosticResult,
     span::{FileId, Span},
     token::TokenKind,
     types::*,
-    workspace::{BindingId, ModuleId, ModuleInfo},
+    workspace::{ModuleId, ModuleInfo},
 };
-use const_value::{ConstFunction, ConstValue};
 use enum_as_inner::EnumAsInner;
 use paste::paste;
 use pattern::Pattern;
 use std::{
-    collections::HashMap,
     ffi::OsStr,
     fmt::{self, Display},
     ops::Deref,
     path::{Path, PathBuf},
 };
-use ustr::{ustr, Ustr};
+use ustr::Ustr;
 
 #[derive(Debug, Clone)]
 pub struct Module {
@@ -47,42 +41,6 @@ impl Module {
     }
 }
 
-#[derive(Default)]
-pub struct TypedAst {
-    pub bindings: IdCache<usize, Binding>,
-    pub functions: IdCache<FunctionId, Function>,
-    ids_to_bindings: HashMap<BindingId, usize>,
-}
-
-impl TypedAst {
-    pub fn get_binding(&self, id: BindingId) -> Option<&Binding> {
-        self.ids_to_bindings
-            .get(&id)
-            .map(|idx| &self.bindings[*idx])
-    }
-
-    #[allow(unused)]
-    pub fn get_binding_mut(&mut self, id: BindingId) -> Option<&mut Binding> {
-        self.ids_to_bindings
-            .get_mut(&id)
-            .and_then(|idx| self.bindings.get_mut(*idx))
-    }
-
-    #[allow(unused)]
-    pub fn has_binding(&self, id: BindingId) -> bool {
-        self.ids_to_bindings.contains_key(&id)
-    }
-
-    pub fn push_binding(&mut self, ids: &[BindingId], binding: Binding) {
-        self.bindings.insert(binding);
-        let idx = self.bindings.len() - 1;
-
-        for id in ids {
-            self.ids_to_bindings.insert(*id, idx);
-        }
-    }
-}
-
 define_id_type!(FunctionId);
 
 #[derive(Debug, PartialEq, Clone)]
@@ -91,7 +49,7 @@ pub enum Ast {
     Assignment(Assignment),
     Cast(Cast),
     Builtin(Builtin),
-    Function(FunctionExpr),
+    Function(Function),
     While(While),
     For(For),
     Break(Empty),
@@ -118,7 +76,6 @@ pub enum Ast {
     FunctionType(FunctionSig),
     SelfType(Empty),
     Placeholder(Empty),
-    Const(Const),
     Error(Empty),
 }
 
@@ -159,7 +116,6 @@ macro_rules! ast_field_dispatch {
                     Self::FunctionType(x) => x.$field,
                     Self::SelfType(x) => x.$field,
                     Self::Placeholder(x) => x.$field,
-                    Self::Const(x) => x.$field,
                     Self::Error(x) => x.$field,
                 }
             }
@@ -199,7 +155,6 @@ macro_rules! ast_field_dispatch {
                         Self::FunctionType(x) => &mut x.$field,
                         Self::SelfType(x) => &mut x.$field,
                         Self::Placeholder(x) => &mut x.$field,
-                        Self::Const(x) => &mut x.$field,
                         Self::Error(x) => &mut x.$field,
                     }
                 }
@@ -218,12 +173,6 @@ pub struct Empty {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ArrayLiteral {
     pub kind: ArrayLiteralKind,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Const {
-    pub value: ConstValue,
     pub span: Span,
 }
 
@@ -303,7 +252,6 @@ pub struct StructType {
     pub name: Ustr,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
-    pub binding_id: BindingId,
     pub span: Span,
 }
 
@@ -338,7 +286,6 @@ pub struct MemberAccess {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ident {
     pub name: Ustr,
-    pub binding_id: BindingId,
     pub span: Span,
 }
 
@@ -423,8 +370,7 @@ pub enum ForIter {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FunctionExpr {
-    pub id: FunctionId,
+pub struct Function {
     pub sig: FunctionSig,
     pub body: Block,
     pub span: Span,
@@ -440,24 +386,6 @@ pub struct FunctionSig {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Function {
-    pub id: FunctionId,
-    pub module_id: ModuleId,
-    pub kind: FunctionKind,
-    pub span: Span,
-}
-
-impl WithId<FunctionId> for Function {
-    fn id(&self) -> &FunctionId {
-        &self.id
-    }
-
-    fn id_mut(&mut self) -> &mut FunctionId {
-        &mut self.id
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum FunctionKind {
     Orphan {
@@ -470,37 +398,6 @@ pub enum FunctionKind {
     },
     Intrinsic(Intrinsic),
 }
-
-impl Function {
-    pub fn name(&self) -> Ustr {
-        match &self.kind {
-            FunctionKind::Orphan { sig, .. } => sig.name,
-            FunctionKind::Extern { name, .. } => *name,
-            FunctionKind::Intrinsic(intrinsic) => ustr(intrinsic.to_str()),
-        }
-    }
-
-    pub fn as_const_function(&self) -> ConstFunction {
-        ConstFunction {
-            id: self.id,
-            name: self.name(),
-        }
-    }
-
-    /// This is a noop if the function doesn't have a body.
-    /// Returns whether the function has a body
-    pub fn set_body(&mut self, block: Block) -> bool {
-        match &mut self.kind {
-            FunctionKind::Orphan { body, .. } => {
-                *body = Some(block);
-                true
-            }
-            FunctionKind::Extern { .. } => false,
-            FunctionKind::Intrinsic { .. } => false,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionVarargs {
     pub name: Ustr,

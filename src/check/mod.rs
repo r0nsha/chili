@@ -731,7 +731,7 @@ impl Check for ast::Ast {
                     }
                 }
                 ast::BuiltinKind::Panic(_) => {
-                    todo!("replace this with `pub let {{ default_panic_handler: panic }} = import!(\"panicking\");")
+                    todo!("\n1. Import std implicitly in all files\n2. Replace this with `pub let {{ default_panic_handler: panic }} = import!(\"panicking\"); in std")
                     // if let Some(expr) = expr {
                     //     expr.check(sess, env, None)?;
                     // }
@@ -1580,10 +1580,9 @@ impl Check for ast::Ast {
                 };
 
                 // the struct's main type variable
-                let struct_ty_var = sess.tycx.bound(
-                    Type::Struct(StructType::opaque(name, st.binding_id, st.kind)),
-                    st.span,
-                );
+                let struct_ty_var = sess
+                    .tycx
+                    .bound(Type::Struct(StructType::opaque(name, st.kind)), st.span);
 
                 // the struct's main type variable, in its `type` variation
                 let struct_ty_type_var = sess
@@ -1685,7 +1684,6 @@ impl Check for ast::Ast {
                     value: ConstValue::Type(ty),
                 }))
             }
-            ast::Ast::Const(_) => panic!(),
             ast::Ast::Error(expr) => Ok(hir::Node::noop(sess.tycx.var(expr.span), expr.span)),
         }
     }
@@ -2117,7 +2115,7 @@ impl Check for ast::For {
     }
 }
 
-impl Check for ast::FunctionExpr {
+impl Check for ast::Function {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_ty: Option<TypeId>) -> Result {
         let name = self.sig.name;
         let qualified_name = get_qualified_name(env.scope_name(), name);

@@ -247,7 +247,6 @@ impl Parser {
             } else {
                 Ast::Ident(ast::Ident {
                     name: symbol,
-                    binding_id: Default::default(),
                     span: token.span,
                 })
             }
@@ -445,7 +444,6 @@ impl Parser {
             name,
             fields,
             kind,
-            binding_id: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }
@@ -462,7 +460,6 @@ impl Parser {
             name,
             fields,
             kind: StructTypeKind::Union,
-            binding_id: Default::default(),
             span: start_span.to(self.previous_span()),
         }))
     }

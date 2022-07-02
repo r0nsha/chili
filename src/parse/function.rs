@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{FunctionExpr, FunctionId, FunctionParam, FunctionSig, FunctionVarargs},
+    ast::{Function, FunctionParam, FunctionSig, FunctionVarargs},
     error::{DiagnosticResult, SyntaxError},
     span::To,
     types::FunctionTypeKind,
@@ -17,10 +17,9 @@ impl Parser {
         if eat!(self, OpenCurly) {
             let body = self.parse_block()?;
 
-            Ok(Ast::Function(FunctionExpr {
+            Ok(Ast::Function(Function {
                 sig,
                 body,
-                id: FunctionId::unknown(),
                 span: start_span.to(self.previous_span()),
             }))
         } else {

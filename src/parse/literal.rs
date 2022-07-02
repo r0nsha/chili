@@ -99,7 +99,6 @@ impl Parser {
                 } else {
                     Ast::Ident(ast::Ident {
                         name: id_token.symbol(),
-                        binding_id: Default::default(),
                         span: id_token.span,
                     })
                 };
