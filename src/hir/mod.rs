@@ -38,8 +38,6 @@ macro_rules! node_struct {
 define_id_type!(FunctionId);
 
 pub struct Cache {
-    // TODO: This BindingId is not the same BindingId used in workspace.
-    // TODO: We causes some confusion, and should be fixed.
     pub bindings: HashMap<BindingId, Binding>,
     pub functions: IdCache<FunctionId, Function>,
 }
