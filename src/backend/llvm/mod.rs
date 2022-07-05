@@ -158,6 +158,10 @@ fn build_executable(
         .as_ref()
         .unwrap_or_else(|| &build_options.source_file);
 
+    if let Some(parent_dir) = output_path.parent() {
+        let _ = std::fs::create_dir_all(parent_dir);
+    }
+
     if codegen_options.emit_llvm_ir {
         module
             .print_to_file(output_path.with_extension("ll"))
@@ -175,8 +179,6 @@ fn build_executable(
     } else {
         output_path.with_extension("")
     };
-
-    let _ = std::fs::create_dir_all(output_path.parent().unwrap());
 
     time! { build_options.emit_times, "write obj",
         target_machine

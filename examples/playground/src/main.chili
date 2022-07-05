@@ -1,5 +1,5 @@
-let { println } = import!("std/fmt"); 
+let { println } = import!("std/fmt")
 
 let main = fn {
     println("Hello World");
-};
+}

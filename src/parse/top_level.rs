@@ -10,14 +10,17 @@ impl Parser {
         while !self.is_end() {
             match self.parse_top_level(&mut module) {
                 Ok(_) => {
-                    if let Err(_) = require!(self, Semicolon, ";") {
-                        let span = Parser::get_missing_delimiter_span(self.previous_span());
-                        self.cache
-                            .lock()
-                            .diagnostics
-                            .push(SyntaxError::expected(span, ";"));
-                        self.skip_until_recovery_point();
-                    }
+                    // Note (Ron 5/7/2022): This piece of code requires semicolons after top level items.
+                    //             This isn't semantically required, but was placed for orthogonallity.
+                    //             For now, this proved to be a bit tedious, so I removed it.
+                    // if let Err(_) = require!(self, Semicolon, ";") {
+                    //     let span = Parser::get_missing_delimiter_span(self.previous_span());
+                    //     self.cache
+                    //         .lock()
+                    //         .diagnostics
+                    //         .push(SyntaxError::expected(span, ";"));
+                    //     self.skip_until_recovery_point();
+                    // }
                 }
                 Err(diag) => {
                     self.cache.lock().diagnostics.push(diag);
