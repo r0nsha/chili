@@ -335,33 +335,7 @@ impl Parser {
     fn parse_array_type_or_literal(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        if eat!(self, Star) {
-            if eat!(self, Mut) {
-                // [*mut]T
-                require!(self, CloseBracket, "]")?;
-
-                let inner = self.parse_expr()?;
-
-                Ok(Ast::MultiPointerType(ast::ExprAndMut {
-                    inner: Box::new(inner),
-                    is_mutable: true,
-                    span: start_span.to(self.previous_span()),
-                }))
-            } else if eat!(self, CloseBracket) {
-                // [*]T
-                let inner = self.parse_expr()?;
-
-                Ok(Ast::MultiPointerType(ast::ExprAndMut {
-                    inner: Box::new(inner),
-                    is_mutable: false,
-                    span: start_span.to(self.previous_span()),
-                }))
-            } else {
-                // [...array literal]
-                self.revert(1);
-                self.parse_array_literal(start_span)
-            }
-        } else if eat!(self, CloseBracket) {
+        if eat!(self, CloseBracket) {
             // Note (Ron): syntax for mut slices will probably be removed once we have unsized types
 
             if eat!(self, Mut) {

@@ -1614,22 +1614,6 @@ impl Check for ast::Ast {
                     value: ConstValue::Type(sess.tcx.bound(kind, *span)),
                 }))
             }
-            ast::Ast::MultiPointerType(ast::ExprAndMut {
-                inner,
-                is_mutable,
-                span,
-                ..
-            }) => {
-                let node = inner.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(&node)?;
-                let kind = Type::MultiPointer(Box::new(inner_kind.into()), *is_mutable);
-
-                Ok(hir::Node::Const(hir::Const {
-                    ty: sess.tcx.bound(kind.clone().create_type(), *span),
-                    span: *span,
-                    value: ConstValue::Type(sess.tcx.bound(kind, *span)),
-                }))
-            }
             ast::Ast::ArrayType(ast::ArrayType {
                 inner, size, span, ..
             }) => {
