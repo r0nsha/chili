@@ -40,7 +40,7 @@ impl StartWorkspaceResult {
         }
     }
 
-    fn new_complete(
+    fn new_typed_with_output(
         workspace: Workspace,
         tcx: TyCtx,
         cache: hir::Cache,
@@ -127,14 +127,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
             }
 
-            if codegen_options.run_executable {
-                Command::new(&output_file)
-                    .spawn()
-                    .ok()
-                    .unwrap_or_else(|| panic!("{}", output_file.display()));
-            }
-
-            StartWorkspaceResult::new_complete(workspace, tcx, cache, output_file)
+            StartWorkspaceResult::new_typed_with_output(workspace, tcx, cache, output_file)
         }
         _ => {
             if workspace.build_options.emit_times {

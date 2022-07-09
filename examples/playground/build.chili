@@ -6,7 +6,6 @@ let build = fn() {
         output_file: "out/main",
         target: BuildTarget_auto,
         optimization_level: OptimizationLevel_debug,
-        run_executable: false,
 	};
 
 	let workspace = Workspace {

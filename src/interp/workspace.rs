@@ -26,7 +26,6 @@ pub struct BuildOptionsValue<'a> {
     pub output_file: &'a str,
     pub target: BuildTargetValue,
     pub optimization_level: OptimizationLevelValue,
-    pub run_executable: bool,
 }
 
 impl<'a> From<&'a Value> for BuildOptionsValue<'a> {
@@ -37,14 +36,12 @@ impl<'a> From<&'a Value> for BuildOptionsValue<'a> {
         let output_file = unsafe { aggregate.elements[1].as_aggregate().as_str() };
         let target = BuildTargetValue::from(&aggregate.elements[2]);
         let optimization_level = OptimizationLevelValue::from(&aggregate.elements[3]);
-        let run_executable = *aggregate.elements[4].as_bool();
 
         Self {
             input_file,
             output_file,
             target,
             optimization_level,
-            run_executable,
         }
     }
 }

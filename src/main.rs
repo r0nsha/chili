@@ -118,7 +118,6 @@ fn cli() {
                     },
                     codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
                         emit_llvm_ir: args.emit_llvm_ir,
-                        run_executable: true,
                     }),
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: false,

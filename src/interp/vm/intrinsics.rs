@@ -57,7 +57,6 @@ impl<'vm> VM<'vm> {
                             CodegenOptions::Codegen(o) => o.emit_llvm_ir,
                             CodegenOptions::Skip(emit_llvm_ir) => *emit_llvm_ir,
                         },
-                        run_executable: workspace.build_options.run_executable,
                     }),
                     include_paths: vec![],
                     check_mode: false,

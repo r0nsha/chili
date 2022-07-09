@@ -109,5 +109,4 @@ pub enum CodegenOptions {
 #[derive(Debug, Clone)]
 pub struct EnabledCodegenOptions {
     pub emit_llvm_ir: bool,
-    pub run_executable: bool,
 }
