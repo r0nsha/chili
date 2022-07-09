@@ -4,7 +4,6 @@ use super::{
     ty::IntoLlvmType,
 };
 use crate::{
-    ast::Intrinsic,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir::{self, const_value::ConstValue},
     infer::{normalize::Normalize, ty_ctx::TyCtx},
@@ -74,7 +73,7 @@ pub(super) struct Generator<'g, 'ctx> {
     pub(super) functions: HashMap<hir::FunctionId, FunctionValue<'ctx>>,
     pub(super) extern_functions: UstrMap<FunctionValue<'ctx>>,
     pub(super) extern_variables: UstrMap<GlobalValue<'ctx>>,
-    pub(super) intrinsics: HashMap<Intrinsic, FunctionValue<'ctx>>,
+    pub(super) intrinsics: HashMap<hir::Intrinsic, FunctionValue<'ctx>>,
 }
 
 #[derive(Clone)]
@@ -342,11 +341,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let values = elements
                     .iter()
                     .map(|element| {
-                        self.gen_const_value(
-                            state,
-                            &element.value,
-                            &element.ty.normalize(self.tcx),
-                        )
+                        self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx))
                     })
                     .collect::<Vec<BasicValueEnum>>();
 
@@ -356,11 +351,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let values = fields
                     .values()
                     .map(|element| {
-                        self.gen_const_value(
-                            state,
-                            &element.value,
-                            &element.ty.normalize(self.tcx),
-                        )
+                        self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx))
                     })
                     .collect::<Vec<BasicValueEnum>>();
 

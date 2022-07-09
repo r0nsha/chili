@@ -607,7 +607,9 @@ impl Check for ast::Binding {
                     id: hir::FunctionId::unknown(),
                     name,
                     qualified_name,
-                    kind: hir::FunctionKind::Intrinsic(*intrinsic),
+                    kind: hir::FunctionKind::Intrinsic(match intrinsic {
+                        ast::Intrinsic::StartWorkspace => hir::Intrinsic::StartWorkspace,
+                    }),
                     ty,
                     span: self.span,
                 });

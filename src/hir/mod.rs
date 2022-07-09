@@ -3,7 +3,7 @@ pub mod pretty;
 
 use self::const_value::ConstValue;
 use crate::{
-    ast::{ExternLibrary, Intrinsic},
+    ast::ExternLibrary,
     common::id_cache::{IdCache, WithId},
     define_id_type,
     span::Span,
@@ -105,6 +105,11 @@ impl Function {
             FunctionKind::Intrinsic { .. } => false,
         }
     }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum Intrinsic {
+    StartWorkspace,
 }
 
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]

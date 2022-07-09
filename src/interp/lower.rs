@@ -11,7 +11,6 @@ use super::{
     IS_64BIT, WORD_SIZE,
 };
 use crate::{
-    ast::Intrinsic,
     error::diagnostic::{Diagnostic, Label},
     hir::{
         self,
@@ -980,7 +979,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
 
             match &function.kind {
                 hir::FunctionKind::Intrinsic(intrinsic) => Value::Intrinsic(match intrinsic {
-                    Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+                    hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
                 }),
                 _ => {
                     function.lower(
