@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BindingKind, ExternLibrary, Visibility},
+    ast::{BindingKind, Visibility},
     common::{
         build_options::{BuildOptions, DiagnosticOptions},
         id_cache::{IdCache, WithId},
@@ -13,7 +13,6 @@ use crate::{
 use bitflags::bitflags;
 use std::{
     cmp::Ordering,
-    collections::HashSet,
     path::{Path, PathBuf},
 };
 use ustr::{ustr, Ustr};
@@ -49,9 +48,6 @@ pub struct Workspace {
     // TODO: Move entry_point_function_id to `hir::Cache`
     // The entry point function's id (usually named "main"). Resolved during semantic analysis
     pub entry_point_function_id: Option<BindingId>,
-
-    // Extern libraries needed to be linked. Resolved during semantic analysis
-    pub extern_libraries: HashSet<ExternLibrary>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -175,7 +171,6 @@ impl Workspace {
             root_module_id: Default::default(),
             binding_infos: Default::default(),
             entry_point_function_id: None,
-            extern_libraries: Default::default(),
         }
     }
 

@@ -515,10 +515,6 @@ impl Check for ast::Binding {
                     v => panic!("got {:?}", v),
                 };
 
-                if let Some(lib) = lib {
-                    sess.workspace.extern_libraries.insert(lib.clone());
-                }
-
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
                     id: hir::FunctionId::unknown(),
@@ -558,10 +554,6 @@ impl Check for ast::Binding {
                 type_expr,
             } => {
                 let (name, span) = (*name, *span);
-
-                if let Some(lib) = lib {
-                    sess.workspace.extern_libraries.insert(lib.clone());
-                }
 
                 let ty = check_type_expr(type_expr, sess, env)?;
 

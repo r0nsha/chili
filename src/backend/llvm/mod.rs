@@ -105,6 +105,7 @@ pub fn codegen<'w>(
         functions: HashMap::default(),
         extern_functions: UstrMap::default(),
         extern_variables: UstrMap::default(),
+        extern_libraries: HashSet::default(),
         intrinsics: HashMap::default(),
     };
 
@@ -130,7 +131,7 @@ pub fn codegen<'w>(
         &target_machine,
         &target_metrics,
         &module,
-        &workspace.extern_libraries,
+        &cg.extern_libraries,
     );
 
     executable_path

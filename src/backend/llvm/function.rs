@@ -125,10 +125,14 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                         function_value
                     }
-                    hir::FunctionKind::Extern { .. } => {
+                    hir::FunctionKind::Extern { lib, .. } => {
                         match self.extern_functions.get(&function.qualified_name) {
                             Some(function) => *function,
                             None => {
+                                if let Some(lib) = lib {
+                                    self.extern_libraries.insert(lib.clone());
+                                }
+
                                 let function_type = self.fn_type(&function_type);
                                 let function_value = self.get_or_add_function(
                                     function.qualified_name,

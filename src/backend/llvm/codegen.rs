@@ -4,6 +4,7 @@ use super::{
     ty::IntoLlvmType,
 };
 use crate::{
+    ast::ExternLibrary,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir::{self, const_value::ConstValue},
     infer::{normalize::Normalize, ty_ctx::TyCtx},
@@ -20,7 +21,10 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     OptimizationLevel,
 };
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -70,9 +74,13 @@ pub(super) struct Generator<'g, 'ctx> {
     pub(super) global_decls: HashMap<BindingId, Decl<'ctx>>,
     pub(super) types: HashMap<BindingId, BasicTypeEnum<'ctx>>,
     pub(super) static_strs: UstrMap<PointerValue<'ctx>>,
+
     pub(super) functions: HashMap<hir::FunctionId, FunctionValue<'ctx>>,
+
     pub(super) extern_functions: UstrMap<FunctionValue<'ctx>>,
     pub(super) extern_variables: UstrMap<GlobalValue<'ctx>>,
+    pub(super) extern_libraries: HashSet<ExternLibrary>,
+
     pub(super) intrinsics: HashMap<hir::Intrinsic, FunctionValue<'ctx>>,
 }
 
@@ -377,6 +385,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 function_value.as_global_value().as_pointer_value().into()
             }
             ConstValue::ExternVariable(variable) => {
+                if let Some(lib) = &variable.lib {
+                    self.extern_libraries.insert(lib.clone());
+                }
+
                 let global_value = self
                     .extern_variables
                     .get(&variable.name)
