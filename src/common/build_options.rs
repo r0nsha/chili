@@ -41,7 +41,7 @@ impl BuildOptions {
     }
 
     pub fn need_entry_point_function(&self) -> bool {
-        matches!(self.codegen_options, CodegenOptions::Codegen(_))
+        matches!(self.codegen_options, CodegenOptions::Codegen { .. })
             && matches!(
                 self.target_platform,
                 TargetPlatform::Windows386
@@ -102,11 +102,15 @@ pub enum DiagnosticOptions {
 
 #[derive(Debug, Clone)]
 pub enum CodegenOptions {
-    Codegen(EnabledCodegenOptions),
-    Skip(/* emit_llvm_ir: */ bool),
+    Codegen { emit_llvm_ir: bool },
+    Skip { emit_llvm_ir: bool },
 }
 
-#[derive(Debug, Clone)]
-pub struct EnabledCodegenOptions {
-    pub emit_llvm_ir: bool,
+impl CodegenOptions {
+    pub(crate) fn emit_llvm_ir(&self) -> bool {
+        match self {
+            CodegenOptions::Codegen { emit_llvm_ir } => *emit_llvm_ir,
+            CodegenOptions::Skip { emit_llvm_ir } => *emit_llvm_ir,
+        }
+    }
 }

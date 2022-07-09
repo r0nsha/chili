@@ -12,7 +12,7 @@ use crate::{
 };
 use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
 pub struct StartWorkspaceResult {
     pub workspace: Workspace,
@@ -119,9 +119,8 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     // Code generation
     // todo!("codegen");
     match &workspace.build_options.codegen_options {
-        CodegenOptions::Codegen(codegen_options) => {
-            let output_file =
-                crate::backend::llvm::codegen(&workspace, &tcx, &cache, codegen_options);
+        CodegenOptions::Codegen { .. } => {
+            let output_file = crate::backend::llvm::codegen(&workspace, &tcx, &cache);
 
             if workspace.build_options.emit_times {
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());

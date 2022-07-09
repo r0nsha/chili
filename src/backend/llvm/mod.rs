@@ -17,7 +17,7 @@ mod util;
 use crate::{
     ast,
     common::{
-        build_options::{self, BuildOptions, EnabledCodegenOptions},
+        build_options::{self, BuildOptions},
         target::{Arch, Os, TargetMetrics},
     },
     hir,
@@ -43,12 +43,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(
-    workspace: &Workspace,
-    tcx: &TyCtx,
-    cache: &hir::Cache,
-    codegen_options: &EnabledCodegenOptions,
-) -> PathBuf {
+pub fn codegen<'w>(workspace: &Workspace, tcx: &TyCtx, cache: &hir::Cache) -> PathBuf {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -126,7 +121,6 @@ pub fn codegen<'w>(
     }};
 
     build_executable(
-        codegen_options,
         &workspace.build_options,
         &target_machine,
         &target_metrics,
@@ -145,7 +139,6 @@ impl From<build_options::OptimizationLevel> for OptimizationLevel {
 }
 
 fn build_executable(
-    codegen_options: &EnabledCodegenOptions,
     build_options: &BuildOptions,
     target_machine: &TargetMachine,
     target_metrics: &TargetMetrics,
@@ -161,7 +154,7 @@ fn build_executable(
         let _ = std::fs::create_dir_all(parent_dir);
     }
 
-    if codegen_options.emit_llvm_ir {
+    if build_options.codegen_options.emit_llvm_ir() {
         module
             .print_to_file(output_path.with_extension("ll"))
             .unwrap();

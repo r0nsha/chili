@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     common::{
-        build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptimizationLevel},
+        build_options::{BuildOptions, CodegenOptions, OptimizationLevel},
         target::TargetPlatform,
     },
     interp::{
@@ -52,12 +52,9 @@ impl<'vm> VM<'vm> {
                     emit_hir: self.interp.build_options.emit_hir,
                     emit_bytecode: self.interp.build_options.emit_bytecode,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
-                    codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
-                        emit_llvm_ir: match &self.interp.build_options.codegen_options {
-                            CodegenOptions::Codegen(o) => o.emit_llvm_ir,
-                            CodegenOptions::Skip(emit_llvm_ir) => *emit_llvm_ir,
-                        },
-                    }),
+                    codegen_options: CodegenOptions::Codegen {
+                        emit_llvm_ir: self.interp.build_options.codegen_options.emit_llvm_ir(),
+                    },
                     include_paths: vec![],
                     check_mode: false,
                 };

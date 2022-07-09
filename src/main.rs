@@ -22,7 +22,6 @@ use crate::common::{
 };
 use clap::*;
 use colored::Colorize;
-use common::build_options::EnabledCodegenOptions;
 use path_absolutize::Absolutize;
 use std::path::{Path, PathBuf};
 
@@ -116,9 +115,9 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
-                    codegen_options: CodegenOptions::Codegen(EnabledCodegenOptions {
+                    codegen_options: CodegenOptions::Codegen {
                         emit_llvm_ir: args.emit_llvm_ir,
-                    }),
+                    },
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: false,
                 };
@@ -134,7 +133,9 @@ fn cli() {
                     emit_hir: false,
                     emit_bytecode: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
-                    codegen_options: CodegenOptions::Skip(false),
+                    codegen_options: CodegenOptions::Skip {
+                        emit_llvm_ir: false,
+                    },
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: true,
                 };
@@ -164,7 +165,9 @@ fn cli() {
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
-                    codegen_options: CodegenOptions::Skip(args.emit_llvm_ir),
+                    codegen_options: CodegenOptions::Skip {
+                        emit_llvm_ir: args.emit_llvm_ir,
+                    },
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: false,
                 };
