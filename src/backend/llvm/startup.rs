@@ -21,7 +21,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let fn_ty = entry_point_func_info
             .ty
-            .normalize(self.tycx)
+            .normalize(self.tcx)
             .into_function();
 
         let name = self

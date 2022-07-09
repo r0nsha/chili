@@ -1,5 +1,4 @@
 use self::value::FunctionValue;
-
 use super::{
     ffi::RawPointer,
     interp::Interp,

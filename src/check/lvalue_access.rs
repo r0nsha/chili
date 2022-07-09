@@ -27,7 +27,7 @@ impl<'s> CheckSess<'s> {
                     ImmutableReference { ty, span } => Diagnostic::error()
                         .with_message(format!(
                             "cannot assign to this value, as it is behind an immutable `{}`",
-                            ty.display(&self.tycx)
+                            ty.display(&self.tcx)
                         ))
                         .with_label(Label::primary(span, "cannot assign")),
                     ImmutableId { id, span } => {
@@ -62,7 +62,7 @@ impl<'s> CheckSess<'s> {
 
         match node {
             hir::Node::Builtin(hir::Builtin::Deref(unary)) => {
-                let ty = unary.value.ty().normalize(&self.tycx);
+                let ty = unary.value.ty().normalize(&self.tcx);
 
                 if let Type::Pointer(_, is_mutable) = ty {
                     if is_mutable {
@@ -84,7 +84,7 @@ impl<'s> CheckSess<'s> {
             hir::Node::Id(id) => {
                 let binding_info = self.workspace.binding_infos.get(id.id).unwrap();
 
-                let ty = node.ty().normalize(&self.tycx);
+                let ty = node.ty().normalize(&self.tcx);
                 match ty {
                     Type::Pointer(_, is_mutable)
                     | Type::MultiPointer(_, is_mutable)

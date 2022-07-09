@@ -27,7 +27,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let ty = &self.ty.normalize(generator.tycx);
+        let ty = &self.ty.normalize(generator.tcx);
         let struct_ty = ty.as_struct();
         let llvm_type = ty.llvm_type(generator);
 
@@ -81,7 +81,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let ty = self.ty.normalize(generator.tycx);
+        let ty = self.ty.normalize(generator.tcx);
 
         let values: Vec<BasicValueEnum> = self
             .elements
@@ -111,7 +111,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayLiteral {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let ty = self.ty.normalize(generator.tycx);
+        let ty = self.ty.normalize(generator.tcx);
 
         let elements: Vec<BasicValueEnum> = self
             .elements
@@ -152,7 +152,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayFillLiteral {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let ty = self.ty.normalize(generator.tycx);
+        let ty = self.ty.normalize(generator.tcx);
 
         let value = self.value.codegen(generator, state);
 

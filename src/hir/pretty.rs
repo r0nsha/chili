@@ -12,7 +12,7 @@ use super::const_value::ConstValue;
 const INDENT: u16 = 2;
 
 #[allow(unused)]
-pub fn print(cache: &hir::Cache, workspace: &Workspace, tycx: &TyCtx) {
+pub fn print(cache: &hir::Cache, workspace: &Workspace, tcx: &TyCtx) {
     if let Ok(file) = &OpenOptions::new()
         .read(false)
         .write(true)
@@ -21,23 +21,23 @@ pub fn print(cache: &hir::Cache, workspace: &Workspace, tycx: &TyCtx) {
         .append(false)
         .open(Path::new("hir.pretty.chili"))
     {
-        let mut printer = Printer::new(workspace, tycx, file);
+        let mut printer = Printer::new(workspace, tcx, file);
         cache.print(&mut printer, true);
     }
 }
 
 struct Printer<'a, W: Write> {
     workspace: &'a Workspace,
-    tycx: &'a TyCtx,
+    tcx: &'a TyCtx,
     writer: W,
     identation: u16,
 }
 
 impl<'a, W: Write> Printer<'a, W> {
-    fn new(workspace: &'a Workspace, tycx: &'a TyCtx, writer: W) -> Self {
+    fn new(workspace: &'a Workspace, tcx: &'a TyCtx, writer: W) -> Self {
         Self {
             workspace,
-            tycx,
+            tcx,
             writer,
             identation: 0,
         }
@@ -136,7 +136,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Binding {
         //         .get(self.id)
         //         .unwrap()
         //         .ty
-        //         .display(p.tycx),
+        //         .display(p.tcx),
         // );
         p.write(" = ");
         self.value.print(p, false);
@@ -157,22 +157,22 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
             hir::FunctionKind::Intrinsic(_) => p.write_indented("intrinsic fn ", is_line_start),
         }
 
-        p.write(&self.name);
+        p.write(&self.qualified_name);
 
-        let function_type = self.ty.normalize(p.tycx).into_function();
+        let function_type = self.ty.normalize(p.tcx).into_function();
 
         p.write("(");
         for (index, param) in function_type.params.iter().enumerate() {
             p.write(&param.name);
             p.write(": ");
-            p.write(&param.ty.display(p.tycx));
+            p.write(&param.ty.display(p.tcx));
 
             if index < function_type.params.len() - 1 {
                 p.write(", ");
             }
         }
         p.write(") -> ");
-        p.write(&function_type.return_type.display(p.tycx));
+        p.write(&function_type.return_type.display(p.tcx));
 
         match &self.kind {
             hir::FunctionKind::Orphan { body, .. } => {
@@ -198,7 +198,7 @@ impl<'a, W: Write> Print<'a, W> for ConstValue {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
         match self {
             ConstValue::Unit(_) => p.write_indented("()", is_line_start),
-            ConstValue::Type(t) => p.write_indented(&t.display(p.tycx), is_line_start),
+            ConstValue::Type(t) => p.write_indented(&t.display(p.tcx), is_line_start),
             ConstValue::Bool(v) => p.write_indented(&v.to_string(), is_line_start),
             ConstValue::Int(v) => p.write_indented(&v.to_string(), is_line_start),
             ConstValue::Uint(v) => p.write_indented(&v.to_string(), is_line_start),
@@ -310,7 +310,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Cast {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
         self.value.print(p, is_line_start);
         p.write(" as ");
-        p.write(&self.ty.display(p.tycx));
+        p.write(&self.ty.display(p.tcx));
     }
 }
 

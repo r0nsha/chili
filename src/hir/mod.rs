@@ -56,6 +56,7 @@ pub struct Function {
     pub id: FunctionId,
     pub module_id: ModuleId,
     pub name: Ustr,
+    pub qualified_name: Ustr,
     pub kind: FunctionKind,
     pub ty: TypeId,
     pub span: Span,

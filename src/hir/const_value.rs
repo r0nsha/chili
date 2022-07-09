@@ -417,10 +417,10 @@ impl ConstValue {
     }
 
     #[allow(unused)]
-    pub fn display(&self, tycx: &TyCtx) -> String {
+    pub fn display(&self, tcx: &TyCtx) -> String {
         match self {
             ConstValue::Unit(_) => "()".to_string(),
-            ConstValue::Type(t) => format!("type {}", t.display(tycx)),
+            ConstValue::Type(t) => format!("type {}", t.display(tcx)),
             ConstValue::Bool(v) => format!("{}", v),
             ConstValue::Int(v) => format!("{}", v),
             ConstValue::Uint(v) => format!("{}", v),
@@ -431,7 +431,7 @@ impl ConstValue {
                 array
                     .values
                     .iter()
-                    .map(|v| v.display(tycx))
+                    .map(|v| v.display(tcx))
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
@@ -439,7 +439,7 @@ impl ConstValue {
                 "({})",
                 elements
                     .iter()
-                    .map(|el| el.value.display(tycx))
+                    .map(|el| el.value.display(tcx))
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
@@ -447,7 +447,7 @@ impl ConstValue {
                 "{{ {} }}",
                 fields
                     .iter()
-                    .map(|(name, el)| format!("{}: {}", name, el.value.display(tycx)))
+                    .map(|(name, el)| format!("{}: {}", name, el.value.display(tcx)))
                     .collect::<Vec<String>>()
                     .join(", "),
             ),

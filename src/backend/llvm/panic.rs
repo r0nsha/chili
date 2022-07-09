@@ -32,7 +32,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let panic_type = default_panic_handler_info
             .ty
             .clone()
-            .normalize(self.tycx)
+            .normalize(self.tcx)
             .into_function();
 
         let panic_info_llvm_type = panic_type.params.first().unwrap().ty.llvm_type(self);

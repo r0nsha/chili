@@ -58,7 +58,7 @@ impl<'ctx> Decl<'ctx> {
 
 pub(super) struct Generator<'g, 'ctx> {
     pub(super) workspace: &'g Workspace,
-    pub(super) tycx: &'g TyCtx,
+    pub(super) tcx: &'g TyCtx,
     pub(super) cache: &'g hir::Cache,
 
     pub(super) target_metrics: TargetMetrics,
@@ -328,7 +328,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .into(),
             ConstValue::Str(v) => self.const_str_slice("", *v).into(),
             ConstValue::Array(array) => {
-                let el_ty = array.element_ty.normalize(self.tycx);
+                let el_ty = array.element_ty.normalize(self.tcx);
 
                 let values: Vec<BasicValueEnum> = array
                     .values
@@ -345,7 +345,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         self.gen_const_value(
                             state,
                             &element.value,
-                            &element.ty.normalize(self.tycx),
+                            &element.ty.normalize(self.tcx),
                         )
                     })
                     .collect::<Vec<BasicValueEnum>>();
@@ -359,7 +359,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         self.gen_const_value(
                             state,
                             &element.value,
-                            &element.ty.normalize(self.tycx),
+                            &element.ty.normalize(self.tcx),
                         )
                     })
                     .collect::<Vec<BasicValueEnum>>();

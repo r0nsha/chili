@@ -42,7 +42,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Const {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let ty = self.ty.normalize(generator.tycx);
+        let ty = self.ty.normalize(generator.tcx);
         generator.gen_const_value(Some(state), &self.value, &ty)
     }
 }
@@ -56,7 +56,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
             // the global value will is initialized by the entry point function
             let binding_info = generator.workspace.binding_infos.get(self.id).unwrap();
 
-            let ty = binding_info.ty.normalize(generator.tycx);
+            let ty = binding_info.ty.normalize(generator.tcx);
             let llvm_type = ty.llvm_type(generator);
 
             match self.value.as_const_value() {
@@ -170,7 +170,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Call {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let callee_ty = self.callee.ty().normalize(generator.tycx).into_function();
+        let callee_ty = self.callee.ty().normalize(generator.tcx).into_function();
 
         let mut args = vec![];
 
@@ -198,7 +198,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Call {
             callable_value,
             &callee_ty,
             args,
-            &self.ty.normalize(generator.tycx),
+            &self.ty.normalize(generator.tcx),
         )
     }
 }
@@ -211,8 +211,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
 
-        let from_ty = &self.value.ty().normalize(generator.tycx);
-        let target_ty = &self.ty.normalize(generator.tycx);
+        let from_ty = &self.value.ty().normalize(generator.tcx);
+        let target_ty = &self.ty.normalize(generator.tcx);
 
         if from_ty == target_ty {
             return value;

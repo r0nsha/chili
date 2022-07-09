@@ -14,33 +14,33 @@ where
     Self: Sized,
     T: Sized,
 {
-    fn unify(&self, other: &T, tycx: &mut TyCtx) -> UnifyTyResult;
+    fn unify(&self, other: &T, tcx: &mut TyCtx) -> UnifyTyResult;
 }
 
 impl UnifyTy<TypeId> for TypeId {
-    fn unify(&self, other: &TypeId, tycx: &mut TyCtx) -> UnifyTyResult {
+    fn unify(&self, other: &TypeId, tcx: &mut TyCtx) -> UnifyTyResult {
         let t1 = self.as_kind();
         let t2 = other.as_kind();
-        t1.unify(&t2, tycx)
+        t1.unify(&t2, tcx)
     }
 }
 
 impl UnifyTy<Type> for TypeId {
-    fn unify(&self, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
+    fn unify(&self, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
         let ty = self.as_kind();
-        ty.unify(other, tycx)
+        ty.unify(other, tcx)
     }
 }
 
 impl UnifyTy<TypeId> for Type {
-    fn unify(&self, other: &TypeId, tycx: &mut TyCtx) -> UnifyTyResult {
+    fn unify(&self, other: &TypeId, tcx: &mut TyCtx) -> UnifyTyResult {
         let other = other.as_kind();
-        self.unify(&other, tycx)
+        self.unify(&other, tcx)
     }
 }
 
 impl UnifyTy<Type> for Type {
-    fn unify(&self, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
+    fn unify(&self, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
         match (self, other) {
             (Type::Unit, Type::Unit) => Ok(()),
             (Type::Bool, Type::Bool) => Ok(()),
@@ -55,21 +55,21 @@ impl UnifyTy<Type> for Type {
                 if !can_coerce_mut(*a1, *a2) {
                     Err(UnifyTyErr::Mismatch)
                 } else {
-                    t1.unify(t2.as_ref(), tycx)?;
+                    t1.unify(t2.as_ref(), tcx)?;
                     Ok(())
                 }
             }
 
             (Type::Function(f1), Type::Function(f2)) => {
                 for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
-                    p1.ty.unify(&p2.ty, tycx)?;
+                    p1.ty.unify(&p2.ty, tcx)?;
                 }
 
-                f1.return_type.unify(f2.return_type.as_ref(), tycx)?;
+                f1.return_type.unify(f2.return_type.as_ref(), tcx)?;
 
                 match (&f1.varargs, &f2.varargs) {
                     (Some(v1), Some(v2)) => match (&v1.ty, &v2.ty) {
-                        (Some(vt1), Some(vt2)) => vt1.unify(vt2, tycx)?,
+                        (Some(vt1), Some(vt2)) => vt1.unify(vt2, tcx)?,
                         (None, None) => (),
                         _ => return Err(UnifyTyErr::Mismatch),
                     },
@@ -88,7 +88,7 @@ impl UnifyTy<Type> for Type {
                 if *s1 != *s2 {
                     Err(UnifyTyErr::Mismatch)
                 } else {
-                    t1.unify(t2.as_ref(), tycx)?;
+                    t1.unify(t2.as_ref(), tcx)?;
                     Ok(())
                 }
             }
@@ -98,7 +98,7 @@ impl UnifyTy<Type> for Type {
                     Err(UnifyTyErr::Mismatch)
                 } else {
                     for (t1, t2) in t1.iter().zip(t2.iter()) {
-                        t1.unify(t2, tycx)?;
+                        t1.unify(t2, tcx)?;
                     }
                     Ok(())
                 }
@@ -112,7 +112,7 @@ impl UnifyTy<Type> for Type {
                 } else {
                     for f1 in t1.fields.iter() {
                         if let Some(f2) = t2.find_field(f1.name) {
-                            f1.ty.unify(&f2.ty, tycx)?;
+                            f1.ty.unify(&f2.ty, tcx)?;
                         } else {
                             return Err(UnifyTyErr::Mismatch);
                         }
@@ -121,11 +121,11 @@ impl UnifyTy<Type> for Type {
                 }
             }
 
-            (Type::Type(t1), Type::Type(t2)) => t1.unify(t2.as_ref(), tycx),
+            (Type::Type(t1), Type::Type(t2)) => t1.unify(t2.as_ref(), tcx),
             (Type::AnyType, Type::Type(_)) | (Type::Type(_), Type::AnyType) => Ok(()),
 
-            (Type::Var(var) | Type::Infer(var, _), _) => unify_var_ty(*var, other, tycx),
-            (_, Type::Var(var) | Type::Infer(var, _)) => unify_var_ty(*var, self, tycx),
+            (Type::Var(var) | Type::Infer(var, _), _) => unify_var_ty(*var, other, tcx),
+            (_, Type::Var(var) | Type::Infer(var, _)) => unify_var_ty(*var, self, tcx),
 
             (Type::Never, _) | (_, Type::Never) => Ok(()),
 
@@ -134,19 +134,19 @@ impl UnifyTy<Type> for Type {
     }
 }
 
-fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
-    match tycx.value_of(var).clone() {
-        InferenceValue::Bound(kind) => kind.unify(other, tycx),
+fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
+    match tcx.value_of(var).clone() {
+        InferenceValue::Bound(kind) => kind.unify(other, tcx),
         InferenceValue::AnyInt => {
-            let other_kind = other.normalize(tycx);
+            let other_kind = other.normalize(tcx);
             match other_kind {
                 Type::Int(_) | Type::Uint(_) | Type::Float(_) => {
-                    tycx.bind_ty(var, other_kind);
+                    tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
                 Type::Infer(other, InferTy::AnyInt | InferTy::AnyFloat) | Type::Var(other) => {
                     if other != var {
-                        tycx.bind_ty(other, var.into());
+                        tcx.bind_ty(other, var.into());
                     }
                     Ok(())
                 }
@@ -154,15 +154,15 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::AnyFloat => {
-            let other_kind = other.normalize(tycx);
+            let other_kind = other.normalize(tcx);
             match other_kind {
                 Type::Float(_) => {
-                    tycx.bind_ty(var, other_kind);
+                    tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
                 Type::Infer(other, InferTy::AnyInt | InferTy::AnyFloat) | Type::Var(other) => {
                     if other != var {
-                        tycx.bind_ty(other, var.into());
+                        tcx.bind_ty(other, var.into());
                     }
                     Ok(())
                 }
@@ -170,44 +170,44 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::PartialStruct(mut partial_struct) => {
-            let other_kind = other.normalize(tycx);
+            let other_kind = other.normalize(tcx);
             match other_kind.maybe_deref_once() {
                 Type::Array(..) if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN)) => {
-                    tycx.bind_ty(var, other_kind);
+                    tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
                 Type::Slice(..)
                     if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN))
                         || partial_struct.contains_key(&ustr(BUILTIN_FIELD_DATA)) =>
                 {
-                    tycx.bind_ty(var, other_kind);
+                    tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
                 Type::Struct(ref other_struct) => {
                     for (symbol, ty) in partial_struct.iter() {
                         // if both the partial struct and the struct have this field, unify their types
                         if let Some(other_ty) = other_struct.find_field(*symbol) {
-                            ty.unify(&other_ty.ty, tycx)?;
+                            ty.unify(&other_ty.ty, tcx)?;
                         } else {
                             // any field that exists in the partial struct, but doesn't exist in struct, is an error
                             return Err(UnifyTyErr::Mismatch);
                         }
                     }
 
-                    tycx.bind_ty(var, other_kind);
+                    tcx.bind_ty(var, other_kind);
 
                     Ok(())
                 }
                 Type::Module(module_id) => {
                     // TODO: check that the symbols in this PartialStruct actually exist in this module
-                    tycx.bind_ty(var, Type::Module(module_id));
+                    tcx.bind_ty(var, Type::Module(module_id));
                     Ok(())
                 }
                 Type::Infer(other, InferTy::PartialStruct(ref other_partial)) => {
                     for (symbol, ty) in partial_struct.iter() {
                         // if both partial structs have this field, unify their types
                         if let Some(other_ty) = other_partial.get(symbol) {
-                            ty.unify(other_ty, tycx)?;
+                            ty.unify(other_ty, tcx)?;
                         }
                     }
 
@@ -221,14 +221,14 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
                     // bind both vars to the new partial struct
                     let value = InferenceValue::PartialStruct(partial_struct);
 
-                    tycx.bind_value(var, value.clone());
-                    tycx.bind_value(other, value);
+                    tcx.bind_value(var, value.clone());
+                    tcx.bind_value(other, value);
 
                     Ok(())
                 }
                 Type::Var(other) => {
                     if other != var {
-                        tycx.bind_ty(other, var.into());
+                        tcx.bind_ty(other, var.into());
                     }
 
                     Ok(())
@@ -237,7 +237,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::PartialTuple(partial_tuple) => {
-            let other_kind = other.normalize(tycx);
+            let other_kind = other.normalize(tcx);
             match other_kind {
                 Type::Tuple(ref other_tuple)
                 | Type::Infer(_, InferTy::PartialTuple(ref other_tuple)) => {
@@ -249,11 +249,11 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
 
                     for (index, ty) in partial_tuple.iter().enumerate() {
                         if let Some(other) = other_tuple.get(index) {
-                            any_err |= ty.unify(other, tycx).is_err();
+                            any_err |= ty.unify(other, tcx).is_err();
                         }
                     }
 
-                    tycx.bind_ty(var, other_kind);
+                    tcx.bind_ty(var, other_kind);
 
                     if any_err {
                         Err(UnifyTyErr::Mismatch)
@@ -263,7 +263,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
                 }
                 Type::Var(other) => {
                     if other != var {
-                        tycx.bind_ty(other, var.into());
+                        tcx.bind_ty(other, var.into());
                     }
 
                     Ok(())
@@ -272,44 +272,44 @@ fn unify_var_ty(var: TypeId, other: &Type, tycx: &mut TyCtx) -> UnifyTyResult {
             }
         }
         InferenceValue::Unbound => {
-            let other_kind = other.normalize(tycx);
+            let other_kind = other.normalize(tcx);
 
-            if occurs(var, &other_kind, tycx) {
+            if occurs(var, &other_kind, tcx) {
                 Err(UnifyTyErr::Occurs)
             } else {
-                tycx.bind_ty(var, other.clone());
+                tcx.bind_ty(var, other.clone());
                 Ok(())
             }
         }
     }
 }
 
-pub fn occurs(var: TypeId, kind: &Type, tycx: &TyCtx) -> bool {
+pub fn occurs(var: TypeId, kind: &Type, tcx: &TyCtx) -> bool {
     match kind {
         &Type::Var(other) => {
             use InferenceValue::*;
-            match tycx.value_of(other) {
-                Bound(ty) => occurs(var, ty, tycx) || var == other,
+            match tcx.value_of(other) {
+                Bound(ty) => occurs(var, ty, tcx) || var == other,
                 PartialStruct(partial) => {
-                    partial.values().any(|ty| occurs(var, ty, tycx)) || var == other
+                    partial.values().any(|ty| occurs(var, ty, tcx)) || var == other
                 }
                 PartialTuple(partial) => {
-                    partial.iter().any(|ty| occurs(var, ty, tycx)) || var == other
+                    partial.iter().any(|ty| occurs(var, ty, tcx)) || var == other
                 }
                 AnyInt | AnyFloat | Unbound => var == other,
             }
         }
         Type::Function(f) => {
-            f.params.iter().any(|p| occurs(var, &p.ty, tycx)) || occurs(var, &f.return_type, tycx)
+            f.params.iter().any(|p| occurs(var, &p.ty, tcx)) || occurs(var, &f.return_type, tcx)
         }
-        Type::Array(ty, _) => occurs(var, ty, tycx),
-        Type::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tycx)),
-        Type::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tycx)),
+        Type::Array(ty, _) => occurs(var, ty, tcx),
+        Type::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tcx)),
+        Type::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tcx)),
         Type::Infer(other, InferTy::PartialStruct(partial)) => {
-            partial.values().any(|ty| occurs(var, ty, tycx)) || var == *other
+            partial.values().any(|ty| occurs(var, ty, tcx)) || var == *other
         }
         Type::Infer(other, InferTy::PartialTuple(partial)) => {
-            partial.iter().any(|ty| occurs(var, ty, tycx)) || var == *other
+            partial.iter().any(|ty| occurs(var, ty, tcx)) || var == *other
         }
         _ => false,
     }
@@ -326,14 +326,14 @@ pub enum UnifyTyErr {
 impl UnifyTyErr {
     pub fn into_diagnostic(
         self,
-        tycx: &TyCtx,
+        tcx: &TyCtx,
         expected: impl DisplayTy,
         expected_span: Option<Span>,
         found: impl DisplayTy,
         found_span: Span,
     ) -> Diagnostic {
-        let expected = expected.display(tycx);
-        let found = found.display(tycx);
+        let expected = expected.display(tcx);
+        let found = found.display(tcx);
 
         match self {
             UnifyTyErr::Mismatch => Diagnostic::error()

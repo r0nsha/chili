@@ -9,14 +9,14 @@ use crate::{
     workspace::Workspace,
 };
 
-pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, cache: &hir::Cache) {
-    let mut sess = LintSess { workspace, tycx };
+pub fn lint(workspace: &mut Workspace, tcx: &TyCtx, cache: &hir::Cache) {
+    let mut sess = LintSess { workspace, tcx };
     cache.lint(&mut sess);
 
     // Check that an entry point function exists
     if workspace.build_options.need_entry_point_function() {
         if let Some(binding_info) = workspace.entry_point_function() {
-            let ty = binding_info.ty.normalize(tycx).into_function();
+            let ty = binding_info.ty.normalize(tcx).into_function();
 
             // if this is the main function, check its type matches a fn() -> [unit | never]
             if !(ty.return_type.is_unit() || ty.return_type.is_never())
@@ -51,7 +51,7 @@ pub fn lint(workspace: &mut Workspace, tycx: &TyCtx, cache: &hir::Cache) {
 
 pub struct LintSess<'s> {
     pub workspace: &'s mut Workspace,
-    pub tycx: &'s TyCtx,
+    pub tcx: &'s TyCtx,
 }
 
 trait Lint {

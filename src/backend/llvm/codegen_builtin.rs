@@ -107,7 +107,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
             hir::Builtin::Not(unary) => {
                 let value = unary.value.codegen(generator, state).into_int_value();
 
-                match unary.ty.normalize(generator.tycx) {
+                match unary.ty.normalize(generator.tcx) {
                     Type::Int(_) | Type::Uint(_) => {
                         generator.builder.build_not(value, "not").into()
                     }
@@ -122,7 +122,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                     _ => unreachable!(),
                 }
             }
-            hir::Builtin::Neg(unary) => match unary.ty.normalize(generator.tycx) {
+            hir::Builtin::Neg(unary) => match unary.ty.normalize(generator.tcx) {
                 Type::Int(_) => {
                     let value = unary.value.codegen(generator, state).into_int_value();
                     generator.builder.build_int_neg(value, "ineg").into()
@@ -150,7 +150,7 @@ fn gen_binary<'g, 'ctx>(
     generator: &mut Generator<'g, 'ctx>,
     state: &mut FunctionState<'ctx>,
 ) -> (BasicValueEnum<'ctx>, BasicValueEnum<'ctx>, Type) {
-    let ty = binary.lhs.ty().normalize(generator.tycx);
+    let ty = binary.lhs.ty().normalize(generator.tcx);
 
     let lhs = binary.lhs.codegen(generator, state);
     let rhs = binary.rhs.codegen(generator, state);
@@ -216,7 +216,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
-        let value_type = self.value.ty().normalize(generator.tycx);
+        let value_type = self.value.ty().normalize(generator.tcx);
 
         let sliced_value = match value_type {
             Type::Slice(..) => generator.gep_slice_data(value).as_basic_value_enum(),
@@ -547,7 +547,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
         let value = self.value.codegen(generator, state);
         let index = self.index.codegen(generator, state).into_int_value();
 
-        let ty = self.value.ty().normalize(generator.tycx);
+        let ty = self.value.ty().normalize(generator.tcx);
 
         let len = match ty.maybe_deref_once() {
             Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),

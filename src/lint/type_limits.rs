@@ -11,12 +11,12 @@ use std::fmt::Display;
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, const_: &hir::Const) {
         match &const_.value {
-            ConstValue::Int(value) => match &const_.ty.normalize(self.tycx) {
+            ConstValue::Int(value) => match &const_.ty.normalize(self.tcx) {
                 Type::Int(int_ty) => self.check_int_limits(int_ty, *value, const_),
                 Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value, const_),
                 _ => (),
             },
-            ConstValue::Uint(value) => match &const_.ty.normalize(self.tycx) {
+            ConstValue::Uint(value) => match &const_.ty.normalize(self.tcx) {
                 Type::Int(int_ty) => self.check_int_limits(int_ty, *value as _, const_),
                 Type::Uint(uint_ty) => self.check_uint_limits(uint_ty, *value as _, const_),
                 _ => (),

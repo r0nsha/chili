@@ -7,19 +7,19 @@ use crate::error::DiagnosticResult;
 use crate::span::Span;
 
 pub trait DisplayTy {
-    fn display(&self, tycx: &TyCtx) -> String;
+    fn display(&self, tcx: &TyCtx) -> String;
 }
 
 impl<T: Normalize> DisplayTy for T {
-    fn display(&self, tycx: &TyCtx) -> String {
-        self.normalize(tycx).to_string()
+    fn display(&self, tcx: &TyCtx) -> String {
+        self.normalize(tcx).to_string()
     }
 }
 
 pub trait OrReportErr {
     fn or_report_err(
         self,
-        tycx: &TyCtx,
+        tcx: &TyCtx,
         expected: impl DisplayTy,
         expected_span: Option<Span>,
         found: impl DisplayTy,
@@ -30,14 +30,14 @@ pub trait OrReportErr {
 impl OrReportErr for UnifyTyResult {
     fn or_report_err(
         self,
-        tycx: &TyCtx,
+        tcx: &TyCtx,
         expected: impl DisplayTy,
         expected_span: Option<Span>,
         found: impl DisplayTy,
         found_span: Span,
     ) -> DiagnosticResult<()> {
         self.map_err(|e| {
-            UnifyTyErr::into_diagnostic(e, tycx, expected, expected_span, found, found_span)
+            UnifyTyErr::into_diagnostic(e, tcx, expected, expected_span, found, found_span)
         })
     }
 }

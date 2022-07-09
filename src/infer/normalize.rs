@@ -4,50 +4,50 @@ use indexmap::IndexMap;
 use ustr::ustr;
 
 pub trait Normalize {
-    fn normalize(&self, tycx: &TyCtx) -> Type;
+    fn normalize(&self, tcx: &TyCtx) -> Type;
 }
 
 impl Normalize for TypeId {
-    fn normalize(&self, tycx: &TyCtx) -> Type {
+    fn normalize(&self, tcx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: false,
         }
-        .normalize_ty(tycx, *self)
+        .normalize_ty(tcx, *self)
     }
 }
 
 impl Normalize for Type {
-    fn normalize(&self, tycx: &TyCtx) -> Type {
+    fn normalize(&self, tcx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: false,
         }
-        .normalize_kind(tycx, self)
+        .normalize_kind(tcx, self)
     }
 }
 
 pub trait Concrete {
-    fn concrete(&self, tycx: &TyCtx) -> Type;
+    fn concrete(&self, tcx: &TyCtx) -> Type;
 }
 
 impl Concrete for TypeId {
-    fn concrete(&self, tycx: &TyCtx) -> Type {
+    fn concrete(&self, tcx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: true,
         }
-        .normalize_ty(tycx, *self)
+        .normalize_ty(tcx, *self)
     }
 }
 
 impl Concrete for Type {
-    fn concrete(&self, tycx: &TyCtx) -> Type {
+    fn concrete(&self, tcx: &TyCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: true,
         }
-        .normalize_kind(tycx, self)
+        .normalize_kind(tcx, self)
     }
 }
 
@@ -57,15 +57,15 @@ struct NormalizeCtx {
 }
 
 impl NormalizeCtx {
-    fn normalize_ty(&mut self, tycx: &TyCtx, ty: TypeId) -> Type {
-        match tycx.value_of(ty) {
-            InferenceValue::Bound(kind) => self.normalize_kind(tycx, kind),
+    fn normalize_ty(&mut self, tcx: &TyCtx, ty: TypeId) -> Type {
+        match tcx.value_of(ty) {
+            InferenceValue::Bound(kind) => self.normalize_kind(tcx, kind),
             InferenceValue::AnyInt => self.normalize_anyint(ty),
             InferenceValue::AnyFloat => self.normalize_anyfloat(ty),
             InferenceValue::PartialTuple(elements) => {
                 let elements = elements
                     .iter()
-                    .map(|el| self.normalize_kind(tycx, el))
+                    .map(|el| self.normalize_kind(tcx, el))
                     .collect::<Vec<Type>>();
 
                 if self.concrete {
@@ -83,7 +83,7 @@ impl NormalizeCtx {
                             .iter()
                             .map(|(name, ty)| StructTypeField {
                                 name: *name,
-                                ty: self.normalize_kind(tycx, ty),
+                                ty: self.normalize_kind(tcx, ty),
                                 span: Span::unknown(),
                             })
                             .collect(),
@@ -94,7 +94,7 @@ impl NormalizeCtx {
                         ty,
                         InferTy::PartialStruct(PartialStructType(
                             st.iter()
-                                .map(|(name, ty)| (*name, self.normalize_kind(tycx, ty)))
+                                .map(|(name, ty)| (*name, self.normalize_kind(tcx, ty)))
                                 .collect(),
                         )),
                     )
@@ -104,37 +104,37 @@ impl NormalizeCtx {
         }
     }
 
-    fn normalize_kind(&mut self, tycx: &TyCtx, kind: &Type) -> Type {
+    fn normalize_kind(&mut self, tcx: &TyCtx, kind: &Type) -> Type {
         match kind {
-            Type::Var(ty) => self.normalize_ty(tycx, *ty),
+            Type::Var(ty) => self.normalize_ty(tcx, *ty),
             Type::Function(f) => Type::Function(FunctionType {
                 params: f
                     .params
                     .iter()
                     .map(|p| FunctionTypeParam {
                         name: p.name,
-                        ty: self.normalize_kind(tycx, &p.ty),
+                        ty: self.normalize_kind(tcx, &p.ty),
                     })
                     .collect(),
-                return_type: Box::new(self.normalize_kind(tycx, &f.return_type)),
+                return_type: Box::new(self.normalize_kind(tcx, &f.return_type)),
                 varargs: f.varargs.as_ref().map(|v| {
                     Box::new(FunctionTypeVarargs {
-                        ty: v.ty.as_ref().map(|ty| self.normalize_kind(tycx, ty)),
+                        ty: v.ty.as_ref().map(|ty| self.normalize_kind(tcx, ty)),
                     })
                 }),
                 kind: f.kind.clone(),
             }),
             Type::Pointer(inner, a) => {
-                Type::Pointer(Box::new(self.normalize_kind(tycx, inner)), *a)
+                Type::Pointer(Box::new(self.normalize_kind(tcx, inner)), *a)
             }
             Type::MultiPointer(inner, a) => {
-                Type::MultiPointer(Box::new(self.normalize_kind(tycx, inner)), *a)
+                Type::MultiPointer(Box::new(self.normalize_kind(tcx, inner)), *a)
             }
-            Type::Array(inner, a) => Type::Array(Box::new(self.normalize_kind(tycx, inner)), *a),
-            Type::Slice(inner, a) => Type::Slice(Box::new(self.normalize_kind(tycx, inner)), *a),
+            Type::Array(inner, a) => Type::Array(Box::new(self.normalize_kind(tcx, inner)), *a),
+            Type::Slice(inner, a) => Type::Slice(Box::new(self.normalize_kind(tcx, inner)), *a),
             Type::Tuple(tys) => Type::Tuple(
                 tys.iter()
-                    .map(|kind| self.normalize_kind(tycx, kind))
+                    .map(|kind| self.normalize_kind(tcx, kind))
                     .collect(),
             ),
             Type::Struct(st) => {
@@ -152,7 +152,7 @@ impl NormalizeCtx {
                             .iter()
                             .map(|f| StructTypeField {
                                 name: f.name,
-                                ty: self.normalize_kind(tycx, &f.ty),
+                                ty: self.normalize_kind(tcx, &f.ty),
                                 span: f.span,
                             })
                             .collect(),
@@ -164,13 +164,13 @@ impl NormalizeCtx {
                     st
                 }
             }
-            Type::Type(inner) => self.normalize_kind(tycx, inner).create_type(),
+            Type::Type(inner) => self.normalize_kind(tcx, inner).create_type(),
             Type::Infer(ty, InferTy::AnyInt) => self.normalize_anyint(*ty),
             Type::Infer(ty, InferTy::AnyFloat) => self.normalize_anyfloat(*ty),
             Type::Infer(ty, InferTy::PartialTuple(elements)) => {
                 let elements = elements
                     .iter()
-                    .map(|el| self.normalize_kind(tycx, el))
+                    .map(|el| self.normalize_kind(tcx, el))
                     .collect::<Vec<Type>>();
 
                 if self.concrete {
@@ -181,7 +181,7 @@ impl NormalizeCtx {
                         InferTy::PartialTuple(
                             elements
                                 .iter()
-                                .map(|ty| self.normalize_kind(tycx, ty))
+                                .map(|ty| self.normalize_kind(tcx, ty))
                                 .collect(),
                         ),
                     )
@@ -196,7 +196,7 @@ impl NormalizeCtx {
                             .iter()
                             .map(|(name, ty)| StructTypeField {
                                 name: *name,
-                                ty: self.normalize_kind(tycx, ty),
+                                ty: self.normalize_kind(tcx, ty),
                                 span: Span::unknown(),
                             })
                             .collect(),
@@ -207,7 +207,7 @@ impl NormalizeCtx {
                         *ty,
                         InferTy::PartialStruct(PartialStructType(IndexMap::from_iter(
                             st.iter()
-                                .map(|(symbol, ty)| (*symbol, self.normalize_kind(tycx, ty))),
+                                .map(|(symbol, ty)| (*symbol, self.normalize_kind(tcx, ty))),
                         ))),
                     )
                 }

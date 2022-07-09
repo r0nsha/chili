@@ -14,9 +14,9 @@ pub fn binary(
     rhs: &ConstValue,
     op: ast::BinaryOp,
     span: Span,
-    tycx: &TyCtx,
+    tcx: &TyCtx,
 ) -> DiagnosticResult<ConstValue> {
-    let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span, tycx);
+    let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span, tcx);
 
     match op {
         ast::BinaryOp::Add => lhs.add(rhs).ok_or_else(|| int_overflow("adding")),
@@ -53,14 +53,14 @@ fn int_overflow(
     lhs: &ConstValue,
     rhs: &ConstValue,
     span: Span,
-    tycx: &TyCtx,
+    tcx: &TyCtx,
 ) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!(
             "integer overflowed while {} {} and {} at compile-time",
             action,
-            lhs.display(tycx),
-            rhs.display(tycx)
+            lhs.display(tcx),
+            rhs.display(tcx)
         ))
         .with_label(Label::primary(span, "integer overflow"))
 }

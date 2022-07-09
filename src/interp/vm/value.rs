@@ -499,7 +499,7 @@ impl Value {
 
     pub fn try_into_const_value(
         self,
-        tycx: &mut TyCtx,
+        tcx: &mut TyCtx,
         ty: &Type,
         eval_span: Span,
     ) -> Result<ConstValue, &'static str> {
@@ -517,7 +517,7 @@ impl Value {
             Self::F32(v) => Ok(ConstValue::Float(v as _)),
             Self::F64(v) => Ok(ConstValue::Float(v)),
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
-            Self::Type(t) => Ok(ConstValue::Type(tycx.bound(t, eval_span))),
+            Self::Type(t) => Ok(ConstValue::Type(tcx.bound(t, eval_span))),
             Self::Aggregate(agg) => match ty {
                 Type::Unit => Ok(ConstValue::Unit(())),
                 Type::Slice(inner, _) => {
@@ -535,10 +535,10 @@ impl Value {
                     let mut values = Vec::with_capacity(agg.elements.len());
 
                     for (value, ty) in agg.elements.iter().zip(elements) {
-                        let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;
+                        let value = value.clone().try_into_const_value(tcx, ty, eval_span)?;
                         values.push(ConstElement {
                             value,
-                            ty: tycx.bound(ty.clone(), eval_span),
+                            ty: tcx.bound(ty.clone(), eval_span),
                         });
                     }
 
@@ -550,12 +550,12 @@ impl Value {
                     for (value, field) in agg.elements.iter().zip(struct_ty.fields.iter()) {
                         let value = value
                             .clone()
-                            .try_into_const_value(tycx, &field.ty, eval_span)?;
+                            .try_into_const_value(tcx, &field.ty, eval_span)?;
                         fields.insert(
                             field.name,
                             ConstElement {
                                 value,
-                                ty: tycx.bound(field.ty.clone(), field.span),
+                                ty: tcx.bound(field.ty.clone(), field.span),
                             },
                         );
                     }
@@ -566,10 +566,10 @@ impl Value {
                     let mut values = Vec::with_capacity(agg.elements.len());
 
                     for (value, ty) in agg.elements.iter().zip(elements) {
-                        let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;
+                        let value = value.clone().try_into_const_value(tcx, ty, eval_span)?;
                         values.push(ConstElement {
                             value,
-                            ty: tycx.bound(ty.clone(), eval_span),
+                            ty: tcx.bound(ty.clone(), eval_span),
                         });
                     }
 
@@ -579,12 +579,12 @@ impl Value {
                     let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
                     for (value, (name, ty)) in agg.elements.iter().zip(struct_ty.iter()) {
-                        let value = value.clone().try_into_const_value(tycx, ty, eval_span)?;
+                        let value = value.clone().try_into_const_value(tcx, ty, eval_span)?;
                         fields.insert(
                             *name,
                             ConstElement {
                                 value,
-                                ty: tycx.bound(ty.clone(), eval_span),
+                                ty: tcx.bound(ty.clone(), eval_span),
                             },
                         );
                     }
@@ -608,13 +608,13 @@ impl Value {
 
                 for i in 0..array_len {
                     let value = array.bytes.offset(i * el_size).get_value(&el_ty);
-                    let const_value = value.try_into_const_value(tycx, &el_ty, eval_span)?;
+                    let const_value = value.try_into_const_value(tcx, &el_ty, eval_span)?;
                     values.push(const_value);
                 }
 
                 Ok(ConstValue::Array(ConstArray {
                     values,
-                    element_ty: tycx.bound(*el_ty, eval_span),
+                    element_ty: tcx.bound(*el_ty, eval_span),
                 }))
             }
             Self::Function(f) => Ok(ConstValue::Function(ConstFunction {
@@ -624,7 +624,7 @@ impl Value {
             Self::ExternVariable(v) => Ok(ConstValue::ExternVariable(ConstExternVariable {
                 name: v.name,
                 lib: Some(v.lib.clone()),
-                ty: tycx.bound(v.ty, eval_span),
+                ty: tcx.bound(v.ty, eval_span),
             })),
             Self::Pointer(_) => Err("pointer"),
             Self::Intrinsic(_) => Err("intrinsic function"),

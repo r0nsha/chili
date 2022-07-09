@@ -18,7 +18,7 @@ pub(super) trait IntoLlvmType<'g, 'ctx> {
 
 impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for TypeId {
     fn llvm_type(&self, generator: &mut Generator<'g, 'ctx>) -> BasicTypeEnum<'ctx> {
-        let kind = self.normalize(generator.tycx);
+        let kind = self.normalize(generator.tcx);
         kind.llvm_type(generator)
     }
 }

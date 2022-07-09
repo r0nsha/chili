@@ -12,7 +12,11 @@ use super::{
 };
 use crate::{
     ast::Intrinsic,
-    hir::{self, const_value::ConstValue},
+    error::diagnostic::{Diagnostic, Label},
+    hir::{
+        self,
+        const_value::{ConstExternVariable, ConstValue},
+    },
     infer::normalize::Normalize,
     interp::vm::value::FunctionAddress,
     types::{size::SizeOf, FloatType, InferTy, IntType, Type, TypeId, UintType},
@@ -60,7 +64,7 @@ impl Lower for hir::Function {
             return;
         }
 
-        let function_type = self.ty.normalize(sess.tycx).into_function();
+        let function_type = self.ty.normalize(sess.tcx).into_function();
 
         match &self.kind {
             hir::FunctionKind::Orphan { params, body, .. } => {
@@ -89,18 +93,37 @@ impl Lower for hir::Function {
                     self.id,
                     Function {
                         id: self.id,
-                        name: self.name,
+                        name: self.qualified_name,
                         ty: function_type,
                         code: function_code,
                     },
                 );
             }
             hir::FunctionKind::Extern { lib } => {
+                let lib_path = lib.as_ref().map_or_else(
+                    || {
+                        sess.diagnostics.push(
+                            Diagnostic::error()
+                                .with_message(format!(
+                            "must specify `dylib` to use extern function `{}` at compile-time",
+                            self.name
+                        ))
+                                .with_label(Label::primary(
+                                    self.span,
+                                    "cannot run during compile-time",
+                                )),
+                        );
+
+                        ustr("")
+                    },
+                    |lib| ustr(&lib.path()),
+                );
+
                 sess.interp.extern_functions.insert(
                     self.id,
                     ExternFunction {
-                        lib_path: ustr(&lib.as_ref().unwrap().path()),
-                        name: self.name,
+                        lib_path,
+                        name: self.qualified_name,
                         param_tys: function_type.params.iter().map(|p| p.ty.clone()).collect(),
                         return_ty: *function_type.return_type,
                         variadic: function_type.varargs.is_some(),
@@ -116,19 +139,32 @@ impl Lower for hir::Function {
 
 impl Lower for hir::Binding {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        self.value
-            .lower(sess, code, LowerContext { take_ptr: false });
+        if let Some(ConstValue::ExternVariable(ConstExternVariable { lib: None, .. })) =
+            self.value.as_const_value()
+        {
+            sess.diagnostics.push(
+                Diagnostic::error()
+                    .with_message(format!(
+                        "must specify `dylib` to use extern variable `{}` at compile-time",
+                        self.name
+                    ))
+                    .with_label(Label::primary(self.span, "cannot use during compile-time")),
+            )
+        } else {
+            self.value
+                .lower(sess, code, LowerContext { take_ptr: false });
 
-        sess.add_local(code, self.id);
-        code.push(Instruction::SetLocal(code.last_local()));
+            sess.add_local(code, self.id);
+            code.push(Instruction::SetLocal(code.last_local()));
 
-        sess.push_const_unit(code);
+            sess.push_const_unit(code);
+        }
     }
 }
 
 impl Lower for hir::Id {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
-        match self.ty.normalize(sess.tycx) {
+        match self.ty.normalize(sess.tcx) {
             Type::Module(_) => {
                 // Note (Ron): We do nothing with modules, since they are not an actual value
             }
@@ -195,7 +231,7 @@ impl Lower for hir::Cast {
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        match self.ty.normalize(sess.tycx) {
+        match self.ty.normalize(sess.tcx) {
             Type::Never | Type::Unit | Type::Bool => (),
             Type::Int(ty) => {
                 code.push(match ty {
@@ -231,7 +267,7 @@ impl Lower for hir::Cast {
                 code.push(Instruction::Cast(cast_inst));
             }
             Type::Slice(_, _) => {
-                let value_ty = self.value.ty().normalize(sess.tycx);
+                let value_ty = self.value.ty().normalize(sess.tcx);
                 let inner_ty_size = value_ty.inner().size_of(WORD_SIZE);
 
                 code.push(Instruction::AggregateAlloc);
@@ -593,7 +629,7 @@ impl Lower for hir::Builtin {
                     .value
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                let value_type = offset.value.ty().normalize(sess.tycx);
+                let value_type = offset.value.ty().normalize(sess.tcx);
                 let value_inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
                 match value_type {
@@ -618,7 +654,7 @@ impl Lower for hir::Builtin {
                 });
             }
             hir::Builtin::Slice(slice) => {
-                let value_type = slice.value.ty().normalize(sess.tycx);
+                let value_type = slice.value.ty().normalize(sess.tcx);
                 let inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
                 match value_type {
@@ -733,7 +769,7 @@ impl Lower for hir::StructLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         code.push(Instruction::AggregateAlloc);
 
-        let ty = self.ty.normalize(sess.tycx);
+        let ty = self.ty.normalize(sess.tcx);
         let ty = ty.as_struct();
 
         let mut ordered_fields = self.fields.clone();
@@ -767,7 +803,7 @@ impl Lower for hir::TupleLiteral {
 
 impl Lower for hir::ArrayLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let ty = self.ty.normalize(sess.tycx);
+        let ty = self.ty.normalize(sess.tcx);
         let inner_ty_size = ty.inner().size_of(WORD_SIZE);
 
         sess.push_const(code, Value::Type(ty));
@@ -784,7 +820,7 @@ impl Lower for hir::ArrayLiteral {
 
 impl Lower for hir::ArrayFillLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let ty = self.ty.normalize(sess.tycx);
+        let ty = self.ty.normalize(sess.tcx);
         let inner_ty_size = ty.inner().size_of(WORD_SIZE);
 
         let size = if let Type::Array(_, size) = ty {
@@ -805,11 +841,11 @@ impl Lower for hir::ArrayFillLiteral {
 }
 
 fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpSess) -> Value {
-    let ty = ty.normalize(sess.tycx);
+    let ty = ty.normalize(sess.tcx);
 
     match const_value {
         ConstValue::Unit(_) => Value::unit(),
-        ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tycx)),
+        ConstValue::Type(ty) => Value::Type(ty.normalize(sess.tcx)),
         ConstValue::Bool(v) => Value::Bool(*v),
         ConstValue::Int(v) => match ty {
             Type::Int(int_ty) => match int_ty {
@@ -923,7 +959,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             let array_len = array.values.len();
 
             let el_ty = array.element_ty;
-            let el_ty_kind = el_ty.normalize(sess.tycx);
+            let el_ty_kind = el_ty.normalize(sess.tcx);
             let el_size = el_ty_kind.size_of(WORD_SIZE);
 
             let mut bytes = ByteSeq::new(array_len * el_size);
@@ -963,7 +999,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         ConstValue::ExternVariable(variable) => Value::ExternVariable(ExternVariable {
             name: variable.name,
             lib: variable.lib.clone().unwrap(),
-            ty: variable.ty.normalize(sess.tycx),
+            ty: variable.ty.normalize(sess.tcx),
         }),
     }
 }

@@ -10,6 +10,7 @@ use super::{
 };
 use crate::{
     common::{build_options::BuildOptions, scopes::Scopes},
+    error::diagnostic::Diagnostic,
     hir,
     infer::ty_ctx::TyCtx,
     types::{FunctionType, FunctionTypeKind, Type},
@@ -18,10 +19,7 @@ use crate::{
 use std::collections::{HashMap, HashSet};
 use ustr::{ustr, Ustr};
 
-pub type InterpResult = Result<Value, InterpErr>;
-
-#[derive(Debug)]
-pub enum InterpErr {}
+pub type InterpResult = Result<Value, Vec<Diagnostic>>;
 
 pub struct Interp {
     pub globals: Globals,
@@ -52,14 +50,15 @@ impl Interp {
     pub fn create_session<'i>(
         &'i mut self,
         workspace: &'i Workspace,
-        tycx: &'i TyCtx,
+        tcx: &'i TyCtx,
         cache: &'i hir::Cache,
     ) -> InterpSess<'i> {
         InterpSess {
             interp: self,
             workspace,
-            tycx,
+            tcx,
             cache,
+            diagnostics: vec![],
             env_stack: vec![],
             // labels: vec![],
             evaluated_globals: vec![],
@@ -78,8 +77,10 @@ impl Interp {
 pub struct InterpSess<'i> {
     pub interp: &'i mut Interp,
     pub workspace: &'i Workspace,
-    pub tycx: &'i TyCtx,
+    pub tcx: &'i TyCtx,
     pub cache: &'i hir::Cache,
+
+    pub diagnostics: Vec<Diagnostic>,
     pub env_stack: Vec<(ModuleId, Env)>,
 
     // pub labels: Vec<Label>,
@@ -106,33 +107,38 @@ impl<'i> InterpSess<'i> {
 
         // lower expression tree into instructions
         node.lower(self, &mut start_code, LowerContext { take_ptr: false });
-        start_code.push(Instruction::Halt);
 
-        let start_code = self.insert_init_instructions(start_code);
+        if self.diagnostics.is_empty() {
+            start_code.push(Instruction::Halt);
 
-        self.env_stack.pop();
+            let start_code = self.insert_init_instructions(start_code);
 
-        if self.workspace.build_options.emit_bytecode {
-            dump_bytecode_to_file(&self.interp, &start_code);
+            self.env_stack.pop();
+
+            if self.workspace.build_options.emit_bytecode {
+                dump_bytecode_to_file(&self.interp, &start_code);
+            }
+
+            let mut vm = self.create_vm();
+
+            let start_func = Function {
+                id: hir::FunctionId::unknown(),
+                name: ustr("__vm_start"),
+                ty: FunctionType {
+                    params: vec![],
+                    return_type: Box::new(Type::Unit),
+                    varargs: None,
+                    kind: FunctionTypeKind::Orphan,
+                },
+                code: start_code,
+            };
+
+            let result = vm.run_func(start_func);
+
+            Ok(result)
+        } else {
+            Err(self.diagnostics.clone())
         }
-
-        let mut vm = self.create_vm();
-
-        let start_func = Function {
-            id: hir::FunctionId::unknown(),
-            name: ustr("__vm_start"),
-            ty: FunctionType {
-                params: vec![],
-                return_type: Box::new(Type::Unit),
-                varargs: None,
-                kind: FunctionTypeKind::Orphan,
-            },
-            code: start_code,
-        };
-
-        let result = vm.run_func(start_func);
-
-        Ok(result)
     }
 
     // pushes initialization instructions such as global evaluation to the start

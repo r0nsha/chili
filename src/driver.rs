@@ -16,15 +16,15 @@ use std::process::Command;
 
 pub struct StartWorkspaceResult {
     pub workspace: Workspace,
-    pub tycx: Option<TyCtx>,
+    pub tcx: Option<TyCtx>,
     pub cache: Option<hir::Cache>,
 }
 
 impl StartWorkspaceResult {
-    pub fn new(workspace: Workspace, tycx: Option<TyCtx>, cache: Option<hir::Cache>) -> Self {
+    pub fn new(workspace: Workspace, tcx: Option<TyCtx>, cache: Option<hir::Cache>) -> Self {
         Self {
             workspace,
-            tycx,
+            tcx,
             cache,
         }
     }
@@ -70,25 +70,25 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     };
 
     // Type inference, type checking, static analysis, const folding, etc..
-    let (cache, tycx) = time! { workspace.build_options.emit_times, "check", {
+    let (cache, tcx) = time! { workspace.build_options.emit_times, "check", {
         crate::check::check(&mut workspace, modules)
     }};
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return StartWorkspaceResult::new(workspace, Some(tycx), Some(cache));
+        return StartWorkspaceResult::new(workspace, Some(tcx), Some(cache));
     } else if workspace.build_options.emit_hir {
-        hir::pretty::print(&cache, &workspace, &tycx);
+        hir::pretty::print(&cache, &workspace, &tcx);
     }
 
     // Lint - does auxillary checks which are not required for compilation
     time! { workspace.build_options.emit_times, "lint",
-        crate::lint::lint(&mut workspace, &tycx, &cache)
+        crate::lint::lint(&mut workspace, &tcx, &cache)
     }
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return StartWorkspaceResult::new(workspace, Some(tycx), Some(cache));
+        return StartWorkspaceResult::new(workspace, Some(tcx), Some(cache));
     }
 
     // Code generation
@@ -96,7 +96,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     match &workspace.build_options.codegen_options {
         CodegenOptions::Codegen(codegen_options) => {
             let executable_path =
-                crate::backend::llvm::codegen(&workspace, &tycx, &cache, codegen_options);
+                crate::backend::llvm::codegen(&workspace, &tcx, &cache, codegen_options);
 
             if workspace.build_options.emit_times {
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
@@ -116,7 +116,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         }
     }
 
-    StartWorkspaceResult::new(workspace, Some(tycx), Some(cache))
+    StartWorkspaceResult::new(workspace, Some(tcx), Some(cache))
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {

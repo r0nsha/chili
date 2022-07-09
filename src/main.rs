@@ -145,13 +145,13 @@ fn cli() {
                 if args.diagnostics {
                     ide::diagnostics(
                         &result.workspace,
-                        result.tycx.as_ref(),
+                        result.tcx.as_ref(),
                         result.cache.as_ref(),
                     );
                 } else if let Some(offset) = args.hover_info {
-                    ide::hover_info(&result.workspace, result.tycx.as_ref(), offset);
+                    ide::hover_info(&result.workspace, result.tcx.as_ref(), offset);
                 } else if let Some(offset) = args.goto_def {
-                    ide::goto_definition(&result.workspace, result.tycx.as_ref(), offset);
+                    ide::goto_definition(&result.workspace, result.tcx.as_ref(), offset);
                 }
             } else {
                 let build_options = BuildOptions {

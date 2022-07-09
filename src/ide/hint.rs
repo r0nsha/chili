@@ -9,7 +9,7 @@ use crate::{
 
 pub(super) struct HintSess<'a> {
     pub(super) workspace: &'a Workspace,
-    pub(super) tycx: &'a TyCtx,
+    pub(super) tcx: &'a TyCtx,
     pub(super) hints: Vec<Hint>,
 }
 
@@ -78,7 +78,7 @@ impl<'a> CollectHints<'a> for hir::Binding {
             .contains(BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED);
 
         if should_show_hint {
-            match binding_info.ty.normalize(sess.tycx) {
+            match binding_info.ty.normalize(sess.tcx) {
                 Type::Function(_) | Type::Module(_) | Type::Type(_) | Type::AnyType => (),
                 ty => sess.push_hint(self.span, ty.to_string(), HintKind::Binding),
             }
@@ -98,7 +98,7 @@ impl<'a> CollectHints<'a> for hir::Function {
             } => {
                 for param in params.iter() {
                     let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
-                    let ty = binding_info.ty.normalize(sess.tycx);
+                    let ty = binding_info.ty.normalize(sess.tcx);
 
                     if binding_info.flags.contains(
                         BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
@@ -131,7 +131,7 @@ impl<'a> CollectHints<'a> for hir::Function {
                 if let Some(span) = inferred_return_type_span {
                     match self
                         .ty
-                        .normalize(sess.tycx)
+                        .normalize(sess.tcx)
                         .into_function()
                         .return_type
                         .as_ref()

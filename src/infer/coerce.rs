@@ -142,10 +142,10 @@ impl Coerce for Type {
     }
 }
 
-fn coerce_node(tycx: &mut TyCtx, node: &mut hir::Node, to: Type) {
+fn coerce_node(tcx: &mut TyCtx, node: &mut hir::Node, to: Type) {
     *node = hir::Node::Cast(hir::Cast {
         value: Box::new(node.clone()),
-        ty: tycx.bound(to, node.span()),
+        ty: tcx.bound(to, node.span()),
         span: node.span(),
     })
 }
@@ -155,7 +155,7 @@ pub trait OrCoerce {
         self,
         left: &mut hir::Node,
         right: &mut hir::Node,
-        tycx: &mut TyCtx,
+        tcx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult;
 }
@@ -165,20 +165,20 @@ impl OrCoerce for UnifyTyResult {
         self,
         left: &mut hir::Node,
         right: &mut hir::Node,
-        tycx: &mut TyCtx,
+        tcx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {
-                let (left_ty, right_ty) = (left.ty().normalize(tycx), right.ty().normalize(tycx));
+                let (left_ty, right_ty) = (left.ty().normalize(tcx), right.ty().normalize(tcx));
                 match left_ty.coerce(&right_ty, word_size) {
                     CoercionResult::CoerceToLeft => {
-                        coerce_node(tycx, right, left_ty);
+                        coerce_node(tcx, right, left_ty);
                         Ok(())
                     }
                     CoercionResult::CoerceToRight => {
-                        coerce_node(tycx, left, right_ty);
+                        coerce_node(tcx, left, right_ty);
                         Ok(())
                     }
                     CoercionResult::NoCoercion => Err(e),
@@ -193,7 +193,7 @@ pub trait OrCoerceIntoTy {
         self,
         node: &mut hir::Node,
         ty: impl Normalize,
-        tycx: &mut TyCtx,
+        tcx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult;
 }
@@ -203,16 +203,16 @@ impl OrCoerceIntoTy for UnifyTyResult {
         self,
         node: &mut hir::Node,
         ty: impl Normalize,
-        tycx: &mut TyCtx,
+        tcx: &mut TyCtx,
         word_size: usize,
     ) -> UnifyTyResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {
-                let (node_ty, ty) = (node.ty().normalize(tycx), ty.normalize(tycx));
+                let (node_ty, ty) = (node.ty().normalize(tcx), ty.normalize(tcx));
                 match node_ty.coerce(&ty, word_size) {
                     CoercionResult::CoerceToRight => {
-                        coerce_node(tycx, node, ty);
+                        coerce_node(tcx, node, ty);
                         Ok(())
                     }
                     CoercionResult::CoerceToLeft | CoercionResult::NoCoercion => Err(e),

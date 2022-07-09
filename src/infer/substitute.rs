@@ -15,12 +15,12 @@ use std::collections::{HashMap, HashSet};
 
 pub fn substitute<'a>(
     diagnostics: &'a mut Diagnostics,
-    tycx: &'a mut TyCtx,
+    tcx: &'a mut TyCtx,
     cache: &'a hir::Cache,
 ) {
     let mut sess = Sess {
         diagnostics,
-        tycx,
+        tcx,
         erroneous_types: HashMap::new(),
         used_types: HashSet::new(),
     };
@@ -38,7 +38,7 @@ pub fn substitute<'a>(
 
 struct Sess<'a> {
     diagnostics: &'a mut Diagnostics,
-    tycx: &'a mut TyCtx,
+    tcx: &'a mut TyCtx,
 
     // map of Ty -> Set of reduced expression spans that couldn't be inferred because of the key ty
     erroneous_types: HashMap<TypeId, Vec<Span>>,
@@ -52,7 +52,7 @@ impl<'a> Sess<'a> {
             .erroneous_types
             .iter()
             .flat_map(|(&ty, spans)| {
-                let ty_span = self.tycx.ty_span(ty);
+                let ty_span = self.tcx.ty_span(ty);
 
                 let ty_origin_label = ty_span.map(|span| {
                     Label::secondary(span, "because its type originates from this expression")
@@ -77,15 +77,15 @@ impl<'a> Sess<'a> {
 
     fn make_all_types_concrete(&mut self) {
         let tys: Vec<TypeId> = self
-            .tycx
+            .tcx
             .bindings
             .iter()
             .map(|(ty, _)| TypeId::from(ty))
             .collect();
 
         for ty in tys {
-            let concrete_type = ty.concrete(&self.tycx);
-            self.tycx.bind_ty(ty, concrete_type);
+            let concrete_type = ty.concrete(&self.tcx);
+            self.tcx.bind_ty(ty, concrete_type);
         }
     }
 }
@@ -340,7 +340,7 @@ impl<'a> SubstituteTy<'a> for TypeId {
     fn substitute(&self, sess: &mut Sess<'a>, span: Span) {
         sess.used_types.insert(*self);
 
-        let ty = self.normalize(sess.tycx);
+        let ty = self.normalize(sess.tcx);
 
         // Check if any type variables are left after normalization
         // (normalization = reducing the type variable to its concrete type, recursively)
@@ -348,7 +348,7 @@ impl<'a> SubstituteTy<'a> for TypeId {
         extract_free_type_vars(&ty, &mut free_types);
 
         if free_types.is_empty() {
-            sess.tycx.bind_ty(*self, ty);
+            sess.tcx.bind_ty(*self, ty);
         } else {
             for &ty in free_types.iter() {
                 let span_set = sess.erroneous_types.entry(ty).or_default();

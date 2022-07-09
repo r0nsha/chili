@@ -116,7 +116,7 @@ impl<'s> CheckSess<'s> {
                 id,
                 name,
                 value: Box::new(value),
-                ty: self.tycx.common_types.unit,
+                ty: self.tcx.common_types.unit,
                 span,
             })
         } else {
@@ -196,7 +196,7 @@ impl<'s> CheckSess<'s> {
                     id,
                     hir::Node::Sequence(hir::Sequence {
                         statements,
-                        ty: self.tycx.common_types.unit,
+                        ty: self.tcx.common_types.unit,
                         span: pattern.span,
                         is_block: false,
                     }),
@@ -234,7 +234,7 @@ impl<'s> CheckSess<'s> {
                     id,
                     hir::Node::Sequence(hir::Sequence {
                         statements,
-                        ty: self.tycx.common_types.unit,
+                        ty: self.tcx.common_types.unit,
                         span: pattern.span,
                         is_block: false,
                     }),
@@ -284,7 +284,7 @@ impl<'s> CheckSess<'s> {
                     id,
                     hir::Node::Sequence(hir::Sequence {
                         statements,
-                        ty: self.tycx.common_types.unit,
+                        ty: self.tcx.common_types.unit,
                         span: pattern.span,
                         is_block: false,
                     }),
@@ -350,7 +350,7 @@ impl<'s> CheckSess<'s> {
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
-        match ty.normalize(&self.tycx).maybe_deref_once() {
+        match ty.normalize(&self.tcx).maybe_deref_once() {
             Type::Module(module_id) => {
                 // TODO: This could cause bugs, need to check
                 //       that there is no way that the last statement isn't a binding
@@ -423,15 +423,15 @@ impl<'s> CheckSess<'s> {
                     unpack_pattern
                         .symbols
                         .iter()
-                        .map(|pattern| (pattern.name, self.tycx.var(pattern.span).as_kind())),
+                        .map(|pattern| (pattern.name, self.tcx.var(pattern.span).as_kind())),
                 ));
 
                 let partial_struct_ty = self
-                    .tycx
+                    .tcx
                     .partial_struct(partial_struct.clone(), unpack_pattern.span);
 
-                ty.unify(&partial_struct_ty, &mut self.tycx).or_report_err(
-                    &self.tycx,
+                ty.unify(&partial_struct_ty, &mut self.tcx).or_report_err(
+                    &self.tcx,
                     partial_struct_ty,
                     Some(unpack_pattern.span),
                     ty,
@@ -440,7 +440,7 @@ impl<'s> CheckSess<'s> {
 
                 for (index, pattern) in unpack_pattern.symbols.iter().enumerate() {
                     let ty = self
-                        .tycx
+                        .tcx
                         .bound(partial_struct[&pattern.name].clone(), pattern.span);
 
                     let field_value = match value.as_const_value() {
@@ -491,7 +491,7 @@ impl<'s> CheckSess<'s> {
                                     continue;
                                 }
 
-                                let ty = self.tycx.bound(field.ty.clone(), field.span);
+                                let ty = self.tcx.bound(field.ty.clone(), field.span);
 
                                 let field_value = match value.as_const_value() {
                                     Some(const_value) => hir::Node::Const(hir::Const {
@@ -574,13 +574,13 @@ impl<'s> CheckSess<'s> {
         let elements = pattern
             .symbols
             .iter()
-            .map(|symbol| self.tycx.var(symbol.span).as_kind())
+            .map(|symbol| self.tcx.var(symbol.span).as_kind())
             .collect::<Vec<Type>>();
 
-        let partial_tuple = self.tycx.partial_tuple(elements.clone(), pattern.span);
+        let partial_tuple = self.tcx.partial_tuple(elements.clone(), pattern.span);
 
-        ty.unify(&partial_tuple, &mut self.tycx).or_report_err(
-            &self.tycx,
+        ty.unify(&partial_tuple, &mut self.tcx).or_report_err(
+            &self.tcx,
             partial_tuple,
             Some(pattern.span),
             ty,
@@ -588,7 +588,7 @@ impl<'s> CheckSess<'s> {
         )?;
 
         for (index, pattern) in pattern.symbols.iter().enumerate() {
-            let ty = self.tycx.bound(elements[index].clone(), pattern.span);
+            let ty = self.tcx.bound(elements[index].clone(), pattern.span);
 
             let element_value = match value.as_const_value() {
                 Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {

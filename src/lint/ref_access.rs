@@ -24,7 +24,7 @@ impl<'s> LintSess<'s> {
                 ImmutableReference { ty, span } => Diagnostic::error()
                     .with_message(format!(
                         "cannot reference value, because it is behind an immutable `{}`",
-                        ty.display(self.tycx)
+                        ty.display(self.tcx)
                     ))
                     .with_label(Label::primary(span, "cannot reference")),
                 ImmutableBinding { id, span } => {
@@ -58,7 +58,7 @@ impl<'s> LintSess<'s> {
     ) -> Result<(), RefAccessErr> {
         use RefAccessErr::*;
 
-        let ty = node.ty().normalize(self.tycx);
+        let ty = node.ty().normalize(self.tcx);
 
         match node {
             hir::Node::MemberAccess(access) => {
@@ -66,7 +66,7 @@ impl<'s> LintSess<'s> {
                     Ok(_) => match ty {
                         Type::Tuple(tys) => {
                             let index = access.member_name.parse::<usize>().unwrap();
-                            let ty = tys[index].normalize(self.tycx);
+                            let ty = tys[index].normalize(self.tcx);
 
                             match ty {
                                 Type::Slice(_, is_mutable)
@@ -87,7 +87,7 @@ impl<'s> LintSess<'s> {
                                 .fields
                                 .iter()
                                 .find(|f| f.name == access.member_name)
-                                .map(|f| f.ty.normalize(self.tycx))
+                                .map(|f| f.ty.normalize(self.tcx))
                                 .unwrap();
 
                             match ty {
@@ -107,7 +107,7 @@ impl<'s> LintSess<'s> {
                         Type::Module(module_id) => {
                             let binding_info =
                                 self.find_binding_info_in_module(module_id, access.member_name);
-                            let ty = binding_info.ty.normalize(self.tycx);
+                            let ty = binding_info.ty.normalize(self.tcx);
 
                             match ty {
                                 Type::Slice(_, is_mutable)

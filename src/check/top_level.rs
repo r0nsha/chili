@@ -194,7 +194,7 @@ impl<'s> CheckSess<'s> {
                     Some(queued) => queued.module_type,
                     None => {
                         let module_type = self
-                            .tycx
+                            .tcx
                             .bound(Type::Module(module.id), Span::initial(module.file_id));
 
                         self.queued_modules.insert(
@@ -233,7 +233,7 @@ impl<'s> CheckSess<'s> {
                         self.with_env(module.id, |sess, mut env| expr.check(sess, &mut env, None))?;
 
                     if !self.workspace.build_options.check_mode {
-                        self.eval(&node, module.id).unwrap();
+                        self.eval(&node, module.id)?;
                     }
                 }
 

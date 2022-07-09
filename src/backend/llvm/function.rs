@@ -29,7 +29,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             None => {
                 let function = self.cache.functions.get(id).unwrap();
                 let module_info = *self.workspace.module_infos.get(function.module_id).unwrap();
-                let function_type = function.ty.normalize(self.tycx).into_function();
+                let function_type = function.ty.normalize(self.tcx).into_function();
 
                 match &function.kind {
                     hir::FunctionKind::Orphan { params, body, .. } => {
@@ -41,7 +41,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                         let function_value = self.declare_fn_sig(
                             &function_type,
-                            function.name,
+                            function.qualified_name,
                             Some(Linkage::Private),
                         );
 
@@ -57,7 +57,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                                 .get_first_param()
                                 .unwrap()
                                 .into_pointer_value();
-                            return_ptr.set_name(&format!("{}.result", function.name));
+                            return_ptr.set_name(&format!("{}.result", function.qualified_name));
                             Some(return_ptr)
                         } else {
                             None
@@ -95,7 +95,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                                 value
                             };
 
-                            let param_ty = match param.ty.normalize(self.tycx) {
+                            let param_ty = match param.ty.normalize(self.tcx) {
                                 Type::Type(inner) => *inner,
                                 t => t,
                             };
@@ -126,14 +126,18 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         function_value
                     }
                     hir::FunctionKind::Extern { .. } => {
-                        match self.extern_functions.get(&function.name) {
+                        match self.extern_functions.get(&function.qualified_name) {
                             Some(function) => *function,
                             None => {
                                 let function_type = self.fn_type(&function_type);
-                                let function_value =
-                                    self.get_or_add_function(function.name, function_type, None);
+                                let function_value = self.get_or_add_function(
+                                    function.qualified_name,
+                                    function_type,
+                                    None,
+                                );
 
-                                self.extern_functions.insert(function.name, function_value);
+                                self.extern_functions
+                                    .insert(function.qualified_name, function_value);
 
                                 function_value
                             }

@@ -14,7 +14,7 @@ use crate::{
 use types::*;
 use util::*;
 
-pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Option<&hir::Cache>) {
+pub fn diagnostics(workspace: &Workspace, tcx: Option<&TyCtx>, typed_ast: Option<&hir::Cache>) {
     let mut objects: Vec<IdeObject> = vec![];
 
     objects.extend(
@@ -37,11 +37,11 @@ pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Optio
             }),
     );
 
-    match (tycx, typed_ast) {
-        (Some(tycx), Some(typed_ast)) => {
+    match (tcx, typed_ast) {
+        (Some(tcx), Some(typed_ast)) => {
             let mut sess = HintSess {
                 workspace,
-                tycx,
+                tcx,
                 hints: vec![],
             };
 
@@ -63,8 +63,8 @@ pub fn diagnostics(workspace: &Workspace, tycx: Option<&TyCtx>, typed_ast: Optio
     write(&objects);
 }
 
-pub fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
-    if let Some(tycx) = tycx {
+pub fn hover_info(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize) {
+    if let Some(tcx) = tcx {
         let searched_binding_info =
             workspace
                 .binding_infos
@@ -77,7 +77,7 @@ pub fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
 
         if let Some(binding_info) = searched_binding_info {
             write(&HoverInfo {
-                contents: binding_info.ty.normalize(tycx).to_string(),
+                contents: binding_info.ty.normalize(tcx).to_string(),
             });
         }
     } else {
@@ -85,11 +85,11 @@ pub fn hover_info(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
     }
 }
 
-pub fn goto_definition(workspace: &Workspace, tycx: Option<&TyCtx>, offset: usize) {
+pub fn goto_definition(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize) {
     for (_, binding_info) in workspace.binding_infos.iter() {
         if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
-            if let Some(tycx) = tycx {
-                match binding_info.ty.normalize(tycx) {
+            if let Some(tcx) = tcx {
+                match binding_info.ty.normalize(tcx) {
                     Type::Module(module_id) => {
                         let module_info = workspace.module_infos.get(module_id).unwrap();
 
