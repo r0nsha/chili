@@ -35,7 +35,6 @@ pub enum Type {
     Uint(UintType),
     Float(FloatType),
     Pointer(Box<Type>, bool),
-    MultiPointer(Box<Type>, bool),
     Function(FunctionType),
     Array(Box<Type>, usize),
     Slice(Box<Type>, bool),
@@ -274,7 +273,6 @@ impl Type {
     pub fn inner(&self) -> &Type {
         match self {
             Type::Pointer(inner, _)
-            | Type::MultiPointer(inner, _)
             | Type::Array(inner, _)
             | Type::Slice(inner, _)
             | Type::Type(inner) => inner,
@@ -328,14 +326,6 @@ impl Type {
 
     pub fn is_pointer(&self) -> bool {
         matches!(self, Type::Pointer(..))
-    }
-
-    pub fn is_multi_pointer(&self) -> bool {
-        matches!(self, Type::MultiPointer(..))
-    }
-
-    pub fn is_any_pointer(&self) -> bool {
-        matches!(self, Type::Pointer(..) | Type::MultiPointer(..))
     }
 
     pub fn is_bool(&self) -> bool {
@@ -425,7 +415,6 @@ impl Type {
     pub fn element_type(&self) -> Option<&Type> {
         match self {
             Type::Pointer(inner, _)
-            | Type::MultiPointer(inner, _)
             | Type::Array(inner, _)
             | Type::Slice(inner, _)
             | Type::Type(inner) => Some(inner),

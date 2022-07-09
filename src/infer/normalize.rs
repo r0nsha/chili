@@ -124,12 +124,7 @@ impl NormalizeCtx {
                 }),
                 kind: f.kind.clone(),
             }),
-            Type::Pointer(inner, a) => {
-                Type::Pointer(Box::new(self.normalize_kind(tcx, inner)), *a)
-            }
-            Type::MultiPointer(inner, a) => {
-                Type::MultiPointer(Box::new(self.normalize_kind(tcx, inner)), *a)
-            }
+            Type::Pointer(inner, a) => Type::Pointer(Box::new(self.normalize_kind(tcx, inner)), *a),
             Type::Array(inner, a) => Type::Array(Box::new(self.normalize_kind(tcx, inner)), *a),
             Type::Slice(inner, a) => Type::Slice(Box::new(self.normalize_kind(tcx, inner)), *a),
             Type::Tuple(tys) => Type::Tuple(

@@ -52,7 +52,7 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 }
                 .into(),
             },
-            Type::Pointer(inner, _) | Type::MultiPointer(inner, ..) => {
+            Type::Pointer(inner, _) => {
                 let ty = inner.llvm_type(generator);
                 ty.ptr_type(AddressSpace::Generic).into()
             }

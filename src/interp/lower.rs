@@ -261,7 +261,7 @@ impl Lower for hir::Cast {
                     }),
                 });
             }
-            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => {
+            Type::Pointer(ty, _) => {
                 let cast_inst = CastInstruction::Ptr(ValueKind::from(ty.as_ref()));
                 code.push(Instruction::Cast(cast_inst));
             }
@@ -720,7 +720,7 @@ impl Lower for hir::Builtin {
 
                         code.push(Instruction::AggregatePush);
                     }
-                    Type::Pointer(..) | Type::MultiPointer(..) => {
+                    Type::Pointer(..) => {
                         code.push(Instruction::AggregateAlloc);
 
                         slice

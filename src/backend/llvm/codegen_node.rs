@@ -275,10 +275,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                 )
                 .into(),
 
-            (
-                Type::Pointer(..) | Type::MultiPointer(..),
-                Type::Pointer(..) | Type::MultiPointer(..),
-            ) => generator
+            (Type::Pointer(..), Type::Pointer(..)) => generator
                 .builder
                 .build_pointer_cast(
                     value.into_pointer_value(),

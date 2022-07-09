@@ -31,20 +31,17 @@ pub fn can_cast_type(from: &Type, to: &Type) -> bool {
             | (Type::Float(_), Type::Uint(_))
             | (Type::Float(_), Type::Float(_)) => true,
 
-            (Type::Pointer(..), Type::Pointer(..)) => true,
+            (Type::Pointer(_, from_mutable), Type::Pointer(_, to_mutable))
+                if can_coerce_mut(*from_mutable, *to_mutable) =>
+            {
+                true
+            }
 
             (Type::Pointer(..), Type::Int(..)) | (Type::Pointer(..), Type::Uint(..)) => true,
 
             (Type::Int(..), Type::Pointer(..)) | (Type::Uint(..), Type::Pointer(..)) => true,
 
-            (Type::Pointer(t1, from_mutable), Type::MultiPointer(t2, to_mutable))
-            | (Type::MultiPointer(t1, to_mutable), Type::Pointer(t2, from_mutable))
-                if t1 == t2 && can_coerce_mut(*from_mutable, *to_mutable) =>
-            {
-                true
-            }
-
-            (Type::Pointer(t, from_mutable), Type::MultiPointer(t_ptr, to_mutable))
+            (Type::Pointer(t, from_mutable), Type::Pointer(t_ptr, to_mutable))
                 if can_coerce_mut(*from_mutable, *to_mutable) =>
             {
                 match t.as_ref() {

@@ -12,7 +12,7 @@ impl AlignOf for Type {
             Type::Int(ty) => ty.align_of(word_size),
             Type::Uint(ty) => ty.align_of(word_size),
             Type::Float(ty) => ty.align_of(word_size),
-            Type::Pointer(..) | Type::MultiPointer(..) | Type::Function(..) => word_size,
+            Type::Pointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, ..) => ty.align_of(word_size),
             Type::Slice(..) => StructType::temp(
                 vec![

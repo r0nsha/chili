@@ -69,9 +69,7 @@ impl<'s> LintSess<'s> {
                             let ty = tys[index].normalize(self.tcx);
 
                             match ty {
-                                Type::Slice(_, is_mutable)
-                                | Type::MultiPointer(_, is_mutable)
-                                | Type::Pointer(_, is_mutable)
+                                Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -91,9 +89,7 @@ impl<'s> LintSess<'s> {
                                 .unwrap();
 
                             match ty {
-                                Type::Slice(_, is_mutable)
-                                | Type::MultiPointer(_, is_mutable)
-                                | Type::Pointer(_, is_mutable)
+                                Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -110,9 +106,7 @@ impl<'s> LintSess<'s> {
                             let ty = binding_info.ty.normalize(self.tcx);
 
                             match ty {
-                                Type::Slice(_, is_mutable)
-                                | Type::MultiPointer(_, is_mutable)
-                                | Type::Pointer(_, is_mutable)
+                                Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable)
                                     if !is_mutable =>
                                 {
                                     Err(ImmutableReference {
@@ -139,9 +133,7 @@ impl<'s> LintSess<'s> {
             }
             hir::Node::Id(id) => {
                 match ty {
-                    Type::Slice(_, is_mutable)
-                    | Type::MultiPointer(_, is_mutable)
-                    | Type::Pointer(_, is_mutable) => {
+                    Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable) => {
                         if is_mutable && is_direct_ref {
                             return Ok(());
                         } else {

@@ -150,12 +150,10 @@ impl GetValue for [u8] {
                     }
                 }
             },
-            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => {
-                Value::Pointer(Pointer::from_type_and_ptr(
-                    ty,
-                    self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
-                ))
-            }
+            Type::Pointer(ty, _) => Value::Pointer(Pointer::from_type_and_ptr(
+                ty,
+                self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
+            )),
             Type::Array(_, _) => todo!(),
             Type::Slice(_, _) => todo!(),
             Type::Tuple(_) => todo!(),

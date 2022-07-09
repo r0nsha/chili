@@ -213,6 +213,7 @@ impl Parser {
         self.previous()
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn revert(&mut self, count: usize) {
         self.current -= count;

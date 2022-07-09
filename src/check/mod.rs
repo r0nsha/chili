@@ -98,10 +98,9 @@ fn ty_is_extern(ty: &Type) -> bool {
         | Type::Infer(_, _)
         | Type::Unknown => false,
 
-        Type::Pointer(inner, _)
-        | Type::MultiPointer(inner, _)
-        | Type::Array(inner, _)
-        | Type::Slice(inner, _) => ty_is_extern(inner),
+        Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner, _) => {
+            ty_is_extern(inner)
+        }
 
         Type::Function(f) => {
             ty_is_extern(&f.return_type)
@@ -1025,7 +1024,7 @@ impl Check for ast::Ast {
                     }
                 };
 
-                if slice.high.is_none() && node_type.is_multi_pointer() {
+                if node_type.is_pointer() && slice.high.is_none() {
                     return Err(Diagnostic::error()
                         .with_message(
                             "pointer has an unknown length, so you must specify the ending index",

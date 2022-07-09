@@ -14,7 +14,7 @@ impl SizeOf for Type {
             Type::Int(ty) => ty.size_of(word_size),
             Type::Uint(ty) => ty.size_of(word_size),
             Type::Float(ty) => ty.size_of(word_size),
-            Type::Pointer(..) | Type::MultiPointer(..) | Type::Function(..) => word_size,
+            Type::Pointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
             Type::Slice(..) => StructType::temp(
                 vec![

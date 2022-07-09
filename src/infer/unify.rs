@@ -50,7 +50,6 @@ impl UnifyTy<Type> for Type {
             (Type::Float(t1), Type::Float(t2)) if t1 == t2 => Ok(()),
 
             (Type::Pointer(t1, a1), Type::Pointer(t2, a2))
-            | (Type::MultiPointer(t1, a1), Type::MultiPointer(t2, a2))
             | (Type::Slice(t1, a1), Type::Slice(t2, a2)) => {
                 if !can_coerce_mut(*a1, *a2) {
                     Err(UnifyTyErr::Mismatch)

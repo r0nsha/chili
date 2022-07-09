@@ -224,7 +224,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
 
         let sliced_value = match value_type {
             Type::Slice(..) => generator.gep_slice_data(value).as_basic_value_enum(),
-            Type::MultiPointer(..) | Type::Array(..) => value,
+            Type::Pointer(..) | Type::Array(..) => value,
             _ => unreachable!("got {}", value_type),
         };
 
@@ -236,7 +236,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
         let len = match value_type {
             Type::Slice(..) => Some(generator.gep_slice_len(value)),
             Type::Array(_, size) => Some(generator.ptr_sized_int_type.const_int(size as _, false)),
-            Type::MultiPointer(..) => None,
+            Type::Pointer(..) => None,
             _ => unreachable!("got {}", value_type),
         };
 
@@ -566,7 +566,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
         let len = match ty.maybe_deref_once() {
             Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
             Type::Slice(..) => Some(generator.gep_slice_len(value)),
-            Type::MultiPointer(..) => None,
+            Type::Pointer(..) => None,
             ty => unreachable!("got {}", ty),
         };
 
@@ -577,7 +577,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
         let derefed_ty = ty.maybe_deref_once();
 
         let ptr = match derefed_ty {
-            Type::Array(..) | Type::MultiPointer(..) => value.into_pointer_value(),
+            Type::Array(..) | Type::Pointer(..) => value.into_pointer_value(),
             Type::Slice(..) => generator.gep_slice_data(value),
             ty => unreachable!("{}", ty),
         };
@@ -590,7 +590,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
                     "offset",
                 )
             },
-            Type::MultiPointer(..) | Type::Slice(..) => unsafe {
+            Type::Pointer(..) | Type::Slice(..) => unsafe {
                 generator
                     .builder
                     .build_in_bounds_gep(ptr, &[index], "offset")

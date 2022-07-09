@@ -40,8 +40,6 @@ impl Display for Type {
                 .to_string(),
                 Type::Pointer(ty, is_mutable) =>
                     format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
-                Type::MultiPointer(ty, is_mutable) =>
-                    format!("[*{}]{}", if *is_mutable { "mut" } else { "" }, ty),
                 Type::Function(func) => func.to_string(),
                 Type::Array(inner, size) => format!("[{}]{}", size, inner),
                 Type::Slice(inner, is_mutable) =>

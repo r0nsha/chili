@@ -13,11 +13,7 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn substitute<'a>(
-    diagnostics: &'a mut Diagnostics,
-    tcx: &'a mut TyCtx,
-    cache: &'a hir::Cache,
-) {
+pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TyCtx, cache: &'a hir::Cache) {
     let mut sess = Sess {
         diagnostics,
         tcx,
@@ -381,10 +377,9 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
                 extract_free_type_vars(ty, free_types);
             }
         }
-        Type::Pointer(ty, _)
-        | Type::MultiPointer(ty, _)
-        | Type::Array(ty, _)
-        | Type::Slice(ty, _) => extract_free_type_vars(ty, free_types),
+        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty, _) => {
+            extract_free_type_vars(ty, free_types)
+        }
         Type::Tuple(tys) | Type::Infer(_, InferTy::PartialTuple(tys)) => tys
             .iter()
             .for_each(|t| extract_free_type_vars(t, free_types)),

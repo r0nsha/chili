@@ -386,7 +386,7 @@ impl From<&Type> for ValueKind {
                     }
                 }
             },
-            Type::Pointer(_, _) | Type::MultiPointer(_, _) => Self::Pointer,
+            Type::Pointer(_, _) => Self::Pointer,
             Type::Function(_) => Self::Function,
             Type::Array(_, _) => Self::Array,
             Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => Self::Aggregate,
@@ -443,7 +443,7 @@ impl Value {
                     }
                 }
             },
-            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => {
+            Type::Pointer(ty, _) => {
                 Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
             }
             Type::Function(_) => todo!(),
@@ -690,7 +690,7 @@ impl Pointer {
                     }
                 }
             },
-            Type::Pointer(ty, _) | Type::MultiPointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
+            Type::Pointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => {
                 let bytes = unsafe {
