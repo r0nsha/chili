@@ -1,8 +1,12 @@
 use std::path::PathBuf;
 
 use path_absolutize::Absolutize;
+use ustr::ustr;
 
-use super::{value::IntrinsicFunction, VM};
+use super::{
+    value::{Aggregate, IntrinsicFunction},
+    VM,
+};
 use crate::{
     common::{
         build_options::{BuildOptions, CodegenOptions, EnabledCodegenOptions, OptimizationLevel},
@@ -12,6 +16,7 @@ use crate::{
         vm::value::Value,
         workspace::{BuildTargetValue, OptimizationLevelValue, WorkspaceValue},
     },
+    types::Type,
 };
 
 impl<'vm> VM<'vm> {
@@ -58,9 +63,20 @@ impl<'vm> VM<'vm> {
                     check_mode: false,
                 };
 
-                crate::driver::start_workspace(workspace.name.to_string(), build_options);
+                let result =
+                    crate::driver::start_workspace(workspace.name.to_string(), build_options);
 
-                self.stack.push(Value::unit());
+                let (output_file_str, ok) = if let Some(output_file) = &result.output_file {
+                    (ustr(output_file.to_str().unwrap()), true)
+                } else {
+                    (ustr(""), false)
+                };
+
+                self.stack.push(Value::Aggregate(Aggregate {
+                    elements: vec![Value::from(output_file_str), Value::Bool(ok)],
+                    ty: Type::Tuple(vec![Type::str(), Type::Bool]),
+                }));
+
                 self.next();
             }
         }

@@ -134,10 +134,7 @@ impl Coerce for Type {
                 }
             }
 
-            _ => {
-                println!("{} {}", self, to);
-                NoCoercion
-            }
+            _ => NoCoercion,
         }
     }
 }

@@ -48,7 +48,7 @@ pub fn codegen<'w>(
     tcx: &TyCtx,
     cache: &hir::Cache,
     codegen_options: &EnabledCodegenOptions,
-) -> String {
+) -> PathBuf {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -125,16 +125,14 @@ pub fn codegen<'w>(
         cg.optimize();
     }};
 
-    let executable_path = build_executable(
+    build_executable(
         codegen_options,
         &workspace.build_options,
         &target_machine,
         &target_metrics,
         &module,
         &cg.extern_libraries,
-    );
-
-    executable_path
+    )
 }
 
 impl From<build_options::OptimizationLevel> for OptimizationLevel {
@@ -153,7 +151,7 @@ fn build_executable(
     target_metrics: &TargetMetrics,
     module: &Module,
     extern_libraries: &HashSet<ast::ExternLibrary>,
-) -> String {
+) -> PathBuf {
     let output_path = build_options
         .output_file
         .as_ref()
@@ -175,7 +173,7 @@ fn build_executable(
         output_path.with_extension("o")
     };
 
-    let executable_file = if target_metrics.os == Os::Windows {
+    let output_file = if target_metrics.os == Os::Windows {
         output_path.with_extension("exe")
     } else {
         output_path.with_extension("")
@@ -188,17 +186,12 @@ fn build_executable(
     };
 
     time! { build_options.emit_times, "link",
-        link(target_metrics, &executable_file, &object_file,&extern_libraries,)
+        link(target_metrics, &output_file, &object_file,&extern_libraries,)
     }
 
     let _ = std::fs::remove_file(object_file);
 
-    executable_file
-        .absolutize()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string()
+    output_file.absolutize().unwrap().to_path_buf()
 }
 
 fn link(

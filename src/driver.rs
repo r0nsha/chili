@@ -12,20 +12,45 @@ use crate::{
 };
 use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 pub struct StartWorkspaceResult {
     pub workspace: Workspace,
     pub tcx: Option<TyCtx>,
     pub cache: Option<hir::Cache>,
+    pub output_file: Option<PathBuf>,
 }
 
 impl StartWorkspaceResult {
-    pub fn new(workspace: Workspace, tcx: Option<TyCtx>, cache: Option<hir::Cache>) -> Self {
+    fn new_untyped(workspace: Workspace) -> Self {
         Self {
             workspace,
-            tcx,
-            cache,
+            tcx: None,
+            cache: None,
+            output_file: None,
+        }
+    }
+
+    fn new_typed(workspace: Workspace, tcx: TyCtx, cache: hir::Cache) -> Self {
+        Self {
+            workspace,
+            tcx: Some(tcx),
+            cache: Some(cache),
+            output_file: None,
+        }
+    }
+
+    fn new_complete(
+        workspace: Workspace,
+        tcx: TyCtx,
+        cache: hir::Cache,
+        output_file: PathBuf,
+    ) -> Self {
+        Self {
+            workspace,
+            tcx: Some(tcx),
+            cache: Some(cache),
+            output_file: Some(output_file),
         }
     }
 }
@@ -54,7 +79,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
         workspace.emit_diagnostics();
 
-        return StartWorkspaceResult::new(workspace, None, None);
+        return StartWorkspaceResult::new_untyped(workspace);
     }
 
     // Parse all source files into ast's
@@ -63,7 +88,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
                 Some(result) => result,
                 None => {
                     workspace.emit_diagnostics();
-                    return  StartWorkspaceResult::new(workspace, None, None);
+                    return  StartWorkspaceResult::new_untyped(workspace, );
                 }
             }
         }
@@ -76,7 +101,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return StartWorkspaceResult::new(workspace, Some(tcx), Some(cache));
+        return StartWorkspaceResult::new_typed(workspace, tcx, cache);
     } else if workspace.build_options.emit_hir {
         hir::pretty::print(&cache, &workspace, &tcx);
     }
@@ -88,14 +113,14 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
-        return StartWorkspaceResult::new(workspace, Some(tcx), Some(cache));
+        return StartWorkspaceResult::new_typed(workspace, tcx, cache);
     }
 
     // Code generation
     // todo!("codegen");
     match &workspace.build_options.codegen_options {
         CodegenOptions::Codegen(codegen_options) => {
-            let executable_path =
+            let output_file =
                 crate::backend::llvm::codegen(&workspace, &tcx, &cache, codegen_options);
 
             if workspace.build_options.emit_times {
@@ -103,20 +128,22 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
             }
 
             if codegen_options.run_executable {
-                Command::new(&executable_path)
+                Command::new(&output_file)
                     .spawn()
                     .ok()
-                    .unwrap_or_else(|| panic!("{}", executable_path));
+                    .unwrap_or_else(|| panic!("{}", output_file.display()));
             }
+
+            StartWorkspaceResult::new_complete(workspace, tcx, cache, output_file)
         }
         _ => {
             if workspace.build_options.emit_times {
                 print_stats(stats, all_sw.unwrap().elapsed().as_millis());
             }
+
+            StartWorkspaceResult::new_typed(workspace, tcx, cache)
         }
     }
-
-    StartWorkspaceResult::new(workspace, Some(tcx), Some(cache))
 }
 
 fn print_stats(stats: AstGenerationStats, elapsed_ms: u128) {
