@@ -169,7 +169,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(let\\s*)((extern|intrinsic)\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*)?(let\\s*)(\\b(extern|intrinsic)\\b\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "name": "support.function.builtin.chili",

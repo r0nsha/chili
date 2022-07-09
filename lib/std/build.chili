@@ -1,4 +1,4 @@
-let intrinsics = import!("intrinsics");
+pub let { start_workspace } = import!("intrinsics");
 
 pub let Workspace = struct {
     name: str,
@@ -23,7 +23,3 @@ pub let BuildTarget_windows: BuildTarget = 2;
 pub let OptimizationLevel = u8;
 pub let OptimizationLevel_debug: OptimizationLevel = 0;
 pub let OptimizationLevel_release: OptimizationLevel = 1;
-
-pub let start_workspace = fn(workspace: Workspace) {
-    intrinsics.start_workspace(workspace);
-};
