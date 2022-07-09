@@ -21,7 +21,7 @@ impl<'s> CheckSess<'s> {
     pub fn check_mutable_lvalue_access(&mut self, node: &hir::Node) -> DiagnosticResult<()> {
         use LvalueAccessErr::*;
 
-        self.check_lvalue_access_inner(node)
+        self.check_lvalue_access_inner(node, true)
             .map_err(|err| -> Diagnostic {
                 match err {
                     ImmutableReference { ty, span } => Diagnostic::error()
@@ -57,7 +57,11 @@ impl<'s> CheckSess<'s> {
             })
     }
 
-    fn check_lvalue_access_inner(&self, node: &hir::Node) -> Result<(), LvalueAccessErr> {
+    fn check_lvalue_access_inner(
+        &self,
+        node: &hir::Node,
+        is_direct_access: bool,
+    ) -> Result<(), LvalueAccessErr> {
         use LvalueAccessErr::*;
 
         match node {
@@ -78,9 +82,9 @@ impl<'s> CheckSess<'s> {
                 }
             }
             hir::Node::Builtin(hir::Builtin::Offset(offset)) => {
-                self.check_lvalue_access_inner(&offset.value)
+                self.check_lvalue_access_inner(&offset.value, false)
             }
-            hir::Node::MemberAccess(access) => self.check_lvalue_access_inner(&access.value),
+            hir::Node::MemberAccess(access) => self.check_lvalue_access_inner(&access.value, false),
             hir::Node::Id(id) => {
                 let binding_info = self.workspace.binding_infos.get(id.id).unwrap();
 
@@ -89,7 +93,7 @@ impl<'s> CheckSess<'s> {
                     Type::Pointer(_, is_mutable)
                     | Type::MultiPointer(_, is_mutable)
                     | Type::Slice(_, is_mutable) => {
-                        if is_mutable {
+                        if is_direct_access || is_mutable {
                             Ok(())
                         } else {
                             Err(LvalueAccessErr::ImmutableReference {

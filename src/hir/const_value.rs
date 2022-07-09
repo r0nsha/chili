@@ -102,22 +102,22 @@ impl ConstValue {
             (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
                 v1.checked_add(*v2 as i64).map(ConstValue::Int)
             }
-            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
-                v1.checked_add(*v2 as i64).map(ConstValue::Int)
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_add(*v2).map(ConstValue::Int)
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
                 Some(ConstValue::Float(*v1 as f64 + *v2))
             }
-            (ConstValue::Float(v2), ConstValue::Int(v1)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
+                Some(ConstValue::Float(*v1 + *v2 as f64))
             }
 
             (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
                 Some(ConstValue::Float(*v1 as f64 + *v2))
             }
-            (ConstValue::Float(v2), ConstValue::Uint(v1)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
+                Some(ConstValue::Float(*v1 + *v2 as f64))
             }
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 + *v2)),
@@ -137,9 +137,8 @@ impl ConstValue {
             (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
                 v1.checked_sub(*v2 as i64).map(ConstValue::Int)
             }
-
-            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
-                v1.checked_sub(*v2 as i64).map(ConstValue::Int)
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_sub(*v2).map(ConstValue::Int)
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
@@ -165,6 +164,7 @@ impl ConstValue {
     pub fn mul(&self, other: &ConstValue) -> Option<ConstValue> {
         match (self, other) {
             (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_mul(*v2).map(ConstValue::Int),
+
             (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
                 v1.checked_mul(*v2).map(ConstValue::Uint)
             }
@@ -172,22 +172,22 @@ impl ConstValue {
             (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
                 v1.checked_mul(*v2 as i64).map(ConstValue::Int)
             }
-            (ConstValue::Uint(v2), ConstValue::Int(v1)) => {
-                v1.checked_mul(*v2 as i64).map(ConstValue::Int)
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
+                (*v1 as i64).checked_mul(*v2).map(ConstValue::Int)
             }
 
             (ConstValue::Int(v1), ConstValue::Float(v2)) => {
                 Some(ConstValue::Float(*v1 as f64 + *v2))
             }
-            (ConstValue::Float(v2), ConstValue::Int(v1)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
+                Some(ConstValue::Float(*v1 + *v2 as f64))
             }
 
             (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
                 Some(ConstValue::Float(*v1 as f64 + *v2))
             }
-            (ConstValue::Float(v2), ConstValue::Uint(v1)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
+                Some(ConstValue::Float(*v1 + *v2 as f64))
             }
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 + *v2)),

@@ -57,31 +57,6 @@ impl Display for StackFrame {
     }
 }
 
-macro_rules! binary_op {
-    ($vm:expr, $op:tt) => {{
-        let b = $vm.stack.pop();
-        let a = $vm.stack.pop();
-
-        match (&a, &b) {
-            (Value::I8(a), Value::I8(b)) => $vm.stack.push(Value::I8(a $op b)),
-            (Value::I16(a), Value::I16(b)) => $vm.stack.push(Value::I16(a $op b)),
-            (Value::I32(a), Value::I32(b)) => $vm.stack.push(Value::I32(a $op b)),
-            (Value::I64(a), Value::I64(b)) => $vm.stack.push(Value::I64(a $op b)),
-            (Value::Int(a), Value::Int(b)) => $vm.stack.push(Value::Int(a $op b)),
-            (Value::U8(a), Value::U8(b)) => $vm.stack.push(Value::U8(a $op b)),
-            (Value::U16(a), Value::U16(b)) => $vm.stack.push(Value::U16(a $op b)),
-            (Value::U32(a), Value::U32(b)) => $vm.stack.push(Value::U32(a $op b)),
-            (Value::U64(a), Value::U64(b)) => $vm.stack.push(Value::U64(a $op b)),
-            (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Uint(a $op b)),
-            (Value::F32(a), Value::F32(b)) => $vm.stack.push(Value::F32(a $op b)),
-            (Value::F64(a), Value::F64(b)) => $vm.stack.push(Value::F64(a $op b)),
-            _=> panic!("invalid types in binary operation `{}` : `{}` and `{}`", stringify!($op), a.to_string() ,b.to_string())
-        }
-
-        $vm.next();
-    }};
-}
-
 macro_rules! binary_op_int {
     ($vm:expr, $op:tt) => {{
         let b = $vm.stack.pop();
@@ -147,7 +122,6 @@ pub struct VM<'vm> {
     pub stack: Stack<Value, STACK_MAX>,
     pub frames: Stack<StackFrame, FRAMES_MAX>,
     pub frame: *mut StackFrame,
-    // pub bytecode: Bytecode<'vm>,
 }
 
 impl<'vm> VM<'vm> {
@@ -199,19 +173,145 @@ impl<'vm> VM<'vm> {
                     self.next();
                 }
                 Instruction::Add => {
-                    binary_op!(self, +);
+                    let b = self.stack.pop();
+                    let a = self.stack.pop();
+
+                    match (&a, &b) {
+                        (Value::I8(a), Value::I8(b)) => self.stack.push(Value::I8(a + b)),
+                        (Value::I16(a), Value::I16(b)) => self.stack.push(Value::I16(a + b)),
+                        (Value::I32(a), Value::I32(b)) => self.stack.push(Value::I32(a + b)),
+                        (Value::I64(a), Value::I64(b)) => self.stack.push(Value::I64(a + b)),
+                        (Value::Int(a), Value::Int(b)) => self.stack.push(Value::Int(a + b)),
+                        (Value::U8(a), Value::U8(b)) => self.stack.push(Value::U8(a + b)),
+                        (Value::U16(a), Value::U16(b)) => self.stack.push(Value::U16(a + b)),
+                        (Value::U32(a), Value::U32(b)) => self.stack.push(Value::U32(a + b)),
+                        (Value::U64(a), Value::U64(b)) => self.stack.push(Value::U64(a + b)),
+                        (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a + b)),
+                        (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a + b)),
+                        (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a + b)),
+                        (Value::Pointer(a), Value::Int(b)) => {
+                            self.stack.push(Value::Pointer(unsafe { a.offset(*b) }))
+                        }
+                        _ => panic!(
+                            "invalid types in binary operation `{}` : `{}` and `{}`",
+                            stringify!(+),
+                            a.to_string(),
+                            b.to_string()
+                        ),
+                    }
+
+                    self.next();
                 }
                 Instruction::Sub => {
-                    binary_op!(self, -);
+                    let b = self.stack.pop();
+                    let a = self.stack.pop();
+
+                    match (&a, &b) {
+                        (Value::I8(a), Value::I8(b)) => self.stack.push(Value::I8(a - b)),
+                        (Value::I16(a), Value::I16(b)) => self.stack.push(Value::I16(a - b)),
+                        (Value::I32(a), Value::I32(b)) => self.stack.push(Value::I32(a - b)),
+                        (Value::I64(a), Value::I64(b)) => self.stack.push(Value::I64(a - b)),
+                        (Value::Int(a), Value::Int(b)) => self.stack.push(Value::Int(a - b)),
+                        (Value::U8(a), Value::U8(b)) => self.stack.push(Value::U8(a - b)),
+                        (Value::U16(a), Value::U16(b)) => self.stack.push(Value::U16(a - b)),
+                        (Value::U32(a), Value::U32(b)) => self.stack.push(Value::U32(a - b)),
+                        (Value::U64(a), Value::U64(b)) => self.stack.push(Value::U64(a - b)),
+                        (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a - b)),
+                        (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a - b)),
+                        (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a - b)),
+                        (Value::Pointer(a), Value::Int(b)) => {
+                            self.stack.push(Value::Pointer(unsafe { a.offset(-*b) }))
+                        }
+                        _ => panic!(
+                            "invalid types in binary operation `{}` : `{}` and `{}`",
+                            stringify!(-),
+                            a.to_string(),
+                            b.to_string()
+                        ),
+                    }
+
+                    self.next();
                 }
                 Instruction::Mul => {
-                    binary_op!(self, *);
+                    let b = self.stack.pop();
+                    let a = self.stack.pop();
+
+                    match (&a, &b) {
+                        (Value::I8(a), Value::I8(b)) => self.stack.push(Value::I8(a * b)),
+                        (Value::I16(a), Value::I16(b)) => self.stack.push(Value::I16(a * b)),
+                        (Value::I32(a), Value::I32(b)) => self.stack.push(Value::I32(a * b)),
+                        (Value::I64(a), Value::I64(b)) => self.stack.push(Value::I64(a * b)),
+                        (Value::Int(a), Value::Int(b)) => self.stack.push(Value::Int(a * b)),
+                        (Value::U8(a), Value::U8(b)) => self.stack.push(Value::U8(a * b)),
+                        (Value::U16(a), Value::U16(b)) => self.stack.push(Value::U16(a * b)),
+                        (Value::U32(a), Value::U32(b)) => self.stack.push(Value::U32(a * b)),
+                        (Value::U64(a), Value::U64(b)) => self.stack.push(Value::U64(a * b)),
+                        (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a * b)),
+                        (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a * b)),
+                        (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a * b)),
+                        _ => panic!(
+                            "invalid types in binary operation `{}` : `{}` and `{}`",
+                            stringify!(*),
+                            a.to_string(),
+                            b.to_string()
+                        ),
+                    }
+
+                    self.next();
                 }
                 Instruction::Div => {
-                    binary_op!(self, /);
+                    let b = self.stack.pop();
+                    let a = self.stack.pop();
+
+                    match (&a, &b) {
+                        (Value::I8(a), Value::I8(b)) => self.stack.push(Value::I8(a % b)),
+                        (Value::I16(a), Value::I16(b)) => self.stack.push(Value::I16(a % b)),
+                        (Value::I32(a), Value::I32(b)) => self.stack.push(Value::I32(a % b)),
+                        (Value::I64(a), Value::I64(b)) => self.stack.push(Value::I64(a % b)),
+                        (Value::Int(a), Value::Int(b)) => self.stack.push(Value::Int(a % b)),
+                        (Value::U8(a), Value::U8(b)) => self.stack.push(Value::U8(a % b)),
+                        (Value::U16(a), Value::U16(b)) => self.stack.push(Value::U16(a % b)),
+                        (Value::U32(a), Value::U32(b)) => self.stack.push(Value::U32(a % b)),
+                        (Value::U64(a), Value::U64(b)) => self.stack.push(Value::U64(a % b)),
+                        (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a % b)),
+                        (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a % b)),
+                        (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a % b)),
+                        _ => panic!(
+                            "invalid types in binary operation `{}` : `{}` and `{}`",
+                            stringify!(%),
+                            a.to_string(),
+                            b.to_string()
+                        ),
+                    }
+
+                    self.next();
                 }
                 Instruction::Rem => {
-                    binary_op!(self, %);
+                    let b = self.stack.pop();
+                    let a = self.stack.pop();
+
+                    match (&a, &b) {
+                        (Value::I8(a), Value::I8(b)) => self.stack.push(Value::I8(a % b)),
+                        (Value::I16(a), Value::I16(b)) => self.stack.push(Value::I16(a % b)),
+                        (Value::I32(a), Value::I32(b)) => self.stack.push(Value::I32(a % b)),
+                        (Value::I64(a), Value::I64(b)) => self.stack.push(Value::I64(a % b)),
+                        (Value::Int(a), Value::Int(b)) => self.stack.push(Value::Int(a % b)),
+                        (Value::U8(a), Value::U8(b)) => self.stack.push(Value::U8(a % b)),
+                        (Value::U16(a), Value::U16(b)) => self.stack.push(Value::U16(a % b)),
+                        (Value::U32(a), Value::U32(b)) => self.stack.push(Value::U32(a % b)),
+                        (Value::U64(a), Value::U64(b)) => self.stack.push(Value::U64(a % b)),
+                        (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a % b)),
+                        (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a % b)),
+                        (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a % b)),
+                        _ => panic!(
+                            "invalid types in binary operation `{}` : `{}` and `{}`",
+                            stringify!(%),
+                            a.to_string(),
+                            b.to_string()
+                        ),
+                    }
+
+                    self.next();
                 }
                 Instruction::Neg => {
                     match self.stack.pop() {

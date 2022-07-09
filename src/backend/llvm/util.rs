@@ -477,6 +477,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
+    // TODO: deprecate this
     pub(super) fn gen_struct_access(
         &self,
         agg_or_ptr: BasicValueEnum<'ctx>,
@@ -515,26 +516,33 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub(super) fn gep_struct(
         &self,
-        load: BasicValueEnum<'ctx>,
+        value: BasicValueEnum<'ctx>,
         field_index: u32,
         field_name: &str,
     ) -> BasicValueEnum<'ctx> {
-        let instruction = load.as_instruction_value().unwrap();
-        assert_eq!(instruction.get_opcode(), InstructionOpcode::Load);
+        match value.as_instruction_value() {
+            Some(instruction) => {
+                assert_eq!(instruction.get_opcode(), InstructionOpcode::Load);
 
-        let pointer = instruction
-            .get_operand(0)
-            .unwrap()
-            .left()
-            .unwrap()
-            .into_pointer_value();
+                let pointer = instruction
+                    .get_operand(0)
+                    .unwrap()
+                    .left()
+                    .unwrap()
+                    .into_pointer_value();
 
-        let gep = self
-            .builder
-            .build_struct_gep(pointer, field_index, field_name)
-            .unwrap();
+                let gep = self
+                    .builder
+                    .build_struct_gep(pointer, field_index, field_name)
+                    .unwrap();
 
-        self.builder.build_load(gep, field_name)
+                self.builder.build_load(gep, field_name)
+            }
+            None => self
+                .builder
+                .build_extract_value(value.into_struct_value(), field_index, field_name)
+                .unwrap_or_else(|| panic!("{:#?}", value)),
+        }
     }
 
     pub(super) fn build_struct(

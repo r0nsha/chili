@@ -155,21 +155,7 @@ fn gen_binary<'g, 'ctx>(
     let lhs = binary.lhs.codegen(generator, state);
     let rhs = binary.rhs.codegen(generator, state);
 
-    if lhs.is_pointer_value() {
-        (
-            generator
-                .builder
-                .build_ptr_to_int(lhs.into_pointer_value(), generator.ptr_sized_int_type, "")
-                .as_basic_value_enum(),
-            generator
-                .builder
-                .build_ptr_to_int(rhs.into_pointer_value(), generator.ptr_sized_int_type, "")
-                .as_basic_value_enum(),
-            ty,
-        )
-    } else {
-        (lhs, rhs, ty)
-    }
+    (lhs, rhs, ty)
 }
 
 fn gen_cmp<'g, 'ctx>(
@@ -182,18 +168,8 @@ fn gen_cmp<'g, 'ctx>(
 ) -> BasicValueEnum<'ctx> {
     let (lhs, rhs, ty) = gen_binary(binary, generator, state);
 
-    if ty.is_float() {
-        generator
-            .builder
-            .build_float_compare(
-                float_predicate,
-                lhs.into_float_value(),
-                rhs.into_float_value(),
-                "",
-            )
-            .into()
-    } else {
-        generator
+    match ty {
+        Type::Int(_) | Type::Uint(_) => generator
             .builder
             .build_int_compare(
                 if ty.is_signed_int() {
@@ -205,7 +181,35 @@ fn gen_cmp<'g, 'ctx>(
                 rhs.into_int_value(),
                 "",
             )
-            .into()
+            .into(),
+        Type::Float(_) => generator
+            .builder
+            .build_float_compare(
+                float_predicate,
+                lhs.into_float_value(),
+                rhs.into_float_value(),
+                "",
+            )
+            .into(),
+        Type::Pointer(..) => {
+            let lhs = generator.builder.build_ptr_to_int(
+                lhs.into_pointer_value(),
+                generator.ptr_sized_int_type,
+                "",
+            );
+
+            let rhs = generator.builder.build_ptr_to_int(
+                rhs.into_pointer_value(),
+                generator.ptr_sized_int_type,
+                "",
+            );
+
+            generator
+                .builder
+                .build_int_compare(int_predicate, lhs, rhs, "")
+                .into()
+        }
+        ty => panic!("unexpected type: {}", ty),
     }
 }
 
@@ -276,7 +280,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let rhs = rhs.into_int_value();
 
                 if self.workspace.build_options.optimization_level.is_release() {
-                    self.builder.build_int_add(lhs, rhs, "iadd").into()
+                    self.builder.build_int_add(lhs, rhs, "add").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Add, ty, lhs.get_type());
                     let result =
@@ -288,6 +292,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .builder
                 .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "fadd")
                 .into(),
+            Type::Pointer(..) => unsafe {
+                self.builder
+                    .build_gep(lhs.into_pointer_value(), &[rhs.into_int_value()], "padd")
+                    .into()
+            },
             _ => panic!("unexpected type `{}`", ty),
         }
     }
@@ -306,7 +315,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let rhs = rhs.into_int_value();
 
                 if self.workspace.build_options.optimization_level.is_release() {
-                    self.builder.build_int_sub(lhs, rhs, "isub").into()
+                    self.builder.build_int_sub(lhs, rhs, "sub").into()
                 } else {
                     let overflow_fn = self.get_overflow_fn(ast::BinaryOp::Sub, ty, lhs.get_type());
                     let result =
@@ -318,6 +327,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .builder
                 .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "fsub")
                 .into(),
+            Type::Pointer(..) => unsafe {
+                self.builder
+                    .build_gep(lhs.into_pointer_value(), &[rhs.into_int_value()], "psub")
+                    .into()
+            },
             _ => panic!("unexpected type `{}`", ty),
         }
     }

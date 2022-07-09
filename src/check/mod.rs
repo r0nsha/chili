@@ -874,8 +874,8 @@ impl Check for ast::Ast {
                     .or_report_err(&sess.tcx, uint, None, offset_node.ty(), sub.index.span())?;
 
                 let node = sub.expr.check(sess, env, None)?;
-                let node_typepe = node.ty().normalize(&sess.tcx);
-                let node_typepe_deref = node_typepe.maybe_deref_once();
+                let node_type = node.ty().normalize(&sess.tcx);
+                let node_type_deref = node_type.maybe_deref_once();
 
                 let const_value = if let Some(ConstValue::Int(const_index)) =
                     offset_node.as_const_value()
@@ -892,7 +892,7 @@ impl Check for ast::Ast {
                     }
 
                     // compile-time array bounds check
-                    if let Type::Array(_, size) = node_typepe_deref {
+                    if let Type::Array(_, size) = node_type_deref {
                         if const_index >= size as _ {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -916,10 +916,8 @@ impl Check for ast::Ast {
                     None
                 };
 
-                match node_typepe_deref {
-                    Type::Array(inner, ..)
-                    | Type::Slice(inner, ..)
-                    | Type::MultiPointer(inner, ..) => {
+                match node_type_deref {
+                    Type::Array(inner, ..) | Type::Slice(inner, ..) | Type::Pointer(inner, ..) => {
                         let ty = sess.tcx.bound(*inner, sub.span);
 
                         if let Some(const_value) = const_value {
@@ -940,7 +938,7 @@ impl Check for ast::Ast {
                     _ => Err(Diagnostic::error()
                         .with_message(format!(
                             "cannot index type `{}`",
-                            node_typepe.display(&sess.tcx)
+                            node_type.display(&sess.tcx)
                         ))
                         .with_label(Label::primary(sub.expr.span(), "cannot index"))),
                 }
@@ -949,7 +947,7 @@ impl Check for ast::Ast {
                 let uint = sess.tcx.common_types.uint;
 
                 let node = slice.expr.check(sess, env, None)?;
-                let node_typepe = node.ty().normalize(&sess.tcx);
+                let node_type = node.ty().normalize(&sess.tcx);
 
                 let low_node = if let Some(low) = &slice.low {
                     let mut low_node = low.check(sess, env, None)?;
@@ -996,7 +994,7 @@ impl Check for ast::Ast {
 
                     high_node
                 } else {
-                    match &node_typepe {
+                    match &node_type {
                         Type::Array(_, size) => hir::Node::Const(hir::Const {
                             value: ConstValue::Uint(*size as _),
                             ty: uint,
@@ -1011,44 +1009,43 @@ impl Check for ast::Ast {
                             member_name: ustr(BUILTIN_FIELD_LEN),
                             member_index: 1,
                         }),
-                        Type::MultiPointer(..) => {
+                        Type::Pointer(..) => {
                             return Err(Diagnostic::error()
-                                .with_message(
-                                    "slicing a multi-pointer requires specifying the end index",
-                                )
+                                .with_message("slicing a pointer requires specifying the end index")
                                 .with_label(Label::primary(slice.span, "must specify end index")))
                         }
                         _ => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot slice type `{}`",
-                                    node_typepe.display(&sess.tcx)
+                                    node_type.display(&sess.tcx)
                                 ))
                                 .with_label(Label::primary(slice.expr.span(), "cannot slice")))
                         }
                     }
                 };
 
-                if slice.high.is_none() && node_typepe.is_multi_pointer() {
+                if slice.high.is_none() && node_type.is_multi_pointer() {
                     return Err(Diagnostic::error()
                         .with_message(
-                            "multi pointer has unknown length, so you must specify the ending index",
+                            "pointer has an unknown length, so you must specify the ending index",
                         )
                         .with_label(Label::primary(
-                            slice.expr.span(),"multi pointer has unknown length"
+                            slice.expr.span(),
+                            "pointer has an unknown length",
                         )));
                 }
 
-                let (result_ty, is_mutable) = match node_typepe {
+                let (result_ty, is_mutable) = match node_type {
                     Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
-                    Type::Slice(inner, is_mutable) | Type::MultiPointer(inner, is_mutable) => {
+                    Type::Slice(inner, is_mutable) | Type::Pointer(inner, is_mutable) => {
                         (inner, is_mutable)
                     }
                     _ => {
                         return Err(Diagnostic::error()
                             .with_message(format!(
                                 "cannot slice type `{}`",
-                                node_typepe.display(&sess.tcx)
+                                node_type.display(&sess.tcx)
                             ))
                             .with_label(Label::primary(slice.expr.span(), "cannot slice")))
                     }
@@ -1108,10 +1105,10 @@ impl Check for ast::Ast {
                     _ => (),
                 }
 
-                let node_typepe = node.ty().normalize(&sess.tcx);
-                let node_typepe_deref = node_typepe.maybe_deref_once();
+                let node_type = node.ty().normalize(&sess.tcx);
+                let node_type_deref = node_type.maybe_deref_once();
 
-                let new_node = match &node_typepe_deref {
+                let new_node = match &node_type_deref {
                     ty @ Type::Tuple(elements)
                     | ty @ Type::Infer(_, InferTy::PartialTuple(elements)) => {
                         match member_tuple_index {
@@ -1253,7 +1250,7 @@ impl Check for ast::Ast {
                         hir::Node::MemberAccess(hir::MemberAccess {
                             ty: sess
                                 .tcx
-                                .bound(Type::MultiPointer(inner.clone(), *is_mutable), access.span),
+                                .bound(Type::Pointer(inner.clone(), *is_mutable), access.span),
                             span: access.span,
                             value: Box::new(node),
                             member_name: access.member,
@@ -1283,9 +1280,9 @@ impl Check for ast::Ast {
                     }
                 };
 
-                if node_typepe.is_pointer() {
+                if node_type.is_pointer() {
                     Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                        ty: sess.tcx.bound(node_typepe_deref, new_node.span()),
+                        ty: sess.tcx.bound(node_type_deref, new_node.span()),
                         span: access.span,
                         value: Box::new(new_node),
                     })))
@@ -1824,7 +1821,7 @@ impl Check for ast::While {
         sess.loop_depth -= 1;
         env.pop_scope();
 
-        let while_node_typepe = match condition_node.as_const_value() {
+        let while_node_type = match condition_node.as_const_value() {
             Some(ConstValue::Bool(true)) => sess.tcx.common_types.never,
             _ => sess.tcx.common_types.unit,
         };
@@ -1832,7 +1829,7 @@ impl Check for ast::While {
         Ok(hir::Node::Control(hir::Control::While(hir::While {
             condition: Box::new(condition_node),
             body: Box::new(block_node),
-            ty: while_node_typepe,
+            ty: while_node_type,
             span: self.span,
         })))
     }
@@ -2052,9 +2049,9 @@ impl Check for ast::For {
                 let value_node = value.check(sess, env, None)?;
                 let (value_type, value_span) = (value_node.ty(), value_node.span());
 
-                let value_node_typepe = value_node.ty().normalize(&sess.tcx);
+                let value_node_type = value_node.ty().normalize(&sess.tcx);
 
-                match value_node_typepe.maybe_deref_once() {
+                match value_node_type.maybe_deref_once() {
                     Type::Array(inner, ..) | Type::Slice(inner, ..) => {
                         env.push_scope(ScopeKind::Loop);
                         sess.loop_depth += 1;
@@ -2123,7 +2120,7 @@ impl Check for ast::For {
                         });
 
                         // index <= value.len
-                        let value_len_node = match &value_node_typepe {
+                        let value_len_node = match &value_node_type {
                             Type::Array(_, size) => hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(*size as _),
                                 ty: index_type,
@@ -2215,7 +2212,7 @@ impl Check for ast::For {
                     }
                     _ => {
                         return Err(Diagnostic::error()
-                            .with_message(format!("can't iterate over `{}`", value_node_typepe))
+                            .with_message(format!("can't iterate over `{}`", value_node_type))
                             .with_label(Label::primary(value.span(), "can't iterate")));
                     }
                 }
@@ -2603,41 +2600,77 @@ impl Check for ast::Binary {
         let mut lhs_node = self.lhs.check(sess, env, None)?;
         let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
 
-        let expected_type = match &self.op {
-            ast::BinaryOp::Add
-            | ast::BinaryOp::Sub
-            | ast::BinaryOp::Mul
-            | ast::BinaryOp::Div
-            | ast::BinaryOp::Rem
-            | ast::BinaryOp::Lt
-            | ast::BinaryOp::Le
-            | ast::BinaryOp::Gt
-            | ast::BinaryOp::Ge
-            | ast::BinaryOp::Shl
-            | ast::BinaryOp::Shr
-            | ast::BinaryOp::BitOr
-            | ast::BinaryOp::BitXor
-            | ast::BinaryOp::BitAnd => Some(sess.tcx.anyint(lhs_node.span())),
-            ast::BinaryOp::And | ast::BinaryOp::Or => Some(sess.tcx.common_types.bool),
-            _ => None,
-        };
+        let lhs_node_type = lhs_node.ty().normalize(&sess.tcx);
 
-        if let Some(expected_type) = expected_type {
-            lhs_node
-                .ty()
-                .unify(&expected_type, &mut sess.tcx)
-                .or_report_err(
-                    &sess.tcx,
-                    expected_type,
-                    None,
-                    lhs_node.ty(),
-                    lhs_node.span(),
-                )?;
-        }
+        let expected_rhs_type = match lhs_node_type {
+            Type::Pointer(..) => match &self.op {
+                ast::BinaryOp::Add | ast::BinaryOp::Sub => sess.tcx.common_types.int,
+                op => {
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "invalid operator `{}` used in pointer arithmetic",
+                            op.to_string()
+                        ))
+                        .with_label(Label::primary(self.span, "invalid in pointer arithmetic"))
+                        .with_label(Label::secondary(
+                            lhs_node.span(),
+                            format!("because this is of type {}", lhs_node_type),
+                        )))
+                }
+            },
+            _ => match &self.op {
+                ast::BinaryOp::Add
+                | ast::BinaryOp::Sub
+                | ast::BinaryOp::Mul
+                | ast::BinaryOp::Div
+                | ast::BinaryOp::Rem
+                | ast::BinaryOp::Lt
+                | ast::BinaryOp::Le
+                | ast::BinaryOp::Gt
+                | ast::BinaryOp::Ge
+                | ast::BinaryOp::Shl
+                | ast::BinaryOp::Shr
+                | ast::BinaryOp::BitOr
+                | ast::BinaryOp::BitXor
+                | ast::BinaryOp::BitAnd => {
+                    let expected_type = sess.tcx.anyint(lhs_node.span());
+
+                    lhs_node
+                        .ty()
+                        .unify(&expected_type, &mut sess.tcx)
+                        .or_report_err(
+                            &sess.tcx,
+                            expected_type,
+                            None,
+                            lhs_node.ty(),
+                            lhs_node.span(),
+                        )?;
+
+                    expected_type
+                }
+                ast::BinaryOp::And | ast::BinaryOp::Or => {
+                    let expected_type = sess.tcx.common_types.bool;
+
+                    lhs_node
+                        .ty()
+                        .unify(&expected_type, &mut sess.tcx)
+                        .or_report_err(
+                            &sess.tcx,
+                            expected_type,
+                            None,
+                            lhs_node.ty(),
+                            lhs_node.span(),
+                        )?;
+
+                    expected_type
+                }
+                _ => lhs_node.ty(),
+            },
+        };
 
         rhs_node
             .ty()
-            .unify(&lhs_node.ty(), &mut sess.tcx)
+            .unify(&expected_rhs_type, &mut sess.tcx)
             .or_coerce(
                 &mut lhs_node,
                 &mut rhs_node,
@@ -2646,32 +2679,35 @@ impl Check for ast::Binary {
             )
             .or_report_err(
                 &sess.tcx,
-                lhs_node.ty(),
+                expected_rhs_type,
                 None,
                 rhs_node.ty(),
                 self.rhs.span(),
             )?;
 
-        let ty = match &self.op {
-            ast::BinaryOp::Add
-            | ast::BinaryOp::Sub
-            | ast::BinaryOp::Mul
-            | ast::BinaryOp::Div
-            | ast::BinaryOp::Rem
-            | ast::BinaryOp::Shl
-            | ast::BinaryOp::Shr
-            | ast::BinaryOp::BitOr
-            | ast::BinaryOp::BitXor
-            | ast::BinaryOp::BitAnd => lhs_node.ty(),
+        let result_type = match lhs_node_type {
+            Type::Pointer(..) => lhs_node.ty(),
+            _ => match &self.op {
+                ast::BinaryOp::Add
+                | ast::BinaryOp::Sub
+                | ast::BinaryOp::Mul
+                | ast::BinaryOp::Div
+                | ast::BinaryOp::Rem
+                | ast::BinaryOp::Shl
+                | ast::BinaryOp::Shr
+                | ast::BinaryOp::BitOr
+                | ast::BinaryOp::BitXor
+                | ast::BinaryOp::BitAnd => lhs_node.ty(),
 
-            ast::BinaryOp::Eq
-            | ast::BinaryOp::Ne
-            | ast::BinaryOp::Lt
-            | ast::BinaryOp::Le
-            | ast::BinaryOp::Gt
-            | ast::BinaryOp::Ge
-            | ast::BinaryOp::And
-            | ast::BinaryOp::Or => sess.tcx.common_types.bool,
+                ast::BinaryOp::Eq
+                | ast::BinaryOp::Ne
+                | ast::BinaryOp::Lt
+                | ast::BinaryOp::Le
+                | ast::BinaryOp::Gt
+                | ast::BinaryOp::Ge
+                | ast::BinaryOp::And
+                | ast::BinaryOp::Or => sess.tcx.common_types.bool,
+            },
         };
 
         match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
@@ -2680,7 +2716,7 @@ impl Check for ast::Binary {
 
                 Ok(hir::Node::Const(hir::Const {
                     value: const_value,
-                    ty,
+                    ty: result_type,
                     span: self.span,
                 }))
             }
@@ -2688,7 +2724,7 @@ impl Check for ast::Binary {
                 let binary = hir::Binary {
                     lhs: Box::new(lhs_node),
                     rhs: Box::new(rhs_node),
-                    ty,
+                    ty: result_type,
                     span: self.span,
                 };
 

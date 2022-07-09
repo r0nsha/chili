@@ -336,11 +336,6 @@ impl Parser {
         let start_span = self.previous_span();
 
         if eat!(self, Star) {
-            // Note (Ron): multi-pointers will be removed once we have:
-            //     1. parametric polymorphism
-            //     2. methods
-            //     3. ptr offset builtin function
-
             if eat!(self, Mut) {
                 // [*mut]T
                 require!(self, CloseBracket, "]")?;

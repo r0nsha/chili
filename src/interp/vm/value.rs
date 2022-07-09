@@ -157,6 +157,14 @@ macro_rules! impl_value {
                 }
             }
 
+            pub unsafe fn offset(&self, offset: isize) -> Self {
+                match self {
+                    $(
+                        Self::$variant(v) => Self::$variant((*v).offset(offset))
+                    ),+
+                }
+            }
+
             pub fn is_null(&self) -> bool {
                 match self {
                     $(

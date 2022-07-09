@@ -1,5 +1,14 @@
 let { println } = import!("std/fmt")
+let { printf } = import!("std/c")
 
 let main = fn {
     println("Hello World");
+    
+	let hello = "Hello World";
+    for i in 0..(hello.len as int) - 1 {
+        let reverse = hello.data + ((hello.len as int) - i - 1);
+        printf("%c".data, reverse.*);
+    }
+
+    println("");
 }

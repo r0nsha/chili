@@ -102,8 +102,8 @@ impl Coerce for Type {
                 }
             }
 
-            // * array[N] of T -> multi-pointer of T
-            (Type::Pointer(t, lmut), Type::MultiPointer(t_ptr, rmut))
+            // * array[N] of T -> pointer of T
+            (Type::Pointer(t, lmut), Type::Pointer(t_ptr, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
@@ -118,8 +118,8 @@ impl Coerce for Type {
                 }
             }
 
-            // * array[N] of T -> multi-pointer of T
-            (Type::Pointer(t, lmut), Type::MultiPointer(t_ptr, rmut))
+            // * array[N] of T -> pointer of T
+            (Type::Pointer(t, lmut), Type::Pointer(t_ptr, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
                 match t.as_ref() {
