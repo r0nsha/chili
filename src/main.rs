@@ -23,7 +23,10 @@ use crate::common::{
 use clap::*;
 use colored::Colorize;
 use path_absolutize::Absolutize;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -37,6 +40,21 @@ struct Args {
     /// The main action the compiler should take.
     input: String,
 
+    // Modes
+    //
+    //
+    /// Enables Run mode - which runs the input file using the default options for the current platform.
+    #[clap(long, short)]
+    run: bool,
+
+    /// Enables Check mode - which only checks the input file, skipping code generation.
+    /// Check mode also enables additionals flags for language support.
+    #[clap(long, short)]
+    check: bool,
+
+    // Verbosity/Dump options
+    //
+    //
     /// Print trace information verbosely.
     #[clap(long)]
     emit_times: bool,
@@ -53,6 +71,9 @@ struct Args {
     #[clap(long)]
     emit_llvm_ir: bool,
 
+    // Misc options
+    //
+    //
     /// Omit colors from output.
     #[clap(long)]
     no_color: bool,
@@ -61,15 +82,9 @@ struct Args {
     #[clap(long)]
     include_paths: Option<String>,
 
-    /// Enables Run mode - which runs the input file using the default options for the current platform.
-    #[clap(long)]
-    run: bool,
-
-    /// Enables Check mode - which only checks the input file, skipping code generation.
-    /// Check mode also enables additionals flags for language support.
-    #[clap(long)]
-    check: bool,
-
+    // Check mode options
+    //
+    //
     /// Only available in Check mode.
     /// Return diagnostics of the input file, and all files imported by it - recursively.
     #[clap(long)]
@@ -122,7 +137,11 @@ fn cli() {
                     check_mode: false,
                 };
 
-                driver::start_workspace(name, build_options);
+                let result = driver::start_workspace(name, build_options);
+
+                if let Some(output_file) = &result.output_file {
+                    let _ = Command::new(output_file).spawn();
+                }
             } else if args.check {
                 let build_options = BuildOptions {
                     source_file,
