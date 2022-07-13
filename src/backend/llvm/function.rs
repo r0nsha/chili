@@ -11,7 +11,7 @@ use crate::{
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
-    types::{AnyType, AnyTypeEnum, BasicTypeEnum},
+    types::{AnyType, BasicTypeEnum},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue,
         PointerValue,

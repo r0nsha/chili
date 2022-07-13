@@ -26,8 +26,10 @@ let node_create = fn(depth: i32) -> (*mut Node) {
     let node = malloc(size_of!(Node)) as *mut Node;
 
     if depth > 0 {
-        node.l = node_create(depth - 1);
-        node.r = node_create(depth - 1);
+        node.l;
+        // let l = node.l;
+        // node.l = node_create(depth - 1);
+    //     node.r = node_create(depth - 1);
     }
 
     node

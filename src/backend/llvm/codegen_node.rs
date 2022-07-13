@@ -152,14 +152,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
         generator.gep_struct(value, self.member_index, &self.member_name)
-
-        // match value.as_instruction_value().map(|inst| inst.get_opcode()) {
-        //     Some(InstructionOpcode::Load) => generator.gep_struct(value, self.member_index, ""),
-        //     _ => generator
-        //         .builder
-        //         .build_extract_value(value.into_struct_value(), self.member_index, "")
-        //         .unwrap(),
-        // }
     }
 }
 
