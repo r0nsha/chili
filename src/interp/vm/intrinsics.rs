@@ -24,14 +24,14 @@ impl<'vm> VM<'vm> {
         match intrinsic {
             IntrinsicFunction::StartWorkspace => {
                 let value = self.stack.pop();
-                let workspace = WorkspaceValue::from(&value);
+                let workspace_value = WorkspaceValue::from(&value);
 
-                let source_file = PathBuf::from(workspace.build_options.input_file)
+                let source_file = PathBuf::from(workspace_value.build_options.input_file)
                     .absolutize_from(self.interp.build_options.root_dir())
                     .unwrap()
                     .to_path_buf();
 
-                let output_file = PathBuf::from(workspace.build_options.output_file)
+                let output_file = PathBuf::from(workspace_value.build_options.output_file)
                     .absolutize_from(self.interp.build_options.root_dir())
                     .unwrap()
                     .to_path_buf();
@@ -39,12 +39,12 @@ impl<'vm> VM<'vm> {
                 let build_options = BuildOptions {
                     source_file,
                     output_file: Some(output_file),
-                    target_platform: match &workspace.build_options.target {
+                    target_platform: match &workspace_value.build_options.target {
                         BuildTargetValue::Auto => TargetPlatform::current().unwrap(),
                         BuildTargetValue::Linux => TargetPlatform::LinuxAmd64,
                         BuildTargetValue::Windows => TargetPlatform::WindowsAmd64,
                     },
-                    optimization_level: match &workspace.build_options.optimization_level {
+                    optimization_level: match &workspace_value.build_options.optimization_level {
                         OptimizationLevelValue::Debug => OptimizationLevel::Debug,
                         OptimizationLevelValue::Release => OptimizationLevel::Release,
                     },
@@ -60,7 +60,7 @@ impl<'vm> VM<'vm> {
                 };
 
                 let result =
-                    crate::driver::start_workspace(workspace.name.to_string(), build_options);
+                    crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
 
                 let (output_file_str, ok) = if let Some(output_file) = &result.output_file {
                     (ustr(output_file.to_str().unwrap()), true)

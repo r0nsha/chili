@@ -116,10 +116,9 @@ pub fn codegen<'w>(workspace: &Workspace, tcx: &TyCtx, cache: &hir::Cache) -> Pa
         })
         .unwrap();
 
-    // TODO: uncomment
-    // time! { workspace.build_options.emit_times, "llvm opt", {
-    //     cg.optimize();
-    // }};
+    time! { workspace.build_options.emit_times, "llvm opt", {
+        cg.optimize();
+    }};
 
     build_executable(
         &workspace.build_options,
