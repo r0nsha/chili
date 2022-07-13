@@ -22,16 +22,16 @@ let Node = struct {
 //     result
 // }
 
-// let node_create = fn(depth: i32) -> (*mut Node) {
-//     let node = malloc(size_of!(Node)) as *mut Node;
+let node_create = fn(depth: i32) -> (*mut Node) {
+    let node = malloc(size_of!(Node)) as *mut Node;
 
-//     if depth > 0 {
-//         node.l = node_create(depth - 1);
-//         node.r = node_create(depth - 1);
-//     }
+    if depth > 0 {
+        node.l = node_create(depth - 1);
+        node.r = node_create(depth - 1);
+    }
 
-//     node
-// }
+    node
+}
 
 let min_depth: i32 = 4;
 
@@ -41,8 +41,7 @@ let main = fn {
     let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n };
 
     let depth = max_depth + 1;
-    // let node = node_create(depth);
-    let node = malloc(size_of!(Node)) as *mut Node;
+    let node = node_create(depth);
     printf("node: %p\n".data, node);
     // let check = node_check(node);
     // printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, check);

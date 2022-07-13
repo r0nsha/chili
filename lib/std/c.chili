@@ -6,10 +6,10 @@ pub let extern "c" sprintf_s = fn(buffer: *u8, sizeOfBuffer: uint, format: *u8, 
 
 pub let extern "c" strcpy = fn(dest: *u8, src: *u8) -> *u8;
 
-pub let extern "c" malloc = fn(size: uint) -> *c_void;
-pub let extern "c" calloc = fn(nitems: uint, size: uint) -> *c_void;
-pub let extern "c" realloc = fn(ptr: *c_void, size: uint) -> *c_void;
-pub let extern "c" free = fn(memblock: *c_void);
+pub let extern "c" malloc = fn(size: uint) -> *i8;
+pub let extern "c" calloc = fn(nitems: uint, size: uint) -> *i8;
+pub let extern "c" realloc = fn(ptr: *i8, size: uint) -> *i8;
+pub let extern "c" free = fn(memblock: *i8);
 
 pub let extern "c" abs = fn(x: i32) -> i32;
 
@@ -26,12 +26,9 @@ pub let extern "c" pow = fn(x: f64, y: f64) -> f64;
 
 pub let extern "c" srand = fn(seed: uint);
 pub let extern "c" rand = fn() -> uint;
-pub let extern "c" time = fn(some: *c_void) -> uint;
+pub let extern "c" time = fn(some: *i8) -> uint;
 
 pub let extern "c" execl = fn(path: *u8, ..args) -> int;
 
 pub let extern "c" abort = fn() -> never;
 pub let extern "c" exit = fn(status: int) -> never;
-
-
-pub let c_void: type = ();

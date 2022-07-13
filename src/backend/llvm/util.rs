@@ -207,10 +207,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub(super) fn build_store(&self, ptr: PointerValue<'ctx>, value: BasicValueEnum<'ctx>) {
         match value.get_type() {
-            BasicTypeEnum::PointerType(ptr_type)
-                if ptr_type.get_element_type().is_array_type()
-                    || ptr_type.get_element_type().is_struct_type() =>
-            {
+            BasicTypeEnum::PointerType(ptr_type) if ptr_type.get_element_type().is_array_type() => {
                 let element_type = ptr_type.get_element_type();
                 let size = size_of(
                     element_type.try_into().unwrap(),
@@ -282,10 +279,16 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         dst_ptr: PointerValue<'ctx>,
         size: IntValue<'ctx>,
     ) {
-        let t_rawptr = self.raw_pointer_type();
+        let raw_pointer_type = self.raw_pointer_type();
 
-        let src_ptr = self.builder.build_pointer_cast(src_ptr, t_rawptr, "");
-        let dst_ptr = self.builder.build_pointer_cast(dst_ptr, t_rawptr, "");
+        let src_ptr = self
+            .builder
+            .build_pointer_cast(src_ptr, raw_pointer_type, "");
+
+        let dst_ptr = self
+            .builder
+            .build_pointer_cast(dst_ptr, raw_pointer_type, "");
+
         let size = self
             .builder
             .build_int_cast(size, self.ptr_sized_int_type, "");
@@ -307,10 +310,15 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         dst_ptr: PointerValue<'ctx>,
         size: IntValue<'ctx>,
     ) {
-        let t_rawptr = self.raw_pointer_type();
+        let raw_pointer_type = self.raw_pointer_type();
 
-        let src_ptr = self.builder.build_pointer_cast(src_ptr, t_rawptr, "");
-        let dst_ptr = self.builder.build_pointer_cast(dst_ptr, t_rawptr, "");
+        let src_ptr = self
+            .builder
+            .build_pointer_cast(src_ptr, raw_pointer_type, "");
+
+        let dst_ptr = self
+            .builder
+            .build_pointer_cast(dst_ptr, raw_pointer_type, "");
 
         let size = self
             .builder

@@ -109,12 +109,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
                 .into_pointer_value(),
         };
 
-        println!(
-            "{}: {:#?}",
-            generator.workspace.binding_infos.get(self.id).unwrap().name,
-            decl_ptr
-        );
-
         generator.build_load(decl_ptr)
     }
 }
@@ -192,9 +186,9 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Call {
 
         // println!("callee: {:#?}", callee_ptr.get_type());
 
-        for arg in args.iter() {
-            println!("arg: {:#?}", arg);
-        }
+        // for arg in args.iter() {
+        //     println!("arg: {:#?}", arg);
+        // }
 
         let callable_value: CallableValue = callee_ptr.try_into().unwrap();
 
