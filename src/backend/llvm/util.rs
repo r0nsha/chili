@@ -172,20 +172,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     ) -> PointerValue<'ctx> {
         self.builder.position_at_end(state.decl_block);
 
-        let is_array = llvm_type.is_pointer_type()
-            && llvm_type
-                .into_pointer_type()
-                .get_element_type()
-                .is_array_type();
-
-        let llvm_type = if is_array {
-            llvm_type
-                .into_pointer_type()
-                .get_element_type()
-                .try_into()
-                .unwrap()
-        } else {
-            llvm_type
+        let llvm_type = match llvm_type {
+            BasicTypeEnum::PointerType(ptr_type) if ptr_type.get_element_type().is_array_type() => {
+                ptr_type.get_element_type().try_into().unwrap()
+            }
+            _ => llvm_type,
         };
 
         let ptr = self.builder.build_alloca(llvm_type, &name);
@@ -215,18 +206,23 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub(super) fn build_store(&self, ptr: PointerValue<'ctx>, value: BasicValueEnum<'ctx>) {
-        let ty = value.get_type();
-        if ty.is_pointer_type() {
-            let ptr_type = ty.into_pointer_type();
-            if ptr_type.get_element_type().is_array_type() {
-                let array_ty = ptr_type.get_element_type();
-                let size = size_of(array_ty.try_into().unwrap(), self.target_metrics.word_size);
+        match value.get_type() {
+            BasicTypeEnum::PointerType(ptr_type)
+                if ptr_type.get_element_type().is_array_type()
+                    || ptr_type.get_element_type().is_struct_type() =>
+            {
+                let element_type = ptr_type.get_element_type();
+                let size = size_of(
+                    element_type.try_into().unwrap(),
+                    self.target_metrics.word_size,
+                );
                 let size_value = self.ptr_sized_int_type.const_int(size as _, true);
                 self.build_copy_nonoverlapping(value.into_pointer_value(), ptr, size_value);
-                return;
+            }
+            _ => {
+                self.builder.build_store(ptr, value);
             }
         }
-        self.builder.build_store(ptr, value);
     }
 
     pub(super) fn build_unreachable(&self) {
@@ -534,7 +530,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let gep = self
                     .builder
                     .build_struct_gep(pointer, field_index, field_name)
-                    .unwrap();
+                    .unwrap_or_else(|_| panic!("{pointer:#?} -> {field_index}"));
 
                 self.builder.build_load(gep, field_name)
             }

@@ -18,7 +18,9 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
+    values::{
+        BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue,
+    },
     OptimizationLevel,
 };
 use std::{
@@ -239,10 +241,14 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        if value.is_a_load_inst() {
-            self.get_operand(value).into_pointer_value()
-        } else {
-            self.local_with_alloca(state, id, value)
+        match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => inst
+                .get_operand(0)
+                .unwrap()
+                .left()
+                .unwrap()
+                .into_pointer_value(),
+            _ => self.local_with_alloca(state, id, value),
         }
     }
 
@@ -251,12 +257,18 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         state: &mut FunctionState<'ctx>,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        if value.is_a_load_inst() {
-            self.get_operand(value).into_pointer_value()
-        } else {
-            let ptr = self.build_alloca(state, value.get_type());
-            self.build_store(ptr, value);
-            ptr
+        match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => inst
+                .get_operand(0)
+                .unwrap()
+                .left()
+                .unwrap()
+                .into_pointer_value(),
+            _ => {
+                let ptr = self.build_alloca(state, value.get_type());
+                self.build_store(ptr, value);
+                ptr
+            }
         }
     }
 

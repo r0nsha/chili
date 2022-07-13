@@ -11,7 +11,7 @@ use crate::{
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
-    types::AnyType,
+    types::{AnyType, AnyTypeEnum, BasicTypeEnum},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue,
         PointerValue,
@@ -229,32 +229,24 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     // println!("...indirect");
                     let arg_type = arg.get_type();
 
-                    let is_array = arg_type.is_pointer_type()
-                        && arg_type
-                            .into_pointer_type()
-                            .get_element_type()
-                            .is_array_type();
-
-                    let arg = if is_array {
-                        let ptr = self.build_alloca(
-                            state,
-                            arg_type
-                                .into_pointer_type()
-                                .get_element_type()
-                                .try_into()
-                                .unwrap(),
-                        );
-
-                        self.build_store(ptr, arg);
-
-                        ptr
-                    } else if !callee_ty.kind.is_extern() {
-                        self.local_or_load_addr(state, BindingId::unknown(), arg)
-                    } else {
-                        self.build_copy_value_to_ptr(state, arg, arg_type, 16)
-                    };
-
-                    arg.into()
+                    match arg_type {
+                        BasicTypeEnum::PointerType(ptr_type)
+                            if ptr_type.get_element_type().is_array_type() =>
+                        {
+                            let ptr = self.build_alloca(state, ptr_type.try_into().unwrap());
+                            self.build_store(ptr, arg);
+                            ptr.into()
+                        }
+                        _ => {
+                            if !callee_ty.kind.is_extern() {
+                                self.local_or_load_addr(state, BindingId::unknown(), arg)
+                                    .into()
+                            } else {
+                                self.build_copy_value_to_ptr(state, arg, arg_type, 16)
+                                    .into()
+                            }
+                        }
+                    }
                 }
                 AbiType::Ignore => unimplemented!("ignore '{:?}'", param.ty),
             };

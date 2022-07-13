@@ -48,7 +48,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
                     generator.build_store(field_ptr, value);
                 }
 
-                struct_ptr.into()
+                generator.build_load(struct_ptr)
             }
             StructTypeKind::Union => {
                 let value = self
@@ -69,7 +69,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
                     "",
                 );
 
-                struct_ptr.into()
+                generator.build_load(struct_ptr)
             }
         }
     }
@@ -90,18 +90,18 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
             .collect();
 
         let llvm_type = ty.llvm_type(generator);
-        let tuple = generator.build_alloca(state, llvm_type);
+        let tuple_ptr = generator.build_alloca(state, llvm_type);
 
         for (i, value) in values.iter().enumerate() {
             let ptr = generator
                 .builder
-                .build_struct_gep(tuple, i as u32, "")
+                .build_struct_gep(tuple_ptr, i as u32, "")
                 .unwrap();
 
             generator.build_store(ptr, *value);
         }
 
-        tuple.into()
+        generator.build_load(tuple_ptr)
     }
 }
 

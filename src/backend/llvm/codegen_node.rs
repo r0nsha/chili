@@ -92,8 +92,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
         generator.local_with_alloca(state, self.id, value);
-        // let ptr = generator.local_or_load_addr(state, self.id, value);
-        // state.scopes.insert(self.id, Decl::Local(ptr));
         generator.unit_value()
     }
 }
@@ -110,6 +108,12 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
                 .gen_top_level_binding(self.id)
                 .into_pointer_value(),
         };
+
+        println!(
+            "{}: {:#?}",
+            generator.workspace.binding_infos.get(self.id).unwrap().name,
+            decl_ptr
+        );
 
         generator.build_load(decl_ptr)
     }
@@ -153,14 +157,15 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
+        generator.gep_struct(value, self.member_index, &self.member_name)
 
-        match value.as_instruction_value().map(|inst| inst.get_opcode()) {
-            Some(InstructionOpcode::Load) => generator.gep_struct(value, self.member_index, ""),
-            _ => generator
-                .builder
-                .build_extract_value(value.into_struct_value(), self.member_index, "")
-                .unwrap(),
-        }
+        // match value.as_instruction_value().map(|inst| inst.get_opcode()) {
+        //     Some(InstructionOpcode::Load) => generator.gep_struct(value, self.member_index, ""),
+        //     _ => generator
+        //         .builder
+        //         .build_extract_value(value.into_struct_value(), self.member_index, "")
+        //         .unwrap(),
+        // }
     }
 }
 
@@ -187,9 +192,9 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Call {
 
         // println!("callee: {:#?}", callee_ptr.get_type());
 
-        // for arg in args.iter() {
-        //     println!("arg: {:#?}", arg);
-        // }
+        for arg in args.iter() {
+            println!("arg: {:#?}", arg);
+        }
 
         let callable_value: CallableValue = callee_ptr.try_into().unwrap();
 

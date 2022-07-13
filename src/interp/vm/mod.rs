@@ -57,7 +57,7 @@ impl Display for StackFrame {
     }
 }
 
-macro_rules! binary_op_int {
+macro_rules! binary_op_int_only {
     ($vm:expr, $op:tt) => {{
         let b = $vm.stack.pop();
         let a = $vm.stack.pop();
@@ -80,7 +80,7 @@ macro_rules! binary_op_int {
     }};
 }
 
-macro_rules! comp_op {
+macro_rules! compare_op {
     ($vm:expr, $op:tt) => {
         let b = $vm.stack.pop();
         let a = $vm.stack.pop();
@@ -99,6 +99,7 @@ macro_rules! comp_op {
             (Value::Uint(a), Value::Uint(b)) => $vm.stack.push(Value::Bool(a $op b)),
             (Value::F32(a), Value::F32(b)) => $vm.stack.push(Value::Bool(a $op b)),
             (Value::F64(a), Value::F64(b)) => $vm.stack.push(Value::Bool(a $op b)),
+            (Value::Pointer(a), Value::Pointer(b)) => $vm.stack.push(Value::Bool(a.as_inner_raw() $op b.as_inner_raw())),
             _ => panic!("invalid types in compare operation `{}` and `{}`", a.to_string() ,b.to_string())
         }
 
@@ -349,22 +350,22 @@ impl<'vm> VM<'vm> {
                     self.next();
                 }
                 Instruction::Eq => {
-                    comp_op!(self, ==);
+                    compare_op!(self, ==);
                 }
                 Instruction::Ne => {
-                    comp_op!(self, !=);
+                    compare_op!(self, !=);
                 }
                 Instruction::Lt => {
-                    comp_op!(self, <);
+                    compare_op!(self, <);
                 }
                 Instruction::Le => {
-                    comp_op!(self, <=);
+                    compare_op!(self, <=);
                 }
                 Instruction::Gt => {
-                    comp_op!(self, >);
+                    compare_op!(self, >);
                 }
                 Instruction::Ge => {
-                    comp_op!(self, >=);
+                    compare_op!(self, >=);
                 }
                 Instruction::And => {
                     logic_op!(self, &&);
@@ -373,13 +374,13 @@ impl<'vm> VM<'vm> {
                     logic_op!(self, ||);
                 }
                 Instruction::Shl => {
-                    binary_op_int!(self, <<)
+                    binary_op_int_only!(self, <<)
                 }
                 Instruction::Shr => {
-                    binary_op_int!(self, >>);
+                    binary_op_int_only!(self, >>);
                 }
                 Instruction::Xor => {
-                    binary_op_int!(self, ^);
+                    binary_op_int_only!(self, ^);
                 }
                 Instruction::Jmp(offset) => {
                     self.jmp(offset);
