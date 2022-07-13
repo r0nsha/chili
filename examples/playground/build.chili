@@ -5,7 +5,7 @@ let build = fn() {
         input_file: "src/main.chili",
         output_file: "out/main",
         target: BuildTarget_auto,
-        optimization_level: OptimizationLevel_release,
+        optimization_level: OptimizationLevel_debug,
 	};
 
 	let workspace = Workspace {

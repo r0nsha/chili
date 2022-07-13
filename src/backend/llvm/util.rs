@@ -488,9 +488,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         field_name: &str,
     ) -> BasicValueEnum<'ctx> {
         match value.as_instruction_value() {
-            Some(instruction) => {
-                assert_eq!(instruction.get_opcode(), InstructionOpcode::Load);
-
+            Some(instruction) if instruction.get_opcode() == InstructionOpcode::Load => {
                 let pointer = instruction
                     .get_operand(0)
                     .unwrap()
@@ -505,7 +503,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 self.builder.build_load(gep, field_name)
             }
-            None => self
+            _ => self
                 .builder
                 .build_extract_value(value.into_struct_value(), field_index, field_name)
                 .unwrap_or_else(|| panic!("{:#?}", value)),
