@@ -6,7 +6,7 @@ let Node = struct {
     r: *mut Node,
 }
 
-let mut null_node: *mut Node = 0 as uint as _;
+let mut null_node: *mut Node = (0 as uint) as _;
 
 let node_check = fn(node: *Node) -> i32 {
     let mut ret = 1;
@@ -24,5 +24,7 @@ let main = fn {
         l: null_node,
         r: null_node
     };
+
+    let l = node.l;
     // println("Hello World");
 }
