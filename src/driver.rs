@@ -117,7 +117,6 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     }
 
     // Code generation
-    // todo!("codegen");
     match &workspace.build_options.codegen_options {
         CodegenOptions::Codegen { .. } => {
             let output_file = crate::backend::llvm::codegen(&workspace, &tcx, &cache);
