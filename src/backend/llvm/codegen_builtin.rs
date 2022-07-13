@@ -526,9 +526,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let call_value = self.builder.build_call(f, &[lhs.into(), rhs.into()], "");
 
         let return_value = call_value.try_as_basic_value().left().unwrap();
-        let result = self.gen_struct_access(return_value, 0, None);
 
-        let overflow_bit = self.gen_struct_access(return_value, 1, None);
+        let result = self.gep_struct(return_value, 0, "result");
+        let overflow_bit = self.gep_struct(return_value, 1, "overflow_bit");
+
         self.gen_runtime_check_overflow(state, overflow_bit.into_int_value(), span, op);
 
         result.into_int_value()

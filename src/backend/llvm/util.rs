@@ -481,43 +481,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    // TODO: deprecate this
-    pub(super) fn gen_struct_access(
-        &self,
-        agg_or_ptr: BasicValueEnum<'ctx>,
-        index: u32,
-        struct_ty: Option<BasicTypeEnum<'ctx>>,
-    ) -> BasicValueEnum<'ctx> {
-        if agg_or_ptr.is_pointer_value() {
-            let agg_or_ptr = agg_or_ptr.into_pointer_value();
-            let el_type = agg_or_ptr.get_type().get_element_type();
-
-            if el_type.is_struct_type() {
-                self.builder
-                    .build_struct_gep(agg_or_ptr, index, "")
-                    .unwrap_or_else(|_| panic!("{:#?}", agg_or_ptr))
-                    .into()
-            } else {
-                let struct_ty = struct_ty.unwrap_or_else(|| panic!("{:#?}", agg_or_ptr));
-
-                let ptr = self.builder.build_pointer_cast(
-                    agg_or_ptr,
-                    struct_ty.ptr_type(AddressSpace::Generic),
-                    "",
-                );
-
-                self.builder
-                    .build_struct_gep(ptr, index, "")
-                    .unwrap_or_else(|_| panic!("{:#?}", ptr))
-                    .into()
-            }
-        } else {
-            self.builder
-                .build_extract_value(agg_or_ptr.into_struct_value(), index, "")
-                .unwrap_or_else(|| panic!("{:#?}", agg_or_ptr))
-        }
-    }
-
     pub(super) fn gep_struct(
         &self,
         value: BasicValueEnum<'ctx>,
