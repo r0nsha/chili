@@ -1,4 +1,4 @@
-let { printf } = import!("std/c");
+let { printf } = import!("std/c")
 
 let fib = fn(n: u64) {
     if n <= 1 {
@@ -6,8 +6,8 @@ let fib = fn(n: u64) {
     } else {
         fib(n - 1) + fib(n - 2)
     }
-};
+}
 
 let main = fn() {
     printf("result = %lu\n".data, fib(24));
-};
+}

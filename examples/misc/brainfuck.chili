@@ -32,7 +32,7 @@ let compile = fn(buf str) -> Program {
     let mut stack Stack;
     let mut sp uint = 0;
     
-    while buf[ip] != '\0' && ip < PROGRAM_SIZE {
+    while buf[ip] != c"\0" && ip < PROGRAM_SIZE {
         let c = buf[ip];
 
         if c == '>' {

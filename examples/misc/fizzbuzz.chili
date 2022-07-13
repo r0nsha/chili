@@ -1,6 +1,6 @@
-use c.printf
+let { printf } = import!("std/c")
 
-let main = fn() {
+let main = fn {
     for i in 0..100 {
         fizzbuzz(i)
     }
