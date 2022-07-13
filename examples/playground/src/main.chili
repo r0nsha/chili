@@ -6,30 +6,26 @@ let Node = struct {
     r: *mut Node,
 }
 
-// let node_check = fn(node: *Node) -> i32 {
-//     let mut result = 1;
+let node_check = fn(node: *Node) -> i32 {
+    let mut result = 1;
 
-//     printf("foo: %p\n".data, node);
-
-//     // if (node.l as uint) != 0 {
-//     //     result += node_check(node.l);
-//     // } 
+    if (node.l as uint) != 0 {
+        result += node_check(node.l);
+    } 
     
-//     // if (node.r as uint) != 0 {
-//     //     result += node_check(node.r);
-//     // }
+    if (node.r as uint) != 0 {
+        result += node_check(node.r);
+    }
 
-//     result
-// }
+    result
+}
 
 let node_create = fn(depth: i32) -> (*mut Node) {
     let node = malloc(size_of!(Node)) as *mut Node;
 
     if depth > 0 {
-        node.l;
-        // let l = node.l;
-        // node.l = node_create(depth - 1);
-    //     node.r = node_create(depth - 1);
+        node.l = node_create(depth - 1);
+        node.r = node_create(depth - 1);
     }
 
     node
@@ -45,6 +41,5 @@ let main = fn {
     let depth = max_depth + 1;
     let node = node_create(depth);
     printf("node: %p\n".data, node);
-    // let check = node_check(node);
-    // printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, check);
+    printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, node_check(node));
 }

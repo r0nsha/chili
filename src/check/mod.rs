@@ -1107,7 +1107,18 @@ impl Check for ast::Ast {
                 let node_type = node.ty().normalize(&sess.tcx);
                 let node_type_deref = node_type.maybe_deref_once();
 
-                let new_node = match &node_type_deref {
+                // Note (Ron): If the accessed value is a pointer, we auto dereference it.
+                let node = if node_type.is_pointer() {
+                    hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
+                        ty: sess.tcx.bound(node_type_deref.clone(), node.span()),
+                        span: node.span(),
+                        value: Box::new(node),
+                    }))
+                } else {
+                    node
+                };
+
+                match &node_type_deref {
                     ty @ Type::Tuple(elements)
                     | ty @ Type::Infer(_, InferTy::PartialTuple(elements)) => {
                         match member_tuple_index {
@@ -1118,39 +1129,35 @@ impl Check for ast::Ast {
                                     if let Some(ConstValue::Tuple(const_elements)) =
                                         node.as_const_value()
                                     {
-                                        hir::Node::Const(hir::Const {
+                                        Ok(hir::Node::Const(hir::Const {
                                             value: const_elements[index].value.clone(),
                                             ty,
                                             span: access.span,
-                                        })
+                                        }))
                                     } else {
                                         // TODO: The index here *could be wrong*.
                                         // TODO: We need to test this to make sure there aren't messing anything here
-                                        hir::Node::MemberAccess(hir::MemberAccess {
+                                        Ok(hir::Node::MemberAccess(hir::MemberAccess {
                                             ty,
                                             span: access.span,
                                             value: Box::new(node),
                                             member_name: access.member,
                                             member_index: index as _,
-                                        })
+                                        }))
                                     }
                                 }
-                                None => {
-                                    return Err(TypeError::tuple_field_out_of_bounds(
-                                        access.expr.span(),
-                                        &access.member,
-                                        ty.display(&sess.tcx),
-                                        elements.len() - 1,
-                                    ))
-                                }
-                            },
-                            Err(_) => {
-                                return Err(TypeError::non_numeric_tuple_field(
+                                None => Err(TypeError::tuple_field_out_of_bounds(
                                     access.expr.span(),
                                     &access.member,
                                     ty.display(&sess.tcx),
-                                ))
-                            }
+                                    elements.len() - 1,
+                                )),
+                            },
+                            Err(_) => Err(TypeError::non_numeric_tuple_field(
+                                access.expr.span(),
+                                &access.member,
+                                ty.display(&sess.tcx),
+                            )),
                         }
                     }
                     ty @ Type::Struct(st) => match st.find_field_full(access.member) {
@@ -1158,30 +1165,28 @@ impl Check for ast::Ast {
                             let ty = sess.tcx.bound(field.ty.clone(), access.span);
 
                             if let Some(ConstValue::Struct(const_fields)) = node.as_const_value() {
-                                hir::Node::Const(hir::Const {
+                                Ok(hir::Node::Const(hir::Const {
                                     value: const_fields[&field.name].value.clone(),
                                     ty,
                                     span: access.span,
-                                })
+                                }))
                             } else {
                                 // TODO: The index here *could be wrong*.
                                 // TODO: We need to test this to make sure there aren't messing anything here
-                                hir::Node::MemberAccess(hir::MemberAccess {
+                                Ok(hir::Node::MemberAccess(hir::MemberAccess {
                                     ty,
                                     span: access.span,
                                     value: Box::new(node),
                                     member_name: access.member,
                                     member_index: index as _,
-                                })
+                                }))
                             }
                         }
-                        None => {
-                            return Err(TypeError::invalid_struct_field(
-                                access.expr.span(),
-                                access.member,
-                                ty.display(&sess.tcx),
-                            ))
-                        }
+                        None => Err(TypeError::invalid_struct_field(
+                            access.expr.span(),
+                            access.member,
+                            ty.display(&sess.tcx),
+                        )),
                     },
                     ty @ Type::Infer(_, InferTy::PartialStruct(partial_struct)) => {
                         match partial_struct.get_full(&access.member) {
@@ -1191,62 +1196,60 @@ impl Check for ast::Ast {
                                 if let Some(ConstValue::Struct(const_fields)) =
                                     node.as_const_value()
                                 {
-                                    hir::Node::Const(hir::Const {
+                                    Ok(hir::Node::Const(hir::Const {
                                         value: const_fields[&access.member].value.clone(),
                                         ty,
                                         span: access.span,
-                                    })
+                                    }))
                                 } else {
                                     // TODO: The index here *could be wrong*.
                                     // TODO: We need to test this to make sure there aren't messing anything here
-                                    hir::Node::MemberAccess(hir::MemberAccess {
+                                    Ok(hir::Node::MemberAccess(hir::MemberAccess {
                                         ty,
                                         span: access.span,
                                         value: Box::new(node),
                                         member_name: access.member,
                                         member_index: index as _,
-                                    })
+                                    }))
                                 }
                             }
-                            None => {
-                                return Err(TypeError::invalid_struct_field(
-                                    access.expr.span(),
-                                    access.member,
-                                    ty.display(&sess.tcx),
-                                ))
-                            }
+                            None => Err(TypeError::invalid_struct_field(
+                                access.expr.span(),
+                                access.member,
+                                ty.display(&sess.tcx),
+                            )),
                         }
                     }
                     Type::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        hir::Node::Const(hir::Const {
+                        Ok(hir::Node::Const(hir::Const {
                             value: ConstValue::Uint(*size as _),
                             ty: sess.tcx.common_types.uint,
                             span: access.span,
-                        })
+                        }))
                     }
                     Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         let ty = sess.tcx.common_types.uint;
 
                         if let Some(ConstValue::Str(s)) = node.as_const_value() {
-                            hir::Node::Const(hir::Const {
+                            Ok(hir::Node::Const(hir::Const {
                                 value: ConstValue::Uint(s.len() as _),
                                 ty,
                                 span: access.span,
-                            })
+                            }))
                         } else {
-                            hir::Node::MemberAccess(hir::MemberAccess {
+                            Ok(hir::Node::MemberAccess(hir::MemberAccess {
                                 ty,
                                 span: access.span,
                                 value: Box::new(node),
                                 member_name: access.member,
                                 member_index: 1,
-                            })
+                            }))
                         }
                     }
                     Type::Slice(inner, is_mutable)
                         if access.member.as_str() == BUILTIN_FIELD_DATA =>
                     {
-                        hir::Node::MemberAccess(hir::MemberAccess {
+                        Ok(hir::Node::MemberAccess(hir::MemberAccess {
                             ty: sess
                                 .tcx
                                 .bound(Type::Pointer(inner.clone(), *is_mutable), access.span),
@@ -1254,7 +1257,7 @@ impl Check for ast::Ast {
                             value: Box::new(node),
                             member_name: access.member,
                             member_index: 0,
-                        })
+                        }))
                     }
                     Type::Module(module_id) => {
                         let id = sess.check_top_level_binding(
@@ -1266,28 +1269,16 @@ impl Check for ast::Ast {
                             access.member,
                         )?;
 
-                        sess.id_or_const_by_id(id, access.span)
+                        Ok(sess.id_or_const_by_id(id, access.span))
                     }
-                    ty => {
-                        return Err(Diagnostic::error()
-                            .with_message(format!(
-                                "type `{}` has no member `{}`",
-                                ty.display(&sess.tcx),
-                                access.member
-                            ))
-                            .with_label(Label::primary(access.expr.span(), "")))
-                    }
-                };
-
-                // if node_type.is_pointer() {
-                //     Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                //         ty: new_node.ty(),
-                //         span: new_node.span(),
-                //         value: Box::new(new_node),
-                //     })))
-                // } else {
-                Ok(new_node)
-                // }
+                    ty => Err(Diagnostic::error()
+                        .with_message(format!(
+                            "type `{}` has no member `{}`",
+                            ty.display(&sess.tcx),
+                            access.member
+                        ))
+                        .with_label(Label::primary(access.expr.span(), ""))),
+                }
             }
             ast::Ast::Ident(ident) => {
                 if let Some(id) = env.find_function(ident.name) {
