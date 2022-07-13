@@ -1,20 +1,28 @@
-let { println } = import!("std/fmt")
+// let { println } = import!("std/fmt")
 let { printf } = import!("std/c")
 
-let main = fn {
-    println("Hello World");
+let Node = struct {
+    l: *mut Node,
+    r: *mut Node,
+}
+
+let mut null_node: *mut Node = 0 as uint as _;
+
+let node_check = fn(node: *Node) -> i32 {
+    let mut ret = 1;
+    let l = node.l;
     
-	let hello = "Hello World";
-    for i in 0..(hello.len as int) - 1 {
-        let reverse = hello.data + ((hello.len as int) - i - 1);
-        printf("%c".data, reverse.*);
-    }
+    // if node.l != null_node {
+        
+    // }
 
-    println("");
+    ret
+}
 
-    for i in 0..hello.len - 1 {
-        printf("%c".data, hello[i]);
-    }
-
-    println("");
+let main = fn {
+    let node = Node {
+        l: null_node,
+        r: null_node
+    };
+    // println("Hello World");
 }

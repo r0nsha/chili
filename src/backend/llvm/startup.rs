@@ -1,4 +1,7 @@
-use super::codegen::{Codegen, FunctionState, Generator};
+use super::{
+    codegen::{Codegen, Decl, FunctionState, Generator},
+    ty::IntoLlvmType,
+};
 use crate::{infer::normalize::Normalize, types::*};
 use inkwell::{module::Linkage, values::BasicValue, AddressSpace};
 use ustr::ustr;
@@ -19,10 +22,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap()
             .into_function_value();
 
-        let fn_ty = entry_point_func_info
-            .ty
-            .normalize(self.tcx)
-            .into_function();
+        let fn_ty = entry_point_func_info.ty.normalize(self.tcx).into_function();
 
         let name = self
             .workspace
@@ -154,14 +154,23 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .map(|(_, b)| b)
             .filter(|b| !b.value.is_const())
         {
-            let decl_ptr = self
-                .global_decls
-                .get(&binding.id)
-                .unwrap()
-                .into_pointer_value();
+            let decl_ptr = self.global_decls.get(&binding.id).cloned().map_or_else(
+                || {
+                    let llvm_type = binding.value.ty().llvm_type(self);
+
+                    let global_value =
+                        self.add_global_uninit(binding.id, llvm_type, Linkage::Private);
+
+                    global_value.set_initializer(&llvm_type.const_zero());
+
+                    let decl = self.insert_global_decl(binding.id, Decl::Global(global_value));
+
+                    decl.into_pointer_value()
+                },
+                |decl| decl.into_pointer_value(),
+            );
 
             let value = binding.value.codegen(self, state);
-
             self.build_store(decl_ptr, value);
         }
     }

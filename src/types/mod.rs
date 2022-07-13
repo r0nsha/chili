@@ -223,10 +223,10 @@ pub enum StructTypeKind {
 }
 
 impl StructType {
-    pub fn opaque(name: Ustr, kind: StructTypeKind) -> Self {
+    pub fn empty(name: Ustr, binding_id: BindingId, kind: StructTypeKind) -> Self {
         Self {
             name,
-            binding_id: BindingId::unknown(),
+            binding_id,
             fields: vec![],
             kind,
         }

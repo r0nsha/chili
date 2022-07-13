@@ -1156,7 +1156,7 @@ impl Check for ast::Ast {
                     ty @ Type::Struct(st) => match st.find_field_full(access.member) {
                         Some((index, field)) => {
                             let ty = sess.tcx.bound(field.ty.clone(), access.span);
-
+                            println!("{}", ty.display(&sess.tcx));
                             if let Some(ConstValue::Struct(const_fields)) = node.as_const_value() {
                                 hir::Node::Const(hir::Const {
                                     value: const_fields[&field.name].value.clone(),
@@ -1659,9 +1659,10 @@ impl Check for ast::Ast {
                 };
 
                 // the struct's main type variable
-                let struct_ty_var = sess
-                    .tcx
-                    .bound(Type::Struct(StructType::opaque(name, st.kind)), st.span);
+                let struct_ty_var = sess.tcx.bound(
+                    Type::Struct(StructType::empty(name, BindingId::unknown(), st.kind)),
+                    st.span,
+                );
 
                 // the struct's main type variable, in its `type` variation
                 let struct_ty_type_var = sess
@@ -1687,6 +1688,11 @@ impl Check for ast::Ast {
                     st.span,
                     BindingInfoFlags::empty(),
                 )?;
+
+                sess.tcx.bind_ty(
+                    struct_ty_var,
+                    Type::Struct(StructType::empty(name, binding_id, st.kind)),
+                );
 
                 let mut field_map = UstrMap::<Span>::default();
                 let mut struct_ty_fields = vec![];
