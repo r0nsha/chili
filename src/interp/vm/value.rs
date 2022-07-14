@@ -168,7 +168,7 @@ macro_rules! impl_value {
             pub fn is_null(&self) -> bool {
                 match self {
                     $(
-                        Self::$variant(v) => v.is_null()
+                        Self::$variant(v) => (*v).is_null()
                     ),+
                 }
             }
