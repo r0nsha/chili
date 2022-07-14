@@ -1,7 +1,6 @@
 use super::{
     interp::Interp,
     vm::{
-        byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
         value::{ExternFunction, Function, FunctionValue, Value},
         VM,
@@ -173,19 +172,7 @@ impl FfiFunction {
                 Value::Bool(v) => raw_ptr!(v),
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
-                Value::Aggregate(v) => {
-                    let mut bytes = ByteSeq::new(size);
-
-                    let mut offset = 0;
-
-                    for value in v.elements.iter() {
-                        bytes.offset_mut(offset).put_value(value);
-                        offset += alignment;
-                    }
-
-                    bytes.as_mut_ptr() as RawPointer
-                }
-                Value::Array(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
+                Value::Buffer(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
                 Value::Function(addr) => match (*vm).interp.get_function(addr.id).unwrap() {
                     FunctionValue::Orphan(function) => {
@@ -290,7 +277,6 @@ unsafe extern "C" fn closure_callback(
         Value::F32(v) => *(result as *mut _ as *mut _) = v,
         Value::F64(v) => *(result as *mut _ as *mut _) = v,
         Value::Bool(v) => *(result as *mut _ as *mut _) = v,
-        Value::Aggregate(_) => todo!(),
         Value::Pointer(v) => *(result as *mut _ as *mut _) = v.as_inner_raw(),
         _ => panic!("unexpected value `{}`", value.to_string()),
     }

@@ -1,7 +1,7 @@
 use super::{
     super::ffi::RawPointer,
     super::{IS_64BIT, WORD_SIZE},
-    byte_seq::{ByteSeq, GetValue},
+    byte_seq::{ByteSeq, GetValue, PutValue},
     instruction::CompiledCode,
 };
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         align::AlignOf, size::SizeOf, FloatType, FunctionType, InferTy, IntType, Type, UintType,
     },
 };
-use byteorder::{NativeEndian, WriteBytesExt};
+use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use indexmap::IndexMap;
 use paste::paste;
 use std::{fmt::Display, mem, slice, str};
@@ -252,8 +252,7 @@ impl_value! {
     F32(f32),
     F64(f64),
     Bool(bool),
-    Aggregate(Aggregate),
-    Array(Array),
+    Buffer(Buffer),
     Pointer(Pointer),
     Function(FunctionAddress),
     ExternVariable(ExternVariable),
@@ -290,7 +289,7 @@ impl Aggregate {
 }
 
 #[derive(Debug, Clone)]
-pub struct Array {
+pub struct Buffer {
     pub bytes: ByteSeq,
     pub ty: Type,
 }
@@ -359,7 +358,7 @@ impl Display for IntrinsicFunction {
 impl From<&Type> for ValueKind {
     fn from(ty: &Type) -> Self {
         match ty {
-            Type::Never | Type::Unit => ValueKind::Aggregate,
+            Type::Never | Type::Unit => ValueKind::Buffer,
             Type::Bool => ValueKind::Bool,
             Type::Int(ty) => match ty {
                 IntType::I8 => Self::I8,
@@ -388,8 +387,11 @@ impl From<&Type> for ValueKind {
             },
             Type::Pointer(_, _) => Self::Pointer,
             Type::Function(_) => Self::Function,
-            Type::Array(_, _) => Self::Array,
-            Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => Self::Aggregate,
+            Type::Array(_, _)
+            | Type::Slice(_, _)
+            | Type::Tuple(_)
+            | Type::Struct(_)
+            | Type::Infer(_, InferTy::PartialStruct(_) | InferTy::PartialTuple(_)) => Self::Buffer,
             Type::Module(_) => panic!(),
             Type::Type(_) => Self::Type,
             Type::Infer(_, InferTy::AnyInt) => Self::Int,
@@ -400,7 +402,6 @@ impl From<&Type> for ValueKind {
                     Self::F32
                 }
             }
-            Type::Infer(_, InferTy::PartialStruct(_) | InferTy::PartialTuple(_)) => Self::Aggregate,
             _ => panic!("invalid type {}", ty),
         }
     }
@@ -408,8 +409,8 @@ impl From<&Type> for ValueKind {
 
 impl Value {
     pub fn unit() -> Self {
-        Value::Aggregate(Aggregate {
-            elements: Vec::with_capacity(0),
+        Value::Buffer(Buffer {
+            bytes: ByteSeq::new(0),
             ty: Type::Unit,
         })
     }
@@ -447,24 +448,18 @@ impl Value {
                 Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
             }
             Type::Function(_) => todo!(),
-            Type::Array(inner, size) => Self::Array(Array {
+            Type::Array(inner, size) => Self::Buffer(Buffer {
                 bytes: ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE)),
                 ty: ty.clone(),
             }),
             Type::Slice(_, _) => todo!(),
             Type::Tuple(_) => todo!(),
             Type::Struct(struct_ty) => {
-                let mut elements = Vec::with_capacity(struct_ty.fields.len());
-                let align = struct_ty.align_of(WORD_SIZE);
+                let size = struct_ty.size_of(WORD_SIZE);
+                let slice = slice::from_raw_parts(ptr as *const u8, size);
 
-                for (index, field) in struct_ty.fields.iter().enumerate() {
-                    let field_ptr = ptr.add(align * index);
-                    let value = Value::from_type_and_ptr(&field.ty, field_ptr);
-                    elements.push(value);
-                }
-
-                Self::Aggregate(Aggregate {
-                    elements,
+                Self::Buffer(Buffer {
+                    bytes: ByteSeq::from(slice),
                     ty: ty.clone(),
                 })
             }
@@ -496,8 +491,7 @@ impl Value {
             Self::F32(_) => Type::Float(FloatType::F32),
             Self::F64(_) => Type::Float(FloatType::F64),
             Self::Bool(_) => Type::Bool,
-            Self::Aggregate(agg) => agg.ty.clone(),
-            Self::Array(arr) => arr.ty.clone(),
+            Self::Buffer(arr) => arr.ty.clone(),
             Self::Pointer(p) => Type::Pointer(Box::new(p.get_ty_kind()), true),
             Self::Function(f) => Type::Function(interp.functions.get(&f.id).unwrap().ty.clone()),
             Self::ExternVariable(v) => v.ty.clone(),
@@ -526,43 +520,68 @@ impl Value {
             Self::F64(v) => Ok(ConstValue::Float(v)),
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
             Self::Type(t) => Ok(ConstValue::Type(tcx.bound(t, eval_span))),
-            Self::Aggregate(agg) => match ty {
+            Self::Buffer(buf) => match ty {
                 Type::Unit => Ok(ConstValue::Unit(())),
+                Type::Array(_, _) => {
+                    let (el_ty, array_len) = if let Type::Array(el_ty, len) = buf.ty {
+                        (el_ty, len)
+                    } else {
+                        panic!()
+                    };
+
+                    let mut values = Vec::with_capacity(array_len);
+                    let el_size = el_ty.size_of(WORD_SIZE);
+
+                    for i in 0..array_len {
+                        let value = buf.bytes.offset(i * el_size).get_value(&el_ty);
+                        let const_value = value.try_into_const_value(tcx, &el_ty, eval_span)?;
+                        values.push(const_value);
+                    }
+
+                    Ok(ConstValue::Array(ConstArray {
+                        values,
+                        element_ty: tcx.bound(*el_ty, eval_span),
+                    }))
+                }
                 Type::Slice(inner, _) => {
                     if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
-                        let data = agg.elements[0].as_pointer().as_inner_raw() as *mut u8;
-                        let len = *agg.elements[1].as_uint();
+                        let data =
+                            buf.bytes.offset(0).read_u64::<NativeEndian>().unwrap() as *mut u8;
+                        let len = buf.bytes.offset(8).read_u64::<NativeEndian>().unwrap() as usize;
                         let slice = unsafe { slice::from_raw_parts(data, len) };
-                        let s = str::from_utf8(slice).expect("slice is not a valid utf8 string");
-                        Ok(ConstValue::Str(ustr(s)))
+                        let str = str::from_utf8(slice).expect("slice is not a valid utf8 string");
+                        Ok(ConstValue::Str(ustr(str)))
                     } else {
                         Err("slice")
                     }
                 }
-                Type::Tuple(elements) => {
-                    let mut values = Vec::with_capacity(agg.elements.len());
+                Type::Infer(_, InferTy::PartialTuple(elements)) | Type::Tuple(elements) => {
+                    let align = ty.align_of(WORD_SIZE);
+                    let mut values = Vec::with_capacity(elements.len());
 
-                    for (value, ty) in agg.elements.iter().zip(elements) {
-                        let value = value.clone().try_into_const_value(tcx, ty, eval_span)?;
+                    for (index, elem_type) in elements.iter().enumerate() {
+                        let value = buf.bytes.offset(index * align).get_value(elem_type);
+                        let const_value = value.try_into_const_value(tcx, ty, eval_span)?;
                         values.push(ConstElement {
-                            value,
-                            ty: tcx.bound(ty.clone(), eval_span),
+                            value: const_value,
+                            ty: tcx.bound(elem_type.clone(), eval_span),
                         });
                     }
 
                     Ok(ConstValue::Tuple(values))
                 }
-                Type::Struct(struct_ty) => {
+                Type::Struct(struct_type) => {
+                    let align = ty.align_of(WORD_SIZE);
                     let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
-                    for (value, field) in agg.elements.iter().zip(struct_ty.fields.iter()) {
-                        let value = value
-                            .clone()
-                            .try_into_const_value(tcx, &field.ty, eval_span)?;
+                    for (index, field) in struct_type.fields.iter().enumerate() {
+                        let value = buf.bytes.offset(index * align).get_value(&field.ty);
+                        let const_value = value.try_into_const_value(tcx, ty, eval_span)?;
+
                         fields.insert(
                             field.name,
                             ConstElement {
-                                value,
+                                value: const_value,
                                 ty: tcx.bound(field.ty.clone(), field.span),
                             },
                         );
@@ -570,29 +589,19 @@ impl Value {
 
                     Ok(ConstValue::Struct(fields))
                 }
-                Type::Infer(_, InferTy::PartialTuple(elements)) => {
-                    let mut values = Vec::with_capacity(agg.elements.len());
-
-                    for (value, ty) in agg.elements.iter().zip(elements) {
-                        let value = value.clone().try_into_const_value(tcx, ty, eval_span)?;
-                        values.push(ConstElement {
-                            value,
-                            ty: tcx.bound(ty.clone(), eval_span),
-                        });
-                    }
-
-                    Ok(ConstValue::Tuple(values))
-                }
-                Type::Infer(_, InferTy::PartialStruct(struct_ty)) => {
+                Type::Infer(_, InferTy::PartialStruct(struct_type)) => {
+                    let align = ty.align_of(WORD_SIZE);
                     let mut fields = IndexMap::<Ustr, ConstElement>::new();
 
-                    for (value, (name, ty)) in agg.elements.iter().zip(struct_ty.iter()) {
-                        let value = value.clone().try_into_const_value(tcx, ty, eval_span)?;
+                    for (index, (name, field_type)) in struct_type.iter().enumerate() {
+                        let value = buf.bytes.offset(index * align).get_value(field_type);
+                        let const_value = value.try_into_const_value(tcx, ty, eval_span)?;
+
                         fields.insert(
                             *name,
                             ConstElement {
-                                value,
-                                ty: tcx.bound(ty.clone(), eval_span),
+                                value: const_value,
+                                ty: tcx.bound(field_type.clone(), eval_span),
                             },
                         );
                     }
@@ -604,27 +613,6 @@ impl Value {
                     ty
                 ),
             },
-            Self::Array(array) => {
-                let (el_ty, array_len) = if let Type::Array(el_ty, len) = array.ty {
-                    (el_ty, len)
-                } else {
-                    panic!()
-                };
-
-                let mut values = Vec::with_capacity(array_len);
-                let el_size = el_ty.size_of(WORD_SIZE);
-
-                for i in 0..array_len {
-                    let value = array.bytes.offset(i * el_size).get_value(&el_ty);
-                    let const_value = value.try_into_const_value(tcx, &el_ty, eval_span)?;
-                    values.push(const_value);
-                }
-
-                Ok(ConstValue::Array(ConstArray {
-                    values,
-                    element_ty: tcx.bound(*el_ty, eval_span),
-                }))
-            }
             Self::Function(f) => Ok(ConstValue::Function(ConstFunction {
                 id: f.id,
                 name: f.name,
@@ -642,11 +630,16 @@ impl Value {
 
 impl From<Ustr> for Value {
     fn from(s: Ustr) -> Self {
-        Value::Aggregate(Aggregate {
-            elements: vec![
-                Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)),
-                Value::Uint(s.len()),
-            ],
+        let bytes = ByteSeq::new(16);
+
+        bytes
+            .offset(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
+
+        bytes.offset(0).put_value(&Value::Uint(s.len()));
+
+        Value::Buffer(Buffer {
+            bytes,
             ty: Type::str(),
         })
     }
@@ -655,8 +648,8 @@ impl From<Ustr> for Value {
 impl Pointer {
     #[allow(unused)]
     pub fn unit() -> Self {
-        Pointer::Aggregate(&mut Aggregate {
-            elements: Vec::with_capacity(0),
+        Pointer::Buffer(&mut Buffer {
+            bytes: ByteSeq::new(0),
             ty: Type::Unit,
         })
     }
@@ -697,12 +690,12 @@ impl Pointer {
                     ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))
                 };
 
-                let array = Box::new(Array {
+                let array = Box::new(Buffer {
                     bytes,
                     ty: ty.clone(),
                 });
 
-                Self::Array(Box::leak(array) as *mut Array)
+                Self::Buffer(Box::leak(array) as *mut Buffer)
             }
             Type::Slice(_, _) => todo!(),
             Type::Tuple(_) => todo!(),
@@ -735,8 +728,8 @@ impl Pointer {
             Self::F32(_) => Type::Float(FloatType::F32),
             Self::F64(_) => Type::Float(FloatType::F64),
             Self::Bool(_) => Type::Bool,
-            Self::Aggregate(agg) => unsafe { &**agg }.ty.clone(),
-            Self::Array(arr) => unsafe { &**arr }.ty.clone(),
+            Self::Buffer(buf) => unsafe { &**buf }.ty.clone(),
+            Self::Buffer(arr) => unsafe { &**arr }.ty.clone(),
             Self::Pointer(p) => Type::Pointer(
                 if p.is_null() {
                     Box::new(Type::Uint(UintType::U8))
@@ -773,8 +766,8 @@ impl Pointer {
             (Self::F32(p), Value::F32(v)) => slice(p).write_f32::<NativeEndian>(v).unwrap(),
             (Self::F64(p), Value::F64(v)) => slice(p).write_f64::<NativeEndian>(v).unwrap(),
             (Self::Bool(p), Value::Bool(v)) => slice(p).write_u8(v as u8).unwrap(),
-            (Self::Aggregate(p), Value::Aggregate(v)) => **p = v,
-            (Self::Array(p), Value::Array(v)) => **p = v,
+            (Self::Buffer(p), Value::Buffer(v)) => **p = v,
+            (Self::Buffer(p), Value::Buffer(v)) => **p = v,
             (Self::Pointer(p), Value::Pointer(v)) => **p = v,
             (Self::Function(p), Value::Function(v)) => **p = v,
             (Self::Type(p), Value::Type(v)) => **p = v,
@@ -804,8 +797,7 @@ impl Display for Value {
                 Value::F32(v) => format!("f32 {}", v),
                 Value::F64(v) => format!("f64 {}", v),
                 Value::Bool(v) => format!("bool {}", v),
-                Value::Aggregate(v) => v.to_string(),
-                Value::Array(v) => v.to_string(),
+                Value::Buffer(v) => v.to_string(),
                 Value::Pointer(p) => p.to_string(),
                 Value::Function(f) => f.to_string(),
                 Value::ExternVariable(v) => v.to_string(),
@@ -838,7 +830,7 @@ impl Display for Aggregate {
     }
 }
 
-impl Display for Array {
+impl Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let bytes = &self.bytes;
 
@@ -912,8 +904,7 @@ impl Display for Pointer {
                     Pointer::F32(v) => format!("f32 {}", **v),
                     Pointer::F64(v) => format!("f64 {}", **v),
                     Pointer::Bool(v) => format!("bool {}", **v),
-                    Pointer::Aggregate(v) => (**v).to_string(),
-                    Pointer::Array(v) => (**v).to_string(),
+                    Pointer::Buffer(v) => (**v).to_string(),
                     Pointer::Pointer(p) => (**p).to_string(),
                     Pointer::Function(f) => (**f).to_string(),
                     Pointer::ExternVariable(v) => (**v).to_string(),

@@ -4,7 +4,7 @@ use super::{
         byte_seq::{ByteSeq, PutValue},
         instruction::{CastInstruction, CompiledCode, Instruction},
         value::{
-            Aggregate, Array, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value,
+            Aggregate, Buffer, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value,
             ValueKind,
         },
     },
@@ -18,7 +18,7 @@ use crate::{
     },
     infer::normalize::Normalize,
     interp::vm::value::FunctionAddress,
-    types::{size::SizeOf, FloatType, InferTy, IntType, Type, TypeId, UintType},
+    types::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, TypeId, UintType},
     workspace::BindingId,
 };
 use ustr::ustr;
@@ -806,13 +806,13 @@ impl Lower for hir::ArrayLiteral {
         let inner_ty_size = ty.inner().size_of(WORD_SIZE);
 
         sess.push_const(code, Value::Type(ty));
-        code.push(Instruction::ArrayAlloc(
+        code.push(Instruction::BufferAlloc(
             (self.elements.len() * inner_ty_size) as u32,
         ));
 
         for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
-            code.push(Instruction::ArrayPut((index * inner_ty_size) as u32));
+            code.push(Instruction::BufferPut((index * inner_ty_size) as u32));
         }
     }
 }
@@ -830,12 +830,12 @@ impl Lower for hir::ArrayFillLiteral {
 
         sess.push_const(code, Value::Type(ty));
 
-        code.push(Instruction::ArrayAlloc((size * inner_ty_size) as u32));
+        code.push(Instruction::BufferAlloc((size * inner_ty_size) as u32));
 
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        code.push(Instruction::ArrayFill(size as u32));
+        code.push(Instruction::BufferFill(size as u32));
     }
 }
 
@@ -940,18 +940,26 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             _ => panic!("invalid ty {}", ty),
         },
         ConstValue::Str(v) => Value::from(*v),
-        ConstValue::Tuple(elements) => Value::Aggregate(Aggregate {
-            elements: elements
-                .iter()
-                .map(|el| const_value_to_value(&el.value, el.ty, sess))
-                .collect(),
+        ConstValue::Tuple(elements) => Value::Buffer(Buffer {
+            bytes: ByteSeq::from_values(
+                &elements
+                    .iter()
+                    .map(|el| const_value_to_value(&el.value, el.ty, sess))
+                    .collect::<Vec<Value>>(),
+                ty.size_of(WORD_SIZE),
+                ty.align_of(WORD_SIZE),
+            ),
             ty,
         }),
-        ConstValue::Struct(fields) => Value::Aggregate(Aggregate {
-            elements: fields
-                .values()
-                .map(|el| const_value_to_value(&el.value, el.ty, sess))
-                .collect(),
+        ConstValue::Struct(fields) => Value::Buffer(Buffer {
+            bytes: ByteSeq::from_values(
+                &fields
+                    .iter()
+                    .map(|(_, el)| const_value_to_value(&el.value, el.ty, sess))
+                    .collect::<Vec<Value>>(),
+                ty.size_of(WORD_SIZE),
+                ty.align_of(WORD_SIZE),
+            ),
             ty,
         }),
         ConstValue::Array(array) => {
@@ -969,7 +977,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                 bytes.offset_mut(index * el_size).put_value(&value);
             }
 
-            Value::Array(Array {
+            Value::Buffer(Buffer {
                 bytes,
                 ty: Type::Array(Box::new(el_ty_kind), array_len),
             })

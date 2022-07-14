@@ -4,10 +4,19 @@ use super::{
 };
 use crate::types::{FloatType, InferTy, IntType, Type, UintType};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
+use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub struct ByteSeq {
     pub inner: Box<[u8]>,
+}
+
+impl From<&[u8]> for ByteSeq {
+    fn from(slice: &[u8]) -> Self {
+        let bytes = Self::new(slice.len());
+        bytes.as_mut().write_all(slice);
+        bytes
+    }
 }
 
 impl ByteSeq {
@@ -16,10 +25,21 @@ impl ByteSeq {
             inner: vec![0u8; len].into_boxed_slice(),
         }
     }
+
     pub unsafe fn from_raw_parts(ptr: *mut u8, len: usize) -> Self {
         Self {
             inner: Vec::from_raw_parts(ptr, len, len).into_boxed_slice(),
         }
+    }
+
+    pub(crate) fn from_values(values: &[Value], size: usize, align: usize) -> Self {
+        let bytes = Self::new(size);
+
+        for (index, value) in values.iter().enumerate() {
+            bytes.offset(index * align).put_value(value);
+        }
+
+        bytes
     }
 
     pub fn offset(&self, offset: usize) -> &[u8] {
@@ -84,11 +104,8 @@ impl PutValue for [u8] {
             Value::F32(v) => self.as_mut().write_f32::<NativeEndian>(*v),
             Value::F64(v) => self.as_mut().write_f64::<NativeEndian>(*v),
             Value::Bool(v) => self.as_mut().write_u8(*v as u8),
-            Value::Aggregate(v) => {
-                // TODO: need to include struct padding here
-                for value in v.elements.iter() {
-                    self.as_mut().put_value(value)
-                }
+            Value::Buffer(v) => {
+                self.as_mut().write_all(v.bytes.inner.as_ref());
                 Ok(())
             }
             Value::Pointer(v) => self

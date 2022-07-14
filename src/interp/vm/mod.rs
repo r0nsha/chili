@@ -6,9 +6,10 @@ use super::{
         byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
         stack::Stack,
-        value::{Array, Function, Pointer, Value},
+        value::{Buffer, Function, Pointer, Value},
     },
 };
+use byteorder::{NativeEndian, ReadBytesExt};
 use colored::Colorize;
 use std::{fmt::Display, ptr};
 use ustr::ustr;
@@ -520,36 +521,26 @@ impl<'vm> VM<'vm> {
                     self.cast_inst(cast);
                     self.next();
                 }
-                Instruction::AggregateAlloc => {
-                    self.stack.push(Value::unit());
-                    self.next();
-                }
-                Instruction::AggregatePush => {
-                    let value = self.stack.pop();
-                    let aggregate = self.stack.peek_mut(0).as_aggregate_mut();
-                    aggregate.elements.push(value);
-                    self.next();
-                }
-                Instruction::ArrayAlloc(size) => {
+                Instruction::BufferAlloc(size) => {
                     let ty = self.stack.pop().into_type();
-                    self.stack.push(Value::Array(Array {
+                    self.stack.push(Value::Buffer(Buffer {
                         bytes: ByteSeq::new(size as usize),
                         ty,
                     }));
                     self.next();
                 }
-                Instruction::ArrayPut(pos) => {
+                Instruction::BufferPut(pos) => {
                     let value = self.stack.pop();
-                    let array = self.stack.peek_mut(0).as_array_mut();
+                    let array = self.stack.peek_mut(0).as_buffer_mut();
 
                     let offset_bytes = array.bytes.offset_mut(pos as usize);
                     offset_bytes.put_value(&value);
 
                     self.next();
                 }
-                Instruction::ArrayFill(size) => {
+                Instruction::BufferFill(size) => {
                     let value = self.stack.pop();
-                    let array = self.stack.peek_mut(0).as_array_mut();
+                    let array = self.stack.peek_mut(0).as_buffer_mut();
 
                     for _ in 0..size {
                         array.bytes.put_value(&value);
@@ -588,10 +579,11 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::Panic => {
                     // Note (Ron): the panic message is a slice, which is an aggregate in the VM
-                    let message = self.stack.pop().into_aggregate();
-                    let ptr = message.elements[0].clone().into_pointer().as_inner_raw();
-                    let len = message.elements[1].clone().into_uint();
-                    let slice = unsafe { std::slice::from_raw_parts(ptr as *mut u8, len) };
+                    let buf = self.stack.pop().into_buffer();
+
+                    let data = buf.bytes.offset(0).read_u64::<NativeEndian>().unwrap() as *mut u8;
+                    let len = buf.bytes.offset(8).read_u64::<NativeEndian>().unwrap() as usize;
+                    let slice = unsafe { std::slice::from_raw_parts(data, len) };
                     let str = std::str::from_utf8(slice).unwrap();
 
                     // TODO: instead of using Rust's panic, we should be using our own panic function

@@ -9,12 +9,7 @@ impl<'vm> VM<'vm> {
     pub fn index(&mut self, value: Value, index: usize) {
         match value {
             Value::Pointer(ref ptr) => match ptr {
-                Pointer::Aggregate(elements) => {
-                    let aggr = unsafe { &**elements };
-                    let element = &aggr.elements[index as usize];
-                    self.stack.push(element.clone())
-                }
-                Pointer::Array(array) => {
+                Pointer::Buffer(array) => {
                     let array = unsafe { &**array };
                     let value = array.bytes.offset(index).get_value(array.ty.inner());
                     self.stack.push(value);
@@ -25,10 +20,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(unsafe { ptr.deref_value() });
                 }
             },
-            Value::Aggregate(aggr) => {
-                self.stack.push(aggr.elements[index as usize].clone());
-            }
-            Value::Array(array) => {
+            Value::Buffer(array) => {
                 let value = array.bytes.offset(index).get_value(array.ty.inner());
                 self.stack.push(value);
             }
@@ -40,12 +32,7 @@ impl<'vm> VM<'vm> {
     pub fn index_ptr(&mut self, value: Value, index: usize) {
         match value {
             Value::Pointer(ref ptr) => match ptr {
-                Pointer::Aggregate(elements) => {
-                    let aggr = unsafe { &mut **elements };
-                    let element = &mut aggr.elements[index as usize];
-                    self.stack.push(Value::Pointer(element.into()))
-                }
-                Pointer::Array(array) => {
+                Pointer::Buffer(array) => {
                     let array = unsafe { &mut **array };
                     let ptr = array.bytes.offset_mut(index).as_mut_ptr();
                     let value =
@@ -54,11 +41,7 @@ impl<'vm> VM<'vm> {
                 }
                 _ => self.offset(value, index),
             },
-            Value::Aggregate(mut aggr) => {
-                let element = &mut aggr.elements[index as usize];
-                self.stack.push(Value::Pointer(element.into()))
-            }
-            Value::Array(_) => self.offset(value, index),
+            Value::Buffer(_) => self.offset(value, index),
             _ => panic!("invalid value {}", value.to_string()),
         }
     }
@@ -67,7 +50,7 @@ impl<'vm> VM<'vm> {
     pub fn offset(&mut self, value: Value, index: usize) {
         match value {
             Value::Pointer(ptr) => match ptr {
-                Pointer::Array(array) => {
+                Pointer::Buffer(array) => {
                     let array = unsafe { &mut *array };
                     let ptr = array.bytes.offset_mut(index).as_mut_ptr();
                     let value = Value::Pointer(Pointer::from_type_and_ptr(&array.ty, ptr as _));
@@ -89,7 +72,7 @@ impl<'vm> VM<'vm> {
                     )))
                 }
             },
-            Value::Array(array) => {
+            Value::Buffer(array) => {
                 let bytes = array.bytes.offset(index);
                 let ptr = &bytes[0];
                 self.stack.push(Value::Pointer(Pointer::from_type_and_ptr(

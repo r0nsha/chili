@@ -4,6 +4,7 @@ use path_absolutize::Absolutize;
 use ustr::ustr;
 
 use super::{
+    byte_seq::ByteSeq,
     value::{Aggregate, IntrinsicFunction},
     VM,
 };
@@ -13,10 +14,14 @@ use crate::{
         target::TargetPlatform,
     },
     interp::{
-        vm::value::Value,
+        vm::{
+            byte_seq::PutValue,
+            value::{Buffer, Value},
+        },
         workspace::{BuildTargetValue, OptimizationLevelValue, WorkspaceValue},
+        WORD_SIZE,
     },
-    types::Type,
+    types::{align::AlignOf, size::SizeOf, Type},
 };
 
 impl<'vm> VM<'vm> {
@@ -68,9 +73,19 @@ impl<'vm> VM<'vm> {
                     (ustr(""), false)
                 };
 
-                self.stack.push(Value::Aggregate(Aggregate {
-                    elements: vec![Value::from(output_file_str), Value::Bool(ok)],
-                    ty: Type::Tuple(vec![Type::str(), Type::Bool]),
+                let result_type = Type::Tuple(vec![Type::str(), Type::Bool]);
+                let size = result_type.size_of(WORD_SIZE);
+                let align = result_type.align_of(WORD_SIZE);
+                panic!("size: {}\talign: {}", size, align);
+
+                let bytes = ByteSeq::new(size);
+
+                bytes.offset(0).put_value(&Value::from(output_file_str));
+                bytes.offset(align).put_value(&Value::Bool(ok));
+
+                self.stack.push(Value::Buffer(Buffer {
+                    bytes,
+                    ty: result_type,
                 }));
 
                 self.next();

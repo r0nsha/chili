@@ -8,7 +8,7 @@ pub struct WorkspaceValue<'a> {
 
 impl<'a> From<&'a Value> for WorkspaceValue<'a> {
     fn from(value: &'a Value) -> Self {
-        let aggregate = value.as_aggregate();
+        let aggregate = value.as_buffer();
 
         let name = unsafe { aggregate.elements[0].as_aggregate().as_str() };
         let build_options = BuildOptionsValue::from(&aggregate.elements[1]);
@@ -30,7 +30,7 @@ pub struct BuildOptionsValue<'a> {
 
 impl<'a> From<&'a Value> for BuildOptionsValue<'a> {
     fn from(value: &'a Value) -> Self {
-        let aggregate = value.as_aggregate();
+        let aggregate = value.as_buffer();
 
         let input_file = unsafe { aggregate.elements[0].as_aggregate().as_str() };
         let output_file = unsafe { aggregate.elements[1].as_aggregate().as_str() };
