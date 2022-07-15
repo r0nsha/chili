@@ -13,11 +13,19 @@ pub struct WorkspaceValue {
 impl From<&Value> for WorkspaceValue {
     fn from(value: &Value) -> Self {
         let buf = value.as_buffer();
+        let align = buf.ty.align_of(WORD_SIZE);
         let struct_field_types = &buf.ty.as_struct().fields;
 
-        let name = buf.bytes.offset(0).get_value(&struct_field_types[0].ty);
-        let build_options =
-            BuildOptionsValue::from(&buf.bytes.offset(8).get_value(&struct_field_types[1].ty));
+        let name = buf
+            .bytes
+            .offset(align * 0)
+            .get_value(&struct_field_types[0].ty);
+
+        let build_options = BuildOptionsValue::from(
+            &buf.bytes
+                .offset(align * 1)
+                .get_value(&struct_field_types[1].ty),
+        );
 
         Self {
             name: name.as_buffer().as_str().to_string(),

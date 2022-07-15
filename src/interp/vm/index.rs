@@ -9,9 +9,9 @@ impl<'vm> VM<'vm> {
     pub fn index(&mut self, value: Value, index: usize) {
         match value {
             Value::Pointer(ref ptr) => match ptr {
-                Pointer::Buffer(array) => {
-                    let array = unsafe { &**array };
-                    let value = array.bytes.offset(index).get_value(array.ty.inner());
+                Pointer::Buffer(buf) => {
+                    let buf = unsafe { &**buf };
+                    let value = buf.get_at_index(index);
                     self.stack.push(value);
                 }
                 _ => {
@@ -20,8 +20,8 @@ impl<'vm> VM<'vm> {
                     self.stack.push(unsafe { ptr.deref_value() });
                 }
             },
-            Value::Buffer(array) => {
-                let value = array.bytes.offset(index).get_value(array.ty.inner());
+            Value::Buffer(buf) => {
+                let value = buf.bytes.offset(index).get_value(buf.ty.inner());
                 self.stack.push(value);
             }
             _ => panic!("invalid value {}", value.to_string()),
@@ -32,11 +32,11 @@ impl<'vm> VM<'vm> {
     pub fn index_ptr(&mut self, value: Value, index: usize) {
         match value {
             Value::Pointer(ref ptr) => match ptr {
-                Pointer::Buffer(array) => {
-                    let array = unsafe { &mut **array };
-                    let ptr = array.bytes.offset_mut(index).as_mut_ptr();
+                Pointer::Buffer(buf) => {
+                    let buf = unsafe { &mut **buf };
+                    let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
                     let value =
-                        Value::Pointer(Pointer::from_type_and_ptr(array.ty.inner(), ptr as _));
+                        Value::Pointer(Pointer::from_type_and_ptr(buf.ty.inner(), ptr as _));
                     self.stack.push(value);
                 }
                 _ => self.offset(value, index),
@@ -50,10 +50,10 @@ impl<'vm> VM<'vm> {
     pub fn offset(&mut self, value: Value, index: usize) {
         match value {
             Value::Pointer(ptr) => match ptr {
-                Pointer::Buffer(array) => {
-                    let array = unsafe { &mut *array };
-                    let ptr = array.bytes.offset_mut(index).as_mut_ptr();
-                    let value = Value::Pointer(Pointer::from_type_and_ptr(&array.ty, ptr as _));
+                Pointer::Buffer(buf) => {
+                    let buf = unsafe { &mut *buf };
+                    let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
+                    let value = Value::Pointer(Pointer::from_type_and_ptr(&buf.ty, ptr as _));
                     self.stack.push(value);
                 }
                 ptr => {
@@ -72,11 +72,11 @@ impl<'vm> VM<'vm> {
                     )))
                 }
             },
-            Value::Buffer(array) => {
-                let bytes = array.bytes.offset(index);
+            Value::Buffer(buf) => {
+                let bytes = buf.bytes.offset(index);
                 let ptr = &bytes[0];
                 self.stack.push(Value::Pointer(Pointer::from_type_and_ptr(
-                    &array.ty,
+                    &buf.ty,
                     ptr as *const u8 as *mut u8 as _,
                 )));
             }

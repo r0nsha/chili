@@ -269,9 +269,19 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn as_slice<T>(&self) -> &[T] {
-        let data = self.bytes.offset(0).read_u64::<NativeEndian>().unwrap() as *mut T;
-        let len = self.bytes.offset(8).read_u64::<NativeEndian>().unwrap() as usize;
-        unsafe { std::slice::from_raw_parts(data, len) }
+        let ptr = self
+            .bytes
+            .offset(0)
+            .read_uint::<NativeEndian>(WORD_SIZE)
+            .unwrap() as *mut T;
+
+        let len = self
+            .bytes
+            .offset(8)
+            .read_uint::<NativeEndian>(WORD_SIZE)
+            .unwrap() as usize;
+
+        unsafe { std::slice::from_raw_parts(ptr, len) }
     }
 
     pub fn as_str(&self) -> &str {
@@ -329,6 +339,43 @@ impl Buffer {
 
                 vec![data, len]
             }
+            ty => panic!("{}", ty),
+        }
+    }
+
+    pub fn get_at_index(&self, index: usize) -> Value {
+        match &self.ty {
+            Type::Unit => panic!("{}", index),
+            Type::Struct(struct_type) => {
+                let align = struct_type.align_of(WORD_SIZE);
+
+                self.bytes
+                    .offset(index * align)
+                    .get_value(&struct_type.fields[index].ty)
+            }
+            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
+                let align = self.ty.align_of(WORD_SIZE);
+
+                self.bytes
+                    .offset(index * align)
+                    .get_value(&partial_struct.get_index(index).unwrap().1)
+            }
+            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
+                let align = self.ty.align_of(WORD_SIZE);
+                self.bytes.offset(index * align).get_value(&elements[index])
+            }
+            Type::Array(ty, _) => {
+                let elem_size = ty.size_of(WORD_SIZE);
+                self.bytes.offset(index * elem_size).get_value(ty)
+            }
+            Type::Slice(ty, _) => match index {
+                0 => self
+                    .bytes
+                    .offset(0)
+                    .get_value(&Type::Pointer(ty.clone(), false)),
+                1 => self.bytes.offset(8).get_value(&Type::uint()),
+                _ => panic!("{}", index),
+            },
             ty => panic!("{}", ty),
         }
     }
@@ -587,11 +634,7 @@ impl Value {
                 }
                 Type::Slice(inner, _) => {
                     if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
-                        let data =
-                            buf.bytes.offset(0).read_u64::<NativeEndian>().unwrap() as *mut u8;
-                        let len = buf.bytes.offset(8).read_u64::<NativeEndian>().unwrap() as usize;
-                        let slice = unsafe { slice::from_raw_parts(data, len) };
-                        let str = str::from_utf8(slice).expect("slice is not a valid utf8 string");
+                        let str = buf.as_str();
                         Ok(ConstValue::Str(ustr(str)))
                     } else {
                         Err("slice")
@@ -678,7 +721,7 @@ impl From<Ustr> for Value {
             .offset_mut(0)
             .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
 
-        bytes.offset_mut(0).put_value(&Value::Uint(s.len()));
+        bytes.offset_mut(8).put_value(&Value::Uint(s.len()));
 
         Value::Buffer(Buffer {
             bytes,
@@ -853,7 +896,6 @@ impl Display for Buffer {
         if self.ty.is_unit() {
             write!(f, "()")
         } else {
-            println!("1");
             let values_joined = self
                 .into_values()
                 .iter()
@@ -861,7 +903,6 @@ impl Display for Buffer {
                 .map(|v| v.to_string())
                 .collect::<Vec<String>>()
                 .join(", ");
-            println!("2");
 
             let len = match &self.ty {
                 Type::Unit => 0,

@@ -106,7 +106,7 @@ impl PutValue for [u8] {
             Value::F64(v) => self.as_mut().write_f64::<NativeEndian>(*v),
             Value::Bool(v) => self.as_mut().write_u8(*v as u8),
             Value::Buffer(v) => {
-                self.as_mut().write_all(v.bytes.inner.as_ref());
+                self.as_mut().write_all(v.bytes.inner.as_ref()).unwrap();
                 Ok(())
             }
             Value::Pointer(v) => self

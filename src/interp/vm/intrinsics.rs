@@ -76,8 +76,10 @@ impl<'vm> VM<'vm> {
 
                 let bytes = ByteSeq::new(size);
 
-                bytes.offset(0).put_value(&Value::from(output_file_str));
-                bytes.offset(align).put_value(&Value::Bool(ok));
+                bytes
+                    .offset(align * 0)
+                    .put_value(&Value::from(output_file_str));
+                bytes.offset(align * 1).put_value(&Value::Bool(ok));
 
                 self.stack.push(Value::Buffer(Buffer {
                     bytes,

@@ -530,19 +530,19 @@ impl<'vm> VM<'vm> {
                 }
                 Instruction::BufferPut(pos) => {
                     let value = self.stack.pop();
-                    let array = self.stack.peek_mut(0).as_buffer_mut();
+                    let buf = self.stack.peek_mut(0).as_buffer_mut();
 
-                    let offset_bytes = array.bytes.offset_mut(pos as usize);
+                    let offset_bytes = buf.bytes.offset_mut(pos as usize);
                     offset_bytes.put_value(&value);
 
                     self.next();
                 }
                 Instruction::BufferFill(size) => {
                     let value = self.stack.pop();
-                    let array = self.stack.peek_mut(0).as_buffer_mut();
+                    let buf = self.stack.peek_mut(0).as_buffer_mut();
 
                     for _ in 0..size {
-                        array.bytes.put_value(&value);
+                        buf.bytes.put_value(&value);
                     }
 
                     self.next();
