@@ -4,8 +4,7 @@ use super::{
         byte_seq::{ByteSeq, PutValue},
         instruction::{CastInstruction, CompiledCode, Instruction},
         value::{
-            Aggregate, Buffer, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value,
-            ValueKind,
+            Buffer, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value, ValueKind,
         },
     },
     IS_64BIT, WORD_SIZE,
@@ -18,7 +17,7 @@ use crate::{
     },
     infer::normalize::Normalize,
     interp::vm::value::FunctionAddress,
-    types::{align::AlignOf, size::SizeOf, FloatType, InferTy, IntType, Type, TypeId, UintType},
+    types::{align::AlignOf, size::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType},
     workspace::BindingId,
 };
 use ustr::ustr;
@@ -266,24 +265,25 @@ impl Lower for hir::Cast {
                 code.push(Instruction::Cast(cast_inst));
             }
             Type::Slice(_, _) => {
-                let value_ty = self.value.ty().normalize(sess.tcx);
-                let inner_ty_size = value_ty.inner().size_of(WORD_SIZE);
+                let value_type = self.value.ty().normalize(sess.tcx);
+                let value_type_size = value_type.size_of(WORD_SIZE) as u32;
+                let inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
-                code.push(Instruction::AggregateAlloc);
+                code.push(Instruction::BufferAlloc(value_type_size));
 
                 self.value
                     .lower(sess, code, LowerContext { take_ptr: true });
 
                 // calculate the new slice's offset
                 sess.push_const(code, Value::Uint(0));
-                sess.push_const(code, Value::Uint(inner_ty_size));
+                sess.push_const(code, Value::Uint(inner_type_size));
                 code.push(Instruction::Mul);
                 code.push(Instruction::Offset);
 
-                code.push(Instruction::AggregatePush);
+                code.push(Instruction::BufferPut(0));
 
                 // calculate the slice length, by doing `high - low`
-                match value_ty.maybe_deref_once() {
+                match value_type.maybe_deref_once() {
                     Type::Array(_, len) => {
                         sess.push_const(code, Value::Uint(len));
                     }
@@ -293,12 +293,12 @@ impl Lower for hir::Cast {
                 sess.push_const(code, Value::Uint(0));
                 code.push(Instruction::Sub);
 
-                code.push(Instruction::AggregatePush);
+                code.push(Instruction::BufferPut(WORD_SIZE as u32));
             }
-            Type::Infer(_, InferTy::AnyInt) => {
+            Type::Infer(_, InferType::AnyInt) => {
                 code.push(Instruction::Cast(CastInstruction::Int));
             }
-            Type::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferType::AnyFloat) => {
                 code.push(Instruction::Cast(if IS_64BIT {
                     CastInstruction::F64
                 } else {
@@ -654,11 +654,12 @@ impl Lower for hir::Builtin {
             }
             hir::Builtin::Slice(slice) => {
                 let value_type = slice.value.ty().normalize(sess.tcx);
+                let value_type_size = value_type.size_of(WORD_SIZE) as u32;
                 let inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
                 match value_type {
                     Type::Array(..) => {
-                        code.push(Instruction::AggregateAlloc);
+                        code.push(Instruction::BufferAlloc(value_type_size));
 
                         slice
                             .value
@@ -672,7 +673,7 @@ impl Lower for hir::Builtin {
                         code.push(Instruction::Mul);
                         code.push(Instruction::Offset);
 
-                        code.push(Instruction::AggregatePush);
+                        code.push(Instruction::BufferPut(0));
 
                         // calculate the slice length, by doing `high - low`
                         slice
@@ -683,7 +684,7 @@ impl Lower for hir::Builtin {
                             .lower(sess, code, LowerContext { take_ptr: false });
                         code.push(Instruction::Sub);
 
-                        code.push(Instruction::AggregatePush);
+                        code.push(Instruction::BufferPut(WORD_SIZE as u32));
                     }
                     Type::Slice(..) => {
                         slice
@@ -695,7 +696,7 @@ impl Lower for hir::Builtin {
                         code.push(Instruction::Roll(1));
                         code.push(Instruction::ConstIndex(0));
 
-                        code.push(Instruction::AggregateAlloc);
+                        code.push(Instruction::BufferAlloc(value_type_size));
 
                         code.push(Instruction::Roll(1));
 
@@ -707,7 +708,7 @@ impl Lower for hir::Builtin {
                         code.push(Instruction::Mul);
                         code.push(Instruction::Offset);
 
-                        code.push(Instruction::AggregatePush);
+                        code.push(Instruction::BufferPut(0));
 
                         // calculate the slice length, by doing `high - low`
                         slice
@@ -718,10 +719,10 @@ impl Lower for hir::Builtin {
                             .lower(sess, code, LowerContext { take_ptr: false });
                         code.push(Instruction::Sub);
 
-                        code.push(Instruction::AggregatePush);
+                        code.push(Instruction::BufferPut(WORD_SIZE as u32));
                     }
                     Type::Pointer(..) => {
-                        code.push(Instruction::AggregateAlloc);
+                        code.push(Instruction::BufferAlloc(value_type_size));
 
                         slice
                             .value
@@ -734,7 +735,7 @@ impl Lower for hir::Builtin {
                         code.push(Instruction::Mul);
                         code.push(Instruction::Offset);
 
-                        code.push(Instruction::AggregatePush);
+                        code.push(Instruction::BufferPut(0));
 
                         slice
                             .high
@@ -744,7 +745,7 @@ impl Lower for hir::Builtin {
                             .lower(sess, code, LowerContext { take_ptr: false });
                         code.push(Instruction::Sub);
 
-                        code.push(Instruction::AggregatePush);
+                        code.push(Instruction::BufferPut(WORD_SIZE as u32));
                     }
                     _ => panic!("unexpected type {}", value_type),
                 }
@@ -766,36 +767,42 @@ impl Lower for hir::Literal {
 
 impl Lower for hir::StructLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        code.push(Instruction::AggregateAlloc);
-
         let ty = self.ty.normalize(sess.tcx);
-        let ty = ty.as_struct();
+        let struct_type = ty.as_struct();
+        let struct_size = struct_type.size_of(WORD_SIZE) as u32;
+        let struct_align = struct_type.align_of(WORD_SIZE) as u32;
+
+        code.push(Instruction::BufferAlloc(struct_size));
 
         let mut ordered_fields = self.fields.clone();
 
         ordered_fields.sort_by(|f1, f2| {
-            let index_1 = ty.find_field_position(f1.name).unwrap();
-            let index_2 = ty.find_field_position(f2.name).unwrap();
+            let index_1 = struct_type.find_field_position(f1.name).unwrap();
+            let index_2 = struct_type.find_field_position(f2.name).unwrap();
             index_1.cmp(&index_2)
         });
 
-        for field in ordered_fields.iter() {
+        for (index, field) in ordered_fields.iter().enumerate() {
             field
                 .value
                 .lower(sess, code, LowerContext { take_ptr: false });
 
-            code.push(Instruction::AggregatePush);
+            code.push(Instruction::BufferPut(index as u32 * struct_align));
         }
     }
 }
 
 impl Lower for hir::TupleLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        code.push(Instruction::AggregateAlloc);
+        let ty = self.ty.normalize(sess.tcx);
+        let tuple_size = ty.size_of(WORD_SIZE) as u32;
+        let tuple_align = ty.align_of(WORD_SIZE) as u32;
 
-        for element in self.elements.iter() {
+        code.push(Instruction::BufferAlloc(tuple_size));
+
+        for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
-            code.push(Instruction::AggregatePush);
+            code.push(Instruction::BufferPut(index as u32 * tuple_align));
         }
     }
 }
@@ -872,8 +879,8 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     }
                 }
             },
-            Type::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
-            Type::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferType::AnyInt) => Value::Int(*v as _),
+            Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)
                 } else {
@@ -908,8 +915,8 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     }
                 }
             },
-            Type::Infer(_, InferTy::AnyInt) => Value::Int(*v as _),
-            Type::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferType::AnyInt) => Value::Int(*v as _),
+            Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)
                 } else {
@@ -930,7 +937,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     }
                 }
             },
-            Type::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(*v as _)
                 } else {

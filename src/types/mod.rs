@@ -44,12 +44,12 @@ pub enum Type {
     Type(Box<Type>),
     AnyType,
     Var(TypeId),
-    Infer(TypeId, InferTy),
+    Infer(TypeId, InferType),
     Unknown,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum InferTy {
+pub enum InferType {
     AnyInt,
     AnyFloat,
     PartialStruct(PartialStructType),
@@ -305,11 +305,11 @@ impl Type {
     }
 
     pub fn is_anyint(&self) -> bool {
-        matches!(self, Type::Infer(_, InferTy::AnyInt))
+        matches!(self, Type::Infer(_, InferType::AnyInt))
     }
 
     pub fn is_anyfloat(&self) -> bool {
-        matches!(self, Type::Infer(_, InferTy::AnyFloat))
+        matches!(self, Type::Infer(_, InferType::AnyFloat))
     }
 
     pub fn is_int(&self) -> bool {
@@ -396,18 +396,6 @@ impl Type {
         }
     }
 
-    pub fn raw_pointer(is_mutable: bool) -> Type {
-        Type::Pointer(Box::new(Type::Int(IntType::I8)), is_mutable)
-    }
-
-    pub fn str() -> Type {
-        Type::Slice(Box::new(Type::char()), false)
-    }
-
-    pub fn char() -> Type {
-        Type::Uint(UintType::U8)
-    }
-
     pub fn create_type(self) -> Type {
         Type::Type(Box::new(self))
     }
@@ -431,5 +419,105 @@ impl Type {
             Type::Pointer(inner, _) => inner.as_ref().clone(),
             _ => self.clone(),
         }
+    }
+
+    #[inline]
+    pub fn unit() -> Type {
+        Type::Unit
+    }
+
+    #[inline]
+    pub fn never() -> Type {
+        Type::Never
+    }
+
+    #[inline]
+    pub fn bool() -> Type {
+        Type::Bool
+    }
+
+    #[inline]
+    pub fn i8() -> Type {
+        Type::Int(IntType::I8)
+    }
+
+    #[inline]
+    pub fn i16() -> Type {
+        Type::Int(IntType::I16)
+    }
+
+    #[inline]
+    pub fn i32() -> Type {
+        Type::Int(IntType::I32)
+    }
+
+    #[inline]
+    pub fn i64() -> Type {
+        Type::Int(IntType::I64)
+    }
+
+    #[inline]
+    pub fn int() -> Type {
+        Type::Int(IntType::Int)
+    }
+
+    #[inline]
+    pub fn u8() -> Type {
+        Type::Uint(UintType::U8)
+    }
+
+    #[inline]
+    pub fn u16() -> Type {
+        Type::Uint(UintType::U16)
+    }
+
+    #[inline]
+    pub fn u32() -> Type {
+        Type::Uint(UintType::U32)
+    }
+
+    #[inline]
+    pub fn u64() -> Type {
+        Type::Uint(UintType::U64)
+    }
+
+    #[inline]
+    pub fn uint() -> Type {
+        Type::Uint(UintType::Uint)
+    }
+
+    #[inline]
+    pub fn f16() -> Type {
+        Type::Float(FloatType::F16)
+    }
+
+    #[inline]
+    pub fn f32() -> Type {
+        Type::Float(FloatType::F32)
+    }
+
+    #[inline]
+    pub fn f64() -> Type {
+        Type::Float(FloatType::F64)
+    }
+
+    #[inline]
+    pub fn float() -> Type {
+        Type::Float(FloatType::Float)
+    }
+
+    #[inline]
+    pub fn raw_pointer(is_mutable: bool) -> Type {
+        Type::Pointer(Box::new(Type::i8()), is_mutable)
+    }
+
+    #[inline]
+    pub fn str() -> Type {
+        Type::Slice(Box::new(Type::char()), false)
+    }
+
+    #[inline]
+    pub fn char() -> Type {
+        Type::Uint(UintType::U8)
     }
 }

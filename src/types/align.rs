@@ -17,7 +17,7 @@ impl AlignOf for Type {
             Type::Slice(..) => StructType::temp(
                 vec![
                     StructTypeField::temp(Type::raw_pointer(false)),
-                    StructTypeField::temp(Type::Uint(UintType::Uint)),
+                    StructTypeField::temp(Type::uint()),
                 ],
                 StructTypeKind::Struct,
             )
@@ -30,8 +30,8 @@ impl AlignOf for Type {
             )
             .align_of(word_size),
             Type::Struct(s) => s.align_of(word_size),
-            Type::Infer(_, InferTy::AnyInt) => IntType::Int.align_of(word_size),
-            Type::Infer(_, InferTy::AnyFloat) => FloatType::Float.align_of(word_size),
+            Type::Infer(_, InferType::AnyInt) => IntType::Int.align_of(word_size),
+            Type::Infer(_, InferType::AnyFloat) => FloatType::Float.align_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }

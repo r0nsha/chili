@@ -70,16 +70,14 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             params: vec![
                 FunctionTypeParam {
                     name: ustr("argc"),
-                    ty: Type::Uint(UintType::U32),
+                    ty: Type::u32(),
                 },
                 FunctionTypeParam {
                     name: ustr("argv"),
-                    ty: Type::Uint(UintType::U8)
-                        .pointer_type(false)
-                        .pointer_type(false),
+                    ty: Type::u8().pointer_type(false).pointer_type(false),
                 },
             ],
-            return_type: Box::new(Type::Uint(UintType::U32)),
+            return_type: Box::new(Type::u32()),
             varargs: None,
             kind: FunctionTypeKind::Orphan,
         };

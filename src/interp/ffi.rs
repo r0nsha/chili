@@ -5,9 +5,9 @@ use super::{
         value::{ExternFunction, Function, FunctionValue, Value},
         VM,
     },
-    IS_64BIT, WORD_SIZE,
+    IS_64BIT,
 };
-use crate::types::{align::AlignOf, size::SizeOf, *};
+use crate::types::*;
 use bumpalo::Bump;
 use libffi::{
     low::{ffi_cif, CodePtr},
@@ -154,10 +154,7 @@ impl FfiFunction {
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
         let bump = Bump::with_capacity(arg_values.len() * 2);
 
-        for (arg, arg_type) in arg_values.iter_mut().zip(self.arg_types.iter()) {
-            let size = arg_type.size_of(WORD_SIZE);
-            let alignment = arg_type.align_of(WORD_SIZE);
-
+        for arg in arg_values.iter_mut() {
             let arg_ptr = match arg {
                 Value::I8(v) => raw_ptr!(v),
                 Value::I16(v) => raw_ptr!(v),
@@ -336,22 +333,22 @@ impl AsFfiType for Type {
             }
             Type::Struct(st) => FfiType::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
             Type::Infer(_, ty) => match ty {
-                InferTy::AnyInt => {
+                InferType::AnyInt => {
                     if IS_64BIT {
                         FfiType::i64()
                     } else {
                         FfiType::i32()
                     }
                 }
-                InferTy::AnyFloat => {
+                InferType::AnyFloat => {
                     if IS_64BIT {
                         FfiType::f64()
                     } else {
                         FfiType::f32()
                     }
                 }
-                InferTy::PartialStruct(_) => todo!(),
-                InferTy::PartialTuple(_) => todo!(),
+                InferType::PartialStruct(_) => todo!(),
+                InferType::PartialTuple(_) => todo!(),
             },
             Type::Never => FfiType::void(),
             _ => panic!("invalid type {}", self),

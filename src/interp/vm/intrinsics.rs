@@ -3,11 +3,7 @@ use std::path::PathBuf;
 use path_absolutize::Absolutize;
 use ustr::ustr;
 
-use super::{
-    byte_seq::ByteSeq,
-    value::{Aggregate, IntrinsicFunction},
-    VM,
-};
+use super::{byte_seq::ByteSeq, value::IntrinsicFunction, VM};
 use crate::{
     common::{
         build_options::{BuildOptions, CodegenOptions, OptimizationLevel},
@@ -31,12 +27,12 @@ impl<'vm> VM<'vm> {
                 let value = self.stack.pop();
                 let workspace_value = WorkspaceValue::from(&value);
 
-                let source_file = PathBuf::from(workspace_value.build_options.input_file)
+                let source_file = PathBuf::from(workspace_value.build_options.input_file.as_str())
                     .absolutize_from(self.interp.build_options.root_dir())
                     .unwrap()
                     .to_path_buf();
 
-                let output_file = PathBuf::from(workspace_value.build_options.output_file)
+                let output_file = PathBuf::from(workspace_value.build_options.output_file.as_str())
                     .absolutize_from(self.interp.build_options.root_dir())
                     .unwrap()
                     .to_path_buf();

@@ -143,7 +143,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                     tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
-                Type::Infer(other, InferTy::AnyInt | InferTy::AnyFloat) | Type::Var(other) => {
+                Type::Infer(other, InferType::AnyInt | InferType::AnyFloat) | Type::Var(other) => {
                     if other != var {
                         tcx.bind_ty(other, var.into());
                     }
@@ -159,7 +159,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                     tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
-                Type::Infer(other, InferTy::AnyInt | InferTy::AnyFloat) | Type::Var(other) => {
+                Type::Infer(other, InferType::AnyInt | InferType::AnyFloat) | Type::Var(other) => {
                     if other != var {
                         tcx.bind_ty(other, var.into());
                     }
@@ -202,7 +202,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                     tcx.bind_ty(var, Type::Module(module_id));
                     Ok(())
                 }
-                Type::Infer(other, InferTy::PartialStruct(ref other_partial)) => {
+                Type::Infer(other, InferType::PartialStruct(ref other_partial)) => {
                     for (symbol, ty) in partial_struct.iter() {
                         // if both partial structs have this field, unify their types
                         if let Some(other_ty) = other_partial.get(symbol) {
@@ -239,7 +239,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
             let other_kind = other.normalize(tcx);
             match other_kind {
                 Type::Tuple(ref other_tuple)
-                | Type::Infer(_, InferTy::PartialTuple(ref other_tuple)) => {
+                | Type::Infer(_, InferType::PartialTuple(ref other_tuple)) => {
                     let mut any_err = false;
 
                     if other_tuple.len() < partial_tuple.len() {
@@ -304,10 +304,10 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TyCtx) -> bool {
         Type::Array(ty, _) => occurs(var, ty, tcx),
         Type::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tcx)),
         Type::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tcx)),
-        Type::Infer(other, InferTy::PartialStruct(partial)) => {
+        Type::Infer(other, InferType::PartialStruct(partial)) => {
             partial.values().any(|ty| occurs(var, ty, tcx)) || var == *other
         }
-        Type::Infer(other, InferTy::PartialTuple(partial)) => {
+        Type::Infer(other, InferType::PartialTuple(partial)) => {
             partial.iter().any(|ty| occurs(var, ty, tcx)) || var == *other
         }
         _ => false,

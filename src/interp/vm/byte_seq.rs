@@ -1,8 +1,8 @@
 use super::{
     super::{IS_64BIT, WORD_SIZE},
-    value::{Pointer, Value},
+    value::{Buffer, Pointer, Value},
 };
-use crate::types::{FloatType, InferTy, IntType, Type, UintType};
+use crate::types::{FloatType, InferType, IntType, Type, UintType};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Write;
 
@@ -13,7 +13,7 @@ pub struct ByteSeq {
 
 impl From<&[u8]> for ByteSeq {
     fn from(slice: &[u8]) -> Self {
-        let bytes = Self::new(slice.len());
+        let mut bytes = Self::new(slice.len());
         bytes.as_mut().write_all(slice);
         bytes
     }
@@ -33,10 +33,10 @@ impl ByteSeq {
     }
 
     pub(crate) fn from_values(values: &[Value], size: usize, align: usize) -> Self {
-        let bytes = Self::new(size);
+        let mut bytes = Self::new(size);
 
         for (index, value) in values.iter().enumerate() {
-            bytes.offset(index * align).put_value(value);
+            bytes.offset_mut(index * align).put_value(value);
         }
 
         bytes
@@ -171,14 +171,16 @@ impl GetValue for [u8] {
                 ty,
                 self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
             )),
-            Type::Array(_, _) => todo!(),
-            Type::Slice(_, _) => todo!(),
-            Type::Tuple(_) => todo!(),
-            Type::Struct(_) => todo!(),
-            Type::Infer(_, InferTy::AnyInt) => {
+            Type::Array(_, _) | Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => unsafe {
+                Value::Buffer(Buffer {
+                    bytes: ByteSeq::from_raw_parts(self.as_ptr() as *mut _, self.len()),
+                    ty: ty.clone(),
+                })
+            },
+            Type::Infer(_, InferType::AnyInt) => {
                 Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
             }
-            Type::Infer(_, InferTy::AnyFloat) => {
+            Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {
                     Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap())
                 } else {

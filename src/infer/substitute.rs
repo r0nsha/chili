@@ -380,7 +380,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
         Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty, _) => {
             extract_free_type_vars(ty, free_types)
         }
-        Type::Tuple(tys) | Type::Infer(_, InferTy::PartialTuple(tys)) => tys
+        Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => tys
             .iter()
             .for_each(|t| extract_free_type_vars(t, free_types)),
         Type::Struct(StructType { fields, .. }) => {
@@ -388,7 +388,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
                 .iter()
                 .for_each(|f| extract_free_type_vars(&f.ty, free_types));
         }
-        Type::Infer(_, InferTy::PartialStruct(fields)) => {
+        Type::Infer(_, InferType::PartialStruct(fields)) => {
             fields
                 .iter()
                 .for_each(|(_, ty)| extract_free_type_vars(ty, free_types));

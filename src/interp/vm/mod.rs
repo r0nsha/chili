@@ -9,7 +9,6 @@ use super::{
         value::{Buffer, Function, Pointer, Value},
     },
 };
-use byteorder::{NativeEndian, ReadBytesExt};
 use colored::Colorize;
 use std::{fmt::Display, ptr};
 use ustr::ustr;
@@ -146,7 +145,7 @@ impl<'vm> VM<'vm> {
             let frame = self.frame();
             let inst = frame.func().code.instructions[frame.ip];
 
-            // self.trace(&inst, TraceLevel::Full);
+            self.trace(&inst, TraceLevel::Full);
 
             match inst {
                 Instruction::Noop => {
@@ -580,14 +579,10 @@ impl<'vm> VM<'vm> {
                 Instruction::Panic => {
                     // Note (Ron): the panic message is a slice, which is an aggregate in the VM
                     let buf = self.stack.pop().into_buffer();
-
-                    let data = buf.bytes.offset(0).read_u64::<NativeEndian>().unwrap() as *mut u8;
-                    let len = buf.bytes.offset(8).read_u64::<NativeEndian>().unwrap() as usize;
-                    let slice = unsafe { std::slice::from_raw_parts(data, len) };
-                    let str = std::str::from_utf8(slice).unwrap();
+                    let fmt = buf.as_str();
 
                     // TODO: instead of using Rust's panic, we should be using our own panic function
-                    panic!("{}", str);
+                    panic!("{}", fmt);
                 }
                 Instruction::Halt => {
                     let result = self.stack.pop();

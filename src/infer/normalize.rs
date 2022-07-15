@@ -71,7 +71,7 @@ impl NormalizeCtx {
                 if self.concrete {
                     Type::Tuple(elements)
                 } else {
-                    Type::Infer(ty, InferTy::PartialTuple(elements))
+                    Type::Infer(ty, InferType::PartialTuple(elements))
                 }
             }
             InferenceValue::PartialStruct(st) => {
@@ -92,7 +92,7 @@ impl NormalizeCtx {
                 } else {
                     Type::Infer(
                         ty,
-                        InferTy::PartialStruct(PartialStructType(
+                        InferType::PartialStruct(PartialStructType(
                             st.iter()
                                 .map(|(name, ty)| (*name, self.normalize_kind(tcx, ty)))
                                 .collect(),
@@ -160,9 +160,9 @@ impl NormalizeCtx {
                 }
             }
             Type::Type(inner) => self.normalize_kind(tcx, inner).create_type(),
-            Type::Infer(ty, InferTy::AnyInt) => self.normalize_anyint(*ty),
-            Type::Infer(ty, InferTy::AnyFloat) => self.normalize_anyfloat(*ty),
-            Type::Infer(ty, InferTy::PartialTuple(elements)) => {
+            Type::Infer(ty, InferType::AnyInt) => self.normalize_anyint(*ty),
+            Type::Infer(ty, InferType::AnyFloat) => self.normalize_anyfloat(*ty),
+            Type::Infer(ty, InferType::PartialTuple(elements)) => {
                 let elements = elements
                     .iter()
                     .map(|el| self.normalize_kind(tcx, el))
@@ -173,7 +173,7 @@ impl NormalizeCtx {
                 } else {
                     Type::Infer(
                         *ty,
-                        InferTy::PartialTuple(
+                        InferType::PartialTuple(
                             elements
                                 .iter()
                                 .map(|ty| self.normalize_kind(tcx, ty))
@@ -182,7 +182,7 @@ impl NormalizeCtx {
                     )
                 }
             }
-            Type::Infer(ty, InferTy::PartialStruct(st)) => {
+            Type::Infer(ty, InferType::PartialStruct(st)) => {
                 if self.concrete {
                     Type::Struct(StructType {
                         name: ustr(""),
@@ -200,7 +200,7 @@ impl NormalizeCtx {
                 } else {
                     Type::Infer(
                         *ty,
-                        InferTy::PartialStruct(PartialStructType(IndexMap::from_iter(
+                        InferType::PartialStruct(PartialStructType(IndexMap::from_iter(
                             st.iter()
                                 .map(|(symbol, ty)| (*symbol, self.normalize_kind(tcx, ty))),
                         ))),
@@ -213,17 +213,17 @@ impl NormalizeCtx {
 
     fn normalize_anyint(&self, ty: TypeId) -> Type {
         if self.concrete {
-            Type::Int(IntType::Int)
+            Type::int()
         } else {
-            Type::Infer(ty, InferTy::AnyInt)
+            Type::Infer(ty, InferType::AnyInt)
         }
     }
 
     fn normalize_anyfloat(&self, ty: TypeId) -> Type {
         if self.concrete {
-            Type::Float(FloatType::Float)
+            Type::float()
         } else {
-            Type::Infer(ty, InferTy::AnyFloat)
+            Type::Infer(ty, InferType::AnyFloat)
         }
     }
 }

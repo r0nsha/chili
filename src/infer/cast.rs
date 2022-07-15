@@ -6,26 +6,26 @@ pub fn can_cast_type(from: &Type, to: &Type) -> bool {
         || match (from, to) {
             (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => true,
 
-            (Type::Infer(_, InferTy::AnyInt), Type::Infer(_, InferTy::AnyInt))
-            | (Type::Infer(_, InferTy::AnyInt), Type::Int(_))
-            | (Type::Infer(_, InferTy::AnyInt), Type::Uint(_))
-            | (Type::Infer(_, InferTy::AnyInt), Type::Infer(_, InferTy::AnyFloat))
-            | (Type::Infer(_, InferTy::AnyInt), Type::Float(_)) => true,
+            (Type::Infer(_, InferType::AnyInt), Type::Infer(_, InferType::AnyInt))
+            | (Type::Infer(_, InferType::AnyInt), Type::Int(_))
+            | (Type::Infer(_, InferType::AnyInt), Type::Uint(_))
+            | (Type::Infer(_, InferType::AnyInt), Type::Infer(_, InferType::AnyFloat))
+            | (Type::Infer(_, InferType::AnyInt), Type::Float(_)) => true,
 
             (Type::Int(_), Type::Int(_))
             | (Type::Int(_), Type::Uint(_))
-            | (Type::Int(_), Type::Infer(_, InferTy::AnyFloat))
+            | (Type::Int(_), Type::Infer(_, InferType::AnyFloat))
             | (Type::Int(_), Type::Float(_)) => true,
 
             (Type::Uint(_), Type::Int(_))
             | (Type::Uint(_), Type::Uint(_))
             | (Type::Uint(_), Type::Float(_)) => true,
 
-            (Type::Infer(_, InferTy::AnyFloat), Type::Infer(_, InferTy::AnyInt))
-            | (Type::Infer(_, InferTy::AnyFloat), Type::Int(_))
-            | (Type::Infer(_, InferTy::AnyFloat), Type::Uint(_))
-            | (Type::Infer(_, InferTy::AnyFloat), Type::Infer(_, InferTy::AnyFloat))
-            | (Type::Infer(_, InferTy::AnyFloat), Type::Float(_)) => true,
+            (Type::Infer(_, InferType::AnyFloat), Type::Infer(_, InferType::AnyInt))
+            | (Type::Infer(_, InferType::AnyFloat), Type::Int(_))
+            | (Type::Infer(_, InferType::AnyFloat), Type::Uint(_))
+            | (Type::Infer(_, InferType::AnyFloat), Type::Infer(_, InferType::AnyFloat))
+            | (Type::Infer(_, InferType::AnyFloat), Type::Float(_)) => true,
 
             (Type::Float(_), Type::Int(_))
             | (Type::Float(_), Type::Uint(_))

@@ -33,7 +33,7 @@ use crate::{
     span::Span,
     types::{
         align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
-        FunctionTypeVarargs, InferTy, PartialStructType, StructType, StructTypeField,
+        FunctionTypeVarargs, InferType, PartialStructType, StructType, StructTypeField,
         StructTypeKind, Type, TypeId,
     },
     workspace::{
@@ -1071,8 +1071,8 @@ impl Check for ast::Ast {
                 // if the accessed expression's type is not resolved yet - try unifying it with a partial type
                 match node.ty().normalize(&sess.tcx) {
                     Type::Var(_)
-                    | Type::Infer(_, InferTy::PartialStruct(_))
-                    | Type::Infer(_, InferTy::PartialTuple(_)) => {
+                    | Type::Infer(_, InferType::PartialStruct(_))
+                    | Type::Infer(_, InferType::PartialTuple(_)) => {
                         // if this parsing operation succeeds, this is a tuple member access - `tup.0`
                         // otherwise, this is a struct field access - `strct.field`
 
@@ -1120,7 +1120,7 @@ impl Check for ast::Ast {
 
                 match &node_type_deref {
                     ty @ Type::Tuple(elements)
-                    | ty @ Type::Infer(_, InferTy::PartialTuple(elements)) => {
+                    | ty @ Type::Infer(_, InferType::PartialTuple(elements)) => {
                         match member_tuple_index {
                             Ok(index) => match elements.get(index) {
                                 Some(field_ty) => {
@@ -1188,7 +1188,7 @@ impl Check for ast::Ast {
                             ty.display(&sess.tcx),
                         )),
                     },
-                    ty @ Type::Infer(_, InferTy::PartialStruct(partial_struct)) => {
+                    ty @ Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
                         match partial_struct.get_full(&access.member) {
                             Some((index, _, field_ty)) => {
                                 let ty = sess.tcx.bound(field_ty.clone(), access.span);

@@ -19,7 +19,7 @@ impl SizeOf for Type {
             Type::Slice(..) => StructType::temp(
                 vec![
                     StructTypeField::temp(Type::raw_pointer(false)),
-                    StructTypeField::temp(Type::Uint(UintType::Uint)),
+                    StructTypeField::temp(Type::uint()),
                 ],
                 StructTypeKind::Struct,
             )
@@ -32,8 +32,8 @@ impl SizeOf for Type {
             )
             .size_of(word_size),
             Type::Struct(s) => s.size_of(word_size),
-            Type::Infer(_, InferTy::AnyInt) => IntType::Int.size_of(word_size),
-            Type::Infer(_, InferTy::AnyFloat) => FloatType::Float.size_of(word_size),
+            Type::Infer(_, InferType::AnyInt) => IntType::Int.size_of(word_size),
+            Type::Infer(_, InferType::AnyFloat) => FloatType::Float.size_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),
         }
     }

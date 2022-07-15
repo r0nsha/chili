@@ -1,70 +1,75 @@
-// let ? = import!("std/build")
+let ? = import!("std/build")
+let { println } = import!("std/fmt")
+let { printf } = import!("std/c")
 
-// let build = fn() {
-// 	let build_options = BuildOptions {
-//         input_file: "src/main.chili",
-//         output_file: "out/main",
-//         target: BuildTarget_auto,
-//         optimization_level: OptimizationLevel_debug,
-// 	};
+let build = fn() {
+	let build_options = BuildOptions {
+        input_file: "src/main.chili",
+        output_file: "out/main",
+        target: BuildTarget_auto,
+        optimization_level: OptimizationLevel_debug,
+	};
 
-// 	let workspace = Workspace {
-// 		name: "hello",
-// 		build_options
-// 	};
+    // println("Hello World");
+    printf("Hello World".data);
 
-// 	let (output_file, ok) = start_workspace(workspace);
+	// let workspace = Workspace {
+	// 	name: "hello",
+	// 	build_options
+	// };
 
-// 	if ok {
-// 		run_output_file(output_file);
-// 	}
+	// let (output_file, ok) = start_workspace(workspace);
+
+	// if ok {
+	// 	run_output_file(output_file);
+	// }
+}
+
+run!(build())
+
+// let { println } = import!("std/fmt")
+// let { printf, malloc } = import!("std/c")
+
+// let Node = struct {
+//     l: *mut Node,
+//     r: *mut Node,
 // }
 
-// run!(build())
+// let node_check = fn(node: *Node) -> i32 {
+//     let mut result = 1;
 
-let { println } = import!("std/fmt")
-let { printf, malloc } = import!("std/c")
-
-let Node = struct {
-    l: *mut Node,
-    r: *mut Node,
-}
-
-let node_check = fn(node: *Node) -> i32 {
-    let mut result = 1;
-
-    if (node.l as uint) != 0 {
-        result += node_check(node.l);
-    } 
+//     if (node.l as uint) != 0 {
+//         result += node_check(node.l);
+//     } 
     
-    if (node.r as uint) != 0 {
-        result += node_check(node.r);
-    }
+//     if (node.r as uint) != 0 {
+//         result += node_check(node.r);
+//     }
 
-    result
-}
+//     result
+// }
 
-let node_create = fn(depth: i32) -> (*mut Node) {
-    let node = malloc(size_of!(Node)) as *mut Node;
+// let node_create = fn(depth: i32) -> (*mut Node) {
+//     let node = malloc(size_of!(Node)) as *mut Node;
 
-    if depth > 0 {
-        node.l = node_create(depth - 1);
-        // node.r = node_create(depth - 1);
-    }
+//     if depth > 0 {
+//         node.l = node_create(depth - 1);
+//         // node.r = node_create(depth - 1);
+//     }
 
-    node
-}
+//     node
+// }
 
-let min_depth: i32 = 4;
+// let min_depth: i32 = 4;
 
-let main = fn {
-    let n = 10;
+// let main = fn {
+//     let n = 10;
 
-    let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n };
+//     let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n };
 
-    let depth = max_depth + 1;
-    let node = node_create(depth);
-    // printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, node_check(node));
-}
+//     let depth = max_depth + 1;
+//     let node = node_create(depth);
+//     // printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, node_check(node));
+// }
 
-run!(main())
+// run!(main())

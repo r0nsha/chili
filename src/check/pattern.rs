@@ -15,7 +15,7 @@ use crate::{
     hir,
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
     span::Span,
-    types::{InferTy, PartialStructType, Type, TypeId},
+    types::{InferType, PartialStructType, Type, TypeId},
     workspace::{
         BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel,
     },
@@ -529,7 +529,7 @@ impl<'s> CheckSess<'s> {
                                 statements.push(bound_node);
                             }
                         }
-                        Type::Infer(_, InferTy::PartialStruct(_)) => {
+                        Type::Infer(_, InferType::PartialStruct(_)) => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot use wildcard unpack on partial struct type - {}",
