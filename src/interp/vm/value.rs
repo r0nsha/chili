@@ -343,7 +343,7 @@ impl Buffer {
         }
     }
 
-    pub fn get_at_index(&self, index: usize) -> Value {
+    pub fn get_value_at_index(&self, index: usize) -> Value {
         match &self.ty {
             Type::Unit => panic!("{}", index),
             Type::Struct(struct_type) => {

@@ -1,17 +1,16 @@
 let ? = import!("std/build")
 let { println } = import!("std/fmt")
-let { printf } = import!("std/c")
 
 let build = fn() {
-	// let build_options = BuildOptions {
-    //     input_file: "src/main.chili",
-    //     output_file: "out/main",
-    //     target: BuildTarget_auto,
-    //     optimization_level: OptimizationLevel_debug,
-	// };
+	let build_options = BuildOptions {
+        input_file: "src/main.chili",
+        output_file: "out/main",
+        target: BuildTarget_auto,
+        optimization_level: OptimizationLevel_debug,
+	};
 
     // println("Hello World");
-    printf("Hello World".data);
+    // printf("Hello World".data);
 
 	// let workspace = Workspace {
 	// 	name: "hello",

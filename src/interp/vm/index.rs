@@ -11,7 +11,7 @@ impl<'vm> VM<'vm> {
             Value::Pointer(ref ptr) => match ptr {
                 Pointer::Buffer(buf) => {
                     let buf = unsafe { &**buf };
-                    let value = buf.get_at_index(index);
+                    let value = buf.get_value_at_index(index);
                     self.stack.push(value);
                 }
                 _ => {
@@ -21,7 +21,7 @@ impl<'vm> VM<'vm> {
                 }
             },
             Value::Buffer(buf) => {
-                let value = buf.bytes.offset(index).get_value(buf.ty.inner());
+                let value = buf.get_value_at_index(index);
                 self.stack.push(value);
             }
             _ => panic!("invalid value {}", value.to_string()),
