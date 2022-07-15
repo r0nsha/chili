@@ -280,6 +280,7 @@ impl Buffer {
 
     pub fn into_values(&self) -> Vec<Value> {
         match &self.ty {
+            Type::Unit => vec![],
             Type::Struct(struct_type) => {
                 let align = struct_type.align_of(WORD_SIZE);
 
@@ -849,44 +850,53 @@ impl Display for Value {
 
 impl Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let inner_content = {
-            let bytes = &self.bytes;
+        if self.ty.is_unit() {
+            write!(f, "()")
+        } else {
+            println!("1");
+            let values_joined = self
+                .into_values()
+                .iter()
+                .take(MAX_CONSECUTIVE_VALUES as _)
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+                .join(", ");
+            println!("2");
 
-            let ty = self.ty.inner();
-            let element_size = ty.size_of(WORD_SIZE);
-            let size = (bytes.len() / element_size) as isize;
-
-            let mut elements = vec![];
-
-            for i in 0..size.min(MAX_CONSECUTIVE_VALUES) {
-                let el = bytes.offset(element_size * (i as usize)).get_value(ty);
-                elements.push(el.to_string());
-            }
-
-            let extra_values = size - MAX_CONSECUTIVE_VALUES;
-
-            format!(
-                "{}{}",
-                elements.join(", "),
-                if extra_values > 0 {
-                    format!(", +{} more", extra_values)
-                } else {
-                    "".to_string()
+            let len = match &self.ty {
+                Type::Unit => 0,
+                Type::Struct(struct_type) => struct_type.fields.len(),
+                Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
+                Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
+                    elements.len()
                 }
-            )
-        };
+                Type::Array(_, size) => *size,
+                Type::Slice(..) => 2,
+                ty => panic!("{}", ty),
+            };
 
-        match &self.ty {
-            Type::Unit => write!(f, "()"),
-            Type::Struct(..) | Type::Infer(_, InferType::PartialStruct(_)) => {
-                write!(f, "{{{}}}", inner_content)
+            let extra_values = len as isize - MAX_CONSECUTIVE_VALUES;
+            let extra_values_str = if extra_values > 0 {
+                format!(", +{} more", extra_values)
+            } else {
+                "".to_string()
+            };
+
+            match &self.ty {
+                Type::Struct(_) | Type::Infer(_, InferType::PartialStruct(_)) => {
+                    write!(f, "{{{}{}}}", values_joined, extra_values_str)
+                }
+                Type::Tuple(_) | Type::Infer(_, InferType::PartialTuple(_)) => {
+                    write!(f, "({}{})", values_joined, extra_values_str)
+                }
+                Type::Array(..) => {
+                    write!(f, "[{}{}]", values_joined, extra_values_str)
+                }
+                Type::Slice(..) => {
+                    write!(f, "&[{}{}]", values_joined, extra_values_str)
+                }
+                ty => panic!("{}", ty),
             }
-            Type::Tuple(..) | Type::Infer(_, InferType::PartialTuple(_)) => {
-                write!(f, "({})", inner_content)
-            }
-            Type::Array(..) => write!(f, "[{}]", inner_content),
-            Type::Slice(..) => write!(f, "&[{}]", inner_content),
-            ty => panic!("{}", ty),
         }
     }
 }

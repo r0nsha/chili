@@ -14,7 +14,7 @@ pub struct ByteSeq {
 impl From<&[u8]> for ByteSeq {
     fn from(slice: &[u8]) -> Self {
         let mut bytes = Self::new(slice.len());
-        bytes.as_mut().write_all(slice);
+        bytes.as_mut().write_all(slice).unwrap();
         bytes
     }
 }
@@ -50,6 +50,7 @@ impl ByteSeq {
         &mut self.inner[offset..]
     }
 
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.inner.len()
     }

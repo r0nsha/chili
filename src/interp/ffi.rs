@@ -107,6 +107,7 @@ impl Ffi {
 #[derive(Debug)]
 struct FfiFunction {
     cif: Cif,
+    // TODO: remove arg_types
     arg_types: Vec<Type>,
 }
 
