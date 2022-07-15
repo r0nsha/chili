@@ -1,5 +1,4 @@
 use super::{
-    byte_seq::GetValue,
     value::{Pointer, Value},
     VM,
 };

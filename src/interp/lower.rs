@@ -946,7 +946,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             }
             _ => panic!("invalid ty {}", ty),
         },
-        ConstValue::Str(v) => Value::from(*v),
+        ConstValue::Str(str) => Value::Buffer(Buffer::from_ustr(*str)),
         ConstValue::Tuple(elements) => Value::Buffer(Buffer {
             bytes: ByteSeq::from_values(
                 &elements

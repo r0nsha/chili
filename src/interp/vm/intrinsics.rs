@@ -78,7 +78,7 @@ impl<'vm> VM<'vm> {
 
                 bytes
                     .offset(align * 0)
-                    .put_value(&Value::from(output_file_str));
+                    .put_value(&Value::Buffer(Buffer::from_ustr(output_file_str)));
                 bytes.offset(align * 1).put_value(&Value::Bool(ok));
 
                 self.stack.push(Value::Buffer(Buffer {

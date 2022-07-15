@@ -288,39 +288,45 @@ impl Buffer {
         std::str::from_utf8(self.as_slice::<u8>()).unwrap()
     }
 
+    pub fn from_ustr(s: Ustr) -> Self {
+        let ty = Type::str();
+        let size = ty.size_of(WORD_SIZE);
+        let align = ty.align_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(align * 0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
+
+        bytes.offset_mut(align * 1).put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
     pub fn into_values(&self) -> Vec<Value> {
+        let align = self.ty.align_of(WORD_SIZE);
+
         match &self.ty {
             Type::Unit => vec![],
-            Type::Struct(struct_type) => {
-                let align = struct_type.align_of(WORD_SIZE);
-
-                struct_type
-                    .fields
-                    .iter()
-                    .enumerate()
-                    .map(|(index, StructTypeField { ty, .. })| {
-                        self.bytes.offset(index * align).get_value(ty)
-                    })
-                    .collect()
-            }
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let align = self.ty.align_of(WORD_SIZE);
-
-                partial_struct
-                    .iter()
-                    .enumerate()
-                    .map(|(index, (_, ty))| self.bytes.offset(index * align).get_value(ty))
-                    .collect()
-            }
-            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
-                let align = self.ty.align_of(WORD_SIZE);
-
-                elements
-                    .iter()
-                    .enumerate()
-                    .map(|(index, ty)| self.bytes.offset(index * align).get_value(ty))
-                    .collect()
-            }
+            Type::Struct(struct_type) => struct_type
+                .fields
+                .iter()
+                .enumerate()
+                .map(|(index, StructTypeField { ty, .. })| {
+                    self.bytes.offset(index * align).get_value(ty)
+                })
+                .collect(),
+            Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct
+                .iter()
+                .enumerate()
+                .map(|(index, (_, ty))| self.bytes.offset(index * align).get_value(ty))
+                .collect(),
+            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements
+                .iter()
+                .enumerate()
+                .map(|(index, ty)| self.bytes.offset(index * align).get_value(ty))
+                .collect(),
             Type::Array(ty, array_len) => {
                 let elem_size = ty.size_of(WORD_SIZE);
 
@@ -332,10 +338,10 @@ impl Buffer {
             Type::Slice(ty, _) => {
                 let data = self
                     .bytes
-                    .offset(0)
+                    .offset(align * 0)
                     .get_value(&Type::Pointer(ty.clone(), false));
 
-                let len = self.bytes.offset(8).get_value(&Type::uint());
+                let len = self.bytes.offset(align * 1).get_value(&Type::uint());
 
                 vec![data, len]
             }
@@ -368,14 +374,18 @@ impl Buffer {
                 let elem_size = ty.size_of(WORD_SIZE);
                 self.bytes.offset(index * elem_size).get_value(ty)
             }
-            Type::Slice(ty, _) => match index {
-                0 => self
-                    .bytes
-                    .offset(0)
-                    .get_value(&Type::Pointer(ty.clone(), false)),
-                1 => self.bytes.offset(8).get_value(&Type::uint()),
-                _ => panic!("{}", index),
-            },
+            Type::Slice(ty, _) => {
+                let align = self.ty.align_of(WORD_SIZE);
+
+                match index {
+                    0 => self
+                        .bytes
+                        .offset(align * 0)
+                        .get_value(&Type::Pointer(ty.clone(), false)),
+                    1 => self.bytes.offset(align * 1).get_value(&Type::uint()),
+                    _ => panic!("{}", index),
+                }
+            }
             ty => panic!("{}", ty),
         }
     }
@@ -710,23 +720,6 @@ impl Value {
             Self::Pointer(_) => Err("pointer"),
             Self::Intrinsic(_) => Err("intrinsic function"),
         }
-    }
-}
-
-impl From<Ustr> for Value {
-    fn from(s: Ustr) -> Self {
-        let mut bytes = ByteSeq::new(16);
-
-        bytes
-            .offset_mut(0)
-            .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
-
-        bytes.offset_mut(8).put_value(&Value::Uint(s.len()));
-
-        Value::Buffer(Buffer {
-            bytes,
-            ty: Type::str(),
-        })
     }
 }
 
