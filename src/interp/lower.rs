@@ -360,26 +360,46 @@ impl Lower for hir::Control {
 
 impl Lower for hir::If {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        self.condition
-            .lower(sess, code, LowerContext { take_ptr: false });
-
-        let otherwise_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
-
-        self.then
-            .lower(sess, code, LowerContext { take_ptr: false });
-
-        let exit_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
-
-        patch_jmp(code, otherwise_jmp);
-
-        if let Some(otherwise) = &self.otherwise {
-            otherwise.lower(sess, code, LowerContext { take_ptr: false });
-        } else {
-            sess.push_const_unit(code);
-        }
-
-        patch_jmp(code, exit_jmp);
+        lower_conditional(
+            sess,
+            code,
+            |sess, code| {
+                self.condition
+                    .lower(sess, code, LowerContext { take_ptr: false })
+            },
+            |sess, code| {
+                self.then
+                    .lower(sess, code, LowerContext { take_ptr: false })
+            },
+            |sess, code| {
+                if let Some(otherwise) = &self.otherwise {
+                    otherwise.lower(sess, code, LowerContext { take_ptr: false });
+                } else {
+                    sess.push_const_unit(code);
+                }
+            },
+        );
     }
+}
+
+fn lower_conditional(
+    sess: &mut InterpSess,
+    code: &mut CompiledCode,
+    condition: impl FnOnce(&mut InterpSess, &mut CompiledCode),
+    then: impl FnOnce(&mut InterpSess, &mut CompiledCode),
+    otherwise: impl FnOnce(&mut InterpSess, &mut CompiledCode),
+) {
+    condition(sess, code);
+
+    let otherwise_jmp = code.push(Instruction::Jmpf(INVALID_JMP_OFFSET));
+
+    then(sess, code);
+
+    let exit_jmp = code.push(Instruction::Jmp(INVALID_JMP_OFFSET));
+
+    patch_jmp(code, otherwise_jmp);
+    otherwise(sess, code);
+    patch_jmp(code, exit_jmp);
 }
 
 impl Lower for hir::While {
@@ -490,24 +510,42 @@ impl Lower for hir::Builtin {
                 code.push(Instruction::Shr);
             }
             hir::Builtin::And(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-
-                code.push(Instruction::And);
+                lower_conditional(
+                    sess,
+                    code,
+                    |sess, code| {
+                        binary
+                            .lhs
+                            .lower(sess, code, LowerContext { take_ptr: false });
+                    },
+                    |sess, code| {
+                        binary
+                            .rhs
+                            .lower(sess, code, LowerContext { take_ptr: false });
+                    },
+                    |sess, code| {
+                        sess.push_const(code, Value::Bool(false));
+                    },
+                );
             }
             hir::Builtin::Or(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-
-                code.push(Instruction::Or);
+                lower_conditional(
+                    sess,
+                    code,
+                    |sess, code| {
+                        binary
+                            .lhs
+                            .lower(sess, code, LowerContext { take_ptr: false });
+                    },
+                    |sess, code| {
+                        sess.push_const(code, Value::Bool(true));
+                    },
+                    |sess, code| {
+                        binary
+                            .rhs
+                            .lower(sess, code, LowerContext { take_ptr: false });
+                    },
+                );
             }
             hir::Builtin::Lt(binary) => {
                 binary
