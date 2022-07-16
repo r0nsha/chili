@@ -24,6 +24,16 @@ There are languages such as `Rust` which succeed in making this gap smaller, but
 > As discussed in this section, this brings a big learning-curve and lots of complexities with it,
 > which is why it was not implemented yet.
 
+## Hello World
+
+```rust
+let { println } = import "std/fmt"
+
+let main = fn()  {
+	println("Hello World");
+}
+```
+
 ## Installation
 
 > **🌶 The language is still going through its early iterations.**  
@@ -45,40 +55,6 @@ cargo run -- [run/build] %source_file_path%
 example: cargo run -- run ./examples/main.chili
 ```
 
-## Hello World
-
-> There's no `fmt` module (yet), so we are using c's `printf` for now
-
-```rust
-let foreign("c") printf = fn(input: [u8; *], ..) -> i64;
-
-let main = fn()  {
-	printf("Hello World\n".data);
-}
-```
-
-## Breaking down: Hello World
-
-```rust
-// declares a symbol named `printf`, which comes from the foreign `system` library - `libucrt`
-let foreign("c") printf
-
-// the signature of the `printf` function.
-// the function takes a many-item pointer to unsigned bytes (u8).
-// the `..` indicates that the function is variadic.
-// ` -> i64` indicates that the function returns a 64bit signed integer.
-fn(input: [u8; *], ..) -> i64;
-
-// declares the `main` function, which takes no arguments and returns the unit type `()`
-let main = fn()  {
-
-// calls `printf`, passing it the `data` part of the string literal "Hello World\n".
-// string literals are slices to unsigned bytes: []u8.
-// the data field returns the underlying many-item pointer to that slice: [u8; *]
-	printf("Hello World\n".data);
-}
-```
-
 ## Tooling
 
 - VSCode plugin is available [here](https://github.com/r0nsha/chili-vscode) (currently includes syntax highlighting)
@@ -87,49 +63,41 @@ let main = fn()  {
 
 As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes.
 
-[Chili Programming Language Discord](https://discord.gg/Tu4s49Pdre)
+[Our Discord Channel](https://discord.gg/Tu4s49Pdre)
 
 ## Tasks
 
 - [x] Functions
 - [x] Variables
 - [x] Scalar types
-- [x] Hindley-Milner type inference
+- [x] Global type inference
 - [x] Arrays & Slices
 - [x] Structs
 - [x] Tuples
-- [x] Clean up examples folder
-- [x] Compiler refactor
-  - [x] Allow circular dependencies
-  - [x] Whole-program type inference
 - [x] Compile time execution
-  - [x] Bytecode interpreter w/ FFI
-- [ ] Compile-time execution based build configuration
+  - [x] Bytecode VM with FFI support
+- [x] Compile-time execution based build configuration
+- [x] Remove many-item (indexable) pointers
 - [ ] Attributes
+- [ ] Default function arguments
+- [ ] Named function arguments
+- [ ] Panic function
+- [ ] Basic printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
 - [ ] Move builtin functions to `std` - remove `@` prefixed builtins
-- [ ] Remove many-item (indexable) pointers
-- [ ] Tagged unions (enums)
+- [ ] Tagged unions
   - [ ] Pattern matching
   - [ ] First-class `Option` & `Result` types
-  - [ ] Remove `nil` from the language
-- [ ] Memory management; undecided - but here are some options, from most likely to least likely:
-  - [ ] Ownership model / Move semantics / Lifetime semantics / Region infernece
-  - [ ] Automatic Reference Counting
-  - [ ] Garbage Collection
+- [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
+  - [ ] Ownership + ARC
+  - [ ] Regions
+  - [ ] Ownership
+  - [ ] Garbage collection
 - [ ] Associated functions / Methods
-- [ ] (Maybe?) Some sort of behavioral polymorphism: Traits / Interfaces
-- [ ] Conditional compilation
-- [ ] Support basic printing and formatting
-  - [ ] Typed variadic arguments
-  - [ ] String interpolation
-  - [ ] `std.fmt` module, including basic formatting and printing functions
-- [ ] Runtime type introspection/reflection
+- [ ] Traits / Typeclasses
 - [ ] Closures
-- [ ] (Maybe?) Tags
-- [ ] More robust string escaping
 
-## Syntax (TODO: incomplete)
+## Syntax
 
 ### Types
 
@@ -150,11 +118,11 @@ f16 f32 f64
 
 [n]t // array of type t with size n
 []t // slice of type t
-str // alias to []u8
+str // slice of u8
 
 (t1, t2, ..) // tuple
 
-{ x: t1, y: t2, .. } // struct
+struct { x: t1, y: t2, .. } // struct
 ```
 
 ### Variables
@@ -186,7 +154,7 @@ let v = (1, 2); // initializes a tuple with (1, 2)
 
 let first = v.0; // access the 0th component of the tuple
 
-let (x, y) = v; // destructure `v` into its components
+let (x, y) = v; // unpack `v` into its components
 ```
 
 ### Structs
@@ -201,7 +169,7 @@ let v = Vector2 { x = 1, y = 2 }; // initializes a Vector2 with { x = 1, y = 2 }
 
 let x = v.x; // access the `x` field
 
-let {x, y} = v; // destructure `v` into its components
+let { x, y } = v; // unpack `v` into its components
 ```
 
 ### Functions
@@ -226,7 +194,9 @@ let add = fn(a: int, b: int) -> int {
 ```rust
 // each file is a seperated module (or namespace in other languages)
 
+//
 // file: foo.chili
+//
 
 // all functions/variables in a file are private by default
 let foo = 5;
@@ -234,33 +204,23 @@ let foo = 5;
 // add the `pub` keyword to make it public to other modules
 pub let im_public = 5;
 
+//
 // file: bar.chili
+//
 
-// you can use other modules(files) using the `use` keyword
+// you can use other modules (files) using the `import` keyword
 // foo is on the same directory as us, so we only have to type `foo`.
-use foo;
+let foo = import "foo"
 
+// modules can be unpacked the same way as structs
+let { im_public } = import "foo"
+
+// the compiler can automatically unpack all public
+// symbols from `foo` for us, using `?`
+let ? = import "foo"
+
+// Using the imported symbol
 let main = fn() {
-    let x = im_public; # we can now use im_public in `bar.chili`
-}
-
-// `deep` is nested two-level deep, so to reach it we have to
-// go through its parent modules, `this` and `is`
-use this.is.deep;
-
-// we can also use specific functions/variables
-use foo.im_public;
-
-// we can automatically use all of `foo`s symbols using *
-use foo.*;
-
-// we can combine imports however we like
-use foo.im_public;
-use this.{
-    is.deep,
-    gets.{
-        very.messy,
-        good
-    }
+    let x = im_public; // we can now use im_public in `bar.chili`
 }
 ```
