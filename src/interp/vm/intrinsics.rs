@@ -1,24 +1,18 @@
-use std::path::PathBuf;
-
-use path_absolutize::Absolutize;
-use ustr::ustr;
-
-use super::{byte_seq::ByteSeq, value::IntrinsicFunction, VM};
+use super::{value::IntrinsicFunction, VM};
 use crate::{
     common::{
         build_options::{BuildOptions, CodegenOptions, OptimizationLevel},
         target::TargetPlatform,
     },
     interp::{
-        vm::{
-            byte_seq::PutValue,
-            value::{Buffer, Value},
-        },
+        vm::value::{Buffer, Value},
         workspace::{BuildTargetValue, OptimizationLevelValue, WorkspaceValue},
-        WORD_SIZE,
     },
-    types::{align::AlignOf, size::SizeOf, Type},
+    types::Type,
 };
+use path_absolutize::Absolutize;
+use std::path::PathBuf;
+use ustr::ustr;
 
 impl<'vm> VM<'vm> {
     pub fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
@@ -52,6 +46,7 @@ impl<'vm> VM<'vm> {
                     emit_times: self.interp.build_options.emit_times,
                     emit_hir: self.interp.build_options.emit_hir,
                     emit_bytecode: self.interp.build_options.emit_bytecode,
+                    show_vm_trace: self.interp.build_options.show_vm_trace,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
                     codegen_options: CodegenOptions::Codegen {
                         emit_llvm_ir: self.interp.build_options.codegen_options.emit_llvm_ir(),
@@ -70,21 +65,16 @@ impl<'vm> VM<'vm> {
                 };
 
                 let result_type = Type::Tuple(vec![Type::str(), Type::Bool]);
-                let size = result_type.size_of(WORD_SIZE);
-                let align = result_type.align_of(WORD_SIZE);
-                panic!("size: {}\talign: {}", size, align);
 
-                let bytes = ByteSeq::new(size);
+                let result_value = Value::Buffer(Buffer::from_values(
+                    [
+                        Value::Buffer(Buffer::from_ustr(output_file_str)),
+                        Value::Bool(ok),
+                    ],
+                    result_type,
+                ));
 
-                bytes
-                    .offset(align * 0)
-                    .put_value(&Value::Buffer(Buffer::from_ustr(output_file_str)));
-                bytes.offset(align * 1).put_value(&Value::Bool(ok));
-
-                self.stack.push(Value::Buffer(Buffer {
-                    bytes,
-                    ty: result_type,
-                }));
+                self.stack.push(result_value);
 
                 self.next();
             }

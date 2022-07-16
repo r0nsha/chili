@@ -14,8 +14,8 @@ use crate::{
     interp::interp::Interp,
     span::Span,
     types::{
-        align::AlignOf, size::SizeOf, FloatType, FunctionType, InferType, IntType, StructTypeField,
-        Type, UintType,
+        align::AlignOf, offset::OffsetOf, size::SizeOf, FloatType, FunctionType, InferType,
+        IntType, Type, UintType,
     },
 };
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
@@ -277,7 +277,7 @@ impl Buffer {
 
         let len = self
             .bytes
-            .offset(8)
+            .offset(self.ty.offset_of(1, WORD_SIZE))
             .read_uint::<NativeEndian>(WORD_SIZE)
             .unwrap() as usize;
 
@@ -291,101 +291,88 @@ impl Buffer {
     pub fn from_ustr(s: Ustr) -> Self {
         let ty = Type::str();
         let size = ty.size_of(WORD_SIZE);
-        let align = ty.align_of(WORD_SIZE);
 
         let mut bytes = ByteSeq::new(size);
 
         bytes
-            .offset_mut(align * 0)
+            .offset_mut(0)
             .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
 
-        bytes.offset_mut(align * 1).put_value(&Value::Uint(s.len()));
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
 
         Buffer { bytes, ty }
     }
 
-    pub fn into_values(&self) -> Vec<Value> {
-        let align = self.ty.align_of(WORD_SIZE);
+    pub fn from_values<I: IntoIterator<Item = Value>>(values: I, ty: Type) -> Self {
+        let size = ty.size_of(WORD_SIZE);
 
+        let mut bytes = ByteSeq::new(size);
+
+        for (index, value) in values.into_iter().enumerate() {
+            let offset = ty.offset_of(index, WORD_SIZE);
+            bytes.offset_mut(offset).put_value(&value);
+        }
+
+        Self { bytes, ty }
+    }
+
+    pub fn get_all_values(&self) -> Vec<Value> {
         match &self.ty {
-            Type::Unit => vec![],
+            Type::Unit | Type::Never => vec![],
             Type::Struct(struct_type) => struct_type
                 .fields
                 .iter()
                 .enumerate()
-                .map(|(index, StructTypeField { ty, .. })| {
-                    self.bytes.offset(index * align).get_value(ty)
-                })
+                .map(|(index, _)| self.get_value_at_index(index))
                 .collect(),
             Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct
                 .iter()
                 .enumerate()
-                .map(|(index, (_, ty))| self.bytes.offset(index * align).get_value(ty))
+                .map(|(index, _)| self.get_value_at_index(index))
                 .collect(),
             Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements
                 .iter()
                 .enumerate()
-                .map(|(index, ty)| self.bytes.offset(index * align).get_value(ty))
+                .map(|(index, _)| self.get_value_at_index(index))
                 .collect(),
-            Type::Array(ty, array_len) => {
-                let elem_size = ty.size_of(WORD_SIZE);
-
-                (0..*array_len)
-                    .into_iter()
-                    .map(|index| self.bytes.offset(index * elem_size).get_value(ty))
-                    .collect()
-            }
-            Type::Slice(ty, _) => {
-                let data = self
-                    .bytes
-                    .offset(align * 0)
-                    .get_value(&Type::Pointer(ty.clone(), false));
-
-                let len = self.bytes.offset(align * 1).get_value(&Type::uint());
-
-                vec![data, len]
+            Type::Array(_, array_len) => (0..*array_len)
+                .into_iter()
+                .map(|index| self.get_value_at_index(index))
+                .collect(),
+            Type::Slice(..) => {
+                vec![self.get_value_at_index(0), self.get_value_at_index(1)]
             }
             ty => panic!("{}", ty),
         }
     }
 
     pub fn get_value_at_index(&self, index: usize) -> Value {
+        let offset = self.ty.offset_of(index, WORD_SIZE);
+
         match &self.ty {
             Type::Unit => panic!("{}", index),
-            Type::Struct(struct_type) => {
-                let align = struct_type.align_of(WORD_SIZE);
-
-                self.bytes
-                    .offset(index * align)
-                    .get_value(&struct_type.fields[index].ty)
-            }
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let align = self.ty.align_of(WORD_SIZE);
-
-                self.bytes
-                    .offset(index * align)
-                    .get_value(&partial_struct.get_index(index).unwrap().1)
-            }
+            Type::Struct(struct_type) => self
+                .bytes
+                .offset(offset)
+                .get_value(&struct_type.fields[index].ty),
+            Type::Infer(_, InferType::PartialStruct(partial_struct)) => self
+                .bytes
+                .offset(offset)
+                .get_value(&partial_struct.get_index(index).unwrap().1),
             Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
-                let align = self.ty.align_of(WORD_SIZE);
-                self.bytes.offset(index * align).get_value(&elements[index])
+                self.bytes.offset(offset).get_value(&elements[index])
             }
-            Type::Array(ty, _) => {
-                let elem_size = ty.size_of(WORD_SIZE);
-                self.bytes.offset(index * elem_size).get_value(ty)
-            }
-            Type::Slice(ty, _) => {
-                let align = self.ty.align_of(WORD_SIZE);
-
-                match index {
-                    0 => self
-                        .bytes
-                        .offset(align * 0)
-                        .get_value(&Type::Pointer(ty.clone(), false)),
-                    1 => self.bytes.offset(align * 1).get_value(&Type::uint()),
-                    _ => panic!("{}", index),
-                }
-            }
+            Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
+            Type::Slice(ty, _) => match index {
+                0 => self
+                    .bytes
+                    .offset(offset)
+                    .get_value(&Type::Pointer(ty.clone(), false)),
+                1 => self.bytes.offset(offset).get_value(&Type::uint()),
+                _ => panic!("{}", index),
+            },
             ty => panic!("{}", ty),
         }
     }
@@ -548,7 +535,7 @@ impl Value {
             }
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => Self::Buffer(Buffer {
-                bytes: ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE)),
+                bytes: ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE)),
                 ty: ty.clone(),
             }),
             Type::Slice(_, _) => todo!(),
@@ -764,15 +751,15 @@ impl Pointer {
             Type::Pointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => {
-                let bytes = unsafe {
-                    ByteSeq::from_raw_parts(ptr as *mut u8, *size * inner.size_of(WORD_SIZE))
-                };
+                let bytes =
+                    ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
 
                 let array = Box::new(Buffer {
                     bytes,
                     ty: ty.clone(),
                 });
 
+                // Note (Ron): Leak
                 Self::Buffer(Box::leak(array) as *mut Buffer)
             }
             Type::Slice(_, _) => todo!(),
@@ -886,11 +873,11 @@ impl Display for Value {
 
 impl Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.ty.is_unit() {
+        if self.ty.is_unit() || self.ty.is_never() {
             write!(f, "()")
         } else {
             let values_joined = self
-                .into_values()
+                .get_all_values()
                 .iter()
                 .take(MAX_CONSECUTIVE_VALUES as _)
                 .map(|v| v.to_string())
@@ -898,8 +885,6 @@ impl Display for Buffer {
                 .join(", ");
 
             let len = match &self.ty {
-                Type::Unit => 0,
-                Type::Struct(struct_type) => struct_type.fields.len(),
                 Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
                 Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
                     elements.len()
@@ -992,3 +977,5 @@ impl Display for Pointer {
         write!(f, "ptr {}", value)
     }
 }
+
+ 

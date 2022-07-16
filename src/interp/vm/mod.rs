@@ -145,7 +145,9 @@ impl<'vm> VM<'vm> {
             let frame = self.frame();
             let inst = frame.func().code.instructions[frame.ip];
 
-            self.trace(&inst, TraceLevel::Full);
+            if self.interp.build_options.show_vm_trace {
+                self.trace(&inst, TraceLevel::Full);
+            }
 
             match inst {
                 Instruction::Noop => {
@@ -651,36 +653,37 @@ impl<'vm> VM<'vm> {
             }
             TraceLevel::Full => {
                 println!("{:06}\t{}", frame.ip, inst.to_string().bold());
-
-                print!("\t[");
-
-                let frame_slot = frame.stack_slot;
-
-                for (index, value) in self.stack.iter().enumerate() {
-                    print!(
-                        "{}",
-                        if index == frame_slot {
-                            // frame slot
-                            value.to_string().bright_yellow()
-                        } else if index > frame_slot - frame.func().ty.params.len()
-                            && index <= frame_slot + frame.func().code.locals as usize
-                        {
-                            // local value
-                            value.to_string().bright_magenta()
-                        } else {
-                            // any other value
-                            value.to_string().bright_cyan()
-                        }
-                    );
-
-                    if index < self.stack.len() - 1 {
-                        print!(", ");
-                    }
-                }
-
-                println!("] ({})\n", self.stack.len());
+                self.trace_stack(frame);
             }
         }
+    }
+
+    #[allow(unused)]
+    fn trace_stack(&self, frame: &StackFrame) {
+        print!("\t[");
+        let frame_slot = frame.stack_slot;
+        for (index, value) in self.stack.iter().enumerate() {
+            print!(
+                "{}",
+                if index == frame_slot {
+                    // frame slot
+                    value.to_string().bright_yellow()
+                } else if index > frame_slot - frame.func().ty.params.len()
+                    && index <= frame_slot + frame.func().code.locals as usize
+                {
+                    // local value
+                    value.to_string().bright_magenta()
+                } else {
+                    // any other value
+                    value.to_string().bright_cyan()
+                }
+            );
+
+            if index < self.stack.len() - 1 {
+                print!(", ");
+            }
+        }
+        println!("] ({})\n", self.stack.len());
     }
 }
 

@@ -2,7 +2,7 @@ use super::{
     vm::{byte_seq::GetValue, value::Value},
     WORD_SIZE,
 };
-use crate::types::align::AlignOf;
+use crate::types::offset::OffsetOf;
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceValue {
@@ -13,17 +13,13 @@ pub struct WorkspaceValue {
 impl From<&Value> for WorkspaceValue {
     fn from(value: &Value) -> Self {
         let buf = value.as_buffer();
-        let align = buf.ty.align_of(WORD_SIZE);
         let struct_field_types = &buf.ty.as_struct().fields;
 
-        let name = buf
-            .bytes
-            .offset(align * 0)
-            .get_value(&struct_field_types[0].ty);
+        let name = buf.bytes.offset(0).get_value(&struct_field_types[0].ty);
 
         let build_options = BuildOptionsValue::from(
             &buf.bytes
-                .offset(align * 1)
+                .offset(buf.ty.offset_of(1, WORD_SIZE))
                 .get_value(&struct_field_types[1].ty),
         );
 
@@ -46,11 +42,10 @@ impl From<&Value> for BuildOptionsValue {
     fn from(value: &Value) -> Self {
         let buf = value.as_buffer();
         let field_types = &buf.ty.as_struct().fields;
-        let align = buf.ty.align_of(WORD_SIZE);
 
         let input_file = buf
             .bytes
-            .offset(align * 0)
+            .offset(0)
             .get_value(&field_types[0].ty)
             .as_buffer()
             .as_str()
@@ -58,16 +53,21 @@ impl From<&Value> for BuildOptionsValue {
 
         let output_file = buf
             .bytes
-            .offset(align * 1)
+            .offset(buf.ty.offset_of(1, WORD_SIZE))
             .get_value(&field_types[1].ty)
             .as_buffer()
             .as_str()
             .to_string();
 
-        let target =
-            BuildTargetValue::from(&buf.bytes.offset(align * 2).get_value(&field_types[2].ty));
+        let target = BuildTargetValue::from(
+            &buf.bytes
+                .offset(buf.ty.offset_of(2, WORD_SIZE))
+                .get_value(&field_types[2].ty),
+        );
         let optimization_level = OptimizationLevelValue::from(
-            &buf.bytes.offset(align * 3).get_value(&field_types[3].ty),
+            &buf.bytes
+                .offset(buf.ty.offset_of(3, WORD_SIZE))
+                .get_value(&field_types[3].ty),
         );
 
         Self {

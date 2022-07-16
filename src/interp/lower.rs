@@ -17,7 +17,9 @@ use crate::{
     },
     infer::normalize::Normalize,
     interp::vm::value::FunctionAddress,
-    types::{align::AlignOf, size::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType},
+    types::{
+        offset::OffsetOf, size::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType,
+    },
     workspace::BindingId,
 };
 use ustr::ustr;
@@ -770,7 +772,6 @@ impl Lower for hir::StructLiteral {
         let ty = self.ty.normalize(sess.tcx);
         let struct_type = ty.as_struct();
         let struct_size = struct_type.size_of(WORD_SIZE) as u32;
-        let struct_align = struct_type.align_of(WORD_SIZE) as u32;
 
         code.push(Instruction::BufferAlloc(struct_size));
 
@@ -787,22 +788,25 @@ impl Lower for hir::StructLiteral {
                 .value
                 .lower(sess, code, LowerContext { take_ptr: false });
 
-            code.push(Instruction::BufferPut(index as u32 * struct_align));
+            code.push(Instruction::BufferPut(
+                struct_type.offset_of(index, WORD_SIZE) as u32,
+            ));
         }
     }
 }
 
 impl Lower for hir::TupleLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let ty = self.ty.normalize(sess.tcx);
-        let tuple_size = ty.size_of(WORD_SIZE) as u32;
-        let tuple_align = ty.align_of(WORD_SIZE) as u32;
+        let tuple_type = self.ty.normalize(sess.tcx);
+        let tuple_size = tuple_type.size_of(WORD_SIZE) as u32;
 
         code.push(Instruction::BufferAlloc(tuple_size));
 
         for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
-            code.push(Instruction::BufferPut(index as u32 * tuple_align));
+            code.push(Instruction::BufferPut(
+                tuple_type.offset_of(index, WORD_SIZE) as u32,
+            ));
         }
     }
 }
@@ -947,28 +951,18 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             _ => panic!("invalid ty {}", ty),
         },
         ConstValue::Str(str) => Value::Buffer(Buffer::from_ustr(*str)),
-        ConstValue::Tuple(elements) => Value::Buffer(Buffer {
-            bytes: ByteSeq::from_values(
-                &elements
-                    .iter()
-                    .map(|el| const_value_to_value(&el.value, el.ty, sess))
-                    .collect::<Vec<Value>>(),
-                ty.size_of(WORD_SIZE),
-                ty.align_of(WORD_SIZE),
-            ),
+        ConstValue::Tuple(elems) => Value::Buffer(Buffer::from_values(
+            elems
+                .iter()
+                .map(|elem| const_value_to_value(&elem.value, elem.ty, sess)),
             ty,
-        }),
-        ConstValue::Struct(fields) => Value::Buffer(Buffer {
-            bytes: ByteSeq::from_values(
-                &fields
-                    .iter()
-                    .map(|(_, el)| const_value_to_value(&el.value, el.ty, sess))
-                    .collect::<Vec<Value>>(),
-                ty.size_of(WORD_SIZE),
-                ty.align_of(WORD_SIZE),
-            ),
+        )),
+        ConstValue::Struct(fields) => Value::Buffer(Buffer::from_values(
+            fields
+                .iter()
+                .map(|(_, elem)| const_value_to_value(&elem.value, elem.ty, sess)),
             ty,
-        }),
+        )),
         ConstValue::Array(array) => {
             let array_len = array.values.len();
 

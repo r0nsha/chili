@@ -71,6 +71,10 @@ struct Args {
     #[clap(long)]
     emit_llvm_ir: bool,
 
+    /// Whether to show a verbose trace of the VM (this slows down execution)
+    #[clap(long)]
+    show_vm_trace: bool,
+
     // Misc options
     //
     //
@@ -127,6 +131,7 @@ fn cli() {
                     emit_times: args.emit_times,
                     emit_hir: args.emit_hir,
                     emit_bytecode: args.emit_bytecode,
+                    show_vm_trace: args.show_vm_trace,
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },
@@ -151,6 +156,7 @@ fn cli() {
                     emit_times: false,
                     emit_hir: false,
                     emit_bytecode: false,
+                    show_vm_trace: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
                     codegen_options: CodegenOptions::Skip {
                         emit_llvm_ir: false,
@@ -181,6 +187,7 @@ fn cli() {
                     emit_times: args.emit_times,
                     emit_hir: args.emit_hir,
                     emit_bytecode: args.emit_bytecode,
+                    show_vm_trace: args.show_vm_trace,
                     diagnostic_options: DiagnosticOptions::Emit {
                         no_color: args.no_color,
                     },

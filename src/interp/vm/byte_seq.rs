@@ -4,7 +4,7 @@ use super::{
 };
 use crate::types::{FloatType, InferType, IntType, Type, UintType};
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
-use std::io::Write;
+use std::{io::Write, slice};
 
 #[derive(Debug, Clone)]
 pub struct ByteSeq {
@@ -26,20 +26,18 @@ impl ByteSeq {
         }
     }
 
-    pub unsafe fn from_raw_parts(ptr: *mut u8, len: usize) -> Self {
-        Self {
-            inner: Vec::from_raw_parts(ptr, len, len).into_boxed_slice(),
-        }
+    pub fn copy_from_raw_parts(data: *const u8, len: usize) -> Self {
+        let slice = unsafe { slice::from_raw_parts(data, len) };
+        Self::copy_from_slice(slice)
     }
 
-    pub(crate) fn from_values(values: &[Value], size: usize, align: usize) -> Self {
-        let mut bytes = Self::new(size);
+    pub fn copy_from_slice(slice: &[u8]) -> Self {
+        let mut vec = vec![0u8; slice.len()];
+        vec.copy_from_slice(slice);
 
-        for (index, value) in values.iter().enumerate() {
-            bytes.offset_mut(index * align).put_value(value);
+        Self {
+            inner: vec.into_boxed_slice(),
         }
-
-        bytes
     }
 
     pub fn offset(&self, offset: usize) -> &[u8] {
@@ -83,8 +81,6 @@ impl PutValue for ByteSeq {
     }
 }
 
-// Note (Ron): Important - This function WILL fail in Big Endian systems!!
-// Note (Ron): This isn't very crucial, since the most common systems are little endian - but this needs to be fixed anyway.
 impl PutValue for [u8] {
     fn put_value(&mut self, value: &Value) {
         match value {
@@ -172,12 +168,12 @@ impl GetValue for [u8] {
                 ty,
                 self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
             )),
-            Type::Array(_, _) | Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => unsafe {
+            Type::Array(_, _) | Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => {
                 Value::Buffer(Buffer {
-                    bytes: ByteSeq::from_raw_parts(self.as_ptr() as *mut _, self.len()),
+                    bytes: ByteSeq::copy_from_slice(self),
                     ty: ty.clone(),
                 })
-            },
+            }
             Type::Infer(_, InferType::AnyInt) => {
                 Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
             }

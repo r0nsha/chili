@@ -22,14 +22,25 @@ impl AlignOf for Type {
                 StructTypeKind::Struct,
             )
             .align_of(word_size),
-            Type::Tuple(tys) => StructType::temp(
-                tys.iter()
-                    .map(|t| StructTypeField::temp(t.clone()))
-                    .collect(),
-                StructTypeKind::Struct,
-            )
-            .align_of(word_size),
+            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
+                StructType::temp(
+                    elems
+                        .iter()
+                        .map(|t| StructTypeField::temp(t.clone()))
+                        .collect(),
+                    StructTypeKind::Struct,
+                )
+                .align_of(word_size)
+            }
             Type::Struct(s) => s.align_of(word_size),
+            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
+                let mut max_align: usize = 1;
+                for (_, field) in partial_struct.iter() {
+                    let field_align = field.align_of(word_size);
+                    max_align = max_align.max(field_align);
+                }
+                max_align
+            }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.align_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.align_of(word_size),
             ty => panic!("got unsized type: {:?}", ty),

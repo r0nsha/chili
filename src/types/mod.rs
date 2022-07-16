@@ -1,5 +1,6 @@
 pub mod align;
 pub mod display;
+pub mod offset;
 pub mod size;
 
 use crate::{

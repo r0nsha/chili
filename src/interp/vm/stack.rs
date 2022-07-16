@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Stack<T, const CAPACITY: usize> {
     inner: Vec<T>,
 }

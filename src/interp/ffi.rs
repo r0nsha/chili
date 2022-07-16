@@ -107,20 +107,17 @@ impl Ffi {
 #[derive(Debug)]
 struct FfiFunction {
     cif: Cif,
-    // TODO: remove arg_types
-    arg_types: Vec<Type>,
 }
 
 impl FfiFunction {
     unsafe fn new(arg_types: &[Type], return_type: &Type) -> Self {
         let cif_return_type: FfiType = return_type.as_ffi_type();
+
         let cif_arg_types: Vec<FfiType> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
+
         let cif = Cif::new(cif_arg_types, cif_return_type);
 
-        Self {
-            cif,
-            arg_types: arg_types.to_vec(),
-        }
+        Self { cif }
     }
 
     unsafe fn new_variadic(
@@ -129,18 +126,18 @@ impl FfiFunction {
         return_type: &Type,
     ) -> Self {
         let cif_return_type: FfiType = return_type.as_ffi_type();
+
         let arg_types: Vec<Type> = arg_types
             .iter()
             .chain(variadic_arg_types.iter())
             .cloned()
             .collect();
+
         let cif_arg_types: Vec<FfiType> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
+
         let cif = Cif::new_variadic(cif_arg_types, arg_types.len(), cif_return_type);
 
-        Self {
-            cif,
-            arg_types: arg_types.to_vec(),
-        }
+        Self { cif }
     }
 
     unsafe fn call<'vm>(
