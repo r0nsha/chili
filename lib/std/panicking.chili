@@ -1,7 +1,6 @@
 let { printf, exit } = import "c";
 
 let PanicInfo = struct {
-    program: str,
     message: str,
     file_path: str,
     line: uint,
@@ -17,8 +16,7 @@ let default_panic_handler = fn(info: PanicInfo) -> never {
     };
 
     printf(
-        "program '%s' panicked at '%s', %s:%d:%d\n".data, 
-        info.program.data,
+        "panic: \"%s\" at %s:%d:%d\n".data, 
         message.data,
         info.file_path.data,
         info.line,

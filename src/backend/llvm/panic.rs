@@ -37,10 +37,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let panic_info_llvm_type = panic_type.params.first().unwrap().ty.llvm_type(self);
 
-        let program = self
-            .const_str_slice("panic_program", self.workspace.name.as_ref())
-            .as_basic_value_enum();
-
         let file_path = self
             .const_str_slice("panic_file_path", state.module_info.file_path)
             .as_basic_value_enum();
@@ -56,7 +52,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let panic_info = self.build_struct(
             state,
             panic_info_llvm_type.into(),
-            &[program, message, file_path, line.into(), column.into()],
+            &[message, file_path, line.into(), column.into()],
         );
 
         let panic_info = self.build_load(panic_info.into());
