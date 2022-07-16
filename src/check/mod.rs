@@ -2578,6 +2578,40 @@ impl Check for ast::Binary {
         _expected_type: Option<TypeId>,
     ) -> CheckResult {
         let mut lhs_node = self.lhs.check(sess, env, None)?;
+
+        // Apply short circuiting to && and ||
+        match (&self.op, lhs_node.as_const_value()) {
+            (ast::BinaryOp::And, Some(ConstValue::Bool(false))) => {
+                let bool_type = sess.tcx.common_types.bool;
+
+                lhs_node
+                    .ty()
+                    .unify(&bool_type, &mut sess.tcx)
+                    .or_report_err(&sess.tcx, bool_type, None, lhs_node.ty(), lhs_node.span())?;
+
+                return Ok(hir::Node::Const(hir::Const {
+                    value: ConstValue::Bool(false),
+                    ty: bool_type,
+                    span: self.span,
+                }));
+            }
+            (ast::BinaryOp::Or, Some(ConstValue::Bool(true))) => {
+                let bool_type = sess.tcx.common_types.bool;
+
+                lhs_node
+                    .ty()
+                    .unify(&bool_type, &mut sess.tcx)
+                    .or_report_err(&sess.tcx, bool_type, None, lhs_node.ty(), lhs_node.span())?;
+
+                return Ok(hir::Node::Const(hir::Const {
+                    value: ConstValue::Bool(true),
+                    ty: bool_type,
+                    span: self.span,
+                }));
+            }
+            _ => (),
+        }
+
         let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
 
         let lhs_node_type = lhs_node.ty().normalize(&sess.tcx);
@@ -2619,36 +2653,36 @@ impl Check for ast::Binary {
                 | ast::BinaryOp::BitOr
                 | ast::BinaryOp::BitXor
                 | ast::BinaryOp::BitAnd => {
-                    let expected_typepe = sess.tcx.anyint(lhs_node.span());
+                    let anyint_type = sess.tcx.anyint(lhs_node.span());
 
                     lhs_node
                         .ty()
-                        .unify(&expected_typepe, &mut sess.tcx)
+                        .unify(&anyint_type, &mut sess.tcx)
                         .or_report_err(
                             &sess.tcx,
-                            expected_typepe,
+                            anyint_type,
                             None,
                             lhs_node.ty(),
                             lhs_node.span(),
                         )?;
 
-                    expected_typepe
+                    anyint_type
                 }
                 ast::BinaryOp::And | ast::BinaryOp::Or => {
-                    let expected_typepe = sess.tcx.common_types.bool;
+                    let bool_type = sess.tcx.common_types.bool;
 
                     lhs_node
                         .ty()
-                        .unify(&expected_typepe, &mut sess.tcx)
+                        .unify(&bool_type, &mut sess.tcx)
                         .or_report_err(
                             &sess.tcx,
-                            expected_typepe,
+                            bool_type,
                             None,
                             lhs_node.ty(),
                             lhs_node.span(),
                         )?;
 
-                    expected_typepe
+                    bool_type
                 }
                 _ => lhs_node.ty(),
             },
