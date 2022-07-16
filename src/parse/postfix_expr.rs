@@ -13,7 +13,6 @@ impl Parser {
             return self.parse_struct_literal(Some(Box::new(expr)), start_span);
         }
 
-        // compound operations (non-recursive)
         if self.restrictions.contains(Restrictions::STMT_EXPR) {
             if eat!(
                 self,
@@ -78,7 +77,7 @@ impl Parser {
     fn parse_assign(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let rvalue = self.parse_expr()?;
+        let rvalue = self.parse_expr_res(self.restrictions)?;
         let end_span = self.previous_span();
 
         Ok(Ast::Assignment(ast::Assignment {
@@ -90,7 +89,7 @@ impl Parser {
 
     fn parse_compound_assign(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
         let op: BinaryOp = self.previous().kind.into();
-        let rvalue = self.parse_expr()?;
+        let rvalue = self.parse_expr_res(self.restrictions)?;
 
         let lvalue_span = lhs.span();
         let rvalue_span = rvalue.span();
@@ -113,7 +112,7 @@ impl Parser {
         let type_expr = if eat!(self, Placeholder) {
             None
         } else {
-            Some(Box::new(self.parse_expr()?))
+            Some(Box::new(self.parse_expr_res(self.restrictions)?))
         };
 
         Ok(Ast::Cast(Cast {

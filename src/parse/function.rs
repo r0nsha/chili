@@ -43,7 +43,7 @@ impl Parser {
 
         let return_type = if eat!(self, RightArrow) {
             Some(Box::new(
-                self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?,
+                self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?,
             ))
         } else {
             None

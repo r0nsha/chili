@@ -40,7 +40,7 @@ impl Parser {
         self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(ustr("")))
     }
 
-    pub fn parse_expr_with_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
+    pub fn parse_expr_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
         self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
     }
 
@@ -82,7 +82,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let condition = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         require!(self, OpenCurly, "{")?;
         let then = self.parse_block_expr()?;
@@ -118,7 +118,7 @@ impl Parser {
             self.skip_semicolons();
 
             let expr = self
-                .parse_expr_with_res(Restrictions::STMT_EXPR)
+                .parse_expr_res(Restrictions::STMT_EXPR)
                 .unwrap_or_else(|diag| {
                     let span = self.previous_span();
 
@@ -257,7 +257,7 @@ impl Parser {
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
-            let expr = self.parse_expr()?;
+            let expr = self.parse_expr_res(self.restrictions)?;
 
             Ast::PointerType(ast::ExprAndMut {
                 inner: Box::new(expr),
@@ -340,7 +340,7 @@ impl Parser {
 
             if eat!(self, Mut) {
                 // []mut T
-                let inner = self.parse_expr()?;
+                let inner = self.parse_expr_res(self.restrictions)?;
 
                 Ok(Ast::SliceType(ast::ExprAndMut {
                     inner: Box::new(inner),
@@ -349,7 +349,7 @@ impl Parser {
                 }))
             } else if self.peek().kind.is_expr_start() {
                 // []T
-                let inner = self.parse_expr()?;
+                let inner = self.parse_expr_res(self.restrictions)?;
 
                 Ok(Ast::SliceType(ast::ExprAndMut {
                     inner: Box::new(inner),
@@ -373,7 +373,7 @@ impl Parser {
                 }) if elements.len() == 1 && self.peek().kind.is_expr_start() => {
                     let size = &elements[0];
 
-                    let inner = self.parse_expr()?;
+                    let inner = self.parse_expr_res(self.restrictions)?;
 
                     Ok(Ast::ArrayType(ast::ArrayType {
                         inner: Box::new(inner),
@@ -490,7 +490,7 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let condition = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
@@ -515,10 +515,10 @@ impl Parser {
 
         require!(self, In, "in")?;
 
-        let iter_start = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let iter_start = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
 
         let iterator = if eat!(self, DotDot) {
-            let iter_end = self.parse_expr_with_res(Restrictions::NO_STRUCT_LITERAL)?;
+            let iter_end = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
             ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ForIter::Value(Box::new(iter_start))
