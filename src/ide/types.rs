@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::span::Span;
+use crate::{span::Span, workspace::Workspace};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -17,6 +17,19 @@ impl IdeSpan {
             start: span.start.index,
             end: span.end.index,
         }
+    }
+
+    pub fn from_span(span: Span, workspace: &Workspace) -> Self {
+        let module_id = workspace.find_module_id_by_file_id(span.file_id).unwrap();
+        Self::from_span_and_file(
+            span,
+            workspace
+                .module_infos
+                .get(module_id)
+                .unwrap()
+                .file_path
+                .to_string(),
+        )
     }
 }
 

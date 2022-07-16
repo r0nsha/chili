@@ -72,6 +72,7 @@ pub fn hover_info(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize) {
                 .map(|(_, b)| b)
                 .find(|binding_info| {
                     binding_info.module_id == workspace.root_module_id
+                        && binding_info.is_is_user_defined()
                         && binding_info.span.contains(offset)
                 });
 
@@ -110,31 +111,14 @@ pub fn goto_definition(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize
                 }
             }
 
-            write(&IdeSpan::from_span_and_file(
-                binding_info.span,
-                workspace
-                    .module_infos
-                    .get(binding_info.module_id)
-                    .unwrap()
-                    .file_path
-                    .to_string(),
-            ));
+            write(&IdeSpan::from_span(binding_info.span, workspace));
 
             return;
         }
 
         for &use_span in binding_info.uses.iter() {
             if is_offset_in_span_and_root_module(workspace, offset, use_span) {
-                write(&IdeSpan::from_span_and_file(
-                    binding_info.span,
-                    workspace
-                        .module_infos
-                        .get(binding_info.module_id)
-                        .unwrap()
-                        .file_path
-                        .to_string(),
-                ));
-
+                write(&IdeSpan::from_span(binding_info.span, workspace));
                 return;
             }
         }
