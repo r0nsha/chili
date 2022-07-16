@@ -49,14 +49,32 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 let (lhs, rhs, ty) = gen_binary(binary, generator, state);
                 generator.gen_shr(lhs, rhs, ty)
             }
-            hir::Builtin::And(binary) | hir::Builtin::BitAnd(binary) => {
-                let (lhs, rhs, _) = gen_binary(binary, generator, state);
-                generator.gen_and(lhs, rhs)
+            hir::Builtin::And(binary) => {
+                // let (lhs, rhs, _) = gen_binary(binary, generator, state);
+                // generator.gen_and(lhs, rhs)
+                generator.gen_conditional(
+                    state,
+                    |generator, state| binary.lhs.codegen(generator, state).into_int_value(),
+                    |generator, state: &mut FunctionState<'ctx>| {
+                        binary.rhs.codegen(generator, state)
+                    },
+                    Some(
+                        |generator: &mut Generator<'g, 'ctx>, _: &mut FunctionState<'ctx>| {
+                            generator.context.bool_type().const_int(0, false).into()
+                        },
+                    ),
+                )
             }
-            hir::Builtin::Or(binary) | hir::Builtin::BitOr(binary) => {
-                let (lhs, rhs, _) = gen_binary(binary, generator, state);
-                generator.gen_or(lhs, rhs)
-            }
+            hir::Builtin::Or(binary) => generator.gen_conditional(
+                state,
+                |generator, state| binary.lhs.codegen(generator, state).into_int_value(),
+                |generator, _| generator.context.bool_type().const_int(1, false).into(),
+                Some(
+                    |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
+                        binary.rhs.codegen(generator, state)
+                    },
+                ),
+            ),
             hir::Builtin::Lt(binary) => gen_cmp(
                 binary,
                 IntPredicate::SLT,
@@ -105,6 +123,14 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 generator,
                 state,
             ),
+            hir::Builtin::BitAnd(binary) => {
+                let (lhs, rhs, _) = gen_binary(binary, generator, state);
+                generator.gen_and(lhs, rhs)
+            }
+            hir::Builtin::BitOr(binary) => {
+                let (lhs, rhs, _) = gen_binary(binary, generator, state);
+                generator.gen_or(lhs, rhs)
+            }
             hir::Builtin::BitXor(binary) => {
                 let (lhs, rhs, _) = gen_binary(binary, generator, state);
                 generator.gen_xor(lhs, rhs)

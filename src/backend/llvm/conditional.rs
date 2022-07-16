@@ -6,12 +6,13 @@ use inkwell::{
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn gen_conditional<
+        Cond: FnOnce(&mut Generator<'g, 'ctx>, &mut FunctionState<'ctx>) -> IntValue<'ctx>,
         Then: FnOnce(&mut Generator<'g, 'ctx>, &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx>,
         Else: FnOnce(&mut Generator<'g, 'ctx>, &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx>,
     >(
         &mut self,
         state: &mut FunctionState<'ctx>,
-        condition: IntValue<'ctx>,
+        condition: Cond,
         then: Then,
         otherwise: Option<Else>,
     ) -> BasicValueEnum<'ctx> {
@@ -19,6 +20,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let otherwise_block = self.append_basic_block(state, "if_otherwise");
 
         let mut merge_block: Option<BasicBlock<'ctx>> = None;
+
+        let condition = condition(self, state);
 
         self.builder
             .build_conditional_branch(condition, then_block, otherwise_block);

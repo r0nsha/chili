@@ -32,23 +32,23 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::If {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let condition = self.condition.codegen(generator, state).into_int_value();
-
-        let then = |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
-            self.then.codegen(generator, state)
-        };
-
-        let otherwise = if let Some(otherwise) = &self.otherwise {
-            Some(
-                |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
-                    otherwise.codegen(generator, state)
-                },
-            )
-        } else {
-            None
-        };
-
-        generator.gen_conditional(state, condition, then, otherwise)
+        generator.gen_conditional(
+            state,
+            |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
+                self.condition.codegen(generator, state).into_int_value()
+            },
+            |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
+                self.then.codegen(generator, state)
+            },
+            match &self.otherwise {
+                Some(otherwise) => Some(
+                    |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
+                        otherwise.codegen(generator, state)
+                    },
+                ),
+                _ => None,
+            },
+        )
     }
 }
 
