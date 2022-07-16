@@ -21,7 +21,7 @@ use crate::{
         const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
     },
     infer::{
-        cast::can_cast_type,
+        cast::{can_cast_type, try_cast_const_value},
         coerce::{OrCoerce, OrCoerceIntoTy},
         display::{DisplayTy, OrReportErr},
         normalize::Normalize,
@@ -375,7 +375,7 @@ where
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult;
 }
 
@@ -384,7 +384,7 @@ impl Check for ast::Binding {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         match &self.kind {
             BindingKind::Orphan {
@@ -636,7 +636,7 @@ impl Check for ast::FunctionSig {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult {
         let mut param_types: Vec<FunctionTypeParam> = vec![];
 
@@ -671,7 +671,7 @@ impl Check for ast::FunctionSig {
         } else {
             // if the function signature has no parameters, and the
             // parent type is a function with 1 parameter, add an implicit `it` parameter
-            if let Some(ty) = expected_ty {
+            if let Some(ty) = expected_type {
                 match ty.normalize(&sess.tcx) {
                     Type::Function(f) => {
                         if f.params.len() == 1 {
@@ -738,12 +738,12 @@ impl Check for ast::Ast {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult {
         match self {
             ast::Ast::Binding(binding) => binding.check(sess, env, None),
-            ast::Ast::Assignment(assignment) => assignment.check(sess, env, expected_ty),
-            ast::Ast::Cast(cast) => cast.check(sess, env, expected_ty),
+            ast::Ast::Assignment(assignment) => assignment.check(sess, env, expected_type),
+            ast::Ast::Cast(cast) => cast.check(sess, env, expected_type),
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::Import(import_path) => {
                     let path_str = import_path.to_str().unwrap();
@@ -828,9 +828,9 @@ impl Check for ast::Ast {
                     // Ok(Res::new(sess.tcx.common_types.unit))
                 }
             },
-            ast::Ast::Function(function) => function.check(sess, env, expected_ty),
-            ast::Ast::While(while_) => while_.check(sess, env, expected_ty),
-            ast::Ast::For(for_) => for_.check(sess, env, expected_ty),
+            ast::Ast::Function(function) => function.check(sess, env, expected_type),
+            ast::Ast::While(while_) => while_.check(sess, env, expected_type),
+            ast::Ast::For(for_) => for_.check(sess, env, expected_type),
             ast::Ast::Break(term) => {
                 if sess.loop_depth > 0 {
                     Ok(hir::Node::Control(hir::Control::Break(hir::Empty {
@@ -851,11 +851,11 @@ impl Check for ast::Ast {
                     Err(SyntaxError::outside_of_loop(term.span, "continue"))
                 }
             }
-            ast::Ast::Return(return_) => return_.check(sess, env, expected_ty),
-            ast::Ast::If(if_) => if_.check(sess, env, expected_ty),
-            ast::Ast::Block(block) => block.check(sess, env, expected_ty),
-            ast::Ast::Binary(binary) => binary.check(sess, env, expected_ty),
-            ast::Ast::Unary(unary) => unary.check(sess, env, expected_ty),
+            ast::Ast::Return(return_) => return_.check(sess, env, expected_type),
+            ast::Ast::If(if_) => if_.check(sess, env, expected_type),
+            ast::Ast::Block(block) => block.check(sess, env, expected_type),
+            ast::Ast::Binary(binary) => binary.check(sess, env, expected_type),
+            ast::Ast::Unary(unary) => unary.check(sess, env, expected_type),
             ast::Ast::Subscript(sub) => {
                 let uint = sess.tcx.common_types.uint;
 
@@ -1062,7 +1062,7 @@ impl Check for ast::Ast {
                     high: Box::new(high_node),
                 })))
             }
-            ast::Ast::Call(call) => call.check(sess, env, expected_ty),
+            ast::Ast::Call(call) => call.check(sess, env, expected_type),
             ast::Ast::MemberAccess(access) => {
                 let node = access.expr.check(sess, env, None)?;
 
@@ -1438,7 +1438,7 @@ impl Check for ast::Ast {
                     let unit_ty = sess.tcx.common_types.unit;
 
                     let (ty, const_value) =
-                        if expected_ty.map_or(false, |ty| ty.normalize(&sess.tcx).is_type()) {
+                        if expected_type.map_or(false, |ty| ty.normalize(&sess.tcx).is_type()) {
                             (
                                 sess.tcx.bound(unit_ty.as_kind().create_type(), lit.span),
                                 ConstValue::Type(unit_ty),
@@ -1553,7 +1553,7 @@ impl Check for ast::Ast {
                         }
                     }
                 }
-                None => match expected_ty {
+                None => match expected_type {
                     Some(ty) => {
                         let kind = ty.normalize(&sess.tcx);
                         match kind {
@@ -1736,7 +1736,7 @@ impl Check for ast::Ast {
                     }))
                 }
             }
-            ast::Ast::FunctionType(sig) => sig.check(sess, env, expected_ty),
+            ast::Ast::FunctionType(sig) => sig.check(sess, env, expected_type),
             ast::Ast::SelfType(expr) => match sess.self_types.last() {
                 Some(&ty) => {
                     let ty = sess.tcx.bound(ty.as_kind().create_type(), expr.span);
@@ -1770,7 +1770,7 @@ impl Check for ast::While {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         let bool_type = sess.tcx.common_types.bool;
 
@@ -1820,7 +1820,7 @@ impl Check for ast::For {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         let index_type = sess.tcx.common_types.uint;
         let bool_type = sess.tcx.common_types.bool;
@@ -2206,12 +2206,12 @@ impl Check for ast::Function {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult {
         let name = self.sig.name;
         let qualified_name = get_qualified_name(env.scope_name(), name);
 
-        let sig_node = self.sig.check(sess, env, expected_ty)?;
+        let sig_node = self.sig.check(sess, env, expected_type)?;
 
         let sig_type = sess.extract_const_type(&sig_node)?;
         let function_type = sig_type.normalize(&sess.tcx).into_function();
@@ -2385,7 +2385,7 @@ impl Check for ast::Assignment {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         sess.in_lvalue_context = true;
         let lhs_node = self.lhs.check(sess, env, None)?;
@@ -2426,7 +2426,7 @@ impl Check for ast::Return {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         let function_frame = sess
             .function_frame()
@@ -2486,7 +2486,7 @@ impl Check for ast::If {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult {
         let unit_type = sess.tcx.common_types.unit;
         let bool_type = sess.tcx.common_types.bool;
@@ -2512,10 +2512,10 @@ impl Check for ast::If {
 
         // if the condition is compile-time known, only check the resulting branch
         match condition_node.as_const_value() {
-            Some(ConstValue::Bool(true)) => self.then.check(sess, env, expected_ty),
+            Some(ConstValue::Bool(true)) => self.then.check(sess, env, expected_type),
             Some(ConstValue::Bool(false)) => {
                 if let Some(otherwise) = &self.otherwise {
-                    otherwise.check(sess, env, expected_ty)
+                    otherwise.check(sess, env, expected_type)
                 } else {
                     Ok(hir::Node::Const(hir::Const {
                         value: ConstValue::Unit(()),
@@ -2525,7 +2525,7 @@ impl Check for ast::If {
                 }
             }
             _ => {
-                let mut then_node = self.then.check(sess, env, expected_ty)?;
+                let mut then_node = self.then.check(sess, env, expected_type)?;
 
                 let if_node = if let Some(otherwise) = &self.otherwise {
                     let mut otherwise_node = otherwise.check(sess, env, Some(then_node.ty()))?;
@@ -2575,7 +2575,7 @@ impl Check for ast::Binary {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         let mut lhs_node = self.lhs.check(sess, env, None)?;
         let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
@@ -2619,36 +2619,36 @@ impl Check for ast::Binary {
                 | ast::BinaryOp::BitOr
                 | ast::BinaryOp::BitXor
                 | ast::BinaryOp::BitAnd => {
-                    let expected_type = sess.tcx.anyint(lhs_node.span());
+                    let expected_typepe = sess.tcx.anyint(lhs_node.span());
 
                     lhs_node
                         .ty()
-                        .unify(&expected_type, &mut sess.tcx)
+                        .unify(&expected_typepe, &mut sess.tcx)
                         .or_report_err(
                             &sess.tcx,
-                            expected_type,
+                            expected_typepe,
                             None,
                             lhs_node.ty(),
                             lhs_node.span(),
                         )?;
 
-                    expected_type
+                    expected_typepe
                 }
                 ast::BinaryOp::And | ast::BinaryOp::Or => {
-                    let expected_type = sess.tcx.common_types.bool;
+                    let expected_typepe = sess.tcx.common_types.bool;
 
                     lhs_node
                         .ty()
-                        .unify(&expected_type, &mut sess.tcx)
+                        .unify(&expected_typepe, &mut sess.tcx)
                         .or_report_err(
                             &sess.tcx,
-                            expected_type,
+                            expected_typepe,
                             None,
                             lhs_node.ty(),
                             lhs_node.span(),
                         )?;
 
-                    expected_type
+                    expected_typepe
                 }
                 _ => lhs_node.ty(),
             },
@@ -2754,7 +2754,7 @@ impl Check for ast::Unary {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         match self.op {
             ast::UnaryOp::Ref(is_mutable) => {
@@ -2913,7 +2913,7 @@ impl Check for ast::Call {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        _expected_ty: Option<TypeId>,
+        _expected_type: Option<TypeId>,
     ) -> CheckResult {
         let callee = self.callee.check(sess, env, None)?;
 
@@ -3030,14 +3030,14 @@ impl Check for ast::Cast {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult {
         let node = self.expr.check(sess, env, None)?;
 
-        let target_ty = if let Some(type_expr) = &self.target {
+        let target_type = if let Some(type_expr) = &self.target {
             check_type_expr(type_expr, sess, env)?
         } else {
-            match expected_ty {
+            match expected_type {
                 Some(t) => t,
                 None => {
                     return Err(Diagnostic::error()
@@ -3048,12 +3048,22 @@ impl Check for ast::Cast {
         };
 
         let from = node.ty().normalize(&sess.tcx);
-        let to = target_ty.normalize(&sess.tcx);
+        let to = target_type.normalize(&sess.tcx);
 
         if can_cast_type(&from, &to) {
+            if let Some(const_value) = node.as_const_value() {
+                if let Some(const_value) = try_cast_const_value(const_value, &to) {
+                    return Ok(hir::Node::Const(hir::Const {
+                        value: const_value,
+                        ty: target_type,
+                        span: self.span,
+                    }));
+                }
+            }
+
             Ok(hir::Node::Cast(hir::Cast {
                 value: Box::new(node),
-                ty: target_ty,
+                ty: target_type,
                 span: self.span,
             }))
         } else {
@@ -3072,7 +3082,7 @@ impl Check for ast::Block {
         &self,
         sess: &mut CheckSess,
         env: &mut Env,
-        expected_ty: Option<TypeId>,
+        expected_type: Option<TypeId>,
     ) -> CheckResult {
         let unit_type = sess.tcx.common_types.unit;
 
@@ -3094,13 +3104,13 @@ impl Check for ast::Block {
 
             let last_index = self.statements.len() - 1;
             for (i, expr) in self.statements.iter().enumerate() {
-                let expected_ty = if i == last_index {
-                    expected_ty
+                let expected_type = if i == last_index {
+                    expected_type
                 } else {
                     Some(unit_type)
                 };
 
-                let node = expr.check(sess, env, expected_ty)?;
+                let node = expr.check(sess, env, expected_type)?;
 
                 statements.push(node);
             }
@@ -3160,20 +3170,20 @@ fn check_named_struct_literal(
             Some(ty_field) => {
                 uninit_fields.remove(&field.name);
 
-                let expected_ty = sess.tcx.bound(ty_field.ty.clone(), ty_field.span);
-                let mut node = field.expr.check(sess, env, Some(expected_ty))?;
+                let expected_type = sess.tcx.bound(ty_field.ty.clone(), ty_field.span);
+                let mut node = field.expr.check(sess, env, Some(expected_type))?;
 
                 node.ty()
-                    .unify(&expected_ty, &mut sess.tcx)
+                    .unify(&expected_type, &mut sess.tcx)
                     .or_coerce_into_ty(
                         &mut node,
-                        expected_ty,
+                        expected_type,
                         &mut sess.tcx,
                         sess.target_metrics.word_size,
                     )
                     .or_report_err(
                         &sess.tcx,
-                        expected_ty,
+                        expected_type,
                         Some(ty_field.span),
                         node.ty(),
                         field.expr.span(),
