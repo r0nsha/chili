@@ -1,5 +1,5 @@
-pub let { start_workspace } = import!("intrinsics");
-let { execl } = import!("std/c")
+pub let { start_workspace } = import "intrinsics";
+let { execl } = import "std/c"
 
 pub let Workspace = struct {
     name: str,

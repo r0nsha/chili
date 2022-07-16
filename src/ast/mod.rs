@@ -47,6 +47,7 @@ pub enum Ast {
     Binding(Binding),
     Assignment(Assignment),
     Cast(Cast),
+    Import(Import),
     Builtin(Builtin),
     Function(Function),
     While(While),
@@ -86,6 +87,7 @@ macro_rules! ast_field_dispatch {
                     Self::Binding(x) => x.$field,
                     Self::Assignment(x) => x.$field,
                     Self::Cast(x) => x.$field,
+                    Self::Import(x) => x.$field,
                     Self::Builtin(x) => x.$field,
                     Self::Function(x) => x.$field,
                     Self::While(x) => x.$field,
@@ -124,6 +126,7 @@ macro_rules! ast_field_dispatch {
                         Self::Binding(x) => &mut x.$field,
                         Self::Assignment(x) => &mut x.$field,
                         Self::Cast(x) => &mut x.$field,
+                        Self::Import(x) => &mut x.$field,
                         Self::Builtin(x) => &mut x.$field,
                         Self::Function(x) => &mut x.$field,
                         Self::While(x) => &mut x.$field,
@@ -315,6 +318,12 @@ pub enum LiteralKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Import {
+    pub path: PathBuf,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Builtin {
     pub kind: BuiltinKind,
     pub span: Span,
@@ -322,7 +331,6 @@ pub struct Builtin {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BuiltinKind {
-    Import(PathBuf),
     SizeOf(Box<Ast>),
     AlignOf(Box<Ast>),
     Panic(Option<Box<Ast>>),

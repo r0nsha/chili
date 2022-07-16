@@ -504,6 +504,7 @@ impl<'lx> Lexer<'lx> {
             "return" => Return,
             "let" => Let,
             "fn" => Fn,
+            "import" => Import,
             "extern" => Extern,
             "intrinsic" => Intrinsic,
             "pub" => Pub,

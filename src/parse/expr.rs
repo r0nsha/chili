@@ -254,6 +254,8 @@ impl Parser {
             Ast::Placeholder(ast::Empty {
                 span: self.previous_span(),
             })
+        } else if eat!(self, Import) {
+            self.parse_import(self.previous_span())?
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
@@ -463,7 +465,6 @@ impl Parser {
         require!(self, OpenParen, "(")?;
 
         let kind = match symbol.as_str() {
-            "import" => self.parse_builtin_import()?,
             "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
             "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
             "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {

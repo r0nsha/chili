@@ -1,4 +1,4 @@
-let { printf } = import!("c");
+let { printf } = import "c";
 
 pub let print = fn(fmt: str) {
     printf(fmt.data);

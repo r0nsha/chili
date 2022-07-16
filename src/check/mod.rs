@@ -744,26 +744,26 @@ impl Check for ast::Ast {
             ast::Ast::Binding(binding) => binding.check(sess, env, None),
             ast::Ast::Assignment(assignment) => assignment.check(sess, env, expected_type),
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_type),
+            ast::Ast::Import(import) => {
+                let path_str = import.path.to_str().unwrap();
+
+                let module = sess
+                    .modules
+                    .iter()
+                    .find(|m| m.info.file_path == path_str)
+                    .unwrap_or_else(|| {
+                        panic!("couldn't find ast for module with path: {}", path_str)
+                    });
+
+                let module_type = sess.check_module(module)?;
+
+                Ok(hir::Node::Const(hir::Const {
+                    value: ConstValue::Unit(()),
+                    ty: module_type,
+                    span: import.span,
+                }))
+            }
             ast::Ast::Builtin(builtin) => match &builtin.kind {
-                ast::BuiltinKind::Import(import_path) => {
-                    let path_str = import_path.to_str().unwrap();
-
-                    let module = sess
-                        .modules
-                        .iter()
-                        .find(|m| m.info.file_path == path_str)
-                        .unwrap_or_else(|| {
-                            panic!("couldn't find ast for module with path: {}", path_str)
-                        });
-
-                    let module_type = sess.check_module(module)?;
-
-                    Ok(hir::Node::Const(hir::Const {
-                        value: ConstValue::Unit(()),
-                        ty: module_type,
-                        span: builtin.span,
-                    }))
-                }
                 ast::BuiltinKind::SizeOf(expr) => {
                     let ty = check_type_expr(&expr, sess, env)?;
 
@@ -820,7 +820,7 @@ impl Check for ast::Ast {
                     }
                 }
                 ast::BuiltinKind::Panic(_) => {
-                    todo!("\n1. Import std implicitly in all files\n2. Replace this with `pub let {{ default_panic_handler: panic }} = import!(\"panicking\"); in std")
+                    todo!("replace this with a function")
                     // if let Some(expr) = expr {
                     //     expr.check(sess, env, None)?;
                     // }

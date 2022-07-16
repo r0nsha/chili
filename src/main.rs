@@ -1,3 +1,4 @@
+#![allow(mutable_borrow_reservation_conflict)]
 mod ast;
 mod astgen;
 mod backend;

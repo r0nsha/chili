@@ -64,7 +64,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|fn|extern|intrinsic|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|fn|import|extern|intrinsic|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",

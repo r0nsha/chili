@@ -1,4 +1,4 @@
-let { printf } = import!("std/c")
+let { printf } = import "std/c"
 
 let fib = fn(n: u64) {
     if n <= 1 {
