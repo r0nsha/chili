@@ -27,10 +27,6 @@ pub enum Instruction {
     Shr,
     Xor,
     Jmp(i32),
-
-    #[allow(unused)]
-    Jmpt(i32),
-
     Jmpf(i32),
     Return,
     Call(u32),
@@ -52,13 +48,6 @@ pub enum Instruction {
     BufferFill(u32),
     Copy(u32),
     Roll(u32),
-
-    #[allow(unused)]
-    Increment,
-
-    #[allow(unused)]
-    Panic,
-
     Halt,
 }
 
@@ -108,7 +97,6 @@ impl Display for Instruction {
                 Instruction::Shr => "shr".to_string(),
                 Instruction::Xor => "xor".to_string(),
                 Instruction::Jmp(offset) => format!("jmp {}", offset),
-                Instruction::Jmpt(offset) => format!("jmpt {}", offset),
                 Instruction::Jmpf(offset) => format!("jmpf {}", offset),
                 Instruction::Return => "return".to_string(),
                 Instruction::Call(arg_count) => format!("call {}", arg_count),
@@ -130,8 +118,6 @@ impl Display for Instruction {
                 Instruction::BufferFill(size) => format!("buffer_fill {}", size),
                 Instruction::Copy(offset) => format!("copy {}", -(*offset as i32)),
                 Instruction::Roll(offset) => format!("roll {}", -(*offset as i32)),
-                Instruction::Increment => "increment".to_string(),
-                Instruction::Panic => "panic".to_string(),
                 Instruction::Halt => "halt".to_string(),
             }
         )

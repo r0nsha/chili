@@ -1052,9 +1052,7 @@ fn patch_jmp(code: &mut CompiledCode, inst_pos: usize) {
     let target_offset = (code.instructions.len() - inst_pos) as i32;
 
     match &mut code.instructions[inst_pos] {
-        Instruction::Jmp(offset) | Instruction::Jmpt(offset) | Instruction::Jmpf(offset)
-            if *offset == INVALID_JMP_OFFSET =>
-        {
+        Instruction::Jmp(offset) | Instruction::Jmpf(offset) if *offset == INVALID_JMP_OFFSET => {
             *offset = target_offset
         }
         _ => panic!("instruction at address {} is not a jmp", inst_pos),

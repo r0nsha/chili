@@ -6,7 +6,7 @@ use super::{
         byte_seq::{ByteSeq, PutValue},
         instruction::Instruction,
         stack::Stack,
-        value::{Buffer, Function, Pointer, Value},
+        value::{Buffer, Function, Value},
     },
 };
 use colored::Colorize;
@@ -386,13 +386,6 @@ impl<'vm> VM<'vm> {
                 Instruction::Jmp(offset) => {
                     self.jmp(offset);
                 }
-                Instruction::Jmpt(offset) => {
-                    if self.stack.pop().into_bool() {
-                        self.jmp(offset);
-                    } else {
-                        self.next();
-                    }
-                }
                 Instruction::Jmpf(offset) => {
                     if !self.stack.pop().into_bool() {
                         self.jmp(offset);
@@ -557,33 +550,6 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.take(offset as usize);
                     self.stack.push(value);
                     self.next();
-                }
-                Instruction::Increment => {
-                    let ptr = self.stack.pop().into_pointer();
-                    unsafe {
-                        match ptr {
-                            Pointer::I8(v) => *v += 1,
-                            Pointer::I16(v) => *v += 1,
-                            Pointer::I32(v) => *v += 1,
-                            Pointer::I64(v) => *v += 1,
-                            Pointer::Int(v) => *v += 1,
-                            Pointer::U8(v) => *v += 1,
-                            Pointer::U16(v) => *v += 1,
-                            Pointer::U32(v) => *v += 1,
-                            Pointer::U64(v) => *v += 1,
-                            Pointer::Uint(v) => *v += 1,
-                            _ => panic!("invalid pointer in increment {:?}", ptr),
-                        }
-                    }
-                    self.next();
-                }
-                Instruction::Panic => {
-                    // Note (Ron): the panic message is a slice, which is an aggregate in the VM
-                    let buf = self.stack.pop().into_buffer();
-                    let fmt = buf.as_str();
-
-                    // TODO: instead of using Rust's panic, we should be using our own panic function
-                    panic!("{}", fmt);
                 }
                 Instruction::Halt => {
                     let result = self.stack.pop();
