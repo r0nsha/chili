@@ -1547,7 +1547,7 @@ impl Check for ast::Ast {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "type `{}` does not support struct initialization syntax",
-                                    ty
+                                    ty.display(&sess.tcx)
                                 ))
                                 .with_label(Label::primary(type_expr.span(), "not a struct type")))
                         }

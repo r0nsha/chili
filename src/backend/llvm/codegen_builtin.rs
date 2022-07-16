@@ -2,7 +2,12 @@ use super::{
     codegen::{Codegen, FunctionState, Generator},
     ty::IntoLlvmType,
 };
-use crate::{ast, hir, infer::normalize::Normalize, span::Span, types::*};
+use crate::{
+    ast, hir,
+    infer::{display::DisplayTy, normalize::Normalize},
+    span::Span,
+    types::*,
+};
 use inkwell::{
     types::IntType,
     values::{BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode, IntValue},
@@ -131,7 +136,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                     let value = unary.value.codegen(generator, state).into_float_value();
                     generator.builder.build_float_neg(value, "fneg").into()
                 }
-                _ => unreachable!("{}", &unary.value.ty()),
+                _ => unreachable!("{}", &unary.value.ty().display(&generator.tcx)),
             },
             hir::Builtin::Deref(unary) => {
                 let value = unary.value.codegen(generator, state).into_pointer_value();

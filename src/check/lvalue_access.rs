@@ -78,7 +78,7 @@ impl<'s> CheckSess<'s> {
                         })
                     }
                 } else {
-                    unreachable!("got {}", unary.value.ty())
+                    unreachable!("got {}", ty)
                 }
             }
             hir::Node::Builtin(hir::Builtin::Offset(offset)) => {

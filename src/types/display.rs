@@ -1,12 +1,6 @@
 use super::*;
 use std::fmt::{self, Display};
 
-impl fmt::Display for TypeId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "?")
-    }
-}
-
 impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -58,7 +52,7 @@ impl Display for Type {
                 Type::Infer(_, InferType::PartialStruct(ty)) => ty.to_string(),
                 Type::Infer(_, InferType::AnyInt) => "[integer]".to_string(),
                 Type::Infer(_, InferType::AnyFloat) => "[float]".to_string(),
-                Type::Var(v) => v.to_string(),
+                Type::Var(v) => "?".to_string(),
                 Type::Unknown => "?".to_string(),
             }
         )
