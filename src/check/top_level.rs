@@ -1,6 +1,9 @@
 use super::{Check, CheckSess, QueuedModule};
 use crate::{
-    ast,
+    ast::{
+        self,
+        pattern::{Pattern, UnpackPattern, Wildcard},
+    },
     error::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult,
@@ -8,7 +11,7 @@ use crate::{
     hir,
     span::Span,
     types::{Type, TypeId},
-    workspace::{BindingId, ModuleId},
+    workspace::{compiler_info::STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
 };
 use std::collections::HashSet;
 use ustr::{Ustr, UstrMap};
@@ -193,10 +196,10 @@ impl<'s> CheckSess<'s> {
                 let module_type = match self.queued_modules.get(&module.id) {
                     Some(queued) => queued.module_type,
                     None => {
-                        let module_type = self
-                            .tcx
-                            .bound(Type::Module(module.id), Span::initial(module.file_id));
+                        let span = Span::initial(module.file_id);
+                        let module_type = self.tcx.bound(Type::Module(module.id), span);
 
+                        // Add the module to the queued modules map
                         self.queued_modules.insert(
                             module.id,
                             QueuedModule {
@@ -205,6 +208,36 @@ impl<'s> CheckSess<'s> {
                                 complete_bindings: HashSet::new(),
                             },
                         );
+
+                        // Auto import std
+                        self.with_env(module.id, |sess, mut env| {
+                            let auto_import_std_pattern = Pattern::StructUnpack(UnpackPattern {
+                                symbols: vec![],
+                                span,
+                                wildcard: Some(Wildcard { span }),
+                            });
+
+                            let std_module_id = sess
+                                .workspace
+                                .module_infos
+                                .iter()
+                                .position(|(_, module)| module.name == STD)
+                                .map(ModuleId::from)
+                                .unwrap();
+
+                            let std_module_type = sess.tcx.bound(Type::Module(std_module_id), span);
+
+                            sess.bind_pattern(
+                                &mut env,
+                                &auto_import_std_pattern,
+                                ast::Visibility::Private,
+                                std_module_type,
+                                None,
+                                BindingInfoKind::Orphan,
+                                span,
+                                BindingInfoFlags::SHADOWABLE,
+                            )
+                        })?;
 
                         module_type
                     }

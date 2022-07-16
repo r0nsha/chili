@@ -1,5 +1,7 @@
 use super::*;
-use crate::ast::pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind};
+use crate::ast::pattern::{
+    HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard,
+};
 use crate::error::SyntaxError;
 use crate::span::To;
 
@@ -41,7 +43,7 @@ impl Parser {
             Ok(Pattern::StructUnpack(UnpackPattern {
                 symbols: vec![],
                 span,
-                wildcard_symbol: Some(span),
+                wildcard: Some(Wildcard { span }),
             }))
         } else {
             Err(SyntaxError::expected(self.span(), expectation))
@@ -52,11 +54,11 @@ impl Parser {
         let start_span = self.previous_span();
 
         let mut symbols = vec![];
-        let mut wildcard_symbol: Option<Span> = None;
+        let mut wildcard_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.is_end() {
             if eat!(self, QuestionMark) {
-                wildcard_symbol = Some(self.previous().span);
+                wildcard_span = Some(self.previous().span);
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
@@ -92,7 +94,7 @@ impl Parser {
         let unpack = UnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
-            wildcard_symbol,
+            wildcard: wildcard_span.map(|span| Wildcard { span }),
         };
 
         Ok(Pattern::StructUnpack(unpack))
@@ -112,7 +114,7 @@ impl Parser {
         let unpack = UnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
-            wildcard_symbol: None,
+            wildcard: None,
         };
 
         Ok(Pattern::TupleUnpack(unpack))

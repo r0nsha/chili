@@ -104,6 +104,49 @@ impl WithId<BindingId> for BindingInfo {
     }
 }
 
+impl BindingInfo {
+    pub(crate) fn add_use(&mut self, span: Span) {
+        self.uses.push(span);
+    }
+
+    #[inline]
+    #[allow(unused)]
+    pub fn is_builtin_type(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::BUILTIN_TYPE)
+    }
+
+    #[inline]
+    #[allow(unused)]
+    pub fn is_is_user_defined(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::IS_USER_DEFINED)
+    }
+
+    #[inline]
+    #[allow(unused)]
+    pub fn is_type_was_inferred(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::TYPE_WAS_INFERRED)
+    }
+
+    #[inline]
+    #[allow(unused)]
+    pub fn is_is_implicit_it_fn_parameter(&self) -> bool {
+        self.flags
+            .contains(BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER)
+    }
+
+    #[inline]
+    #[allow(unused)]
+    pub fn is_no_const_fold(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::NO_CONST_FOLD)
+    }
+
+    #[inline]
+    #[allow(unused)]
+    pub fn is_shadowable(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::SHADOWABLE)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct PartialBindingInfo {
     pub module_id: ModuleId,
@@ -150,7 +193,9 @@ bitflags! {
         // Whether this the implicit "it" parameter.
         const IS_IMPLICIT_IT_FN_PARAMETER = 1 << 3;
         // Whether this binding should store a constant value
-        const NO_CONST_FOLD = 1 << 3;
+        const NO_CONST_FOLD = 1 << 4;
+        // Whether this binding should store a constant value
+        const SHADOWABLE = 1 << 5;
     }
 }
 
@@ -202,9 +247,7 @@ impl Workspace {
     }
 
     pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
-        if let Some(binding_info) = self.binding_infos.get_mut(id) {
-            binding_info.add_use(span);
-        }
+        self.binding_infos.get_mut(id).unwrap().add_use(span);
     }
 
     pub fn entry_point_function(&self) -> Option<&BindingInfo> {
@@ -325,11 +368,5 @@ impl ScopeLevel {
                 }
             }
         }
-    }
-}
-
-impl BindingInfo {
-    pub(crate) fn add_use(&mut self, span: Span) {
-        self.uses.push(span);
     }
 }

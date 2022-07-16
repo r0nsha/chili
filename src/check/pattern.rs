@@ -90,9 +90,16 @@ impl<'s> CheckSess<'s> {
         match scope_level {
             // check if there's already a binding with this symbol
             ScopeLevel::Global => {
-                if let Some(id) = self.get_global_binding_id(module_id, name) {
-                    let defined_binding_info = self.workspace.binding_infos.get(id).unwrap();
-                    if defined_binding_info.span != span {
+                if let Some(defined_id) = self.get_global_binding_id(module_id, name) {
+                    let defined_binding_info =
+                        self.workspace.binding_infos.get(defined_id).unwrap();
+
+                    if flags.contains(BindingInfoFlags::SHADOWABLE) {
+                        // Do nothing, this is shadowed by the already defined binding
+                    } else if defined_binding_info.is_shadowable() {
+                        // The defined binding can be shadowed, so this is Ok
+                        self.insert_global_binding_id(module_id, name, id);
+                    } else if defined_binding_info.span != span {
                         return Err(SyntaxError::duplicate_binding(
                             defined_binding_info.span,
                             span,
@@ -394,7 +401,7 @@ impl<'s> CheckSess<'s> {
                     statements.push(binding);
                 }
 
-                if let Some(wildcard_symbol_span) = unpack_pattern.wildcard_symbol {
+                if let Some(_) = &unpack_pattern.wildcard {
                     for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
@@ -407,10 +414,10 @@ impl<'s> CheckSess<'s> {
                             binding_info.name,
                             visibility,
                             binding_info.ty,
-                            Some(self.id_or_const(binding_info, wildcard_symbol_span)),
+                            Some(self.id_or_const(binding_info, binding_info.span)),
                             binding_info.is_mutable,
                             binding_info.kind,
-                            wildcard_symbol_span,
+                            binding_info.span,
                             flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
 
@@ -477,7 +484,7 @@ impl<'s> CheckSess<'s> {
                     statements.push(bound_node);
                 }
 
-                if let Some(wildcard_symbol_span) = unpack_pattern.wildcard_symbol {
+                if let Some(wildcard) = &unpack_pattern.wildcard {
                     match ty_kind {
                         Type::Struct(struct_ty) => {
                             for (index, field) in struct_ty.fields.iter().enumerate() {
@@ -522,7 +529,7 @@ impl<'s> CheckSess<'s> {
                                     Some(field_value),
                                     false,
                                     kind,
-                                    wildcard_symbol_span,
+                                    wildcard.span,
                                     flags - BindingInfoFlags::IS_USER_DEFINED,
                                 )?;
 
@@ -536,18 +543,18 @@ impl<'s> CheckSess<'s> {
                                     ty_kind
                                 ))
                                 .with_label(Label::primary(
-                                    wildcard_symbol_span,
+                                    wildcard.span,
                                     "illegal wildcard unpack",
                                 )))
                         }
                         _ => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
-                                    "cannot use wildcard unpack on type {}",
+                                    "cannot use wildcard unpack on partial tuple type - {}",
                                     ty_kind
                                 ))
                                 .with_label(Label::primary(
-                                    wildcard_symbol_span,
+                                    wildcard.span,
                                     "illegal wildcard unpack",
                                 )))
                         }

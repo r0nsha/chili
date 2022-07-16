@@ -15,7 +15,12 @@ pub enum Pattern {
 pub struct UnpackPattern {
     pub symbols: Vec<NamePattern>,
     pub span: Span,
-    pub wildcard_symbol: Option<Span>,
+    pub wildcard: Option<Wildcard>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Wildcard {
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
