@@ -72,17 +72,19 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Arrays & Slices
 - [x] Structs
 - [x] Tuples
+- [x] Modules & Imports
+- [x] Binding patterns: Struct/Module unpack, Tuple unpack and Wildcard
 - [x] Compile time execution
   - [x] Bytecode VM with FFI support
 - [x] Compile-time execution based build configuration
-- [x] Remove many-item (indexable) pointers
+- [ ] DSTs - Dynamically sized types
 - [ ] Attributes
 - [ ] Default function arguments
 - [ ] Named function arguments
 - [ ] Panic function
-- [ ] Basic printing and formatting
+- [ ] Varargs
+- [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
-- [ ] Move builtin functions to `std` - remove `@` prefixed builtins
 - [ ] Tagged unions
   - [ ] Pattern matching
   - [ ] First-class `Option` & `Result` types
