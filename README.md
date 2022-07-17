@@ -55,7 +55,7 @@ example: cargo run -- run ./examples/main.chili
 
 ## Tooling
 
-- VSCode plugin is available [here](https://github.com/r0nsha/chili-vscode) (currently includes syntax highlighting)
+- VSCode plugin is available [here](https://github.com/r0nsha/chili/tree/main/editors/vscode) (currently includes syntax highlighting)
 
 ## Contributing
 
