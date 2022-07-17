@@ -1,0 +1,27 @@
+let { printf, exit } = import "c";
+
+let PanicInfo = struct {
+    message: str,
+    file_path: str,
+    line: uint,
+    column: uint,
+};
+
+let default_panic_handler = fn(info: PanicInfo) -> never {
+    // TODO: use my own print routine.
+    let message = if info.message.len == 0 {
+        ""
+    } else {
+        info.message
+    };
+
+    printf(
+        "panic: \"%s\" at %s:%d:%d\n".data, 
+        message.data,
+        info.file_path.data,
+        info.line,
+        info.column
+    );
+
+    exit(1)
+};

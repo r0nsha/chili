@@ -5,7 +5,7 @@ use ustr::ustr;
 pub const STD: &str = "std";
 pub const STD_PREFIX_FW: &str = "std/";
 pub const STD_PREFIX_BK: &str = "std\\";
-pub const SOURCE_FILE_EXT: &str = "chili";
+pub const SOURCE_FILE_EXT: &str = "chi";
 
 pub fn is_std_module_path(path: &str) -> bool {
     path == STD
@@ -31,7 +31,7 @@ pub fn std_module_root_dir() -> PathBuf {
 }
 
 pub fn std_module_root_file() -> PathBuf {
-    std_module_root_dir().join(Path::new("std.chili"))
+    std_module_root_dir().join(Path::new("std.chi"))
 }
 
 pub fn std_module_info() -> PartialModuleInfo {

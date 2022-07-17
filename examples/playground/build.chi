@@ -2,7 +2,7 @@ let ? = import "std/build"
 
 let build = fn() {
 	let build_options = BuildOptions {
-        input_file: "src/main.chili",
+        input_file: "src/main.chi",
         output_file: "out/main",
         target: BuildTarget_auto,
         optimization_level: OptimizationLevel_debug,

@@ -19,7 +19,7 @@ pub fn print(cache: &hir::Cache, workspace: &Workspace, tcx: &TyCtx) {
         .create(true)
         .truncate(true)
         .append(false)
-        .open(Path::new("hir.pretty.chili"))
+        .open(Path::new("hir.pretty.chi"))
     {
         let mut printer = Printer::new(workspace, tcx, file);
         cache.print(&mut printer, true);
