@@ -49,8 +49,8 @@ cargo build
 To run the compiler directly from cargo:
 
 ```
-cargo run -- [run/build] %source_file_path%
-example: cargo run -- run ./examples/main.chili
+cargo run -- %source_file_path% --run
+example: cargo run -- ./examples/main.chili --run
 ```
 
 ## Tooling
