@@ -289,21 +289,6 @@ impl<'lx> Lexer<'lx> {
         match flavor {
             StrFlavor::Raw => Ok(Str(ustr(&contents))),
             flavor => {
-                let contents = if matches!(flavor, StrFlavor::Multiline) {
-                    unindent(contents.trim())
-                } else {
-                    contents
-                };
-
-                let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
-                    UnescapeError::InvalidEscapeSequence(span) => {
-                        let message = "unknown escape sequence";
-                        Diagnostic::error()
-                            .with_message(message)
-                            .with_label(Label::primary(span, message))
-                    }
-                })?;
-
                 match flavor {
                     StrFlavor::Normal if contents.contains('\n') => {
                         return Err(Diagnostic::error()
@@ -326,6 +311,21 @@ impl<'lx> Lexer<'lx> {
                     }
                     _ => (),
                 }
+
+                let contents = if matches!(flavor, StrFlavor::Multiline) {
+                    unindent(contents.trim())
+                } else {
+                    contents
+                };
+
+                let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
+                    UnescapeError::InvalidEscapeSequence(span) => {
+                        let message = "unknown escape sequence";
+                        Diagnostic::error()
+                            .with_message(message)
+                            .with_label(Label::primary(span, message))
+                    }
+                })?;
 
                 if flavor == StrFlavor::Char {
                     Ok(Char(contents.chars().next().unwrap()))

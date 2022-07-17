@@ -31,7 +31,7 @@ impl Parser {
             self.skip_semicolons();
         }
 
-        ParserResult::NewAst(module)
+        ParserResult::NewModule(module)
     }
 
     pub fn parse_top_level(&mut self, module: &mut Module) -> DiagnosticResult<()> {

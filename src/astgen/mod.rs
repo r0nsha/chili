@@ -81,9 +81,12 @@ fn generate_ast_inner(
 
     for result in rx.iter() {
         match *result {
-            ParserResult::NewAst(ast) => modules.push(ast),
+            ParserResult::NewModule(module) => modules.push(module),
             ParserResult::AlreadyParsed => (),
-            ParserResult::Failed(diag) => cache.lock().diagnostics.push(diag),
+            ParserResult::LexerFailed(module, diag) => {
+                modules.push(module);
+                cache.lock().diagnostics.push(diag);
+            }
         }
     }
 

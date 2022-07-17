@@ -129,9 +129,9 @@ pub struct ParserCache {
 pub type ParserCacheGuard<'a> = MutexGuard<'a, ParserCache>;
 
 pub enum ParserResult {
-    NewAst(ast::Module),
+    NewModule(ast::Module),
     AlreadyParsed,
-    Failed(Diagnostic),
+    LexerFailed(ast::Module, Diagnostic),
 }
 
 impl Parser {
@@ -185,7 +185,9 @@ impl Parser {
                 self.tokens = tokens;
                 self.parse_all_top_level(file_id)
             }
-            Err(diag) => ParserResult::Failed(diag),
+            Err(diag) => {
+                ParserResult::LexerFailed(ast::Module::new(file_id, self.module_info), diag)
+            }
         }
     }
 
