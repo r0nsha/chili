@@ -27,9 +27,7 @@ There are languages such as `Rust` which succeed in making this gap smaller, but
 ## Hello World
 
 ```rust
-let { println } = import "std/fmt"
-
-let main = fn()  {
+let main = fn {
 	println("Hello World");
 }
 ```
