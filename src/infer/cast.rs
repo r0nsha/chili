@@ -41,20 +41,12 @@ pub fn can_cast_type(from: &Type, to: &Type) -> bool {
 
             (Type::Int(..), Type::Pointer(..)) | (Type::Uint(..), Type::Pointer(..)) => true,
 
-            (Type::Pointer(t, from_mutable), Type::Pointer(t_ptr, to_mutable))
+            (Type::Pointer(left, from_mutable), Type::Pointer(right, to_mutable))
                 if can_coerce_mut(*from_mutable, *to_mutable) =>
             {
-                match t.as_ref() {
-                    Type::Array(t_array, ..) => t_array == t_ptr,
-                    _ => false,
-                }
-            }
-
-            (Type::Pointer(t, from_mutable), Type::Slice(t_slice, to_mutable))
-                if can_coerce_mut(*from_mutable, *to_mutable) =>
-            {
-                match t.as_ref() {
-                    Type::Array(t_array, ..) => t_array == t_slice,
+                match (left.as_ref(), right.as_ref()) {
+                    (Type::Array(t_array, ..), Type::Slice(right, _)) => t_array == right,
+                    (Type::Array(t_array, ..), right) => t_array.as_ref() == right,
                     _ => false,
                 }
             }

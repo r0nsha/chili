@@ -1,6 +1,5 @@
-use crate::common::mem::calculate_align_from_offset;
-
 use super::{align_of::AlignOf, size_of::SizeOf, *};
+use crate::common::mem::calculate_align_from_offset;
 
 pub trait OffsetOf {
     fn offset_of(&self, index: usize, word_size: usize) -> usize;
@@ -10,6 +9,14 @@ impl OffsetOf for Type {
     fn offset_of(&self, index: usize, word_size: usize) -> usize {
         match self {
             Type::Array(ty, ..) => ty.size_of(word_size) * index,
+            Type::Pointer(ty, _) => match ty.as_ref() {
+                Type::Slice(..) => match index {
+                    0 => 0,
+                    1 => word_size,
+                    _ => panic!("{}", index),
+                },
+                ty => panic!("{} isn't an aggregate type", ty),
+            },
             Type::Slice(..) => match index {
                 0 => 0,
                 1 => word_size,

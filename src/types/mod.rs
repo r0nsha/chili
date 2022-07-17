@@ -1,5 +1,6 @@
 pub mod align_of;
 pub mod display;
+pub mod is_sized;
 pub mod offset_of;
 pub mod size_of;
 
@@ -514,7 +515,7 @@ impl Type {
 
     #[inline]
     pub fn str() -> Type {
-        Type::Slice(Box::new(Type::char()), false)
+        Type::Pointer(Box::new(Type::Slice(Box::new(Type::char()), false)), false)
     }
 
     #[inline]

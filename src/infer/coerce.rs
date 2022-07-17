@@ -75,44 +75,12 @@ impl Coerce for Type {
             }
 
             // * array[N] of T -> slice of T
-            (Type::Pointer(t, lmut), Type::Slice(t_slice, rmut))
+            (Type::Pointer(left, lmut), Type::Pointer(right, rmut))
                 if can_coerce_mut(*lmut, *rmut) =>
             {
-                match t.as_ref() {
-                    Type::Array(t_array, ..) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (Type::Array(t_array, _), Type::Slice(t_slice, _)) => {
                         if t_array == t_slice {
-                            CoerceToRight
-                        } else {
-                            NoCoercion
-                        }
-                    }
-                    _ => NoCoercion,
-                }
-            }
-
-            // * array[N] of T -> slice of T
-            (Type::Pointer(t, lmut), Type::Slice(t_slice, rmut))
-                if can_coerce_mut(*lmut, *rmut) =>
-            {
-                match t.as_ref() {
-                    Type::Array(t_array, ..) => {
-                        if t_array == t_slice {
-                            CoerceToRight
-                        } else {
-                            NoCoercion
-                        }
-                    }
-                    _ => NoCoercion,
-                }
-            }
-
-            // * array[N] of T -> pointer of T
-            (Type::Pointer(t, lmut), Type::Pointer(t_ptr, rmut))
-                if can_coerce_mut(*lmut, *rmut) =>
-            {
-                match t.as_ref() {
-                    Type::Array(t_array, ..) => {
-                        if t_array == t_ptr {
                             CoerceToRight
                         } else {
                             NoCoercion

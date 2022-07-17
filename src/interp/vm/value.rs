@@ -762,7 +762,7 @@ impl Pointer {
                 // Note (Ron): Leak
                 Self::Buffer(Box::leak(array) as *mut Buffer)
             }
-            Type::Slice(_, _) => todo!(),
+            Type::Slice(_, _) => todo!("{}", ty),
             Type::Tuple(_) => todo!(),
             Type::Struct(_) => todo!(),
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
@@ -885,6 +885,7 @@ impl Display for Buffer {
                 .join(", ");
 
             let len = match &self.ty {
+                Type::Struct(s) => s.fields.len(),
                 Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
                 Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
                     elements.len()

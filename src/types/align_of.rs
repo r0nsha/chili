@@ -14,7 +14,6 @@ impl AlignOf for Type {
             Type::Float(ty) => ty.align_of(word_size),
             Type::Pointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, ..) => ty.align_of(word_size),
-            Type::Slice(..) => word_size,
             Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
                 StructType::temp(
                     elems
@@ -36,7 +35,7 @@ impl AlignOf for Type {
             }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.align_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.align_of(word_size),
-            _ => 1,
+            _ => panic!("type {} is unsized", self),
         }
     }
 }

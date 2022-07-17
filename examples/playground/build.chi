@@ -1,23 +1,28 @@
 let ? = import("std/build")
+let ? = import("std/c")
 
 let build = fn() {
-	let build_options = BuildOptions {
-        input_file: "src/main.chi",
-        output_file: "out/main",
-        target: BuildTarget_auto,
-        optimization_level: OptimizationLevel_debug,
-	};
+	// let build_options = BuildOptions {
+    //     input_file: "src/main.chi",
+    //     output_file: "out/main",
+    //     target: BuildTarget_auto,
+    //     optimization_level: OptimizationLevel_debug,
+	// };
 
-	let workspace = Workspace {
-		name: "hello",
-		build_options
-	};
+	// let workspace = Workspace {
+	// 	name: "hello",
+	// 	build_options
+	// };
 
-	let (output_file, ok) = start_workspace(workspace);
-
-	if ok {
-		run_output_file(output_file);
+	for x in "hello" {
+		printf("%c\n".data, x)
 	}
+
+	// let (output_file, ok) = start_workspace(workspace);
+
+	// if ok {
+	// 	run_output_file(output_file);
+	// }
 }
 
 run!(build())

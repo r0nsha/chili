@@ -164,16 +164,21 @@ impl GetValue for [u8] {
                     }
                 }
             },
-            Type::Pointer(ty, _) => Value::Pointer(Pointer::from_type_and_ptr(
-                ty,
-                self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
-            )),
-            Type::Array(_, _) | Type::Slice(_, _) | Type::Tuple(_) | Type::Struct(_) => {
-                Value::Buffer(Buffer {
+            Type::Pointer(ty, _) => match ty.as_ref() {
+                Type::Slice(_, _) => Value::Buffer(Buffer {
                     bytes: ByteSeq::copy_from_slice(self),
-                    ty: ty.clone(),
-                })
-            }
+                    ty: ty.as_ref().clone(),
+                }),
+                _ => Value::Pointer(Pointer::from_type_and_ptr(
+                    ty,
+                    self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
+                )),
+            },
+
+            Type::Array(_, _) | Type::Tuple(_) | Type::Struct(_) => Value::Buffer(Buffer {
+                bytes: ByteSeq::copy_from_slice(self),
+                ty: ty.clone(),
+            }),
             Type::Infer(_, InferType::AnyInt) => {
                 Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
             }

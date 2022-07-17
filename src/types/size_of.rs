@@ -14,9 +14,12 @@ impl SizeOf for Type {
             Type::Int(ty) => ty.size_of(word_size),
             Type::Uint(ty) => ty.size_of(word_size),
             Type::Float(ty) => ty.size_of(word_size),
-            Type::Pointer(..) | Type::Function(..) => word_size,
+            Type::Pointer(ty, _) => match ty.as_ref() {
+                Type::Slice(..) => word_size * 2,
+                _ => word_size,
+            },
+            Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
-            Type::Slice(..) => word_size * 2,
             Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
                 StructType::temp(
                     elems
@@ -43,7 +46,7 @@ impl SizeOf for Type {
             }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.size_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.size_of(word_size),
-            _ => 0,
+            _ => panic!("type {} is unsized", self),
         }
     }
 }
