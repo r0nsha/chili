@@ -16,14 +16,7 @@ impl SizeOf for Type {
             Type::Float(ty) => ty.size_of(word_size),
             Type::Pointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
-            Type::Slice(..) => StructType::temp(
-                vec![
-                    StructTypeField::temp(Type::raw_pointer(false)),
-                    StructTypeField::temp(Type::uint()),
-                ],
-                StructTypeKind::Struct,
-            )
-            .size_of(word_size),
+            Type::Slice(..) => word_size * 2,
             Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
                 StructType::temp(
                     elems
