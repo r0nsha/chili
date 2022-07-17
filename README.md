@@ -26,7 +26,7 @@ There are languages such as `Rust` which succeed in making this gap smaller, but
 
 ## Hello World
 
-```chili
+```rust
 let main = fn {
 	println("Hello World");
 }
