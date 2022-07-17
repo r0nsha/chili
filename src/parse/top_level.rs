@@ -31,8 +31,6 @@ impl Parser {
             self.skip_semicolons();
         }
 
-        println!("{}", module.info.name);
-
         ParserResult::NewAst(module)
     }
 
