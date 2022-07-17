@@ -671,23 +671,24 @@ impl Lower for hir::Builtin {
                     .lower(sess, code, LowerContext { take_ptr: false });
 
                 let value_type = offset.value.ty().normalize(sess.tcx);
-                let value_inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
-                match value_type {
+                let elem_size = match value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(..) => {
+                        Type::Slice(inner, _) => {
                             code.push(Instruction::ConstIndex(0));
+                            inner.size_of(WORD_SIZE)
                         }
-                        _ => (),
+                        _ => inner.size_of(WORD_SIZE),
                     },
-                    _ => (),
-                }
+                    Type::Array(inner, _) => inner.size_of(WORD_SIZE),
+                    _ => unreachable!("{}", value_type),
+                };
 
                 offset
                     .index
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                sess.push_const(code, Value::Uint(value_inner_type_size));
+                sess.push_const(code, Value::Uint(elem_size));
 
                 code.push(Instruction::Mul);
 
