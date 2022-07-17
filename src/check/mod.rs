@@ -745,14 +745,14 @@ impl Check for ast::Ast {
             ast::Ast::Assignment(assignment) => assignment.check(sess, env, expected_type),
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_type),
             ast::Ast::Import(import) => {
-                let path_str = import.path.to_str().unwrap();
+                let import_path = import.path.to_str().unwrap();
 
                 let module = sess
                     .modules
                     .iter()
-                    .find(|m| m.info.file_path == path_str)
+                    .find(|m| m.info.file_path == import_path)
                     .unwrap_or_else(|| {
-                        panic!("couldn't find ast for module with path: {}", path_str)
+                        panic!("couldn't find ast for module with path: {}", import_path)
                     });
 
                 let module_type = sess.check_module(module)?;
