@@ -255,7 +255,7 @@ impl Parser {
                 span: self.previous_span(),
             })
         } else if eat!(self, Import) {
-            self.parse_import(self.previous_span())?
+            self.parse_import()?
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);

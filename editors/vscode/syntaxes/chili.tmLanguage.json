@@ -188,6 +188,18 @@
           }
         },
         {
+          "comment": "import",
+          "captures": {
+            "1": {
+              "name": "keyword.other.chili"
+            },
+            "2": {
+              "name": "punctuation.chili"
+            }
+          },
+          "match": "(import)([\\(])"
+        },
+        {
           "comment": "function call",
           "captures": {
             "1": {

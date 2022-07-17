@@ -1,5 +1,5 @@
-let { println } = import "std/fmt"
-let { printf, malloc } = import "std/c"
+let { println } = import("std/fmt")
+let { printf, malloc } = import("std/c")
 
 let Node = struct {
     l: *mut Node,

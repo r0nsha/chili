@@ -11,41 +11,47 @@ use std::path::Path;
 use ustr::ustr;
 
 impl Parser {
-    pub fn parse_import(&mut self, start_span: Span) -> DiagnosticResult<ast::Ast> {
-        let token = require!(self, Str(_), "string")?;
-        let path = token.name().as_str();
+    pub fn parse_import(&mut self) -> DiagnosticResult<ast::Ast> {
+        let start_span = self.previous_span();
+
+        require!(self, OpenParen, "(")?;
+
+        let path_token = require!(self, Str(_), "string")?;
+        let path = path_token.name().as_str();
+
+        require!(self, CloseParen, ")")?;
 
         let cache = self.cache.lock();
 
         let absolute_import_path = if path == "~" {
             // import root file
-            // example: import "~"
+            // example: import("~")
             cache.root_file.clone()
         } else if path.starts_with("~") {
             // import relative to the root dir
-            // example: import "~/foo"
+            // example: import("~/foo")
             let import_path = cache
                 .root_dir
                 .join(PathBuf::from(path.trim_start_matches("~/")))
                 .with_extension(compiler_info::SOURCE_FILE_EXT);
 
             let import_path =
-                try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(token.span))?;
+                try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(path_token.span))?;
 
-            self.check_import_path_is_under_root(&cache, &import_path, token.span)?;
+            self.check_import_path_is_under_root(&cache, &import_path, path_token.span)?;
 
             import_path
         } else if compiler_info::is_std_module_path(&path) {
             // import std root file
-            // example: import "std"
+            // example: import("std")
             try_resolve_relative_path(
                 &compiler_info::std_module_root_file(),
                 RelativeTo::Cwd,
-                Some(token.span),
+                Some(path_token.span),
             )?
         } else if compiler_info::is_std_module_path_start(&path) {
             // import relative to std root dir
-            // example: import "std/foo/bar"
+            // example: import("std/foo/bar")
             let trimmed_path = path
                 .trim_start_matches(compiler_info::STD_PREFIX_FW)
                 .trim_start_matches(compiler_info::STD_PREFIX_BK);
@@ -54,12 +60,16 @@ impl Parser {
                 .join(trimmed_path)
                 .with_extension(compiler_info::SOURCE_FILE_EXT);
 
-            try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(token.span))?
+            try_resolve_relative_path(
+                &full_std_import_path,
+                RelativeTo::Cwd,
+                Some(path_token.span),
+            )?
         } else {
             // import relative to current dir
-            // example: import "foo/bar"
+            // example: import("foo/bar")
             let import_path = PathBuf::from(path).with_extension(compiler_info::SOURCE_FILE_EXT);
-            self.search_for_import_path(&cache, &import_path, token.span)?
+            self.search_for_import_path(&cache, &import_path, path_token.span)?
         };
 
         let module_name = self.get_module_name_from_path(&cache, &absolute_import_path);

@@ -208,14 +208,14 @@ pub let im_public = 5;
 
 // you can use other modules (files) using the `import` keyword
 // foo is on the same directory as us, so we only have to type `foo`.
-let foo = import "foo"
+let foo = import("foo")
 
 // modules can be unpacked the same way as structs
-let { im_public } = import "foo"
+let { im_public } = import("foo")
 
 // the compiler can automatically unpack all public
 // symbols from `foo` for us, using `?`
-let ? = import "foo"
+let ? = import("foo")
 
 // Using the imported symbol
 let main = fn() {
