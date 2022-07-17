@@ -14,9 +14,11 @@ let build = fn() {
 	// 	build_options
 	// };
 
-	for x in "hello" {
-		printf("%c\n".data, x)
-	}
+	// for x in "hello" {
+	// 	printf("%c\n".data, x)
+	// }
+
+	println("Hello");
 
 	// let (output_file, ok) = start_workspace(workspace);
 

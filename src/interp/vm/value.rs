@@ -365,15 +365,18 @@ impl Buffer {
                 self.bytes.offset(offset).get_value(&elements[index])
             }
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
-            Type::Slice(ty, _) => match index {
-                0 => self
-                    .bytes
-                    .offset(offset)
-                    .get_value(&Type::Pointer(ty.clone(), false)),
-                1 => self.bytes.offset(offset).get_value(&Type::uint()),
-                _ => panic!("{}", index),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(ty, _) => match index {
+                    0 => self
+                        .bytes
+                        .offset(offset)
+                        .get_value(&Type::Pointer(ty.clone(), false)),
+                    1 => self.bytes.offset(offset).get_value(&Type::uint()),
+                    _ => panic!("{}", index),
+                },
+                _ => panic!("{}", &self.ty),
             },
-            ty => panic!("{}", ty),
+            _ => panic!("{}", &self.ty),
         }
     }
 }

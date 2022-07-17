@@ -1012,20 +1012,25 @@ impl Check for ast::Ast {
                             ty: uint,
                             span: slice.span,
                         }),
-                        Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
-                            // Note (Ron 25/06/2022): This clones the node which is kinda bad.
-                            // But, this is good enough as a starting point.
-                            value: Box::new(node.clone()),
-                            ty: uint,
-                            span: slice.span,
-                            member_name: ustr(BUILTIN_FIELD_LEN),
-                            member_index: 1,
-                        }),
-                        Type::Pointer(..) => {
-                            return Err(Diagnostic::error()
-                                .with_message("slicing a pointer requires specifying the end index")
-                                .with_label(Label::primary(slice.span, "must specify end index")))
-                        }
+                        Type::Pointer(inner, _) => match inner.as_ref() {
+                            Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(node.clone()),
+                                ty: uint,
+                                span: slice.span,
+                                member_name: ustr(BUILTIN_FIELD_LEN),
+                                member_index: 1,
+                            }),
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(
+                                        "slicing a pointer requires specifying the end index",
+                                    )
+                                    .with_label(Label::primary(
+                                        slice.span,
+                                        "must specify end index",
+                                    )))
+                            }
+                        },
                         _ => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -1050,9 +1055,10 @@ impl Check for ast::Ast {
 
                 let (result_ty, is_mutable) = match node_type {
                     Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
-                    Type::Slice(inner, is_mutable) | Type::Pointer(inner, is_mutable) => {
-                        (inner, is_mutable)
-                    }
+                    Type::Pointer(inner, is_mutable) => match inner.as_ref() {
+                        Type::Slice(inner, _) => (inner.clone(), is_mutable),
+                        _ => (inner, is_mutable),
+                    },
                     _ => {
                         return Err(Diagnostic::error()
                             .with_message(format!(
@@ -1063,9 +1069,10 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let ty = sess
-                    .tcx
-                    .bound(Type::Slice(result_ty, is_mutable), slice.span);
+                let ty = sess.tcx.bound(
+                    Type::Pointer(Box::new(Type::Slice(result_ty, is_mutable)), is_mutable),
+                    slice.span,
+                );
 
                 Ok(hir::Node::Builtin(hir::Builtin::Slice(hir::Slice {
                     ty,
@@ -1118,6 +1125,58 @@ impl Check for ast::Ast {
                 }
 
                 let node_type = node.ty().normalize(&sess.tcx);
+
+                match &node_type {
+                    Type::Pointer(inner, is_mutable) => match inner.as_ref() {
+                        Type::Slice(inner, _) => {
+                            if access.member.as_str() == BUILTIN_FIELD_LEN {
+                                let ty = sess.tcx.common_types.uint;
+
+                                if let Some(ConstValue::Str(s)) = node.as_const_value() {
+                                    return Ok(hir::Node::Const(hir::Const {
+                                        value: ConstValue::Uint(s.len() as _),
+                                        ty,
+                                        span: access.span,
+                                    }));
+                                } else {
+                                    return Ok(hir::Node::MemberAccess(hir::MemberAccess {
+                                        ty,
+                                        span: access.span,
+                                        value: Box::new(node),
+                                        member_name: access.member,
+                                        member_index: 1,
+                                    }));
+                                }
+                            } else if access.member.as_str() == BUILTIN_FIELD_DATA {
+                                return Ok(hir::Node::MemberAccess(hir::MemberAccess {
+                                    ty: sess.tcx.bound(
+                                        Type::Pointer(inner.clone(), *is_mutable),
+                                        access.span,
+                                    ),
+                                    span: access.span,
+                                    value: Box::new(node),
+                                    member_name: access.member,
+                                    member_index: 0,
+                                }));
+                            }
+                        }
+                        _ => (),
+                    },
+                    Type::Module(module_id) => {
+                        let id = sess.check_top_level_binding(
+                            CallerInfo {
+                                module_id: env.module_id(),
+                                span: access.span,
+                            },
+                            *module_id,
+                            access.member,
+                        )?;
+
+                        return Ok(sess.id_or_const_by_id(id, access.span));
+                    }
+                    _ => (),
+                }
+
                 let node_type_deref = node_type.maybe_deref_once();
 
                 // Note (Ron): If the accessed value is a pointer, we auto dereference it.
@@ -1239,50 +1298,6 @@ impl Check for ast::Ast {
                             ty: sess.tcx.common_types.uint,
                             span: access.span,
                         }))
-                    }
-                    Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        let ty = sess.tcx.common_types.uint;
-
-                        if let Some(ConstValue::Str(s)) = node.as_const_value() {
-                            Ok(hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(s.len() as _),
-                                ty,
-                                span: access.span,
-                            }))
-                        } else {
-                            Ok(hir::Node::MemberAccess(hir::MemberAccess {
-                                ty,
-                                span: access.span,
-                                value: Box::new(node),
-                                member_name: access.member,
-                                member_index: 1,
-                            }))
-                        }
-                    }
-                    Type::Slice(inner, is_mutable)
-                        if access.member.as_str() == BUILTIN_FIELD_DATA =>
-                    {
-                        Ok(hir::Node::MemberAccess(hir::MemberAccess {
-                            ty: sess
-                                .tcx
-                                .bound(Type::Pointer(inner.clone(), *is_mutable), access.span),
-                            span: access.span,
-                            value: Box::new(node),
-                            member_name: access.member,
-                            member_index: 0,
-                        }))
-                    }
-                    Type::Module(module_id) => {
-                        let id = sess.check_top_level_binding(
-                            CallerInfo {
-                                module_id: env.module_id(),
-                                span: access.span,
-                            },
-                            *module_id,
-                            access.member,
-                        )?;
-
-                        Ok(sess.id_or_const_by_id(id, access.span))
                     }
                     ty => Err(Diagnostic::error()
                         .with_message(format!(
@@ -2044,171 +2059,180 @@ impl Check for ast::For {
 
                 let value_node_type = value_node.ty().normalize(&sess.tcx);
 
-                match value_node_type.maybe_deref_once() {
-                    Type::Array(inner, ..) | Type::Slice(inner, ..) => {
-                        env.push_scope(ScopeKind::Loop);
-                        sess.loop_depth += 1;
-
-                        let mut statements: Vec<hir::Node> = vec![];
-
-                        // bind the value to a local variable, so we don't have to evaluate the expression every loop
-                        let value_name = sess.generate_name("iterator");
-                        let (value_id, value_binding) = sess.bind_name(
-                            env,
-                            value_name,
-                            ast::Visibility::Private,
-                            value_type,
-                            Some(value_node),
-                            false,
-                            BindingInfoKind::Orphan,
-                            value_span,
-                            BindingInfoFlags::empty(),
-                        )?;
-
-                        statements.push(value_binding);
-
-                        let value_id_node = hir::Node::Id(hir::Id {
-                            id: value_id,
-                            ty: value_type,
-                            span: value_span,
-                        });
-
-                        // let mut index = 0
-                        let index_binding =
-                            self.index_binding
-                                .clone()
-                                .unwrap_or_else(|| ast::NameAndSpan {
-                                    name: sess.generate_name("index"),
-                                    span: self.span,
-                                });
-
-                        let (index_id, index_binding) = sess.bind_name(
-                            env,
-                            index_binding.name,
-                            ast::Visibility::Private,
-                            index_type,
-                            Some(hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(0),
-                                ty: index_type,
-                                span: index_binding.span,
-                            })),
-                            false,
-                            BindingInfoKind::Orphan,
-                            index_binding.span,
-                            if self.index_binding.is_some() {
-                                BindingInfoFlags::IS_USER_DEFINED
-                                    | BindingInfoFlags::TYPE_WAS_INFERRED
-                                    | BindingInfoFlags::NO_CONST_FOLD
-                            } else {
-                                BindingInfoFlags::NO_CONST_FOLD
-                            },
-                        )?;
-
-                        statements.push(index_binding);
-
-                        let index_id_node = hir::Node::Id(hir::Id {
-                            id: index_id,
-                            ty: index_type,
-                            span: self.span,
-                        });
-
-                        // index <= value.len
-                        let value_len_node = match &value_node_type {
-                            Type::Array(_, size) => hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(*size as _),
-                                ty: index_type,
-                                span: self.span,
-                            }),
-                            Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(value_id_node.clone()),
-                                member_name: ustr("len"),
-                                member_index: 1,
-                                ty: index_type,
-                                span: self.span,
-                            }),
-                            _ => unreachable!(),
-                        };
-
-                        let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
-                            ty: bool_type,
-                            span: self.span,
-                            lhs: Box::new(index_id_node.clone()),
-                            rhs: Box::new(value_len_node),
-                        }));
-
-                        // bind before block is checked: let iter = value[index]
-                        let iter_type = sess
-                            .tcx
-                            .bound(inner.as_ref().clone(), self.iter_binding.span);
-
-                        let (_, iter_binding) = sess.bind_name(
-                            env,
-                            self.iter_binding.name,
-                            ast::Visibility::Private,
-                            iter_type,
-                            Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
-                                value: Box::new(value_id_node),
-                                index: Box::new(index_id_node.clone()),
-                                ty: iter_type,
-                                span: self.span,
-                            }))),
-                            false,
-                            BindingInfoKind::Orphan,
-                            self.iter_binding.span,
-                            BindingInfoFlags::IS_USER_DEFINED
-                                | BindingInfoFlags::TYPE_WAS_INFERRED
-                                | BindingInfoFlags::NO_CONST_FOLD,
-                        )?;
-
-                        // loop block { ... }
-                        let mut block_node =
-                            self.block.check(sess, env, None)?.into_sequence().unwrap();
-
-                        // let iter = value[index]
-                        block_node.statements.insert(0, iter_binding);
-
-                        // index += 1
-                        block_node
-                            .statements
-                            .push(hir::Node::Assignment(hir::Assignment {
-                                lhs: Box::new(index_id_node.clone()),
-                                rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
-                                    ty: index_type,
-                                    span: self.span,
-                                    lhs: Box::new(index_id_node),
-                                    rhs: Box::new(hir::Node::Const(hir::Const {
-                                        value: ConstValue::Uint(1),
-                                        ty: index_type,
-                                        span: self.span,
-                                    })),
-                                }))),
-                                ty: unit_type,
-                                span: self.span,
-                            }));
-
-                        sess.loop_depth -= 1;
-                        env.pop_scope();
-
-                        statements.push(hir::Node::Control(hir::Control::While(hir::While {
-                            condition: Box::new(condition),
-                            body: Box::new(hir::Node::Sequence(block_node)),
-                            ty: unit_type,
-                            span: self.span,
-                        })));
-
-                        Ok(hir::Node::Sequence(hir::Sequence {
-                            statements,
-                            ty: unit_type,
-                            span: self.span,
-                            is_block: false,
-                        }))
-                    }
+                let inner = match &value_node_type {
+                    Type::Array(inner, _) => inner.clone(),
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Slice(inner, _) | Type::Array(inner, _) => inner.clone(),
+                        _ => {
+                            // TODO: duplicate error
+                            return Err(Diagnostic::error()
+                                .with_message(format!("can't iterate over `{}`", value_node_type))
+                                .with_label(Label::primary(value.span(), "can't iterate")));
+                        }
+                    },
                     _ => {
+                        // TODO: duplicate error
                         return Err(Diagnostic::error()
                             .with_message(format!("can't iterate over `{}`", value_node_type))
                             .with_label(Label::primary(value.span(), "can't iterate")));
                     }
-                }
+                };
+
+                env.push_scope(ScopeKind::Loop);
+                sess.loop_depth += 1;
+
+                let mut statements: Vec<hir::Node> = vec![];
+
+                // bind the value to a local variable, so we don't have to evaluate the expression every loop
+                let value_name = sess.generate_name("iterator");
+                let (value_id, value_binding) = sess.bind_name(
+                    env,
+                    value_name,
+                    ast::Visibility::Private,
+                    value_type,
+                    Some(value_node),
+                    false,
+                    BindingInfoKind::Orphan,
+                    value_span,
+                    BindingInfoFlags::empty(),
+                )?;
+
+                statements.push(value_binding);
+
+                let value_id_node = hir::Node::Id(hir::Id {
+                    id: value_id,
+                    ty: value_type,
+                    span: value_span,
+                });
+
+                // let mut index = 0
+                let index_binding =
+                    self.index_binding
+                        .clone()
+                        .unwrap_or_else(|| ast::NameAndSpan {
+                            name: sess.generate_name("index"),
+                            span: self.span,
+                        });
+
+                let (index_id, index_binding) = sess.bind_name(
+                    env,
+                    index_binding.name,
+                    ast::Visibility::Private,
+                    index_type,
+                    Some(hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(0),
+                        ty: index_type,
+                        span: index_binding.span,
+                    })),
+                    false,
+                    BindingInfoKind::Orphan,
+                    index_binding.span,
+                    if self.index_binding.is_some() {
+                        BindingInfoFlags::IS_USER_DEFINED
+                            | BindingInfoFlags::TYPE_WAS_INFERRED
+                            | BindingInfoFlags::NO_CONST_FOLD
+                    } else {
+                        BindingInfoFlags::NO_CONST_FOLD
+                    },
+                )?;
+
+                statements.push(index_binding);
+
+                let index_id_node = hir::Node::Id(hir::Id {
+                    id: index_id,
+                    ty: index_type,
+                    span: self.span,
+                });
+
+                // index <= value.len
+                let value_len_node = match &value_node_type {
+                    Type::Array(_, size) => hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(*size as _),
+                        ty: index_type,
+                        span: self.span,
+                    }),
+                    // This must be a Pointer(Slice)
+                    _ => hir::Node::MemberAccess(hir::MemberAccess {
+                        value: Box::new(value_id_node.clone()),
+                        member_name: ustr("len"),
+                        member_index: 1,
+                        ty: index_type,
+                        span: self.span,
+                    }),
+                };
+
+                let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
+                    ty: bool_type,
+                    span: self.span,
+                    lhs: Box::new(index_id_node.clone()),
+                    rhs: Box::new(value_len_node),
+                }));
+
+                // bind before block is checked: let iter = value[index]
+                let iter_type = sess
+                    .tcx
+                    .bound(inner.as_ref().clone(), self.iter_binding.span);
+
+                let (_, iter_binding) = sess.bind_name(
+                    env,
+                    self.iter_binding.name,
+                    ast::Visibility::Private,
+                    iter_type,
+                    Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
+                        value: Box::new(value_id_node),
+                        index: Box::new(index_id_node.clone()),
+                        ty: iter_type,
+                        span: self.span,
+                    }))),
+                    false,
+                    BindingInfoKind::Orphan,
+                    self.iter_binding.span,
+                    BindingInfoFlags::IS_USER_DEFINED
+                        | BindingInfoFlags::TYPE_WAS_INFERRED
+                        | BindingInfoFlags::NO_CONST_FOLD,
+                )?;
+
+                // loop block { ... }
+                let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
+
+                // let iter = value[index]
+                block_node.statements.insert(0, iter_binding);
+
+                // index += 1
+                block_node
+                    .statements
+                    .push(hir::Node::Assignment(hir::Assignment {
+                        lhs: Box::new(index_id_node.clone()),
+                        rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                            ty: index_type,
+                            span: self.span,
+                            lhs: Box::new(index_id_node),
+                            rhs: Box::new(hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(1),
+                                ty: index_type,
+                                span: self.span,
+                            })),
+                        }))),
+                        ty: unit_type,
+                        span: self.span,
+                    }));
+
+                sess.loop_depth -= 1;
+                env.pop_scope();
+
+                statements.push(hir::Node::Control(hir::Control::While(hir::While {
+                    condition: Box::new(condition),
+                    body: Box::new(hir::Node::Sequence(block_node)),
+                    ty: unit_type,
+                    span: self.span,
+                })));
+
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
+                    ty: unit_type,
+                    span: self.span,
+                    is_block: false,
+                }))
             }
         }
     }
