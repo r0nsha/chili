@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     infer::normalize::Normalize,
-    types::{size::SizeOf, *},
+    types::{size_of::SizeOf, *},
 };
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},

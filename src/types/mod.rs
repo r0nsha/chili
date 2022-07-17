@@ -1,7 +1,7 @@
-pub mod align;
+pub mod align_of;
 pub mod display;
-pub mod offset;
-pub mod size;
+pub mod offset_of;
+pub mod size_of;
 
 use crate::{
     ast::ExternLibrary,

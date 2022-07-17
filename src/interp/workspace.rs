@@ -2,7 +2,7 @@ use super::{
     vm::{byte_seq::GetValue, value::Value},
     WORD_SIZE,
 };
-use crate::types::offset::OffsetOf;
+use crate::types::offset_of::OffsetOf;
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceValue {

@@ -14,8 +14,8 @@ use crate::{
     interp::interp::Interp,
     span::Span,
     types::{
-        align::AlignOf, offset::OffsetOf, size::SizeOf, FloatType, FunctionType, InferType,
-        IntType, Type, UintType,
+        align_of::AlignOf, offset_of::OffsetOf, size_of::SizeOf, FloatType, FunctionType,
+        InferType, IntType, Type, UintType,
     },
 };
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
@@ -977,5 +977,3 @@ impl Display for Pointer {
         write!(f, "ptr {}", value)
     }
 }
-
- 

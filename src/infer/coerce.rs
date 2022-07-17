@@ -4,7 +4,7 @@ use super::{
     unify::{can_coerce_mut, UnifyTyResult},
 };
 use crate::hir;
-use crate::types::{size::SizeOf, *};
+use crate::types::{size_of::SizeOf, *};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {

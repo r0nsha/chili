@@ -18,7 +18,7 @@ use crate::{
     infer::normalize::Normalize,
     interp::vm::value::FunctionAddress,
     types::{
-        offset::OffsetOf, size::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType,
+        offset_of::OffsetOf, size_of::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType,
     },
     workspace::BindingId,
 };

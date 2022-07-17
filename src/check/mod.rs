@@ -32,7 +32,7 @@ use crate::{
     interp::{interp::Interp, vm::value::Value},
     span::Span,
     types::{
-        align::AlignOf, size::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
+        align_of::AlignOf, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
         FunctionTypeVarargs, InferType, PartialStructType, StructType, StructTypeField,
         StructTypeKind, Type, TypeId,
     },

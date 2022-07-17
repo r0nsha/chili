@@ -1,6 +1,6 @@
 use crate::common::mem::calculate_align_from_offset;
 
-use super::{align::AlignOf, size::SizeOf, *};
+use super::{align_of::AlignOf, size_of::SizeOf, *};
 
 pub trait OffsetOf {
     fn offset_of(&self, index: usize, word_size: usize) -> usize;
