@@ -44,12 +44,12 @@ struct Args {
     // Modes
     //
     //
-    /// Enables Run mode - which runs the input file using the default options for the current platform.
+    /// Enables Run mode - which compiles and runs the input file using the default options for the current platform.
     #[clap(long, short)]
     run: bool,
 
     /// Enables Check mode - which only checks the input file, skipping code generation.
-    /// Check mode also enables additionals flags for language support.
+    /// Check mode also enables additional language support flags.
     #[clap(long, short)]
     check: bool,
 
