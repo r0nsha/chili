@@ -32,9 +32,9 @@ use crate::{
     interp::{interp::Interp, vm::value::Value},
     span::Span,
     types::{
-        align_of::AlignOf, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
-        FunctionTypeVarargs, InferType, PartialStructType, StructType, StructTypeField,
-        StructTypeKind, Type, TypeId,
+        align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind,
+        FunctionTypeParam, FunctionTypeVarargs, InferType, PartialStructType, StructType,
+        StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo,
@@ -766,33 +766,48 @@ impl Check for ast::Ast {
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr) => {
                     let ty = check_type_expr(&expr, sess, env)?;
+                    let ty = ty.normalize(&sess.tcx);
 
-                    let size = ty
-                        .normalize(&sess.tcx)
-                        .size_of(sess.target_metrics.word_size);
+                    if ty.is_unsized() {
+                        Err(TypeError::type_is_unsized(
+                            ty.display(&sess.tcx),
+                            expr.span(),
+                        ))
+                    } else {
+                        let size = ty.size_of(sess.target_metrics.word_size);
 
-                    Ok(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(size as _),
-                        ty: sess.tcx.common_types.uint,
-                        span: expr.span(),
-                    }))
+                        Ok(hir::Node::Const(hir::Const {
+                            value: ConstValue::Uint(size as _),
+                            ty: sess.tcx.common_types.uint,
+                            span: expr.span(),
+                        }))
+                    }
                 }
                 ast::BuiltinKind::AlignOf(expr) => {
                     let ty = check_type_expr(&expr, sess, env)?;
+                    let ty = ty.normalize(&sess.tcx);
 
-                    let align = ty
-                        .normalize(&sess.tcx)
-                        .align_of(sess.target_metrics.word_size);
+                    if ty.is_unsized() {
+                        Err(TypeError::type_is_unsized(
+                            ty.display(&sess.tcx),
+                            expr.span(),
+                        ))
+                    } else {
+                        let align = ty.align_of(sess.target_metrics.word_size);
 
-                    Ok(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(align as _),
-                        ty: sess.tcx.common_types.uint,
-                        span: expr.span(),
-                    }))
+                        Ok(hir::Node::Const(hir::Const {
+                            value: ConstValue::Uint(align as _),
+                            ty: sess.tcx.common_types.uint,
+                            span: expr.span(),
+                        }))
+                    }
                 }
                 ast::BuiltinKind::Run(expr) => {
                     // Note (Ron 02/07/2022):
                     // The inner expression of `run!` isn't allowed to capture its outer environment yet.
+                    // TODO: Running arbitrary code requires these preconditions to be met:
+                    //       1. All types are at least partially inferred
+                    //       2. All types in all memory locations are sized
                     let node = sess.with_env(env.module_id(), |sess, mut env| {
                         expr.check(sess, &mut env, None)
                     })?;
