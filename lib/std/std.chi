@@ -1,3 +1,4 @@
+pub let std = import("std");
 pub let build = import("build");
 pub let c = import("c");
 pub let fmt @ { print, println } = import("fmt");
