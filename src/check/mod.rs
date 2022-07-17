@@ -922,10 +922,10 @@ impl Check for ast::Ast {
                     None
                 };
 
-                let inner = match &node_type_deref {
+                let inner = match &node_type {
                     Type::Array(inner, _) => inner.as_ref(),
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner, _) => inner.as_ref(),
+                        Type::Array(inner, _) | Type::Slice(inner, _) => inner.as_ref(),
                         inner => inner,
                     },
                     _ => {

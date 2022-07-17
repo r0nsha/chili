@@ -14,8 +14,9 @@ let build = fn() {
 	// 	build_options
 	// };
 
-	for x in "hello" {
-		printf("%c\n".data, x as i64)
+	let hello = "hello";
+	for i in 0..hello.len - 1 {
+		printf("%c\n".data, hello[i] as i64)
 	}
 
 	// println("Hello");
