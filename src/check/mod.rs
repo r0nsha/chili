@@ -922,31 +922,37 @@ impl Check for ast::Ast {
                     None
                 };
 
-                match node_type_deref {
-                    Type::Array(inner, ..) | Type::Slice(inner, ..) | Type::Pointer(inner, ..) => {
-                        let ty = sess.tcx.bound(*inner, sub.span);
-
-                        if let Some(const_value) = const_value {
-                            Ok(hir::Node::Const(hir::Const {
-                                value: const_value,
-                                ty,
-                                span: sub.span,
-                            }))
-                        } else {
-                            Ok(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
-                                ty,
-                                span: sub.span,
-                                value: Box::new(node),
-                                index: Box::new(offset_node),
-                            })))
-                        }
+                let inner = match &node_type_deref {
+                    Type::Array(inner, _) => inner.as_ref(),
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Slice(inner, _) => inner.as_ref(),
+                        inner => inner,
+                    },
+                    _ => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "cannot index type `{}`",
+                                node_type.display(&sess.tcx)
+                            ))
+                            .with_label(Label::primary(sub.expr.span(), "cannot index")))
                     }
-                    _ => Err(Diagnostic::error()
-                        .with_message(format!(
-                            "cannot index type `{}`",
-                            node_type.display(&sess.tcx)
-                        ))
-                        .with_label(Label::primary(sub.expr.span(), "cannot index"))),
+                };
+
+                let ty = sess.tcx.bound(inner.clone(), sub.span);
+
+                if let Some(const_value) = const_value {
+                    Ok(hir::Node::Const(hir::Const {
+                        value: const_value,
+                        ty,
+                        span: sub.span,
+                    }))
+                } else {
+                    Ok(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
+                        ty,
+                        span: sub.span,
+                        value: Box::new(node),
+                        index: Box::new(offset_node),
+                    })))
                 }
             }
             ast::Ast::Slice(slice) => {
