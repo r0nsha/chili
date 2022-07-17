@@ -1,7 +1,7 @@
 use super::{
     normalize::Normalize,
-    ty_ctx::TyCtx,
-    unify::{can_coerce_mut, UnifyTyResult},
+    type_ctx::TypeCtx,
+    unify::{can_coerce_mut, UnifyTypeResult},
 };
 use crate::hir;
 use crate::types::{size_of::SizeOf, *};
@@ -143,7 +143,7 @@ impl Coerce for Type {
     }
 }
 
-fn coerce_node(tcx: &mut TyCtx, node: &mut hir::Node, to: Type) {
+fn coerce_node(tcx: &mut TypeCtx, node: &mut hir::Node, to: Type) {
     *node = hir::Node::Cast(hir::Cast {
         value: Box::new(node.clone()),
         ty: tcx.bound(to, node.span()),
@@ -156,19 +156,19 @@ pub trait OrCoerce {
         self,
         left: &mut hir::Node,
         right: &mut hir::Node,
-        tcx: &mut TyCtx,
+        tcx: &mut TypeCtx,
         word_size: usize,
-    ) -> UnifyTyResult;
+    ) -> UnifyTypeResult;
 }
 
-impl OrCoerce for UnifyTyResult {
+impl OrCoerce for UnifyTypeResult {
     fn or_coerce(
         self,
         left: &mut hir::Node,
         right: &mut hir::Node,
-        tcx: &mut TyCtx,
+        tcx: &mut TypeCtx,
         word_size: usize,
-    ) -> UnifyTyResult {
+    ) -> UnifyTypeResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {
@@ -194,19 +194,19 @@ pub trait OrCoerceIntoTy {
         self,
         node: &mut hir::Node,
         ty: impl Normalize,
-        tcx: &mut TyCtx,
+        tcx: &mut TypeCtx,
         word_size: usize,
-    ) -> UnifyTyResult;
+    ) -> UnifyTypeResult;
 }
 
-impl OrCoerceIntoTy for UnifyTyResult {
+impl OrCoerceIntoTy for UnifyTypeResult {
     fn or_coerce_into_ty(
         self,
         node: &mut hir::Node,
         ty: impl Normalize,
-        tcx: &mut TyCtx,
+        tcx: &mut TypeCtx,
         word_size: usize,
-    ) -> UnifyTyResult {
+    ) -> UnifyTypeResult {
         match self {
             Ok(r) => Ok(r),
             Err(e) => {

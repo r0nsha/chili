@@ -13,7 +13,7 @@ use crate::{
         DiagnosticResult, SyntaxError,
     },
     hir,
-    infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
+    infer::{display::OrReportErr, normalize::Normalize, unify::UnifyType},
     span::Span,
     types::{InferType, PartialStructType, Type, TypeId},
     workspace::{

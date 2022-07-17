@@ -6,7 +6,7 @@ use self::hint::{CollectHints, HintSess};
 use crate::{
     error::diagnostic::DiagnosticSeverity,
     hir,
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    infer::{normalize::Normalize, type_ctx::TypeCtx},
     span::{EndPosition, Position, Span},
     types::Type,
     workspace::Workspace,
@@ -14,7 +14,7 @@ use crate::{
 use types::*;
 use util::*;
 
-pub fn diagnostics(workspace: &Workspace, tcx: Option<&TyCtx>, typed_ast: Option<&hir::Cache>) {
+pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, typed_ast: Option<&hir::Cache>) {
     let mut objects: Vec<IdeObject> = vec![];
 
     objects.extend(
@@ -63,7 +63,7 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TyCtx>, typed_ast: Option
     write(&objects);
 }
 
-pub fn hover_info(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize) {
+pub fn hover_info(workspace: &Workspace, tcx: Option<&TypeCtx>, offset: usize) {
     if let Some(tcx) = tcx {
         let searched_binding_info =
             workspace
@@ -86,7 +86,7 @@ pub fn hover_info(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize) {
     }
 }
 
-pub fn goto_definition(workspace: &Workspace, tcx: Option<&TyCtx>, offset: usize) {
+pub fn goto_definition(workspace: &Workspace, tcx: Option<&TypeCtx>, offset: usize) {
     for (_, binding_info) in workspace.binding_infos.iter() {
         if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
             if let Some(tcx) = tcx {

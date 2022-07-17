@@ -5,13 +5,13 @@ use crate::{
     types::{PartialStructType, Type, TypeId},
 };
 
-pub struct TyCtx {
+pub struct TypeCtx {
     pub bindings: IdCache<TypeId, InferenceValue>,
     pub binding_spans: IdCache<TypeId, Option<Span>>,
     pub common_types: CommonTypes,
 }
 
-impl Default for TyCtx {
+impl Default for TypeCtx {
     fn default() -> Self {
         let mut bindings = IdCache::new();
         let mut binding_spans = IdCache::new();
@@ -24,7 +24,7 @@ impl Default for TyCtx {
     }
 }
 
-impl TyCtx {
+impl TypeCtx {
     #[inline]
     fn insert(&mut self, binding: InferenceValue, span: Option<Span>) -> TypeId {
         self.binding_spans.insert(span);

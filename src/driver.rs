@@ -6,7 +6,7 @@ use crate::{
     },
     error::diagnostic::Diagnostic,
     hir,
-    infer::ty_ctx::TyCtx,
+    infer::type_ctx::TypeCtx,
     time,
     workspace::{compiler_info, Workspace},
 };
@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 pub struct StartWorkspaceResult {
     pub workspace: Workspace,
-    pub tcx: Option<TyCtx>,
+    pub tcx: Option<TypeCtx>,
     pub cache: Option<hir::Cache>,
     pub output_file: Option<PathBuf>,
 }
@@ -31,7 +31,7 @@ impl StartWorkspaceResult {
         }
     }
 
-    fn new_typed(workspace: Workspace, tcx: TyCtx, cache: hir::Cache) -> Self {
+    fn new_typed(workspace: Workspace, tcx: TypeCtx, cache: hir::Cache) -> Self {
         Self {
             workspace,
             tcx: Some(tcx),
@@ -42,7 +42,7 @@ impl StartWorkspaceResult {
 
     fn new_typed_with_output(
         workspace: Workspace,
-        tcx: TyCtx,
+        tcx: TypeCtx,
         cache: hir::Cache,
         output_file: PathBuf,
     ) -> Self {

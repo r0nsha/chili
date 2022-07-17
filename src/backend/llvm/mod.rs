@@ -21,7 +21,7 @@ use crate::{
         target::{Arch, Os, TargetMetrics},
     },
     hir,
-    infer::ty_ctx::TyCtx,
+    infer::type_ctx::TypeCtx,
     time,
     workspace::Workspace,
 };
@@ -43,7 +43,7 @@ use std::{
 };
 use ustr::UstrMap;
 
-pub fn codegen<'w>(workspace: &Workspace, tcx: &TyCtx, cache: &hir::Cache) -> PathBuf {
+pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> PathBuf {
     let context = Context::create();
     let module = context.create_module(
         workspace

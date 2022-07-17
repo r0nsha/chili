@@ -10,7 +10,7 @@ use crate::{
         self,
         const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
     },
-    infer::ty_ctx::TyCtx,
+    infer::type_ctx::TypeCtx,
     interp::interp::Interp,
     span::Span,
     types::{
@@ -587,7 +587,7 @@ impl Value {
 
     pub fn try_into_const_value(
         self,
-        tcx: &mut TyCtx,
+        tcx: &mut TypeCtx,
         ty: &Type,
         eval_span: Span,
     ) -> Result<ConstValue, &'static str> {

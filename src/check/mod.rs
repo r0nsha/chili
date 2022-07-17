@@ -26,8 +26,8 @@ use crate::{
         display::{DisplayTy, OrReportErr},
         normalize::Normalize,
         substitute::substitute,
-        ty_ctx::TyCtx,
-        unify::{occurs, UnifyTy, UnifyTyErr},
+        type_ctx::TypeCtx,
+        unify::{occurs, UnifyType, UnifyTypeErr},
     },
     interp::{interp::Interp, vm::value::Value},
     span::Span,
@@ -50,7 +50,7 @@ use std::{
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-pub type CheckData = (hir::Cache, TyCtx);
+pub type CheckData = (hir::Cache, TypeCtx);
 
 pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
     let mut sess = CheckSess::new(workspace, &module);
@@ -129,7 +129,7 @@ pub(super) struct CheckSess<'s> {
 
     pub interp: Interp,
 
-    pub tcx: TyCtx,
+    pub tcx: TypeCtx,
 
     // The ast's being processed
     pub modules: &'s Vec<ast::Module>,
@@ -172,7 +172,7 @@ impl<'s> CheckSess<'s> {
             workspace,
             target_metrics,
             interp,
-            tcx: TyCtx::default(),
+            tcx: TypeCtx::default(),
             modules: old_asts,
             cache: hir::Cache::new(),
             queued_modules: HashMap::new(),
@@ -1713,7 +1713,7 @@ impl Check for ast::Ast {
                 });
 
                 if occurs(struct_ty_var, &struct_ty, &sess.tcx) {
-                    Err(UnifyTyErr::Occurs.into_diagnostic(
+                    Err(UnifyTypeErr::Occurs.into_diagnostic(
                         &sess.tcx,
                         struct_ty,
                         None,

@@ -5,7 +5,7 @@ use crate::{
         DiagnosticResult, SyntaxError,
     },
     hir::const_value::ConstValue,
-    infer::ty_ctx::TyCtx,
+    infer::type_ctx::TypeCtx,
     span::Span,
 };
 
@@ -14,7 +14,7 @@ pub fn binary(
     rhs: &ConstValue,
     op: ast::BinaryOp,
     span: Span,
-    tcx: &TyCtx,
+    tcx: &TypeCtx,
 ) -> DiagnosticResult<ConstValue> {
     let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span, tcx);
 
@@ -53,7 +53,7 @@ fn int_overflow(
     lhs: &ConstValue,
     rhs: &ConstValue,
     span: Span,
-    tcx: &TyCtx,
+    tcx: &TypeCtx,
 ) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!(

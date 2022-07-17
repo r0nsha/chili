@@ -1,14 +1,14 @@
-use super::{inference_value::InferenceValue, ty_ctx::TyCtx};
+use super::{inference_value::InferenceValue, type_ctx::TypeCtx};
 use crate::{span::Span, types::*, workspace::BindingId};
 use indexmap::IndexMap;
 use ustr::ustr;
 
 pub trait Normalize {
-    fn normalize(&self, tcx: &TyCtx) -> Type;
+    fn normalize(&self, tcx: &TypeCtx) -> Type;
 }
 
 impl Normalize for TypeId {
-    fn normalize(&self, tcx: &TyCtx) -> Type {
+    fn normalize(&self, tcx: &TypeCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: false,
@@ -18,7 +18,7 @@ impl Normalize for TypeId {
 }
 
 impl Normalize for Type {
-    fn normalize(&self, tcx: &TyCtx) -> Type {
+    fn normalize(&self, tcx: &TypeCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: false,
@@ -28,11 +28,11 @@ impl Normalize for Type {
 }
 
 pub trait Concrete {
-    fn concrete(&self, tcx: &TyCtx) -> Type;
+    fn concrete(&self, tcx: &TypeCtx) -> Type;
 }
 
 impl Concrete for TypeId {
-    fn concrete(&self, tcx: &TyCtx) -> Type {
+    fn concrete(&self, tcx: &TypeCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: true,
@@ -42,7 +42,7 @@ impl Concrete for TypeId {
 }
 
 impl Concrete for Type {
-    fn concrete(&self, tcx: &TyCtx) -> Type {
+    fn concrete(&self, tcx: &TypeCtx) -> Type {
         NormalizeCtx {
             parent_binding_id: Default::default(),
             concrete: true,
@@ -57,7 +57,7 @@ struct NormalizeCtx {
 }
 
 impl NormalizeCtx {
-    fn normalize_ty(&mut self, tcx: &TyCtx, ty: TypeId) -> Type {
+    fn normalize_ty(&mut self, tcx: &TypeCtx, ty: TypeId) -> Type {
         match tcx.value_of(ty) {
             InferenceValue::Bound(kind) => self.normalize_kind(tcx, kind),
             InferenceValue::AnyInt => self.normalize_anyint(ty),
@@ -104,7 +104,7 @@ impl NormalizeCtx {
         }
     }
 
-    fn normalize_kind(&mut self, tcx: &TyCtx, kind: &Type) -> Type {
+    fn normalize_kind(&mut self, tcx: &TypeCtx, kind: &Type) -> Type {
         match kind {
             Type::Var(ty) => self.normalize_ty(tcx, *ty),
             Type::Function(f) => Type::Function(FunctionType {

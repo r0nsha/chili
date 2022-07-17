@@ -1,7 +1,7 @@
 use super::types::*;
 use crate::{
     hir,
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    infer::{normalize::Normalize, type_ctx::TypeCtx},
     span::{EndPosition, Position, Span},
     types::Type,
     workspace::{BindingInfoFlags, Workspace},
@@ -9,7 +9,7 @@ use crate::{
 
 pub(super) struct HintSess<'a> {
     pub(super) workspace: &'a Workspace,
-    pub(super) tcx: &'a TyCtx,
+    pub(super) tcx: &'a TypeCtx,
     pub(super) hints: Vec<Hint>,
 }
 

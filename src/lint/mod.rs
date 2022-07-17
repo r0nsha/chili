@@ -4,12 +4,12 @@ mod type_limits;
 use crate::{
     error::diagnostic::{Diagnostic, Label},
     hir,
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    infer::{normalize::Normalize, type_ctx::TypeCtx},
     span::Span,
     workspace::Workspace,
 };
 
-pub fn lint(workspace: &mut Workspace, tcx: &TyCtx, cache: &hir::Cache) {
+pub fn lint(workspace: &mut Workspace, tcx: &TypeCtx, cache: &hir::Cache) {
     let mut sess = LintSess { workspace, tcx };
     cache.lint(&mut sess);
 
@@ -51,7 +51,7 @@ pub fn lint(workspace: &mut Workspace, tcx: &TyCtx, cache: &hir::Cache) {
 
 pub struct LintSess<'s> {
     pub workspace: &'s mut Workspace,
-    pub tcx: &'s TyCtx,
+    pub tcx: &'s TypeCtx,
 }
 
 trait Lint {

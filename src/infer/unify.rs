@@ -1,5 +1,5 @@
 use super::{
-    display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, ty_ctx::TyCtx,
+    display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, type_ctx::TypeCtx,
 };
 use crate::{
     common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -9,38 +9,38 @@ use crate::{
 };
 use ustr::ustr;
 
-pub trait UnifyTy<T>
+pub trait UnifyType<T>
 where
     Self: Sized,
     T: Sized,
 {
-    fn unify(&self, other: &T, tcx: &mut TyCtx) -> UnifyTyResult;
+    fn unify(&self, other: &T, tcx: &mut TypeCtx) -> UnifyTypeResult;
 }
 
-impl UnifyTy<TypeId> for TypeId {
-    fn unify(&self, other: &TypeId, tcx: &mut TyCtx) -> UnifyTyResult {
+impl UnifyType<TypeId> for TypeId {
+    fn unify(&self, other: &TypeId, tcx: &mut TypeCtx) -> UnifyTypeResult {
         let t1 = self.as_kind();
         let t2 = other.as_kind();
         t1.unify(&t2, tcx)
     }
 }
 
-impl UnifyTy<Type> for TypeId {
-    fn unify(&self, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
+impl UnifyType<Type> for TypeId {
+    fn unify(&self, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult {
         let ty = self.as_kind();
         ty.unify(other, tcx)
     }
 }
 
-impl UnifyTy<TypeId> for Type {
-    fn unify(&self, other: &TypeId, tcx: &mut TyCtx) -> UnifyTyResult {
+impl UnifyType<TypeId> for Type {
+    fn unify(&self, other: &TypeId, tcx: &mut TypeCtx) -> UnifyTypeResult {
         let other = other.as_kind();
         self.unify(&other, tcx)
     }
 }
 
-impl UnifyTy<Type> for Type {
-    fn unify(&self, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
+impl UnifyType<Type> for Type {
+    fn unify(&self, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult {
         match (self, other) {
             (Type::Unit, Type::Unit) => Ok(()),
             (Type::Bool, Type::Bool) => Ok(()),
@@ -52,7 +52,7 @@ impl UnifyTy<Type> for Type {
             (Type::Pointer(t1, a1), Type::Pointer(t2, a2))
             | (Type::Slice(t1, a1), Type::Slice(t2, a2)) => {
                 if !can_coerce_mut(*a1, *a2) {
-                    Err(UnifyTyErr::Mismatch)
+                    Err(UnifyTypeErr::Mismatch)
                 } else {
                     t1.unify(t2.as_ref(), tcx)?;
                     Ok(())
@@ -70,14 +70,14 @@ impl UnifyTy<Type> for Type {
                     (Some(v1), Some(v2)) => match (&v1.ty, &v2.ty) {
                         (Some(vt1), Some(vt2)) => vt1.unify(vt2, tcx)?,
                         (None, None) => (),
-                        _ => return Err(UnifyTyErr::Mismatch),
+                        _ => return Err(UnifyTypeErr::Mismatch),
                     },
                     (None, None) => {
                         if f1.params.len() != f2.params.len() {
-                            return Err(UnifyTyErr::Mismatch);
+                            return Err(UnifyTypeErr::Mismatch);
                         }
                     }
-                    _ => return Err(UnifyTyErr::Mismatch),
+                    _ => return Err(UnifyTypeErr::Mismatch),
                 }
 
                 Ok(())
@@ -85,7 +85,7 @@ impl UnifyTy<Type> for Type {
 
             (Type::Array(t1, s1), Type::Array(t2, s2)) => {
                 if *s1 != *s2 {
-                    Err(UnifyTyErr::Mismatch)
+                    Err(UnifyTypeErr::Mismatch)
                 } else {
                     t1.unify(t2.as_ref(), tcx)?;
                     Ok(())
@@ -94,7 +94,7 @@ impl UnifyTy<Type> for Type {
 
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 if t1.len() != t2.len() {
-                    Err(UnifyTyErr::Mismatch)
+                    Err(UnifyTypeErr::Mismatch)
                 } else {
                     for (t1, t2) in t1.iter().zip(t2.iter()) {
                         t1.unify(t2, tcx)?;
@@ -107,13 +107,13 @@ impl UnifyTy<Type> for Type {
                 if t1.binding_id == t2.binding_id {
                     Ok(())
                 } else if t1.fields.len() != t2.fields.len() || t1.kind != t2.kind {
-                    Err(UnifyTyErr::Mismatch)
+                    Err(UnifyTypeErr::Mismatch)
                 } else {
                     for f1 in t1.fields.iter() {
                         if let Some(f2) = t2.find_field(f1.name) {
                             f1.ty.unify(&f2.ty, tcx)?;
                         } else {
-                            return Err(UnifyTyErr::Mismatch);
+                            return Err(UnifyTypeErr::Mismatch);
                         }
                     }
                     Ok(())
@@ -128,12 +128,12 @@ impl UnifyTy<Type> for Type {
 
             (Type::Never, _) | (_, Type::Never) => Ok(()),
 
-            _ => Err(UnifyTyErr::Mismatch),
+            _ => Err(UnifyTypeErr::Mismatch),
         }
     }
 }
 
-fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
+fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult {
     match tcx.value_of(var).clone() {
         InferenceValue::Bound(kind) => kind.unify(other, tcx),
         InferenceValue::AnyInt => {
@@ -149,7 +149,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                     }
                     Ok(())
                 }
-                _ => Err(UnifyTyErr::Mismatch),
+                _ => Err(UnifyTypeErr::Mismatch),
             }
         }
         InferenceValue::AnyFloat => {
@@ -165,7 +165,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                     }
                     Ok(())
                 }
-                _ => Err(UnifyTyErr::Mismatch),
+                _ => Err(UnifyTypeErr::Mismatch),
             }
         }
         InferenceValue::PartialStruct(mut partial_struct) => {
@@ -189,7 +189,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                             ty.unify(&other_ty.ty, tcx)?;
                         } else {
                             // any field that exists in the partial struct, but doesn't exist in struct, is an error
-                            return Err(UnifyTyErr::Mismatch);
+                            return Err(UnifyTypeErr::Mismatch);
                         }
                     }
 
@@ -232,7 +232,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
 
                     Ok(())
                 }
-                _ => Err(UnifyTyErr::Mismatch),
+                _ => Err(UnifyTypeErr::Mismatch),
             }
         }
         InferenceValue::PartialTuple(partial_tuple) => {
@@ -255,7 +255,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
                     tcx.bind_ty(var, other_kind);
 
                     if any_err {
-                        Err(UnifyTyErr::Mismatch)
+                        Err(UnifyTypeErr::Mismatch)
                     } else {
                         Ok(())
                     }
@@ -267,14 +267,14 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
 
                     Ok(())
                 }
-                _ => Err(UnifyTyErr::Mismatch),
+                _ => Err(UnifyTypeErr::Mismatch),
             }
         }
         InferenceValue::Unbound => {
             let other_kind = other.normalize(tcx);
 
             if occurs(var, &other_kind, tcx) {
-                Err(UnifyTyErr::Occurs)
+                Err(UnifyTypeErr::Occurs)
             } else {
                 tcx.bind_ty(var, other.clone());
                 Ok(())
@@ -283,7 +283,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TyCtx) -> UnifyTyResult {
     }
 }
 
-pub fn occurs(var: TypeId, kind: &Type, tcx: &TyCtx) -> bool {
+pub fn occurs(var: TypeId, kind: &Type, tcx: &TypeCtx) -> bool {
     match kind {
         &Type::Var(other) => {
             use InferenceValue::*;
@@ -314,18 +314,18 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TyCtx) -> bool {
     }
 }
 
-pub type UnifyTyResult = Result<(), UnifyTyErr>;
+pub type UnifyTypeResult = Result<(), UnifyTypeErr>;
 
 #[derive(Debug)]
-pub enum UnifyTyErr {
+pub enum UnifyTypeErr {
     Mismatch,
     Occurs,
 }
 
-impl UnifyTyErr {
+impl UnifyTypeErr {
     pub fn into_diagnostic(
         self,
-        tcx: &TyCtx,
+        tcx: &TypeCtx,
         expected: impl DisplayTy,
         expected_span: Option<Span>,
         found: impl DisplayTy,
@@ -335,7 +335,7 @@ impl UnifyTyErr {
         let found = found.display(tcx);
 
         match self {
-            UnifyTyErr::Mismatch => Diagnostic::error()
+            UnifyTypeErr::Mismatch => Diagnostic::error()
                 .with_message(format!(
                     "mismatched types - expected {}, found {}",
                     expected, found
@@ -344,7 +344,7 @@ impl UnifyTyErr {
                 .maybe_with_label(
                     expected_span.map(|span| Label::secondary(span, "expected due to this")),
                 ),
-            UnifyTyErr::Occurs => Diagnostic::error()
+            UnifyTypeErr::Occurs => Diagnostic::error()
                 .with_message(format!("recursive type `{}` has infinite size", expected,))
                 .with_label(Label::primary(found_span, "type is recursive")),
         }
