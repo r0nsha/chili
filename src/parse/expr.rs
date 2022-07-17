@@ -467,11 +467,6 @@ impl Parser {
         let kind = match symbol.as_str() {
             "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
             "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
-            "panic" => BuiltinKind::Panic(if is!(self, CloseParen) {
-                None
-            } else {
-                Some(Box::new(self.parse_expr()?))
-            }),
             "run" => BuiltinKind::Run(Box::new(self.parse_expr()?)),
             name => {
                 return Err(Diagnostic::error()

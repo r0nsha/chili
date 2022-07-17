@@ -333,7 +333,6 @@ pub struct Builtin {
 pub enum BuiltinKind {
     SizeOf(Box<Ast>),
     AlignOf(Box<Ast>),
-    Panic(Option<Box<Ast>>),
     Run(Box<Ast>),
 }
 

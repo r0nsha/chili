@@ -819,14 +819,6 @@ impl Check for ast::Ast {
                         }
                     }
                 }
-                ast::BuiltinKind::Panic(_) => {
-                    todo!("replace this with a function")
-                    // if let Some(expr) = expr {
-                    //     expr.check(sess, env, None)?;
-                    // }
-
-                    // Ok(Res::new(sess.tcx.common_types.unit))
-                }
             },
             ast::Ast::Function(function) => function.check(sess, env, expected_type),
             ast::Ast::While(while_) => while_.check(sess, env, expected_type),
