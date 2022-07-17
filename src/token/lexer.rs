@@ -284,27 +284,17 @@ impl<'lx> Lexer<'lx> {
             chars.next_back();
         }
 
-        let mut contents = chars.as_str().to_string();
-
-        match flavor {
-            StrFlavor::Normal if contents.contains('\n') => {
-                return Err(Diagnostic::error()
-                    .with_message("string cannot contain newline characters")
-                    .with_label(Label::primary(self.cursor.span(), "cannot contain newline"))
-                    .with_note("use a multiline string instead, example: \"\"\"your string\"\"\""))
-            }
-            StrFlavor::Multiline => contents = unindent(contents.trim()),
-            StrFlavor::Char if contents.len() != 1 => {
-                return Err(Diagnostic::error()
-                    .with_message("character literal must be one character long")
-                    .with_label(Label::primary(self.cursor.span(), "not one character long")))
-            }
-            _ => (),
-        }
+        let contents = chars.as_str().to_string();
 
         match flavor {
             StrFlavor::Raw => Ok(Str(ustr(&contents))),
             flavor => {
+                let contents = if matches!(flavor, StrFlavor::Multiline) {
+                    unindent(contents.trim())
+                } else {
+                    contents
+                };
+
                 let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
                     UnescapeError::InvalidEscapeSequence(span) => {
                         let message = "unknown escape sequence";
@@ -313,6 +303,29 @@ impl<'lx> Lexer<'lx> {
                             .with_label(Label::primary(span, message))
                     }
                 })?;
+
+                match flavor {
+                    StrFlavor::Normal if contents.contains('\n') => {
+                        return Err(Diagnostic::error()
+                            .with_message("string cannot contain newline characters")
+                            .with_label(Label::primary(
+                                self.cursor.span(),
+                                "cannot contain newline",
+                            ))
+                            .with_note(
+                                "use a multiline string instead, example: \"\"\"your string\"\"\"",
+                            ))
+                    }
+                    StrFlavor::Char if contents.len() != 1 => {
+                        return Err(Diagnostic::error()
+                            .with_message("character literal must be one character long")
+                            .with_label(Label::primary(
+                                self.cursor.span(),
+                                "not one character long",
+                            )))
+                    }
+                    _ => (),
+                }
 
                 if flavor == StrFlavor::Char {
                     Ok(Char(contents.chars().next().unwrap()))
