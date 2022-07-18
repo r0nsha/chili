@@ -268,6 +268,7 @@ impl Lower for hir::Cast {
                     let value_type_size = value_type.size_of(WORD_SIZE) as u32;
                     let inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
+                    sess.push_const(code, Value::Type(value_type.clone()));
                     code.push(Instruction::BufferAlloc(value_type_size));
 
                     self.value
@@ -701,10 +702,19 @@ impl Lower for hir::Builtin {
             hir::Builtin::Slice(slice) => {
                 let value_type = slice.value.ty().normalize(sess.tcx);
                 let value_type_size = value_type.size_of(WORD_SIZE) as u32;
-                let inner_type_size = value_type.inner().size_of(WORD_SIZE);
 
-                match value_type {
+                let elem_size = match &value_type {
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Slice(inner, _) => inner.size_of(WORD_SIZE),
+                        _ => inner.size_of(WORD_SIZE),
+                    },
+                    Type::Array(inner, _) => inner.size_of(WORD_SIZE),
+                    _ => unreachable!("{}", value_type),
+                };
+
+                match &value_type {
                     Type::Array(..) => {
+                        sess.push_const(code, Value::Type(value_type.clone()));
                         code.push(Instruction::BufferAlloc(value_type_size));
 
                         slice
@@ -715,7 +725,7 @@ impl Lower for hir::Builtin {
                         slice
                             .low
                             .lower(sess, code, LowerContext { take_ptr: false });
-                        sess.push_const(code, Value::Uint(inner_type_size));
+                        sess.push_const(code, Value::Uint(elem_size));
                         code.push(Instruction::Mul);
                         code.push(Instruction::Offset);
 
@@ -743,6 +753,7 @@ impl Lower for hir::Builtin {
                             code.push(Instruction::Roll(1));
                             code.push(Instruction::ConstIndex(0));
 
+                            sess.push_const(code, Value::Type(value_type.clone()));
                             code.push(Instruction::BufferAlloc(value_type_size));
 
                             code.push(Instruction::Roll(1));
@@ -751,7 +762,7 @@ impl Lower for hir::Builtin {
                             slice
                                 .low
                                 .lower(sess, code, LowerContext { take_ptr: false });
-                            sess.push_const(code, Value::Uint(inner_type_size));
+                            sess.push_const(code, Value::Uint(elem_size));
                             code.push(Instruction::Mul);
                             code.push(Instruction::Offset);
 
@@ -769,6 +780,7 @@ impl Lower for hir::Builtin {
                             code.push(Instruction::BufferPut(WORD_SIZE as u32));
                         }
                         _ => {
+                            sess.push_const(code, Value::Type(value_type.clone()));
                             code.push(Instruction::BufferAlloc(value_type_size));
 
                             slice
@@ -778,7 +790,7 @@ impl Lower for hir::Builtin {
                             slice
                                 .low
                                 .lower(sess, code, LowerContext { take_ptr: false });
-                            sess.push_const(code, Value::Uint(inner_type_size));
+                            sess.push_const(code, Value::Uint(elem_size));
                             code.push(Instruction::Mul);
                             code.push(Instruction::Offset);
 
@@ -819,6 +831,7 @@ impl Lower for hir::StructLiteral {
         let struct_type = ty.as_struct();
         let struct_size = struct_type.size_of(WORD_SIZE) as u32;
 
+        sess.push_const(code, Value::Type(ty.clone()));
         code.push(Instruction::BufferAlloc(struct_size));
 
         let mut ordered_fields = self.fields.clone();
@@ -846,6 +859,7 @@ impl Lower for hir::TupleLiteral {
         let tuple_type = self.ty.normalize(sess.tcx);
         let tuple_size = tuple_type.size_of(WORD_SIZE) as u32;
 
+        sess.push_const(code, Value::Type(tuple_type.clone()));
         code.push(Instruction::BufferAlloc(tuple_size));
 
         for (index, element) in self.elements.iter().enumerate() {
@@ -886,7 +900,6 @@ impl Lower for hir::ArrayFillLiteral {
         };
 
         sess.push_const(code, Value::Type(ty));
-
         code.push(Instruction::BufferAlloc((size * inner_ty_size) as u32));
 
         self.value

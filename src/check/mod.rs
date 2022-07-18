@@ -1042,22 +1042,22 @@ impl Check for ast::Ast {
                     }
                 };
 
-                if node_type.is_pointer() && slice.high.is_none() {
-                    return Err(Diagnostic::error()
-                        .with_message(
-                            "pointer has an unknown length, so you must specify the ending index",
-                        )
-                        .with_label(Label::primary(
-                            slice.expr.span(),
-                            "pointer has an unknown length",
-                        )));
-                }
-
                 let (result_ty, is_mutable) = match node_type {
                     Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
                     Type::Pointer(inner, is_mutable) => match inner.as_ref() {
                         Type::Slice(inner, _) => (inner.clone(), is_mutable),
-                        _ => (inner, is_mutable),
+                        _ => {
+                            if slice.high.is_none() {
+                                return Err(Diagnostic::error()
+                                    .with_message("pointer has an unknown length, ending index must be specified")
+                                    .with_label(Label::primary(
+                                        slice.expr.span(),
+                                        "pointer has an unknown length",
+                                    )));
+                            }
+
+                            (inner, is_mutable)
+                        }
                     },
                     _ => {
                         return Err(Diagnostic::error()
