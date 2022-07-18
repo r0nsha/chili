@@ -341,9 +341,12 @@ impl Buffer {
                 .into_iter()
                 .map(|index| self.get_value_at_index(index))
                 .collect(),
-            Type::Slice(..) => {
-                vec![self.get_value_at_index(0), self.get_value_at_index(1)]
-            }
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(..) => {
+                    vec![self.get_value_at_index(0), self.get_value_at_index(1)]
+                }
+                ty => panic!("{}", ty),
+            },
             ty => panic!("{}", ty),
         }
     }
@@ -472,10 +475,12 @@ impl From<&Type> for ValueKind {
                     }
                 }
             },
-            Type::Pointer(_, _) => Self::Pointer,
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_, _) => Self::Buffer,
+                _ => Self::Pointer,
+            },
             Type::Function(_) => Self::Function,
             Type::Array(_, _)
-            | Type::Slice(_, _)
             | Type::Tuple(_)
             | Type::Struct(_)
             | Type::Infer(_, InferType::PartialStruct(_) | InferType::PartialTuple(_)) => {
@@ -541,8 +546,15 @@ impl Value {
                 bytes: ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE)),
                 ty: ty.clone(),
             }),
-            Type::Slice(_, _) => todo!(),
-            Type::Tuple(_) => todo!(),
+            Type::Tuple(_) => {
+                let size = ty.size_of(WORD_SIZE);
+                let slice = slice::from_raw_parts(ptr as *const u8, size);
+
+                Self::Buffer(Buffer {
+                    bytes: ByteSeq::from(slice),
+                    ty: ty.clone(),
+                })
+            }
             Type::Struct(struct_ty) => {
                 let size = struct_ty.size_of(WORD_SIZE);
                 let slice = slice::from_raw_parts(ptr as *const u8, size);
@@ -632,14 +644,20 @@ impl Value {
                         element_ty: tcx.bound(*el_ty, eval_span),
                     }))
                 }
-                Type::Slice(inner, _) => {
-                    if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
-                        let str = buf.as_str();
-                        Ok(ConstValue::Str(ustr(str)))
-                    } else {
-                        Err("slice")
+                Type::Pointer(inner, _) => match inner.as_ref() {
+                    Type::Slice(inner, _) => {
+                        if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
+                            let str = buf.as_str();
+                            Ok(ConstValue::Str(ustr(str)))
+                        } else {
+                            Err("slice")
+                        }
                     }
-                }
+                    _ => panic!(
+                        "value type mismatch. expected an aggregate type, got {}",
+                        ty
+                    ),
+                },
                 Type::Infer(_, InferType::PartialTuple(elements)) | Type::Tuple(elements) => {
                     let align = ty.align_of(WORD_SIZE);
                     let mut values = Vec::with_capacity(elements.len());
@@ -765,7 +783,6 @@ impl Pointer {
                 // Note (Ron): Leak
                 Self::Buffer(Box::leak(array) as *mut Buffer)
             }
-            Type::Slice(_, _) => todo!("{}", ty),
             Type::Tuple(_) => todo!(),
             Type::Struct(_) => todo!(),
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
@@ -894,7 +911,10 @@ impl Display for Buffer {
                     elements.len()
                 }
                 Type::Array(_, size) => *size,
-                Type::Slice(..) => 2,
+                Type::Pointer(inner, _) => match inner.as_ref() {
+                    Type::Slice(_, _) => 2,
+                    ty => panic!("{}", ty),
+                },
                 ty => panic!("{}", ty),
             };
 
@@ -915,9 +935,10 @@ impl Display for Buffer {
                 Type::Array(..) => {
                     write!(f, "[{}{}]", values_joined, extra_values_str)
                 }
-                Type::Slice(..) => {
-                    write!(f, "&[{}{}]", values_joined, extra_values_str)
-                }
+                Type::Pointer(inner, _) => match inner.as_ref() {
+                    Type::Slice(_, _) => write!(f, "&[{}{}]", values_joined, extra_values_str),
+                    ty => panic!("{}", ty),
+                },
                 ty => panic!("{}", ty),
             }
         }

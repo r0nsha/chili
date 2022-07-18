@@ -266,14 +266,32 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                 )
                 .into(),
 
-            (Type::Pointer(..), Type::Pointer(..)) => generator
-                .builder
-                .build_pointer_cast(
-                    value.into_pointer_value(),
-                    cast_type.into_pointer_type(),
-                    INST_NAME,
-                )
-                .into(),
+            (Type::Pointer(left, _), Type::Pointer(right, _)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (Type::Array(_, size), Type::Slice(right, _)) => {
+                        let slice_ty = generator.slice_type(right);
+                        let ptr = generator.build_alloca(state, slice_ty);
+
+                        generator.build_slice(
+                            ptr,
+                            value,
+                            generator.ptr_sized_int_type.const_zero(),
+                            generator.ptr_sized_int_type.const_int(*size as u64, false),
+                            right.as_ref(),
+                        );
+
+                        generator.build_load(ptr.into())
+                    }
+                    (_, _) => generator
+                        .builder
+                        .build_pointer_cast(
+                            value.into_pointer_value(),
+                            cast_type.into_pointer_type(),
+                            INST_NAME,
+                        )
+                        .into(),
+                }
+            }
 
             // pointer <=> int | uint
             (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => generator
@@ -294,24 +312,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                     INST_NAME,
                 )
                 .into(),
-
-            (Type::Pointer(t, _), Type::Slice(t_slice, ..)) => match t.as_ref() {
-                Type::Array(_, size) => {
-                    let slice_ty = generator.slice_type(t_slice);
-                    let ptr = generator.build_alloca(state, slice_ty);
-
-                    generator.build_slice(
-                        ptr,
-                        value,
-                        generator.ptr_sized_int_type.const_zero(),
-                        generator.ptr_sized_int_type.const_int(*size as u64, false),
-                        t_slice.as_ref(),
-                    );
-
-                    generator.build_load(ptr.into())
-                }
-                _ => unreachable!(),
-            },
 
             _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
         }

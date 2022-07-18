@@ -52,17 +52,19 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 }
                 .into(),
             },
-            Type::Pointer(inner, _) => {
-                let ty = inner.llvm_type(generator);
-                ty.ptr_type(AddressSpace::Generic).into()
-            }
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(inner, _) => generator.slice_type(inner),
+                _ => {
+                    let ty = inner.llvm_type(generator);
+                    ty.ptr_type(AddressSpace::Generic).into()
+                }
+            },
             Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => generator.unit_type(),
             Type::Function(func) => generator
                 .abi_compliant_fn_type(func)
                 .ptr_type(AddressSpace::Generic)
                 .into(),
             Type::Array(inner, size) => inner.llvm_type(generator).array_type(*size as u32).into(),
-            Type::Slice(inner, ..) => generator.slice_type(inner),
             Type::Tuple(tys) => generator
                 .context
                 .struct_type(

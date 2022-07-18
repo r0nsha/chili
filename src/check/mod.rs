@@ -1149,14 +1149,14 @@ impl Check for ast::Ast {
                                 }
                             } else if access.member.as_str() == BUILTIN_FIELD_DATA {
                                 return Ok(hir::Node::MemberAccess(hir::MemberAccess {
+                                    value: Box::new(node),
+                                    member_name: access.member,
+                                    member_index: 0,
                                     ty: sess.tcx.bound(
                                         Type::Pointer(inner.clone(), *is_mutable),
                                         access.span,
                                     ),
                                     span: access.span,
-                                    value: Box::new(node),
-                                    member_name: access.member,
-                                    member_index: 0,
                                 }));
                             }
                         }

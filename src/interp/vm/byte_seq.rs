@@ -164,13 +164,13 @@ impl GetValue for [u8] {
                     }
                 }
             },
-            Type::Pointer(ty, _) => match ty.as_ref() {
+            Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(_, _) => Value::Buffer(Buffer {
                     bytes: ByteSeq::copy_from_slice(self),
-                    ty: ty.as_ref().clone(),
+                    ty: ty.clone(),
                 }),
                 _ => Value::Pointer(Pointer::from_type_and_ptr(
-                    ty,
+                    inner,
                     self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as _,
                 )),
             },

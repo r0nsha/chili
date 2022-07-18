@@ -284,8 +284,8 @@ impl Lower for hir::Cast {
 
                     // calculate the slice length, by doing `high - low`
                     match value_type.maybe_deref_once() {
-                        Type::Array(_, len) => {
-                            sess.push_const(code, Value::Uint(len));
+                        Type::Array(_, size) => {
+                            sess.push_const(code, Value::Uint(size));
                         }
                         ty => unreachable!("unexpected type `{}`", ty),
                     }
