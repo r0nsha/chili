@@ -51,11 +51,11 @@ impl UnifyType<Type> for Type {
 
             (Type::Pointer(t1, a1), Type::Pointer(t2, a2))
             | (Type::Slice(t1, a1), Type::Slice(t2, a2)) => {
-                if !can_coerce_mut(*a1, *a2) {
-                    Err(UnifyTypeErr::Mismatch)
-                } else {
+                if *a1 == *a2 {
                     t1.unify(t2.as_ref(), tcx)?;
                     Ok(())
+                } else {
+                    Err(UnifyTypeErr::Mismatch)
                 }
             }
 
@@ -352,6 +352,6 @@ impl UnifyTypeErr {
 }
 
 // NOTE (Ron): checks that mutability rules are equal
-pub fn can_coerce_mut(from: bool, to: bool) -> bool {
-    from == to || (!from && to)
+pub fn can_coerce_mut(from_mut: bool, to_mut: bool) -> bool {
+    from_mut == to_mut || (from_mut && !to_mut)
 }
