@@ -881,7 +881,6 @@ impl Check for ast::Ast {
 
                 let node = sub.expr.check(sess, env, None)?;
                 let node_type = node.ty().normalize(&sess.tcx);
-                let node_type_deref = node_type.maybe_deref_once();
 
                 let const_value = if let Some(ConstValue::Int(const_index)) =
                     offset_node.as_const_value()
@@ -898,7 +897,7 @@ impl Check for ast::Ast {
                     }
 
                     // compile-time array bounds check
-                    if let Type::Array(_, size) = node_type_deref {
+                    if let Type::Array(_, size) = node_type.maybe_deref_once() {
                         if const_index >= size as _ {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -1177,12 +1176,12 @@ impl Check for ast::Ast {
                     _ => (),
                 }
 
-                let node_type_deref = node_type.maybe_deref_once();
-
                 // Note (Ron): If the accessed value is a pointer, we auto dereference it.
                 let node = if node_type.is_pointer() {
                     hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                        ty: sess.tcx.bound(node_type_deref.clone(), node.span()),
+                        ty: sess
+                            .tcx
+                            .bound(node_type.maybe_deref_once().clone(), node.span()),
                         span: node.span(),
                         value: Box::new(node),
                     }))
@@ -1190,7 +1189,7 @@ impl Check for ast::Ast {
                     node
                 };
 
-                match &node_type_deref {
+                match &node_type.maybe_deref_once() {
                     ty @ Type::Tuple(elements)
                     | ty @ Type::Infer(_, InferType::PartialTuple(elements)) => {
                         match member_tuple_index {

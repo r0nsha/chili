@@ -600,9 +600,10 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
 
         let ty = self.value.ty().normalize(generator.tcx);
 
-        let len = match ty.maybe_deref_once() {
-            Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
+        let len = match &ty {
+            Type::Array(_, size) => Some(index.get_type().const_int(*size as _, false)),
             Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Array(_, size) => Some(index.get_type().const_int(*size as _, false)),
                 Type::Slice(..) => Some(generator.gep_slice_len(value)),
                 _ => None,
             },
@@ -613,18 +614,17 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             generator.gen_runtime_check_index_out_of_bounds(state, index, len, self.span);
         }
 
-        let derefed_ty = ty.maybe_deref_once();
-
-        let ptr = match &derefed_ty {
+        let ptr = match &ty {
             Type::Array(..) => value.into_pointer_value(),
             Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Array(..) => value.into_pointer_value(),
                 Type::Slice(..) => generator.gep_slice_data(value),
                 _ => value.into_pointer_value(),
             },
             ty => unreachable!("{}", ty),
         };
 
-        let ptr_offset = match &derefed_ty {
+        let ptr_offset = match &ty {
             Type::Array(..) => unsafe {
                 generator.builder.build_in_bounds_gep(
                     ptr,
@@ -633,6 +633,13 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
                 )
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Array(..) => unsafe {
+                    generator.builder.build_in_bounds_gep(
+                        ptr,
+                        &[index.get_type().const_zero(), index],
+                        "offset",
+                    )
+                },
                 Type::Slice(..) => unsafe {
                     generator
                         .builder
