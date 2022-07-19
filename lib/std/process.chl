@@ -1,5 +1,0 @@
-// let windows = import(sys/windows);
-
-// pub let exit = fn(exit_code: int) -> ! {
-//     windows.ExitProcess(exit_code)
-// };
