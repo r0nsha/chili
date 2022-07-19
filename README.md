@@ -50,7 +50,7 @@ To run the compiler directly from cargo:
 
 ```
 cargo run -- %source_file_path% --run
-example: cargo run -- ./examples/main.chili --run
+example: cargo run -- ./examples/main.chl --run
 ```
 
 ## Tooling
@@ -195,7 +195,7 @@ let add = fn(a: int, b: int) -> int {
 // each file is a seperated module (or namespace in other languages)
 
 //
-// file: foo.chili
+// file: foo.chl
 //
 
 // all functions/variables in a file are private by default
@@ -205,7 +205,7 @@ let foo = 5;
 pub let im_public = 5;
 
 //
-// file: bar.chili
+// file: bar.chl
 //
 
 // you can use other modules (files) using the `import` keyword
@@ -221,7 +221,7 @@ let ? = import("foo")
 
 // Using the imported symbol
 let main = fn() {
-    let x = im_public; // we can now use im_public in `bar.chili`
+    let x = im_public; // we can now use im_public in `bar.chl`
 }
 ```
 

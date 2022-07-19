@@ -15,7 +15,7 @@
           "kind": "bin"
         }
       },
-      "args": ["./examples/playground/build.chi"],
+      "args": ["./examples/playground/build.chl"],
       "cwd": "${workspaceFolder}"
     },
     {
