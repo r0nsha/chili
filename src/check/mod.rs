@@ -57,7 +57,6 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 
     if let Err(diag) = sess.start() {
         sess.workspace.diagnostics.push(diag);
-        return sess.into_data();
     }
 
     if sess.workspace.diagnostics.has_errors() {
@@ -65,7 +64,12 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
     }
 
     substitute(&mut sess.workspace.diagnostics, &mut sess.tcx, &sess.cache);
+    validate_all_extern(&mut sess);
 
+    sess.into_data()
+}
+
+fn validate_all_extern(sess: &mut CheckSess) {
     for function in sess
         .cache
         .functions
@@ -82,37 +86,38 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
         }
     }
 
-    sess.into_data()
-}
+    fn ty_is_extern(ty: &Type) -> bool {
+        match ty {
+            Type::Never
+            | Type::Unit
+            | Type::Bool
+            | Type::Int(_)
+            | Type::Uint(_)
+            | Type::Float(_) => true,
 
-fn ty_is_extern(ty: &Type) -> bool {
-    match ty {
-        Type::Never | Type::Unit | Type::Bool | Type::Int(_) | Type::Uint(_) | Type::Float(_) => {
-            true
+            Type::Module(_)
+            | Type::Type(_)
+            | Type::AnyType
+            | Type::Var(_)
+            | Type::Infer(_, _)
+            | Type::Unknown => false,
+
+            Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner, _) => {
+                ty_is_extern(inner)
+            }
+
+            Type::Function(f) => {
+                ty_is_extern(&f.return_type)
+                    && f.varargs
+                        .as_ref()
+                        .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
+                    && f.params.iter().map(|p| &p.ty).all(ty_is_extern)
+            }
+
+            Type::Tuple(tys) => tys.iter().all(ty_is_extern),
+
+            Type::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
         }
-
-        Type::Module(_)
-        | Type::Type(_)
-        | Type::AnyType
-        | Type::Var(_)
-        | Type::Infer(_, _)
-        | Type::Unknown => false,
-
-        Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner, _) => {
-            ty_is_extern(inner)
-        }
-
-        Type::Function(f) => {
-            ty_is_extern(&f.return_type)
-                && f.varargs
-                    .as_ref()
-                    .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
-                && f.params.iter().map(|p| &p.ty).all(ty_is_extern)
-        }
-
-        Type::Tuple(tys) => tys.iter().all(ty_is_extern),
-
-        Type::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
     }
 }
 
