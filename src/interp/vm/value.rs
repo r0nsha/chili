@@ -577,7 +577,7 @@ impl Value {
         }
     }
 
-    pub fn get_ty_kind(&self, interp: &Interp) -> Type {
+    pub fn get_type(&self, interp: &Interp) -> Type {
         match self {
             Self::I8(_) => Type::i8(),
             Self::I16(_) => Type::i16(),
@@ -593,7 +593,7 @@ impl Value {
             Self::F64(_) => Type::f64(),
             Self::Bool(_) => Type::Bool,
             Self::Buffer(arr) => arr.ty.clone(),
-            Self::Pointer(p) => Type::Pointer(Box::new(p.get_ty_kind()), true),
+            Self::Pointer(p) => Type::Pointer(Box::new(p.get_type()), true),
             Self::Function(f) => Type::Function(interp.functions.get(&f.id).unwrap().ty.clone()),
             Self::ExternVariable(v) => v.ty.clone(),
             Self::Intrinsic(_) | Self::Type(_) => todo!(),
@@ -798,7 +798,7 @@ impl Pointer {
         }
     }
 
-    pub fn get_ty_kind(&self) -> Type {
+    pub fn get_type(&self) -> Type {
         match self {
             Self::I8(_) => Type::i8(),
             Self::I16(_) => Type::i16(),
@@ -818,7 +818,7 @@ impl Pointer {
                 if p.is_null() {
                     Box::new(Type::u8())
                 } else {
-                    Box::new(unsafe { &**p }.get_ty_kind())
+                    Box::new(unsafe { &**p }.get_type())
                 },
                 true,
             ),

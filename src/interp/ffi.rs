@@ -90,7 +90,7 @@ impl Ffi {
             let variadic_arg_types: Vec<Type> = args
                 .iter()
                 .skip(func.param_tys.len())
-                .map(|value| value.get_ty_kind(&*interp))
+                .map(|value| value.get_type(&*interp))
                 .collect();
 
             FfiFunction::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)

@@ -1025,21 +1025,20 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         ConstValue::Array(array) => {
             let array_len = array.values.len();
 
-            let el_ty = array.element_ty;
-            let el_ty_kind = el_ty.normalize(sess.tcx);
-            let el_size = el_ty_kind.size_of(WORD_SIZE);
+            let elem_type = array.element_ty;
+            let elem_type_kind = elem_type.normalize(sess.tcx);
+            let elem_size = elem_type_kind.size_of(WORD_SIZE);
 
-            let mut bytes = ByteSeq::new(array_len * el_size);
+            let mut bytes = ByteSeq::new(array_len * elem_size);
 
             for (index, const_value) in array.values.iter().enumerate() {
-                let value = const_value_to_value(const_value, el_ty, sess);
-
-                bytes.offset_mut(index * el_size).put_value(&value);
+                let value = const_value_to_value(const_value, elem_type, sess);
+                bytes.offset_mut(index * elem_size).put_value(&value);
             }
 
             Value::Buffer(Buffer {
                 bytes,
-                ty: Type::Array(Box::new(el_ty_kind), array_len),
+                ty: Type::Array(Box::new(elem_type_kind), array_len),
             })
         }
         ConstValue::Function(f) => {
