@@ -98,7 +98,7 @@ fn check_all_extern(sess: &mut CheckSess) {
             | Type::Float(_) => true,
 
             Type::Module(_)
-            | Type::Slice(_, _)
+            | Type::Slice(_)
             | Type::Type(_)
             | Type::AnyType
             | Type::Var(_)
@@ -973,7 +973,7 @@ impl Check for ast::Ast {
                 let inner = match &node_type {
                     Type::Array(inner, _) => inner.as_ref(),
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Array(inner, _) | Type::Slice(inner, _) => inner.as_ref(),
+                        Type::Array(inner, _) | Type::Slice(inner) => inner.as_ref(),
                         inner => inner,
                     },
                     _ => {
@@ -1093,7 +1093,7 @@ impl Check for ast::Ast {
                 let (result_ty, is_mutable) = match node_type {
                     Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
                     Type::Pointer(inner, is_mutable) => match inner.as_ref() {
-                        Type::Slice(inner, _) => (inner.clone(), is_mutable),
+                        Type::Slice(inner) => (inner.clone(), is_mutable),
                         _ => {
                             if slice.high.is_none() {
                                 return Err(Diagnostic::error()
@@ -1118,7 +1118,7 @@ impl Check for ast::Ast {
                 };
 
                 let ty = sess.tcx.bound(
-                    Type::Pointer(Box::new(Type::Slice(result_ty, is_mutable)), is_mutable),
+                    Type::Pointer(Box::new(Type::Slice(result_ty)), is_mutable),
                     slice.span,
                 );
 
@@ -1176,7 +1176,7 @@ impl Check for ast::Ast {
 
                 match &node_type {
                     Type::Pointer(inner, is_mutable) => match inner.as_ref() {
-                        Type::Slice(inner, _) => {
+                        Type::Slice(inner) => {
                             if access.member.as_str() == BUILTIN_FIELD_LEN {
                                 let ty = sess.tcx.common_types.uint;
 
@@ -1565,7 +1565,7 @@ impl Check for ast::Ast {
                     value: const_value,
                 }))
             }
-            ast::Ast::PointerType(ast::ExprAndMut {
+            ast::Ast::PointerType(ast::PointerType {
                 inner,
                 is_mutable,
                 span,
@@ -1614,12 +1614,7 @@ impl Check for ast::Ast {
                     value: ConstValue::Type(sess.tcx.bound(array_type, *span)),
                 }))
             }
-            ast::Ast::SliceType(ast::ExprAndMut {
-                inner,
-                is_mutable,
-                span,
-                ..
-            }) => {
+            ast::Ast::SliceType(ast::SliceType { inner, span, .. }) => {
                 let inner_type = check_type_expr(inner, sess, env)?;
 
                 let inner_type_norm = inner_type.normalize(&sess.tcx);
@@ -1636,7 +1631,7 @@ impl Check for ast::Ast {
                         .with_note("slice element's size must be known at compile-time"));
                 }
 
-                let slice_type = Type::Slice(Box::new(inner_type.into()), *is_mutable);
+                let slice_type = Type::Slice(Box::new(inner_type.into()));
 
                 Ok(hir::Node::Const(hir::Const {
                     ty: sess.tcx.bound(slice_type.clone().create_type(), *span),
@@ -1988,7 +1983,7 @@ impl Check for ast::For {
                 let inner = match &value_node_type {
                     Type::Array(inner, _) => inner.clone(),
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner, _) | Type::Array(inner, _) => inner.clone(),
+                        Type::Slice(inner) | Type::Array(inner, _) => inner.clone(),
                         _ => {
                             // TODO: duplicate error
                             return Err(Diagnostic::error()

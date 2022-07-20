@@ -165,7 +165,7 @@ impl GetValue for [u8] {
                 }
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_, _) => Value::Buffer(Buffer {
+                Type::Slice(_) => Value::Buffer(Buffer {
                     bytes: ByteSeq::copy_from_slice(self),
                     ty: ty.clone(),
                 }),

@@ -78,7 +78,7 @@ impl Coerce for Type {
                 if can_coerce_mut(*lmut, *rmut) {
                     match (left.as_ref(), right.as_ref()) {
                         // * array[N] of T -> slice of T
-                        (Type::Array(t_array, _), Type::Slice(t_slice, _)) => {
+                        (Type::Array(t_array, _), Type::Slice(t_slice)) => {
                             if t_array == t_slice {
                                 CoerceToRight
                             } else {

@@ -369,7 +369,7 @@ impl Buffer {
             }
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(ty, _) => match index {
+                Type::Slice(ty) => match index {
                     0 => self
                         .bytes
                         .offset(offset)
@@ -476,7 +476,7 @@ impl From<&Type> for ValueKind {
                 }
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_, _) => Self::Buffer,
+                Type::Slice(_) => Self::Buffer,
                 _ => Self::Pointer,
             },
             Type::Function(_) => Self::Function,
@@ -645,7 +645,7 @@ impl Value {
                     }))
                 }
                 Type::Pointer(inner, _) => match inner.as_ref() {
-                    Type::Slice(inner, _) => {
+                    Type::Slice(inner) => {
                         if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
                             let str = buf.as_str();
                             Ok(ConstValue::Str(ustr(str)))
@@ -912,7 +912,7 @@ impl Display for Buffer {
                 }
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
-                    Type::Slice(_, _) => 2,
+                    Type::Slice(_) => 2,
                     ty => panic!("{}", ty),
                 },
                 ty => panic!("{}", ty),
@@ -936,7 +936,7 @@ impl Display for Buffer {
                     write!(f, "[{}{}]", values_joined, extra_values_str)
                 }
                 Type::Pointer(inner, _) => match inner.as_ref() {
-                    Type::Slice(_, _) => write!(f, "&[{}{}]", values_joined, extra_values_str),
+                    Type::Slice(_) => write!(f, "&[{}{}]", values_joined, extra_values_str),
                     ty => panic!("{}", ty),
                 },
                 ty => panic!("{}", ty),

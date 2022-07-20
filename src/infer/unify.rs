@@ -49,14 +49,18 @@ impl UnifyType<Type> for Type {
             (Type::Uint(t1), Type::Uint(t2)) if t1 == t2 => Ok(()),
             (Type::Float(t1), Type::Float(t2)) if t1 == t2 => Ok(()),
 
-            (Type::Pointer(t1, a1), Type::Pointer(t2, a2))
-            | (Type::Slice(t1, a1), Type::Slice(t2, a2)) => {
-                if *a1 == *a2 {
+            (Type::Pointer(t1, m1), Type::Pointer(t2, m2)) => {
+                if *m1 == *m2 {
                     t1.unify(t2.as_ref(), tcx)?;
                     Ok(())
                 } else {
                     Err(UnifyTypeErr::Mismatch)
                 }
+            }
+
+            (Type::Slice(t1), Type::Slice(t2)) => {
+                t1.unify(t2.as_ref(), tcx)?;
+                Ok(())
             }
 
             (Type::Function(f1), Type::Function(f2)) => {

@@ -69,14 +69,10 @@ impl<'s> LintSess<'s> {
                             let ty = tys[index].normalize(self.tcx);
 
                             match ty {
-                                Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable)
-                                    if !is_mutable =>
-                                {
-                                    Err(ImmutableReference {
-                                        ty,
-                                        span: node.span(),
-                                    })
-                                }
+                                Type::Pointer(_, false) => Err(ImmutableReference {
+                                    ty,
+                                    span: node.span(),
+                                }),
                                 _ => Ok(()),
                             }
                         }
@@ -89,14 +85,10 @@ impl<'s> LintSess<'s> {
                                 .unwrap();
 
                             match ty {
-                                Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable)
-                                    if !is_mutable =>
-                                {
-                                    Err(ImmutableReference {
-                                        ty,
-                                        span: node.span(),
-                                    })
-                                }
+                                Type::Pointer(_, false) => Err(ImmutableReference {
+                                    ty,
+                                    span: node.span(),
+                                }),
                                 _ => Ok(()),
                             }
                         }
@@ -106,14 +98,10 @@ impl<'s> LintSess<'s> {
                             let ty = binding_info.ty.normalize(self.tcx);
 
                             match ty {
-                                Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable)
-                                    if !is_mutable =>
-                                {
-                                    Err(ImmutableReference {
-                                        ty,
-                                        span: node.span(),
-                                    })
-                                }
+                                Type::Pointer(_, false) => Err(ImmutableReference {
+                                    ty,
+                                    span: node.span(),
+                                }),
                                 _ => {
                                     if binding_info.is_mutable {
                                         Ok(())
@@ -133,7 +121,7 @@ impl<'s> LintSess<'s> {
             }
             hir::Node::Id(id) => {
                 match ty {
-                    Type::Slice(_, is_mutable) | Type::Pointer(_, is_mutable) => {
+                    Type::Pointer(_, is_mutable) => {
                         if is_mutable && is_direct_ref {
                             return Ok(());
                         } else {

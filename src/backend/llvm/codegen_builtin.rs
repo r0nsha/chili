@@ -289,13 +289,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
         let slice_llvm_ty = self.ty.llvm_type(generator);
         let slice_ptr = generator.build_alloca(state, slice_llvm_ty);
 
-        generator.build_slice(
-            slice_ptr,
-            sliced_value,
-            low,
-            high,
-            value_type.element_type().unwrap(),
-        );
+        generator.build_slice(slice_ptr, sliced_value, low, high, value_type.inner());
 
         slice_ptr.into()
     }

@@ -90,7 +90,7 @@ impl<'s> CheckSess<'s> {
 
                 let ty = node.ty().normalize(&self.tcx);
                 match ty {
-                    Type::Pointer(_, is_mutable) | Type::Slice(_, is_mutable) => {
+                    Type::Pointer(_, is_mutable) => {
                         if is_direct_access || is_mutable {
                             Ok(())
                         } else {

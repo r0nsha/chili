@@ -53,7 +53,7 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 .into(),
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(inner, _) => generator.slice_type(inner),
+                Type::Slice(inner) => generator.slice_type(inner),
                 _ => {
                     let ty = inner.llvm_type(generator);
                     ty.ptr_type(AddressSpace::Generic).into()

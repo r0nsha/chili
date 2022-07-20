@@ -263,7 +263,7 @@ impl Lower for hir::Cast {
                 });
             }
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_, _) => {
+                Type::Slice(_) => {
                     let value_type = self.value.ty().normalize(sess.tcx);
                     let value_type_size = value_type.size_of(WORD_SIZE) as u32;
                     let inner_type_size = value_type.inner().size_of(WORD_SIZE);
@@ -675,7 +675,7 @@ impl Lower for hir::Builtin {
 
                 let elem_size = match value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner, _) => {
+                        Type::Slice(inner) => {
                             code.push(Instruction::ConstIndex(0));
                             inner.size_of(WORD_SIZE)
                         }
@@ -705,7 +705,7 @@ impl Lower for hir::Builtin {
 
                 let elem_size = match &value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner, _) => inner.size_of(WORD_SIZE),
+                        Type::Slice(inner) => inner.size_of(WORD_SIZE),
                         _ => inner.size_of(WORD_SIZE),
                     },
                     Type::Array(inner, _) => inner.size_of(WORD_SIZE),
@@ -743,7 +743,7 @@ impl Lower for hir::Builtin {
                         code.push(Instruction::BufferPut(WORD_SIZE as u32));
                     }
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(_, _) => {
+                        Type::Slice(_) => {
                             slice
                                 .value
                                 .lower(sess, code, LowerContext { take_ptr: false });
