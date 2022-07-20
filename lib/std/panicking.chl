@@ -8,7 +8,7 @@ let PanicInfo = struct {
 };
 
 let default_panic_handler = fn(info: PanicInfo) -> never {
-    // TODO: use my own print routine.
+    // TODO: use our own print routine.
     let message = if info.message.len == 0 {
         ""
     } else {
