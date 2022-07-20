@@ -63,40 +63,6 @@ As the language is in its very early stages, every contribution will help in sha
 
 [Our Discord Channel](https://discord.gg/Tu4s49Pdre)
 
-## Tasks
-
-- [x] Functions
-- [x] Variables
-- [x] Scalar types
-- [x] Global type inference
-- [x] Arrays & Slices
-- [x] Structs
-- [x] Tuples
-- [x] Modules & Imports
-- [x] Binding patterns: Struct/Module unpack, Tuple unpack and Wildcard
-- [x] Compile time execution
-  - [x] Bytecode VM with FFI support
-- [x] Compile-time execution based build configuration
-- [ ] DSTs - Dynamically sized types
-- [ ] Attributes
-- [ ] Default function arguments
-- [ ] Named function arguments
-- [ ] Panic function
-- [ ] Varargs
-- [ ] Printing and formatting
-- [ ] Parametric polymorphism - supporting both types and constant values
-- [ ] Tagged unions
-  - [ ] Pattern matching
-  - [ ] First-class `Option` & `Result` types
-- [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
-  - [ ] Ownership + ARC
-  - [ ] Regions
-  - [ ] Ownership
-  - [ ] Garbage collection
-- [ ] Associated functions / Methods
-- [ ] Traits / Typeclasses
-- [ ] Closures
-
 ## Syntax
 
 ### Types
