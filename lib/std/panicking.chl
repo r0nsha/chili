@@ -1,4 +1,4 @@
-let { printf, exit } = import("c");
+let { printf, exit } = import("std/c");
 
 let PanicInfo = struct {
     message: str,

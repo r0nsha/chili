@@ -1,6 +1,6 @@
 use super::{
     normalize::{Concrete, Normalize},
-    ty_ctx::TyCtx,
+    type_ctx::TypeCtx,
 };
 use crate::{
     error::{
@@ -13,7 +13,11 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TyCtx, cache: &'a hir::Cache) {
+pub fn substitute<'a>(
+    diagnostics: &'a mut Diagnostics,
+    tcx: &'a mut TypeCtx,
+    cache: &'a hir::Cache,
+) {
     let mut sess = Sess {
         diagnostics,
         tcx,
@@ -34,7 +38,7 @@ pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TyCtx, cach
 
 struct Sess<'a> {
     diagnostics: &'a mut Diagnostics,
-    tcx: &'a mut TyCtx,
+    tcx: &'a mut TypeCtx,
 
     // map of Ty -> Set of reduced expression spans that couldn't be inferred because of the key ty
     erroneous_types: HashMap<TypeId, Vec<Span>>,
@@ -377,7 +381,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
                 extract_free_type_vars(ty, free_types);
             }
         }
-        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty, _) => {
+        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) => {
             extract_free_type_vars(ty, free_types)
         }
         Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => tys

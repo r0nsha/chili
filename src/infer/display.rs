@@ -1,17 +1,17 @@
 use super::{
     normalize::Normalize,
-    ty_ctx::TyCtx,
-    unify::{UnifyTyErr, UnifyTyResult},
+    type_ctx::TypeCtx,
+    unify::{UnifyTypeErr, UnifyTypeResult},
 };
 use crate::error::DiagnosticResult;
 use crate::span::Span;
 
 pub trait DisplayTy {
-    fn display(&self, tcx: &TyCtx) -> String;
+    fn display(&self, tcx: &TypeCtx) -> String;
 }
 
 impl<T: Normalize> DisplayTy for T {
-    fn display(&self, tcx: &TyCtx) -> String {
+    fn display(&self, tcx: &TypeCtx) -> String {
         self.normalize(tcx).to_string()
     }
 }
@@ -19,7 +19,7 @@ impl<T: Normalize> DisplayTy for T {
 pub trait OrReportErr {
     fn or_report_err(
         self,
-        tcx: &TyCtx,
+        tcx: &TypeCtx,
         expected: impl DisplayTy,
         expected_span: Option<Span>,
         found: impl DisplayTy,
@@ -27,17 +27,17 @@ pub trait OrReportErr {
     ) -> DiagnosticResult<()>;
 }
 
-impl OrReportErr for UnifyTyResult {
+impl OrReportErr for UnifyTypeResult {
     fn or_report_err(
         self,
-        tcx: &TyCtx,
+        tcx: &TypeCtx,
         expected: impl DisplayTy,
         expected_span: Option<Span>,
         found: impl DisplayTy,
         found_span: Span,
     ) -> DiagnosticResult<()> {
         self.map_err(|e| {
-            UnifyTyErr::into_diagnostic(e, tcx, expected, expected_span, found, found_span)
+            UnifyTypeErr::into_diagnostic(e, tcx, expected, expected_span, found, found_span)
         })
     }
 }

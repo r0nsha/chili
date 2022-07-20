@@ -25,7 +25,7 @@ pub struct BuildOptions {
     /// Print timing information of every compiler pass
     pub emit_times: bool,
 
-    /// Print the HIR into $CWD/hir.pretty.chili
+    /// Print the Hir into $CWD/hir.pretty.chl
     pub emit_hir: bool,
 
     /// Print the bytecode into $CWD/vm.out

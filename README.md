@@ -50,7 +50,7 @@ To run the compiler directly from cargo:
 
 ```
 cargo run -- %source_file_path% --run
-example: cargo run -- ./examples/main.chili --run
+example: cargo run -- ./examples/main.chl --run
 ```
 
 ## Tooling
@@ -63,21 +63,23 @@ As the language is in its very early stages, every contribution will help in sha
 
 [Our Discord Channel](https://discord.gg/Tu4s49Pdre)
 
-## Tasks
+## Main Tasks
 
 - [x] Functions
 - [x] Variables
-- [x] Scalar types
-- [x] Global type inference
-- [x] Arrays & Slices
-- [x] Structs
-- [x] Tuples
+- [x] Static Typing
+  - [x] Global type inference
+  - [x] Scalar types
+  - [x] Pointers & Arrays & Slices
+  - [x] Structs & Tuples
 - [x] Modules & Imports
 - [x] Binding patterns: Struct/Module unpack, Tuple unpack and Wildcard
-- [x] Compile time execution
-  - [x] Bytecode VM with FFI support
-- [x] Compile-time execution based build configuration
-- [ ] DSTs - Dynamically sized types
+- [x] Compile time execution with FFI support
+  - [x] FFI support
+  - [x] Build configuration based on compile-time execution
+- [x] Dynamically sized types
+  - [x] Dynamically sized types
+- [ ] Static variables
 - [ ] Attributes
 - [ ] Default function arguments
 - [ ] Named function arguments
@@ -113,12 +115,15 @@ uint // machine-word sized unsigned integer
 // floats
 f16 f32 f64
 
-*t // immutable pointer to t
+*t // pointer to t
 *mut t // mutable pointer to t
 
 [n]t // array of type t with size n
-[]t // slice of type t
-str // slice of u8
+
+*[]t // pointer to a slice of type t
+*mut []t // mutable pointer to a slice of type t
+
+*str // pointer to a slice of u8
 
 (t1, t2, ..) // tuple
 
@@ -138,7 +143,7 @@ let x: int = 5; // you can annotate the variable with a type
 let array: [3]int = [1, 2, 3]; // [1, 2, 3]
 
 // a slice is a struct contains a pointer to an array, and its length
-let slice: []int = array[1..]; // [2, 3]
+let slice: *[]int = &array[1..]; // [2, 3]
 
 // references to arrays can be coerced to slices
 let slice: []int = &array;
@@ -195,7 +200,7 @@ let add = fn(a: int, b: int) -> int {
 // each file is a seperated module (or namespace in other languages)
 
 //
-// file: foo.chili
+// file: foo.chl
 //
 
 // all functions/variables in a file are private by default
@@ -205,7 +210,7 @@ let foo = 5;
 pub let im_public = 5;
 
 //
-// file: bar.chili
+// file: bar.chl
 //
 
 // you can use other modules (files) using the `import` keyword
@@ -221,7 +226,7 @@ let ? = import("foo")
 
 // Using the imported symbol
 let main = fn() {
-    let x = im_public; // we can now use im_public in `bar.chili`
+    let x = im_public; // we can now use im_public in `bar.chl`
 }
 ```
 

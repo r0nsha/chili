@@ -72,17 +72,17 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         sliced_value: BasicValueEnum<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
-        element_ty: &Type,
+        elem_type: &Type,
     ) {
-        let data_to_slice = self.builder.build_bitcast(
+        let sliced_value_ptr = self.builder.build_bitcast(
             sliced_value,
-            element_ty.llvm_type(self).ptr_type(AddressSpace::Generic),
+            elem_type.llvm_type(self).ptr_type(AddressSpace::Generic),
             "bitcast_slice_data",
         );
 
         let data = unsafe {
             self.builder.build_in_bounds_gep(
-                data_to_slice.into_pointer_value(),
+                sliced_value_ptr.into_pointer_value(),
                 &[low],
                 "slice_low_addr",
             )
@@ -499,7 +499,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 let gep = self
                     .builder
                     .build_struct_gep(pointer, field_index, field_name)
-                    .unwrap_or_else(|_| panic!("{pointer:#?} -> {field_index}"));
+                    .unwrap_or_else(|_| {
+                        panic!("{pointer:#?} . {field_name} (index: {field_index})")
+                    });
 
                 self.builder.build_load(gep, field_name)
             }

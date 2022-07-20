@@ -90,7 +90,7 @@ impl Ffi {
             let variadic_arg_types: Vec<Type> = args
                 .iter()
                 .skip(func.param_tys.len())
-                .map(|value| value.get_ty_kind(&*interp))
+                .map(|value| value.get_type(&*interp))
                 .collect();
 
             FfiFunction::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
@@ -325,7 +325,7 @@ impl AsFfiType for Type {
             Type::Unit | Type::Pointer(_, _) | Type::Function(_) | Type::Array(_, _) => {
                 FfiType::pointer()
             }
-            Type::Slice(_, _) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
+            Type::Slice(_) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
             Type::Tuple(tuple_elements) => {
                 FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
             }

@@ -253,9 +253,12 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
         let value = self.value.codegen(generator, state);
         let value_type = self.value.ty().normalize(generator.tcx);
 
-        let sliced_value = match value_type {
-            Type::Slice(..) => generator.gep_slice_data(value).as_basic_value_enum(),
-            Type::Pointer(..) | Type::Array(..) => value,
+        let sliced_value = match &value_type {
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(..) => generator.gep_slice_data(value).as_basic_value_enum(),
+                _ => value,
+            },
+            Type::Array(..) => value,
             _ => unreachable!("got {}", value_type),
         };
 
@@ -264,10 +267,12 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
 
         generator.gen_runtime_check_slice_end_before_start(state, low, high, self.value.span());
 
-        let len = match value_type {
-            Type::Slice(..) => Some(generator.gep_slice_len(value)),
-            Type::Array(_, size) => Some(generator.ptr_sized_int_type.const_int(size as _, false)),
-            Type::Pointer(..) => None,
+        let len = match &value_type {
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(..) => Some(generator.gep_slice_len(value)),
+                _ => None,
+            },
+            Type::Array(_, size) => Some(generator.ptr_sized_int_type.const_int(*size as _, false)),
             _ => unreachable!("got {}", value_type),
         };
 
@@ -281,8 +286,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             );
         }
 
-        let slice_llvm_ty = self.ty.llvm_type(generator);
-        let slice_ptr = generator.build_alloca(state, slice_llvm_ty);
+        let slice_llvm_type = self.ty.llvm_type(generator);
+        let slice_ptr = generator.build_alloca(state, slice_llvm_type);
 
         generator.build_slice(
             slice_ptr,
@@ -292,7 +297,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             value_type.element_type().unwrap(),
         );
 
-        slice_ptr.into()
+        generator.builder.build_load(slice_ptr, "")
     }
 }
 
@@ -576,10 +581,16 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Ref {
         let value = self.value.codegen(generator, state);
 
         match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
-                inst.get_operand(0).unwrap().left().unwrap()
+            Some(inst) => {
+                match inst.get_opcode() {
+                    InstructionOpcode::Load => inst.get_operand(0).unwrap().left().unwrap(),
+                    // Note (Ron): Alloca is matched for DST's.
+                    // This could be wrong, but I haven't encountered any issues with this yet
+                    // InstructionOpcode::Alloca => value,
+                    _ => panic!("{:?}", value),
+                }
             }
-            _ => panic!("{:?}", value),
+            None => panic!("{:?}", value),
         }
     }
 }
@@ -595,10 +606,13 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
 
         let ty = self.value.ty().normalize(generator.tcx);
 
-        let len = match ty.maybe_deref_once() {
-            Type::Array(_, size) => Some(index.get_type().const_int(size as _, false)),
-            Type::Slice(..) => Some(generator.gep_slice_len(value)),
-            Type::Pointer(..) => None,
+        let len = match &ty {
+            Type::Array(_, size) => Some(index.get_type().const_int(*size as _, false)),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Array(_, size) => Some(index.get_type().const_int(*size as _, false)),
+                Type::Slice(..) => Some(generator.gep_slice_len(value)),
+                _ => None,
+            },
             ty => unreachable!("got {}", ty),
         };
 
@@ -606,15 +620,17 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             generator.gen_runtime_check_index_out_of_bounds(state, index, len, self.span);
         }
 
-        let derefed_ty = ty.maybe_deref_once();
-
-        let ptr = match derefed_ty {
-            Type::Array(..) | Type::Pointer(..) => value.into_pointer_value(),
-            Type::Slice(..) => generator.gep_slice_data(value),
+        let ptr = match &ty {
+            Type::Array(..) => value.into_pointer_value(),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Array(..) => value.into_pointer_value(),
+                Type::Slice(..) => generator.gep_slice_data(value),
+                _ => value.into_pointer_value(),
+            },
             ty => unreachable!("{}", ty),
         };
 
-        let ptr_offset = match derefed_ty {
+        let ptr_offset = match &ty {
             Type::Array(..) => unsafe {
                 generator.builder.build_in_bounds_gep(
                     ptr,
@@ -622,10 +638,24 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
                     "offset",
                 )
             },
-            Type::Pointer(..) | Type::Slice(..) => unsafe {
-                generator
-                    .builder
-                    .build_in_bounds_gep(ptr, &[index], "offset")
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Array(..) => unsafe {
+                    generator.builder.build_in_bounds_gep(
+                        ptr,
+                        &[index.get_type().const_zero(), index],
+                        "offset",
+                    )
+                },
+                Type::Slice(..) => unsafe {
+                    generator
+                        .builder
+                        .build_in_bounds_gep(ptr, &[index], "offset")
+                },
+                _ => unsafe {
+                    generator
+                        .builder
+                        .build_in_bounds_gep(ptr, &[index], "offset")
+                },
             },
             ty => unreachable!("{}", ty),
         };

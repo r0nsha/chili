@@ -13,7 +13,7 @@ use crate::{
         DiagnosticResult, SyntaxError,
     },
     hir,
-    infer::{display::OrReportErr, normalize::Normalize, unify::UnifyTy},
+    infer::{display::OrReportErr, normalize::Normalize, unify::UnifyType},
     span::Span,
     types::{InferType, PartialStructType, Type, TypeId},
     workspace::{
@@ -425,7 +425,7 @@ impl<'s> CheckSess<'s> {
                     }
                 }
             }
-            ty_kind => {
+            type_kind => {
                 let partial_struct = PartialStructType(IndexMap::from_iter(
                     unpack_pattern
                         .symbols
@@ -485,7 +485,7 @@ impl<'s> CheckSess<'s> {
                 }
 
                 if let Some(wildcard) = &unpack_pattern.wildcard {
-                    match ty_kind {
+                    match type_kind {
                         Type::Struct(struct_ty) => {
                             for (index, field) in struct_ty.fields.iter().enumerate() {
                                 if unpack_pattern
@@ -540,7 +540,7 @@ impl<'s> CheckSess<'s> {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot use wildcard unpack on partial struct type - {}",
-                                    ty_kind
+                                    type_kind
                                 ))
                                 .with_label(Label::primary(
                                     wildcard.span,
@@ -551,7 +551,7 @@ impl<'s> CheckSess<'s> {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot use wildcard unpack on partial tuple type - {}",
-                                    ty_kind
+                                    type_kind
                                 ))
                                 .with_label(Label::primary(
                                     wildcard.span,

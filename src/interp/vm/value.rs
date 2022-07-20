@@ -10,7 +10,7 @@ use crate::{
         self,
         const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
     },
-    infer::ty_ctx::TyCtx,
+    infer::type_ctx::TypeCtx,
     interp::interp::Interp,
     span::Span,
     types::{
@@ -341,9 +341,12 @@ impl Buffer {
                 .into_iter()
                 .map(|index| self.get_value_at_index(index))
                 .collect(),
-            Type::Slice(..) => {
-                vec![self.get_value_at_index(0), self.get_value_at_index(1)]
-            }
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(..) => {
+                    vec![self.get_value_at_index(0), self.get_value_at_index(1)]
+                }
+                ty => panic!("{}", ty),
+            },
             ty => panic!("{}", ty),
         }
     }
@@ -365,15 +368,18 @@ impl Buffer {
                 self.bytes.offset(offset).get_value(&elements[index])
             }
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
-            Type::Slice(ty, _) => match index {
-                0 => self
-                    .bytes
-                    .offset(offset)
-                    .get_value(&Type::Pointer(ty.clone(), false)),
-                1 => self.bytes.offset(offset).get_value(&Type::uint()),
-                _ => panic!("{}", index),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(ty) => match index {
+                    0 => self
+                        .bytes
+                        .offset(offset)
+                        .get_value(&Type::Pointer(ty.clone(), false)),
+                    1 => self.bytes.offset(offset).get_value(&Type::uint()),
+                    _ => panic!("{}", index),
+                },
+                _ => panic!("{}", &self.ty),
             },
-            ty => panic!("{}", ty),
+            _ => panic!("{}", &self.ty),
         }
     }
 }
@@ -469,10 +475,12 @@ impl From<&Type> for ValueKind {
                     }
                 }
             },
-            Type::Pointer(_, _) => Self::Pointer,
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_) => Self::Buffer,
+                _ => Self::Pointer,
+            },
             Type::Function(_) => Self::Function,
             Type::Array(_, _)
-            | Type::Slice(_, _)
             | Type::Tuple(_)
             | Type::Struct(_)
             | Type::Infer(_, InferType::PartialStruct(_) | InferType::PartialTuple(_)) => {
@@ -538,8 +546,15 @@ impl Value {
                 bytes: ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE)),
                 ty: ty.clone(),
             }),
-            Type::Slice(_, _) => todo!(),
-            Type::Tuple(_) => todo!(),
+            Type::Tuple(_) => {
+                let size = ty.size_of(WORD_SIZE);
+                let slice = slice::from_raw_parts(ptr as *const u8, size);
+
+                Self::Buffer(Buffer {
+                    bytes: ByteSeq::from(slice),
+                    ty: ty.clone(),
+                })
+            }
             Type::Struct(struct_ty) => {
                 let size = struct_ty.size_of(WORD_SIZE);
                 let slice = slice::from_raw_parts(ptr as *const u8, size);
@@ -562,7 +577,7 @@ impl Value {
         }
     }
 
-    pub fn get_ty_kind(&self, interp: &Interp) -> Type {
+    pub fn get_type(&self, interp: &Interp) -> Type {
         match self {
             Self::I8(_) => Type::i8(),
             Self::I16(_) => Type::i16(),
@@ -578,7 +593,7 @@ impl Value {
             Self::F64(_) => Type::f64(),
             Self::Bool(_) => Type::Bool,
             Self::Buffer(arr) => arr.ty.clone(),
-            Self::Pointer(p) => Type::Pointer(Box::new(p.get_ty_kind()), true),
+            Self::Pointer(p) => Type::Pointer(Box::new(p.get_type()), true),
             Self::Function(f) => Type::Function(interp.functions.get(&f.id).unwrap().ty.clone()),
             Self::ExternVariable(v) => v.ty.clone(),
             Self::Intrinsic(_) | Self::Type(_) => todo!(),
@@ -587,7 +602,7 @@ impl Value {
 
     pub fn try_into_const_value(
         self,
-        tcx: &mut TyCtx,
+        tcx: &mut TypeCtx,
         ty: &Type,
         eval_span: Span,
     ) -> Result<ConstValue, &'static str> {
@@ -629,14 +644,20 @@ impl Value {
                         element_ty: tcx.bound(*el_ty, eval_span),
                     }))
                 }
-                Type::Slice(inner, _) => {
-                    if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
-                        let str = buf.as_str();
-                        Ok(ConstValue::Str(ustr(str)))
-                    } else {
-                        Err("slice")
+                Type::Pointer(inner, _) => match inner.as_ref() {
+                    Type::Slice(inner) => {
+                        if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
+                            let str = buf.as_str();
+                            Ok(ConstValue::Str(ustr(str)))
+                        } else {
+                            Err("slice")
+                        }
                     }
-                }
+                    _ => panic!(
+                        "value type mismatch. expected an aggregate type, got {}",
+                        ty
+                    ),
+                },
                 Type::Infer(_, InferType::PartialTuple(elements)) | Type::Tuple(elements) => {
                     let align = ty.align_of(WORD_SIZE);
                     let mut values = Vec::with_capacity(elements.len());
@@ -762,7 +783,6 @@ impl Pointer {
                 // Note (Ron): Leak
                 Self::Buffer(Box::leak(array) as *mut Buffer)
             }
-            Type::Slice(_, _) => todo!(),
             Type::Tuple(_) => todo!(),
             Type::Struct(_) => todo!(),
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
@@ -778,7 +798,7 @@ impl Pointer {
         }
     }
 
-    pub fn get_ty_kind(&self) -> Type {
+    pub fn get_type(&self) -> Type {
         match self {
             Self::I8(_) => Type::i8(),
             Self::I16(_) => Type::i16(),
@@ -798,7 +818,7 @@ impl Pointer {
                 if p.is_null() {
                     Box::new(Type::u8())
                 } else {
-                    Box::new(unsafe { &**p }.get_ty_kind())
+                    Box::new(unsafe { &**p }.get_type())
                 },
                 true,
             ),
@@ -885,12 +905,16 @@ impl Display for Buffer {
                 .join(", ");
 
             let len = match &self.ty {
+                Type::Struct(s) => s.fields.len(),
                 Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
                 Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
                     elements.len()
                 }
                 Type::Array(_, size) => *size,
-                Type::Slice(..) => 2,
+                Type::Pointer(inner, _) => match inner.as_ref() {
+                    Type::Slice(_) => 2,
+                    ty => panic!("{}", ty),
+                },
                 ty => panic!("{}", ty),
             };
 
@@ -911,9 +935,10 @@ impl Display for Buffer {
                 Type::Array(..) => {
                     write!(f, "[{}{}]", values_joined, extra_values_str)
                 }
-                Type::Slice(..) => {
-                    write!(f, "&[{}{}]", values_joined, extra_values_str)
-                }
+                Type::Pointer(inner, _) => match inner.as_ref() {
+                    Type::Slice(_) => write!(f, "&[{}{}]", values_joined, extra_values_str),
+                    ty => panic!("{}", ty),
+                },
                 ty => panic!("{}", ty),
             }
         }

@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     hir,
-    infer::{display::DisplayTy, normalize::Normalize, ty_ctx::TyCtx},
+    infer::{display::DisplayTy, normalize::Normalize, type_ctx::TypeCtx},
     workspace::Workspace,
 };
 use std::{fs::OpenOptions, io::Write, path::Path};
@@ -12,14 +12,14 @@ use super::const_value::ConstValue;
 const INDENT: u16 = 2;
 
 #[allow(unused)]
-pub fn print(cache: &hir::Cache, workspace: &Workspace, tcx: &TyCtx) {
+pub fn print(cache: &hir::Cache, workspace: &Workspace, tcx: &TypeCtx) {
     if let Ok(file) = &OpenOptions::new()
         .read(false)
         .write(true)
         .create(true)
         .truncate(true)
         .append(false)
-        .open(Path::new("hir.pretty.chi"))
+        .open(Path::new("hir.pretty.chl"))
     {
         let mut printer = Printer::new(workspace, tcx, file);
         cache.print(&mut printer, true);
@@ -28,13 +28,13 @@ pub fn print(cache: &hir::Cache, workspace: &Workspace, tcx: &TyCtx) {
 
 struct Printer<'a, W: Write> {
     workspace: &'a Workspace,
-    tcx: &'a TyCtx,
+    tcx: &'a TypeCtx,
     writer: W,
     identation: u16,
 }
 
 impl<'a, W: Write> Printer<'a, W> {
-    fn new(workspace: &'a Workspace, tcx: &'a TyCtx, writer: W) -> Self {
+    fn new(workspace: &'a Workspace, tcx: &'a TypeCtx, writer: W) -> Self {
         Self {
             workspace,
             tcx,

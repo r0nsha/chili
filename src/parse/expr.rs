@@ -261,7 +261,7 @@ impl Parser {
             let is_mutable = eat!(self, Mut);
             let expr = self.parse_expr_res(self.restrictions)?;
 
-            Ast::PointerType(ast::ExprAndMut {
+            Ast::PointerType(ast::PointerType {
                 inner: Box::new(expr),
                 is_mutable,
                 span: start_span.to(self.previous_span()),
@@ -338,24 +338,12 @@ impl Parser {
         let start_span = self.previous_span();
 
         if eat!(self, CloseBracket) {
-            // Note (Ron): syntax for mut slices will probably be removed once we have unsized types
-
-            if eat!(self, Mut) {
-                // []mut T
-                let inner = self.parse_expr_res(self.restrictions)?;
-
-                Ok(Ast::SliceType(ast::ExprAndMut {
-                    inner: Box::new(inner),
-                    is_mutable: true,
-                    span: start_span.to(self.previous_span()),
-                }))
-            } else if self.peek().kind.is_expr_start() {
+            if self.peek().kind.is_expr_start() {
                 // []T
                 let inner = self.parse_expr_res(self.restrictions)?;
 
-                Ok(Ast::SliceType(ast::ExprAndMut {
+                Ok(Ast::SliceType(ast::SliceType {
                     inner: Box::new(inner),
-                    is_mutable: false,
                     span: start_span.to(self.previous_span()),
                 }))
             } else {

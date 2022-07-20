@@ -12,7 +12,7 @@ use crate::{
     common::{build_options::BuildOptions, scopes::Scopes},
     error::diagnostic::Diagnostic,
     hir,
-    infer::ty_ctx::TyCtx,
+    infer::type_ctx::TypeCtx,
     types::{FunctionType, FunctionTypeKind, Type},
     workspace::{BindingId, ModuleId, Workspace},
 };
@@ -50,7 +50,7 @@ impl Interp {
     pub fn create_session<'i>(
         &'i mut self,
         workspace: &'i Workspace,
-        tcx: &'i TyCtx,
+        tcx: &'i TypeCtx,
         cache: &'i hir::Cache,
     ) -> InterpSess<'i> {
         InterpSess {
@@ -77,7 +77,7 @@ impl Interp {
 pub struct InterpSess<'i> {
     pub interp: &'i mut Interp,
     pub workspace: &'i Workspace,
-    pub tcx: &'i TyCtx,
+    pub tcx: &'i TypeCtx,
     pub cache: &'i hir::Cache,
 
     pub diagnostics: Vec<Diagnostic>,

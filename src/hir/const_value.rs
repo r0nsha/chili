@@ -1,7 +1,7 @@
 use super::FunctionId;
 use crate::{
     ast::{self, ExternLibrary},
-    infer::{display::DisplayTy, ty_ctx::TyCtx},
+    infer::{display::DisplayTy, type_ctx::TypeCtx},
     types::TypeId,
 };
 use enum_as_inner::EnumAsInner;
@@ -417,7 +417,7 @@ impl ConstValue {
     }
 
     #[allow(unused)]
-    pub fn display(&self, tcx: &TyCtx) -> String {
+    pub fn display(&self, tcx: &TypeCtx) -> String {
         match self {
             ConstValue::Unit(_) => "()".to_string(),
             ConstValue::Type(t) => format!("type {}", t.display(tcx)),

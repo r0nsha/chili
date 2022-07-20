@@ -26,15 +26,15 @@ use crate::{
         display::{DisplayTy, OrReportErr},
         normalize::Normalize,
         substitute::substitute,
-        ty_ctx::TyCtx,
-        unify::{occurs, UnifyTy, UnifyTyErr},
+        type_ctx::TypeCtx,
+        unify::{occurs, UnifyType, UnifyTypeErr},
     },
     interp::{interp::Interp, vm::value::Value},
     span::Span,
     types::{
-        align_of::AlignOf, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
-        FunctionTypeVarargs, InferType, PartialStructType, StructType, StructTypeField,
-        StructTypeKind, Type, TypeId,
+        align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind,
+        FunctionTypeParam, FunctionTypeVarargs, InferType, PartialStructType, StructType,
+        StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo,
@@ -50,14 +50,13 @@ use std::{
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-pub type CheckData = (hir::Cache, TyCtx);
+pub type CheckData = (hir::Cache, TypeCtx);
 
 pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
     let mut sess = CheckSess::new(workspace, &module);
 
     if let Err(diag) = sess.start() {
         sess.workspace.diagnostics.push(diag);
-        return sess.into_data();
     }
 
     if sess.workspace.diagnostics.has_errors() {
@@ -66,6 +65,13 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 
     substitute(&mut sess.workspace.diagnostics, &mut sess.tcx, &sess.cache);
 
+    check_all_extern(&mut sess);
+    check_entry_point_function(&mut sess);
+
+    sess.into_data()
+}
+
+fn check_all_extern(sess: &mut CheckSess) {
     for function in sess
         .cache
         .functions
@@ -82,37 +88,73 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
         }
     }
 
-    sess.into_data()
+    fn ty_is_extern(ty: &Type) -> bool {
+        match ty {
+            Type::Never
+            | Type::Unit
+            | Type::Bool
+            | Type::Int(_)
+            | Type::Uint(_)
+            | Type::Float(_) => true,
+
+            Type::Module(_)
+            | Type::Slice(_)
+            | Type::Type(_)
+            | Type::AnyType
+            | Type::Var(_)
+            | Type::Infer(_, _) => false,
+
+            Type::Pointer(inner, _) | Type::Array(inner, _) => ty_is_extern(inner),
+
+            Type::Function(f) => {
+                ty_is_extern(&f.return_type)
+                    && f.varargs
+                        .as_ref()
+                        .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
+                    && f.params.iter().map(|p| &p.ty).all(ty_is_extern)
+            }
+
+            Type::Tuple(tys) => tys.iter().all(ty_is_extern),
+
+            Type::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
+        }
+    }
 }
 
-fn ty_is_extern(ty: &Type) -> bool {
-    match ty {
-        Type::Never | Type::Unit | Type::Bool | Type::Int(_) | Type::Uint(_) | Type::Float(_) => {
-            true
+fn check_entry_point_function(sess: &mut CheckSess) {
+    // Check that an entry point function exists, if needed
+    if sess.workspace.build_options.need_entry_point_function() {
+        if let Some(binding_info) = sess.workspace.entry_point_function() {
+            let ty = binding_info.ty.normalize(&sess.tcx).into_function();
+
+            // if this is the main function, check its type matches a fn() -> [unit | never]
+            if !(ty.return_type.is_unit() || ty.return_type.is_never())
+                || !ty.params.is_empty()
+                || ty.varargs.is_some()
+            {
+                sess.workspace.diagnostics.push(
+                    Diagnostic::error()
+                        .with_message(format!(
+                            "entry point function `main` has type `{}`, expected `fn() -> ()`",
+                            ty
+                        ))
+                        .with_label(Label::primary(
+                            binding_info.span,
+                            "invalid type of entry point function",
+                        )),
+                );
+            }
+        } else {
+            sess.workspace.diagnostics.push(
+                Diagnostic::error()
+                    .with_message("entry point function `main` is not defined")
+                    .with_label(Label::primary(
+                        Span::initial(sess.workspace.get_root_module_info().file_id),
+                        "",
+                    ))
+                    .with_note("define function `let main = fn() {}` in your entry file"),
+            );
         }
-
-        Type::Module(_)
-        | Type::Type(_)
-        | Type::AnyType
-        | Type::Var(_)
-        | Type::Infer(_, _)
-        | Type::Unknown => false,
-
-        Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner, _) => {
-            ty_is_extern(inner)
-        }
-
-        Type::Function(f) => {
-            ty_is_extern(&f.return_type)
-                && f.varargs
-                    .as_ref()
-                    .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
-                && f.params.iter().map(|p| &p.ty).all(ty_is_extern)
-        }
-
-        Type::Tuple(tys) => tys.iter().all(ty_is_extern),
-
-        Type::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
     }
 }
 
@@ -129,7 +171,7 @@ pub(super) struct CheckSess<'s> {
 
     pub interp: Interp,
 
-    pub tcx: TyCtx,
+    pub tcx: TypeCtx,
 
     // The ast's being processed
     pub modules: &'s Vec<ast::Module>,
@@ -159,7 +201,7 @@ pub(super) struct CheckSess<'s> {
 #[derive(Debug, Clone, Copy)]
 pub struct FunctionFrame {
     return_type: TypeId,
-    return_ty_span: Span,
+    return_type_span: Span,
     scope_level: ScopeLevel,
 }
 
@@ -172,7 +214,7 @@ impl<'s> CheckSess<'s> {
             workspace,
             target_metrics,
             interp,
-            tcx: TyCtx::default(),
+            tcx: TypeCtx::default(),
             modules: old_asts,
             cache: hir::Cache::new(),
             queued_modules: HashMap::new(),
@@ -300,14 +342,6 @@ impl<'s> CheckSess<'s> {
         mk(self, builtin::SYM_STR, self.tcx.common_types.str);
     }
 
-    pub(super) fn is_mutable(&self, node: &hir::Node) -> bool {
-        match node {
-            hir::Node::MemberAccess(access) => self.is_mutable(&access.value),
-            hir::Node::Id(id) => self.workspace.binding_infos.get(id.id).unwrap().is_mutable,
-            _ => true,
-        }
-    }
-
     pub(super) fn is_lvalue(&self, node: &hir::Node) -> bool {
         match node {
             hir::Node::MemberAccess(_)
@@ -413,9 +447,9 @@ impl Check for ast::Binding {
                         value.span(),
                     )?;
 
-                let ty_kind = ty.normalize(&sess.tcx);
+                let binding_type = ty.normalize(&sess.tcx);
 
-                let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
+                let is_type_or_module = binding_type.is_type() || binding_type.is_module();
 
                 // Global immutable bindings must resolve to a const value, unless it is:
                 // - of type `type` or `module`
@@ -426,7 +460,7 @@ impl Check for ast::Binding {
                     && !pattern.iter().any(|p| p.is_mutable)
                 {
                     return Err(Diagnostic::error()
-                        .with_message(format!("immutable top level binding must be constant"))
+                        .with_message(format!("immutable, top level variable must be constant"))
                         .with_label(Label::primary(pattern.span(), "must be constant"))
                         .with_label(Label::secondary(
                             value_node.span(),
@@ -449,6 +483,14 @@ impl Check for ast::Binding {
                                     .with_note("try removing the `mut` from the declaration"),
                             );
                         });
+                } else if binding_type.is_unsized() {
+                    sess.workspace
+                        .diagnostics
+                        .push(TypeError::binding_is_unsized(
+                            &pattern.to_string(),
+                            binding_type.display(&sess.tcx),
+                            pattern.span(),
+                        ))
                 }
 
                 let is_function =
@@ -491,7 +533,6 @@ impl Check for ast::Binding {
                             if let Some(_) = sess.workspace.entry_point_function_id {
                                 // TODO: When attributes are implemented:
                                 // TODO: Emit error that we can't have two entry point functions
-                                // TODO: Also, this should be moved to another place...
                             } else {
                                 sess.workspace.entry_point_function_id = Some(binding.id);
                             }
@@ -766,33 +807,48 @@ impl Check for ast::Ast {
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr) => {
                     let ty = check_type_expr(&expr, sess, env)?;
+                    let ty = ty.normalize(&sess.tcx);
 
-                    let size = ty
-                        .normalize(&sess.tcx)
-                        .size_of(sess.target_metrics.word_size);
+                    if ty.is_unsized() {
+                        Err(TypeError::type_is_unsized(
+                            ty.display(&sess.tcx),
+                            expr.span(),
+                        ))
+                    } else {
+                        let size = ty.size_of(sess.target_metrics.word_size);
 
-                    Ok(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(size as _),
-                        ty: sess.tcx.common_types.uint,
-                        span: expr.span(),
-                    }))
+                        Ok(hir::Node::Const(hir::Const {
+                            value: ConstValue::Uint(size as _),
+                            ty: sess.tcx.common_types.uint,
+                            span: expr.span(),
+                        }))
+                    }
                 }
                 ast::BuiltinKind::AlignOf(expr) => {
                     let ty = check_type_expr(&expr, sess, env)?;
+                    let ty = ty.normalize(&sess.tcx);
 
-                    let align = ty
-                        .normalize(&sess.tcx)
-                        .align_of(sess.target_metrics.word_size);
+                    if ty.is_unsized() {
+                        Err(TypeError::type_is_unsized(
+                            ty.display(&sess.tcx),
+                            expr.span(),
+                        ))
+                    } else {
+                        let align = ty.align_of(sess.target_metrics.word_size);
 
-                    Ok(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(align as _),
-                        ty: sess.tcx.common_types.uint,
-                        span: expr.span(),
-                    }))
+                        Ok(hir::Node::Const(hir::Const {
+                            value: ConstValue::Uint(align as _),
+                            ty: sess.tcx.common_types.uint,
+                            span: expr.span(),
+                        }))
+                    }
                 }
                 ast::BuiltinKind::Run(expr) => {
                     // Note (Ron 02/07/2022):
                     // The inner expression of `run!` isn't allowed to capture its outer environment yet.
+                    // TODO: Running arbitrary code requires these preconditions to be met:
+                    //       1. All types are at least partially inferred
+                    //       2. All types in all memory locations are sized
                     let node = sess.with_env(env.module_id(), |sess, mut env| {
                         expr.check(sess, &mut env, None)
                     })?;
@@ -866,7 +922,6 @@ impl Check for ast::Ast {
 
                 let node = sub.expr.check(sess, env, None)?;
                 let node_type = node.ty().normalize(&sess.tcx);
-                let node_type_deref = node_type.maybe_deref_once();
 
                 let const_value = if let Some(ConstValue::Int(const_index)) =
                     offset_node.as_const_value()
@@ -883,7 +938,7 @@ impl Check for ast::Ast {
                     }
 
                     // compile-time array bounds check
-                    if let Type::Array(_, size) = node_type_deref {
+                    if let Type::Array(_, size) = node_type.maybe_deref_once() {
                         if const_index >= size as _ {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -907,31 +962,37 @@ impl Check for ast::Ast {
                     None
                 };
 
-                match node_type_deref {
-                    Type::Array(inner, ..) | Type::Slice(inner, ..) | Type::Pointer(inner, ..) => {
-                        let ty = sess.tcx.bound(*inner, sub.span);
-
-                        if let Some(const_value) = const_value {
-                            Ok(hir::Node::Const(hir::Const {
-                                value: const_value,
-                                ty,
-                                span: sub.span,
-                            }))
-                        } else {
-                            Ok(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
-                                ty,
-                                span: sub.span,
-                                value: Box::new(node),
-                                index: Box::new(offset_node),
-                            })))
-                        }
+                let inner = match &node_type {
+                    Type::Array(inner, _) => inner.as_ref(),
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Array(inner, _) | Type::Slice(inner) => inner.as_ref(),
+                        inner => inner,
+                    },
+                    _ => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "cannot index type `{}`",
+                                node_type.display(&sess.tcx)
+                            ))
+                            .with_label(Label::primary(sub.expr.span(), "cannot index")))
                     }
-                    _ => Err(Diagnostic::error()
-                        .with_message(format!(
-                            "cannot index type `{}`",
-                            node_type.display(&sess.tcx)
-                        ))
-                        .with_label(Label::primary(sub.expr.span(), "cannot index"))),
+                };
+
+                let ty = sess.tcx.bound(inner.clone(), sub.span);
+
+                if let Some(const_value) = const_value {
+                    Ok(hir::Node::Const(hir::Const {
+                        value: const_value,
+                        ty,
+                        span: sub.span,
+                    }))
+                } else {
+                    Ok(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
+                        ty,
+                        span: sub.span,
+                        value: Box::new(node),
+                        index: Box::new(offset_node),
+                    })))
                 }
             }
             ast::Ast::Slice(slice) => {
@@ -991,20 +1052,25 @@ impl Check for ast::Ast {
                             ty: uint,
                             span: slice.span,
                         }),
-                        Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
-                            // Note (Ron 25/06/2022): This clones the node which is kinda bad.
-                            // But, this is good enough as a starting point.
-                            value: Box::new(node.clone()),
-                            ty: uint,
-                            span: slice.span,
-                            member_name: ustr(BUILTIN_FIELD_LEN),
-                            member_index: 1,
-                        }),
-                        Type::Pointer(..) => {
-                            return Err(Diagnostic::error()
-                                .with_message("slicing a pointer requires specifying the end index")
-                                .with_label(Label::primary(slice.span, "must specify end index")))
-                        }
+                        Type::Pointer(inner, _) => match inner.as_ref() {
+                            Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(node.clone()),
+                                ty: uint,
+                                span: slice.span,
+                                member_name: ustr(BUILTIN_FIELD_LEN),
+                                member_index: 1,
+                            }),
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(
+                                        "slicing a pointer requires specifying the end index",
+                                    )
+                                    .with_label(Label::primary(
+                                        slice.span,
+                                        "must specify end index",
+                                    )))
+                            }
+                        },
                         _ => {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
@@ -1016,22 +1082,23 @@ impl Check for ast::Ast {
                     }
                 };
 
-                if node_type.is_pointer() && slice.high.is_none() {
-                    return Err(Diagnostic::error()
-                        .with_message(
-                            "pointer has an unknown length, so you must specify the ending index",
-                        )
-                        .with_label(Label::primary(
-                            slice.expr.span(),
-                            "pointer has an unknown length",
-                        )));
-                }
+                let inner_type = match node_type {
+                    Type::Array(inner, ..) => inner,
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Slice(inner) => inner.clone(),
+                        _ => {
+                            if slice.high.is_none() {
+                                return Err(Diagnostic::error()
+                                    .with_message("pointer has an unknown length, ending index must be specified")
+                                    .with_label(Label::primary(
+                                        slice.expr.span(),
+                                        "pointer has an unknown length",
+                                    )));
+                            }
 
-                let (result_ty, is_mutable) = match node_type {
-                    Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
-                    Type::Slice(inner, is_mutable) | Type::Pointer(inner, is_mutable) => {
-                        (inner, is_mutable)
-                    }
+                            inner
+                        }
+                    },
                     _ => {
                         return Err(Diagnostic::error()
                             .with_message(format!(
@@ -1042,9 +1109,7 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let ty = sess
-                    .tcx
-                    .bound(Type::Slice(result_ty, is_mutable), slice.span);
+                let ty = sess.tcx.bound(Type::Slice(inner_type), slice.span);
 
                 Ok(hir::Node::Builtin(hir::Builtin::Slice(hir::Slice {
                     ty,
@@ -1097,12 +1162,64 @@ impl Check for ast::Ast {
                 }
 
                 let node_type = node.ty().normalize(&sess.tcx);
-                let node_type_deref = node_type.maybe_deref_once();
+
+                match &node_type {
+                    Type::Pointer(inner, is_mutable) => match inner.as_ref() {
+                        Type::Slice(inner) => {
+                            if access.member.as_str() == BUILTIN_FIELD_LEN {
+                                let ty = sess.tcx.common_types.uint;
+
+                                if let Some(ConstValue::Str(s)) = node.as_const_value() {
+                                    return Ok(hir::Node::Const(hir::Const {
+                                        value: ConstValue::Uint(s.len() as _),
+                                        ty,
+                                        span: access.span,
+                                    }));
+                                } else {
+                                    return Ok(hir::Node::MemberAccess(hir::MemberAccess {
+                                        ty,
+                                        span: access.span,
+                                        value: Box::new(node),
+                                        member_name: access.member,
+                                        member_index: 1,
+                                    }));
+                                }
+                            } else if access.member.as_str() == BUILTIN_FIELD_DATA {
+                                return Ok(hir::Node::MemberAccess(hir::MemberAccess {
+                                    value: Box::new(node),
+                                    member_name: access.member,
+                                    member_index: 0,
+                                    ty: sess.tcx.bound(
+                                        Type::Pointer(inner.clone(), *is_mutable),
+                                        access.span,
+                                    ),
+                                    span: access.span,
+                                }));
+                            }
+                        }
+                        _ => (),
+                    },
+                    Type::Module(module_id) => {
+                        let id = sess.check_top_level_binding(
+                            CallerInfo {
+                                module_id: env.module_id(),
+                                span: access.span,
+                            },
+                            *module_id,
+                            access.member,
+                        )?;
+
+                        return Ok(sess.id_or_const_by_id(id, access.span));
+                    }
+                    _ => (),
+                }
 
                 // Note (Ron): If the accessed value is a pointer, we auto dereference it.
                 let node = if node_type.is_pointer() {
                     hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                        ty: sess.tcx.bound(node_type_deref.clone(), node.span()),
+                        ty: sess
+                            .tcx
+                            .bound(node_type.maybe_deref_once().clone(), node.span()),
                         span: node.span(),
                         value: Box::new(node),
                     }))
@@ -1110,7 +1227,7 @@ impl Check for ast::Ast {
                     node
                 };
 
-                match &node_type_deref {
+                match &node_type.maybe_deref_once() {
                     ty @ Type::Tuple(elements)
                     | ty @ Type::Infer(_, InferType::PartialTuple(elements)) => {
                         match member_tuple_index {
@@ -1218,50 +1335,6 @@ impl Check for ast::Ast {
                             ty: sess.tcx.common_types.uint,
                             span: access.span,
                         }))
-                    }
-                    Type::Slice(..) if access.member.as_str() == BUILTIN_FIELD_LEN => {
-                        let ty = sess.tcx.common_types.uint;
-
-                        if let Some(ConstValue::Str(s)) = node.as_const_value() {
-                            Ok(hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(s.len() as _),
-                                ty,
-                                span: access.span,
-                            }))
-                        } else {
-                            Ok(hir::Node::MemberAccess(hir::MemberAccess {
-                                ty,
-                                span: access.span,
-                                value: Box::new(node),
-                                member_name: access.member,
-                                member_index: 1,
-                            }))
-                        }
-                    }
-                    Type::Slice(inner, is_mutable)
-                        if access.member.as_str() == BUILTIN_FIELD_DATA =>
-                    {
-                        Ok(hir::Node::MemberAccess(hir::MemberAccess {
-                            ty: sess
-                                .tcx
-                                .bound(Type::Pointer(inner.clone(), *is_mutable), access.span),
-                            span: access.span,
-                            value: Box::new(node),
-                            member_name: access.member,
-                            member_index: 0,
-                        }))
-                    }
-                    Type::Module(module_id) => {
-                        let id = sess.check_top_level_binding(
-                            CallerInfo {
-                                module_id: env.module_id(),
-                                span: access.span,
-                            },
-                            *module_id,
-                            access.member,
-                        )?;
-
-                        Ok(sess.id_or_const_by_id(id, access.span))
                     }
                     ty => Err(Diagnostic::error()
                         .with_message(format!(
@@ -1424,106 +1497,7 @@ impl Check for ast::Ast {
                     }
                 }
             },
-            ast::Ast::TupleLiteral(lit) => {
-                // when a tuple literal is empty, it is either a unit value or unit type
-                if lit.elements.is_empty() {
-                    let unit_ty = sess.tcx.common_types.unit;
-
-                    let (ty, const_value) =
-                        if expected_type.map_or(false, |ty| ty.normalize(&sess.tcx).is_type()) {
-                            (
-                                sess.tcx.bound(unit_ty.as_kind().create_type(), lit.span),
-                                ConstValue::Type(unit_ty),
-                            )
-                        } else {
-                            (unit_ty, ConstValue::Unit(()))
-                        };
-
-                    return Ok(hir::Node::Const(hir::Const {
-                        value: const_value,
-                        ty,
-                        span: lit.span,
-                    }));
-                }
-
-                let elements = lit
-                    .elements
-                    .iter()
-                    .map(|el| el.check(sess, env, None))
-                    .collect::<DiagnosticResult<Vec<_>>>()?;
-
-                let is_const_tuple = elements.iter().all(|node| node.is_const());
-
-                if is_const_tuple {
-                    let const_values: Vec<&ConstValue> = elements
-                        .iter()
-                        .map(|node| node.as_const_value().unwrap())
-                        .collect();
-
-                    let is_tuple_type = const_values.iter().all(|v| v.as_type().is_some());
-
-                    if is_tuple_type {
-                        let element_tys: Vec<Type> = elements
-                            .iter()
-                            .map(|node| {
-                                node.as_const_value()
-                                    .unwrap()
-                                    .as_type()
-                                    .unwrap()
-                                    .normalize(&sess.tcx)
-                                    .clone()
-                            })
-                            .collect();
-
-                        let tuple_type = Type::Tuple(element_tys);
-
-                        let const_value =
-                            ConstValue::Type(sess.tcx.bound(tuple_type.clone(), lit.span));
-
-                        Ok(hir::Node::Const(hir::Const {
-                            value: const_value,
-                            ty: sess.tcx.bound(tuple_type.create_type(), lit.span),
-                            span: lit.span,
-                        }))
-                    } else {
-                        let element_tys: Vec<TypeId> = elements.iter().map(|el| el.ty()).collect();
-
-                        let element_ty_kinds: Vec<Type> =
-                            element_tys.iter().map(|ty| ty.as_kind()).collect();
-
-                        let ty = sess.tcx.bound(Type::Tuple(element_ty_kinds), lit.span);
-
-                        let const_value = ConstValue::Tuple(
-                            const_values
-                                .iter()
-                                .cloned()
-                                .cloned()
-                                .zip(element_tys)
-                                .map(|(value, ty)| ConstElement { value, ty })
-                                .collect(),
-                        );
-
-                        Ok(hir::Node::Const(hir::Const {
-                            value: const_value,
-                            ty,
-                            span: lit.span,
-                        }))
-                    }
-                } else {
-                    let element_tys: Vec<Type> =
-                        elements.iter().map(|e| e.ty().as_kind()).collect();
-
-                    let kind = Type::Tuple(element_tys);
-
-                    let ty = sess.tcx.bound(kind.clone(), lit.span);
-
-                    Ok(hir::Node::Literal(hir::Literal::Tuple(hir::TupleLiteral {
-                        elements,
-                        ty,
-                        span: lit.span,
-                    })))
-                }
-            }
+            ast::Ast::TupleLiteral(lit) => lit.check(sess, env, expected_type),
             ast::Ast::StructLiteral(lit) => match &lit.type_expr {
                 Some(type_expr) => {
                     let node = type_expr.check(sess, env, Some(sess.tcx.common_types.anytype))?;
@@ -1580,155 +1554,127 @@ impl Check for ast::Ast {
                     value: const_value,
                 }))
             }
-            ast::Ast::PointerType(ast::ExprAndMut {
+            ast::Ast::PointerType(ast::PointerType {
                 inner,
                 is_mutable,
                 span,
                 ..
             }) => {
-                let node = inner.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(&node)?;
-                let kind = Type::Pointer(Box::new(inner_kind.into()), *is_mutable);
+                let inner_type = check_type_expr(inner, sess, env)?;
+                let ptr_type = Type::Pointer(Box::new(inner_type.into()), *is_mutable);
 
                 Ok(hir::Node::Const(hir::Const {
-                    ty: sess.tcx.bound(kind.clone().create_type(), *span),
+                    ty: sess.tcx.bound(ptr_type.clone().create_type(), *span),
                     span: *span,
-                    value: ConstValue::Type(sess.tcx.bound(kind, *span)),
+                    value: ConstValue::Type(sess.tcx.bound(ptr_type, *span)),
                 }))
             }
             ast::Ast::ArrayType(ast::ArrayType {
                 inner, size, span, ..
             }) => {
-                let inner_node = inner.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                let inner_ty = sess.extract_const_type(&inner_node)?;
+                let inner_type = check_type_expr(inner, sess, env)?;
 
                 let size_node = size.check(sess, env, None)?;
-
                 let size_value = sess.extract_const_int(&size_node)?;
 
                 if size_value < 0 {
                     return Err(TypeError::negative_array_len(size.span(), size_value));
                 }
 
-                let array_ty = Type::Array(Box::new(inner_ty.into()), size_value as usize);
+                let inner_type_norm = inner_type.normalize(&sess.tcx);
+                if inner_type_norm.is_unsized() {
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "the size of type `{}` cannot be known at compile-time",
+                            inner_type_norm.display(&sess.tcx)
+                        ))
+                        .with_label(Label::primary(
+                            inner.span(),
+                            "doesn't have a size known at compile-time",
+                        ))
+                        .with_note("array element's size must be known at compile-time"));
+                }
+
+                let array_type = Type::Array(Box::new(inner_type.into()), size_value as usize);
 
                 Ok(hir::Node::Const(hir::Const {
-                    ty: sess.tcx.bound(array_ty.clone().create_type(), *span),
+                    ty: sess.tcx.bound(array_type.clone().create_type(), *span),
                     span: *span,
-                    value: ConstValue::Type(sess.tcx.bound(array_ty, *span)),
+                    value: ConstValue::Type(sess.tcx.bound(array_type, *span)),
                 }))
             }
-            ast::Ast::SliceType(ast::ExprAndMut {
-                inner,
-                is_mutable,
-                span,
-                ..
-            }) => {
-                let node = inner.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                let inner_kind = sess.extract_const_type(&node)?;
-                let kind = Type::Slice(Box::new(inner_kind.into()), *is_mutable);
+            ast::Ast::SliceType(ast::SliceType { inner, span, .. }) => {
+                let inner_type = check_type_expr(inner, sess, env)?;
+
+                let inner_type_norm = inner_type.normalize(&sess.tcx);
+                if inner_type_norm.is_unsized() {
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "the size of type `{}` cannot be known at compile-time",
+                            inner_type_norm.display(&sess.tcx)
+                        ))
+                        .with_label(Label::primary(
+                            inner.span(),
+                            "doesn't have a size known at compile-time",
+                        ))
+                        .with_note("slice element's size must be known at compile-time"));
+                }
+
+                let slice_type = Type::Slice(Box::new(inner_type.into()));
 
                 Ok(hir::Node::Const(hir::Const {
-                    ty: sess.tcx.bound(kind.clone().create_type(), *span),
+                    ty: sess.tcx.bound(slice_type.clone().create_type(), *span),
                     span: *span,
-                    value: ConstValue::Type(sess.tcx.bound(kind, *span)),
+                    value: ConstValue::Type(sess.tcx.bound(slice_type, *span)),
                 }))
             }
-            ast::Ast::StructType(st) => {
-                let name = if st.name.is_empty() {
-                    get_anonymous_struct_name(st.span)
-                } else {
-                    st.name
-                };
+            ast::Ast::StructType(struct_type) => struct_type.check(sess, env, expected_type),
+            ast::Ast::FunctionType(sig) => {
+                let node = sig.check(sess, env, expected_type)?;
+                let function_type = node.ty().normalize(&sess.tcx).into_function();
 
-                // the struct's main type variable
-                let struct_ty_var = sess.tcx.bound(
-                    Type::Struct(StructType::empty(name, BindingId::unknown(), st.kind)),
-                    st.span,
-                );
+                for (i, param) in function_type.params.iter().enumerate() {
+                    let ty = param.ty.normalize(&sess.tcx);
 
-                // the struct's main type variable, in its `type` variation
-                let struct_ty_type_var = sess
-                    .tcx
-                    .bound(struct_ty_var.as_kind().create_type(), st.span);
+                    if ty.is_unsized() {
+                        let pattern = &sig.params[i].pattern;
 
-                sess.self_types.push(struct_ty_var);
-
-                env.push_scope(ScopeKind::Block);
-
-                let (binding_id, _) = sess.bind_name(
-                    env,
-                    name,
-                    ast::Visibility::Private,
-                    struct_ty_type_var,
-                    Some(hir::Node::Const(hir::Const {
-                        value: ConstValue::Type(struct_ty_var),
-                        ty: sess.tcx.common_types.anytype,
-                        span: st.span,
-                    })),
-                    false,
-                    BindingInfoKind::Orphan,
-                    st.span,
-                    BindingInfoFlags::empty(),
-                )?;
-
-                sess.tcx.bind_ty(
-                    struct_ty_var,
-                    Type::Struct(StructType::empty(name, binding_id, st.kind)),
-                );
-
-                let mut field_map = UstrMap::<Span>::default();
-                let mut struct_ty_fields = vec![];
-
-                for field in st.fields.iter() {
-                    let node = field
-                        .ty
-                        .check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                    let ty = sess.extract_const_type(&node)?;
-
-                    if let Some(defined_span) = field_map.insert(field.name, field.span) {
-                        return Err(SyntaxError::duplicate_struct_field(
-                            defined_span,
-                            field.span,
-                            field.name.to_string(),
-                        ));
+                        sess.workspace
+                            .diagnostics
+                            .push(TypeError::binding_is_unsized(
+                                &pattern.to_string(),
+                                ty.display(&sess.tcx),
+                                pattern.span(),
+                            ))
                     }
-
-                    struct_ty_fields.push(StructTypeField {
-                        name: field.name,
-                        ty: ty.into(),
-                        span: field.span,
-                    });
                 }
 
-                env.pop_scope();
-
-                sess.self_types.pop();
-
-                let struct_ty = Type::Struct(StructType {
-                    name,
-                    binding_id,
-                    kind: st.kind,
-                    fields: struct_ty_fields,
-                });
-
-                if occurs(struct_ty_var, &struct_ty, &sess.tcx) {
-                    Err(UnifyTyErr::Occurs.into_diagnostic(
-                        &sess.tcx,
-                        struct_ty,
-                        None,
-                        struct_ty_var,
-                        st.span,
+                let return_type_norm = function_type.return_type.normalize(&sess.tcx);
+                if return_type_norm.is_unsized() {
+                    sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                        return_type_norm.display(&sess.tcx),
+                        sig.return_type
+                            .as_ref()
+                            .map(|t| t.span())
+                            .unwrap_or(sig.span),
                     ))
-                } else {
-                    Ok(hir::Node::Const(hir::Const {
-                        ty: sess.tcx.bound(struct_ty.clone().create_type(), st.span),
-                        span: st.span,
-                        value: ConstValue::Type(sess.tcx.bound(struct_ty, st.span)),
-                    }))
                 }
+
+                if let Some(varargs) = &function_type.varargs {
+                    if let Some(varargs_type) = &varargs.ty {
+                        let varargs_type = varargs_type.normalize(&sess.tcx);
+
+                        if varargs_type.is_unsized() {
+                            sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                                varargs_type.display(&sess.tcx),
+                                sig.varargs.as_ref().unwrap().span,
+                            ))
+                        }
+                    }
+                }
+
+                Ok(node)
             }
-            ast::Ast::FunctionType(sig) => sig.check(sess, env, expected_type),
             ast::Ast::SelfType(expr) => match sess.self_types.last() {
                 Some(&ty) => {
                     let ty = sess.tcx.bound(ty.as_kind().create_type(), expr.span);
@@ -1740,8 +1686,8 @@ impl Check for ast::Ast {
                     }))
                 }
                 None => Err(Diagnostic::error()
-                    .with_message("`Self` is only available within struct types")
-                    .with_label(Label::primary(expr.span, "`Self` is invalid here"))),
+                    .with_message("Self is only available within struct types")
+                    .with_label(Label::primary(expr.span, "invalid Self"))),
             },
             ast::Ast::Placeholder(expr) => {
                 let ty = sess.tcx.var(expr.span);
@@ -2023,171 +1969,180 @@ impl Check for ast::For {
 
                 let value_node_type = value_node.ty().normalize(&sess.tcx);
 
-                match value_node_type.maybe_deref_once() {
-                    Type::Array(inner, ..) | Type::Slice(inner, ..) => {
-                        env.push_scope(ScopeKind::Loop);
-                        sess.loop_depth += 1;
-
-                        let mut statements: Vec<hir::Node> = vec![];
-
-                        // bind the value to a local variable, so we don't have to evaluate the expression every loop
-                        let value_name = sess.generate_name("iterator");
-                        let (value_id, value_binding) = sess.bind_name(
-                            env,
-                            value_name,
-                            ast::Visibility::Private,
-                            value_type,
-                            Some(value_node),
-                            false,
-                            BindingInfoKind::Orphan,
-                            value_span,
-                            BindingInfoFlags::empty(),
-                        )?;
-
-                        statements.push(value_binding);
-
-                        let value_id_node = hir::Node::Id(hir::Id {
-                            id: value_id,
-                            ty: value_type,
-                            span: value_span,
-                        });
-
-                        // let mut index = 0
-                        let index_binding =
-                            self.index_binding
-                                .clone()
-                                .unwrap_or_else(|| ast::NameAndSpan {
-                                    name: sess.generate_name("index"),
-                                    span: self.span,
-                                });
-
-                        let (index_id, index_binding) = sess.bind_name(
-                            env,
-                            index_binding.name,
-                            ast::Visibility::Private,
-                            index_type,
-                            Some(hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(0),
-                                ty: index_type,
-                                span: index_binding.span,
-                            })),
-                            false,
-                            BindingInfoKind::Orphan,
-                            index_binding.span,
-                            if self.index_binding.is_some() {
-                                BindingInfoFlags::IS_USER_DEFINED
-                                    | BindingInfoFlags::TYPE_WAS_INFERRED
-                                    | BindingInfoFlags::NO_CONST_FOLD
-                            } else {
-                                BindingInfoFlags::NO_CONST_FOLD
-                            },
-                        )?;
-
-                        statements.push(index_binding);
-
-                        let index_id_node = hir::Node::Id(hir::Id {
-                            id: index_id,
-                            ty: index_type,
-                            span: self.span,
-                        });
-
-                        // index <= value.len
-                        let value_len_node = match &value_node_type {
-                            Type::Array(_, size) => hir::Node::Const(hir::Const {
-                                value: ConstValue::Uint(*size as _),
-                                ty: index_type,
-                                span: self.span,
-                            }),
-                            Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(value_id_node.clone()),
-                                member_name: ustr("len"),
-                                member_index: 1,
-                                ty: index_type,
-                                span: self.span,
-                            }),
-                            _ => unreachable!(),
-                        };
-
-                        let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
-                            ty: bool_type,
-                            span: self.span,
-                            lhs: Box::new(index_id_node.clone()),
-                            rhs: Box::new(value_len_node),
-                        }));
-
-                        // bind before block is checked: let iter = value[index]
-                        let iter_type = sess
-                            .tcx
-                            .bound(inner.as_ref().clone(), self.iter_binding.span);
-
-                        let (_, iter_binding) = sess.bind_name(
-                            env,
-                            self.iter_binding.name,
-                            ast::Visibility::Private,
-                            iter_type,
-                            Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
-                                value: Box::new(value_id_node),
-                                index: Box::new(index_id_node.clone()),
-                                ty: iter_type,
-                                span: self.span,
-                            }))),
-                            false,
-                            BindingInfoKind::Orphan,
-                            self.iter_binding.span,
-                            BindingInfoFlags::IS_USER_DEFINED
-                                | BindingInfoFlags::TYPE_WAS_INFERRED
-                                | BindingInfoFlags::NO_CONST_FOLD,
-                        )?;
-
-                        // loop block { ... }
-                        let mut block_node =
-                            self.block.check(sess, env, None)?.into_sequence().unwrap();
-
-                        // let iter = value[index]
-                        block_node.statements.insert(0, iter_binding);
-
-                        // index += 1
-                        block_node
-                            .statements
-                            .push(hir::Node::Assignment(hir::Assignment {
-                                lhs: Box::new(index_id_node.clone()),
-                                rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
-                                    ty: index_type,
-                                    span: self.span,
-                                    lhs: Box::new(index_id_node),
-                                    rhs: Box::new(hir::Node::Const(hir::Const {
-                                        value: ConstValue::Uint(1),
-                                        ty: index_type,
-                                        span: self.span,
-                                    })),
-                                }))),
-                                ty: unit_type,
-                                span: self.span,
-                            }));
-
-                        sess.loop_depth -= 1;
-                        env.pop_scope();
-
-                        statements.push(hir::Node::Control(hir::Control::While(hir::While {
-                            condition: Box::new(condition),
-                            body: Box::new(hir::Node::Sequence(block_node)),
-                            ty: unit_type,
-                            span: self.span,
-                        })));
-
-                        Ok(hir::Node::Sequence(hir::Sequence {
-                            statements,
-                            ty: unit_type,
-                            span: self.span,
-                            is_block: false,
-                        }))
-                    }
+                let inner = match &value_node_type {
+                    Type::Array(inner, _) => inner.clone(),
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Slice(inner) | Type::Array(inner, _) => inner.clone(),
+                        _ => {
+                            // TODO: duplicate error
+                            return Err(Diagnostic::error()
+                                .with_message(format!("can't iterate over `{}`", value_node_type))
+                                .with_label(Label::primary(value.span(), "can't iterate")));
+                        }
+                    },
                     _ => {
+                        // TODO: duplicate error
                         return Err(Diagnostic::error()
                             .with_message(format!("can't iterate over `{}`", value_node_type))
                             .with_label(Label::primary(value.span(), "can't iterate")));
                     }
-                }
+                };
+
+                env.push_scope(ScopeKind::Loop);
+                sess.loop_depth += 1;
+
+                let mut statements: Vec<hir::Node> = vec![];
+
+                // bind the value to a local variable, so we don't have to evaluate the expression every loop
+                let value_name = sess.generate_name("iterator");
+                let (value_id, value_binding) = sess.bind_name(
+                    env,
+                    value_name,
+                    ast::Visibility::Private,
+                    value_type,
+                    Some(value_node),
+                    false,
+                    BindingInfoKind::Orphan,
+                    value_span,
+                    BindingInfoFlags::empty(),
+                )?;
+
+                statements.push(value_binding);
+
+                let value_id_node = hir::Node::Id(hir::Id {
+                    id: value_id,
+                    ty: value_type,
+                    span: value_span,
+                });
+
+                // let mut index = 0
+                let index_binding =
+                    self.index_binding
+                        .clone()
+                        .unwrap_or_else(|| ast::NameAndSpan {
+                            name: sess.generate_name("index"),
+                            span: self.span,
+                        });
+
+                let (index_id, index_binding) = sess.bind_name(
+                    env,
+                    index_binding.name,
+                    ast::Visibility::Private,
+                    index_type,
+                    Some(hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(0),
+                        ty: index_type,
+                        span: index_binding.span,
+                    })),
+                    false,
+                    BindingInfoKind::Orphan,
+                    index_binding.span,
+                    if self.index_binding.is_some() {
+                        BindingInfoFlags::IS_USER_DEFINED
+                            | BindingInfoFlags::TYPE_WAS_INFERRED
+                            | BindingInfoFlags::NO_CONST_FOLD
+                    } else {
+                        BindingInfoFlags::NO_CONST_FOLD
+                    },
+                )?;
+
+                statements.push(index_binding);
+
+                let index_id_node = hir::Node::Id(hir::Id {
+                    id: index_id,
+                    ty: index_type,
+                    span: self.span,
+                });
+
+                // index <= value.len
+                let value_len_node = match &value_node_type {
+                    Type::Array(_, size) => hir::Node::Const(hir::Const {
+                        value: ConstValue::Uint(*size as _),
+                        ty: index_type,
+                        span: self.span,
+                    }),
+                    // This must be a Pointer(Slice)
+                    _ => hir::Node::MemberAccess(hir::MemberAccess {
+                        value: Box::new(value_id_node.clone()),
+                        member_name: ustr("len"),
+                        member_index: 1,
+                        ty: index_type,
+                        span: self.span,
+                    }),
+                };
+
+                let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
+                    ty: bool_type,
+                    span: self.span,
+                    lhs: Box::new(index_id_node.clone()),
+                    rhs: Box::new(value_len_node),
+                }));
+
+                // bind before block is checked: let iter = value[index]
+                let iter_type = sess
+                    .tcx
+                    .bound(inner.as_ref().clone(), self.iter_binding.span);
+
+                let (_, iter_binding) = sess.bind_name(
+                    env,
+                    self.iter_binding.name,
+                    ast::Visibility::Private,
+                    iter_type,
+                    Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
+                        value: Box::new(value_id_node),
+                        index: Box::new(index_id_node.clone()),
+                        ty: iter_type,
+                        span: self.span,
+                    }))),
+                    false,
+                    BindingInfoKind::Orphan,
+                    self.iter_binding.span,
+                    BindingInfoFlags::IS_USER_DEFINED
+                        | BindingInfoFlags::TYPE_WAS_INFERRED
+                        | BindingInfoFlags::NO_CONST_FOLD,
+                )?;
+
+                // loop block { ... }
+                let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
+
+                // let iter = value[index]
+                block_node.statements.insert(0, iter_binding);
+
+                // index += 1
+                block_node
+                    .statements
+                    .push(hir::Node::Assignment(hir::Assignment {
+                        lhs: Box::new(index_id_node.clone()),
+                        rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
+                            ty: index_type,
+                            span: self.span,
+                            lhs: Box::new(index_id_node),
+                            rhs: Box::new(hir::Node::Const(hir::Const {
+                                value: ConstValue::Uint(1),
+                                ty: index_type,
+                                span: self.span,
+                            })),
+                        }))),
+                        ty: unit_type,
+                        span: self.span,
+                    }));
+
+                sess.loop_depth -= 1;
+                env.pop_scope();
+
+                statements.push(hir::Node::Control(hir::Control::While(hir::While {
+                    condition: Box::new(condition),
+                    body: Box::new(hir::Node::Sequence(block_node)),
+                    ty: unit_type,
+                    span: self.span,
+                })));
+
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
+                    ty: unit_type,
+                    span: self.span,
+                    is_block: false,
+                }))
             }
         }
     }
@@ -2216,7 +2171,7 @@ impl Check for ast::Function {
                 .map_or(self.sig.span, |e| e.span()),
         );
 
-        let return_ty_span = self
+        let return_type_span = self
             .sig
             .return_type
             .as_ref()
@@ -2305,7 +2260,7 @@ impl Check for ast::Function {
             name,
             qualified_name,
             kind: hir::FunctionKind::Orphan {
-                params,
+                params: params.clone(),
                 inferred_return_type_span: if self.sig.return_type.is_some() {
                     None
                 } else {
@@ -2323,7 +2278,7 @@ impl Check for ast::Function {
             .with_function_frame(
                 FunctionFrame {
                     return_type,
-                    return_ty_span,
+                    return_type_span,
                     scope_level: env.scope_level(),
                 },
                 |sess| self.body.check(sess, env, Some(return_type)),
@@ -2348,12 +2303,52 @@ impl Check for ast::Function {
         unify_node.or_report_err(
             &sess.tcx,
             return_type,
-            Some(return_ty_span),
+            Some(return_type_span),
             body_node.ty,
             self.body.span,
         )?;
 
         env.pop_scope();
+
+        // Check that all parameter types are sized
+        for param in params.iter() {
+            let ty = param.ty.normalize(&sess.tcx);
+
+            if ty.is_unsized() {
+                let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
+
+                sess.workspace
+                    .diagnostics
+                    .push(TypeError::binding_is_unsized(
+                        &binding_info.name,
+                        ty.display(&sess.tcx),
+                        binding_info.span,
+                    ))
+            }
+        }
+
+        // Check that the return type is sized
+        let return_type_norm = return_type.normalize(&sess.tcx);
+        if return_type_norm.is_unsized() {
+            sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                return_type_norm.display(&sess.tcx),
+                return_type_span,
+            ))
+        }
+
+        // Check that the variadic argument is sized
+        if let Some(varargs) = &function_type.varargs {
+            if let Some(varargs_type) = &varargs.ty {
+                let varargs_type = varargs_type.normalize(&sess.tcx);
+
+                if varargs_type.is_unsized() {
+                    sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                        varargs_type.display(&sess.tcx),
+                        self.sig.varargs.as_ref().unwrap().span,
+                    ))
+                }
+            }
+        }
 
         sess.cache
             .functions
@@ -2439,7 +2434,7 @@ impl Check for ast::Return {
                 .or_report_err(
                     &sess.tcx,
                     return_type,
-                    Some(function_frame.return_ty_span),
+                    Some(function_frame.return_type_span),
                     node.ty(),
                     expr.span(),
                 )?;
@@ -2794,7 +2789,7 @@ impl Check for ast::Unary {
                     self.span,
                 );
 
-                if sess.is_lvalue(&node) {
+                if sess.is_lvalue(&node) || node_type.normalize(&sess.tcx).is_unsized() {
                     Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
                         value: Box::new(node),
                         is_mutable,
@@ -3166,6 +3161,244 @@ impl Check for ast::Block {
                 ty: yield_type,
                 span: self.span,
                 is_block: true,
+            }))
+        }
+    }
+}
+
+impl Check for ast::TupleLiteral {
+    fn check(
+        &self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        expected_type: Option<TypeId>,
+    ) -> CheckResult {
+        // when a tuple literal is empty, it is either a unit value or unit type
+        if self.elements.is_empty() {
+            let unit_ty = sess.tcx.common_types.unit;
+
+            let (ty, const_value) =
+                if expected_type.map_or(false, |ty| ty.normalize(&sess.tcx).is_type()) {
+                    (
+                        sess.tcx.bound(unit_ty.as_kind().create_type(), self.span),
+                        ConstValue::Type(unit_ty),
+                    )
+                } else {
+                    (unit_ty, ConstValue::Unit(()))
+                };
+
+            return Ok(hir::Node::Const(hir::Const {
+                value: const_value,
+                ty,
+                span: self.span,
+            }));
+        }
+
+        let elements = self
+            .elements
+            .iter()
+            .map(|el| el.check(sess, env, None))
+            .collect::<DiagnosticResult<Vec<_>>>()?;
+
+        let is_const_tuple = elements.iter().all(|node| node.is_const());
+
+        if is_const_tuple {
+            let const_values: Vec<&ConstValue> = elements
+                .iter()
+                .map(|node| node.as_const_value().unwrap())
+                .collect();
+
+            let is_tuple_type = const_values.iter().all(|v| v.as_type().is_some());
+
+            if is_tuple_type {
+                let element_types: Vec<Type> = elements
+                    .iter()
+                    .map(|node| {
+                        node.as_const_value()
+                            .unwrap()
+                            .as_type()
+                            .unwrap()
+                            .normalize(&sess.tcx)
+                            .clone()
+                    })
+                    .collect();
+
+                for (i, elem_type) in element_types.iter().enumerate() {
+                    if elem_type.is_unsized() {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "the size of type `{}` cannot be known at compile-time",
+                                elem_type.display(&sess.tcx)
+                            ))
+                            .with_label(Label::primary(
+                                elements[i].span(),
+                                "doesn't have a size known at compile-time",
+                            ))
+                            .with_note("tuple element sizes must be known at compile-time"));
+                    }
+                }
+
+                let tuple_type = Type::Tuple(element_types);
+                let const_value = ConstValue::Type(sess.tcx.bound(tuple_type.clone(), self.span));
+
+                Ok(hir::Node::Const(hir::Const {
+                    value: const_value,
+                    ty: sess.tcx.bound(tuple_type.create_type(), self.span),
+                    span: self.span,
+                }))
+            } else {
+                let element_tys: Vec<TypeId> = elements.iter().map(|el| el.ty()).collect();
+
+                let element_type_norms: Vec<Type> =
+                    element_tys.iter().map(|ty| ty.as_kind()).collect();
+
+                let ty = sess.tcx.bound(Type::Tuple(element_type_norms), self.span);
+
+                let const_value = ConstValue::Tuple(
+                    const_values
+                        .iter()
+                        .cloned()
+                        .cloned()
+                        .zip(element_tys)
+                        .map(|(value, ty)| ConstElement { value, ty })
+                        .collect(),
+                );
+
+                Ok(hir::Node::Const(hir::Const {
+                    value: const_value,
+                    ty,
+                    span: self.span,
+                }))
+            }
+        } else {
+            let element_tys: Vec<Type> = elements.iter().map(|e| e.ty().as_kind()).collect();
+
+            let kind = Type::Tuple(element_tys);
+
+            let ty = sess.tcx.bound(kind.clone(), self.span);
+
+            Ok(hir::Node::Literal(hir::Literal::Tuple(hir::TupleLiteral {
+                elements,
+                ty,
+                span: self.span,
+            })))
+        }
+    }
+}
+impl Check for ast::StructType {
+    fn check(
+        &self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        _expected_type: Option<TypeId>,
+    ) -> CheckResult {
+        let name = if self.name.is_empty() {
+            get_anonymous_struct_name(self.span)
+        } else {
+            self.name
+        };
+
+        // the struct's main type variable
+        let struct_type_var = sess.tcx.bound(
+            Type::Struct(StructType::empty(name, BindingId::unknown(), self.kind)),
+            self.span,
+        );
+
+        // the struct's main type variable, in its `type` variation
+        let struct_type_type_var = sess
+            .tcx
+            .bound(struct_type_var.as_kind().create_type(), self.span);
+
+        sess.self_types.push(struct_type_var);
+
+        env.push_scope(ScopeKind::Block);
+
+        let (binding_id, _) = sess.bind_name(
+            env,
+            name,
+            ast::Visibility::Private,
+            struct_type_type_var,
+            Some(hir::Node::Const(hir::Const {
+                value: ConstValue::Type(struct_type_var),
+                ty: sess.tcx.common_types.anytype,
+                span: self.span,
+            })),
+            false,
+            BindingInfoKind::Orphan,
+            self.span,
+            BindingInfoFlags::empty(),
+        )?;
+
+        sess.tcx.bind_ty(
+            struct_type_var,
+            Type::Struct(StructType::empty(name, binding_id, self.kind)),
+        );
+
+        let mut field_map = UstrMap::<Span>::default();
+        let mut struct_type_fields = vec![];
+
+        for field in self.fields.iter() {
+            let node = field
+                .ty
+                .check(sess, env, Some(sess.tcx.common_types.anytype))?;
+            let ty = sess.extract_const_type(&node)?;
+
+            if let Some(defined_span) = field_map.insert(field.name, field.span) {
+                return Err(SyntaxError::duplicate_struct_field(
+                    defined_span,
+                    field.span,
+                    field.name.to_string(),
+                ));
+            }
+
+            struct_type_fields.push(StructTypeField {
+                name: field.name,
+                ty: ty.into(),
+                span: field.span,
+            });
+        }
+
+        env.pop_scope();
+
+        sess.self_types.pop();
+
+        for field in struct_type_fields.iter() {
+            let field_type = field.ty.normalize(&sess.tcx);
+            if field_type.is_unsized() {
+                return Err(Diagnostic::error()
+                    .with_message(format!(
+                        "the size of `{}`s type `{}` cannot be known at compile-time",
+                        field.name,
+                        field_type.display(&sess.tcx)
+                    ))
+                    .with_label(Label::primary(
+                        field.span,
+                        "doesn't have a size known at compile-time",
+                    ))
+                    .with_note("struct field sizes must be known at compile-time"));
+            }
+        }
+
+        let struct_type = Type::Struct(StructType {
+            name,
+            binding_id,
+            kind: self.kind,
+            fields: struct_type_fields,
+        });
+
+        if occurs(struct_type_var, &struct_type, &sess.tcx) {
+            Err(UnifyTypeErr::Occurs.into_diagnostic(
+                &sess.tcx,
+                struct_type,
+                None,
+                struct_type_var,
+                self.span,
+            ))
+        } else {
+            Ok(hir::Node::Const(hir::Const {
+                ty: sess.tcx.bound(struct_type.clone().create_type(), self.span),
+                span: self.span,
+                value: ConstValue::Type(sess.tcx.bound(struct_type, self.span)),
             }))
         }
     }

@@ -7,7 +7,7 @@ use crate::{
     ast::ExternLibrary,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir::{self, const_value::ConstValue},
-    infer::{normalize::Normalize, ty_ctx::TyCtx},
+    infer::{normalize::Normalize, type_ctx::TypeCtx},
     types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
@@ -63,7 +63,7 @@ impl<'ctx> Decl<'ctx> {
 
 pub(super) struct Generator<'g, 'ctx> {
     pub(super) workspace: &'g Workspace,
-    pub(super) tcx: &'g TyCtx,
+    pub(super) tcx: &'g TypeCtx,
     pub(super) cache: &'g hir::Cache,
 
     pub(super) target_metrics: TargetMetrics,
@@ -229,6 +229,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
+        let value = match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
+                self.builder.build_load(value.into_pointer_value(), "")
+            }
+            _ => value,
+        };
+
         let ptr = self.build_alloca_named(state, value.get_type(), id);
         self.build_store(ptr, value);
         self.gen_local_inner(state, id, ptr);

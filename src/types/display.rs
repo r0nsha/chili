@@ -36,8 +36,7 @@ impl Display for Type {
                     format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
                 Type::Function(func) => func.to_string(),
                 Type::Array(inner, size) => format!("[{}]{}", size, inner),
-                Type::Slice(inner, is_mutable) =>
-                    format!("[]{}{}", if *is_mutable { "mut " } else { "" }, inner,),
+                Type::Slice(inner) => format!("[]{}", inner),
                 Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => format!(
                     "({})",
                     tys.iter()
@@ -47,13 +46,12 @@ impl Display for Type {
                 ),
                 Type::Struct(ty) => ty.to_string(),
                 Type::Type(_) | Type::AnyType => "type".to_string(),
-                Type::Module(_) => "[module]".to_string(),
+                Type::Module(_) => "{module}".to_string(),
                 Type::Never => "never".to_string(),
                 Type::Infer(_, InferType::PartialStruct(ty)) => ty.to_string(),
-                Type::Infer(_, InferType::AnyInt) => "[integer]".to_string(),
-                Type::Infer(_, InferType::AnyFloat) => "[float]".to_string(),
+                Type::Infer(_, InferType::AnyInt) => "{integer}".to_string(),
+                Type::Infer(_, InferType::AnyFloat) => "{float}".to_string(),
                 Type::Var(_) => "?".to_string(),
-                Type::Unknown => "?".to_string(),
             }
         )
     }

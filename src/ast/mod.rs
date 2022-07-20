@@ -68,9 +68,9 @@ pub enum Ast {
     TupleLiteral(TupleLiteral),
     StructLiteral(StructLiteral),
     Literal(Literal),
-    PointerType(ExprAndMut),
+    PointerType(PointerType),
     ArrayType(ArrayType),
-    SliceType(ExprAndMut),
+    SliceType(SliceType),
     StructType(StructType),
     FunctionType(FunctionSig),
     SelfType(Empty),
@@ -189,7 +189,13 @@ pub struct ArrayType {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ExprAndMut {
+pub struct SliceType {
+    pub inner: Box<Ast>,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PointerType {
     pub inner: Box<Ast>,
     pub is_mutable: bool,
     pub span: Span,

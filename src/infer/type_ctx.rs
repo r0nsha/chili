@@ -5,13 +5,13 @@ use crate::{
     types::{PartialStructType, Type, TypeId},
 };
 
-pub struct TyCtx {
+pub struct TypeCtx {
     pub bindings: IdCache<TypeId, InferenceValue>,
     pub binding_spans: IdCache<TypeId, Option<Span>>,
     pub common_types: CommonTypes,
 }
 
-impl Default for TyCtx {
+impl Default for TypeCtx {
     fn default() -> Self {
         let mut bindings = IdCache::new();
         let mut binding_spans = IdCache::new();
@@ -24,7 +24,7 @@ impl Default for TyCtx {
     }
 }
 
-impl TyCtx {
+impl TypeCtx {
     #[inline]
     fn insert(&mut self, binding: InferenceValue, span: Option<Span>) -> TypeId {
         self.binding_spans.insert(span);
@@ -82,7 +82,7 @@ impl TyCtx {
 
     #[allow(unused)]
     #[inline]
-    pub fn ty_kind(&self, ty: TypeId) -> Type {
+    pub fn normalize(&self, ty: TypeId) -> Type {
         ty.normalize(self)
     }
 
@@ -120,7 +120,6 @@ impl TyCtx {
 }
 
 pub struct CommonTypes {
-    pub unknown: TypeId,
     pub unit: TypeId,
     pub bool: TypeId,
     pub i8: TypeId,
@@ -153,7 +152,6 @@ impl CommonTypes {
         };
 
         Self {
-            unknown: mk(Type::Unknown),
             unit: mk(Type::Unit),
             bool: mk(Type::Bool),
             i8: mk(Type::i8()),

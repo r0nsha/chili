@@ -1,5 +1,6 @@
 pub mod align_of;
 pub mod display;
+pub mod is_sized;
 pub mod offset_of;
 pub mod size_of;
 
@@ -38,7 +39,7 @@ pub enum Type {
     Pointer(Box<Type>, bool),
     Function(FunctionType),
     Array(Box<Type>, usize),
-    Slice(Box<Type>, bool),
+    Slice(Box<Type>),
     Tuple(Vec<Type>),
     Struct(StructType),
     Module(ModuleId),
@@ -46,7 +47,6 @@ pub enum Type {
     AnyType,
     Var(TypeId),
     Infer(TypeId, InferType),
-    Unknown,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -275,8 +275,19 @@ impl Type {
         match self {
             Type::Pointer(inner, _)
             | Type::Array(inner, _)
-            | Type::Slice(inner, _)
+            | Type::Slice(inner)
             | Type::Type(inner) => inner,
+            _ => panic!("type {} doesn't have an inner type", self),
+        }
+    }
+
+    pub fn element_type(&self) -> Option<&Type> {
+        match self {
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(inner) => Some(inner),
+                inner => Some(inner),
+            },
+            Type::Array(inner, _) | Type::Type(inner) => Some(inner),
             _ => panic!("type {} doesn't have an inner type", self),
         }
     }
@@ -349,10 +360,6 @@ impl Type {
         matches!(self, Type::Slice(..))
     }
 
-    pub fn is_unknown(&self) -> bool {
-        matches!(self, Type::Unknown)
-    }
-
     pub fn is_unit(&self) -> bool {
         matches!(self, Type::Unit)
     }
@@ -399,16 +406,6 @@ impl Type {
 
     pub fn create_type(self) -> Type {
         Type::Type(Box::new(self))
-    }
-
-    pub fn element_type(&self) -> Option<&Type> {
-        match self {
-            Type::Pointer(inner, _)
-            | Type::Array(inner, _)
-            | Type::Slice(inner, _)
-            | Type::Type(inner) => Some(inner),
-            _ => None,
-        }
     }
 
     pub fn pointer_type(self, mutable: bool) -> Type {
@@ -514,7 +511,7 @@ impl Type {
 
     #[inline]
     pub fn str() -> Type {
-        Type::Slice(Box::new(Type::char()), false)
+        Type::Pointer(Box::new(Type::Slice(Box::new(Type::char()))), false)
     }
 
     #[inline]
