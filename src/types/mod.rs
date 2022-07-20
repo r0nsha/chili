@@ -47,7 +47,6 @@ pub enum Type {
     AnyType,
     Var(TypeId),
     Infer(TypeId, InferType),
-    Unknown,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -348,10 +347,6 @@ impl Type {
 
     pub fn is_slice(&self) -> bool {
         matches!(self, Type::Slice(..))
-    }
-
-    pub fn is_unknown(&self) -> bool {
-        matches!(self, Type::Unknown)
     }
 
     pub fn is_unit(&self) -> bool {

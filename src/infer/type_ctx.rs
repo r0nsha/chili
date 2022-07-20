@@ -120,7 +120,6 @@ impl TypeCtx {
 }
 
 pub struct CommonTypes {
-    pub unknown: TypeId,
     pub unit: TypeId,
     pub bool: TypeId,
     pub i8: TypeId,
@@ -153,7 +152,6 @@ impl CommonTypes {
         };
 
         Self {
-            unknown: mk(Type::Unknown),
             unit: mk(Type::Unit),
             bool: mk(Type::Bool),
             i8: mk(Type::i8()),

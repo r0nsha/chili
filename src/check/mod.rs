@@ -96,15 +96,13 @@ fn validate_all_extern(sess: &mut CheckSess) {
             | Type::Float(_) => true,
 
             Type::Module(_)
+            | Type::Slice(_, _)
             | Type::Type(_)
             | Type::AnyType
             | Type::Var(_)
-            | Type::Infer(_, _)
-            | Type::Unknown => false,
+            | Type::Infer(_, _) => false,
 
-            Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner, _) => {
-                ty_is_extern(inner)
-            }
+            Type::Pointer(inner, _) | Type::Array(inner, _) => ty_is_extern(inner),
 
             Type::Function(f) => {
                 ty_is_extern(&f.return_type)

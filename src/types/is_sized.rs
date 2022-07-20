@@ -27,7 +27,6 @@ impl IsSized for Type {
             | Type::Type(_)
             | Type::AnyType
             | Type::Var(_)
-            | Type::Unknown
             | Type::Slice(..) => false,
 
             Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {

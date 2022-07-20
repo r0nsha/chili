@@ -53,7 +53,6 @@ impl Display for Type {
                 Type::Infer(_, InferType::AnyInt) => "[integer]".to_string(),
                 Type::Infer(_, InferType::AnyFloat) => "[float]".to_string(),
                 Type::Var(_) => "?".to_string(),
-                Type::Unknown => "?".to_string(),
             }
         )
     }
