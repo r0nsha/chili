@@ -1,8 +1,8 @@
 pub let extern "c" putchar = fn(char: int) -> int;
 pub let extern "c" getchar = fn() -> int;
 
-pub let extern "c" printf = fn(input: *u8, ..args) -> int;
-pub let extern "c" sprintf_s = fn(buffer: *u8, sizeOfBuffer: uint, format: *u8, ..args) -> int;
+pub let extern "c" printf = fn(input: *u8, args...) -> int;
+pub let extern "c" sprintf_s = fn(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int;
 
 pub let extern "c" strcpy = fn(dest: *u8, src: *u8) -> *u8;
 
@@ -28,7 +28,7 @@ pub let extern "c" srand = fn(seed: uint);
 pub let extern "c" rand = fn() -> uint;
 pub let extern "c" time = fn(some: *i8) -> uint;
 
-pub let extern "c" execl = fn(path: *u8, ..args) -> int;
+pub let extern "c" execl = fn(path: *u8, args...) -> int;
 
 pub let extern "c" abort = fn() -> never;
 pub let extern "c" exit = fn(status: int) -> never;

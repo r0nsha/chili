@@ -80,6 +80,7 @@ pub enum TokenKind {
     GtGtEq,
     Dot,
     DotDot,
+    DotDotDot,
     RightArrow,
 
     // Keywords
@@ -171,6 +172,7 @@ impl TokenKind {
             GtGtEq => ">>=",
             Dot => ".",
             DotDot => "..",
+            DotDotDot => "...",
             RightArrow => "->",
             If => "if",
             Else => "else",

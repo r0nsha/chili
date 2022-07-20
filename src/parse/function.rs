@@ -76,17 +76,25 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                if eat!(self, DotDot) {
-                    let start_span = self.previous_span();
+                let pattern = self.parse_pattern()?;
 
-                    let name = require!(self, Ident(_), "an identifier")?.name();
+                let type_expr = if eat!(self, Colon) {
+                    Some(Box::new(self.parse_expr()?))
+                } else {
+                    None
+                };
 
-                    let type_expr = if eat!(self, Colon) {
-                        Some(Box::new(self.parse_expr()?))
-                    } else if !is_extern {
+                if eat!(self, DotDotDot) {
+                    if !is_extern && type_expr.is_none() {
                         return Err(SyntaxError::expected(self.previous_span(), ":"));
+                    }
+
+                    let name_span = pattern.span();
+
+                    let name = if let Some(name) = pattern.as_name() {
+                        name.clone()
                     } else {
-                        None
+                        return Err(SyntaxError::expected(name_span, "an identifier or _"));
                     };
 
                     let end_span = self.previous_span();
@@ -96,25 +104,19 @@ impl Parser {
                     varargs = Some(FunctionVarargs {
                         name,
                         type_expr,
-                        span: start_span.to(end_span),
+                        span: name_span.to(end_span),
                     });
 
                     break;
-                }
-
-                let pattern = self.parse_pattern()?;
-
-                let ty = if eat!(self, Colon) {
-                    Some(Box::new(self.parse_expr()?))
-                } else if is_extern {
-                    return Err(SyntaxError::expected(self.previous_span(), ":"));
                 } else {
-                    None
-                };
+                    if is_extern && type_expr.is_none() {
+                        return Err(SyntaxError::expected(self.previous_span(), ":"));
+                    }
 
-                FunctionParam {
-                    pattern,
-                    type_expr: ty,
+                    FunctionParam {
+                        pattern,
+                        type_expr: type_expr,
+                    }
                 }
             },
             ", or )"

@@ -750,7 +750,7 @@ impl Check for ast::FunctionSig {
             }
 
             Some(Box::new(FunctionTypeVarargs {
-                name: varargs.name,
+                name: varargs.name.name,
                 ty,
             }))
         } else {

@@ -71,23 +71,23 @@ impl<'lx> Lexer<'lx> {
                 '{' => OpenCurly,
                 '}' => CloseCurly,
                 '+' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         PlusEq
                     } else {
                         Plus
                     }
                 }
                 '-' => {
-                    if self.is('>') {
+                    if self.eat('>') {
                         RightArrow
-                    } else if self.is('=') {
+                    } else if self.eat('=') {
                         MinusEq
                     } else {
                         Minus
                     }
                 }
                 '*' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         StarEq
                     } else {
                         Star
@@ -95,27 +95,31 @@ impl<'lx> Lexer<'lx> {
                 }
                 '?' => QuestionMark,
                 '/' => {
-                    if self.is('/') {
+                    if self.eat('/') {
                         self.eat_comment();
                         self.eat_token()?
-                    } else if self.is('*') {
+                    } else if self.eat('*') {
                         self.eat_multiline_comment();
                         self.eat_token()?
-                    } else if self.is('=') {
+                    } else if self.eat('=') {
                         FwSlashEq
                     } else {
                         FwSlash
                     }
                 }
                 '.' => {
-                    if self.is('.') {
-                        DotDot
+                    if self.eat('.') {
+                        if self.eat('.') {
+                            DotDotDot
+                        } else {
+                            DotDot
+                        }
                     } else {
                         Dot
                     }
                 }
                 '%' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         PercentEq
                     } else {
                         Percent
@@ -125,8 +129,8 @@ impl<'lx> Lexer<'lx> {
                 // skip this character
                 ' ' | '\r' | '\t' | '\n' => self.eat_token()?,
                 DOUBLE_QUOTE => {
-                    if self.is(DOUBLE_QUOTE) {
-                        if self.is(DOUBLE_QUOTE) {
+                    if self.eat(DOUBLE_QUOTE) {
+                        if self.eat(DOUBLE_QUOTE) {
                             // this is a multiline string
                             self.eat_str(StrFlavor::Multiline)?
                         } else {
@@ -138,57 +142,57 @@ impl<'lx> Lexer<'lx> {
                     }
                 }
                 '^' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         CaretEq
                     } else {
                         Caret
                     }
                 }
                 '&' => {
-                    if self.is('&') {
-                        if self.is('=') {
+                    if self.eat('&') {
+                        if self.eat('=') {
                             AmpAmpEq
                         } else {
                             AmpAmp
                         }
-                    } else if self.is('=') {
+                    } else if self.eat('=') {
                         AmpEq
                     } else {
                         Amp
                     }
                 }
                 '|' => {
-                    if self.is('|') {
-                        if self.is('=') {
+                    if self.eat('|') {
+                        if self.eat('=') {
                             BarBarEq
                         } else {
                             BarBar
                         }
-                    } else if self.is('=') {
+                    } else if self.eat('=') {
                         BarEq
                     } else {
                         Bar
                     }
                 }
                 '!' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         BangEq
                     } else {
                         Bang
                     }
                 }
                 '=' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         EqEq
                     } else {
                         Eq
                     }
                 }
                 '<' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         LtEq
-                    } else if self.is('<') {
-                        if self.is('=') {
+                    } else if self.eat('<') {
+                        if self.eat('=') {
                             LtLtEq
                         } else {
                             LtLt
@@ -198,10 +202,10 @@ impl<'lx> Lexer<'lx> {
                     }
                 }
                 '>' => {
-                    if self.is('=') {
+                    if self.eat('=') {
                         GtEq
-                    } else if self.is('>') {
-                        if self.is('=') {
+                    } else if self.eat('>') {
+                        if self.eat('=') {
                             GtGtEq
                         } else {
                             GtGt
@@ -557,7 +561,7 @@ impl<'lx> Lexer<'lx> {
         self.source.at(self.cursor.end_index() + 1)
     }
 
-    pub fn is(&mut self, expected: char) -> bool {
+    pub fn eat(&mut self, expected: char) -> bool {
         if self.peek() == expected {
             self.bump();
             true
@@ -567,7 +571,7 @@ impl<'lx> Lexer<'lx> {
     }
 
     pub fn expect(&mut self, expected: char) -> DiagnosticResult<()> {
-        self.is(expected)
+        self.eat(expected)
             .then(|| ())
             .ok_or_else(|| SyntaxError::expected(self.cursor.end_span(), &expected.to_string()))
     }
