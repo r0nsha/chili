@@ -281,6 +281,17 @@ impl Type {
         }
     }
 
+    pub fn element_type(&self) -> Option<&Type> {
+        match self {
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(inner) => Some(inner),
+                inner => Some(inner),
+            },
+            Type::Array(inner, _) | Type::Type(inner) => Some(inner),
+            _ => panic!("type {} doesn't have an inner type", self),
+        }
+    }
+
     pub fn is_type(&self) -> bool {
         matches!(self, Type::Type(_) | Type::AnyType)
     }

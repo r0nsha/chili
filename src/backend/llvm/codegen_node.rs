@@ -269,8 +269,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
             (Type::Pointer(left, _), Type::Pointer(right, _)) => {
                 match (left.as_ref(), right.as_ref()) {
                     (Type::Array(_, size), Type::Slice(right)) => {
-                        let slice_ty = generator.slice_type(right);
-                        let ptr = generator.build_alloca(state, slice_ty);
+                        let slice_type = generator.slice_type(right);
+                        let ptr = generator.build_alloca(state, slice_type);
 
                         generator.build_slice(
                             ptr,

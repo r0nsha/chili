@@ -342,14 +342,6 @@ impl<'s> CheckSess<'s> {
         mk(self, builtin::SYM_STR, self.tcx.common_types.str);
     }
 
-    pub(super) fn is_mutable(&self, node: &hir::Node) -> bool {
-        match node {
-            hir::Node::MemberAccess(access) => self.is_mutable(&access.value),
-            hir::Node::Id(id) => self.workspace.binding_infos.get(id.id).unwrap().is_mutable,
-            _ => true,
-        }
-    }
-
     pub(super) fn is_lvalue(&self, node: &hir::Node) -> bool {
         match node {
             hir::Node::MemberAccess(_)
@@ -1090,10 +1082,10 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let (result_ty, is_mutable) = match node_type {
-                    Type::Array(inner, ..) => (inner, sess.is_mutable(&node)),
-                    Type::Pointer(inner, is_mutable) => match inner.as_ref() {
-                        Type::Slice(inner) => (inner.clone(), is_mutable),
+                let inner_type = match node_type {
+                    Type::Array(inner, ..) => inner,
+                    Type::Pointer(inner, _) => match inner.as_ref() {
+                        Type::Slice(inner) => inner.clone(),
                         _ => {
                             if slice.high.is_none() {
                                 return Err(Diagnostic::error()
@@ -1104,7 +1096,7 @@ impl Check for ast::Ast {
                                     )));
                             }
 
-                            (inner, is_mutable)
+                            inner
                         }
                     },
                     _ => {
@@ -1117,10 +1109,7 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let ty = sess.tcx.bound(
-                    Type::Pointer(Box::new(Type::Slice(result_ty)), is_mutable),
-                    slice.span,
-                );
+                let ty = sess.tcx.bound(Type::Slice(inner_type), slice.span);
 
                 Ok(hir::Node::Builtin(hir::Builtin::Slice(hir::Slice {
                     ty,
@@ -2800,7 +2789,7 @@ impl Check for ast::Unary {
                     self.span,
                 );
 
-                if sess.is_lvalue(&node) {
+                if sess.is_lvalue(&node) || node_type.normalize(&sess.tcx).is_unsized() {
                     Ok(hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
                         value: Box::new(node),
                         is_mutable,

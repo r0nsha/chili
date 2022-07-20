@@ -286,12 +286,18 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             );
         }
 
-        let slice_llvm_ty = self.ty.llvm_type(generator);
-        let slice_ptr = generator.build_alloca(state, slice_llvm_ty);
+        let slice_llvm_type = self.ty.llvm_type(generator);
+        let slice_ptr = generator.build_alloca(state, slice_llvm_type);
 
-        generator.build_slice(slice_ptr, sliced_value, low, high, value_type.inner());
+        generator.build_slice(
+            slice_ptr,
+            sliced_value,
+            low,
+            high,
+            value_type.element_type().unwrap(),
+        );
 
-        slice_ptr.into()
+        generator.builder.build_load(slice_ptr, "")
     }
 }
 
@@ -575,10 +581,16 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Ref {
         let value = self.value.codegen(generator, state);
 
         match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
-                inst.get_operand(0).unwrap().left().unwrap()
+            Some(inst) => {
+                match inst.get_opcode() {
+                    InstructionOpcode::Load => inst.get_operand(0).unwrap().left().unwrap(),
+                    // Note (Ron): Alloca is matched for DST's.
+                    // This could be wrong, but I haven't encountered any issues with this yet
+                    // InstructionOpcode::Alloca => value,
+                    _ => panic!("{:?}", value),
+                }
             }
-            _ => panic!("{:?}", value),
+            None => panic!("{:?}", value),
         }
     }
 }

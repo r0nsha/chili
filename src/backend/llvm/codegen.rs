@@ -229,6 +229,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
+        let value = match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
+                self.builder.build_load(value.into_pointer_value(), "")
+            }
+            _ => value,
+        };
+
         let ptr = self.build_alloca_named(state, value.get_type(), id);
         self.build_store(ptr, value);
         self.gen_local_inner(state, id, ptr);

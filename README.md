@@ -63,6 +63,42 @@ As the language is in its very early stages, every contribution will help in sha
 
 [Our Discord Channel](https://discord.gg/Tu4s49Pdre)
 
+## Main Tasks
+
+- [x] Functions
+- [x] Variables
+- [x] Static Typing
+  - [x] Global type inference
+  - [x] Scalar types
+  - [x] Pointers & Arrays & Slices
+  - [x] Structs & Tuples
+- [x] Modules & Imports
+- [x] Binding patterns: Struct/Module unpack, Tuple unpack and Wildcard
+- [x] Compile time execution with FFI support
+  - [x] FFI support
+  - [x] Build configuration based on compile-time execution
+- [x] Dynamically sized types
+  - [x] Dynamically sized types
+- [ ] Static variables
+- [ ] Attributes
+- [ ] Default function arguments
+- [ ] Named function arguments
+- [ ] Panic function
+- [ ] Varargs
+- [ ] Printing and formatting
+- [ ] Parametric polymorphism - supporting both types and constant values
+- [ ] Tagged unions
+  - [ ] Pattern matching
+  - [ ] First-class `Option` & `Result` types
+- [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
+  - [ ] Ownership + ARC
+  - [ ] Regions
+  - [ ] Ownership
+  - [ ] Garbage collection
+- [ ] Associated functions / Methods
+- [ ] Traits / Typeclasses
+- [ ] Closures
+
 ## Syntax
 
 ### Types
@@ -79,12 +115,15 @@ uint // machine-word sized unsigned integer
 // floats
 f16 f32 f64
 
-*t // immutable pointer to t
+*t // pointer to t
 *mut t // mutable pointer to t
 
 [n]t // array of type t with size n
-[]t // slice of type t
-str // slice of u8
+
+*[]t // pointer to a slice of type t
+*mut []t // mutable pointer to a slice of type t
+
+*str // pointer to a slice of u8
 
 (t1, t2, ..) // tuple
 
@@ -104,7 +143,7 @@ let x: int = 5; // you can annotate the variable with a type
 let array: [3]int = [1, 2, 3]; // [1, 2, 3]
 
 // a slice is a struct contains a pointer to an array, and its length
-let slice: []int = array[1..]; // [2, 3]
+let slice: *[]int = &array[1..]; // [2, 3]
 
 // references to arrays can be coerced to slices
 let slice: []int = &array;

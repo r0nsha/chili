@@ -59,6 +59,7 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                     ty.ptr_type(AddressSpace::Generic).into()
                 }
             },
+            Type::Slice(inner) => generator.slice_type(inner),
             Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => generator.unit_type(),
             Type::Function(func) => generator
                 .abi_compliant_fn_type(func)

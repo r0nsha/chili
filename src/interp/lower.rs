@@ -266,7 +266,7 @@ impl Lower for hir::Cast {
                 Type::Slice(_) => {
                     let value_type = self.value.ty().normalize(sess.tcx);
                     let value_type_size = value_type.size_of(WORD_SIZE) as u32;
-                    let inner_type_size = value_type.inner().size_of(WORD_SIZE);
+                    let inner_type_size = value_type.element_type().unwrap().size_of(WORD_SIZE);
 
                     sess.push_const(code, Value::Type(value_type.clone()));
                     code.push(Instruction::BufferAlloc(value_type_size));
@@ -874,7 +874,7 @@ impl Lower for hir::TupleLiteral {
 impl Lower for hir::ArrayLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         let ty = self.ty.normalize(sess.tcx);
-        let inner_ty_size = ty.inner().size_of(WORD_SIZE);
+        let inner_ty_size = ty.element_type().unwrap().size_of(WORD_SIZE);
 
         sess.push_const(code, Value::Type(ty));
         code.push(Instruction::BufferAlloc(
@@ -891,7 +891,7 @@ impl Lower for hir::ArrayLiteral {
 impl Lower for hir::ArrayFillLiteral {
     fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
         let ty = self.ty.normalize(sess.tcx);
-        let inner_ty_size = ty.inner().size_of(WORD_SIZE);
+        let inner_ty_size = ty.element_type().unwrap().size_of(WORD_SIZE);
 
         let size = if let Type::Array(_, size) = ty {
             size

@@ -34,8 +34,10 @@ impl<'vm> VM<'vm> {
                 Pointer::Buffer(buf) => {
                     let buf = unsafe { &mut **buf };
                     let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
-                    let value =
-                        Value::Pointer(Pointer::from_type_and_ptr(buf.ty.inner(), ptr as _));
+                    let value = Value::Pointer(Pointer::from_type_and_ptr(
+                        buf.ty.element_type().unwrap(),
+                        ptr as _,
+                    ));
                     self.stack.push(value);
                 }
                 _ => self.offset(value, index),

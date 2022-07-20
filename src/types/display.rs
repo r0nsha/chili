@@ -46,11 +46,11 @@ impl Display for Type {
                 ),
                 Type::Struct(ty) => ty.to_string(),
                 Type::Type(_) | Type::AnyType => "type".to_string(),
-                Type::Module(_) => "[module]".to_string(),
+                Type::Module(_) => "{module}".to_string(),
                 Type::Never => "never".to_string(),
                 Type::Infer(_, InferType::PartialStruct(ty)) => ty.to_string(),
-                Type::Infer(_, InferType::AnyInt) => "[integer]".to_string(),
-                Type::Infer(_, InferType::AnyFloat) => "[float]".to_string(),
+                Type::Infer(_, InferType::AnyInt) => "{integer}".to_string(),
+                Type::Infer(_, InferType::AnyFloat) => "{float}".to_string(),
                 Type::Var(_) => "?".to_string(),
             }
         )
