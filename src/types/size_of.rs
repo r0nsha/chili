@@ -9,7 +9,7 @@ pub trait SizeOf {
 impl SizeOf for Type {
     fn size_of(&self, word_size: usize) -> usize {
         match self {
-            Type::Unit => 0,
+            Type::Unit | Type::Never => 0,
             Type::Bool => 1,
             Type::Int(ty) => ty.size_of(word_size),
             Type::Uint(ty) => ty.size_of(word_size),

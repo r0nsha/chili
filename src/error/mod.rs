@@ -154,6 +154,18 @@ impl TypeError {
             ))
     }
 
+    pub fn binding_is_unsized(name: &str, ty: String, span: Span) -> Diagnostic {
+        Diagnostic::error()
+            .with_message(format!(
+                "the size of `{}`'s type `{}` cannot be known at compile-time",
+                name, ty
+            ))
+            .with_label(Label::primary(
+                span,
+                "doesn't have a size known at compile-time",
+            ))
+    }
+
     pub fn negative_array_len(span: Span, len: i64) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("array length cannot be negative, found {}", len))

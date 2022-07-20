@@ -64,12 +64,14 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
     }
 
     substitute(&mut sess.workspace.diagnostics, &mut sess.tcx, &sess.cache);
-    validate_all_extern(&mut sess);
+
+    check_all_extern(&mut sess);
+    check_entry_point_function(&mut sess);
 
     sess.into_data()
 }
 
-fn validate_all_extern(sess: &mut CheckSess) {
+fn check_all_extern(sess: &mut CheckSess) {
     for function in sess
         .cache
         .functions
@@ -119,6 +121,43 @@ fn validate_all_extern(sess: &mut CheckSess) {
     }
 }
 
+fn check_entry_point_function(sess: &mut CheckSess) {
+    // Check that an entry point function exists, if needed
+    if sess.workspace.build_options.need_entry_point_function() {
+        if let Some(binding_info) = sess.workspace.entry_point_function() {
+            let ty = binding_info.ty.normalize(&sess.tcx).into_function();
+
+            // if this is the main function, check its type matches a fn() -> [unit | never]
+            if !(ty.return_type.is_unit() || ty.return_type.is_never())
+                || !ty.params.is_empty()
+                || ty.varargs.is_some()
+            {
+                sess.workspace.diagnostics.push(
+                    Diagnostic::error()
+                        .with_message(format!(
+                            "entry point function `main` has type `{}`, expected `fn() -> ()`",
+                            ty
+                        ))
+                        .with_label(Label::primary(
+                            binding_info.span,
+                            "invalid type of entry point function",
+                        )),
+                );
+            }
+        } else {
+            sess.workspace.diagnostics.push(
+                Diagnostic::error()
+                    .with_message("entry point function `main` is not defined")
+                    .with_label(Label::primary(
+                        Span::initial(sess.workspace.get_root_module_info().file_id),
+                        "",
+                    ))
+                    .with_note("define function `let main = fn() {}` in your entry file"),
+            );
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct QueuedModule {
     pub(super) module_type: TypeId,
@@ -162,7 +201,7 @@ pub(super) struct CheckSess<'s> {
 #[derive(Debug, Clone, Copy)]
 pub struct FunctionFrame {
     return_type: TypeId,
-    return_ty_span: Span,
+    return_type_span: Span,
     scope_level: ScopeLevel,
 }
 
@@ -416,9 +455,9 @@ impl Check for ast::Binding {
                         value.span(),
                     )?;
 
-                let ty_kind = ty.normalize(&sess.tcx);
+                let binding_type = ty.normalize(&sess.tcx);
 
-                let is_type_or_module = ty_kind.is_type() || ty_kind.is_module();
+                let is_type_or_module = binding_type.is_type() || binding_type.is_module();
 
                 // Global immutable bindings must resolve to a const value, unless it is:
                 // - of type `type` or `module`
@@ -429,7 +468,7 @@ impl Check for ast::Binding {
                     && !pattern.iter().any(|p| p.is_mutable)
                 {
                     return Err(Diagnostic::error()
-                        .with_message(format!("immutable top level binding must be constant"))
+                        .with_message(format!("immutable, top level variable must be constant"))
                         .with_label(Label::primary(pattern.span(), "must be constant"))
                         .with_label(Label::secondary(
                             value_node.span(),
@@ -452,6 +491,14 @@ impl Check for ast::Binding {
                                     .with_note("try removing the `mut` from the declaration"),
                             );
                         });
+                } else if binding_type.is_unsized() {
+                    sess.workspace
+                        .diagnostics
+                        .push(TypeError::binding_is_unsized(
+                            &pattern.to_string(),
+                            binding_type.display(&sess.tcx),
+                            pattern.span(),
+                        ))
                 }
 
                 let is_function =
@@ -494,7 +541,6 @@ impl Check for ast::Binding {
                             if let Some(_) = sess.workspace.entry_point_function_id {
                                 // TODO: When attributes are implemented:
                                 // TODO: Emit error that we can't have two entry point functions
-                                // TODO: Also, this should be moved to another place...
                             } else {
                                 sess.workspace.entry_point_function_id = Some(binding.id);
                             }
@@ -2263,7 +2309,7 @@ impl Check for ast::Function {
                 .map_or(self.sig.span, |e| e.span()),
         );
 
-        let return_ty_span = self
+        let return_type_span = self
             .sig
             .return_type
             .as_ref()
@@ -2352,7 +2398,7 @@ impl Check for ast::Function {
             name,
             qualified_name,
             kind: hir::FunctionKind::Orphan {
-                params,
+                params: params.clone(),
                 inferred_return_type_span: if self.sig.return_type.is_some() {
                     None
                 } else {
@@ -2370,7 +2416,7 @@ impl Check for ast::Function {
             .with_function_frame(
                 FunctionFrame {
                     return_type,
-                    return_ty_span,
+                    return_type_span,
                     scope_level: env.scope_level(),
                 },
                 |sess| self.body.check(sess, env, Some(return_type)),
@@ -2395,12 +2441,52 @@ impl Check for ast::Function {
         unify_node.or_report_err(
             &sess.tcx,
             return_type,
-            Some(return_ty_span),
+            Some(return_type_span),
             body_node.ty,
             self.body.span,
         )?;
 
         env.pop_scope();
+
+        // Check that all parameter types are sized
+        for param in params.iter() {
+            let ty = param.ty.normalize(&sess.tcx);
+
+            if ty.is_unsized() {
+                let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
+
+                sess.workspace
+                    .diagnostics
+                    .push(TypeError::binding_is_unsized(
+                        &binding_info.name,
+                        ty.display(&sess.tcx),
+                        binding_info.span,
+                    ))
+            }
+        }
+
+        // Check that the return type is sized
+        let return_type_kind = return_type.normalize(&sess.tcx);
+        if return_type_kind.is_unsized() {
+            sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                return_type_kind.display(&sess.tcx),
+                return_type_span,
+            ))
+        }
+
+        // Check that the variadic argument is sized
+        if let Some(varargs) = &function_type.varargs {
+            if let Some(varargs_type) = &varargs.ty {
+                let varargs_type = varargs_type.normalize(&sess.tcx);
+
+                if varargs_type.is_unsized() {
+                    sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                        varargs_type.display(&sess.tcx),
+                        self.sig.varargs.as_ref().unwrap().span,
+                    ))
+                }
+            }
+        }
 
         sess.cache
             .functions
@@ -2486,7 +2572,7 @@ impl Check for ast::Return {
                 .or_report_err(
                     &sess.tcx,
                     return_type,
-                    Some(function_frame.return_ty_span),
+                    Some(function_frame.return_type_span),
                     node.ty(),
                     expr.span(),
                 )?;

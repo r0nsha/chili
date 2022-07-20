@@ -12,6 +12,7 @@ impl IsSized for Type {
     fn is_sized(&self) -> bool {
         match self {
             Type::Unit
+            | Type::Never
             | Type::Bool
             | Type::Int(_)
             | Type::Uint(_)
@@ -22,12 +23,9 @@ impl IsSized for Type {
             | Type::Infer(_, InferType::AnyInt)
             | Type::Infer(_, InferType::AnyFloat) => true,
 
-            Type::Never
-            | Type::Module(_)
-            | Type::Type(_)
-            | Type::AnyType
-            | Type::Var(_)
-            | Type::Slice(..) => false,
+            Type::Module(_) | Type::Type(_) | Type::AnyType | Type::Var(_) | Type::Slice(..) => {
+                false
+            }
 
             Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
                 elems.iter().all(|e| e.is_sized())

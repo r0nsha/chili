@@ -7,8 +7,7 @@ pub trait AlignOf {
 impl AlignOf for Type {
     fn align_of(&self, word_size: usize) -> usize {
         match self {
-            Type::Unit => 0,
-            Type::Bool => 1,
+            Type::Unit | Type::Never | Type::Bool => 1,
             Type::Int(ty) => ty.align_of(word_size),
             Type::Uint(ty) => ty.align_of(word_size),
             Type::Float(ty) => ty.align_of(word_size),
