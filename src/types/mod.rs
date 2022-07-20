@@ -117,6 +117,7 @@ pub struct FunctionTypeParam {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTypeVarargs {
+    pub name: Ustr,
     pub ty: Option<Type>,
 }
 
@@ -271,12 +272,22 @@ impl From<Type> for String {
 }
 
 impl Type {
-    pub fn inner(&self) -> &Type {
+    pub fn as_inner(&self) -> &Type {
         match self {
             Type::Pointer(inner, _)
             | Type::Array(inner, _)
             | Type::Slice(inner)
             | Type::Type(inner) => inner,
+            _ => panic!("type {} doesn't have an inner type", self),
+        }
+    }
+
+    pub fn into_inner(self) -> Type {
+        match self {
+            Type::Pointer(inner, _)
+            | Type::Array(inner, _)
+            | Type::Slice(inner)
+            | Type::Type(inner) => *inner,
             _ => panic!("type {} doesn't have an inner type", self),
         }
     }
@@ -401,6 +412,20 @@ impl Type {
         match self {
             Type::Function(ty) => ty,
             _ => panic!("expected fn, got {:?}", self),
+        }
+    }
+
+    pub fn as_type(&self) -> &Type {
+        match self {
+            Type::Type(ty) => ty,
+            _ => panic!("expected type, got {:?}", self),
+        }
+    }
+
+    pub fn into_type(self) -> Type {
+        match self {
+            Type::Type(ty) => *ty,
+            _ => panic!("expected type, got {:?}", self),
         }
     }
 

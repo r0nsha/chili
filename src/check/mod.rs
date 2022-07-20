@@ -749,7 +749,10 @@ impl Check for ast::FunctionSig {
                     .with_label(Label::primary(varargs.span, "missing a type annotation")));
             }
 
-            Some(Box::new(FunctionTypeVarargs { ty }))
+            Some(Box::new(FunctionTypeVarargs {
+                name: varargs.name,
+                ty,
+            }))
         } else {
             None
         };
@@ -1631,7 +1634,7 @@ impl Check for ast::Ast {
             ast::Ast::StructType(struct_type) => struct_type.check(sess, env, expected_type),
             ast::Ast::FunctionType(sig) => {
                 let node = sig.check(sess, env, expected_type)?;
-                let function_type = node.ty().normalize(&sess.tcx).into_function();
+                let function_type = node.ty().normalize(&sess.tcx).into_type().into_function();
 
                 for (i, param) in function_type.params.iter().enumerate() {
                     let ty = param.ty.normalize(&sess.tcx);
@@ -1669,6 +1672,23 @@ impl Check for ast::Ast {
                                 varargs_type.display(&sess.tcx),
                                 sig.varargs.as_ref().unwrap().span,
                             ))
+                        }
+                    }
+                }
+
+                for param in sig.params.iter() {
+                    match &param.pattern {
+                        Pattern::Name(_) => (),
+                        Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) | Pattern::Hybrid(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message("expected an indentifier or _")
+                                .with_label(Label::primary(
+                                    param.pattern.span(),
+                                    "expected an identifier or _",
+                                ))
+                                .with_note(
+                                    "binding patterns are not allowed in function type parameters",
+                                ))
                         }
                     }
                 }
