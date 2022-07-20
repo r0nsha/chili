@@ -38,11 +38,12 @@ impl Parser {
         })
     }
 
-    pub fn parse_extern(
+    pub fn parse_extern_binding(
         &mut self,
         visibility: ast::Visibility,
-        start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
+        let start_span = self.previous_span();
+
         let lib = eat!(self, Str(_)).then(|| self.previous().name());
 
         let lib = if let Some(lib) = lib {
@@ -56,6 +57,8 @@ impl Parser {
         } else {
             None
         };
+
+        require!(self, Let, "let")?;
 
         let is_mutable = eat!(self, Mut);
 
@@ -107,11 +110,14 @@ impl Parser {
         })
     }
 
-    pub fn parse_builtin_binding(
+    pub fn parse_intrinsic_binding(
         &mut self,
         visibility: ast::Visibility,
-        start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
+        let start_span = self.previous_span();
+
+        require!(self, Let, "let")?;
+
         let id = require!(self, Ident(_), "an identifier")?;
         let name = id.name();
 

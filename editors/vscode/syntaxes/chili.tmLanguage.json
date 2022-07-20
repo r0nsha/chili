@@ -154,13 +154,13 @@
               "name": "keyword.other.chili"
             },
             "3": {
-              "name": "keyword.other.chili"
+              "name": "string.quoted.double.chili"
             },
             "4": {
               "name": "keyword.other.chili"
             },
             "5": {
-              "name": "string.quoted.double.chili"
+              "name": "keyword.other.chili"
             },
             "6": {
               "name": "storage.modifier.chili"
@@ -169,7 +169,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(let\\s*)(\\b(extern|intrinsic)\\b\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*)?(\\b(extern|intrinsic)\\b\\s*(\".+\"\\s*)?)?(let\\s*)(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "name": "support.function.builtin.chili",

@@ -45,18 +45,16 @@ impl Parser {
         };
 
         if eat!(self, Let) {
-            let start_span = self.previous_span();
-
-            let binding = if eat!(self, Extern) {
-                self.parse_extern(visibility, start_span)?
-            } else if eat!(self, Intrinsic) {
-                self.parse_builtin_binding(visibility, start_span)?
-            } else {
-                self.parse_binding(visibility)?
-            };
-
+            let binding = self.parse_binding(visibility)?;
             module.bindings.push(binding);
-
+            Ok(())
+        } else if eat!(self, Extern) {
+            let binding = self.parse_extern_binding(visibility)?;
+            module.bindings.push(binding);
+            Ok(())
+        } else if eat!(self, Intrinsic) {
+            let binding = self.parse_intrinsic_binding(visibility)?;
+            module.bindings.push(binding);
             Ok(())
         } else if eat!(self, Ident(_)) {
             let token = self.previous().clone();
