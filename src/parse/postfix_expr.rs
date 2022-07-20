@@ -192,24 +192,40 @@ impl Parser {
     fn parse_subscript_or_slice(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        match self.parse_expr() {
-            Ok(index) => {
-                if eat!(self, DotDot) {
-                    let high = match self.parse_expr() {
-                        Ok(high) => Some(Box::new(high)),
-                        Err(_) => None,
-                    };
+        if eat!(self, DotDot) {
+            let high = if eat!(self, CloseBracket) {
+                None
+            } else {
+                let high = self.parse_expr()?;
+                require!(self, CloseBracket, "]")?;
+                Some(Box::new(high))
+            };
 
+            Ok(Ast::Slice(ast::Slice {
+                expr: Box::new(expr),
+                low: None,
+                high,
+                span: start_span.to(self.previous_span()),
+            }))
+        } else {
+            let index = self.parse_expr()?;
+
+            if eat!(self, DotDot) {
+                let high = if eat!(self, CloseBracket) {
+                    None
+                } else {
+                    let high = self.parse_expr()?;
                     require!(self, CloseBracket, "]")?;
+                    Some(Box::new(high))
+                };
 
-                    return Ok(Ast::Slice(ast::Slice {
-                        expr: Box::new(expr),
-                        low: Some(Box::new(index)),
-                        high,
-                        span: start_span.to(self.previous_span()),
-                    }));
-                }
-
+                Ok(Ast::Slice(ast::Slice {
+                    expr: Box::new(expr),
+                    low: Some(Box::new(index)),
+                    high,
+                    span: start_span.to(self.previous_span()),
+                }))
+            } else {
                 require!(self, CloseBracket, "]")?;
 
                 Ok(Ast::Subscript(ast::Subscript {
@@ -217,25 +233,6 @@ impl Parser {
                     index: Box::new(index),
                     span: start_span.to(self.previous_span()),
                 }))
-            }
-            Err(err) => {
-                if eat!(self, DotDot) {
-                    let high = match self.parse_expr() {
-                        Ok(high) => Some(Box::new(high)),
-                        Err(_) => None,
-                    };
-
-                    require!(self, CloseBracket, "]")?;
-
-                    Ok(Ast::Slice(ast::Slice {
-                        expr: Box::new(expr),
-                        low: None,
-                        high,
-                        span: start_span.to(self.previous_span()),
-                    }))
-                } else {
-                    Err(err)
-                }
             }
         }
     }

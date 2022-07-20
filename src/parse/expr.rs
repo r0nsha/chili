@@ -285,7 +285,7 @@ impl Parser {
             } else {
                 return Err(SyntaxError::expected(
                     self.span(),
-                    &format!("[ or {{, got `{}`", self.peek().lexeme),
+                    &format!("{{, got `{}`", self.peek().lexeme),
                 ));
             }
         } else if eat!(self, Break | Continue | Return) {
