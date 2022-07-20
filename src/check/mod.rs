@@ -3245,7 +3245,7 @@ impl Check for ast::TupleLiteral {
                                 elements[i].span(),
                                 "doesn't have a size known at compile-time",
                             ))
-                            .with_note("all tuple elements size must be known at compile-time"));
+                            .with_note("tuple element sizes must be known at compile-time"));
                     }
                 }
 
@@ -3386,7 +3386,7 @@ impl Check for ast::StructType {
                         field.span,
                         "doesn't have a size known at compile-time",
                     ))
-                    .with_note("all struct field sizes must be known at compile-time"));
+                    .with_note("struct field sizes must be known at compile-time"));
             }
         }
 
