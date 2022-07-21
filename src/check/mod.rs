@@ -733,9 +733,7 @@ impl Check for ast::FunctionSig {
 
             if ty.is_none() && !self.kind.is_extern() {
                 return Err(Diagnostic::error()
-                    .with_message(
-                        "varargs without type annotation are only valid in extern functions",
-                    )
+                    .with_message("variadic parameter must be typed")
                     .with_label(Label::primary(varargs.span, "missing a type annotation")));
             }
 
