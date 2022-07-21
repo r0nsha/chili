@@ -393,7 +393,7 @@ impl Check for ast::Binding {
                 pattern,
                 type_expr,
                 value,
-                is_static: _,
+                is_static,
             } => {
                 let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
 
@@ -423,7 +423,8 @@ impl Check for ast::Binding {
                 // Global immutable bindings must resolve to a const value, unless it is:
                 // - of type `type` or `module`
                 // - an extern binding
-                if env.scope_level().is_global()
+                if !is_static
+                    && env.scope_level().is_global()
                     && !value_node.is_const()
                     && !is_type_or_module
                     && !pattern.iter().any(|p| p.is_mutable)
