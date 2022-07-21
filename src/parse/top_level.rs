@@ -44,39 +44,35 @@ impl Parser {
             Visibility::Private
         };
 
-        if eat!(self, Let) {
-            let binding = self.parse_binding(visibility)?;
-            module.bindings.push(binding);
-            Ok(())
-        } else if eat!(self, Extern) {
-            let binding = self.parse_extern_binding(visibility)?;
-            module.bindings.push(binding);
-            Ok(())
-        } else if eat!(self, Intrinsic) {
-            let binding = self.parse_intrinsic_binding(visibility)?;
-            module.bindings.push(binding);
-            Ok(())
-        } else if eat!(self, Ident(_)) {
-            let token = self.previous().clone();
-            let symbol = token.name();
-
-            require!(self, Bang, "!")?;
-            require!(self, OpenParen, "(")?;
-
-            if symbol == "run" {
-                let expr = self.parse_expr()?;
-                module.run_exprs.push(expr);
-                require!(self, CloseParen, ")")?;
-
+        match self.try_parse_any_binding(visibility)? {
+            Some(binding) => {
+                module.bindings.push(binding?);
                 Ok(())
-            } else {
-                Err(SyntaxError::expected(self.previous_span(), "run"))
             }
-        } else {
-            Err(SyntaxError::expected(
-                self.span(),
-                &format!("an item, got `{}`", self.peek().lexeme),
-            ))
+            None => {
+                if eat!(self, Ident(_)) {
+                    let token = self.previous().clone();
+                    let symbol = token.name();
+
+                    require!(self, Bang, "!")?;
+                    require!(self, OpenParen, "(")?;
+
+                    if symbol == "run" {
+                        let expr = self.parse_expr()?;
+                        module.run_exprs.push(expr);
+                        require!(self, CloseParen, ")")?;
+
+                        Ok(())
+                    } else {
+                        Err(SyntaxError::expected(self.previous_span(), "run"))
+                    }
+                } else {
+                    Err(SyntaxError::expected(
+                        self.span(),
+                        &format!("an item, got `{}`", self.peek().lexeme),
+                    ))
+                }
+            }
         }
     }
 }

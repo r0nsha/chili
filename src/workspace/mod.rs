@@ -78,6 +78,7 @@ pub struct BindingInfo {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingInfoKind {
     Orphan,
+    Static,
     ExternFunction,
     ExternVariable,
     Intrinsic,
@@ -86,7 +87,13 @@ pub enum BindingInfoKind {
 impl From<&BindingKind> for BindingInfoKind {
     fn from(kind: &BindingKind) -> Self {
         match kind {
-            BindingKind::Orphan { .. } => BindingInfoKind::Orphan,
+            BindingKind::Orphan { is_static, .. } => {
+                if *is_static {
+                    BindingInfoKind::Static
+                } else {
+                    BindingInfoKind::Orphan
+                }
+            }
             BindingKind::ExternFunction { .. } => BindingInfoKind::ExternFunction,
             BindingKind::ExternVariable { .. } => BindingInfoKind::ExternVariable,
             BindingKind::Intrinsic { .. } => BindingInfoKind::Intrinsic,

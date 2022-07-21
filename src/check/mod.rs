@@ -393,6 +393,7 @@ impl Check for ast::Binding {
                 pattern,
                 type_expr,
                 value,
+                is_static: _,
             } => {
                 let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
 

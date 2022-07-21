@@ -54,17 +54,9 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            if eat!(self, Let) {
-                let binding = self.parse_binding(Visibility::Private)?;
-                Ok(Ast::Binding(binding))
-            } else if eat!(self, Extern) {
-                let binding = self.parse_extern_binding(Visibility::Private)?;
-                Ok(Ast::Binding(binding))
-            } else if eat!(self, Intrinsic) {
-                let binding = self.parse_intrinsic_binding(Visibility::Private)?;
-                Ok(Ast::Binding(binding))
-            } else {
-                self.parse_logic_or()
+            match self.try_parse_any_binding(Visibility::Private)? {
+                Some(binding) => Ok(Ast::Binding(binding?)),
+                None => self.parse_logic_or(),
             }
         } else {
             self.parse_logic_or()

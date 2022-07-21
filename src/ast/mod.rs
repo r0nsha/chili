@@ -494,6 +494,7 @@ pub enum BindingKind {
         pattern: Pattern,
         type_expr: Option<Box<Ast>>,
         value: Box<Ast>,
+        is_static: bool,
     },
     ExternFunction {
         name: NameAndSpan,

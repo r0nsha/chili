@@ -508,32 +508,7 @@ impl<'lx> Lexer<'lx> {
             self.bump();
         }
 
-        match self.source.range(self.cursor) {
-            "nil" => Nil,
-            "true" => True,
-            "false" => False,
-            "if" => If,
-            "else" => Else,
-            "while" => While,
-            "for" => For,
-            "break" => Break,
-            "continue" => Continue,
-            "return" => Return,
-            "let" => Let,
-            "fn" => Fn,
-            "import" => Import,
-            "extern" => Extern,
-            "intrinsic" => Intrinsic,
-            "pub" => Pub,
-            "mut" => Mut,
-            "in" => In,
-            "as" => As,
-            "struct" => Struct,
-            "union" => Union,
-            "match" => Match,
-            "_" => Placeholder,
-            l => Ident(ustr(l)),
-        }
+        TokenKind::from(self.source.range(self.cursor))
     }
 
     fn peek_two(&self) -> &str {

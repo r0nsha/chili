@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{pattern::Pattern, Binding, BindingKind, Intrinsic, Visibility},
+    ast::{pattern::Pattern, Binding, BindingKind, Intrinsic},
     common::path::RelativeTo,
     error::diagnostic::Label,
     span::To,
@@ -8,7 +8,29 @@ use crate::{
 };
 
 impl Parser {
-    pub fn parse_binding(&mut self, visibility: Visibility) -> DiagnosticResult<Binding> {
+    pub fn try_parse_any_binding(
+        &mut self,
+        visibility: ast::Visibility,
+    ) -> DiagnosticResult<Option<DiagnosticResult<Binding>>> {
+        if eat!(self, Static) {
+            require!(self, Let, "let")?;
+            Ok(Some(self.parse_binding(visibility, true)))
+        } else if eat!(self, Let) {
+            Ok(Some(self.parse_binding(visibility, false)))
+        } else if eat!(self, Extern) {
+            Ok(Some(self.parse_extern_binding(visibility)))
+        } else if eat!(self, Intrinsic) {
+            Ok(Some(self.parse_intrinsic_binding(visibility)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn parse_binding(
+        &mut self,
+        visibility: ast::Visibility,
+        is_static: bool,
+    ) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
         let pattern = self.parse_pattern()?;
@@ -33,6 +55,7 @@ impl Parser {
                 pattern,
                 type_expr,
                 value: Box::new(value),
+                is_static,
             },
             span: start_span.to(self.previous_span()),
         })

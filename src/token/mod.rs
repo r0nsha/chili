@@ -92,6 +92,7 @@ pub enum TokenKind {
     Continue,
     Return,
     Let,
+    Static,
     Fn,
     Import,
     Extern,
@@ -120,6 +121,40 @@ pub enum TokenKind {
     // Misc
     Unknown(char),
     Eof,
+}
+
+impl From<&str> for TokenKind {
+    fn from(s: &str) -> Self {
+        use TokenKind::*;
+
+        match s {
+            "nil" => Nil,
+            "true" => True,
+            "false" => False,
+            "if" => If,
+            "else" => Else,
+            "while" => While,
+            "for" => For,
+            "break" => Break,
+            "continue" => Continue,
+            "return" => Return,
+            "let" => Let,
+            "static" => Static,
+            "fn" => Fn,
+            "import" => Import,
+            "extern" => Extern,
+            "intrinsic" => Intrinsic,
+            "pub" => Pub,
+            "mut" => Mut,
+            "in" => In,
+            "as" => As,
+            "struct" => Struct,
+            "union" => Union,
+            "match" => Match,
+            "_" => Placeholder,
+            s => Ident(ustr(s)),
+        }
+    }
 }
 
 impl TokenKind {
@@ -182,6 +217,7 @@ impl TokenKind {
             Continue => "continue",
             Return => "return",
             Let => "let",
+            Static => "static",
             Fn => "fn",
             Import => "import",
             Extern => "extern",
