@@ -498,7 +498,7 @@ pub enum BindingKind {
     ExternFunction {
         name: NameAndSpan,
         lib: Option<ExternLibrary>,
-        function_type: FunctionSig,
+        sig: FunctionSig,
     },
     ExternVariable {
         name: NameAndSpan,

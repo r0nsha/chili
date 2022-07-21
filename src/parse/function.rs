@@ -35,11 +35,9 @@ impl Parser {
         name: Ustr,
         extern_lib: Option<Option<ExternLibrary>>,
     ) -> DiagnosticResult<FunctionSig> {
-        let is_extern = extern_lib.is_some();
-
         let start_span = self.previous_span();
 
-        let (params, varargs) = self.parse_function_params(is_extern)?;
+        let (params, varargs) = self.parse_function_params()?;
 
         let return_type = if eat!(self, RightArrow) {
             Some(Box::new(
@@ -63,7 +61,6 @@ impl Parser {
 
     pub fn parse_function_params(
         &mut self,
-        is_extern: bool,
     ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
         if !eat!(self, OpenParen) {
             return Ok((vec![], None));
@@ -85,16 +82,10 @@ impl Parser {
                 };
 
                 if eat!(self, DotDotDot) {
-                    if !is_extern && type_expr.is_none() {
-                        return Err(SyntaxError::expected(self.previous_span(), ":"));
-                    }
-
-                    let name_span = pattern.span();
-
                     let name = if let Some(name) = pattern.as_name() {
                         name.clone()
                     } else {
-                        return Err(SyntaxError::expected(name_span, "an identifier or _"));
+                        return Err(SyntaxError::expected(pattern.span(), "an identifier or _"));
                     };
 
                     let end_span = self.previous_span();
@@ -104,19 +95,12 @@ impl Parser {
                     varargs = Some(FunctionVarargs {
                         name,
                         type_expr,
-                        span: name_span.to(end_span),
+                        span: pattern.span().to(end_span),
                     });
 
                     break;
                 } else {
-                    if is_extern && type_expr.is_none() {
-                        return Err(SyntaxError::expected(self.previous_span(), ":"));
-                    }
-
-                    FunctionParam {
-                        pattern,
-                        type_expr: type_expr,
-                    }
+                    FunctionParam { pattern, type_expr }
                 }
             },
             ", or )"
