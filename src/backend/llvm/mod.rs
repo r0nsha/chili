@@ -4,6 +4,7 @@ mod codegen_builtin;
 mod codegen_control;
 mod codegen_literal;
 mod codegen_node;
+mod codegen_static;
 mod conditional;
 mod function;
 mod intrinsics;
@@ -102,6 +103,7 @@ pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> 
         extern_variables: UstrMap::default(),
         extern_libraries: HashSet::default(),
         intrinsics: HashMap::default(),
+        startup_function_state: None,
     };
 
     time! { workspace.build_options.emit_times, "llvm", {

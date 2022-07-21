@@ -6,6 +6,7 @@ use crate::{
     hir::{self, const_value::ConstValue},
     infer::normalize::Normalize,
     types::*,
+    workspace::BindingInfoKind,
 };
 use inkwell::{
     module::Linkage,
@@ -52,36 +53,44 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
         if let Some(decl) = generator.global_decls.get(&self.id) {
             *decl
         } else {
-            // forward declare the global value, i.e: `let answer = 42`
-            // the global value will is initialized by the entry point function
             let binding_info = generator.workspace.binding_infos.get(self.id).unwrap();
 
             let ty = binding_info.ty.normalize(generator.tcx);
             let llvm_type = ty.llvm_type(generator);
 
-            match self.value.as_const_value() {
-                Some(ConstValue::Function(function)) => {
-                    let function = generator.gen_function(function.id, None);
-                    generator.insert_global_decl(self.id, Decl::Function(function))
-                }
-                Some(const_value) => {
-                    let global_value =
-                        generator.add_global_uninit(self.id, llvm_type, Linkage::Private);
-
-                    let value = generator.gen_const_value(None, const_value, &ty);
-                    global_value.set_initializer(&value);
-
-                    generator.insert_global_decl(self.id, Decl::Global(global_value))
-                }
-                None => {
-                    let global_value =
-                        generator.add_global_uninit(self.id, llvm_type, Linkage::Private);
-
+            let decl = match &binding_info.kind {
+                BindingInfoKind::Static => {
+                    // statically initialize this binding
+                    let global_value = generator.add_global(self.id, llvm_type, Linkage::Private);
                     global_value.set_initializer(&llvm_type.const_zero());
 
-                    generator.insert_global_decl(self.id, Decl::Global(global_value))
+                    generator.initialize_static(global_value, &self.value);
+
+                    Decl::Global(global_value)
                 }
-            }
+                _ => match self.value.as_const_value() {
+                    Some(ConstValue::Function(function)) => {
+                        Decl::Function(generator.gen_function(function.id, None))
+                    }
+                    Some(const_value) => {
+                        let global_value =
+                            generator.add_global(self.id, llvm_type, Linkage::Private);
+
+                        global_value.set_initializer(&generator.gen_const_value(
+                            None,
+                            const_value,
+                            &ty,
+                        ));
+
+                        Decl::Global(global_value)
+                    }
+                    None => {
+                        panic!("expected top level binding to be statically initialized")
+                    }
+                },
+            };
+
+            generator.insert_global_decl(self.id, decl)
         }
     }
 
@@ -90,8 +99,27 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
         generator: &mut Generator<'g, 'ctx>,
         state: &mut FunctionState<'ctx>,
     ) -> BasicValueEnum<'ctx> {
-        let value = self.value.codegen(generator, state);
-        generator.local_with_alloca(state, self.id, value);
+        let binding_info = generator.workspace.binding_infos.get(self.id).unwrap();
+
+        let ty = binding_info.ty.normalize(generator.tcx);
+        let llvm_type = ty.llvm_type(generator);
+
+        match &binding_info.kind {
+            BindingInfoKind::Static => {
+                // statically initialize this binding
+                let global_value = generator.add_global(self.id, llvm_type, Linkage::Private);
+                global_value.set_initializer(&llvm_type.const_zero());
+
+                generator.insert_global_decl(self.id, Decl::Global(global_value));
+
+                generator.initialize_static(global_value, &self.value);
+            }
+            _ => {
+                let value = self.value.codegen(generator, state);
+                generator.local_with_alloca(state, self.id, value);
+            }
+        }
+
         generator.unit_value()
     }
 }

@@ -84,6 +84,10 @@ pub(super) struct Generator<'g, 'ctx> {
     pub(super) extern_libraries: HashSet<ExternLibrary>,
 
     pub(super) intrinsics: HashMap<hir::Intrinsic, FunctionValue<'ctx>>,
+
+    // This is an Option since it is only initialized after
+    // creating the startup function's state
+    pub(super) startup_function_state: Option<FunctionState<'ctx>>,
 }
 
 #[derive(Clone)]
@@ -136,7 +140,6 @@ pub(super) struct LoopBlock<'ctx> {
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn start(&mut self) {
-        self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
         self.gen_entry_point_function();
     }
 
@@ -178,7 +181,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         decl
     }
 
-    pub(super) fn add_global_uninit(
+    pub(super) fn add_global(
         &mut self,
         id: BindingId,
         ty: BasicTypeEnum<'ctx>,
