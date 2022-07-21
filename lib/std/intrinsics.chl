@@ -1,4 +1,4 @@
 let { Workspace } = import("std/build");
 
 // Workspace
-pub intrinsic let start_workspace = fn(workspace: Workspace) -> (str, bool);
+pub intrinsic let start_workspace: fn(workspace: Workspace) -> (str, bool);

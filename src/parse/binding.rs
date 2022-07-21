@@ -91,12 +91,12 @@ impl Parser {
             }
         } else if eat!(self, Eq) {
             require!(self, Fn, "fn")?;
-            let function_type = self.parse_function_sig(name, Some(lib.clone()))?;
+            let sig = self.parse_function_sig(name, Some(lib.clone()))?;
 
             ast::BindingKind::ExternFunction {
                 name: name_and_span,
                 lib,
-                function_type,
+                sig,
             }
         } else {
             return Err(SyntaxError::expected(self.previous_span(), ": or ="));
@@ -127,7 +127,7 @@ impl Parser {
                 .with_label(Label::primary(id.span, "unknown intrinsic"))
         })?;
 
-        require!(self, Eq, "=")?;
+        require!(self, Colon, ":")?;
         require!(self, Fn, "fn")?;
         let function_type = self.parse_function_sig(name, None)?;
 
