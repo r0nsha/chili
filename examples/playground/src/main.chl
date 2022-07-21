@@ -1,6 +1,6 @@
 let ? = import("std/c");
 
-static let mut answer = 42;
+static let answer = 42;
 
 let main = fn {
     printf("answer = %d\n".data, answer);
