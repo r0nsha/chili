@@ -61,7 +61,7 @@ impl Interp {
             diagnostics: vec![],
             env_stack: vec![],
             // labels: vec![],
-            evaluated_globals: vec![],
+            statically_initialized_globals: vec![],
             lowered_functions: HashSet::new(),
         }
     }
@@ -85,8 +85,8 @@ pub struct InterpSess<'i> {
 
     // pub labels: Vec<Label>,
 
-    // Globals that are going to be evaluated when the VM starts
-    pub evaluated_globals: Vec<CompiledCode>,
+    // Globals that are going to be statically initialized when the VM starts
+    pub statically_initialized_globals: Vec<CompiledCode>,
 
     // Functions currently lowered, cached to prevent infinite recursion in recursive functions
     pub lowered_functions: HashSet<hir::FunctionId>,
@@ -145,7 +145,7 @@ impl<'i> InterpSess<'i> {
     fn insert_init_instructions(&mut self, mut code: CompiledCode) -> CompiledCode {
         let mut init_instructions: Vec<Instruction> = vec![];
 
-        for (i, global_eval_code) in self.evaluated_globals.iter().enumerate() {
+        for (i, global_eval_code) in self.statically_initialized_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
 
             let id = hir::FunctionId::from(usize::MAX - i);

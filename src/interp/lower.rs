@@ -20,7 +20,7 @@ use crate::{
     types::{
         offset_of::OffsetOf, size_of::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType,
     },
-    workspace::BindingId,
+    workspace::{BindingId, BindingInfoKind},
 };
 use ustr::ustr;
 
@@ -149,16 +149,27 @@ impl Lower for hir::Binding {
                         self.name
                     ))
                     .with_label(Label::primary(self.span, "cannot use during compile-time")),
-            )
-        } else {
-            self.value
-                .lower(sess, code, LowerContext { take_ptr: false });
+            );
 
-            sess.add_local(code, self.id);
-            code.push(Instruction::SetLocal(code.last_local()));
-
-            sess.push_const_unit(code);
+            return;
         }
+
+        let binding_info = sess.workspace.binding_infos.get(self.id).unwrap();
+
+        match &binding_info.kind {
+            BindingInfoKind::Static => {
+                lower_static_binding(self, sess);
+            }
+            _ => {
+                self.value
+                    .lower(sess, code, LowerContext { take_ptr: false });
+
+                sess.add_local(code, self.id);
+                code.push(Instruction::SetLocal(code.last_local()));
+            }
+        }
+
+        sess.push_const_unit(code);
     }
 }
 
@@ -1081,9 +1092,18 @@ fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usi
 }
 
 fn lower_top_level_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize {
-    sess.env_stack.push((binding.module_id, Env::default()));
+    if let Some(const_value) = binding.value.as_const_value() {
+        let value = const_value_to_value(const_value, binding.value.ty(), sess);
+        sess.insert_global(binding.id, value)
+    } else {
+        lower_static_binding(binding, sess)
+    }
+}
 
+fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize {
     let mut code = CompiledCode::new();
+
+    sess.env_stack.push((binding.module_id, Env::default()));
 
     binding
         .value
@@ -1092,12 +1112,12 @@ fn lower_top_level_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usi
     sess.env_stack.pop();
 
     let slot = sess.insert_global(binding.id, Value::unit());
+
     code.push(Instruction::SetGlobal(slot as u32));
-
     sess.push_const_unit(&mut code);
-
     code.push(Instruction::Return);
-    sess.evaluated_globals.push(code);
+
+    sess.statically_initialized_globals.push(code);
 
     slot
 }

@@ -117,6 +117,7 @@ pub struct FunctionTypeParam {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTypeVarargs {
+    pub name: Ustr,
     pub ty: Option<Type>,
 }
 
@@ -271,12 +272,22 @@ impl From<Type> for String {
 }
 
 impl Type {
-    pub fn inner(&self) -> &Type {
+    pub fn as_inner(&self) -> &Type {
         match self {
             Type::Pointer(inner, _)
             | Type::Array(inner, _)
             | Type::Slice(inner)
             | Type::Type(inner) => inner,
+            _ => panic!("type {} doesn't have an inner type", self),
+        }
+    }
+
+    pub fn into_inner(self) -> Type {
+        match self {
+            Type::Pointer(inner, _)
+            | Type::Array(inner, _)
+            | Type::Slice(inner)
+            | Type::Type(inner) => *inner,
             _ => panic!("type {} doesn't have an inner type", self),
         }
     }
@@ -404,6 +415,20 @@ impl Type {
         }
     }
 
+    pub fn as_type(&self) -> &Type {
+        match self {
+            Type::Type(ty) => ty,
+            _ => panic!("expected type, got {:?}", self),
+        }
+    }
+
+    pub fn into_type(self) -> Type {
+        match self {
+            Type::Type(ty) => *ty,
+            _ => panic!("expected type, got {:?}", self),
+        }
+    }
+
     pub fn create_type(self) -> Type {
         Type::Type(Box::new(self))
     }
@@ -416,6 +441,38 @@ impl Type {
         match self {
             Type::Pointer(inner, _) => inner.as_ref().clone(),
             _ => self.clone(),
+        }
+    }
+
+    pub fn is_extern(&self) -> bool {
+        match self {
+            Type::Never
+            | Type::Unit
+            | Type::Bool
+            | Type::Int(_)
+            | Type::Uint(_)
+            | Type::Float(_) => true,
+
+            Type::Module(_)
+            | Type::Slice(_)
+            | Type::Type(_)
+            | Type::AnyType
+            | Type::Var(_)
+            | Type::Infer(_, _) => false,
+
+            Type::Pointer(inner, _) | Type::Array(inner, _) => inner.is_extern(),
+
+            Type::Function(f) => {
+                f.return_type.is_extern()
+                    && f.varargs
+                        .as_ref()
+                        .map_or(true, |v| v.ty.as_ref().map_or(true, Self::is_extern))
+                    && f.params.iter().map(|p| &p.ty).all(Self::is_extern)
+            }
+
+            Type::Tuple(tys) => tys.iter().all(Self::is_extern),
+
+            Type::Struct(st) => st.fields.iter().all(|f| f.ty.is_extern()),
         }
     }
 

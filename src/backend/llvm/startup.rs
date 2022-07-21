@@ -1,29 +1,10 @@
-use super::{
-    codegen::{Codegen, Decl, FunctionState, Generator},
-    ty::IntoLlvmType,
-};
+use super::codegen::{FunctionState, Generator};
 use crate::{infer::normalize::Normalize, types::*};
 use inkwell::{module::Linkage, values::BasicValue, AddressSpace};
 use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn gen_entry_point_function(&mut self) {
-        let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
-
-        let entry_point_func_info = self
-            .workspace
-            .binding_infos
-            .get(entry_point_func_id)
-            .unwrap();
-
-        let entry_point_func = self
-            .global_decls
-            .get(&entry_point_func_id)
-            .unwrap()
-            .into_function_value();
-
-        let fn_ty = entry_point_func_info.ty.normalize(self.tcx).into_function();
-
         let name = self
             .workspace
             .build_options
@@ -119,8 +100,27 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         self.start_block(&mut state, entry_block);
 
-        // we initialize the runtime known global bindings at the start of the program
-        self.initialize_globals(&mut state);
+        self.startup_function_state = Some(state.clone());
+
+        // Codegen the entry point function
+        self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
+
+        // Call the entry point function
+        let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
+
+        let entry_point_func_info = self
+            .workspace
+            .binding_infos
+            .get(entry_point_func_id)
+            .unwrap();
+
+        let entry_point_func = self
+            .global_decls
+            .get(&entry_point_func_id)
+            .unwrap()
+            .into_function_value();
+
+        let fn_ty = entry_point_func_info.ty.normalize(self.tcx).into_function();
 
         self.gen_function_call(
             &mut state,
@@ -142,34 +142,5 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         state.pop_scope();
 
         self.builder.build_unconditional_branch(entry_block);
-    }
-
-    fn initialize_globals(&mut self, state: &mut FunctionState<'ctx>) {
-        for binding in self
-            .cache
-            .bindings
-            .iter()
-            .map(|(_, b)| b)
-            .filter(|b| !b.value.is_const())
-        {
-            let decl_ptr = self.global_decls.get(&binding.id).cloned().map_or_else(
-                || {
-                    let llvm_type = binding.value.ty().llvm_type(self);
-
-                    let global_value =
-                        self.add_global_uninit(binding.id, llvm_type, Linkage::Private);
-
-                    global_value.set_initializer(&llvm_type.const_zero());
-
-                    let decl = self.insert_global_decl(binding.id, Decl::Global(global_value));
-
-                    decl.into_pointer_value()
-                },
-                |decl| decl.into_pointer_value(),
-            );
-
-            let value = binding.value.codegen(self, state);
-            self.build_store(decl_ptr, value);
-        }
     }
 }

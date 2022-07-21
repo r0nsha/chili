@@ -4,4 +4,3 @@ pub let build = import("std/build");
 pub let c = import("std/c");
 pub let fmt @ { print, println } = import("std/fmt");
 pub let panicking = import("std/panicking");
-pub let process = import("std/process");

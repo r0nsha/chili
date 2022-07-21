@@ -29,7 +29,7 @@ There are languages such as `Rust` which succeed in making this gap smaller, but
 ```rust
 let main = fn {
 	println("Hello World");
-}
+};
 ```
 
 ## Installation
@@ -215,17 +215,20 @@ pub let im_public = 5;
 
 // you can use other modules (files) using the `import` keyword
 // foo is on the same directory as us, so we only have to type `foo`.
-let foo = import("foo")
+let foo = import("foo");
 
 // modules can be unpacked the same way as structs
-let { im_public } = import("foo")
+let { im_public } = import("foo");
+
+// the previous two import can be combined into one
+let foo @ { im_public } = import("foo");
 
 // the compiler can automatically unpack all public
 // symbols from `foo` for us, using `?`
-let ? = import("foo")
+let ? = import("foo");
 
 // Using the imported symbol
 let main = fn() {
     let x = im_public; // we can now use im_public in `bar.chl`
-}
+};
 ```

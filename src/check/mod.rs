@@ -79,44 +79,12 @@ fn check_all_extern(sess: &mut CheckSess) {
         .map(|(_, f)| f)
         .filter(|f| matches!(&f.kind, hir::FunctionKind::Extern { .. }))
     {
-        if !ty_is_extern(&function.ty.normalize(&sess.tcx)) {
+        if !function.ty.normalize(&sess.tcx).is_extern() {
             sess.workspace.diagnostics.push(
                 Diagnostic::error()
                     .with_message("function type is not valid in extern context")
                     .with_label(Label::primary(function.span, "invalid extern type")),
             )
-        }
-    }
-
-    fn ty_is_extern(ty: &Type) -> bool {
-        match ty {
-            Type::Never
-            | Type::Unit
-            | Type::Bool
-            | Type::Int(_)
-            | Type::Uint(_)
-            | Type::Float(_) => true,
-
-            Type::Module(_)
-            | Type::Slice(_)
-            | Type::Type(_)
-            | Type::AnyType
-            | Type::Var(_)
-            | Type::Infer(_, _) => false,
-
-            Type::Pointer(inner, _) | Type::Array(inner, _) => ty_is_extern(inner),
-
-            Type::Function(f) => {
-                ty_is_extern(&f.return_type)
-                    && f.varargs
-                        .as_ref()
-                        .map_or(true, |v| v.ty.as_ref().map_or(true, |ty| ty_is_extern(ty)))
-                    && f.params.iter().map(|p| &p.ty).all(ty_is_extern)
-            }
-
-            Type::Tuple(tys) => tys.iter().all(ty_is_extern),
-
-            Type::Struct(st) => st.fields.iter().all(|f| ty_is_extern(&f.ty)),
         }
     }
 }
@@ -425,6 +393,7 @@ impl Check for ast::Binding {
                 pattern,
                 type_expr,
                 value,
+                is_static,
             } => {
                 let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
 
@@ -454,7 +423,8 @@ impl Check for ast::Binding {
                 // Global immutable bindings must resolve to a const value, unless it is:
                 // - of type `type` or `module`
                 // - an extern binding
-                if env.scope_level().is_global()
+                if !is_static
+                    && env.scope_level().is_global()
                     && !value_node.is_const()
                     && !is_type_or_module
                     && !pattern.iter().any(|p| p.is_mutable)
@@ -545,15 +515,37 @@ impl Check for ast::Binding {
             BindingKind::ExternFunction {
                 name: ast::NameAndSpan { name, span },
                 lib,
-                function_type,
+                sig,
             } => {
                 let (name, span) = (*name, *span);
 
-                let function_type_node = function_type.check(sess, env, None)?;
-                let ty = match function_type_node.into_const_value().unwrap() {
-                    ConstValue::Type(ty) => ty,
-                    v => panic!("got {:?}", v),
-                };
+                for param in sig.params.iter() {
+                    if param.type_expr.is_none() {
+                        return Err(Diagnostic::error()
+                            .with_message("extern function must specify all of its parameter types")
+                            .with_label(Label::primary(
+                                param.pattern.span(),
+                                "parameter type not specified",
+                            )));
+                    }
+                }
+
+                let function_type_node = sig.check(sess, env, None)?;
+                let ty = function_type_node
+                    .into_const_value()
+                    .unwrap()
+                    .into_type()
+                    .unwrap();
+
+                let type_norm = ty.normalize(&sess.tcx);
+                if !type_norm.is_extern() {
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "function type `{}` is not valid in extern context",
+                            type_norm.display(&sess.tcx)
+                        ))
+                        .with_label(Label::primary(sig.span, "not valid in extern context")));
+                }
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
@@ -743,13 +735,14 @@ impl Check for ast::FunctionSig {
 
             if ty.is_none() && !self.kind.is_extern() {
                 return Err(Diagnostic::error()
-                    .with_message(
-                        "varargs without type annotation are only valid in extern functions",
-                    )
+                    .with_message("variadic parameter must be typed")
                     .with_label(Label::primary(varargs.span, "missing a type annotation")));
             }
 
-            Some(Box::new(FunctionTypeVarargs { ty }))
+            Some(Box::new(FunctionTypeVarargs {
+                name: varargs.name.name,
+                ty,
+            }))
         } else {
             None
         };
@@ -1631,7 +1624,7 @@ impl Check for ast::Ast {
             ast::Ast::StructType(struct_type) => struct_type.check(sess, env, expected_type),
             ast::Ast::FunctionType(sig) => {
                 let node = sig.check(sess, env, expected_type)?;
-                let function_type = node.ty().normalize(&sess.tcx).into_function();
+                let function_type = node.ty().normalize(&sess.tcx).into_type().into_function();
 
                 for (i, param) in function_type.params.iter().enumerate() {
                     let ty = param.ty.normalize(&sess.tcx);
@@ -1669,6 +1662,23 @@ impl Check for ast::Ast {
                                 varargs_type.display(&sess.tcx),
                                 sig.varargs.as_ref().unwrap().span,
                             ))
+                        }
+                    }
+                }
+
+                for param in sig.params.iter() {
+                    match &param.pattern {
+                        Pattern::Name(_) => (),
+                        Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) | Pattern::Hybrid(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message("expected an indentifier or _")
+                                .with_label(Label::primary(
+                                    param.pattern.span(),
+                                    "expected an identifier or _",
+                                ))
+                                .with_note(
+                                    "binding patterns are not allowed in function type parameters",
+                                ))
                         }
                     }
                 }
@@ -2251,6 +2261,17 @@ impl Check for ast::Function {
                         Err(_) => (),
                     }
                 }
+            }
+        }
+
+        if let Some(varargs) = &function_type.varargs {
+            if varargs.ty.is_none() {
+                return Err(Diagnostic::error()
+                    .with_message("untyped variadic parameters are only valid in extern functions")
+                    .with_label(Label::primary(
+                        self.sig.varargs.as_ref().unwrap().span,
+                        "variadic parameter must be typed",
+                    )));
             }
         }
 

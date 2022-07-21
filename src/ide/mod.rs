@@ -24,17 +24,22 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, typed_ast: Opti
             .iter()
             .filter(|diag| !diag.labels.is_empty())
             .map(|diag| {
-                let label = diag.labels.first().unwrap();
-                let file = workspace.diagnostics.get_file(label.span.file_id).unwrap();
+                diag.labels.first().map(|label| {
+                    let file = workspace.diagnostics.get_file(label.span.file_id).unwrap();
 
-                IdeObject::Diagnostic(IdeDiagnostic {
-                    severity: match &diag.severity {
-                        DiagnosticSeverity::Error => IdeDiagnosticSeverity::Error,
-                    },
-                    span: IdeSpan::from_span_and_file(label.span, file.name()),
-                    message: diag.message.clone().unwrap(),
+                    IdeObject::Diagnostic(IdeDiagnostic {
+                        severity: match &diag.severity {
+                            DiagnosticSeverity::Error => IdeDiagnosticSeverity::Error,
+                        },
+                        span: IdeSpan::from_span_and_file(label.span, file.name()),
+                        message: match &diag.message {
+                            Some(message) => format!("{}\n{}", message, &label.message),
+                            None => label.message.to_string(),
+                        },
+                    })
                 })
-            }),
+            })
+            .flatten(),
     );
 
     match (tcx, typed_ast) {

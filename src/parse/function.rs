@@ -35,11 +35,9 @@ impl Parser {
         name: Ustr,
         extern_lib: Option<Option<ExternLibrary>>,
     ) -> DiagnosticResult<FunctionSig> {
-        let is_extern = extern_lib.is_some();
-
         let start_span = self.previous_span();
 
-        let (params, varargs) = self.parse_function_params(is_extern)?;
+        let (params, varargs) = self.parse_function_params()?;
 
         let return_type = if eat!(self, RightArrow) {
             Some(Box::new(
@@ -63,7 +61,6 @@ impl Parser {
 
     pub fn parse_function_params(
         &mut self,
-        is_extern: bool,
     ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
         if !eat!(self, OpenParen) {
             return Ok((vec![], None));
@@ -76,17 +73,19 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                if eat!(self, DotDot) {
-                    let start_span = self.previous_span();
+                let pattern = self.parse_pattern()?;
 
-                    let name = require!(self, Ident(_), "an identifier")?.name();
+                let type_expr = if eat!(self, Colon) {
+                    Some(Box::new(self.parse_expr()?))
+                } else {
+                    None
+                };
 
-                    let type_expr = if eat!(self, Colon) {
-                        Some(Box::new(self.parse_expr()?))
-                    } else if !is_extern {
-                        return Err(SyntaxError::expected(self.previous_span(), ":"));
+                if eat!(self, DotDotDot) {
+                    let name = if let Some(name) = pattern.as_name() {
+                        name.clone()
                     } else {
-                        None
+                        return Err(SyntaxError::expected(pattern.span(), "an identifier or _"));
                     };
 
                     let end_span = self.previous_span();
@@ -96,25 +95,12 @@ impl Parser {
                     varargs = Some(FunctionVarargs {
                         name,
                         type_expr,
-                        span: start_span.to(end_span),
+                        span: pattern.span().to(end_span),
                     });
 
                     break;
-                }
-
-                let pattern = self.parse_pattern()?;
-
-                let ty = if eat!(self, Colon) {
-                    Some(Box::new(self.parse_expr()?))
-                } else if is_extern {
-                    return Err(SyntaxError::expected(self.previous_span(), ":"));
                 } else {
-                    None
-                };
-
-                FunctionParam {
-                    pattern,
-                    type_expr: ty,
+                    FunctionParam { pattern, type_expr }
                 }
             },
             ", or )"

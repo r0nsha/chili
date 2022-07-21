@@ -107,6 +107,18 @@ impl<'s> CheckSess<'s> {
                         ));
                     }
                 } else {
+                    if is_mutable && !matches!(kind, BindingInfoKind::Static) {
+                        self.workspace.diagnostics.push(
+                            Diagnostic::error()
+                                .with_message(format!(
+                                    "top level let binding `{}` cannot be mutable",
+                                    name
+                                ))
+                                .with_label(Label::primary(span, "cannot be mutable"))
+                                .with_note("try prefix the binding with `static`"),
+                        );
+                    }
+
                     // insert the symbol into its module's global scope
                     self.insert_global_binding_id(module_id, name, id);
                 }

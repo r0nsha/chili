@@ -10,17 +10,20 @@ impl Parser {
         while !self.is_end() {
             match self.parse_top_level(&mut module) {
                 Ok(_) => {
-                    // Note (Ron 5/7/2022): This piece of code requires semicolons after top level items.
-                    //             This isn't semantically required, but was placed for orthogonallity.
-                    //             For now, this proved to be a bit tedious, so I removed it.
-                    // if let Err(_) = require!(self, Semicolon, ";") {
-                    //     let span = Parser::get_missing_delimiter_span(self.previous_span());
-                    //     self.cache
-                    //         .lock()
-                    //         .diagnostics
-                    //         .push(SyntaxError::expected(span, ";"));
-                    //     self.skip_until_recovery_point();
-                    // }
+                    // Note (Ron 20/07/2022):
+                    // This piece of code requires semicolons for top level items.
+                    // This is not semantically required, but is placed for orthogonallity.
+                    // I did experiment with optional semicolon, but they ended up
+                    // add much more complexity then benefit.
+                    // Especially since the language is expression-based.
+                    if let Err(_) = require!(self, Semicolon, ";") {
+                        let span = Parser::get_missing_delimiter_span(self.previous_span());
+                        self.cache
+                            .lock()
+                            .diagnostics
+                            .push(SyntaxError::expected(span, ";"));
+                        self.skip_until_recovery_point();
+                    }
                 }
                 Err(diag) => {
                     self.cache.lock().diagnostics.push(diag);
@@ -41,41 +44,35 @@ impl Parser {
             Visibility::Private
         };
 
-        if eat!(self, Let) {
-            let start_span = self.previous_span();
-
-            let binding = if eat!(self, Extern) {
-                self.parse_extern(visibility, start_span)?
-            } else if eat!(self, Intrinsic) {
-                self.parse_builtin_binding(visibility, start_span)?
-            } else {
-                self.parse_binding(visibility)?
-            };
-
-            module.bindings.push(binding);
-
-            Ok(())
-        } else if eat!(self, Ident(_)) {
-            let token = self.previous().clone();
-            let symbol = token.name();
-
-            require!(self, Bang, "!")?;
-            require!(self, OpenParen, "(")?;
-
-            if symbol == "run" {
-                let expr = self.parse_expr()?;
-                module.run_exprs.push(expr);
-                require!(self, CloseParen, ")")?;
-
+        match self.try_parse_any_binding(visibility)? {
+            Some(binding) => {
+                module.bindings.push(binding?);
                 Ok(())
-            } else {
-                Err(SyntaxError::expected(self.previous_span(), "run"))
             }
-        } else {
-            Err(SyntaxError::expected(
-                self.span(),
-                &format!("an item, got `{}`", self.peek().lexeme),
-            ))
+            None => {
+                if eat!(self, Ident(_)) {
+                    let token = self.previous().clone();
+                    let symbol = token.name();
+
+                    require!(self, Bang, "!")?;
+                    require!(self, OpenParen, "(")?;
+
+                    if symbol == "run" {
+                        let expr = self.parse_expr()?;
+                        module.run_exprs.push(expr);
+                        require!(self, CloseParen, ")")?;
+
+                        Ok(())
+                    } else {
+                        Err(SyntaxError::expected(self.previous_span(), "run"))
+                    }
+                } else {
+                    Err(SyntaxError::expected(
+                        self.span(),
+                        &format!("an item, got `{}`", self.peek().lexeme),
+                    ))
+                }
+            }
         }
     }
 }

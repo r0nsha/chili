@@ -64,7 +64,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|fn|import|extern|intrinsic|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|fn|import|extern|intrinsic|static|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -157,19 +157,79 @@
               "name": "keyword.other.chili"
             },
             "4": {
-              "name": "keyword.other.chili"
-            },
-            "5": {
-              "name": "string.quoted.double.chili"
-            },
-            "6": {
-              "name": "storage.modifier.chili"
-            },
-            "7": {
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(let\\s*)(\\b(extern|intrinsic)\\b\\s*(\".+\"\\s*)?)?(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+        },
+        {
+          "comment": "extern let binding",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "string.quoted.double.chili"
+            },
+            "4": {
+              "name": "keyword.other.chili"
+            },
+            "5": {
+              "name": "keyword.other.chili"
+            },
+            "6": {
+              "name": "entity.name.function.chili"
+            }
+          },
+          "match": "\\b(pub\\s*)?\\b(extern)\\b\\s*(\".+\"\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+        },
+        {
+          "comment": "static let binding",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "keyword.other.chili"
+            },
+            "4": {
+              "name": "keyword.other.chili"
+            },
+            "5": {
+              "name": "keyword.other.chili"
+            },
+            "6": {
+              "name": "entity.name.function.chili"
+            }
+          },
+          "match": "\\b(pub\\s*)?(\\b(static)\\b)\\s*(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+        },
+        {
+          "comment": "intrinsic let binding",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "keyword.other.chili"
+            },
+            "4": {
+              "name": "keyword.other.chili"
+            },
+            "5": {
+              "name": "entity.name.function.chili"
+            }
+          },
+          "match": "\\b(pub\\s*)?(\\b(intrinsic)\\b)\\s*(let)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "name": "support.function.builtin.chili",

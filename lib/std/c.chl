@@ -1,34 +1,34 @@
-pub let extern "c" putchar = fn(char: int) -> int;
-pub let extern "c" getchar = fn() -> int;
+pub extern "c" let putchar = fn(char: int) -> int;
+pub extern "c" let getchar = fn() -> int;
 
-pub let extern "c" printf = fn(input: *u8, ..args) -> int;
-pub let extern "c" sprintf_s = fn(buffer: *u8, sizeOfBuffer: uint, format: *u8, ..args) -> int;
+pub extern "c" let printf = fn(input: *u8, args...) -> int;
+pub extern "c" let sprintf_s = fn(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int;
 
-pub let extern "c" strcpy = fn(dest: *u8, src: *u8) -> *u8;
+pub extern "c" let strcpy = fn(dest: *u8, src: *u8) -> *u8;
 
-pub let extern "c" malloc = fn(size: uint) -> *i8;
-pub let extern "c" calloc = fn(nitems: uint, size: uint) -> *i8;
-pub let extern "c" realloc = fn(ptr: *i8, size: uint) -> *i8;
-pub let extern "c" free = fn(memblock: *i8);
+pub extern "c" let malloc = fn(size: uint) -> *i8;
+pub extern "c" let calloc = fn(nitems: uint, size: uint) -> *i8;
+pub extern "c" let realloc = fn(ptr: *i8, size: uint) -> *i8;
+pub extern "c" let free = fn(memblock: *i8);
 
-pub let extern "c" abs = fn(x: i32) -> i32;
+pub extern "c" let abs = fn(x: i32) -> i32;
 
-pub let extern "c" sinf = fn(arg: f32) -> f32;
-pub let extern "c" sin = fn(arg: f64) -> f64;
+pub extern "c" let sinf = fn(arg: f32) -> f32;
+pub extern "c" let sin = fn(arg: f64) -> f64;
 
-pub let extern "c" cosf = fn(arg: f32) -> f32;
-pub let extern "c" cos = fn(arg: f64) -> f64;
+pub extern "c" let cosf = fn(arg: f32) -> f32;
+pub extern "c" let cos = fn(arg: f64) -> f64;
 
-pub let extern "c" atan2f = fn(y: f32, x: f32) -> f32;
-pub let extern "c" atan2 = fn(y: f64, x: f64) -> f64;
+pub extern "c" let atan2f = fn(y: f32, x: f32) -> f32;
+pub extern "c" let atan2 = fn(y: f64, x: f64) -> f64;
 
-pub let extern "c" pow = fn(x: f64, y: f64) -> f64;
+pub extern "c" let pow = fn(x: f64, y: f64) -> f64;
 
-pub let extern "c" srand = fn(seed: uint);
-pub let extern "c" rand = fn() -> uint;
-pub let extern "c" time = fn(some: *i8) -> uint;
+pub extern "c" let srand = fn(seed: uint);
+pub extern "c" let rand = fn() -> uint;
+pub extern "c" let time = fn(some: *i8) -> uint;
 
-pub let extern "c" execl = fn(path: *u8, ..args) -> int;
+pub extern "c" let execl = fn(path: *u8, args...) -> int;
 
-pub let extern "c" abort = fn() -> never;
-pub let extern "c" exit = fn(status: int) -> never;
+pub extern "c" let abort = fn() -> never;
+pub extern "c" let exit = fn(status: int) -> never;

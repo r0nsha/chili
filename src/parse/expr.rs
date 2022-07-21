@@ -54,18 +54,9 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            if eat!(self, Let) {
-                let start_span = self.previous_span();
-
-                let binding = if eat!(self, Extern) {
-                    self.parse_extern(Visibility::Private, start_span)?
-                } else {
-                    self.parse_binding(Visibility::Private)?
-                };
-
-                Ok(Ast::Binding(binding))
-            } else {
-                self.parse_logic_or()
+            match self.try_parse_any_binding(Visibility::Private)? {
+                Some(binding) => Ok(Ast::Binding(binding?)),
+                None => self.parse_logic_or(),
             }
         } else {
             self.parse_logic_or()
@@ -285,7 +276,7 @@ impl Parser {
             } else {
                 return Err(SyntaxError::expected(
                     self.span(),
-                    &format!("[ or {{, got `{}`", self.peek().lexeme),
+                    &format!("{{, got `{}`", self.peek().lexeme),
                 ));
             }
         } else if eat!(self, Break | Continue | Return) {

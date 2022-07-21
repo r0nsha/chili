@@ -119,6 +119,7 @@ impl NormalizeCtx {
                 return_type: Box::new(self.normalize_kind(tcx, &f.return_type)),
                 varargs: f.varargs.as_ref().map(|v| {
                     Box::new(FunctionTypeVarargs {
+                        name: v.name,
                         ty: v.ty.as_ref().map(|ty| self.normalize_kind(tcx, ty)),
                     })
                 }),

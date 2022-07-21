@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{pattern::Pattern, Binding, BindingKind, Intrinsic, Visibility},
+    ast::{pattern::Pattern, Binding, BindingKind, Intrinsic},
     common::path::RelativeTo,
     error::diagnostic::Label,
     span::To,
@@ -8,7 +8,29 @@ use crate::{
 };
 
 impl Parser {
-    pub fn parse_binding(&mut self, visibility: Visibility) -> DiagnosticResult<Binding> {
+    pub fn try_parse_any_binding(
+        &mut self,
+        visibility: ast::Visibility,
+    ) -> DiagnosticResult<Option<DiagnosticResult<Binding>>> {
+        if eat!(self, Static) {
+            require!(self, Let, "let")?;
+            Ok(Some(self.parse_binding(visibility, true)))
+        } else if eat!(self, Let) {
+            Ok(Some(self.parse_binding(visibility, false)))
+        } else if eat!(self, Extern) {
+            Ok(Some(self.parse_extern_binding(visibility)))
+        } else if eat!(self, Intrinsic) {
+            Ok(Some(self.parse_intrinsic_binding(visibility)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn parse_binding(
+        &mut self,
+        visibility: ast::Visibility,
+        is_static: bool,
+    ) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
         let pattern = self.parse_pattern()?;
@@ -33,16 +55,18 @@ impl Parser {
                 pattern,
                 type_expr,
                 value: Box::new(value),
+                is_static,
             },
             span: start_span.to(self.previous_span()),
         })
     }
 
-    pub fn parse_extern(
+    pub fn parse_extern_binding(
         &mut self,
         visibility: ast::Visibility,
-        start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
+        let start_span = self.previous_span();
+
         let lib = eat!(self, Str(_)).then(|| self.previous().name());
 
         let lib = if let Some(lib) = lib {
@@ -56,6 +80,8 @@ impl Parser {
         } else {
             None
         };
+
+        require!(self, Let, "let")?;
 
         let is_mutable = eat!(self, Mut);
 
@@ -88,12 +114,12 @@ impl Parser {
             }
         } else if eat!(self, Eq) {
             require!(self, Fn, "fn")?;
-            let function_type = self.parse_function_sig(name, Some(lib.clone()))?;
+            let sig = self.parse_function_sig(name, Some(lib.clone()))?;
 
             ast::BindingKind::ExternFunction {
                 name: name_and_span,
                 lib,
-                function_type,
+                sig,
             }
         } else {
             return Err(SyntaxError::expected(self.previous_span(), ": or ="));
@@ -107,11 +133,14 @@ impl Parser {
         })
     }
 
-    pub fn parse_builtin_binding(
+    pub fn parse_intrinsic_binding(
         &mut self,
         visibility: ast::Visibility,
-        start_span: Span,
     ) -> DiagnosticResult<ast::Binding> {
+        let start_span = self.previous_span();
+
+        require!(self, Let, "let")?;
+
         let id = require!(self, Ident(_), "an identifier")?;
         let name = id.name();
 

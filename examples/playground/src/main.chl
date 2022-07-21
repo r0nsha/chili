@@ -1,3 +1,9 @@
+let ? = import("std/c");
+
+let get_a = fn { 42 };
+
 let main = fn {
+    static let answer = get_a();
+    printf("answer = %d\n".data, answer);
     println("Hello World");
-}
+};

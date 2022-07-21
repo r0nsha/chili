@@ -19,6 +19,8 @@ use std::{
 };
 use ustr::Ustr;
 
+use self::pattern::NamePattern;
+
 #[derive(Debug, Clone)]
 pub struct Module {
     pub id: ModuleId,
@@ -397,7 +399,7 @@ pub struct FunctionSig {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionVarargs {
-    pub name: Ustr,
+    pub name: NamePattern,
     pub type_expr: Option<Box<Ast>>,
     pub span: Span,
 }
@@ -492,11 +494,12 @@ pub enum BindingKind {
         pattern: Pattern,
         type_expr: Option<Box<Ast>>,
         value: Box<Ast>,
+        is_static: bool,
     },
     ExternFunction {
         name: NameAndSpan,
         lib: Option<ExternLibrary>,
-        function_type: FunctionSig,
+        sig: FunctionSig,
     },
     ExternVariable {
         name: NameAndSpan,
