@@ -229,8 +229,3 @@ let main = fn() {
     let x = im_public; // we can now use im_public in `bar.chl`
 }
 ```
-
-## Licenses
-
-- https://opensource.org/licenses/MIT
-- https://www.apache.org/licenses/LICENSE-2.0
