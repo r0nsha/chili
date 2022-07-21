@@ -127,7 +127,7 @@ impl Parser {
                 .with_label(Label::primary(id.span, "unknown intrinsic"))
         })?;
 
-        require!(self, Colon, ":")?;
+        require!(self, Eq, "=")?;
         require!(self, Fn, "fn")?;
         let function_type = self.parse_function_sig(name, None)?;
 
