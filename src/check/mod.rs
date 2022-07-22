@@ -530,7 +530,9 @@ impl Check for ast::Binding {
                     }
                 }
 
-                let function_type_node = sig.check(sess, env, None)?;
+                let function_type_node =
+                    sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
+
                 let ty = function_type_node
                     .into_const_value()
                     .unwrap()
@@ -1623,7 +1625,7 @@ impl Check for ast::Ast {
             }
             ast::Ast::StructType(struct_type) => struct_type.check(sess, env, expected_type),
             ast::Ast::FunctionType(sig) => {
-                let node = sig.check(sess, env, expected_type)?;
+                let node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
                 let function_type = node.ty().normalize(&sess.tcx).into_type().into_function();
 
                 for (i, param) in function_type.params.iter().enumerate() {
@@ -2959,7 +2961,7 @@ impl Check for ast::Call {
     ) -> CheckResult {
         let callee = self.callee.check(sess, env, None)?;
 
-        match callee.ty().normalize(&sess.tcx) {
+        let call_node = match callee.ty().normalize(&sess.tcx) {
             Type::Function(fn_ty) => {
                 let arg_mismatch = match &fn_ty.varargs {
                     Some(_) if self.args.len() < fn_ty.params.len() => true,
@@ -3017,14 +3019,14 @@ impl Check for ast::Call {
                     }
                 }
 
-                Ok(hir::Node::Call(hir::Call {
+                hir::Call {
                     ty: sess
                         .tcx
                         .bound(fn_ty.return_type.as_ref().clone(), self.span),
                     span: self.span,
                     callee: Box::new(callee),
                     args,
-                }))
+                }
             }
             ty => {
                 let args = self
@@ -3056,14 +3058,28 @@ impl Check for ast::Call {
                     self.callee.span(),
                 )?;
 
-                Ok(hir::Node::Call(hir::Call {
+                hir::Call {
                     ty: return_ty,
                     span: self.span,
                     callee: Box::new(callee),
                     args,
-                }))
+                }
+            }
+        };
+
+        for arg in call_node.args.iter() {
+            let arg_type = arg.ty().normalize(&sess.tcx);
+            match arg_type {
+                Type::Type(_) | Type::AnyType => {
+                    return Err(Diagnostic::error()
+                        .with_message("types cannot be passed as function arguments")
+                        .with_label(Label::primary(arg.span(), "cannot pass type")))
+                }
+                _ => (),
             }
         }
+
+        Ok(hir::Node::Call(call_node))
     }
 }
 
