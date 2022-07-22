@@ -3075,6 +3075,11 @@ impl Check for ast::Call {
                         .with_message("types cannot be passed as function arguments")
                         .with_label(Label::primary(arg.span(), "cannot pass type")))
                 }
+                Type::Module(_) => {
+                    return Err(Diagnostic::error()
+                        .with_message("modules cannot be passed as function arguments")
+                        .with_label(Label::primary(arg.span(), "cannot pass module")))
+                }
                 _ => (),
             }
         }
