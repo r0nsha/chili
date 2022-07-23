@@ -165,7 +165,7 @@ impl Lower for hir::Binding {
 
                 sess.add_local(code, self.id);
                 let last_local = code.locals as i32 - 1;
-                code.push(Inst::SetLocal(last_local));
+                code.push(Inst::StoreLocal(last_local));
             }
         }
 
@@ -194,9 +194,9 @@ impl Lower for hir::Id {
                         as u32;
 
                     code.push(if ctx.take_ptr {
-                        Inst::GetGlobalPtr(slot)
+                        Inst::LoadGlobalPtr(slot)
                     } else {
-                        Inst::GetGlobal(slot)
+                        Inst::LoadGlobal(slot)
                     });
                 }
             }
@@ -1079,7 +1079,7 @@ fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize 
 
     let slot = sess.insert_global(binding.id, Value::default());
 
-    code.push(Inst::SetGlobal(slot as u32));
+    code.push(Inst::StoreGlobal(slot as u32));
     sess.push_const_unit(&mut code);
     code.push(Inst::Return);
 

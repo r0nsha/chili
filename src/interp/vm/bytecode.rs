@@ -55,18 +55,18 @@ impl Bytecode {
                 self.write_u32(args);
                 addr
             }
-            Inst::GetGlobal(slot) => {
-                let addr = self.write_op(Op::GetGlobal);
+            Inst::LoadGlobal(slot) => {
+                let addr = self.write_op(Op::LoadGlobal);
                 self.write_u32(slot);
                 addr
             }
-            Inst::GetGlobalPtr(slot) => {
-                let addr = self.write_op(Op::GetGlobalPtr);
+            Inst::LoadGlobalPtr(slot) => {
+                let addr = self.write_op(Op::LoadGlobalPtr);
                 self.write_u32(slot);
                 addr
             }
-            Inst::SetGlobal(slot) => {
-                let addr = self.write_op(Op::SetGlobal);
+            Inst::StoreGlobal(slot) => {
+                let addr = self.write_op(Op::StoreGlobal);
                 self.write_u32(slot);
                 addr
             }
@@ -80,8 +80,8 @@ impl Bytecode {
                 self.write_i32(offset);
                 addr
             }
-            Inst::SetLocal(slot) => {
-                let addr = self.write_op(Op::SetLocal);
+            Inst::StoreLocal(slot) => {
+                let addr = self.write_op(Op::StoreLocal);
                 self.write_i32(slot);
                 addr
             }
@@ -173,7 +173,7 @@ impl Bytecode {
     pub fn reader(&self) -> BytecodeReader {
         BytecodeReader {
             bytecode: self,
-            pointer: 0,
+            cursor: 0,
         }
     }
 }
@@ -181,58 +181,72 @@ impl Bytecode {
 #[derive(Clone, Copy)]
 pub struct BytecodeReader<'a> {
     bytecode: &'a Bytecode,
-    pointer: usize,
+    cursor: usize,
 }
 
 impl<'a> BytecodeReader<'a> {
     #[inline(always)]
-    pub fn set_pointer(&mut self, to: usize) {
-        self.pointer = to;
+    pub fn cursor(&self) -> usize {
+        self.cursor
     }
 
     #[inline(always)]
-    pub fn read_op(&mut self) -> Op {
-        self.read_u8().into()
+    pub fn set_cursor(&mut self, to: usize) {
+        self.cursor = to;
+    }
+
+    #[inline(always)]
+    pub fn try_read_op(&mut self) -> Option<Op> {
+        if self.has_remaining() {
+            Some(Op::from(self.read_u8()))
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    pub fn has_remaining(&self) -> bool {
+        self.cursor < self.bytecode.buf.len()
     }
 
     #[inline(always)]
     pub fn read_u8(&mut self) -> u8 {
         let value = self.as_slice().read_u8().unwrap();
-        self.pointer += mem::size_of::<u8>();
+        self.cursor += mem::size_of::<u8>();
         value
     }
 
     #[inline(always)]
     pub fn read_u16(&mut self) -> u16 {
         let value = self.as_slice().read_u16::<NativeEndian>().unwrap();
-        self.pointer += mem::size_of::<u16>();
+        self.cursor += mem::size_of::<u16>();
         value
     }
 
     #[inline(always)]
     pub fn read_i16(&mut self) -> i16 {
         let value = self.as_slice().read_i16::<NativeEndian>().unwrap();
-        self.pointer += mem::size_of::<i16>();
+        self.cursor += mem::size_of::<i16>();
         value
     }
 
     #[inline(always)]
     pub fn read_u32(&mut self) -> u32 {
         let value = self.as_slice().read_u32::<NativeEndian>().unwrap();
-        self.pointer += mem::size_of::<u32>();
+        self.cursor += mem::size_of::<u32>();
         value
     }
 
     #[inline(always)]
     pub fn read_i32(&mut self) -> i32 {
         let value = self.as_slice().read_i32::<NativeEndian>().unwrap();
-        self.pointer += mem::size_of::<i32>();
+        self.cursor += mem::size_of::<i32>();
         value
     }
 
     #[inline(always)]
     fn as_slice(&self) -> &[u8] {
-        &self.bytecode.buf[self.pointer..]
+        &self.bytecode.buf[self.cursor..]
     }
 }
 
@@ -265,12 +279,12 @@ pub enum Op {
     Jmpf,
     Return,
     Call,
-    GetGlobal,
-    GetGlobalPtr,
-    SetGlobal,
+    LoadGlobal,
+    LoadGlobalPtr,
+    StoreGlobal,
     Peek,
     PeekPtr,
-    SetLocal,
+    StoreLocal,
     Index,
     IndexPtr,
     Offset,
@@ -317,12 +331,12 @@ impl From<u8> for Op {
             24 => Jmpf,
             25 => Return,
             26 => Call,
-            27 => GetGlobal,
-            28 => GetGlobalPtr,
-            29 => SetGlobal,
+            27 => LoadGlobal,
+            28 => LoadGlobalPtr,
+            29 => StoreGlobal,
             30 => Peek,
             31 => PeekPtr,
-            32 => SetLocal,
+            32 => StoreLocal,
             33 => Index,
             34 => IndexPtr,
             35 => Offset,
@@ -372,12 +386,12 @@ impl From<Op> for u8 {
             Jmpf => 24,
             Return => 25,
             Call => 26,
-            GetGlobal => 27,
-            GetGlobalPtr => 28,
-            SetGlobal => 29,
+            LoadGlobal => 27,
+            LoadGlobalPtr => 28,
+            StoreGlobal => 29,
             Peek => 30,
             PeekPtr => 31,
-            SetLocal => 32,
+            StoreLocal => 32,
             Index => 33,
             IndexPtr => 34,
             Offset => 35,
@@ -391,6 +405,58 @@ impl From<Op> for u8 {
             Copy => 43,
             Swap => 44,
             Halt => 45,
+        }
+    }
+}
+
+impl Display for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Op::Noop => write!(f, "noop"),
+            Op::Pop => write!(f, "pop"),
+            Op::LoadConst => write!(f, "load_const"),
+            Op::Add => write!(f, "add"),
+            Op::Sub => write!(f, "sub"),
+            Op::Mul => write!(f, "mul"),
+            Op::Div => write!(f, "div"),
+            Op::Rem => write!(f, "rem"),
+            Op::Neg => write!(f, "neg"),
+            Op::Not => write!(f, "not"),
+            Op::Deref => write!(f, "deref"),
+            Op::Eq => write!(f, "eq"),
+            Op::Ne => write!(f, "ne"),
+            Op::Lt => write!(f, "lt"),
+            Op::Le => write!(f, "le"),
+            Op::Gt => write!(f, "gt"),
+            Op::Ge => write!(f, "ge"),
+            Op::And => write!(f, "and"),
+            Op::Or => write!(f, "or"),
+            Op::Shl => write!(f, "shl"),
+            Op::Shr => write!(f, "shr"),
+            Op::Xor => write!(f, "xor"),
+            Op::Jmp => write!(f, "jmp"),
+            Op::Jmpf => write!(f, "jmpf"),
+            Op::Return => write!(f, "return"),
+            Op::Call => write!(f, "call"),
+            Op::LoadGlobal => write!(f, "load_global"),
+            Op::LoadGlobalPtr => write!(f, "load_global_ptr"),
+            Op::StoreGlobal => write!(f, "store_global"),
+            Op::Peek => write!(f, "peek"),
+            Op::PeekPtr => write!(f, "peek_ptr"),
+            Op::StoreLocal => write!(f, "store_local"),
+            Op::Index => write!(f, "index"),
+            Op::IndexPtr => write!(f, "index_ptr"),
+            Op::Offset => write!(f, "offset"),
+            Op::ConstIndex => write!(f, "const_index"),
+            Op::ConstIndexPtr => write!(f, "const_index_ptr"),
+            Op::Assign => write!(f, "assign"),
+            Op::Cast => write!(f, "cast"),
+            Op::BufferAlloc => write!(f, "buffer_alloc"),
+            Op::BufferPut => write!(f, "buffer_put"),
+            Op::BufferFill => write!(f, "buffer_fill"),
+            Op::Copy => write!(f, "copy"),
+            Op::Swap => write!(f, "swap"),
+            Op::Halt => write!(f, "halt"),
         }
     }
 }
@@ -423,12 +489,12 @@ pub enum Inst {
     Jmpf(i32),
     Return,
     Call(u32),
-    GetGlobal(u32),
-    GetGlobalPtr(u32),
-    SetGlobal(u32),
+    LoadGlobal(u32),
+    LoadGlobalPtr(u32),
+    StoreGlobal(u32),
     Peek(i32),
     PeekPtr(i32),
-    SetLocal(i32),
+    StoreLocal(i32),
     Index,
     IndexPtr,
     Offset,
@@ -476,12 +542,12 @@ impl Display for Inst {
                 Inst::Jmpf(offset) => format!("jmpf {}", offset),
                 Inst::Return => "return".to_string(),
                 Inst::Call(arg_count) => format!("call {}", arg_count),
-                Inst::GetGlobal(slot) => format!("get_global ${}", slot),
-                Inst::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
-                Inst::SetGlobal(slot) => format!("set_global ${}", slot),
+                Inst::LoadGlobal(slot) => format!("load_global ${}", slot),
+                Inst::LoadGlobalPtr(slot) => format!("load_global_ptr ${}", slot),
+                Inst::StoreGlobal(slot) => format!("store_global ${}", slot),
                 Inst::Peek(slot) => format!("peek ${}", slot),
                 Inst::PeekPtr(slot) => format!("peek_ptr ${}", slot),
-                Inst::SetLocal(slot) => format!("set_local ${}", slot),
+                Inst::StoreLocal(slot) => format!("store_local ${}", slot),
                 Inst::Index => "index".to_string(),
                 Inst::IndexPtr => "index_ptr".to_string(),
                 Inst::Offset => "offset".to_string(),

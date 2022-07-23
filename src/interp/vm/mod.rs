@@ -440,21 +440,21 @@ impl<'vm> VM<'vm> {
                     Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
                     value => panic!("tried to call uncallable value `{}`", value.to_string()),
                 },
-                Inst::GetGlobal(slot) => {
+                Inst::LoadGlobal(slot) => {
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
                     }
                     self.next();
                 }
-                Inst::GetGlobalPtr(slot) => {
+                Inst::LoadGlobalPtr(slot) => {
                     match self.interp.globals.get_mut(slot as usize) {
                         Some(value) => self.stack.push(Value::Pointer(value.into())),
                         None => panic!("undefined global `{}`", slot),
                     }
                     self.next();
                 }
-                Inst::SetGlobal(slot) => {
+                Inst::StoreGlobal(slot) => {
                     self.interp.globals[slot as usize] = self.stack.pop();
                     self.next();
                 }
@@ -471,7 +471,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                     self.next();
                 }
-                Inst::SetLocal(slot) => {
+                Inst::StoreLocal(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
@@ -603,7 +603,6 @@ impl<'vm> VM<'vm> {
         let frame = self.frame();
 
         match level {
-            TraceLevel::None => (),
             TraceLevel::Minimal => {
                 println!(
                     "{:06}\t{:<20}{}",
@@ -636,7 +635,7 @@ impl<'vm> VM<'vm> {
                     value.to_string().bright_magenta()
                 } else {
                     // any other value
-                    value.to_string().bright_cyan()
+                    value.to_string().white()
                 }
             );
 
@@ -650,7 +649,6 @@ impl<'vm> VM<'vm> {
 
 #[allow(dead_code)]
 pub enum TraceLevel {
-    None,
     Minimal,
     Full,
 }
