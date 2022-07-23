@@ -34,7 +34,7 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
         write!(&mut w, "\nconstants:\n").unwrap();
 
         for (slot, constant) in interp.constants.iter().enumerate() {
-            write!(&mut w, "%{}\t", slot).unwrap();
+            write!(&mut w, "%{}\t\t", slot).unwrap();
             constant.disassemble(&mut w, interp);
             write!(&mut w, "\n").unwrap();
         }
@@ -91,23 +91,23 @@ pub(super) fn bytecode_reader_write_single_inst<'a, W: Write>(
         write!(w, "{:06}\t{}", reader.cursor(), op).unwrap();
 
         match op {
-            Op::LoadConst => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::Jmp => write!(w, "\t{}", reader.read_i32()).unwrap(),
-            Op::Jmpf => write!(w, "\t{}", reader.read_i32()).unwrap(),
-            Op::Call => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::LoadGlobal => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::LoadGlobalPtr => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::StoreGlobal => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::Peek => write!(w, "\t{}", reader.read_i32()).unwrap(),
-            Op::PeekPtr => write!(w, "\t{}", reader.read_i32()).unwrap(),
-            Op::StoreLocal => write!(w, "\t{}", reader.read_i32()).unwrap(),
-            Op::ConstIndex => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::ConstIndexPtr => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::BufferAlloc => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::BufferPut => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::BufferFill => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::Copy => write!(w, "\t{}", reader.read_u32()).unwrap(),
-            Op::Swap => write!(w, "\t{}", reader.read_u32()).unwrap(),
+            Op::LoadConst => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::Jmp => write!(w, "\t\t{}", reader.read_i32()).unwrap(),
+            Op::Jmpf => write!(w, "\t\t{}", reader.read_i32()).unwrap(),
+            Op::Call => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::LoadGlobal => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::LoadGlobalPtr => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::StoreGlobal => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::Peek => write!(w, "\t\t{}", reader.read_i32()).unwrap(),
+            Op::PeekPtr => write!(w, "\t\t{}", reader.read_i32()).unwrap(),
+            Op::StoreLocal => write!(w, "\t\t{}", reader.read_i32()).unwrap(),
+            Op::ConstIndex => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::ConstIndexPtr => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::BufferAlloc => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::BufferPut => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::BufferFill => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::Copy => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
+            Op::Swap => write!(w, "\t\t{}", reader.read_u32()).unwrap(),
             _ => (),
         }
     }

@@ -45,10 +45,10 @@ impl<'a> Display for StackFrame<'a> {
 }
 
 impl<'a> StackFrame<'a> {
-    pub fn new(func: &'a Function, slot: usize) -> Self {
+    pub fn new(func: *const Function, slot: usize) -> Self {
         Self {
-            func: func as _,
-            reader: func.code.reader(),
+            func,
+            reader: unsafe { &*func }.code.reader(),
             stack_slot: slot,
         }
     }
@@ -132,7 +132,7 @@ impl<'vm> VM<'vm> {
         }
     }
 
-    pub fn run_func(&mut self, function: Function) -> Value {
+    pub fn run_function(&mut self, function: Function) -> Value {
         self.push_frame(&function);
         self.run_inner()
     }
@@ -546,10 +546,10 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    pub fn push_frame(&mut self, function: &'vm Function) {
+    pub fn push_frame(&mut self, function: *const Function) {
         let stack_slot = self.stack.len();
 
-        for _ in 0..function.code.locals {
+        for _ in 0..unsafe { &*function }.code.locals {
             self.stack.push(Value::default());
         }
 

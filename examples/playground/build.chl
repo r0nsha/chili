@@ -22,20 +22,16 @@
 
 // run!(build());
 
-// let { printf } = import("std/c");
+let { printf } = import("std/c");
 
-// let fib = fn(n) {
-//     if n <= 1 {
-//         n
-//     } else {
-//         fib(n - 1) + fib(n - 2)
-//     }
-// };
-
-// run!(
-// 	printf("result = %d\n".data, fib(30))
-// );
+let fib = fn(n) {
+    if n <= 1 {
+        n
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
+};
 
 run!(
-	42
+	printf("result = %d\n".data, fib(30))
 );

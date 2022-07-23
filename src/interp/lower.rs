@@ -407,12 +407,16 @@ impl Lower for hir::While {
         let len = code.len();
         for pos in &loop_env.break_offsets {
             let target_offset = (len - *pos) as i32;
-            (&mut code.as_mut_slice()[*pos + 1..]).write_i32::<NativeEndian>(target_offset);
+            (&mut code.as_mut_slice()[*pos + 1..])
+                .write_i32::<NativeEndian>(target_offset)
+                .unwrap();
         }
 
         for pos in &loop_env.continue_offsets {
             let target_offset = loop_start as i32 - *pos as i32;
-            (&mut code.as_mut_slice()[*pos + 1..]).write_i32::<NativeEndian>(target_offset);
+            (&mut code.as_mut_slice()[*pos + 1..])
+                .write_i32::<NativeEndian>(target_offset)
+                .unwrap();
         }
 
         sess.push_const_unit(code);
@@ -1103,5 +1107,7 @@ fn patch_jmp(code: &mut Bytecode, op_pos: usize) {
     // This function assumes that the Op is some sort of Jmp.
     // We patch the op's operand by directly writing to the buffer.
     let target_offset = (code.len() - op_pos) as i32;
-    (&mut code.as_mut_slice()[op_pos + 1..]).write_i32::<NativeEndian>(target_offset);
+    (&mut code.as_mut_slice()[op_pos + 1..])
+        .write_i32::<NativeEndian>(target_offset)
+        .unwrap();
 }

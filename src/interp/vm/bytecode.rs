@@ -185,7 +185,7 @@ impl Bytecode {
 
     #[inline(always)]
     pub fn write_all(&mut self, x: &[u8]) {
-        self.buf.write_all(x);
+        self.buf.write_all(x).unwrap();
     }
 
     #[inline(always)]

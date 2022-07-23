@@ -91,7 +91,7 @@ pub struct InterpSess<'i> {
     pub lowered_functions: HashSet<hir::FunctionId>,
 }
 
-pub(super) struct LoopEnv {
+pub struct LoopEnv {
     pub(super) break_offsets: Vec<usize>,
     pub(super) continue_offsets: Vec<usize>,
 }
@@ -141,7 +141,7 @@ impl<'i> InterpSess<'i> {
                 code: start_code,
             };
 
-            let result = vm.run_func(start_func);
+            let result = vm.run_function(start_func);
 
             Ok(result)
         } else {
