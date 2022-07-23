@@ -389,8 +389,6 @@ impl Lower for hir::While {
 
         let exit_jmp = code.write_inst(Inst::Jmpf(INVALID_JMP_OFFSET));
 
-        let block_start_pos = code.len();
-
         sess.loop_env_stack.push(LoopEnv::new());
 
         self.body

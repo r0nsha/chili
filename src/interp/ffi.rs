@@ -1,7 +1,7 @@
 use super::{
     interp::Interp,
     vm::{
-        bytecode::{Inst, Op},
+        bytecode::Op,
         value::{ExternFunction, Function, FunctionValue, Value},
         VM,
     },
@@ -140,12 +140,12 @@ impl FfiFunction {
         Self { cif }
     }
 
-    unsafe fn call<'vm, 'f>(
+    unsafe fn call<'vm>(
         &mut self,
         fun: *const c_void,
         arg_values: &mut [Value],
         ffi: &mut Ffi,
-        vm: *mut VM<'vm, 'f>,
+        vm: *mut VM<'vm>,
     ) -> RawPointer {
         let code_ptr = CodePtr::from_ptr(fun);
 
@@ -216,8 +216,8 @@ impl FfiFunction {
     }
 }
 
-struct ClosureUserData<'vm, 'f> {
-    vm: *mut VM<'vm, 'f>,
+struct ClosureUserData<'vm> {
+    vm: *mut VM<'vm>,
     function: *const Function,
 }
 

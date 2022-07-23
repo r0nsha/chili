@@ -182,7 +182,7 @@ impl<'i> InterpSess<'i> {
         code
     }
 
-    pub fn create_vm(&'i mut self) -> VM<'i, '_> {
+    pub fn create_vm(&'i mut self) -> VM<'i> {
         VM::new(self.interp)
     }
 

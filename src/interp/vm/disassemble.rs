@@ -61,7 +61,7 @@ impl<W: Write> Disassemble<W> for Value {
                     )
                     .unwrap();
 
-                    function.code.reader().disassemble(&mut w, interp);
+                    function.code.reader().disassemble(w, interp);
                 }
                 FunctionValue::Extern(_) => w.write_all(self.to_string().as_bytes()).unwrap(),
             },

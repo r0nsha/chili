@@ -194,7 +194,7 @@ impl Bytecode {
     }
 
     #[inline(always)]
-    pub fn as_mut_slice(&mut self) -> &[u8] {
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
         &mut self.buf[..]
     }
 
