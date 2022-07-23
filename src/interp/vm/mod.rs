@@ -139,13 +139,11 @@ impl<'vm> VM<'vm> {
 
     fn run_inner(&mut self) -> Value {
         loop {
+            self.trace(TraceLevel::Full);
+
             let reader = &mut self.frame_mut().reader;
 
-            // self.trace(TraceLevel::Full);
-
-            let op = reader.read_op();
-
-            match op {
+            match reader.read_op() {
                 Op::Noop => {}
                 Op::Pop => {
                     self.stack.pop();
@@ -597,7 +595,7 @@ impl<'vm> VM<'vm> {
 
     #[allow(unused)]
     fn trace_stack(&self, frame: &StackFrame) {
-        print!("\t[");
+        print!("\n\t[");
         let frame_slot = frame.stack_slot;
         for (index, value) in self.stack.iter().enumerate() {
             print!(

@@ -2,7 +2,7 @@ use super::{
     ffi::Ffi,
     lower::{Lower, LowerContext},
     vm::{
-        bytecode::{Bytecode, Inst, Op},
+        bytecode::{Bytecode, Inst},
         disassemble::dump_bytecode_to_file,
         value::{ExternFunction, Function, FunctionAddress, FunctionValue, Value},
         Constants, Globals, VM,
@@ -117,7 +117,7 @@ impl<'i> InterpSess<'i> {
         node.lower(self, &mut start_code, LowerContext { take_ptr: false });
 
         if self.diagnostics.is_empty() {
-            start_code.write_op(Op::Halt);
+            start_code.write_inst(Inst::Halt);
 
             let start_code = self.insert_init_instructions(start_code);
 

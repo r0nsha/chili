@@ -163,16 +163,19 @@ impl Bytecode {
         self.buf.write_u8(x).unwrap();
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn write_u16(&mut self, x: u16) {
         self.buf.write_u16::<NativeEndian>(x).unwrap();
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn write_i16(&mut self, x: i16) {
         self.buf.write_i16::<NativeEndian>(x).unwrap();
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn write_u32(&mut self, x: u32) {
         self.buf.write_u32::<NativeEndian>(x).unwrap();
@@ -183,11 +186,13 @@ impl Bytecode {
         self.buf.write_i32::<NativeEndian>(x).unwrap();
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn write_all(&mut self, x: &[u8]) {
         self.buf.write_all(x).unwrap();
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn as_slice(&self) -> &[u8] {
         &self.buf[..]
@@ -254,6 +259,7 @@ impl<'a> BytecodeReader<'a> {
         value
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn read_u16(&mut self) -> u16 {
         let value = self.as_slice().read_u16::<NativeEndian>().unwrap();
@@ -261,6 +267,7 @@ impl<'a> BytecodeReader<'a> {
         value
     }
 
+    #[allow(unused)]
     #[inline(always)]
     pub fn read_i16(&mut self) -> i16 {
         let value = self.as_slice().read_i16::<NativeEndian>().unwrap();
