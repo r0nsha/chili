@@ -50,7 +50,7 @@ macro_rules! cast_to_float {
 
 impl<'vm> VM<'vm> {
     #[inline]
-    pub fn cast_inst(&mut self) {
+    pub fn cast_op(&mut self) {
         let ty = self.stack.pop().into_type();
         let value = self.stack.pop();
 

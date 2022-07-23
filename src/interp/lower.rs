@@ -386,7 +386,9 @@ fn lower_conditional(
     let exit_jmp = code.write_inst(Inst::Jmp(INVALID_JMP_OFFSET));
 
     patch_jmp(code, otherwise_jmp);
+
     otherwise(sess, code);
+
     patch_jmp(code, exit_jmp);
 }
 

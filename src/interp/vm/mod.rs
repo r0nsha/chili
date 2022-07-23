@@ -139,7 +139,7 @@ impl<'vm> VM<'vm> {
 
     fn run_inner(&mut self) -> Value {
         loop {
-            // self.trace(TraceLevel::Full);
+            self.trace(TraceLevel::Full);
 
             let reader = &mut self.frame_mut().reader;
 
@@ -361,14 +361,15 @@ impl<'vm> VM<'vm> {
                 }
                 Op::Jmp => {
                     let offset = reader.read_i32();
+                    dbg!(self.frame().reader.cursor());
                     self.jmp(offset);
+                    dbg!(self.frame().reader.cursor());
                 }
                 Op::Jmpf => {
                     let offset = reader.read_i32();
 
                     if !self.stack.pop().into_bool() {
                         self.jmp(offset);
-                    } else {
                     }
                 }
                 Op::Return => {
@@ -496,7 +497,7 @@ impl<'vm> VM<'vm> {
                     unsafe { lhs.write_value(rhs) }
                 }
                 Op::Cast => {
-                    self.cast_inst();
+                    self.cast_op();
                 }
                 Op::BufferAlloc => {
                     let size = reader.read_u32();
@@ -571,10 +572,18 @@ impl<'vm> VM<'vm> {
 
     #[inline]
     pub fn jmp(&mut self, offset: i32) {
-        let new_inst_pointer = self.frame().reader.cursor() as isize + offset as isize;
-        self.frame_mut()
-            .reader
-            .set_cursor(new_inst_pointer as usize);
+        // The offset is calculated from the op-code's position.
+        // The current actual offset the op-code's position + the amount of bytes,
+        // The the jmp instruction's operand takes (which is the size of `i32`)
+        const COMPENSATION: usize = std::mem::size_of::<i32>();
+
+        let reader = &mut self.frame_mut().reader;
+        let new_cursor = reader.cursor() as isize + offset as isize;
+        let new_cursor = new_cursor as usize - COMPENSATION;
+
+        dbg!(reader.cursor(), offset, new_cursor);
+
+        reader.set_cursor(new_cursor as usize - COMPENSATION);
     }
 
     #[allow(unused)]
@@ -588,37 +597,32 @@ impl<'vm> VM<'vm> {
                 println!(" [stack items: {}]", self.stack.len());
             }
             TraceLevel::Full => {
-                self.trace_stack(frame);
-            }
-        }
-    }
+                print!("\n\t[");
+                let frame_slot = frame.stack_slot;
+                for (index, value) in self.stack.iter().enumerate() {
+                    print!(
+                        "{}",
+                        if index == frame_slot {
+                            // frame slot
+                            value.to_string().bright_yellow()
+                        } else if index > frame_slot - frame.func().ty.params.len()
+                            && index <= frame_slot + frame.func().code.locals as usize
+                        {
+                            // local value
+                            value.to_string().bright_magenta()
+                        } else {
+                            // any other value
+                            value.to_string().white()
+                        }
+                    );
 
-    #[allow(unused)]
-    fn trace_stack(&self, frame: &StackFrame) {
-        print!("\n\t[");
-        let frame_slot = frame.stack_slot;
-        for (index, value) in self.stack.iter().enumerate() {
-            print!(
-                "{}",
-                if index == frame_slot {
-                    // frame slot
-                    value.to_string().bright_yellow()
-                } else if index > frame_slot - frame.func().ty.params.len()
-                    && index <= frame_slot + frame.func().code.locals as usize
-                {
-                    // local value
-                    value.to_string().bright_magenta()
-                } else {
-                    // any other value
-                    value.to_string().white()
+                    if index < self.stack.len() - 1 {
+                        print!(", ");
+                    }
                 }
-            );
-
-            if index < self.stack.len() - 1 {
-                print!(", ");
+                println!("] ({})\n", self.stack.len());
             }
         }
-        println!("] ({})\n", self.stack.len());
     }
 }
 

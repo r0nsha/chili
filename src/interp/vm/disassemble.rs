@@ -64,11 +64,11 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
 }
 
 pub trait Disassemble<W: Write> {
-    fn disassemble(&self, w: &mut BufWriter<W>, interp: &Interp);
+    fn disassemble(&self, w: &mut W, interp: &Interp);
 }
 
 impl<W: Write> Disassemble<W> for Value {
-    fn disassemble(&self, w: &mut BufWriter<W>, interp: &Interp) {
+    fn disassemble(&self, w: &mut W, interp: &Interp) {
         match self {
             Value::Function(addr) => match interp.get_function(addr.id).unwrap() {
                 FunctionValue::Orphan(f) => write!(w, "fn {}", f.name).unwrap(),
@@ -82,7 +82,7 @@ impl<W: Write> Disassemble<W> for Value {
 }
 
 impl<'a, W: Write> Disassemble<W> for BytecodeReader<'a> {
-    fn disassemble(&self, w: &mut BufWriter<W>, _: &Interp) {
+    fn disassemble(&self, w: &mut W, _: &Interp) {
         let mut reader = self.clone();
 
         while reader.has_remaining() {
@@ -97,7 +97,7 @@ pub(super) fn bytecode_reader_write_single_inst<'a, W: Write>(
     w: &mut W,
 ) {
     if let Some(op) = reader.try_read_op() {
-        write!(w, "{:06}\t{}", reader.cursor(), op).unwrap();
+        write!(w, "{:06}\t{}", reader.cursor() - 1, op).unwrap();
 
         match op {
             Op::LoadConst => write!(w, " {}", reader.read_u32()).unwrap(),
