@@ -355,11 +355,6 @@ impl<'s> CheckSess<'s> {
         self.interp
             .create_session(self.workspace, &self.tcx, &self.cache)
             .eval(node, module_id)
-            .map(|v| {
-                dbg!(&v);
-                todo!("remove me");
-                v
-            })
             .map_err(|diagnostics| {
                 let (last, tail) = diagnostics.split_last().unwrap();
 

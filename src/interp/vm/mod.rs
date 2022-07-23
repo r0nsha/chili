@@ -139,7 +139,7 @@ impl<'vm> VM<'vm> {
 
     fn run_inner(&mut self) -> Value {
         loop {
-            self.trace(TraceLevel::Full);
+            // self.trace(TraceLevel::Full);
 
             let reader = &mut self.frame_mut().reader;
 
@@ -361,9 +361,7 @@ impl<'vm> VM<'vm> {
                 }
                 Op::Jmp => {
                     let offset = reader.read_i32();
-                    dbg!(self.frame().reader.cursor());
                     self.jmp(offset);
-                    dbg!(self.frame().reader.cursor());
                 }
                 Op::Jmpf => {
                     let offset = reader.read_i32();
@@ -578,12 +576,10 @@ impl<'vm> VM<'vm> {
         const COMPENSATION: usize = std::mem::size_of::<i32>();
 
         let reader = &mut self.frame_mut().reader;
-        let new_cursor = reader.cursor() as isize + offset as isize;
-        let new_cursor = new_cursor as usize - COMPENSATION;
+        let cursor = reader.cursor() - 1 - COMPENSATION;
+        let new_cursor = cursor as isize + offset as isize;
 
-        dbg!(reader.cursor(), offset, new_cursor);
-
-        reader.set_cursor(new_cursor as usize - COMPENSATION);
+        reader.set_cursor(new_cursor as usize);
     }
 
     #[allow(unused)]

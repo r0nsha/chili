@@ -33,5 +33,5 @@ let fib = fn(n) {
 };
 
 run!(
-	printf("result = %d\n".data, fib(2))
+	printf("result = %d\n".data, fib(30))
 );
