@@ -2,7 +2,7 @@ use super::{
     super::ffi::RawPointer,
     super::{IS_64BIT, WORD_SIZE},
     byte_seq::{ByteSeq, GetValue, PutValue},
-    instruction::CompiledCode,
+    bytecode::Bytecode,
 };
 use crate::{
     ast::{ExternLibrary, Intrinsic},
@@ -261,6 +261,12 @@ impl_value! {
     Type(Type),
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Self::I8(0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Buffer {
     pub bytes: ByteSeq,
@@ -389,7 +395,7 @@ pub struct Function {
     pub id: hir::FunctionId,
     pub name: Ustr,
     pub ty: FunctionType,
-    pub code: CompiledCode,
+    pub code: Bytecode,
 }
 
 #[derive(Debug, Clone)]

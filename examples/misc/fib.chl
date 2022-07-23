@@ -1,13 +1,13 @@
-let { printf } = import("std/c")
+let { printf } = import("std/c");
 
-let fib = fn(n: u64) {
+let fib = fn(n) {
     if n <= 1 {
         n
     } else {
         fib(n - 1) + fib(n - 2)
     }
-}
+};
 
 let main = fn() {
     printf("result = %lu\n".data, fib(24));
-}
+};

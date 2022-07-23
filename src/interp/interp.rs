@@ -2,8 +2,8 @@ use super::{
     ffi::Ffi,
     lower::{Lower, LowerContext},
     vm::{
-        display::dump_bytecode_to_file,
-        instruction::{CompiledCode, Instruction},
+        bytecode::{Bytecode, Inst},
+        disassemble::dump_bytecode_to_file,
         value::{ExternFunction, Function, FunctionAddress, FunctionValue, Value},
         Constants, Globals, VM,
     },
@@ -60,7 +60,7 @@ impl Interp {
             cache,
             diagnostics: vec![],
             env_stack: vec![],
-            // labels: vec![],
+            loop_env_stack: vec![],
             statically_initialized_globals: vec![],
             lowered_functions: HashSet::new(),
         }
@@ -82,26 +82,34 @@ pub struct InterpSess<'i> {
 
     pub diagnostics: Vec<Diagnostic>,
     pub env_stack: Vec<(ModuleId, Env)>,
-
-    // pub labels: Vec<Label>,
+    pub loop_env_stack: Vec<LoopEnv>,
 
     // Globals that are going to be statically initialized when the VM starts
-    pub statically_initialized_globals: Vec<CompiledCode>,
+    pub statically_initialized_globals: Vec<Bytecode>,
 
     // Functions currently lowered, cached to prevent infinite recursion in recursive functions
     pub lowered_functions: HashSet<hir::FunctionId>,
 }
 
-// labels are used for patching call instruction after lowering
-// pub struct Label {
-//     instruction: *mut Instruction,
-// }
+pub struct LoopEnv {
+    pub(super) break_offsets: Vec<usize>,
+    pub(super) continue_offsets: Vec<usize>,
+}
 
-pub type Env = Scopes<BindingId, i16>;
+impl LoopEnv {
+    pub(crate) fn new() -> Self {
+        Self {
+            break_offsets: vec![],
+            continue_offsets: vec![],
+        }
+    }
+}
+
+pub(super) type Env = Scopes<BindingId, i16>;
 
 impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, node: &hir::Node, module_id: ModuleId) -> InterpResult {
-        let mut start_code = CompiledCode::new();
+        let mut start_code = Bytecode::new();
 
         self.env_stack.push((module_id, Env::default()));
 
@@ -109,7 +117,7 @@ impl<'i> InterpSess<'i> {
         node.lower(self, &mut start_code, LowerContext { take_ptr: false });
 
         if self.diagnostics.is_empty() {
-            start_code.push(Instruction::Halt);
+            start_code.write_inst(Inst::Halt);
 
             let start_code = self.insert_init_instructions(start_code);
 
@@ -133,7 +141,7 @@ impl<'i> InterpSess<'i> {
                 code: start_code,
             };
 
-            let result = vm.run_func(start_func);
+            let result = vm.run_function(start_func);
 
             Ok(result)
         } else {
@@ -142,9 +150,7 @@ impl<'i> InterpSess<'i> {
     }
 
     // pushes initialization instructions such as global evaluation to the start
-    fn insert_init_instructions(&mut self, mut code: CompiledCode) -> CompiledCode {
-        let mut init_instructions: Vec<Instruction> = vec![];
-
+    fn insert_init_instructions(&mut self, mut code: Bytecode) -> Bytecode {
         for (i, global_eval_code) in self.statically_initialized_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
 
@@ -170,14 +176,8 @@ impl<'i> InterpSess<'i> {
                 .constants
                 .push(Value::Function(FunctionAddress { id, name }));
 
-            init_instructions.push(Instruction::PushConst(const_slot as u32));
-            init_instructions.push(Instruction::Call(0));
+            code.write_inst(Inst::LoadConst(const_slot as u32));
         }
-
-        code.instructions = init_instructions
-            .into_iter()
-            .chain(code.instructions)
-            .collect();
 
         code
     }
@@ -186,17 +186,17 @@ impl<'i> InterpSess<'i> {
         VM::new(self.interp)
     }
 
-    pub fn push_const(&mut self, code: &mut CompiledCode, value: Value) -> usize {
+    pub fn push_const(&mut self, code: &mut Bytecode, value: Value) -> usize {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
-        code.push(Instruction::PushConst(slot as u32));
+        code.write_inst(Inst::LoadConst(slot as u32));
         slot
     }
 
-    pub fn push_const_unit(&mut self, code: &mut CompiledCode) {
+    pub fn push_const_unit(&mut self, code: &mut Bytecode) {
         // to avoid redundancy, when pushing a unit value,
         // we just use the first value in the constants vec
-        code.push(Instruction::PushConst(0));
+        code.write_inst(Inst::LoadConst(0));
     }
 
     pub fn insert_global(&mut self, id: BindingId, value: Value) -> usize {
@@ -244,7 +244,7 @@ impl<'i> InterpSess<'i> {
             })
     }
 
-    pub fn add_local(&mut self, code: &mut CompiledCode, id: BindingId) {
+    pub fn add_local(&mut self, code: &mut Bytecode, id: BindingId) {
         self.env_mut().insert(id, code.locals as i16);
         code.locals += 1;
     }

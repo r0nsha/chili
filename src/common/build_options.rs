@@ -31,9 +31,6 @@ pub struct BuildOptions {
     /// Print the bytecode into $CWD/vm.out
     pub emit_bytecode: bool,
 
-    /// Whether to show a verbose trace of the VM (this slows down execution)
-    pub show_vm_trace: bool,
-
     /// Whether the workspace is running in check mode
     pub check_mode: bool,
 }

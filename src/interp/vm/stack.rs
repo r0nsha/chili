@@ -43,8 +43,8 @@ impl<T: ToString, const CAPACITY: usize> Stack<T, CAPACITY> {
     }
 
     #[inline]
-    pub fn take(&mut self, offset: usize) -> T {
-        self.inner.remove(self.len() - 1 - offset)
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.inner.swap(a, b)
     }
 
     #[inline]
@@ -77,7 +77,6 @@ impl<T: ToString, const CAPACITY: usize> Stack<T, CAPACITY> {
         self.inner.is_empty()
     }
 
-    #[allow(unused)]
     #[inline]
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.inner.iter()

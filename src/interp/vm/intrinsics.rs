@@ -46,7 +46,6 @@ impl<'vm> VM<'vm> {
                     emit_times: self.interp.build_options.emit_times,
                     emit_hir: self.interp.build_options.emit_hir,
                     emit_bytecode: self.interp.build_options.emit_bytecode,
-                    show_vm_trace: self.interp.build_options.show_vm_trace,
                     diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
                     codegen_options: CodegenOptions::Codegen {
                         emit_llvm_ir: self.interp.build_options.codegen_options.emit_llvm_ir(),
@@ -75,8 +74,6 @@ impl<'vm> VM<'vm> {
                 ));
 
                 self.stack.push(result_value);
-
-                self.next();
             }
         }
     }
