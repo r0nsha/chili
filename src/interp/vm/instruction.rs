@@ -1,9 +1,8 @@
-use super::value::ValueKind;
 use crate::ast;
 use std::fmt::Display;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Instruction {
+pub enum Inst {
     Noop,
     Pop,
     LoadConst(u32),
@@ -42,7 +41,7 @@ pub enum Instruction {
     ConstIndex(u32),
     ConstIndexPtr(u32),
     Assign,
-    Cast(CastInstruction),
+    Cast,
     BufferAlloc(u32),
     BufferPut(u32),
     BufferFill(u32),
@@ -51,117 +50,100 @@ pub enum Instruction {
     Halt,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum CastInstruction {
-    I8,
-    I16,
-    I32,
-    I64,
-    Int,
-    U8,
-    U16,
-    U32,
-    U64,
-    Uint,
-    F32,
-    F64,
-    Ptr(ValueKind),
-}
-
-impl Display for Instruction {
+impl Display for Inst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Instruction::Noop => "noop".to_string(),
-                Instruction::Pop => "pop".to_string(),
-                Instruction::LoadConst(addr) => format!("load_const %{}", addr),
-                Instruction::Add => "add".to_string(),
-                Instruction::Sub => "sub".to_string(),
-                Instruction::Mul => "mul".to_string(),
-                Instruction::Div => "div".to_string(),
-                Instruction::Rem => "mod".to_string(),
-                Instruction::Neg => "neg".to_string(),
-                Instruction::Not => "not".to_string(),
-                Instruction::Deref => "deref".to_string(),
-                Instruction::Eq => "eq".to_string(),
-                Instruction::Ne => "ne".to_string(),
-                Instruction::Lt => "lt".to_string(),
-                Instruction::Le => "le".to_string(),
-                Instruction::Gt => "gt".to_string(),
-                Instruction::Ge => "ge".to_string(),
-                Instruction::And => "band".to_string(),
-                Instruction::Or => "bor".to_string(),
-                Instruction::Shl => "shl".to_string(),
-                Instruction::Shr => "shr".to_string(),
-                Instruction::Xor => "xor".to_string(),
-                Instruction::Jmp(offset) => format!("jmp {}", offset),
-                Instruction::Jmpf(offset) => format!("jmpf {}", offset),
-                Instruction::Return => "return".to_string(),
-                Instruction::Call(arg_count) => format!("call {}", arg_count),
-                Instruction::GetGlobal(slot) => format!("get_global ${}", slot),
-                Instruction::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
-                Instruction::SetGlobal(slot) => format!("set_global ${}", slot),
-                Instruction::Peek(slot) => format!("peek ${}", slot),
-                Instruction::PeekPtr(slot) => format!("peek_ptr ${}", slot),
-                Instruction::SetLocal(slot) => format!("set_local ${}", slot),
-                Instruction::Index => "index".to_string(),
-                Instruction::IndexPtr => "index_ptr".to_string(),
-                Instruction::Offset => "offset".to_string(),
-                Instruction::ConstIndex(index) => format!("const_index {}", index),
-                Instruction::ConstIndexPtr(index) => format!("const_index_ptr {}", index),
-                Instruction::Assign => "assign".to_string(),
-                Instruction::Cast(cast) => format!("cast {:?}", cast),
-                Instruction::BufferAlloc(size) => format!("buffer_alloc {}", size),
-                Instruction::BufferPut(pos) => format!("buffer_put {}", pos),
-                Instruction::BufferFill(size) => format!("buffer_fill {}", size),
-                Instruction::Copy(offset) => format!("copy {}", -(*offset as i32)),
-                Instruction::Swap(offset) => format!("swap {}", -(*offset as i32)),
-                Instruction::Halt => "halt".to_string(),
+                Inst::Noop => "noop".to_string(),
+                Inst::Pop => "pop".to_string(),
+                Inst::LoadConst(addr) => format!("load_const %{}", addr),
+                Inst::Add => "add".to_string(),
+                Inst::Sub => "sub".to_string(),
+                Inst::Mul => "mul".to_string(),
+                Inst::Div => "div".to_string(),
+                Inst::Rem => "mod".to_string(),
+                Inst::Neg => "neg".to_string(),
+                Inst::Not => "not".to_string(),
+                Inst::Deref => "deref".to_string(),
+                Inst::Eq => "eq".to_string(),
+                Inst::Ne => "ne".to_string(),
+                Inst::Lt => "lt".to_string(),
+                Inst::Le => "le".to_string(),
+                Inst::Gt => "gt".to_string(),
+                Inst::Ge => "ge".to_string(),
+                Inst::And => "band".to_string(),
+                Inst::Or => "bor".to_string(),
+                Inst::Shl => "shl".to_string(),
+                Inst::Shr => "shr".to_string(),
+                Inst::Xor => "xor".to_string(),
+                Inst::Jmp(offset) => format!("jmp {}", offset),
+                Inst::Jmpf(offset) => format!("jmpf {}", offset),
+                Inst::Return => "return".to_string(),
+                Inst::Call(arg_count) => format!("call {}", arg_count),
+                Inst::GetGlobal(slot) => format!("get_global ${}", slot),
+                Inst::GetGlobalPtr(slot) => format!("get_global_ptr ${}", slot),
+                Inst::SetGlobal(slot) => format!("set_global ${}", slot),
+                Inst::Peek(slot) => format!("peek ${}", slot),
+                Inst::PeekPtr(slot) => format!("peek_ptr ${}", slot),
+                Inst::SetLocal(slot) => format!("set_local ${}", slot),
+                Inst::Index => "index".to_string(),
+                Inst::IndexPtr => "index_ptr".to_string(),
+                Inst::Offset => "offset".to_string(),
+                Inst::ConstIndex(index) => format!("const_index {}", index),
+                Inst::ConstIndexPtr(index) => format!("const_index_ptr {}", index),
+                Inst::Assign => "assign".to_string(),
+                Inst::Cast => "cast".to_string(),
+                Inst::BufferAlloc(size) => format!("buffer_alloc {}", size),
+                Inst::BufferPut(pos) => format!("buffer_put {}", pos),
+                Inst::BufferFill(size) => format!("buffer_fill {}", size),
+                Inst::Copy(offset) => format!("copy {}", -(*offset as i32)),
+                Inst::Swap(offset) => format!("swap {}", -(*offset as i32)),
+                Inst::Halt => "halt".to_string(),
             }
         )
     }
 }
 
-impl From<ast::BinaryOp> for Instruction {
+impl From<ast::BinaryOp> for Inst {
     fn from(op: ast::BinaryOp) -> Self {
         match op {
-            ast::BinaryOp::Add => Instruction::Add,
-            ast::BinaryOp::Sub => Instruction::Sub,
-            ast::BinaryOp::Mul => Instruction::Mul,
-            ast::BinaryOp::Div => Instruction::Div,
-            ast::BinaryOp::Rem => Instruction::Rem,
-            ast::BinaryOp::Eq => Instruction::Eq,
-            ast::BinaryOp::Ne => Instruction::Ne,
-            ast::BinaryOp::Lt => Instruction::Lt,
-            ast::BinaryOp::Le => Instruction::Le,
-            ast::BinaryOp::Gt => Instruction::Gt,
-            ast::BinaryOp::Ge => Instruction::Ge,
-            ast::BinaryOp::And | ast::BinaryOp::BitAnd => Instruction::And,
-            ast::BinaryOp::Or | ast::BinaryOp::BitOr => Instruction::Or,
-            ast::BinaryOp::Shl => Instruction::Shl,
-            ast::BinaryOp::Shr => Instruction::Shr,
-            ast::BinaryOp::BitXor => Instruction::Xor,
+            ast::BinaryOp::Add => Inst::Add,
+            ast::BinaryOp::Sub => Inst::Sub,
+            ast::BinaryOp::Mul => Inst::Mul,
+            ast::BinaryOp::Div => Inst::Div,
+            ast::BinaryOp::Rem => Inst::Rem,
+            ast::BinaryOp::Eq => Inst::Eq,
+            ast::BinaryOp::Ne => Inst::Ne,
+            ast::BinaryOp::Lt => Inst::Lt,
+            ast::BinaryOp::Le => Inst::Le,
+            ast::BinaryOp::Gt => Inst::Gt,
+            ast::BinaryOp::Ge => Inst::Ge,
+            ast::BinaryOp::And | ast::BinaryOp::BitAnd => Inst::And,
+            ast::BinaryOp::Or | ast::BinaryOp::BitOr => Inst::Or,
+            ast::BinaryOp::Shl => Inst::Shl,
+            ast::BinaryOp::Shr => Inst::Shr,
+            ast::BinaryOp::BitXor => Inst::Xor,
         }
     }
 }
 
-impl From<ast::UnaryOp> for Instruction {
+impl From<ast::UnaryOp> for Inst {
     fn from(op: ast::UnaryOp) -> Self {
         match op {
             ast::UnaryOp::Ref(_) => unimplemented!(),
-            ast::UnaryOp::Deref => Instruction::Deref,
-            ast::UnaryOp::Neg => Instruction::Neg,
-            ast::UnaryOp::Plus => Instruction::Noop,
-            ast::UnaryOp::Not => Instruction::Not,
+            ast::UnaryOp::Deref => Inst::Deref,
+            ast::UnaryOp::Neg => Inst::Neg,
+            ast::UnaryOp::Plus => Inst::Noop,
+            ast::UnaryOp::Not => Inst::Not,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CompiledCode {
-    pub instructions: Vec<Instruction>,
+    pub instructions: Vec<Inst>,
     pub locals: u16,
 }
 
@@ -180,7 +162,7 @@ impl CompiledCode {
     }
 
     #[inline]
-    pub fn push(&mut self, inst: Instruction) -> usize {
+    pub fn push(&mut self, inst: Inst) -> usize {
         self.instructions.push(inst);
         self.instructions.len() - 1
     }

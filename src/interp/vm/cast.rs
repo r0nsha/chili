@@ -1,6 +1,7 @@
+use crate::types::{FloatType, InferType, IntType, Type, UintType};
+
 use super::{
     super::ffi::RawPointer,
-    instruction::CastInstruction,
     value::{Pointer, Value},
     VM,
 };
@@ -49,23 +50,29 @@ macro_rules! cast_to_float {
 
 impl<'vm> VM<'vm> {
     #[inline]
-    pub fn cast_inst(&mut self, cast: CastInstruction) {
+    pub fn cast_inst(&mut self) {
+        let ty = self.stack.pop().into_type();
         let value = self.stack.pop();
 
-        let new_value = match cast {
-            CastInstruction::I8 => cast_to_int!(value => I8, i8),
-            CastInstruction::I16 => cast_to_int!(value => I16, i16),
-            CastInstruction::I32 => cast_to_int!(value => I32, i32),
-            CastInstruction::I64 => cast_to_int!(value => I64, i64),
-            CastInstruction::Int => cast_to_int!(value => Int, isize),
-            CastInstruction::U8 => cast_to_int!(value => U8, u8),
-            CastInstruction::U16 => cast_to_int!(value => U16, u16),
-            CastInstruction::U32 => cast_to_int!(value => U32, u32),
-            CastInstruction::U64 => cast_to_int!(value => U64, u64),
-            CastInstruction::Uint => cast_to_int!(value => Uint, usize),
-            CastInstruction::F32 => cast_to_float!(value => F32, f32),
-            CastInstruction::F64 => cast_to_float!(value => F64, f64),
-            CastInstruction::Ptr(kind) => {
+        let new_value = match ty {
+            Type::Int(IntType::I8) => cast_to_int!(value => I8, i8),
+            Type::Int(IntType::I16) => cast_to_int!(value => I16, i16),
+            Type::Int(IntType::I32) => cast_to_int!(value => I32, i32),
+            Type::Int(IntType::I64) => cast_to_int!(value => I64, i64),
+            Type::Int(IntType::Int) | Type::Infer(_, InferType::AnyInt) => {
+                cast_to_int!(value => Int, isize)
+            }
+            Type::Uint(UintType::U8) => cast_to_int!(value => U8, u8),
+            Type::Uint(UintType::U16) => cast_to_int!(value => U16, u16),
+            Type::Uint(UintType::U32) => cast_to_int!(value => U32, u32),
+            Type::Uint(UintType::U64) => cast_to_int!(value => U64, u64),
+            Type::Uint(UintType::Uint) => cast_to_int!(value => Uint, usize),
+            Type::Float(FloatType::F32) => cast_to_float!(value => F32, f32),
+            Type::Float(FloatType::F64) => cast_to_float!(value => F64, f64),
+            Type::Float(FloatType::Float) | Type::Infer(_, InferType::AnyFloat) => {
+                cast_to_float!(value => F64, f64)
+            }
+            Type::Pointer(inner, _) => {
                 let raw_ptr = match value {
                     Value::Int(value) => value as RawPointer,
                     Value::Uint(value) => value as RawPointer,
@@ -73,9 +80,10 @@ impl<'vm> VM<'vm> {
                     _ => panic!("invalid value {}", value.to_string()),
                 };
 
-                let new_ptr = Pointer::from_kind_and_ptr(kind, raw_ptr);
+                let new_ptr = Pointer::from_type_and_ptr(&inner, raw_ptr);
                 Value::Pointer(new_ptr)
             }
+            _ => panic!("{}", ty),
         };
 
         self.stack.push(new_value);

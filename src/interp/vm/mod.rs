@@ -4,7 +4,7 @@ use super::{
     interp::Interp,
     vm::{
         byte_seq::{ByteSeq, PutValue},
-        instruction::Instruction,
+        instruction::Inst,
         stack::Stack,
         value::{Buffer, Function, Value},
     },
@@ -149,14 +149,14 @@ impl<'vm> VM<'vm> {
             // self.trace(&inst, TraceLevel::Full);
 
             match inst {
-                Instruction::Noop => {
+                Inst::Noop => {
                     self.next();
                 }
-                Instruction::Pop => {
+                Inst::Pop => {
                     self.stack.pop();
                     self.next();
                 }
-                Instruction::LoadConst(addr) => {
+                Inst::LoadConst(addr) => {
                     let const_ = self.interp.constants.get(addr as usize).unwrap();
 
                     let value = match const_ {
@@ -175,7 +175,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                     self.next();
                 }
-                Instruction::Add => {
+                Inst::Add => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -205,7 +205,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::Sub => {
+                Inst::Sub => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -235,7 +235,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::Mul => {
+                Inst::Mul => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -262,7 +262,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::Div => {
+                Inst::Div => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -289,7 +289,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::Rem => {
+                Inst::Rem => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -316,14 +316,14 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::Neg => {
+                Inst::Neg => {
                     match self.stack.pop() {
                         Value::Int(v) => self.stack.push(Value::Int(-v)),
                         value => panic!("invalid value {}", value.to_string()),
                     }
                     self.next();
                 }
-                Instruction::Not => {
+                Inst::Not => {
                     let result = match self.stack.pop() {
                         Value::I8(v) => Value::I8(!v),
                         Value::I16(v) => Value::I16(!v),
@@ -341,7 +341,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(result);
                     self.next();
                 }
-                Instruction::Deref => {
+                Inst::Deref => {
                     match self.stack.pop() {
                         Value::Pointer(ptr) => {
                             let value = unsafe { ptr.deref_value() };
@@ -351,50 +351,50 @@ impl<'vm> VM<'vm> {
                     }
                     self.next();
                 }
-                Instruction::Eq => {
+                Inst::Eq => {
                     compare_op!(self, ==);
                 }
-                Instruction::Ne => {
+                Inst::Ne => {
                     compare_op!(self, !=);
                 }
-                Instruction::Lt => {
+                Inst::Lt => {
                     compare_op!(self, <);
                 }
-                Instruction::Le => {
+                Inst::Le => {
                     compare_op!(self, <=);
                 }
-                Instruction::Gt => {
+                Inst::Gt => {
                     compare_op!(self, >);
                 }
-                Instruction::Ge => {
+                Inst::Ge => {
                     compare_op!(self, >=);
                 }
-                Instruction::And => {
+                Inst::And => {
                     logic_op!(self, &&);
                 }
-                Instruction::Or => {
+                Inst::Or => {
                     logic_op!(self, ||);
                 }
-                Instruction::Shl => {
+                Inst::Shl => {
                     binary_op_int_only!(self, <<)
                 }
-                Instruction::Shr => {
+                Inst::Shr => {
                     binary_op_int_only!(self, >>);
                 }
-                Instruction::Xor => {
+                Inst::Xor => {
                     binary_op_int_only!(self, ^);
                 }
-                Instruction::Jmp(offset) => {
+                Inst::Jmp(offset) => {
                     self.jmp(offset);
                 }
-                Instruction::Jmpf(offset) => {
+                Inst::Jmpf(offset) => {
                     if !self.stack.pop().into_bool() {
                         self.jmp(offset);
                     } else {
                         self.next();
                     }
                 }
-                Instruction::Return => {
+                Inst::Return => {
                     let frame = self.frames.pop();
                     let return_value = self.stack.pop();
 
@@ -408,7 +408,7 @@ impl<'vm> VM<'vm> {
                         self.next();
                     }
                 }
-                Instruction::Call(arg_count) => match self.stack.pop() {
+                Inst::Call(arg_count) => match self.stack.pop() {
                     Value::Function(addr) => {
                         match self.interp.get_function(addr.id).unwrap_or_else(|| {
                             panic!("couldn't find '{}' {:?}", addr.name, addr.id)
@@ -441,82 +441,82 @@ impl<'vm> VM<'vm> {
                     Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
                     value => panic!("tried to call uncallable value `{}`", value.to_string()),
                 },
-                Instruction::GetGlobal(slot) => {
+                Inst::GetGlobal(slot) => {
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
                     }
                     self.next();
                 }
-                Instruction::GetGlobalPtr(slot) => {
+                Inst::GetGlobalPtr(slot) => {
                     match self.interp.globals.get_mut(slot as usize) {
                         Some(value) => self.stack.push(Value::Pointer(value.into())),
                         None => panic!("undefined global `{}`", slot),
                     }
                     self.next();
                 }
-                Instruction::SetGlobal(slot) => {
+                Inst::SetGlobal(slot) => {
                     self.interp.globals[slot as usize] = self.stack.pop();
                     self.next();
                 }
-                Instruction::Peek(slot) => {
+                Inst::Peek(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
                     self.next();
                 }
-                Instruction::PeekPtr(slot) => {
+                Inst::PeekPtr(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
                     self.next();
                 }
-                Instruction::SetLocal(slot) => {
+                Inst::SetLocal(slot) => {
                     let slot = self.frame().stack_slot as isize + slot as isize;
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                     self.next();
                 }
-                Instruction::Index => {
+                Inst::Index => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index(value, index);
                     self.next();
                 }
-                Instruction::IndexPtr => {
+                Inst::IndexPtr => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index_ptr(value, index);
                     self.next();
                 }
-                Instruction::Offset => {
+                Inst::Offset => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.offset(value, index);
                     self.next();
                 }
-                Instruction::ConstIndex(index) => {
+                Inst::ConstIndex(index) => {
                     let value = self.stack.pop();
                     self.index(value, index as usize);
                     self.next();
                 }
-                Instruction::ConstIndexPtr(index) => {
+                Inst::ConstIndexPtr(index) => {
                     let value = self.stack.pop();
                     self.index_ptr(value, index as usize);
                     self.next();
                 }
-                Instruction::Assign => {
+                Inst::Assign => {
                     let lhs = self.stack.pop().into_pointer();
                     let rhs = self.stack.pop();
                     unsafe { lhs.write_value(rhs) }
                     self.next();
                 }
-                Instruction::Cast(cast) => {
-                    self.cast_inst(cast);
+                Inst::Cast => {
+                    self.cast_inst();
                     self.next();
                 }
-                Instruction::BufferAlloc(size) => {
+                Inst::BufferAlloc(size) => {
                     let ty = self.stack.pop().into_type();
                     self.stack.push(Value::Buffer(Buffer {
                         bytes: ByteSeq::new(size as usize),
@@ -524,7 +524,7 @@ impl<'vm> VM<'vm> {
                     }));
                     self.next();
                 }
-                Instruction::BufferPut(pos) => {
+                Inst::BufferPut(pos) => {
                     let value = self.stack.pop();
 
                     let buf = self.stack.peek_mut(0).as_buffer_mut();
@@ -532,7 +532,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::BufferFill(size) => {
+                Inst::BufferFill(size) => {
                     let value = self.stack.pop();
                     let buf = self.stack.peek_mut(0).as_buffer_mut();
 
@@ -542,17 +542,17 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Instruction::Copy(offset) => {
+                Inst::Copy(offset) => {
                     let value = self.stack.peek(offset as usize).clone();
                     self.stack.push(value);
                     self.next();
                 }
-                Instruction::Swap(offset) => {
+                Inst::Swap(offset) => {
                     let last_index = self.stack.len() - 1;
                     self.stack.swap(last_index, last_index - offset as usize);
                     self.next();
                 }
-                Instruction::Halt => {
+                Inst::Halt => {
                     let result = self.stack.pop();
                     break result;
                 }
@@ -600,7 +600,7 @@ impl<'vm> VM<'vm> {
     }
 
     #[allow(unused)]
-    pub fn trace(&self, inst: &Instruction, level: TraceLevel) {
+    pub fn trace(&self, inst: &Inst, level: TraceLevel) {
         let frame = self.frame();
 
         match level {

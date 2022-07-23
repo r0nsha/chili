@@ -1,7 +1,7 @@
 use super::{
     interp::Interp,
     vm::{
-        instruction::Instruction,
+        instruction::Inst,
         value::{ExternFunction, Function, FunctionValue, Value},
         VM,
     },
@@ -243,7 +243,7 @@ unsafe extern "C" fn closure_callback(
     }
 
     // we need the VM to Halt instead of Return
-    *func.code.instructions.last_mut().unwrap() = Instruction::Halt;
+    *func.code.instructions.last_mut().unwrap() = Inst::Halt;
 
     let value = (*userdata.vm).run_func(func);
 

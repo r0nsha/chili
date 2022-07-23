@@ -3,7 +3,7 @@ use super::{
     lower::{Lower, LowerContext},
     vm::{
         display::dump_bytecode_to_file,
-        instruction::{CompiledCode, Instruction},
+        instruction::{CompiledCode, Inst},
         value::{ExternFunction, Function, FunctionAddress, FunctionValue, Value},
         Constants, Globals, VM,
     },
@@ -109,7 +109,7 @@ impl<'i> InterpSess<'i> {
         node.lower(self, &mut start_code, LowerContext { take_ptr: false });
 
         if self.diagnostics.is_empty() {
-            start_code.push(Instruction::Halt);
+            start_code.push(Inst::Halt);
 
             let start_code = self.insert_init_instructions(start_code);
 
@@ -143,7 +143,7 @@ impl<'i> InterpSess<'i> {
 
     // pushes initialization instructions such as global evaluation to the start
     fn insert_init_instructions(&mut self, mut code: CompiledCode) -> CompiledCode {
-        let mut init_instructions: Vec<Instruction> = vec![];
+        let mut init_instructions: Vec<Inst> = vec![];
 
         for (i, global_eval_code) in self.statically_initialized_globals.iter().enumerate() {
             let const_slot = self.interp.constants.len();
@@ -170,8 +170,8 @@ impl<'i> InterpSess<'i> {
                 .constants
                 .push(Value::Function(FunctionAddress { id, name }));
 
-            init_instructions.push(Instruction::LoadConst(const_slot as u32));
-            init_instructions.push(Instruction::Call(0));
+            init_instructions.push(Inst::LoadConst(const_slot as u32));
+            init_instructions.push(Inst::Call(0));
         }
 
         code.instructions = init_instructions
@@ -189,14 +189,14 @@ impl<'i> InterpSess<'i> {
     pub fn push_const(&mut self, code: &mut CompiledCode, value: Value) -> usize {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
-        code.push(Instruction::LoadConst(slot as u32));
+        code.push(Inst::LoadConst(slot as u32));
         slot
     }
 
     pub fn push_const_unit(&mut self, code: &mut CompiledCode) {
         // to avoid redundancy, when pushing a unit value,
         // we just use the first value in the constants vec
-        code.push(Instruction::LoadConst(0));
+        code.push(Inst::LoadConst(0));
     }
 
     pub fn insert_global(&mut self, id: BindingId, value: Value) -> usize {
