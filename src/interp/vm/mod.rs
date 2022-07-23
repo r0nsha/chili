@@ -14,6 +14,7 @@ use std::{fmt::Display, ptr};
 use ustr::ustr;
 
 pub mod byte_seq;
+pub mod bytecode;
 mod cast;
 pub mod display;
 mod index;
