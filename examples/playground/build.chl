@@ -35,3 +35,7 @@
 // run!(
 // 	printf("result = %d\n".data, fib(30))
 // );
+
+run!(
+	42
+);

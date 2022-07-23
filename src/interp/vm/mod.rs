@@ -15,7 +15,7 @@ use ustr::ustr;
 pub mod byte_seq;
 pub mod bytecode;
 mod cast;
-pub mod display;
+pub mod disassemble;
 mod index;
 pub mod inst;
 mod intrinsics;

@@ -3,7 +3,7 @@ use super::{
     lower::{Lower, LowerContext},
     vm::{
         bytecode::Inst,
-        display::dump_bytecode_to_file,
+        disassemble::dump_bytecode_to_file,
         inst::CompiledCode,
         value::{ExternFunction, Function, FunctionAddress, FunctionValue, Value},
         Constants, Globals, VM,

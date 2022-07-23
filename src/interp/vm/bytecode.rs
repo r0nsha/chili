@@ -3,6 +3,7 @@ use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use std::fmt::Display;
 use std::mem;
 
+#[derive(Clone)]
 pub struct Bytecode {
     buf: Vec<u8>,
     locals: u16,
@@ -177,6 +178,7 @@ impl Bytecode {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct BytecodeReader<'a> {
     bytecode: &'a Bytecode,
     pointer: usize,
