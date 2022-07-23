@@ -1,3 +1,5 @@
+use std::mem;
+
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 
 pub struct Bytecode {
@@ -46,19 +48,26 @@ impl<'a> BytecodeReader<'a> {
 
     #[inline(always)]
     pub fn read_u8(&mut self) -> u8 {
-        self.slice().read_u8().unwrap()
+        let value = self.slice().read_u8().unwrap();
+        self.pointer += mem::size_of::<u8>();
+        value
     }
 
     #[inline(always)]
     pub fn read_u32(&mut self) -> u32 {
-        self.slice().read_u32::<NativeEndian>().unwrap()
+        let value = self.slice().read_u32::<NativeEndian>().unwrap();
+        self.pointer += mem::size_of::<u32>();
+        value
     }
 
     #[inline(always)]
     pub fn read_i32(&mut self) -> i32 {
-        self.slice().read_i32::<NativeEndian>().unwrap()
+        let value = self.slice().read_i32::<NativeEndian>().unwrap();
+        self.pointer += mem::size_of::<i32>();
+        value
     }
 
+    #[inline(always)]
     fn slice(&self) -> &[u8] {
         &self.bytecode.buf[self.pointer..]
     }
