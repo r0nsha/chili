@@ -1111,7 +1111,7 @@ fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize 
 
     sess.env_stack.pop();
 
-    let slot = sess.insert_global(binding.id, Value::unit());
+    let slot = sess.insert_global(binding.id, Value::default());
 
     code.push(Instruction::SetGlobal(slot as u32));
     sess.push_const_unit(&mut code);

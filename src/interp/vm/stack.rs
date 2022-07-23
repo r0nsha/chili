@@ -77,7 +77,6 @@ impl<T: ToString, const CAPACITY: usize> Stack<T, CAPACITY> {
         self.inner.is_empty()
     }
 
-    #[allow(unused)]
     #[inline]
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.inner.iter()

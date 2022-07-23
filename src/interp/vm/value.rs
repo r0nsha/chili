@@ -261,6 +261,12 @@ impl_value! {
     Type(Type),
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Self::I8(0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Buffer {
     pub bytes: ByteSeq,

@@ -156,7 +156,9 @@ impl<'vm> VM<'vm> {
                     self.next();
                 }
                 Instruction::LoadConst(addr) => {
-                    let value = match self.get_const(addr).clone() {
+                    let const_ = self.interp.constants.get(addr as usize).unwrap();
+
+                    let value = match const_ {
                         Value::ExternVariable(variable) => {
                             let symbol = unsafe {
                                 self.interp
@@ -166,7 +168,7 @@ impl<'vm> VM<'vm> {
 
                             unsafe { Value::from_type_and_ptr(&variable.ty, *symbol as RawPointer) }
                         }
-                        value => value,
+                        value => value.clone(),
                     };
 
                     self.stack.push(value);
@@ -565,7 +567,7 @@ impl<'vm> VM<'vm> {
 
         let locals = unsafe { &*func }.code.locals;
         for _ in 0..locals {
-            self.stack.push(Value::unit());
+            self.stack.push(Value::default());
         }
 
         self.frames.push(StackFrame::new(func, stack_slot));
@@ -588,11 +590,6 @@ impl<'vm> VM<'vm> {
     #[inline]
     pub fn next(&mut self) {
         self.frame_mut().ip += 1;
-    }
-
-    #[inline]
-    pub fn get_const(&self, addr: u32) -> &Value {
-        self.interp.constants.get(addr as usize).unwrap()
     }
 
     #[inline]
