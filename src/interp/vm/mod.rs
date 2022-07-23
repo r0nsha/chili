@@ -145,9 +145,7 @@ impl<'vm> VM<'vm> {
             let frame = self.frame();
             let inst = frame.func().code.instructions[frame.ip];
 
-            if self.interp.build_options.show_vm_trace {
-                self.trace(&inst, TraceLevel::Full);
-            }
+            // self.trace(&inst, TraceLevel::Full);
 
             match inst {
                 Instruction::Noop => {
