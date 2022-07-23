@@ -10,6 +10,125 @@ pub struct Bytecode {
 
 impl Bytecode {
     #[inline(always)]
+    pub fn write_inst(&mut self, inst: Inst) -> usize {
+        match inst {
+            Inst::Noop => self.write_op(Op::Noop),
+            Inst::Pop => self.write_op(Op::Pop),
+            Inst::LoadConst(slot) => {
+                let addr = self.write_op(Op::LoadConst);
+                self.write_u32(slot);
+                addr
+            }
+            Inst::Add => self.write_op(Op::Add),
+            Inst::Sub => self.write_op(Op::Sub),
+            Inst::Mul => self.write_op(Op::Mul),
+            Inst::Div => self.write_op(Op::Div),
+            Inst::Rem => self.write_op(Op::Rem),
+            Inst::Neg => self.write_op(Op::Neg),
+            Inst::Not => self.write_op(Op::Not),
+            Inst::Deref => self.write_op(Op::Deref),
+            Inst::Eq => self.write_op(Op::Eq),
+            Inst::Ne => self.write_op(Op::Ne),
+            Inst::Lt => self.write_op(Op::Lt),
+            Inst::Le => self.write_op(Op::Le),
+            Inst::Gt => self.write_op(Op::Gt),
+            Inst::Ge => self.write_op(Op::Ge),
+            Inst::And => self.write_op(Op::And),
+            Inst::Or => self.write_op(Op::Or),
+            Inst::Shl => self.write_op(Op::Shl),
+            Inst::Shr => self.write_op(Op::Shr),
+            Inst::Xor => self.write_op(Op::Xor),
+            Inst::Jmp(addr) => {
+                let op_addr = self.write_op(Op::Jmp);
+                self.write_i32(addr);
+                op_addr
+            }
+            Inst::Jmpf(addr) => {
+                let op_addr = self.write_op(Op::Jmpf);
+                self.write_i32(addr);
+                op_addr
+            }
+            Inst::Return => self.write_op(Op::Return),
+            Inst::Call(args) => {
+                let addr = self.write_op(Op::Call);
+                self.write_u32(args);
+                addr
+            }
+            Inst::GetGlobal(slot) => {
+                let addr = self.write_op(Op::GetGlobal);
+                self.write_u32(slot);
+                addr
+            }
+            Inst::GetGlobalPtr(slot) => {
+                let addr = self.write_op(Op::GetGlobalPtr);
+                self.write_u32(slot);
+                addr
+            }
+            Inst::SetGlobal(slot) => {
+                let addr = self.write_op(Op::SetGlobal);
+                self.write_u32(slot);
+                addr
+            }
+            Inst::Peek(offset) => {
+                let addr = self.write_op(Op::Peek);
+                self.write_i32(offset);
+                addr
+            }
+            Inst::PeekPtr(offset) => {
+                let addr = self.write_op(Op::PeekPtr);
+                self.write_i32(offset);
+                addr
+            }
+            Inst::SetLocal(slot) => {
+                let addr = self.write_op(Op::SetLocal);
+                self.write_i32(slot);
+                addr
+            }
+            Inst::Index => self.write_op(Op::Index),
+            Inst::IndexPtr => self.write_op(Op::IndexPtr),
+            Inst::Offset => self.write_op(Op::Offset),
+            Inst::ConstIndex(index) => {
+                let addr = self.write_op(Op::ConstIndex);
+                self.write_u32(index);
+                addr
+            }
+            Inst::ConstIndexPtr(index) => {
+                let addr = self.write_op(Op::ConstIndexPtr);
+                self.write_u32(index);
+                addr
+            }
+            Inst::Assign => self.write_op(Op::Assign),
+            Inst::Cast => self.write_op(Op::Cast),
+            Inst::BufferAlloc(size) => {
+                let addr = self.write_op(Op::BufferAlloc);
+                self.write_u32(size);
+                addr
+            }
+            Inst::BufferPut(offset) => {
+                let addr = self.write_op(Op::BufferPut);
+                self.write_u32(offset);
+                addr
+            }
+            Inst::BufferFill(size) => {
+                let addr = self.write_op(Op::BufferFill);
+                self.write_u32(size);
+                addr
+            }
+            Inst::Copy(offset) => {
+                let addr = self.write_op(Op::Copy);
+                self.write_u32(offset);
+                addr
+            }
+            Inst::Swap(offset) => {
+                let addr = self.write_op(Op::Swap);
+                self.write_u32(offset);
+                addr
+            }
+            Inst::Halt => self.write_op(Op::Halt),
+        }
+    }
+
+    #[inline(always)]
     pub fn write_op(&mut self, op: Op) -> usize {
         self.write_u8(op.into());
         self.buf.len() - 1
@@ -40,6 +159,16 @@ impl Bytecode {
         self.buf.write_i32::<NativeEndian>(x).unwrap();
     }
 
+    #[inline(always)]
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[..]
+    }
+
+    #[inline(always)]
+    pub fn as_mut_slice(&mut self) -> &[u8] {
+        &mut self.buf[..]
+    }
+
     pub fn reader(&self) -> BytecodeReader {
         BytecodeReader {
             bytecode: self,
@@ -66,41 +195,41 @@ impl<'a> BytecodeReader<'a> {
 
     #[inline(always)]
     pub fn read_u8(&mut self) -> u8 {
-        let value = self.slice().read_u8().unwrap();
+        let value = self.as_slice().read_u8().unwrap();
         self.pointer += mem::size_of::<u8>();
         value
     }
 
     #[inline(always)]
     pub fn read_u16(&mut self) -> u16 {
-        let value = self.slice().read_u16::<NativeEndian>().unwrap();
+        let value = self.as_slice().read_u16::<NativeEndian>().unwrap();
         self.pointer += mem::size_of::<u16>();
         value
     }
 
     #[inline(always)]
     pub fn read_i16(&mut self) -> i16 {
-        let value = self.slice().read_i16::<NativeEndian>().unwrap();
+        let value = self.as_slice().read_i16::<NativeEndian>().unwrap();
         self.pointer += mem::size_of::<i16>();
         value
     }
 
     #[inline(always)]
     pub fn read_u32(&mut self) -> u32 {
-        let value = self.slice().read_u32::<NativeEndian>().unwrap();
+        let value = self.as_slice().read_u32::<NativeEndian>().unwrap();
         self.pointer += mem::size_of::<u32>();
         value
     }
 
     #[inline(always)]
     pub fn read_i32(&mut self) -> i32 {
-        let value = self.slice().read_i32::<NativeEndian>().unwrap();
+        let value = self.as_slice().read_i32::<NativeEndian>().unwrap();
         self.pointer += mem::size_of::<i32>();
         value
     }
 
     #[inline(always)]
-    fn slice(&self) -> &[u8] {
+    fn as_slice(&self) -> &[u8] {
         &self.bytecode.buf[self.pointer..]
     }
 }
