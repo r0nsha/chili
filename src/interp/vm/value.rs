@@ -2,7 +2,7 @@ use super::{
     super::ffi::RawPointer,
     super::{IS_64BIT, WORD_SIZE},
     byte_seq::{ByteSeq, GetValue, PutValue},
-    instruction::CompiledCode,
+    inst::CompiledCode,
 };
 use crate::{
     ast::{ExternLibrary, Intrinsic},

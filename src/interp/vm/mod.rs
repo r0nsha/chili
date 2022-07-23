@@ -1,10 +1,9 @@
-use self::value::FunctionValue;
+use self::{bytecode::Inst, value::FunctionValue};
 use super::{
     ffi::RawPointer,
     interp::Interp,
     vm::{
         byte_seq::{ByteSeq, PutValue},
-        instruction::Inst,
         stack::Stack,
         value::{Buffer, Function, Value},
     },
@@ -18,7 +17,7 @@ pub mod bytecode;
 mod cast;
 pub mod display;
 mod index;
-pub mod instruction;
+pub mod inst;
 mod intrinsics;
 mod stack;
 pub mod value;

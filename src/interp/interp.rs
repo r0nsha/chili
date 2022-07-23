@@ -2,8 +2,9 @@ use super::{
     ffi::Ffi,
     lower::{Lower, LowerContext},
     vm::{
+        bytecode::Inst,
         display::dump_bytecode_to_file,
-        instruction::{CompiledCode, Inst},
+        inst::CompiledCode,
         value::{ExternFunction, Function, FunctionAddress, FunctionValue, Value},
         Constants, Globals, VM,
     },

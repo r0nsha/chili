@@ -2,7 +2,8 @@ use super::{
     interp::{Env, InterpSess},
     vm::{
         byte_seq::{ByteSeq, PutValue},
-        instruction::{CompiledCode, Inst},
+        bytecode::Inst,
+        inst::CompiledCode,
         value::{Buffer, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value},
     },
     IS_64BIT, WORD_SIZE,
@@ -163,7 +164,8 @@ impl Lower for hir::Binding {
                     .lower(sess, code, LowerContext { take_ptr: false });
 
                 sess.add_local(code, self.id);
-                code.push(Inst::SetLocal(code.last_local()));
+                let last_local = code.locals as i32 - 1;
+                code.push(Inst::SetLocal(last_local));
             }
         }
 

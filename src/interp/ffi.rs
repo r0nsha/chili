@@ -1,7 +1,7 @@
 use super::{
     interp::Interp,
     vm::{
-        instruction::Inst,
+        bytecode::Inst,
         value::{ExternFunction, Function, FunctionValue, Value},
         VM,
     },

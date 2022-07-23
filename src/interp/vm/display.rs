@@ -1,7 +1,7 @@
 use crate::interp::interp::Interp;
 
 use super::{
-    instruction::CompiledCode,
+    inst::CompiledCode,
     value::{FunctionValue, Value},
 };
 use std::{
