@@ -1,23 +1,37 @@
-let ? = import("std/build");
+// let ? = import("std/build");
 
-let build = fn() {
-	let build_options = BuildOptions {
-        input_file: "src/main.chl",
-        output_file: "out/main",
-        target: BuildTarget_auto,
-        optimization_level: OptimizationLevel_debug,
-	};
+// let build = fn() {
+// 	let build_options = BuildOptions {
+//         input_file: "src/main.chl",
+//         output_file: "out/main",
+//         target: BuildTarget_auto,
+//         optimization_level: OptimizationLevel_debug,
+// 	};
 
-	let workspace = Workspace {
-		name: "hello",
-		build_options
-	};
+// 	let workspace = Workspace {
+// 		name: "hello",
+// 		build_options
+// 	};
 
-	let (output_file, ok) = start_workspace(workspace);
+// 	let (output_file, ok) = start_workspace(workspace);
 
-	if ok {
-		run_output_file(output_file);
-	}
+// 	if ok {
+// 		run_output_file(output_file);
+// 	}
+// };
+
+// run!(build());
+
+let { printf } = import("std/c");
+
+let fib = fn(n) {
+    if n <= 1 {
+        n
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
 };
 
-run!(build());
+run!(
+	printf("result = %d\n".data, fib(30))
+);
