@@ -327,7 +327,7 @@ impl Lower for hir::Control {
             hir::Control::While(x) => x.lower(sess, code, ctx),
             hir::Control::Return(x) => x.lower(sess, code, ctx),
             hir::Control::Break(_) => {
-                let pos = code.write_inst(Inst::Jmp(BREAK_DUMMY_JMP_OFFSET));
+                let pos = code.write_inst(Inst::Jmp(INVALID_JMP_OFFSET));
                 sess.loop_env_stack
                     .last_mut()
                     .unwrap()
@@ -335,7 +335,7 @@ impl Lower for hir::Control {
                     .push(pos);
             }
             hir::Control::Continue(_) => {
-                let pos = code.write_inst(Inst::Jmp(CONTINUE_DUMMY_JMP_OFFSET));
+                let pos = code.write_inst(Inst::Jmp(INVALID_JMP_OFFSET));
                 sess.loop_env_stack
                     .last_mut()
                     .unwrap()
@@ -1110,13 +1110,12 @@ fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize 
 }
 
 const INVALID_JMP_OFFSET: i32 = i32::MAX;
-const BREAK_DUMMY_JMP_OFFSET: i32 = i32::MAX - 1;
-const CONTINUE_DUMMY_JMP_OFFSET: i32 = i32::MAX - 2;
 
 fn patch_jmp(code: &mut Bytecode, op_pos: usize) {
     // This function assumes that the Op is some sort of Jmp.
     // We patch the op's operand by directly writing to the buffer.
     let target_offset = (code.len() - op_pos) as i32;
+
     (&mut code.as_mut_slice()[op_pos + 1..])
         .write_i32::<NativeEndian>(target_offset)
         .unwrap();
