@@ -761,13 +761,13 @@ impl Lower for hir::Builtin {
 
                             code.push(Instruction::Copy(0));
                             code.push(Instruction::ConstIndex(1));
-                            code.push(Instruction::Roll(1));
+                            code.push(Instruction::Swap(1));
                             code.push(Instruction::ConstIndex(0));
 
                             sess.push_const(code, Value::Type(value_type.clone()));
                             code.push(Instruction::BufferAlloc(value_type_size));
 
-                            code.push(Instruction::Roll(1));
+                            code.push(Instruction::Swap(1));
 
                             // calculate the new slice's offset
                             slice

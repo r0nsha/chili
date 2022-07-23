@@ -155,7 +155,7 @@ impl<'vm> VM<'vm> {
                     self.stack.pop();
                     self.next();
                 }
-                Instruction::PushConst(addr) => {
+                Instruction::LoadConst(addr) => {
                     let value = match self.get_const(addr).clone() {
                         Value::ExternVariable(variable) => {
                             let symbol = unsafe {
@@ -544,9 +544,9 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                     self.next();
                 }
-                Instruction::Roll(offset) => {
-                    let value = self.stack.take(offset as usize);
-                    self.stack.push(value);
+                Instruction::Swap(offset) => {
+                    let last_index = self.stack.len() - 1;
+                    self.stack.swap(last_index, last_index - offset as usize);
                     self.next();
                 }
                 Instruction::Halt => {

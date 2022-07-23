@@ -170,7 +170,7 @@ impl<'i> InterpSess<'i> {
                 .constants
                 .push(Value::Function(FunctionAddress { id, name }));
 
-            init_instructions.push(Instruction::PushConst(const_slot as u32));
+            init_instructions.push(Instruction::LoadConst(const_slot as u32));
             init_instructions.push(Instruction::Call(0));
         }
 
@@ -189,14 +189,14 @@ impl<'i> InterpSess<'i> {
     pub fn push_const(&mut self, code: &mut CompiledCode, value: Value) -> usize {
         let slot = self.interp.constants.len();
         self.interp.constants.push(value);
-        code.push(Instruction::PushConst(slot as u32));
+        code.push(Instruction::LoadConst(slot as u32));
         slot
     }
 
     pub fn push_const_unit(&mut self, code: &mut CompiledCode) {
         // to avoid redundancy, when pushing a unit value,
         // we just use the first value in the constants vec
-        code.push(Instruction::PushConst(0));
+        code.push(Instruction::LoadConst(0));
     }
 
     pub fn insert_global(&mut self, id: BindingId, value: Value) -> usize {

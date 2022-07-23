@@ -6,7 +6,7 @@ use std::fmt::Display;
 pub enum Instruction {
     Noop,
     Pop,
-    PushConst(u32),
+    LoadConst(u32),
     Add,
     Sub,
     Mul,
@@ -47,7 +47,7 @@ pub enum Instruction {
     BufferPut(u32),
     BufferFill(u32),
     Copy(u32),
-    Roll(u32),
+    Swap(u32),
     Halt,
 }
 
@@ -76,7 +76,7 @@ impl Display for Instruction {
             match self {
                 Instruction::Noop => "noop".to_string(),
                 Instruction::Pop => "pop".to_string(),
-                Instruction::PushConst(addr) => format!("push_const %{}", addr),
+                Instruction::LoadConst(addr) => format!("load_const %{}", addr),
                 Instruction::Add => "add".to_string(),
                 Instruction::Sub => "sub".to_string(),
                 Instruction::Mul => "mul".to_string(),
@@ -117,7 +117,7 @@ impl Display for Instruction {
                 Instruction::BufferPut(pos) => format!("buffer_put {}", pos),
                 Instruction::BufferFill(size) => format!("buffer_fill {}", size),
                 Instruction::Copy(offset) => format!("copy {}", -(*offset as i32)),
-                Instruction::Roll(offset) => format!("roll {}", -(*offset as i32)),
+                Instruction::Swap(offset) => format!("swap {}", -(*offset as i32)),
                 Instruction::Halt => "halt".to_string(),
             }
         )
