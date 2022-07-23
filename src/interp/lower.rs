@@ -328,11 +328,19 @@ impl Lower for hir::Control {
             hir::Control::Return(x) => x.lower(sess, code, ctx),
             hir::Control::Break(_) => {
                 let pos = code.write_inst(Inst::Jmp(BREAK_DUMMY_JMP_OFFSET));
-                sess.loop_env_stack.last_mut().unwrap().break_offsets.push(pos);
+                sess.loop_env_stack
+                    .last_mut()
+                    .unwrap()
+                    .break_offsets
+                    .push(pos);
             }
             hir::Control::Continue(_) => {
                 let pos = code.write_inst(Inst::Jmp(CONTINUE_DUMMY_JMP_OFFSET));
-                sess.loop_env_stack.last_mut().unwrap().break_offsets.push(pos);
+                sess.loop_env_stack
+                    .last_mut()
+                    .unwrap()
+                    .break_offsets
+                    .push(pos);
             }
         }
     }

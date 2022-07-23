@@ -31,6 +31,28 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
             write!(&mut w, "\n").unwrap();
         }
 
+        write!(&mut w, "\nfunctions:\n").unwrap();
+
+        let last_function_index = interp.functions.len() - 1;
+        for (index, (_, function)) in interp.functions.iter().enumerate() {
+            write!(
+                &mut w,
+                "fn {}\n",
+                if function.name.is_empty() {
+                    "<anon>"
+                } else {
+                    &function.name
+                }
+            )
+            .unwrap();
+
+            function.code.reader().disassemble(&mut w, interp);
+
+            if index < last_function_index {
+                write!(&mut w, "\n").unwrap();
+            }
+        }
+
         write!(&mut w, "\nconstants:\n").unwrap();
 
         for (slot, constant) in interp.constants.iter().enumerate() {
@@ -49,21 +71,8 @@ impl<W: Write> Disassemble<W> for Value {
     fn disassemble(&self, w: &mut BufWriter<W>, interp: &Interp) {
         match self {
             Value::Function(addr) => match interp.get_function(addr.id).unwrap() {
-                FunctionValue::Orphan(function) => {
-                    write!(
-                        w,
-                        "fn {}\n",
-                        if function.name.is_empty() {
-                            "<anon>"
-                        } else {
-                            &function.name
-                        }
-                    )
-                    .unwrap();
-
-                    function.code.reader().disassemble(w, interp);
-                }
-                FunctionValue::Extern(_) => w.write_all(self.to_string().as_bytes()).unwrap(),
+                FunctionValue::Orphan(f) => write!(w, "fn {}", f.name).unwrap(),
+                FunctionValue::Extern(f) => write!(w, "extern fn {}", f.name).unwrap(),
             },
             _ => {
                 w.write_all(self.to_string().as_bytes()).unwrap();
