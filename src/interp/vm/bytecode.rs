@@ -18,6 +18,16 @@ impl Bytecode {
     }
 
     #[inline(always)]
+    pub fn write_u16(&mut self, x: u16) {
+        self.buf.write_u16::<NativeEndian>(x).unwrap();
+    }
+
+    #[inline(always)]
+    pub fn write_i16(&mut self, x: i16) {
+        self.buf.write_i16::<NativeEndian>(x).unwrap();
+    }
+
+    #[inline(always)]
     pub fn write_u32(&mut self, x: u32) {
         self.buf.write_u32::<NativeEndian>(x).unwrap();
     }
@@ -42,6 +52,11 @@ pub struct BytecodeReader<'a> {
 
 impl<'a> BytecodeReader<'a> {
     #[inline(always)]
+    pub fn set_pointer(&mut self, to: usize) {
+        self.pointer = to;
+    }
+
+    #[inline(always)]
     pub fn read_op(&mut self) -> Op {
         self.read_u8().into()
     }
@@ -50,6 +65,20 @@ impl<'a> BytecodeReader<'a> {
     pub fn read_u8(&mut self) -> u8 {
         let value = self.slice().read_u8().unwrap();
         self.pointer += mem::size_of::<u8>();
+        value
+    }
+
+    #[inline(always)]
+    pub fn read_u16(&mut self) -> u16 {
+        let value = self.slice().read_u16::<NativeEndian>().unwrap();
+        self.pointer += mem::size_of::<u16>();
+        value
+    }
+
+    #[inline(always)]
+    pub fn read_i16(&mut self) -> i16 {
+        let value = self.slice().read_i16::<NativeEndian>().unwrap();
+        self.pointer += mem::size_of::<i16>();
         value
     }
 
