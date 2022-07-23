@@ -1,9 +1,8 @@
 use super::{
-    interp::{Env, InterpSess},
+    interp::{Env, InterpSess, LoopEnv},
     vm::{
         byte_seq::{ByteSeq, PutValue},
-        bytecode::Inst,
-        inst::CompiledCode,
+        bytecode::{Bytecode, Inst},
         value::{Buffer, ExternFunction, ExternVariable, Function, IntrinsicFunction, Value},
     },
     IS_64BIT, WORD_SIZE,
@@ -21,6 +20,7 @@ use crate::{
     },
     workspace::{BindingId, BindingInfoKind},
 };
+use byteorder::{NativeEndian, WriteBytesExt};
 use ustr::ustr;
 
 #[derive(Clone, Copy)]
@@ -29,11 +29,11 @@ pub struct LowerContext {
 }
 
 pub trait Lower {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext);
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext);
 }
 
 impl Lower for hir::Node {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match self {
             hir::Node::Const(x) => x.lower(sess, code, ctx),
             hir::Node::Binding(x) => x.lower(sess, code, ctx),
@@ -51,14 +51,14 @@ impl Lower for hir::Node {
 }
 
 impl Lower for hir::Const {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         let value = const_value_to_value(&self.value, self.ty, sess);
         sess.push_const(code, value);
     }
 }
 
 impl Lower for hir::Function {
-    fn lower(&self, sess: &mut InterpSess, _code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, _code: &mut Bytecode, _ctx: LowerContext) {
         if sess.interp.functions.contains_key(&self.id) || !sess.lowered_functions.insert(self.id) {
             return;
         }
@@ -69,7 +69,7 @@ impl Lower for hir::Function {
             hir::FunctionKind::Orphan { params, body, .. } => {
                 sess.env_mut().push_scope();
 
-                let mut function_code = CompiledCode::new();
+                let mut function_code = Bytecode::new();
 
                 for index in 0..function_type.params.len() {
                     let offset = -(function_type.params.len() as i16) + index as i16;
@@ -82,9 +82,7 @@ impl Lower for hir::Function {
                     LowerContext { take_ptr: false },
                 );
 
-                if !function_code.instructions.ends_with(&[Inst::Return]) {
-                    function_code.push(Inst::Return);
-                }
+                function_code.write_inst(Inst::Return);
 
                 sess.env_mut().pop_scope();
 
@@ -137,7 +135,7 @@ impl Lower for hir::Function {
 }
 
 impl Lower for hir::Binding {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         if let Some(ConstValue::ExternVariable(ConstExternVariable { lib: None, .. })) =
             self.value.as_const_value()
         {
@@ -165,7 +163,7 @@ impl Lower for hir::Binding {
 
                 sess.add_local(code, self.id);
                 let last_local = code.locals as i32 - 1;
-                code.push(Inst::StoreLocal(last_local));
+                code.write_inst(Inst::StoreLocal(last_local));
             }
         }
 
@@ -174,7 +172,7 @@ impl Lower for hir::Binding {
 }
 
 impl Lower for hir::Id {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match self.ty.normalize(sess.tcx) {
             Type::Module(_) => {
                 // Note (Ron): We do nothing with modules, since they are not an actual value
@@ -182,7 +180,7 @@ impl Lower for hir::Id {
             _ => {
                 if let Some(slot) = sess.env().value(self.id) {
                     let slot = *slot as i32;
-                    code.push(if ctx.take_ptr {
+                    code.write_inst(if ctx.take_ptr {
                         Inst::PeekPtr(slot)
                     } else {
                         Inst::Peek(slot)
@@ -193,7 +191,7 @@ impl Lower for hir::Id {
                         .unwrap_or_else(|| find_and_lower_top_level_binding(self.id, sess))
                         as u32;
 
-                    code.push(if ctx.take_ptr {
+                    code.write_inst(if ctx.take_ptr {
                         Inst::LoadGlobalPtr(slot)
                     } else {
                         Inst::LoadGlobal(slot)
@@ -205,18 +203,18 @@ impl Lower for hir::Id {
 }
 
 impl Lower for hir::Assignment {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         self.rhs.lower(sess, code, LowerContext { take_ptr: false });
         self.lhs.lower(sess, code, LowerContext { take_ptr: true });
-        code.push(Inst::Assign);
+        code.write_inst(Inst::Assign);
         sess.push_const_unit(code);
     }
 }
 
 impl Lower for hir::MemberAccess {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         self.value.lower(sess, code, ctx);
-        code.push(if ctx.take_ptr {
+        code.write_inst(if ctx.take_ptr {
             Inst::ConstIndexPtr(self.member_index)
         } else {
             Inst::ConstIndex(self.member_index)
@@ -225,7 +223,7 @@ impl Lower for hir::MemberAccess {
 }
 
 impl Lower for hir::Call {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         for arg in self.args.iter() {
             arg.lower(sess, code, LowerContext { take_ptr: false });
         }
@@ -233,12 +231,12 @@ impl Lower for hir::Call {
         self.callee
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        code.push(Inst::Call(self.args.len() as u32));
+        code.write_inst(Inst::Call(self.args.len() as u32));
     }
 }
 
 impl Lower for hir::Cast {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
 
@@ -253,7 +251,7 @@ impl Lower for hir::Cast {
                     let inner_type_size = value_type.element_type().unwrap().size_of(WORD_SIZE);
 
                     sess.push_const(code, Value::Type(value_type.clone()));
-                    code.push(Inst::BufferAlloc(value_type_size));
+                    code.write_inst(Inst::BufferAlloc(value_type_size));
 
                     self.value
                         .lower(sess, code, LowerContext { take_ptr: true });
@@ -261,10 +259,10 @@ impl Lower for hir::Cast {
                     // calculate the new slice's offset
                     sess.push_const(code, Value::Uint(0));
                     sess.push_const(code, Value::Uint(inner_type_size));
-                    code.push(Inst::Mul);
-                    code.push(Inst::Offset);
+                    code.write_inst(Inst::Mul);
+                    code.write_inst(Inst::Offset);
 
-                    code.push(Inst::BufferPut(0));
+                    code.write_inst(Inst::BufferPut(0));
 
                     // calculate the slice length, by doing `high - low`
                     match value_type.maybe_deref_once() {
@@ -275,25 +273,25 @@ impl Lower for hir::Cast {
                     }
 
                     sess.push_const(code, Value::Uint(0));
-                    code.push(Inst::Sub);
+                    code.write_inst(Inst::Sub);
 
-                    code.push(Inst::BufferPut(WORD_SIZE as u32));
+                    code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                 }
                 _ => {
                     sess.push_const(code, Value::Type(target_type));
-                    code.push(Inst::Cast);
+                    code.write_inst(Inst::Cast);
                 }
             },
             _ => {
                 sess.push_const(code, Value::Type(target_type));
-                code.push(Inst::Cast);
+                code.write_inst(Inst::Cast);
             }
         }
     }
 }
 
 impl Lower for hir::Sequence {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         if self.is_block {
             sess.env_mut().push_scope();
         }
@@ -312,7 +310,7 @@ impl Lower for hir::Sequence {
             );
 
             if !is_last {
-                code.push(Inst::Pop);
+                code.write_inst(Inst::Pop);
             }
         }
 
@@ -323,23 +321,23 @@ impl Lower for hir::Sequence {
 }
 
 impl Lower for hir::Control {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match self {
             hir::Control::If(x) => x.lower(sess, code, ctx),
             hir::Control::While(x) => x.lower(sess, code, ctx),
             hir::Control::Return(x) => x.lower(sess, code, ctx),
             hir::Control::Break(_) => {
-                code.push(Inst::Jmp(BREAK_DUMMY_JMP_OFFSET));
+                code.write_inst(Inst::Jmp(BREAK_DUMMY_JMP_OFFSET));
             }
             hir::Control::Continue(_) => {
-                code.push(Inst::Jmp(CONTINUE_DUMMY_JMP_OFFSET));
+                code.write_inst(Inst::Jmp(CONTINUE_DUMMY_JMP_OFFSET));
             }
         }
     }
 }
 
 impl Lower for hir::If {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         lower_conditional(
             sess,
             code,
@@ -364,18 +362,18 @@ impl Lower for hir::If {
 
 fn lower_conditional(
     sess: &mut InterpSess,
-    code: &mut CompiledCode,
-    condition: impl FnOnce(&mut InterpSess, &mut CompiledCode),
-    then: impl FnOnce(&mut InterpSess, &mut CompiledCode),
-    otherwise: impl FnOnce(&mut InterpSess, &mut CompiledCode),
+    code: &mut Bytecode,
+    condition: impl FnOnce(&mut InterpSess, &mut Bytecode),
+    then: impl FnOnce(&mut InterpSess, &mut Bytecode),
+    otherwise: impl FnOnce(&mut InterpSess, &mut Bytecode),
 ) {
     condition(sess, code);
 
-    let otherwise_jmp = code.push(Inst::Jmpf(INVALID_JMP_OFFSET));
+    let otherwise_jmp = code.write_inst(Inst::Jmpf(INVALID_JMP_OFFSET));
 
     then(sess, code);
 
-    let exit_jmp = code.push(Inst::Jmp(INVALID_JMP_OFFSET));
+    let exit_jmp = code.write_inst(Inst::Jmp(INVALID_JMP_OFFSET));
 
     patch_jmp(code, otherwise_jmp);
     otherwise(sess, code);
@@ -383,41 +381,56 @@ fn lower_conditional(
 }
 
 impl Lower for hir::While {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
-        let loop_start = code.instructions.len();
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
+        let loop_start = code.len();
 
         self.condition
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        let exit_jmp = code.push(Inst::Jmpf(INVALID_JMP_OFFSET));
+        let exit_jmp = code.write_inst(Inst::Jmpf(INVALID_JMP_OFFSET));
 
-        let block_start_pos = code.instructions.len();
+        let block_start_pos = code.len();
+
+        sess.loop_env_stack.push(LoopEnv::new());
 
         self.body
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        code.push(Inst::Pop);
+        let loop_env = sess.loop_env_stack.pop().unwrap();
 
-        let offset = code.instructions.len() - loop_start;
-        code.push(Inst::Jmp(-(offset as i32)));
+        code.write_inst(Inst::Pop);
+
+        let offset = code.len() - loop_start;
+        code.write_inst(Inst::Jmp(-(offset as i32)));
 
         patch_jmp(code, exit_jmp);
-        patch_loop_terminators(code, block_start_pos, loop_start);
+
+        // patch all break/continue jmp instructions
+        let len = code.len();
+        for pos in &loop_env.break_offsets {
+            let target_offset = (len - *pos) as i32;
+            (&mut code.as_mut_slice()[*pos + 1..]).write_i32::<NativeEndian>(target_offset);
+        }
+
+        for pos in &loop_env.continue_offsets {
+            let target_offset = loop_start as i32 - *pos as i32;
+            (&mut code.as_mut_slice()[*pos + 1..]).write_i32::<NativeEndian>(target_offset);
+        }
 
         sess.push_const_unit(code);
     }
 }
 
 impl Lower for hir::Return {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
-        code.push(Inst::Return);
+        code.write_inst(Inst::Return);
     }
 }
 
 impl Lower for hir::Builtin {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match self {
             hir::Builtin::Add(binary) => {
                 binary
@@ -427,7 +440,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Add);
+                code.write_inst(Inst::Add);
             }
             hir::Builtin::Sub(binary) => {
                 binary
@@ -437,7 +450,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Sub);
+                code.write_inst(Inst::Sub);
             }
             hir::Builtin::Mul(binary) => {
                 binary
@@ -447,7 +460,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Mul);
+                code.write_inst(Inst::Mul);
             }
             hir::Builtin::Div(binary) => {
                 binary
@@ -457,7 +470,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Div);
+                code.write_inst(Inst::Div);
             }
             hir::Builtin::Rem(binary) => {
                 binary
@@ -467,7 +480,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Rem);
+                code.write_inst(Inst::Rem);
             }
             hir::Builtin::Shl(binary) => {
                 binary
@@ -477,7 +490,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Shl);
+                code.write_inst(Inst::Shl);
             }
             hir::Builtin::Shr(binary) => {
                 binary
@@ -487,7 +500,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Shr);
+                code.write_inst(Inst::Shr);
             }
             hir::Builtin::And(binary) => {
                 lower_conditional(
@@ -535,7 +548,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Lt);
+                code.write_inst(Inst::Lt);
             }
             hir::Builtin::Le(binary) => {
                 binary
@@ -545,7 +558,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Le);
+                code.write_inst(Inst::Le);
             }
             hir::Builtin::Gt(binary) => {
                 binary
@@ -555,7 +568,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Gt);
+                code.write_inst(Inst::Gt);
             }
             hir::Builtin::Ge(binary) => {
                 binary
@@ -565,7 +578,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Ge);
+                code.write_inst(Inst::Ge);
             }
             hir::Builtin::Eq(binary) => {
                 binary
@@ -575,7 +588,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Eq);
+                code.write_inst(Inst::Eq);
             }
             hir::Builtin::Ne(binary) => {
                 binary
@@ -585,7 +598,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Ne);
+                code.write_inst(Inst::Ne);
             }
             hir::Builtin::BitAnd(binary) => {
                 binary
@@ -595,7 +608,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::And);
+                code.write_inst(Inst::And);
             }
             hir::Builtin::BitOr(binary) => {
                 binary
@@ -605,7 +618,7 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Or);
+                code.write_inst(Inst::Or);
             }
             hir::Builtin::BitXor(binary) => {
                 binary
@@ -615,21 +628,21 @@ impl Lower for hir::Builtin {
                     .rhs
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Xor);
+                code.write_inst(Inst::Xor);
             }
             hir::Builtin::Not(unary) => {
                 unary
                     .value
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Not);
+                code.write_inst(Inst::Not);
             }
             hir::Builtin::Neg(unary) => {
                 unary
                     .value
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Neg);
+                code.write_inst(Inst::Neg);
             }
             hir::Builtin::Ref(unary) => {
                 unary
@@ -641,7 +654,7 @@ impl Lower for hir::Builtin {
                     .value
                     .lower(sess, code, LowerContext { take_ptr: false });
 
-                code.push(Inst::Deref);
+                code.write_inst(Inst::Deref);
             }
             hir::Builtin::Offset(offset) => {
                 offset
@@ -653,7 +666,7 @@ impl Lower for hir::Builtin {
                 let elem_size = match value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
                         Type::Slice(inner) => {
-                            code.push(Inst::ConstIndex(0));
+                            code.write_inst(Inst::ConstIndex(0));
                             inner.size_of(WORD_SIZE)
                         }
                         _ => inner.size_of(WORD_SIZE),
@@ -668,9 +681,9 @@ impl Lower for hir::Builtin {
 
                 sess.push_const(code, Value::Uint(elem_size));
 
-                code.push(Inst::Mul);
+                code.write_inst(Inst::Mul);
 
-                code.push(if ctx.take_ptr {
+                code.write_inst(if ctx.take_ptr {
                     Inst::IndexPtr
                 } else {
                     Inst::Index
@@ -692,7 +705,7 @@ impl Lower for hir::Builtin {
                 match &value_type {
                     Type::Array(..) => {
                         sess.push_const(code, Value::Type(value_type.clone()));
-                        code.push(Inst::BufferAlloc(value_type_size));
+                        code.write_inst(Inst::BufferAlloc(value_type_size));
 
                         slice
                             .value
@@ -703,10 +716,10 @@ impl Lower for hir::Builtin {
                             .low
                             .lower(sess, code, LowerContext { take_ptr: false });
                         sess.push_const(code, Value::Uint(elem_size));
-                        code.push(Inst::Mul);
-                        code.push(Inst::Offset);
+                        code.write_inst(Inst::Mul);
+                        code.write_inst(Inst::Offset);
 
-                        code.push(Inst::BufferPut(0));
+                        code.write_inst(Inst::BufferPut(0));
 
                         // calculate the slice length, by doing `high - low`
                         slice
@@ -715,9 +728,9 @@ impl Lower for hir::Builtin {
                         slice
                             .low
                             .lower(sess, code, LowerContext { take_ptr: false });
-                        code.push(Inst::Sub);
+                        code.write_inst(Inst::Sub);
 
-                        code.push(Inst::BufferPut(WORD_SIZE as u32));
+                        code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                     }
                     Type::Pointer(inner, _) => match inner.as_ref() {
                         Type::Slice(_) => {
@@ -725,25 +738,25 @@ impl Lower for hir::Builtin {
                                 .value
                                 .lower(sess, code, LowerContext { take_ptr: false });
 
-                            code.push(Inst::Copy(0));
-                            code.push(Inst::ConstIndex(1));
-                            code.push(Inst::Swap(1));
-                            code.push(Inst::ConstIndex(0));
+                            code.write_inst(Inst::Copy(0));
+                            code.write_inst(Inst::ConstIndex(1));
+                            code.write_inst(Inst::Swap(1));
+                            code.write_inst(Inst::ConstIndex(0));
 
                             sess.push_const(code, Value::Type(value_type.clone()));
-                            code.push(Inst::BufferAlloc(value_type_size));
+                            code.write_inst(Inst::BufferAlloc(value_type_size));
 
-                            code.push(Inst::Swap(1));
+                            code.write_inst(Inst::Swap(1));
 
                             // calculate the new slice's offset
                             slice
                                 .low
                                 .lower(sess, code, LowerContext { take_ptr: false });
                             sess.push_const(code, Value::Uint(elem_size));
-                            code.push(Inst::Mul);
-                            code.push(Inst::Offset);
+                            code.write_inst(Inst::Mul);
+                            code.write_inst(Inst::Offset);
 
-                            code.push(Inst::BufferPut(0));
+                            code.write_inst(Inst::BufferPut(0));
 
                             // calculate the slice length, by doing `high - low`
                             slice
@@ -752,13 +765,13 @@ impl Lower for hir::Builtin {
                             slice
                                 .low
                                 .lower(sess, code, LowerContext { take_ptr: false });
-                            code.push(Inst::Sub);
+                            code.write_inst(Inst::Sub);
 
-                            code.push(Inst::BufferPut(WORD_SIZE as u32));
+                            code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                         }
                         _ => {
                             sess.push_const(code, Value::Type(value_type.clone()));
-                            code.push(Inst::BufferAlloc(value_type_size));
+                            code.write_inst(Inst::BufferAlloc(value_type_size));
 
                             slice
                                 .value
@@ -768,10 +781,10 @@ impl Lower for hir::Builtin {
                                 .low
                                 .lower(sess, code, LowerContext { take_ptr: false });
                             sess.push_const(code, Value::Uint(elem_size));
-                            code.push(Inst::Mul);
-                            code.push(Inst::Offset);
+                            code.write_inst(Inst::Mul);
+                            code.write_inst(Inst::Offset);
 
-                            code.push(Inst::BufferPut(0));
+                            code.write_inst(Inst::BufferPut(0));
 
                             slice
                                 .high
@@ -779,9 +792,9 @@ impl Lower for hir::Builtin {
                             slice
                                 .low
                                 .lower(sess, code, LowerContext { take_ptr: false });
-                            code.push(Inst::Sub);
+                            code.write_inst(Inst::Sub);
 
-                            code.push(Inst::BufferPut(WORD_SIZE as u32));
+                            code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                         }
                     },
                     _ => panic!("unexpected type {}", value_type),
@@ -792,7 +805,7 @@ impl Lower for hir::Builtin {
 }
 
 impl Lower for hir::Literal {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match self {
             hir::Literal::Struct(x) => x.lower(sess, code, ctx),
             hir::Literal::Tuple(x) => x.lower(sess, code, ctx),
@@ -803,13 +816,13 @@ impl Lower for hir::Literal {
 }
 
 impl Lower for hir::StructLiteral {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         let ty = self.ty.normalize(sess.tcx);
         let struct_type = ty.as_struct();
         let struct_size = struct_type.size_of(WORD_SIZE) as u32;
 
         sess.push_const(code, Value::Type(ty.clone()));
-        code.push(Inst::BufferAlloc(struct_size));
+        code.write_inst(Inst::BufferAlloc(struct_size));
 
         let mut ordered_fields = self.fields.clone();
 
@@ -824,7 +837,7 @@ impl Lower for hir::StructLiteral {
                 .value
                 .lower(sess, code, LowerContext { take_ptr: false });
 
-            code.push(Inst::BufferPut(
+            code.write_inst(Inst::BufferPut(
                 struct_type.offset_of(index, WORD_SIZE) as u32
             ));
         }
@@ -832,16 +845,16 @@ impl Lower for hir::StructLiteral {
 }
 
 impl Lower for hir::TupleLiteral {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         let tuple_type = self.ty.normalize(sess.tcx);
         let tuple_size = tuple_type.size_of(WORD_SIZE) as u32;
 
         sess.push_const(code, Value::Type(tuple_type.clone()));
-        code.push(Inst::BufferAlloc(tuple_size));
+        code.write_inst(Inst::BufferAlloc(tuple_size));
 
         for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
-            code.push(Inst::BufferPut(
+            code.write_inst(Inst::BufferPut(
                 tuple_type.offset_of(index, WORD_SIZE) as u32
             ));
         }
@@ -849,24 +862,24 @@ impl Lower for hir::TupleLiteral {
 }
 
 impl Lower for hir::ArrayLiteral {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         let ty = self.ty.normalize(sess.tcx);
         let inner_ty_size = ty.element_type().unwrap().size_of(WORD_SIZE);
 
         sess.push_const(code, Value::Type(ty));
-        code.push(Inst::BufferAlloc(
+        code.write_inst(Inst::BufferAlloc(
             (self.elements.len() * inner_ty_size) as u32,
         ));
 
         for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
-            code.push(Inst::BufferPut((index * inner_ty_size) as u32));
+            code.write_inst(Inst::BufferPut((index * inner_ty_size) as u32));
         }
     }
 }
 
 impl Lower for hir::ArrayFillLiteral {
-    fn lower(&self, sess: &mut InterpSess, code: &mut CompiledCode, _ctx: LowerContext) {
+    fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         let ty = self.ty.normalize(sess.tcx);
         let inner_ty_size = ty.element_type().unwrap().size_of(WORD_SIZE);
 
@@ -877,12 +890,12 @@ impl Lower for hir::ArrayFillLiteral {
         };
 
         sess.push_const(code, Value::Type(ty));
-        code.push(Inst::BufferAlloc((size * inner_ty_size) as u32));
+        code.write_inst(Inst::BufferAlloc((size * inner_ty_size) as u32));
 
         self.value
             .lower(sess, code, LowerContext { take_ptr: false });
 
-        code.push(Inst::BufferFill(size as u32));
+        code.write_inst(Inst::BufferFill(size as u32));
     }
 }
 
@@ -1026,11 +1039,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
                 }),
                 _ => {
-                    function.lower(
-                        sess,
-                        &mut CompiledCode::new(),
-                        LowerContext { take_ptr: false },
-                    );
+                    function.lower(sess, &mut Bytecode::new(), LowerContext { take_ptr: false });
 
                     Value::Function(FunctionAddress {
                         id: f.id,
@@ -1067,7 +1076,7 @@ fn lower_top_level_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usi
 }
 
 fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize {
-    let mut code = CompiledCode::new();
+    let mut code = Bytecode::new();
 
     sess.env_stack.push((binding.module_id, Env::default()));
 
@@ -1079,9 +1088,9 @@ fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize 
 
     let slot = sess.insert_global(binding.id, Value::default());
 
-    code.push(Inst::StoreGlobal(slot as u32));
+    code.write_inst(Inst::StoreGlobal(slot as u32));
     sess.push_const_unit(&mut code);
-    code.push(Inst::Return);
+    code.write_inst(Inst::Return);
 
     sess.statically_initialized_globals.push(code);
 
@@ -1092,29 +1101,9 @@ const INVALID_JMP_OFFSET: i32 = i32::MAX;
 const BREAK_DUMMY_JMP_OFFSET: i32 = i32::MAX - 1;
 const CONTINUE_DUMMY_JMP_OFFSET: i32 = i32::MAX - 2;
 
-fn patch_jmp(code: &mut CompiledCode, inst_pos: usize) {
-    let target_offset = (code.instructions.len() - inst_pos) as i32;
-
-    match &mut code.instructions[inst_pos] {
-        Inst::Jmp(offset) | Inst::Jmpf(offset) if *offset == INVALID_JMP_OFFSET => {
-            *offset = target_offset
-        }
-        _ => panic!("instruction at address {} is not a jmp", inst_pos),
-    };
-}
-
-// patch all break/continue jmp instructions
-fn patch_loop_terminators(code: &mut CompiledCode, block_start_pos: usize, continue_pos: usize) {
-    let len = code.instructions.len();
-
-    for inst_pos in block_start_pos..len {
-        if let Inst::Jmp(offset) = &mut code.instructions[inst_pos] {
-            if *offset == BREAK_DUMMY_JMP_OFFSET {
-                *offset = (len - inst_pos) as i32;
-            }
-            if *offset == CONTINUE_DUMMY_JMP_OFFSET {
-                *offset = continue_pos as i32 - inst_pos as i32;
-            }
-        };
-    }
+fn patch_jmp(code: &mut Bytecode, op_pos: usize) {
+    // This function assumes that the Op is some sort of Jmp.
+    // We patch the op's operand by directly writing to the buffer.
+    let target_offset = (code.len() - op_pos) as i32;
+    (&mut code.as_mut_slice()[op_pos + 1..]).write_i32::<NativeEndian>(target_offset);
 }

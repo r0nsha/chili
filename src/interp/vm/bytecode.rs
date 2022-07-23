@@ -1,7 +1,9 @@
 use crate::ast;
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use std::fmt::Display;
+use std::io::Write;
 use std::mem;
+use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone)]
 pub struct Bytecode {
@@ -9,7 +11,28 @@ pub struct Bytecode {
     pub locals: u32,
 }
 
+impl Index<usize> for Bytecode {
+    type Output = u8;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.buf[index]
+    }
+}
+
+impl IndexMut<usize> for Bytecode {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.buf[index]
+    }
+}
+
 impl Bytecode {
+    pub fn new() -> Self {
+        Self {
+            buf: vec![],
+            locals: 0,
+        }
+    }
+
     #[inline(always)]
     pub fn write_inst(&mut self, inst: Inst) -> usize {
         match inst {
@@ -161,6 +184,11 @@ impl Bytecode {
     }
 
     #[inline(always)]
+    pub fn write_all(&mut self, x: &[u8]) {
+        self.buf.write_all(x);
+    }
+
+    #[inline(always)]
     pub fn as_slice(&self) -> &[u8] {
         &self.buf[..]
     }
@@ -168,6 +196,11 @@ impl Bytecode {
     #[inline(always)]
     pub fn as_mut_slice(&mut self) -> &[u8] {
         &mut self.buf[..]
+    }
+
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.buf.len()
     }
 
     pub fn reader(&self) -> BytecodeReader {

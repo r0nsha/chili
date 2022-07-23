@@ -3,7 +3,7 @@ use super::{
     VM,
 };
 
-impl<'vm> VM<'vm> {
+impl<'vm, 'f> VM<'vm, 'f> {
     #[inline]
     pub fn index(&mut self, value: Value, index: usize) {
         match value {

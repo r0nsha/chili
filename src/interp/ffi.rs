@@ -1,7 +1,7 @@
 use super::{
     interp::Interp,
     vm::{
-        bytecode::Inst,
+        bytecode::{Inst, Op},
         value::{ExternFunction, Function, FunctionValue, Value},
         VM,
     },
@@ -140,12 +140,12 @@ impl FfiFunction {
         Self { cif }
     }
 
-    unsafe fn call<'vm>(
+    unsafe fn call<'vm, 'f>(
         &mut self,
         fun: *const c_void,
         arg_values: &mut [Value],
         ffi: &mut Ffi,
-        vm: *mut VM<'vm>,
+        vm: *mut VM<'vm, 'f>,
     ) -> RawPointer {
         let code_ptr = CodePtr::from_ptr(fun);
 
@@ -216,8 +216,8 @@ impl FfiFunction {
     }
 }
 
-struct ClosureUserData<'vm> {
-    vm: *mut VM<'vm>,
+struct ClosureUserData<'vm, 'f> {
+    vm: *mut VM<'vm, 'f>,
     function: *const Function,
 }
 
@@ -243,7 +243,7 @@ unsafe extern "C" fn closure_callback(
     }
 
     // we need the VM to Halt instead of Return
-    *func.code.instructions.last_mut().unwrap() = Inst::Halt;
+    *func.code.as_mut_slice().last_mut().unwrap() = u8::from(Op::Halt);
 
     let value = (*userdata.vm).run_func(func);
 

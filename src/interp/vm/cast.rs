@@ -48,7 +48,7 @@ macro_rules! cast_to_float {
     };
 }
 
-impl<'vm> VM<'vm> {
+impl<'vm, 'f> VM<'vm, 'f> {
     #[inline]
     pub fn cast_inst(&mut self) {
         let ty = self.stack.pop().into_type();

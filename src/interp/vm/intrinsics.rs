@@ -14,7 +14,7 @@ use path_absolutize::Absolutize;
 use std::path::PathBuf;
 use ustr::ustr;
 
-impl<'vm> VM<'vm> {
+impl<'vm, 'f> VM<'vm, 'f> {
     pub fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
         match intrinsic {
             IntrinsicFunction::StartWorkspace => {
