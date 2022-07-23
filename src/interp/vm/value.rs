@@ -2,7 +2,7 @@ use super::{
     super::ffi::RawPointer,
     super::{IS_64BIT, WORD_SIZE},
     byte_seq::{ByteSeq, GetValue, PutValue},
-    inst::CompiledCode,
+    bytecode::Bytecode,
 };
 use crate::{
     ast::{ExternLibrary, Intrinsic},
@@ -395,7 +395,7 @@ pub struct Function {
     pub id: hir::FunctionId,
     pub name: Ustr,
     pub ty: FunctionType,
-    pub code: CompiledCode,
+    pub code: Bytecode,
 }
 
 #[derive(Debug, Clone)]

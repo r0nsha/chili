@@ -1,8 +1,7 @@
 use crate::interp::interp::Interp;
 
 use super::{
-    bytecode::{BytecodeReader, Op},
-    inst::CompiledCode,
+    bytecode::{Bytecode, BytecodeReader, Op},
     value::{FunctionValue, Value},
 };
 use std::{
@@ -11,7 +10,7 @@ use std::{
     path::Path,
 };
 
-pub fn dump_bytecode_to_file(interp: &Interp, code: &CompiledCode) {
+pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
     if let Ok(file) = &OpenOptions::new()
         .read(false)
         .write(true)
@@ -22,9 +21,7 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &CompiledCode) {
     {
         let mut w = BufWriter::new(file);
 
-        for (index, inst) in code.instructions.iter().enumerate() {
-            write!(&mut w, "{:06}\t{}\n", index, inst).unwrap();
-        }
+        code.reader().disassemble(&mut w, interp);
 
         write!(&mut w, "\nglobals:\n").unwrap();
 
@@ -64,9 +61,7 @@ impl<W: Write> Disassemble<W> for Value {
                     )
                     .unwrap();
 
-                    for (index, inst) in function.code.instructions.iter().enumerate() {
-                        write!(w, "{:06}\t{}\n", index, inst).unwrap();
-                    }
+                    function.code.reader().disassemble(&mut w, interp);
                 }
                 FunctionValue::Extern(_) => w.write_all(self.to_string().as_bytes()).unwrap(),
             },
@@ -88,7 +83,10 @@ impl<'a, W: Write> Disassemble<W> for BytecodeReader<'a> {
     }
 }
 
-fn bytecode_reader_write_single_inst<'a, W: Write>(reader: &mut BytecodeReader<'a>, w: &mut W) {
+pub(super) fn bytecode_reader_write_single_inst<'a, W: Write>(
+    reader: &mut BytecodeReader<'a>,
+    w: &mut W,
+) {
     if let Some(op) = reader.try_read_op() {
         write!(w, "{:06}\t{}", reader.cursor(), op).unwrap();
 

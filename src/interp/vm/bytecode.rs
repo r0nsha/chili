@@ -3,10 +3,10 @@ use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use std::fmt::Display;
 use std::mem;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Bytecode {
     buf: Vec<u8>,
-    locals: u16,
+    pub locals: u32,
 }
 
 impl Bytecode {
@@ -178,7 +178,7 @@ impl Bytecode {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct BytecodeReader<'a> {
     bytecode: &'a Bytecode,
     cursor: usize,
@@ -196,6 +196,11 @@ impl<'a> BytecodeReader<'a> {
     }
 
     #[inline(always)]
+    pub fn has_remaining(&self) -> bool {
+        self.cursor < self.bytecode.buf.len()
+    }
+
+    #[inline(always)]
     pub fn try_read_op(&mut self) -> Option<Op> {
         if self.has_remaining() {
             Some(Op::from(self.read_u8()))
@@ -205,8 +210,8 @@ impl<'a> BytecodeReader<'a> {
     }
 
     #[inline(always)]
-    pub fn has_remaining(&self) -> bool {
-        self.cursor < self.bytecode.buf.len()
+    pub fn read_op(&mut self) -> Op {
+        Op::from(self.read_u8())
     }
 
     #[inline(always)]

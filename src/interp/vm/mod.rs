@@ -1,9 +1,13 @@
-use self::{bytecode::Inst, value::FunctionValue};
+use self::{
+    bytecode::{BytecodeReader, Op},
+    value::FunctionValue,
+};
 use super::{
     ffi::RawPointer,
     interp::Interp,
     vm::{
         byte_seq::{ByteSeq, PutValue},
+        disassemble::bytecode_reader_write_single_inst,
         stack::Stack,
         value::{Buffer, Function, Value},
     },
@@ -17,7 +21,6 @@ pub mod bytecode;
 mod cast;
 pub mod disassemble;
 mod index;
-pub mod inst;
 mod intrinsics;
 mod stack;
 pub mod value;
@@ -29,18 +32,24 @@ pub type Constants = Vec<Value>;
 pub type Globals = Vec<Value>;
 
 #[derive(Debug, Clone)]
-pub struct StackFrame {
+pub struct StackFrame<'a> {
     func: *const Function,
+    reader: BytecodeReader<'a>,
     stack_slot: usize,
-    ip: usize,
 }
 
-impl StackFrame {
-    pub fn new(func: *const Function, slot: usize) -> Self {
+impl<'a> Display for StackFrame<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{:06}\t{}>", self.reader.cursor(), self.func().name)
+    }
+}
+
+impl<'a> StackFrame<'a> {
+    pub fn new(func: &Function, slot: usize) -> Self {
         Self {
-            func,
+            func: func as _,
+            reader: unsafe { *func }.code.reader(),
             stack_slot: slot,
-            ip: 0,
         }
     }
 
@@ -48,12 +57,6 @@ impl StackFrame {
     pub fn func(&self) -> &Function {
         debug_assert!(!self.func.is_null());
         unsafe { &*self.func }
-    }
-}
-
-impl Display for StackFrame {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<{:06}\t{}>", self.ip, self.func().name)
     }
 }
 
@@ -118,14 +121,14 @@ macro_rules! logic_op {
     };
 }
 
-pub struct VM<'vm> {
+pub struct VM<'vm, 'f> {
     pub interp: &'vm mut Interp,
     pub stack: Stack<Value, STACK_MAX>,
-    pub frames: Stack<StackFrame, FRAMES_MAX>,
-    pub frame: *mut StackFrame,
+    pub frames: Stack<StackFrame<'f>, FRAMES_MAX>,
+    pub frame: *mut StackFrame<'f>,
 }
 
-impl<'vm> VM<'vm> {
+impl<'vm, 'f> VM<'vm, 'f> {
     pub fn new(interp: &'vm mut Interp) -> Self {
         Self {
             interp,
@@ -136,26 +139,29 @@ impl<'vm> VM<'vm> {
     }
 
     pub fn run_func(&'vm mut self, function: Function) -> Value {
-        self.push_frame(&function as *const Function);
+        self.push_frame(&function);
         self.run_inner()
     }
 
     fn run_inner(&'vm mut self) -> Value {
         loop {
             let frame = self.frame();
-            let inst = frame.func().code.instructions[frame.ip];
+            let reader = &mut frame.reader;
 
-            // self.trace(&inst, TraceLevel::Full);
+            // self.trace(TraceLevel::Full);
 
-            match inst {
-                Inst::Noop => {
+            let op = frame.reader.read_op();
+
+            match op {
+                Op::Noop => {
                     self.next();
                 }
-                Inst::Pop => {
+                Op::Pop => {
                     self.stack.pop();
                     self.next();
                 }
-                Inst::LoadConst(addr) => {
+                Op::LoadConst => {
+                    let addr = reader.read_u32();
                     let const_ = self.interp.constants.get(addr as usize).unwrap();
 
                     let value = match const_ {
@@ -174,7 +180,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                     self.next();
                 }
-                Inst::Add => {
+                Op::Add => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -204,7 +210,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Inst::Sub => {
+                Op::Sub => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -234,7 +240,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Inst::Mul => {
+                Op::Mul => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -261,7 +267,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Inst::Div => {
+                Op::Div => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -288,7 +294,7 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Inst::Rem => {
+                Op::Rem => {
                     let b = self.stack.pop();
                     let a = self.stack.pop();
 
@@ -315,14 +321,14 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Inst::Neg => {
+                Op::Neg => {
                     match self.stack.pop() {
                         Value::Int(v) => self.stack.push(Value::Int(-v)),
                         value => panic!("invalid value {}", value.to_string()),
                     }
                     self.next();
                 }
-                Inst::Not => {
+                Op::Not => {
                     let result = match self.stack.pop() {
                         Value::I8(v) => Value::I8(!v),
                         Value::I16(v) => Value::I16(!v),
@@ -340,7 +346,7 @@ impl<'vm> VM<'vm> {
                     self.stack.push(result);
                     self.next();
                 }
-                Inst::Deref => {
+                Op::Deref => {
                     match self.stack.pop() {
                         Value::Pointer(ptr) => {
                             let value = unsafe { ptr.deref_value() };
@@ -350,50 +356,53 @@ impl<'vm> VM<'vm> {
                     }
                     self.next();
                 }
-                Inst::Eq => {
+                Op::Eq => {
                     compare_op!(self, ==);
                 }
-                Inst::Ne => {
+                Op::Ne => {
                     compare_op!(self, !=);
                 }
-                Inst::Lt => {
+                Op::Lt => {
                     compare_op!(self, <);
                 }
-                Inst::Le => {
+                Op::Le => {
                     compare_op!(self, <=);
                 }
-                Inst::Gt => {
+                Op::Gt => {
                     compare_op!(self, >);
                 }
-                Inst::Ge => {
+                Op::Ge => {
                     compare_op!(self, >=);
                 }
-                Inst::And => {
+                Op::And => {
                     logic_op!(self, &&);
                 }
-                Inst::Or => {
+                Op::Or => {
                     logic_op!(self, ||);
                 }
-                Inst::Shl => {
+                Op::Shl => {
                     binary_op_int_only!(self, <<)
                 }
-                Inst::Shr => {
+                Op::Shr => {
                     binary_op_int_only!(self, >>);
                 }
-                Inst::Xor => {
+                Op::Xor => {
                     binary_op_int_only!(self, ^);
                 }
-                Inst::Jmp(offset) => {
+                Op::Jmp => {
+                    let offset = reader.read_i32();
                     self.jmp(offset);
                 }
-                Inst::Jmpf(offset) => {
+                Op::Jmpf => {
+                    let offset = reader.read_i32();
+
                     if !self.stack.pop().into_bool() {
                         self.jmp(offset);
                     } else {
                         self.next();
                     }
                 }
-                Inst::Return => {
+                Op::Return => {
                     let frame = self.frames.pop();
                     let return_value = self.stack.pop();
 
@@ -407,131 +416,164 @@ impl<'vm> VM<'vm> {
                         self.next();
                     }
                 }
-                Inst::Call(arg_count) => match self.stack.pop() {
-                    Value::Function(addr) => {
-                        match self.interp.get_function(addr.id).unwrap_or_else(|| {
-                            panic!("couldn't find '{}' {:?}", addr.name, addr.id)
-                        }) {
-                            FunctionValue::Orphan(function) => {
-                                self.push_frame(function as *const Function);
-                            }
-                            FunctionValue::Extern(function) => {
-                                let mut values = (0..arg_count)
-                                    .into_iter()
-                                    .map(|_| self.stack.pop())
-                                    .collect::<Vec<Value>>();
+                Op::Call => {
+                    let arg_count = reader.read_u32();
 
-                                values.reverse();
+                    match self.stack.pop() {
+                        Value::Function(addr) => {
+                            match self.interp.get_function(addr.id).unwrap_or_else(|| {
+                                panic!("couldn't find '{}' {:?}", addr.name, addr.id)
+                            }) {
+                                FunctionValue::Orphan(function) => {
+                                    self.push_frame(function);
+                                }
+                                FunctionValue::Extern(function) => {
+                                    let mut values = (0..arg_count)
+                                        .into_iter()
+                                        .map(|_| self.stack.pop())
+                                        .collect::<Vec<Value>>();
 
-                                let function = function.clone();
-                                let vm_ptr = self as *mut _;
-                                let interp_ptr = self.interp as *const _;
+                                    values.reverse();
 
-                                let result = unsafe {
-                                    self.interp.ffi.call(function, values, vm_ptr, interp_ptr)
-                                };
+                                    let function = function.clone();
+                                    let vm_ptr = self as *mut _;
+                                    let interp_ptr = self.interp as *const _;
 
-                                self.stack.push(result);
+                                    let result = unsafe {
+                                        self.interp.ffi.call(function, values, vm_ptr, interp_ptr)
+                                    };
 
-                                self.next();
+                                    self.stack.push(result);
+
+                                    self.next();
+                                }
                             }
                         }
+                        Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
+                        value => panic!("tried to call uncallable value `{}`", value.to_string()),
                     }
-                    Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
-                    value => panic!("tried to call uncallable value `{}`", value.to_string()),
-                },
-                Inst::LoadGlobal(slot) => {
+                }
+                Op::LoadGlobal => {
+                    let slot = reader.read_u32();
+
                     match self.interp.globals.get(slot as usize) {
                         Some(value) => self.stack.push(value.clone()),
                         None => panic!("undefined global `{}`", slot),
                     }
+
                     self.next();
                 }
-                Inst::LoadGlobalPtr(slot) => {
+                Op::LoadGlobalPtr => {
+                    let slot = reader.read_u32();
+
                     match self.interp.globals.get_mut(slot as usize) {
                         Some(value) => self.stack.push(Value::Pointer(value.into())),
                         None => panic!("undefined global `{}`", slot),
                     }
+
                     self.next();
                 }
-                Inst::StoreGlobal(slot) => {
+                Op::StoreGlobal => {
+                    let slot = reader.read_u32();
                     self.interp.globals[slot as usize] = self.stack.pop();
                     self.next();
                 }
-                Inst::Peek(slot) => {
-                    let slot = self.frame().stack_slot as isize + slot as isize;
+                Op::Peek => {
+                    let offset = reader.read_i32();
+                    let slot = self.frame().stack_slot as isize + offset as isize;
+
                     let value = self.stack.get(slot as usize).clone();
                     self.stack.push(value);
+
                     self.next();
                 }
-                Inst::PeekPtr(slot) => {
-                    let slot = self.frame().stack_slot as isize + slot as isize;
+                Op::PeekPtr => {
+                    let offset = reader.read_i32();
+                    let slot = self.frame().stack_slot as isize + offset as isize;
+
                     let value = self.stack.get_mut(slot as usize);
                     let value = Value::Pointer(value.into());
                     self.stack.push(value);
+
                     self.next();
                 }
-                Inst::StoreLocal(slot) => {
-                    let slot = self.frame().stack_slot as isize + slot as isize;
+                Op::StoreLocal => {
+                    let offset = reader.read_i32();
+                    let slot = self.frame().stack_slot as isize + offset as isize;
+
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
+
                     self.next();
                 }
-                Inst::Index => {
+                Op::Index => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index(value, index);
                     self.next();
                 }
-                Inst::IndexPtr => {
+                Op::IndexPtr => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.index_ptr(value, index);
                     self.next();
                 }
-                Inst::Offset => {
+                Op::Offset => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();
                     self.offset(value, index);
                     self.next();
                 }
-                Inst::ConstIndex(index) => {
+                Op::ConstIndex => {
+                    let index = reader.read_u32();
+
                     let value = self.stack.pop();
                     self.index(value, index as usize);
+
                     self.next();
                 }
-                Inst::ConstIndexPtr(index) => {
+                Op::ConstIndexPtr => {
+                    let index = reader.read_u32();
+
                     let value = self.stack.pop();
                     self.index_ptr(value, index as usize);
+
                     self.next();
                 }
-                Inst::Assign => {
+                Op::Assign => {
                     let lhs = self.stack.pop().into_pointer();
                     let rhs = self.stack.pop();
                     unsafe { lhs.write_value(rhs) }
                     self.next();
                 }
-                Inst::Cast => {
+                Op::Cast => {
                     self.cast_inst();
                     self.next();
                 }
-                Inst::BufferAlloc(size) => {
+                Op::BufferAlloc => {
+                    let size = reader.read_u32();
+
                     let ty = self.stack.pop().into_type();
                     self.stack.push(Value::Buffer(Buffer {
                         bytes: ByteSeq::new(size as usize),
                         ty,
                     }));
+
                     self.next();
                 }
-                Inst::BufferPut(pos) => {
+                Op::BufferPut => {
+                    let offset = reader.read_u32();
+
                     let value = self.stack.pop();
 
                     let buf = self.stack.peek_mut(0).as_buffer_mut();
-                    buf.bytes.offset_mut(pos as usize).put_value(&value);
+                    buf.bytes.offset_mut(offset as usize).put_value(&value);
 
                     self.next();
                 }
-                Inst::BufferFill(size) => {
+                Op::BufferFill => {
+                    let size = reader.read_u32();
+
                     let value = self.stack.pop();
                     let buf = self.stack.peek_mut(0).as_buffer_mut();
 
@@ -541,17 +583,19 @@ impl<'vm> VM<'vm> {
 
                     self.next();
                 }
-                Inst::Copy(offset) => {
+                Op::Copy => {
+                    let offset = reader.read_u32();
                     let value = self.stack.peek(offset as usize).clone();
                     self.stack.push(value);
                     self.next();
                 }
-                Inst::Swap(offset) => {
+                Op::Swap => {
+                    let offset = reader.read_u32();
                     let last_index = self.stack.len() - 1;
                     self.stack.swap(last_index, last_index - offset as usize);
                     self.next();
                 }
-                Inst::Halt => {
+                Op::Halt => {
                     let result = self.stack.pop();
                     break result;
                 }
@@ -560,13 +604,10 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    pub fn push_frame(&mut self, func: *const Function) {
-        debug_assert!(!func.is_null());
-
+    pub fn push_frame(&mut self, func: &Function) {
         let stack_slot = self.stack.len();
 
-        let locals = unsafe { &*func }.code.locals;
-        for _ in 0..locals {
+        for _ in 0..func.code.locals {
             self.stack.push(Value::default());
         }
 
@@ -599,20 +640,16 @@ impl<'vm> VM<'vm> {
     }
 
     #[allow(unused)]
-    pub fn trace(&self, inst: &Inst, level: TraceLevel) {
+    pub fn trace(&self, level: TraceLevel) {
         let frame = self.frame();
+
+        bytecode_reader_write_single_inst(&mut frame.reader.clone(), &mut std::io::stdout());
 
         match level {
             TraceLevel::Minimal => {
-                println!(
-                    "{:06}\t{:<20}{}",
-                    frame.ip,
-                    inst.to_string().bold(),
-                    format!("[stack items: {}]", self.stack.len()).bright_cyan()
-                );
+                println!(" [stack items: {}]", self.stack.len());
             }
             TraceLevel::Full => {
-                println!("{:06}\t{}", frame.ip, inst.to_string().bold());
                 self.trace_stack(frame);
             }
         }
