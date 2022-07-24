@@ -555,11 +555,21 @@ impl Check for ast::Binding {
                     .get(AttrKey::Intrinsic)
                 {
                     Some(_) => match hir::Intrinsic::try_from(name.as_str()) {
-                        Ok(intrinsic) => (
-                            get_qualified_name(env.scope_name(), name),
-                            hir::FunctionKind::Intrinsic(intrinsic),
-                            BindingInfoKind::Intrinsic,
-                        ),
+                        Ok(intrinsic) => {
+                            if lib.is_some() {
+                                return Err(Diagnostic::error()
+                                    .with_message(
+                                        "intrinsic function cannot have a library defined",
+                                    )
+                                    .with_label(Label::primary(span, "cannot define a library")));
+                            }
+
+                            (
+                                get_qualified_name(env.scope_name(), name),
+                                hir::FunctionKind::Intrinsic(intrinsic),
+                                BindingInfoKind::Intrinsic,
+                            )
+                        }
                         Err(_) => {
                             return Err(Diagnostic::error()
                                 .with_message(format!("unknown intrinsic function `{}`", name))
@@ -638,58 +648,6 @@ impl Check for ast::Binding {
                 )
                 .map(|(_, node)| node)
             }
-            // BindingKind::Intrinsic {
-            //     name: ast::NameAndSpan { name, span },
-            //     function_type,
-            // } => {
-            //     let (name, span) = (*name, *span);
-            //     let qualified_name = get_qualified_name(env.scope_name(), name);
-
-            //     let function_type_node = function_type.check(sess, env, None)?;
-            //     let ty = match function_type_node.into_const_value().unwrap() {
-            //         ConstValue::Type(ty) => ty,
-            //         v => panic!("got {:?}", v),
-            //     };
-
-            //     match hir::Intrinsic::try_from(name.as_str()) {
-            //         Ok(intrinsic) => {
-            //             let function_id = sess.cache.functions.insert_with_id(hir::Function {
-            //                 module_id: env.module_id(),
-            //                 id: hir::FunctionId::unknown(),
-            //                 name,
-            //                 qualified_name,
-            //                 kind: hir::FunctionKind::Intrinsic(intrinsic),
-            //                 ty,
-            //                 span: self.span,
-            //             });
-
-            //             let function_value = hir::Node::Const(hir::Const {
-            //                 value: ConstValue::Function(ConstFunction {
-            //                     id: function_id,
-            //                     name: qualified_name,
-            //                 }),
-            //                 ty,
-            //                 span,
-            //             });
-
-            //             sess.bind_name(
-            //                 env,
-            //                 name,
-            //                 self.visibility,
-            //                 ty,
-            //                 Some(function_value),
-            //                 false,
-            //                 BindingInfoKind::from(&self.kind),
-            //                 span,
-            //                 BindingInfoFlags::IS_USER_DEFINED,
-            //             )
-            //             .map(|(_, node)| node)
-            //         }
-            //         Err(_) => Err(Diagnostic::error()
-            //             .with_message(format!("unknown intrinsic function `{}`", name))
-            //             .with_label(Label::primary(span, "unknown intrinsic function"))),
-            //     }
-            // }
             BindingKind::Type {
                 name: ast::NameAndSpan { name, span },
                 type_expr,

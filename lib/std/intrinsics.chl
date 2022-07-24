@@ -1,6 +1,5 @@
 let { Workspace } = import("std/build");
 
 // Workspace
-// pub intrinsic let start_workspace = fn(workspace: Workspace) -> (str, bool);
-// #[intrinsic]
-// pub extern let start_workspace = fn(workspace: Workspace) -> (str, bool);
+#[intrinsic]
+pub extern let start_workspace = fn(workspace: Workspace) -> (str, bool);
