@@ -1,8 +1,7 @@
 use super::*;
 use crate::{
-    ast::{pattern::Pattern, Binding, Intrinsic},
+    ast::{pattern::Pattern, Binding},
     common::path::RelativeTo,
-    error::diagnostic::Label,
     span::To,
     workspace::ModuleId,
 };
@@ -146,12 +145,6 @@ impl Parser {
         let id = require!(self, Ident(_), "an identifier")?;
         let name = id.name();
 
-        let intrinsic = Intrinsic::from_str(&name).ok_or_else(|| {
-            Diagnostic::error()
-                .with_message(format!("unknown intrinsic `{}`", name))
-                .with_label(Label::primary(id.span, "unknown intrinsic"))
-        })?;
-
         require!(self, Eq, "=")?;
         require!(self, Fn, "fn")?;
         let function_type = self.parse_function_sig(name, None)?;
@@ -164,7 +157,6 @@ impl Parser {
                     name,
                     span: id.span,
                 },
-                intrinsic,
                 function_type,
             },
             span: start_span.to(self.previous_span()),

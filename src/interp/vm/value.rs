@@ -5,7 +5,7 @@ use super::{
     bytecode::Bytecode,
 };
 use crate::{
-    ast::{ExternLibrary, Intrinsic},
+    ast::ExternLibrary,
     hir::{
         self,
         const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
@@ -425,10 +425,10 @@ pub enum IntrinsicFunction {
     StartWorkspace,
 }
 
-impl From<Intrinsic> for IntrinsicFunction {
-    fn from(intrinsic: Intrinsic) -> Self {
+impl From<hir::Intrinsic> for IntrinsicFunction {
+    fn from(intrinsic: hir::Intrinsic) -> Self {
         match intrinsic {
-            Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+            hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
         }
     }
 }

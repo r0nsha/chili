@@ -517,7 +517,6 @@ pub enum BindingKind {
     },
     Intrinsic {
         name: NameAndSpan,
-        intrinsic: Intrinsic,
         function_type: FunctionSig,
     },
     Type {
@@ -539,32 +538,6 @@ impl Display for BindingKind {
                 BindingKind::Type { .. } => "type",
             }
         )
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum Intrinsic {
-    StartWorkspace,
-}
-
-impl Intrinsic {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "start_workspace" => Some(Intrinsic::StartWorkspace),
-            _ => None,
-        }
-    }
-
-    pub fn to_str(&self) -> &str {
-        match self {
-            Intrinsic::StartWorkspace => "start_workspace",
-        }
-    }
-}
-
-impl Display for Intrinsic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_str())
     }
 }
 

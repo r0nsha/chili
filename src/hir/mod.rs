@@ -11,7 +11,7 @@ use crate::{
     workspace::{BindingId, ModuleId},
 };
 use enum_as_inner::EnumAsInner;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 use ustr::Ustr;
 
 macro_rules! node_struct {
@@ -110,6 +110,25 @@ impl Function {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Intrinsic {
     StartWorkspace,
+}
+
+impl TryFrom<&str> for Intrinsic {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "start_workspace" => Ok(Intrinsic::StartWorkspace),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Display for Intrinsic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Intrinsic::StartWorkspace => write!(f, "start_workspace"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
