@@ -1,4 +1,16 @@
-let ? = import("std/build");
+// let ? = import("std/build");
+let { 
+	BuildOptions, 
+	Workspace, 
+	BuildTarget_auto, 
+	OptimizationLevel_debug, 
+	run_output_file 
+} = import("std/build");
+
+pub intrinsic let start_workspace = fn(workspace: Workspace) -> (str, bool);
+
+#[intrinsic]
+pub extern let start_workspace = fn(workspace: Workspace) -> (str, bool);
 
 let build = fn() {
 	let build_options = BuildOptions {

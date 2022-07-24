@@ -1,3 +1,4 @@
+mod attr;
 mod binding;
 mod expr;
 mod function;

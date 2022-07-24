@@ -568,8 +568,9 @@ impl Visibility {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attr {
-    kind: AttrKind,
-    span: Span,
+    pub name: NameAndSpan,
+    pub kind: AttrKind,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]

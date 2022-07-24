@@ -61,9 +61,9 @@ impl<'lx> Lexer<'lx> {
         } else {
             match ch {
                 '#' => {
-                    // Explicit support for Shebang
                     if self.eat('!') {
                         if self.cursor.end_index() == 2 {
+                            // Explicit support for #!
                             self.eat_line();
                             self.eat_token()?
                         } else {
@@ -77,9 +77,7 @@ impl<'lx> Lexer<'lx> {
                                 )));
                         }
                     } else {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("unknown character `{}`", ch))
-                            .with_label(Label::primary(self.cursor.span(), "unknown character")));
+                        Hash
                     }
                 }
                 '@' => At,

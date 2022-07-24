@@ -1,17 +1,12 @@
 use super::*;
-use crate::{
-    ast::{pattern::Pattern, Attr, Binding},
-    common::path::RelativeTo,
-    span::To,
-    workspace::ModuleId,
-};
+use crate::{ast::pattern::Pattern, common::path::RelativeTo, span::To, workspace::ModuleId};
 
 impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
-        attrs: Vec<Attr>,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
-    ) -> DiagnosticResult<Option<DiagnosticResult<Binding>>> {
+    ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
             Ok(Some(self.parse_binding(attrs, visibility, false)))
         } else if eat!(self, Static) {
@@ -30,10 +25,10 @@ impl Parser {
 
     pub fn parse_binding(
         &mut self,
-        attrs: Vec<Attr>,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
         is_static: bool,
-    ) -> DiagnosticResult<Binding> {
+    ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let pattern = self.parse_pattern()?;
@@ -51,7 +46,7 @@ impl Parser {
             _ => self.parse_expr()?,
         };
 
-        Ok(Binding {
+        Ok(ast::Binding {
             module_id: Default::default(),
             attrs,
             visibility,
@@ -67,7 +62,7 @@ impl Parser {
 
     pub fn parse_extern_binding(
         &mut self,
-        attrs: Vec<Attr>,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -141,7 +136,7 @@ impl Parser {
 
     pub fn parse_intrinsic_binding(
         &mut self,
-        attrs: Vec<Attr>,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -172,9 +167,9 @@ impl Parser {
 
     pub fn parse_type_binding(
         &mut self,
-        attrs: Vec<Attr>,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
-    ) -> DiagnosticResult<Binding> {
+    ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let id = require!(self, Ident(_), "an identifier")?;

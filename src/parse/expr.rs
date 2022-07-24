@@ -54,10 +54,28 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            let attrs = vec![];
+            let attrs = if is!(self, Hash) {
+                self.parse_attrs()?
+            } else {
+                vec![]
+            };
+
+            let has_attrs = !attrs.is_empty();
+
             match self.try_parse_any_binding(attrs, Visibility::Private)? {
                 Some(binding) => Ok(Ast::Binding(binding?)),
-                None => self.parse_logic_or(),
+                None => {
+                    if !has_attrs {
+                        self.parse_logic_or()
+                    } else {
+                        Err(Diagnostic::error()
+                            .with_message(format!(
+                                "expected a binding, got `{}`",
+                                self.peek().lexeme
+                            ))
+                            .with_label(Label::primary(self.span(), "unexpected token")))
+                    }
+                }
             }
         } else {
             self.parse_logic_or()

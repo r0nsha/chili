@@ -1,5 +1,6 @@
 use super::*;
 use crate::ast::{Module, Visibility};
+use crate::error::diagnostic::Label;
 use crate::error::SyntaxError;
 use crate::span::FileId;
 
@@ -38,7 +39,13 @@ impl Parser {
     }
 
     pub fn parse_top_level(&mut self, module: &mut Module) -> DiagnosticResult<()> {
-        let attrs = vec![];
+        let attrs = if is!(self, Hash) {
+            self.parse_attrs()?
+        } else {
+            vec![]
+        };
+
+        let has_attrs = !attrs.is_empty();
 
         let visibility = if eat!(self, Pub) {
             Visibility::Public
@@ -52,21 +59,27 @@ impl Parser {
                 Ok(())
             }
             None => {
-                if eat!(self, Const) {
-                    let start_span = self.previous_span();
-                    let expr = self.parse_expr()?;
+                if !has_attrs {
+                    if eat!(self, Const) {
+                        let start_span = self.previous_span();
+                        let expr = self.parse_expr()?;
 
-                    module.consts.push(ast::Const {
-                        expr: Box::new(expr),
-                        span: start_span.to(self.previous_span()),
-                    });
+                        module.consts.push(ast::Const {
+                            expr: Box::new(expr),
+                            span: start_span.to(self.previous_span()),
+                        });
 
-                    Ok(())
+                        Ok(())
+                    } else {
+                        Err(SyntaxError::expected(
+                            self.span(),
+                            &format!("an item, got `{}`", self.peek().lexeme),
+                        ))
+                    }
                 } else {
-                    Err(SyntaxError::expected(
-                        self.span(),
-                        &format!("an item, got `{}`", self.peek().lexeme),
-                    ))
+                    Err(Diagnostic::error()
+                        .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
+                        .with_label(Label::primary(self.span(), "unexpected token")))
                 }
             }
         }
