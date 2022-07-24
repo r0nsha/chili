@@ -42,17 +42,6 @@
         {
           "match": "//(.*)",
           "name": "comment.line.double-slash.chili"
-        },
-        {
-          "begin": "/\\*",
-          "contentName": "comment.block.content.chili",
-          "end": "\\*/",
-          "name": "comment.block.chili",
-          "patterns": [
-            {
-              "include": "#comments"
-            }
-          ]
         }
       ]
     },
