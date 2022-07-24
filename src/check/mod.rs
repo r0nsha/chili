@@ -65,28 +65,9 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 
     substitute(&mut sess.workspace.diagnostics, &mut sess.tcx, &sess.cache);
 
-    check_all_extern(&mut sess);
     check_entry_point_function(&mut sess);
 
     sess.into_data()
-}
-
-fn check_all_extern(sess: &mut CheckSess) {
-    for function in sess
-        .cache
-        .functions
-        .iter()
-        .map(|(_, f)| f)
-        .filter(|f| matches!(&f.kind, hir::FunctionKind::Extern { .. }))
-    {
-        if !function.ty.normalize(&sess.tcx).is_extern() {
-            sess.workspace.diagnostics.push(
-                Diagnostic::error()
-                    .with_message("function type is not valid in extern context")
-                    .with_label(Label::primary(function.span, "invalid extern type")),
-            )
-        }
-    }
 }
 
 fn check_entry_point_function(sess: &mut CheckSess) {
@@ -564,16 +545,6 @@ impl Check for ast::Binding {
                     .unwrap()
                     .into_type()
                     .unwrap();
-
-                let type_norm = ty.normalize(&sess.tcx);
-                if !type_norm.is_extern() {
-                    return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "function type `{}` is not valid in extern context",
-                            type_norm.display(&sess.tcx)
-                        ))
-                        .with_label(Label::primary(sig.span, "not valid in extern context")));
-                }
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
