@@ -82,6 +82,7 @@ pub enum BindingInfoKind {
     ExternFunction,
     ExternVariable,
     Intrinsic,
+    Type,
 }
 
 impl From<&BindingKind> for BindingInfoKind {
@@ -97,6 +98,7 @@ impl From<&BindingKind> for BindingInfoKind {
             BindingKind::ExternFunction { .. } => BindingInfoKind::ExternFunction,
             BindingKind::ExternVariable { .. } => BindingInfoKind::ExternVariable,
             BindingKind::Intrinsic { .. } => BindingInfoKind::Intrinsic,
+            BindingKind::Type { .. } => BindingInfoKind::Type,
         }
     }
 }

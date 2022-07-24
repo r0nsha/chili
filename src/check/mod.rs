@@ -305,7 +305,6 @@ impl<'s> CheckSess<'s> {
         mk(self, builtin::SYM_FLOAT, self.tcx.common_types.float);
 
         mk(self, builtin::SYM_NEVER, self.tcx.common_types.never);
-        mk(self, builtin::SYM_TYPE, self.tcx.common_types.anytype);
 
         mk(self, builtin::SYM_STR, self.tcx.common_types.str);
     }
@@ -418,7 +417,16 @@ impl Check for ast::Binding {
 
                 let binding_type = ty.normalize(&sess.tcx);
 
-                let is_type_or_module = binding_type.is_type() || binding_type.is_module();
+                if let Some(ConstValue::Type(_)) = value_node.as_const_value() {
+                    return Err(Diagnostic::error()
+                        .with_message("expected a value, got a type")
+                        .with_label(Label::primary(value_node.span(), "expected a value"))
+                        .with_note(
+                            "if you intended to bind a type, change the `let` keyword to `type`",
+                        ));
+                }
+
+                let value_is_module = binding_type.is_module();
 
                 // Global immutable bindings must resolve to a const value, unless it is:
                 // - of type `type` or `module`
@@ -426,7 +434,7 @@ impl Check for ast::Binding {
                 if !is_static
                     && env.scope_level().is_global()
                     && !value_node.is_const()
-                    && !is_type_or_module
+                    && !value_is_module
                     && !pattern.iter().any(|p| p.is_mutable)
                 {
                     return Err(Diagnostic::error()
@@ -439,16 +447,14 @@ impl Check for ast::Binding {
                 }
 
                 // Bindings of type `type` and `module` cannot be assigned to mutable bindings
-                if is_type_or_module {
+                if value_is_module {
                     pattern
                         .iter()
                         .filter(|pattern| pattern.is_mutable)
                         .for_each(|pattern| {
                             sess.workspace.diagnostics.push(
                                 Diagnostic::error()
-                                    .with_message(
-                                        "variable of type `type` or `module` must be immutable",
-                                    )
+                                    .with_message("variable of type `{module}` must be immutable")
                                     .with_label(Label::primary(pattern.span, "variable is mutable"))
                                     .with_note("try removing the `mut` from the declaration"),
                             );
@@ -661,6 +667,39 @@ impl Check for ast::Binding {
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
                 .map(|(_, node)| node)
+            }
+            BindingKind::Type {
+                name: ast::NameAndSpan { name, span },
+                type_expr,
+            } => {
+                let (name, span) = (*name, *span);
+
+                let type_node = type_expr.check(sess, env, Some(sess.tcx.common_types.anytype))?;
+
+                match type_node.as_const_value() {
+                    Some(ConstValue::Type(_)) => sess
+                        .bind_name(
+                            env,
+                            name,
+                            self.visibility,
+                            type_node.ty(),
+                            Some(type_node),
+                            false,
+                            BindingInfoKind::from(&self.kind),
+                            span,
+                            BindingInfoFlags::IS_USER_DEFINED,
+                        )
+                        .map(|(_, node)| node),
+                    _ => Err(Diagnostic::error()
+                        .with_message(format!(
+                            "expected a type, got a value of type `{}`",
+                            type_node.ty().display(&sess.tcx)
+                        ))
+                        .with_label(Label::primary(type_expr.span(), "expected a type"))
+                        .with_note(
+                            "if you intended to bind a value, change the `type` keyword to `let`",
+                        )),
+                }
             }
         }
     }

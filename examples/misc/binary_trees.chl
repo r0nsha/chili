@@ -1,10 +1,10 @@
-let { println } = import("std/fmt")
-let { printf, malloc } = import("std/c")
+let { println } = import("std/fmt");
+let { printf, malloc } = import("std/c");
 
-let Node = struct {
+type Node = struct {
     l: *mut Node,
     r: *mut Node,
-}
+};
 
 let node_check = fn(node: *Node) -> i32 {
     let mut result = 1;
@@ -18,7 +18,7 @@ let node_check = fn(node: *Node) -> i32 {
     }
 
     result
-}
+};
 
 let node_create = fn(depth: i32) -> *mut Node {
     let node = malloc(size_of!(Node)) as *mut Node;
@@ -29,7 +29,7 @@ let node_create = fn(depth: i32) -> *mut Node {
     }
 
     node
-}
+};
 
 let min_depth: i32 = 4;
 
@@ -41,4 +41,4 @@ let main = fn {
     let depth = max_depth + 1;
     let node = node_create(depth);
     printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, node_check(node));
-}
+};

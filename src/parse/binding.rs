@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{pattern::Pattern, Binding, BindingKind, Intrinsic},
+    ast::{pattern::Pattern, Binding, Intrinsic},
     common::path::RelativeTo,
     error::diagnostic::Label,
     span::To,
@@ -12,15 +12,17 @@ impl Parser {
         &mut self,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<Option<DiagnosticResult<Binding>>> {
-        if eat!(self, Static) {
+        if eat!(self, Let) {
+            Ok(Some(self.parse_binding(visibility, false)))
+        } else if eat!(self, Static) {
             require!(self, Let, "let")?;
             Ok(Some(self.parse_binding(visibility, true)))
-        } else if eat!(self, Let) {
-            Ok(Some(self.parse_binding(visibility, false)))
         } else if eat!(self, Extern) {
             Ok(Some(self.parse_extern_binding(visibility)))
         } else if eat!(self, Intrinsic) {
             Ok(Some(self.parse_intrinsic_binding(visibility)))
+        } else if eat!(self, Type) {
+            Ok(Some(self.parse_type_binding(visibility)))
         } else {
             Ok(None)
         }
@@ -51,7 +53,7 @@ impl Parser {
         Ok(Binding {
             module_id: Default::default(),
             visibility,
-            kind: BindingKind::Orphan {
+            kind: ast::BindingKind::Orphan {
                 pattern,
                 type_expr,
                 value: Box::new(value),
@@ -164,6 +166,30 @@ impl Parser {
                 },
                 intrinsic,
                 function_type,
+            },
+            span: start_span.to(self.previous_span()),
+        })
+    }
+
+    pub fn parse_type_binding(&mut self, visibility: ast::Visibility) -> DiagnosticResult<Binding> {
+        let start_span = self.previous_span();
+
+        let id = require!(self, Ident(_), "an identifier")?;
+        let name = id.name();
+
+        require!(self, Eq, "=")?;
+
+        let type_expr = self.parse_decl_expr(name)?;
+
+        Ok(ast::Binding {
+            module_id: ModuleId::unknown(),
+            visibility,
+            kind: ast::BindingKind::Type {
+                name: ast::NameAndSpan {
+                    name,
+                    span: id.span,
+                },
+                type_expr: Box::new(type_expr),
             },
             span: start_span.to(self.previous_span()),
         })

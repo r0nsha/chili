@@ -11,6 +11,7 @@ pub trait DisplayTy {
 }
 
 impl<T: Normalize> DisplayTy for T {
+    #[inline(always)]
     fn display(&self, tcx: &TypeCtx) -> String {
         self.normalize(tcx).to_string()
     }

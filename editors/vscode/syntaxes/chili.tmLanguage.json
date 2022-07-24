@@ -64,7 +64,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|fn|import|extern|intrinsic|static|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|type|fn|import|extern|intrinsic|static|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -232,6 +232,24 @@
           "match": "\\b(pub\\s*)?(\\b(intrinsic)\\b)\\s*(let)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
+          "comment": "type binding",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.chili"
+            },
+            "2": {
+              "name": "keyword.other.chili"
+            },
+            "3": {
+              "name": "keyword.other.chili"
+            },
+            "4": {
+              "name": "entity.name.function.chili"
+            }
+          },
+          "match": "\\b(pub\\s*)?(type)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
+        },
+        {
           "name": "support.function.builtin.chili",
           "match": "[_a-zA-Z][_a-zA-Z0-9]*!"
         },
@@ -277,7 +295,7 @@
       "patterns": [
         {
           "name": "keyword.type.chili",
-          "match": "\\b(bool|i8|i16|i32|i64|i128|int|u8|u16|u32|u64|u128|uint|f16|f32|f64|float|str|never|type|Self)\\b"
+          "match": "\\b(bool|i8|i16|i32|i64|i128|int|u8|u16|u32|u64|u128|uint|f16|f32|f64|float|str|never|Self)\\b"
         }
       ]
     },
