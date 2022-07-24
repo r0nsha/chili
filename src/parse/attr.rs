@@ -36,9 +36,9 @@ impl Parser {
                 name: name_and_span,
                 kind,
                 span: start_span.to(self.previous_span()),
-            })
+            });
         }
 
-        Ok(vec![])
+        Ok(attrs)
     }
 }

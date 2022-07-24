@@ -88,7 +88,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
                 Some(result) => result,
                 None => {
                     workspace.emit_diagnostics();
-                    return  StartWorkspaceResult::new_untyped(workspace, );
+                    return StartWorkspaceResult::new_untyped(workspace);
                 }
             }
         }

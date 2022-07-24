@@ -28,6 +28,8 @@ pub extern "c" let srand = fn(seed: uint);
 pub extern "c" let rand = fn() -> uint;
 pub extern "c" let time = fn(some: *i8) -> uint;
 
+pub extern "c" let fork = fn() -> int;
+pub extern "c" let waitpid = fn(pid: int, status: *mut int, options: int) -> int;
 pub extern "c" let execl = fn(path: *u8, args...) -> int;
 
 pub extern "c" let abort = fn() -> never;
