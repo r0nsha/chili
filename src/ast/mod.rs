@@ -27,7 +27,7 @@ pub struct Module {
     pub info: ModuleInfo,
     pub file_id: FileId,
     pub bindings: Vec<Binding>,
-    pub run_exprs: Vec<Ast>,
+    pub consts: Vec<Const>,
 }
 
 impl Module {
@@ -37,7 +37,7 @@ impl Module {
             id: Default::default(),
             info: module_info,
             bindings: vec![],
-            run_exprs: vec![],
+            consts: vec![],
         }
     }
 }
@@ -51,6 +51,7 @@ pub enum Ast {
     Cast(Cast),
     Import(Import),
     Builtin(Builtin),
+    Const(Const),
     Function(Function),
     While(While),
     For(For),
@@ -91,6 +92,7 @@ macro_rules! ast_field_dispatch {
                     Self::Cast(x) => x.$field,
                     Self::Import(x) => x.$field,
                     Self::Builtin(x) => x.$field,
+                    Self::Const(x) => x.$field,
                     Self::Function(x) => x.$field,
                     Self::While(x) => x.$field,
                     Self::For(x) => x.$field,
@@ -130,6 +132,7 @@ macro_rules! ast_field_dispatch {
                         Self::Cast(x) => &mut x.$field,
                         Self::Import(x) => &mut x.$field,
                         Self::Builtin(x) => &mut x.$field,
+                        Self::Const(x) => &mut x.$field,
                         Self::Function(x) => &mut x.$field,
                         Self::While(x) => &mut x.$field,
                         Self::For(x) => &mut x.$field,
@@ -338,10 +341,15 @@ pub struct Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Const {
+    pub expr: Box<Ast>,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum BuiltinKind {
     SizeOf(Box<Ast>),
     AlignOf(Box<Ast>),
-    Run(Box<Ast>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

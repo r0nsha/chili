@@ -64,7 +64,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|type|fn|import|extern|intrinsic|static|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|type|fn|const|import|extern|intrinsic|static|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -241,9 +241,6 @@
               "name": "keyword.other.chili"
             },
             "3": {
-              "name": "keyword.other.chili"
-            },
-            "4": {
               "name": "entity.name.function.chili"
             }
           },

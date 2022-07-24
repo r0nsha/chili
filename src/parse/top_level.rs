@@ -50,22 +50,16 @@ impl Parser {
                 Ok(())
             }
             None => {
-                if eat!(self, Ident(_)) {
-                    let token = self.previous().clone();
-                    let symbol = token.name();
+                if eat!(self, Const) {
+                    let start_span = self.previous_span();
+                    let expr = self.parse_expr()?;
 
-                    require!(self, Bang, "!")?;
-                    require!(self, OpenParen, "(")?;
+                    module.consts.push(ast::Const {
+                        expr: Box::new(expr),
+                        span: start_span.to(self.previous_span()),
+                    });
 
-                    if symbol == "run" {
-                        let expr = self.parse_expr()?;
-                        module.run_exprs.push(expr);
-                        require!(self, CloseParen, ")")?;
-
-                        Ok(())
-                    } else {
-                        Err(SyntaxError::expected(self.previous_span(), "run"))
-                    }
+                    Ok(())
                 } else {
                     Err(SyntaxError::expected(
                         self.span(),
