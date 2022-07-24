@@ -164,7 +164,11 @@ impl<'s> CheckSess<'s> {
             pattern.is_mutable,
             kind,
             pattern.span,
-            flags,
+            if pattern.ignore {
+                flags | BindingInfoFlags::IGNORE
+            } else {
+                flags
+            },
         )
     }
 

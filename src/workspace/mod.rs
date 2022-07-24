@@ -205,6 +205,8 @@ bitflags! {
         const NO_CONST_FOLD = 1 << 4;
         // Whether this binding should store a constant value
         const SHADOWABLE = 1 << 5;
+        // Whether this binding was ignored using `_`
+        const IGNORE = 1 << 6;
     }
 }
 
