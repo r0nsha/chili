@@ -267,13 +267,14 @@ impl<'s> CheckSess<'s> {
                     .unwrap()
                     .all_complete = true;
 
-                for expr in module.consts.iter() {
+                for const_ in module.consts.iter() {
                     // let expr = expr.clone();
-                    let node =
-                        self.with_env(module.id, |sess, mut env| expr.check(sess, &mut env, None))?;
+                    let node = self.with_env(module.id, |sess, mut env| {
+                        const_.check(sess, &mut env, None)
+                    })?;
 
                     if !self.workspace.build_options.check_mode {
-                        self.eval(&node, module.id)?;
+                        self.eval(&node, module.id, const_.span)?;
                     }
                 }
 

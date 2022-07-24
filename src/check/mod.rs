@@ -29,7 +29,7 @@ use crate::{
         type_ctx::TypeCtx,
         unify::{occurs, UnifyType, UnifyTypeErr},
     },
-    interp::{interp::Interp, vm::value::Value},
+    interp::interp::Interp,
     span::Span,
     types::{
         align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind,
@@ -350,19 +350,39 @@ impl<'s> CheckSess<'s> {
         &mut self,
         node: &hir::Node,
         module_id: ModuleId,
-    ) -> Result<Value, Diagnostic> {
-        self.interp
-            .create_session(self.workspace, &self.tcx, &self.cache)
-            .eval(node, module_id)
-            .map_err(|diagnostics| {
-                let (last, tail) = diagnostics.split_last().unwrap();
+        eval_span: Span,
+    ) -> Result<ConstValue, Diagnostic> {
+        if let Some(const_value) = node.as_const_value() {
+            Ok(const_value.clone())
+        } else {
+            let ty = node.ty().normalize(&self.tcx);
 
-                for diag in tail {
-                    self.workspace.diagnostics.push(diag.clone());
+            let eval_result = self
+                .interp
+                .create_session(self.workspace, &self.tcx, &self.cache)
+                .eval(node, module_id);
+
+            match eval_result {
+                Ok(value) => match value.try_into_const_value(&mut self.tcx, &ty, eval_span) {
+                    Ok(const_value) => Ok(const_value),
+                    Err(value_str) => Err(Diagnostic::error()
+                        .with_message(format!(
+                            "compile-time evaluation cannot result in `{}`",
+                            value_str,
+                        ))
+                        .with_label(Label::primary(eval_span, "evaluated here"))),
+                },
+                Err(diagnostics) => {
+                    let (last, tail) = diagnostics.split_last().unwrap();
+
+                    for diag in tail {
+                        self.workspace.diagnostics.push(diag.clone());
+                    }
+
+                    Err(last.clone())
                 }
-
-                last.clone()
-            })
+            }
+        }
     }
 }
 
@@ -2187,23 +2207,13 @@ impl Check for ast::Const {
         if sess.workspace.build_options.check_mode {
             Ok(node)
         } else {
-            let interp_result = sess.eval(&node, env.module_id())?;
+            let value = sess.eval(&node, env.module_id(), self.span)?;
 
-            let ty = node.ty().normalize(&sess.tcx);
-
-            match interp_result.try_into_const_value(&mut sess.tcx, &ty, self.span) {
-                Ok(value) => Ok(hir::Node::Const(hir::Const {
-                    value,
-                    ty: node.ty(),
-                    span: self.span,
-                })),
-                Err(value_str) => Err(Diagnostic::error()
-                    .with_message(format!(
-                        "compile-time evaluation cannot result in `{}`",
-                        value_str,
-                    ))
-                    .with_label(Label::primary(self.span, "evaluated here"))),
-            }
+            Ok(hir::Node::Const(hir::Const {
+                value,
+                ty: node.ty(),
+                span: self.span,
+            }))
         }
     }
 }
