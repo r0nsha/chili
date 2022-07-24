@@ -38,13 +38,15 @@ impl Parser {
     }
 
     pub fn parse_top_level(&mut self, module: &mut Module) -> DiagnosticResult<()> {
+        let attrs = vec![];
+
         let visibility = if eat!(self, Pub) {
             Visibility::Public
         } else {
             Visibility::Private
         };
 
-        match self.try_parse_any_binding(visibility)? {
+        match self.try_parse_any_binding(attrs, visibility)? {
             Some(binding) => {
                 module.bindings.push(binding?);
                 Ok(())

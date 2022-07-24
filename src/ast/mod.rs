@@ -491,6 +491,7 @@ impl ExternLibrary {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     pub module_id: ModuleId,
+    pub attrs: Vec<Attr>,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub span: Span,
@@ -563,6 +564,17 @@ impl Visibility {
     pub fn is_private(&self) -> bool {
         matches!(self, Visibility::Private)
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Attr {
+    kind: AttrKind,
+    span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum AttrKind {
+    Intrinsic,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

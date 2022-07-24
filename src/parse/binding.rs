@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{pattern::Pattern, Binding},
+    ast::{pattern::Pattern, Attr, Binding},
     common::path::RelativeTo,
     span::To,
     workspace::ModuleId,
@@ -9,19 +9,20 @@ use crate::{
 impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
+        attrs: Vec<Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<Option<DiagnosticResult<Binding>>> {
         if eat!(self, Let) {
-            Ok(Some(self.parse_binding(visibility, false)))
+            Ok(Some(self.parse_binding(attrs, visibility, false)))
         } else if eat!(self, Static) {
             require!(self, Let, "let")?;
-            Ok(Some(self.parse_binding(visibility, true)))
+            Ok(Some(self.parse_binding(attrs, visibility, true)))
         } else if eat!(self, Extern) {
-            Ok(Some(self.parse_extern_binding(visibility)))
+            Ok(Some(self.parse_extern_binding(attrs, visibility)))
         } else if eat!(self, Intrinsic) {
-            Ok(Some(self.parse_intrinsic_binding(visibility)))
+            Ok(Some(self.parse_intrinsic_binding(attrs, visibility)))
         } else if eat!(self, Type) {
-            Ok(Some(self.parse_type_binding(visibility)))
+            Ok(Some(self.parse_type_binding(attrs, visibility)))
         } else {
             Ok(None)
         }
@@ -29,6 +30,7 @@ impl Parser {
 
     pub fn parse_binding(
         &mut self,
+        attrs: Vec<Attr>,
         visibility: ast::Visibility,
         is_static: bool,
     ) -> DiagnosticResult<Binding> {
@@ -51,6 +53,7 @@ impl Parser {
 
         Ok(Binding {
             module_id: Default::default(),
+            attrs,
             visibility,
             kind: ast::BindingKind::Orphan {
                 pattern,
@@ -64,6 +67,7 @@ impl Parser {
 
     pub fn parse_extern_binding(
         &mut self,
+        attrs: Vec<Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -128,6 +132,7 @@ impl Parser {
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
+            attrs,
             visibility,
             kind,
             span: start_span.to(self.previous_span()),
@@ -136,6 +141,7 @@ impl Parser {
 
     pub fn parse_intrinsic_binding(
         &mut self,
+        attrs: Vec<Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -151,6 +157,7 @@ impl Parser {
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
+            attrs,
             visibility,
             kind: ast::BindingKind::Intrinsic {
                 name: ast::NameAndSpan {
@@ -163,7 +170,11 @@ impl Parser {
         })
     }
 
-    pub fn parse_type_binding(&mut self, visibility: ast::Visibility) -> DiagnosticResult<Binding> {
+    pub fn parse_type_binding(
+        &mut self,
+        attrs: Vec<Attr>,
+        visibility: ast::Visibility,
+    ) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
         let id = require!(self, Ident(_), "an identifier")?;
@@ -175,6 +186,7 @@ impl Parser {
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
+            attrs,
             visibility,
             kind: ast::BindingKind::Type {
                 name: ast::NameAndSpan {

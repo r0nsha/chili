@@ -54,7 +54,8 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            match self.try_parse_any_binding(Visibility::Private)? {
+            let attrs = vec![];
+            match self.try_parse_any_binding(attrs, Visibility::Private)? {
                 Some(binding) => Ok(Ast::Binding(binding?)),
                 None => self.parse_logic_or(),
             }
