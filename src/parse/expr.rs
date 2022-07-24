@@ -1,6 +1,9 @@
 use super::*;
 use crate::{
-    ast::{self, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndSpan, UnaryOp, Visibility},
+    ast::{
+        self, attrs::Attrs, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndSpan, UnaryOp,
+        Visibility,
+    },
     error::{
         diagnostic::{Diagnostic, Label},
         *,
@@ -57,7 +60,7 @@ impl Parser {
             let attrs = if is!(self, Hash) {
                 self.parse_attrs()?
             } else {
-                vec![]
+                Attrs::new()
             };
 
             let has_attrs = !attrs.is_empty();

@@ -7,7 +7,7 @@ mod top_level;
 
 use self::pattern::get_qualified_name;
 use crate::{
-    ast::{self, pattern::Pattern, BindingKind},
+    ast::{self, attrs::AttrKey, pattern::Pattern, BindingKind},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -480,7 +480,11 @@ impl Check for ast::Binding {
                     self.visibility,
                     ty,
                     Some(value_node),
-                    BindingInfoKind::from(&self.kind),
+                    if *is_static {
+                        BindingInfoKind::Static
+                    } else {
+                        BindingInfoKind::Orphan
+                    },
                     value_span,
                     if type_expr.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
@@ -546,12 +550,35 @@ impl Check for ast::Binding {
                     .into_type()
                     .unwrap();
 
+                let (qualified_name, function_kind, binding_kind) = match self
+                    .attrs
+                    .get(AttrKey::Intrinsic)
+                {
+                    Some(_) => match hir::Intrinsic::try_from(name.as_str()) {
+                        Ok(intrinsic) => (
+                            get_qualified_name(env.scope_name(), name),
+                            hir::FunctionKind::Intrinsic(intrinsic),
+                            BindingInfoKind::Intrinsic,
+                        ),
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!("unknown intrinsic function `{}`", name))
+                                .with_label(Label::primary(span, "unknown intrinsic function")))
+                        }
+                    },
+                    None => (
+                        name,
+                        hir::FunctionKind::Extern { lib: lib.clone() },
+                        BindingInfoKind::ExternFunction,
+                    ),
+                };
+
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),
                     id: hir::FunctionId::unknown(),
                     name,
-                    qualified_name: name,
-                    kind: hir::FunctionKind::Extern { lib: lib.clone() },
+                    qualified_name,
+                    kind: function_kind,
                     ty,
                     span: self.span,
                 });
@@ -559,7 +586,7 @@ impl Check for ast::Binding {
                 let function_value = hir::Node::Const(hir::Const {
                     value: ConstValue::Function(ConstFunction {
                         id: function_id,
-                        name,
+                        name: qualified_name,
                     }),
                     ty,
                     span,
@@ -572,7 +599,7 @@ impl Check for ast::Binding {
                     ty,
                     Some(function_value),
                     false,
-                    BindingInfoKind::from(&self.kind),
+                    binding_kind,
                     span,
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
@@ -605,64 +632,64 @@ impl Check for ast::Binding {
                     ty,
                     Some(value),
                     *is_mutable,
-                    BindingInfoKind::from(&self.kind),
+                    BindingInfoKind::ExternVariable,
                     span,
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
                 .map(|(_, node)| node)
             }
-            BindingKind::Intrinsic {
-                name: ast::NameAndSpan { name, span },
-                function_type,
-            } => {
-                let (name, span) = (*name, *span);
-                let qualified_name = get_qualified_name(env.scope_name(), name);
+            // BindingKind::Intrinsic {
+            //     name: ast::NameAndSpan { name, span },
+            //     function_type,
+            // } => {
+            //     let (name, span) = (*name, *span);
+            //     let qualified_name = get_qualified_name(env.scope_name(), name);
 
-                let function_type_node = function_type.check(sess, env, None)?;
-                let ty = match function_type_node.into_const_value().unwrap() {
-                    ConstValue::Type(ty) => ty,
-                    v => panic!("got {:?}", v),
-                };
+            //     let function_type_node = function_type.check(sess, env, None)?;
+            //     let ty = match function_type_node.into_const_value().unwrap() {
+            //         ConstValue::Type(ty) => ty,
+            //         v => panic!("got {:?}", v),
+            //     };
 
-                match hir::Intrinsic::try_from(name.as_str()) {
-                    Ok(intrinsic) => {
-                        let function_id = sess.cache.functions.insert_with_id(hir::Function {
-                            module_id: env.module_id(),
-                            id: hir::FunctionId::unknown(),
-                            name,
-                            qualified_name,
-                            kind: hir::FunctionKind::Intrinsic(intrinsic),
-                            ty,
-                            span: self.span,
-                        });
+            //     match hir::Intrinsic::try_from(name.as_str()) {
+            //         Ok(intrinsic) => {
+            //             let function_id = sess.cache.functions.insert_with_id(hir::Function {
+            //                 module_id: env.module_id(),
+            //                 id: hir::FunctionId::unknown(),
+            //                 name,
+            //                 qualified_name,
+            //                 kind: hir::FunctionKind::Intrinsic(intrinsic),
+            //                 ty,
+            //                 span: self.span,
+            //             });
 
-                        let function_value = hir::Node::Const(hir::Const {
-                            value: ConstValue::Function(ConstFunction {
-                                id: function_id,
-                                name: qualified_name,
-                            }),
-                            ty,
-                            span,
-                        });
+            //             let function_value = hir::Node::Const(hir::Const {
+            //                 value: ConstValue::Function(ConstFunction {
+            //                     id: function_id,
+            //                     name: qualified_name,
+            //                 }),
+            //                 ty,
+            //                 span,
+            //             });
 
-                        sess.bind_name(
-                            env,
-                            name,
-                            self.visibility,
-                            ty,
-                            Some(function_value),
-                            false,
-                            BindingInfoKind::from(&self.kind),
-                            span,
-                            BindingInfoFlags::IS_USER_DEFINED,
-                        )
-                        .map(|(_, node)| node)
-                    }
-                    Err(_) => Err(Diagnostic::error()
-                        .with_message(format!("unknown intrinsic function `{}`", name))
-                        .with_label(Label::primary(span, "unknown intrinsic function"))),
-                }
-            }
+            //             sess.bind_name(
+            //                 env,
+            //                 name,
+            //                 self.visibility,
+            //                 ty,
+            //                 Some(function_value),
+            //                 false,
+            //                 BindingInfoKind::from(&self.kind),
+            //                 span,
+            //                 BindingInfoFlags::IS_USER_DEFINED,
+            //             )
+            //             .map(|(_, node)| node)
+            //         }
+            //         Err(_) => Err(Diagnostic::error()
+            //             .with_message(format!("unknown intrinsic function `{}`", name))
+            //             .with_label(Label::primary(span, "unknown intrinsic function"))),
+            //     }
+            // }
             BindingKind::Type {
                 name: ast::NameAndSpan { name, span },
                 type_expr,
@@ -680,7 +707,7 @@ impl Check for ast::Binding {
                             type_node.ty(),
                             Some(type_node),
                             false,
-                            BindingInfoKind::from(&self.kind),
+                            BindingInfoKind::Type,
                             span,
                             BindingInfoFlags::IS_USER_DEFINED,
                         )

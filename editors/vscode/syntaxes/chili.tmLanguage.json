@@ -53,7 +53,7 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|type|fn|const|import|extern|intrinsic|static|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|type|fn|const|import|extern|static|use|mod|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -200,27 +200,6 @@
           "match": "\\b(pub\\s*)?(\\b(static)\\b)\\s*(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
-          "comment": "intrinsic let binding",
-          "captures": {
-            "1": {
-              "name": "storage.modifier.chili"
-            },
-            "2": {
-              "name": "keyword.other.chili"
-            },
-            "3": {
-              "name": "keyword.other.chili"
-            },
-            "4": {
-              "name": "keyword.other.chili"
-            },
-            "5": {
-              "name": "entity.name.function.chili"
-            }
-          },
-          "match": "\\b(pub\\s*)?(\\b(intrinsic)\\b)\\s*(let)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
-        },
-        {
           "comment": "type binding",
           "captures": {
             "1": {
@@ -236,8 +215,9 @@
           "match": "\\b(pub\\s*)?(type)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
-          "name": "support.function.builtin.chili",
-          "match": "[_a-zA-Z][_a-zA-Z0-9]*!"
+          "comment": "attribute",
+          "name": "entity.name.tag.chili",
+          "match": "#\\[[_a-zA-Z][_a-zA-Z0-9]*(\\s*=\\s*)?\\]"
         },
         {
           "comment": "function expression",
@@ -317,7 +297,7 @@
       "patterns": [
         {
           "name": "punctuation.chili",
-          "match": "\\(|\\)|\\{|\\}|;|:|\\[|\\]|\\.|,|->"
+          "match": "\\(|\\)|\\{|\\}|;|:|\\[|\\]|\\.|,|->|#"
         }
       ]
     }

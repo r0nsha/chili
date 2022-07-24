@@ -1,4 +1,5 @@
 use super::*;
+use crate::ast::attrs::Attrs;
 use crate::ast::{Module, Visibility};
 use crate::error::diagnostic::Label;
 use crate::error::SyntaxError;
@@ -42,7 +43,7 @@ impl Parser {
         let attrs = if is!(self, Hash) {
             self.parse_attrs()?
         } else {
-            vec![]
+            Attrs::new()
         };
 
         let has_attrs = !attrs.is_empty();

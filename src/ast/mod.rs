@@ -1,3 +1,4 @@
+pub mod attrs;
 pub mod pattern;
 
 use crate::{
@@ -19,7 +20,7 @@ use std::{
 };
 use ustr::Ustr;
 
-use self::pattern::NamePattern;
+use self::{attrs::Attrs, pattern::NamePattern};
 
 #[derive(Debug, Clone)]
 pub struct Module {
@@ -491,7 +492,7 @@ impl ExternLibrary {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     pub module_id: ModuleId,
-    pub attrs: Vec<Attr>,
+    pub attrs: Attrs,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub span: Span,
@@ -516,10 +517,6 @@ pub enum BindingKind {
         is_mutable: bool,
         type_expr: Box<Ast>,
     },
-    Intrinsic {
-        name: NameAndSpan,
-        function_type: FunctionSig,
-    },
     Type {
         name: NameAndSpan,
         type_expr: Box<Ast>,
@@ -535,7 +532,6 @@ impl Display for BindingKind {
                 BindingKind::Orphan { .. } => "orphan",
                 BindingKind::ExternFunction { .. } => "extern function",
                 BindingKind::ExternVariable { .. } => "extern variable",
-                BindingKind::Intrinsic { .. } => "intrinsic",
                 BindingKind::Type { .. } => "type",
             }
         )
@@ -564,18 +560,6 @@ impl Visibility {
     pub fn is_private(&self) -> bool {
         matches!(self, Visibility::Private)
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Attr {
-    pub name: NameAndSpan,
-    pub kind: AttrKind,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum AttrKind {
-    Intrinsic,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

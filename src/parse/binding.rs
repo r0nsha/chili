@@ -1,10 +1,15 @@
 use super::*;
-use crate::{ast::pattern::Pattern, common::path::RelativeTo, span::To, workspace::ModuleId};
+use crate::{
+    ast::{attrs::Attrs, pattern::Pattern},
+    common::path::RelativeTo,
+    span::To,
+    workspace::ModuleId,
+};
 
 impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
-        attrs: Vec<ast::Attr>,
+        attrs: Attrs,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
@@ -14,8 +19,6 @@ impl Parser {
             Ok(Some(self.parse_binding(attrs, visibility, true)))
         } else if eat!(self, Extern) {
             Ok(Some(self.parse_extern_binding(attrs, visibility)))
-        } else if eat!(self, Intrinsic) {
-            Ok(Some(self.parse_intrinsic_binding(attrs, visibility)))
         } else if eat!(self, Type) {
             Ok(Some(self.parse_type_binding(attrs, visibility)))
         } else {
@@ -25,7 +28,7 @@ impl Parser {
 
     pub fn parse_binding(
         &mut self,
-        attrs: Vec<ast::Attr>,
+        attrs: Attrs,
         visibility: ast::Visibility,
         is_static: bool,
     ) -> DiagnosticResult<ast::Binding> {
@@ -62,7 +65,7 @@ impl Parser {
 
     pub fn parse_extern_binding(
         &mut self,
-        attrs: Vec<ast::Attr>,
+        attrs: Attrs,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -134,40 +137,9 @@ impl Parser {
         })
     }
 
-    pub fn parse_intrinsic_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
-        let start_span = self.previous_span();
-
-        require!(self, Let, "let")?;
-
-        let id = require!(self, Ident(_), "an identifier")?;
-        let name = id.name();
-
-        require!(self, Eq, "=")?;
-        require!(self, Fn, "fn")?;
-        let function_type = self.parse_function_sig(name, None)?;
-
-        Ok(ast::Binding {
-            module_id: ModuleId::unknown(),
-            attrs,
-            visibility,
-            kind: ast::BindingKind::Intrinsic {
-                name: ast::NameAndSpan {
-                    name,
-                    span: id.span,
-                },
-                function_type,
-            },
-            span: start_span.to(self.previous_span()),
-        })
-    }
-
     pub fn parse_type_binding(
         &mut self,
-        attrs: Vec<ast::Attr>,
+        attrs: Attrs,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();

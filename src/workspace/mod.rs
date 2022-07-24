@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BindingKind, Visibility},
+    ast,
     common::{
         build_options::{BuildOptions, DiagnosticOptions},
         id_cache::{IdCache, WithId},
@@ -58,7 +58,7 @@ pub struct BindingInfo {
     pub module_id: ModuleId,
     // the name used for the binding
     pub name: Ustr,
-    pub visibility: Visibility,
+    pub visibility: ast::Visibility,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     // what kind of access the binding has
@@ -83,24 +83,6 @@ pub enum BindingInfoKind {
     ExternVariable,
     Intrinsic,
     Type,
-}
-
-impl From<&BindingKind> for BindingInfoKind {
-    fn from(kind: &BindingKind) -> Self {
-        match kind {
-            BindingKind::Orphan { is_static, .. } => {
-                if *is_static {
-                    BindingInfoKind::Static
-                } else {
-                    BindingInfoKind::Orphan
-                }
-            }
-            BindingKind::ExternFunction { .. } => BindingInfoKind::ExternFunction,
-            BindingKind::ExternVariable { .. } => BindingInfoKind::ExternVariable,
-            BindingKind::Intrinsic { .. } => BindingInfoKind::Intrinsic,
-            BindingKind::Type { .. } => BindingInfoKind::Type,
-        }
-    }
 }
 
 impl WithId<BindingId> for BindingInfo {
@@ -160,7 +142,7 @@ impl BindingInfo {
 pub struct PartialBindingInfo {
     pub module_id: ModuleId,
     pub name: Ustr,
-    pub visibility: Visibility,
+    pub visibility: ast::Visibility,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     pub is_mutable: bool,

@@ -97,13 +97,6 @@ impl<'s> CheckSess<'s> {
                         },
                     ..
                 }
-                | ast::BindingKind::Intrinsic {
-                    name:
-                        ast::NameAndSpan {
-                            name: binding_name, ..
-                        },
-                    ..
-                }
                 | ast::BindingKind::Type {
                     name:
                         ast::NameAndSpan {

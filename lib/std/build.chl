@@ -1,4 +1,4 @@
-pub let { start_workspace } = import("std/intrinsics");
+// pub let { start_workspace } = import("std/intrinsics");
 let { waitpid, fork, execl } = import("std/c");
 
 pub type Workspace = struct {
