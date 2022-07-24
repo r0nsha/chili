@@ -144,7 +144,6 @@ impl<'vm> VM<'vm> {
             let reader = &mut self.frame_mut().reader;
 
             match reader.read_op() {
-                Op::Noop => {}
                 Op::Pop => {
                     self.stack.pop();
                 }

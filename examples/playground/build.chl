@@ -20,4 +20,4 @@ let build = fn() {
 	}
 };
 
-run!(build());
+const build();

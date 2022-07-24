@@ -267,7 +267,7 @@ impl<'s> CheckSess<'s> {
                     .unwrap()
                     .all_complete = true;
 
-                for expr in module.run_exprs.iter() {
+                for expr in module.consts.iter() {
                     // let expr = expr.clone();
                     let node =
                         self.with_env(module.id, |sess, mut env| expr.check(sess, &mut env, None))?;

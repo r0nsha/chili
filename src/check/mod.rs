@@ -877,39 +877,8 @@ impl Check for ast::Ast {
                         }))
                     }
                 }
-                ast::BuiltinKind::Run(expr) => {
-                    // Note (Ron 02/07/2022):
-                    // The inner expression of `run!` isn't allowed to capture its outer environment yet.
-                    // TODO: Running arbitrary code requires these preconditions to be met:
-                    //       1. All types are at least partially inferred
-                    //       2. All types in all memory locations are sized
-                    let node = sess.with_env(env.module_id(), |sess, mut env| {
-                        expr.check(sess, &mut env, None)
-                    })?;
-
-                    if sess.workspace.build_options.check_mode {
-                        Ok(node)
-                    } else {
-                        let interp_result = sess.eval(&node, env.module_id())?;
-
-                        let ty = node.ty().normalize(&sess.tcx);
-
-                        match interp_result.try_into_const_value(&mut sess.tcx, &ty, builtin.span) {
-                            Ok(value) => Ok(hir::Node::Const(hir::Const {
-                                value,
-                                ty: node.ty(),
-                                span: builtin.span,
-                            })),
-                            Err(value_str) => Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "compile-time evaluation cannot result in `{}`",
-                                    value_str,
-                                ))
-                                .with_label(Label::primary(builtin.span, "evaluated here"))),
-                        }
-                    }
-                }
             },
+            ast::Ast::Const(const_) => const_.check(sess, env, expected_type),
             ast::Ast::Function(function) => function.check(sess, env, expected_type),
             ast::Ast::While(while_) => while_.check(sess, env, expected_type),
             ast::Ast::For(for_) => for_.check(sess, env, expected_type),
@@ -2194,6 +2163,46 @@ impl Check for ast::For {
                     span: self.span,
                     is_block: false,
                 }))
+            }
+        }
+    }
+}
+
+impl Check for ast::Const {
+    fn check(
+        &self,
+        sess: &mut CheckSess,
+        env: &mut Env,
+        _expected_type: Option<TypeId>,
+    ) -> CheckResult {
+        // Note (Ron 02/07/2022):
+        // The inner expression of `const` isn't allowed to capture its outer environment yet.
+        // TODO: Running arbitrary should code require these preconditions to be met:
+        //       1. All types are at least partially inferred
+        //       2. All types in all memory locations are sized
+        let node = sess.with_env(env.module_id(), |sess, mut env| {
+            self.expr.check(sess, &mut env, None)
+        })?;
+
+        if sess.workspace.build_options.check_mode {
+            Ok(node)
+        } else {
+            let interp_result = sess.eval(&node, env.module_id())?;
+
+            let ty = node.ty().normalize(&sess.tcx);
+
+            match interp_result.try_into_const_value(&mut sess.tcx, &ty, self.span) {
+                Ok(value) => Ok(hir::Node::Const(hir::Const {
+                    value,
+                    ty: node.ty(),
+                    span: self.span,
+                })),
+                Err(value_str) => Err(Diagnostic::error()
+                    .with_message(format!(
+                        "compile-time evaluation cannot result in `{}`",
+                        value_str,
+                    ))
+                    .with_label(Label::primary(self.span, "evaluated here"))),
             }
         }
     }
