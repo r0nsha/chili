@@ -12,7 +12,6 @@ use unindent::unindent;
 use ustr::ustr;
 
 pub const EOF_CHAR: char = '\0';
-pub const EOF_STR: &str = "\0";
 pub const DOUBLE_QUOTE: char = '"';
 pub const RAW_STR_PREFIX: char = 'r';
 pub const CHAR_PREFIX: char = 'c';
@@ -97,9 +96,6 @@ impl<'lx> Lexer<'lx> {
                 '/' => {
                     if self.eat('/') {
                         self.eat_comment();
-                        self.eat_token()?
-                    } else if self.eat('*') {
-                        self.eat_multiline_comment();
                         self.eat_token()?
                     } else if self.eat('=') {
                         FwSlashEq
@@ -340,21 +336,6 @@ impl<'lx> Lexer<'lx> {
         }
     }
 
-    fn eat_multiline_comment(&mut self) {
-        self.bump();
-
-        while self.peek_two() != "*/" && !self.is_eof() {
-            if self.peek_two() == "/*" {
-                self.eat_multiline_comment();
-            }
-
-            self.bump();
-        }
-
-        self.bump();
-        self.bump();
-    }
-
     fn eat_comment(&mut self) {
         while self.peek() != '\n' && !self.is_eof() {
             self.bump();
@@ -509,15 +490,6 @@ impl<'lx> Lexer<'lx> {
         }
 
         TokenKind::from(self.source.range(self.cursor))
-    }
-
-    fn peek_two(&self) -> &str {
-        if self.is_eof() {
-            EOF_STR
-        } else {
-            self.source
-                .range(self.cursor.end_index()..self.cursor.end_index() + 2)
-        }
     }
 
     pub fn peek(&self) -> char {
