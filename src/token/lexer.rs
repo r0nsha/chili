@@ -60,6 +60,28 @@ impl<'lx> Lexer<'lx> {
             }
         } else {
             match ch {
+                '#' => {
+                    // Explicit support for Shebang
+                    if self.eat('!') {
+                        if self.cursor.end_index() == 2 {
+                            self.eat_line();
+                            self.eat_token()?
+                        } else {
+                            return Err(Diagnostic::error()
+                                .with_message(
+                                    "shebang is only supported on the first line of the file",
+                                )
+                                .with_label(Label::primary(
+                                    self.cursor.span(),
+                                    "invalid shebang",
+                                )));
+                        }
+                    } else {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("unknown character `{}`", ch))
+                            .with_label(Label::primary(self.cursor.span(), "unknown character")));
+                    }
+                }
                 '@' => At,
                 ';' => Semicolon,
                 ':' => Colon,
@@ -95,7 +117,7 @@ impl<'lx> Lexer<'lx> {
                 '?' => QuestionMark,
                 '/' => {
                     if self.eat('/') {
-                        self.eat_comment();
+                        self.eat_line();
                         self.eat_token()?
                     } else if self.eat('=') {
                         FwSlashEq
@@ -336,7 +358,7 @@ impl<'lx> Lexer<'lx> {
         }
     }
 
-    fn eat_comment(&mut self) {
+    fn eat_line(&mut self) {
         while self.peek() != '\n' && !self.is_eof() {
             self.bump();
         }
