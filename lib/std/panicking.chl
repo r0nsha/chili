@@ -1,6 +1,6 @@
 let { printf, exit } = import("std/c");
 
-let PanicInfo = struct {
+type PanicInfo = struct {
     message: str,
     file_path: str,
     line: uint,

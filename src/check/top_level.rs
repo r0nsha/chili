@@ -103,6 +103,13 @@ impl<'s> CheckSess<'s> {
                             name: binding_name, ..
                         },
                     ..
+                }
+                | ast::BindingKind::Type {
+                    name:
+                        ast::NameAndSpan {
+                            name: binding_name, ..
+                        },
+                    ..
                 } => *binding_name == name,
             }) {
                 let bound_names = binding.check_top_level(self)?;

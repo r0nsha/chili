@@ -79,7 +79,7 @@ As the language is in its very early stages, every contribution will help in sha
   - [x] Build configuration based on compile-time execution
 - [x] Dynamically sized types
   - [x] Dynamically sized types
-- [ ] Static variables
+- [x] Static variables
 - [ ] Attributes
 - [ ] Default function arguments
 - [ ] Named function arguments

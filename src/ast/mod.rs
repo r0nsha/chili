@@ -512,6 +512,10 @@ pub enum BindingKind {
         intrinsic: Intrinsic,
         function_type: FunctionSig,
     },
+    Type {
+        name: NameAndSpan,
+        type_expr: Box<Ast>,
+    },
 }
 
 impl Display for BindingKind {
@@ -524,6 +528,7 @@ impl Display for BindingKind {
                 BindingKind::ExternFunction { .. } => "extern function",
                 BindingKind::ExternVariable { .. } => "extern variable",
                 BindingKind::Intrinsic { .. } => "intrinsic",
+                BindingKind::Type { .. } => "type",
             }
         )
     }
