@@ -12,7 +12,6 @@ use crate::{
     ast::{self, pattern::Pattern},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        path::RelativeTo,
         target::TargetMetrics,
     },
     error::{
@@ -440,17 +439,8 @@ impl Check for ast::Binding {
                     }
                 }
 
-                let lib = if let Some(attr) = attrs.get(AttrKind::Lib) {
-                    let value = attr.value.as_str().unwrap().as_str();
-
-                    Some(ast::ExternLibrary::try_from_str(
-                        value,
-                        &RelativeTo::Path(env.module_info().dir()),
-                        attr.span,
-                    )?)
-                } else {
-                    None
-                };
+                let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
+                let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
 
                 let function_type_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
@@ -478,7 +468,14 @@ impl Check for ast::Binding {
                         }
                     }
                 } else {
-                    (name, hir::FunctionKind::Extern { lib }, BindingInfoKind::ExternFunction)
+                    (
+                        name,
+                        hir::FunctionKind::Extern {
+                            lib: lib.clone(),
+                            dylib: dylib.or(lib),
+                        },
+                        BindingInfoKind::ExternFunction,
+                    )
                 };
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
@@ -522,22 +519,14 @@ impl Check for ast::Binding {
 
                 let ty = check_type_expr(type_expr, sess, env)?;
 
-                let lib = if let Some(attr) = attrs.get(AttrKind::Lib) {
-                    let value = attr.value.as_str().unwrap().as_str();
-
-                    Some(ast::ExternLibrary::try_from_str(
-                        value,
-                        &RelativeTo::Path(env.module_info().dir()),
-                        attr.span,
-                    )?)
-                } else {
-                    None
-                };
+                let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
+                let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
 
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::ExternVariable(ConstExternVariable {
                         name,
                         lib: lib.clone(),
+                        dylib: dylib.or(lib),
                         ty,
                     }),
                     ty,

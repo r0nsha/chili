@@ -50,6 +50,7 @@ pub struct ConstFunction {
 pub struct ConstExternVariable {
     pub name: Ustr,
     pub lib: Option<ExternLibrary>,
+    pub dylib: Option<ExternLibrary>,
     pub ty: TypeId,
 }
 

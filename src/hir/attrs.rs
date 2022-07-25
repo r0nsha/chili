@@ -55,6 +55,7 @@ pub enum AttrKind {
     Intrinsic,
     Entry,
     Lib,
+    Dylib,
 }
 
 impl TryFrom<&str> for AttrKind {
@@ -65,6 +66,7 @@ impl TryFrom<&str> for AttrKind {
             "intrinsic" => Ok(AttrKind::Intrinsic),
             "entry" => Ok(AttrKind::Entry),
             "lib" => Ok(AttrKind::Lib),
+            "dylib" => Ok(AttrKind::Dylib),
             _ => Err(()),
         }
     }
@@ -76,6 +78,7 @@ impl Display for AttrKind {
             AttrKind::Intrinsic => write!(f, "intrinsic"),
             AttrKind::Entry => write!(f, "entry"),
             AttrKind::Lib => write!(f, "lib"),
+            AttrKind::Dylib => write!(f, "dylib"),
         }
     }
 }

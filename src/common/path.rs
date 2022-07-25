@@ -35,6 +35,7 @@ pub fn maybe_resolve_relative_path(path: &Path, relative_to: &RelativeTo) -> Opt
     absolute_path.exists().then(|| absolute_path.to_path_buf())
 }
 
+#[allow(unused)]
 pub fn resolve_relative_path(path: &Path, relative_to: &RelativeTo) -> PathBuf {
     get_absolute_path(relative_to, path).to_path_buf()
 }

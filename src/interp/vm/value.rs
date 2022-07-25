@@ -706,6 +706,7 @@ impl Value {
             Self::ExternVariable(v) => Ok(ConstValue::ExternVariable(ConstExternVariable {
                 name: v.name,
                 lib: Some(v.lib.clone()),
+                dylib: Some(v.lib.clone()),
                 ty: tcx.bound(v.ty, eval_span),
             })),
             Self::Pointer(_) => Err("pointer"),

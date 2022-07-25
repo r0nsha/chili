@@ -92,8 +92,8 @@ impl Lower for hir::Function {
                     },
                 );
             }
-            hir::FunctionKind::Extern { lib } => {
-                let lib_path = lib.as_ref().map_or_else(
+            hir::FunctionKind::Extern { dylib, .. } => {
+                let lib_path = dylib.as_ref().map_or_else(
                     || {
                         sess.diagnostics.push(
                             Diagnostic::error()
@@ -893,14 +893,13 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                 }),
                 _ => {
                     function.lower(sess, &mut Bytecode::new(), LowerContext { take_ptr: false });
-
                     Value::Function(FunctionAddress { id: f.id, name: f.name })
                 }
             }
         }
         ConstValue::ExternVariable(variable) => Value::ExternVariable(ExternVariable {
             name: variable.name,
-            lib: variable.lib.clone().unwrap(),
+            lib: variable.dylib.clone().unwrap(),
             ty: variable.ty.normalize(sess.tcx),
         }),
     }

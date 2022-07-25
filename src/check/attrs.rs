@@ -4,6 +4,7 @@ use crate::{
         self,
         pattern::{NamePattern, Pattern},
     },
+    common::path::RelativeTo,
     error::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult,
@@ -81,7 +82,7 @@ impl<'s> CheckSess<'s> {
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
             AttrKind::Intrinsic | AttrKind::Entry => self.tcx.common_types.unit,
-            AttrKind::Lib => self.tcx.common_types.str,
+            AttrKind::Lib | AttrKind::Dylib => self.tcx.common_types.str,
         }
     }
 
@@ -131,7 +132,7 @@ impl<'s> CheckSess<'s> {
                         _ => return err(),
                     }
                 }
-                AttrKind::Lib => match &binding.kind {
+                AttrKind::Lib | AttrKind::Dylib => match &binding.kind {
                     ast::BindingKind::ExternFunction { .. } | ast::BindingKind::ExternVariable { .. } => (),
                     _ => {
                         return Err(invalid_attr_use(
@@ -144,5 +145,22 @@ impl<'s> CheckSess<'s> {
         }
 
         Ok(())
+    }
+
+    pub(super) fn maybe_get_extern_lib_attr(
+        &self,
+        env: &Env,
+        attrs: &Attrs,
+        kind: AttrKind,
+    ) -> DiagnosticResult<Option<ast::ExternLibrary>> {
+        if let Some(attr) = attrs.get(kind) {
+            let value = attr.value.as_str().unwrap().as_str();
+
+            let lib = ast::ExternLibrary::try_from_str(value, &RelativeTo::Path(env.module_info().dir()), attr.span)?;
+
+            Ok(Some(lib))
+        } else {
+            Ok(None)
+        }
     }
 }

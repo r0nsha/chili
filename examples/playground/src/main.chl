@@ -1,4 +1,9 @@
+#[lib = "../../../local_resources/libfoo.a"]
+#[dylib = "../../../local_resources/libfoo.so"]
+pub extern let foo = fn;
+
 #[entry]
 let main = fn() {
     println("Hello World");
+    foo();
 };

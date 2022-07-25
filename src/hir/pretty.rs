@@ -144,7 +144,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Function {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
         match &self.kind {
             hir::FunctionKind::Orphan { .. } => p.write_indented("fn ", is_line_start),
-            hir::FunctionKind::Extern { lib } => {
+            hir::FunctionKind::Extern { lib, .. } => {
                 if let Some(lib) = lib {
                     p.write_indented(&format!("extern fn \"{}\" ", lib.path()), is_line_start)
                 } else {
