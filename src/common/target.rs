@@ -43,10 +43,7 @@ pub enum TargetPlatform {
 impl TargetPlatform {
     #[allow(unused)]
     pub fn is_windows(&self) -> bool {
-        matches!(
-            self,
-            TargetPlatform::Windows386 | TargetPlatform::WindowsAmd64
-        )
+        matches!(self, TargetPlatform::Windows386 | TargetPlatform::WindowsAmd64)
     }
 
     #[allow(unused)]
@@ -59,18 +56,12 @@ impl TargetPlatform {
 
     #[allow(unused)]
     pub fn is_darwin(&self) -> bool {
-        matches!(
-            self,
-            TargetPlatform::DarwinAmd64 | TargetPlatform::DarwinArm64
-        )
+        matches!(self, TargetPlatform::DarwinAmd64 | TargetPlatform::DarwinArm64)
     }
 
     #[allow(unused)]
     pub fn is_free_bsd(&self) -> bool {
-        matches!(
-            self,
-            TargetPlatform::FreeBSD386 | TargetPlatform::FreeBSDAmd64
-        )
+        matches!(self, TargetPlatform::FreeBSD386 | TargetPlatform::FreeBSDAmd64)
     }
 
     #[allow(unused)]
@@ -82,9 +73,7 @@ impl TargetPlatform {
     pub fn is_wasm(&self) -> bool {
         matches!(
             self,
-            TargetPlatform::FreestandingWasm32
-                | TargetPlatform::JsWasm32
-                | TargetPlatform::WasiWasm32
+            TargetPlatform::FreestandingWasm32 | TargetPlatform::JsWasm32 | TargetPlatform::WasiWasm32
         )
     }
 
@@ -269,9 +258,7 @@ impl Arch {
     #[allow(unused)]
     pub fn endianness(&self) -> Endianness {
         match self {
-            Arch::Amd64 | Arch::_386 | Arch::Arm64 | Arch::Wasm32 | Arch::Wasm64 => {
-                Endianness::Little
-            }
+            Arch::Amd64 | Arch::_386 | Arch::Arm64 | Arch::Wasm32 | Arch::Wasm64 => Endianness::Little,
         }
     }
 }

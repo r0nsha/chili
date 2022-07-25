@@ -153,9 +153,7 @@ fn cli() {
                     emit_hir: false,
                     emit_bytecode: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
-                    codegen_options: CodegenOptions::Skip {
-                        emit_llvm_ir: false,
-                    },
+                    codegen_options: CodegenOptions::Skip { emit_llvm_ir: false },
                     include_paths: get_include_paths(&args.include_paths),
                     check_mode: true,
                 };
@@ -163,11 +161,7 @@ fn cli() {
                 let result = driver::start_workspace(name, build_options);
 
                 if args.diagnostics {
-                    ide::diagnostics(
-                        &result.workspace,
-                        result.tcx.as_ref(),
-                        result.cache.as_ref(),
-                    );
+                    ide::diagnostics(&result.workspace, result.tcx.as_ref(), result.cache.as_ref());
                 } else if let Some(offset) = args.hover_info {
                     ide::hover_info(&result.workspace, result.tcx.as_ref(), offset);
                 } else if let Some(offset) = args.goto_def {
@@ -233,8 +227,7 @@ fn print_err(msg: &str) {
 }
 
 fn get_include_paths(include_paths: &Option<String>) -> Vec<PathBuf> {
-    include_paths.as_ref().map_or_else(
-        || vec![],
-        |i| i.split(';').map(|s| PathBuf::from(s)).collect(),
-    )
+    include_paths
+        .as_ref()
+        .map_or_else(|| vec![], |i| i.split(';').map(|s| PathBuf::from(s)).collect())
 }

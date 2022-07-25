@@ -117,8 +117,7 @@ impl BindingInfo {
     #[inline]
     #[allow(unused)]
     pub fn is_is_implicit_it_fn_parameter(&self) -> bool {
-        self.flags
-            .contains(BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER)
+        self.flags.contains(BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER)
     }
 
     #[inline]
@@ -189,12 +188,7 @@ bitflags! {
 }
 
 impl Workspace {
-    pub fn new(
-        name: String,
-        build_options: BuildOptions,
-        root_dir: PathBuf,
-        std_dir: PathBuf,
-    ) -> Self {
+    pub fn new(name: String, build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
         Self {
             name,
             diagnostics: Diagnostics::new(),
@@ -212,11 +206,7 @@ impl Workspace {
             DiagnosticOptions::Emit { no_color } => {
                 emit_diagnostics(
                     &self.diagnostics,
-                    if *no_color {
-                        ColorMode::Never
-                    } else {
-                        ColorMode::Always
-                    },
+                    if *no_color { ColorMode::Never } else { ColorMode::Always },
                 );
             }
             DiagnosticOptions::DontEmit => (),

@@ -5,7 +5,6 @@ pub mod offset_of;
 pub mod size_of;
 
 use crate::{
-    ast::ExternLibrary,
     define_id_type,
     span::Span,
     workspace::{BindingId, ModuleId},
@@ -109,6 +108,12 @@ pub struct FunctionType {
     pub kind: FunctionTypeKind,
 }
 
+impl FunctionType {
+    pub fn is_variadic(&self) -> bool {
+        self.varargs.is_some()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTypeParam {
     pub name: Ustr,
@@ -124,7 +129,7 @@ pub struct FunctionTypeVarargs {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FunctionTypeKind {
     Orphan,
-    Extern { lib: Option<ExternLibrary> },
+    Extern,
 }
 
 impl FunctionTypeKind {
@@ -155,10 +160,7 @@ impl StructType {
     }
 
     pub fn find_field_full(&self, field: Ustr) -> Option<(usize, &StructTypeField)> {
-        self.fields
-            .iter()
-            .enumerate()
-            .find(|(_, f)| f.name == field)
+        self.fields.iter().enumerate().find(|(_, f)| f.name == field)
     }
 }
 
@@ -274,20 +276,14 @@ impl From<Type> for String {
 impl Type {
     pub fn as_inner(&self) -> &Type {
         match self {
-            Type::Pointer(inner, _)
-            | Type::Array(inner, _)
-            | Type::Slice(inner)
-            | Type::Type(inner) => inner,
+            Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner) | Type::Type(inner) => inner,
             _ => panic!("type {} doesn't have an inner type", self),
         }
     }
 
     pub fn into_inner(self) -> Type {
         match self {
-            Type::Pointer(inner, _)
-            | Type::Array(inner, _)
-            | Type::Slice(inner)
-            | Type::Type(inner) => *inner,
+            Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner) | Type::Type(inner) => *inner,
             _ => panic!("type {} doesn't have an inner type", self),
         }
     }

@@ -1,7 +1,14 @@
 use super::{env::Env, Check, CheckResult, CheckSess};
 use crate::{
-    ast,
-    error::diagnostic::{Diagnostic, Label},
+    ast::{
+        self,
+        pattern::{NamePattern, Pattern},
+    },
+    common::path::RelativeTo,
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult,
+    },
     hir::{
         attrs::{Attr, AttrKind, Attrs},
         const_value::ConstValue,
@@ -28,19 +35,20 @@ impl<'s> CheckSess<'s> {
                 Some(value) => {
                     let node = value.check(self, env, Some(expected_type))?;
 
-                    node.ty()
-                        .unify(&expected_type, &mut self.tcx)
-                        .or_report_err(&self.tcx, expected_type, None, node.ty(), node.span())?;
+                    node.ty().unify(&expected_type, &mut self.tcx).or_report_err(
+                        &self.tcx,
+                        expected_type,
+                        None,
+                        node.ty(),
+                        node.span(),
+                    )?;
 
                     let node_span = node.span();
 
                     node.into_const_value().ok_or_else(|| {
                         Diagnostic::error()
                             .with_message("attribute value must be compile-time known")
-                            .with_label(Label::primary(
-                                node_span,
-                                "value is not compile-time known",
-                            ))
+                            .with_label(Label::primary(node_span, "value is not compile-time known"))
                     })?
                 }
                 None => {
@@ -74,6 +82,85 @@ impl<'s> CheckSess<'s> {
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
             AttrKind::Intrinsic | AttrKind::Entry => self.tcx.common_types.unit,
+            AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => self.tcx.common_types.str,
+        }
+    }
+
+    pub(super) fn check_attrs_are_assigned_to_valid_binding(
+        &self,
+        attrs: &Attrs,
+        binding: &ast::Binding,
+    ) -> DiagnosticResult<()> {
+        fn invalid_attr_use(attr: &Attr, usage: &'static str) -> Diagnostic {
+            Diagnostic::error()
+                .with_message(format!("the `{}` attribute {}", attr.kind, usage))
+                .with_label(Label::primary(attr.span, "invalid attribute use"))
+        }
+
+        for (_, attr) in attrs.iter() {
+            match attr.kind {
+                AttrKind::Intrinsic => match &binding.kind {
+                    ast::BindingKind::ExternFunction { .. } => (),
+                    _ => return Err(invalid_attr_use(attr, "can only be used on extern functions")),
+                },
+                AttrKind::Entry => {
+                    const USAGE: &str = "can only be used on immutable, let bound functions";
+
+                    let err = || -> DiagnosticResult<()> { Err(invalid_attr_use(attr, USAGE)) };
+
+                    match &binding.kind {
+                        ast::BindingKind::Orphan {
+                            pattern,
+                            value,
+                            is_static,
+                            ..
+                        } => {
+                            if *is_static {
+                                return err();
+                            }
+
+                            match pattern {
+                                Pattern::Name(NamePattern { is_mutable: false, .. }) => (),
+                                _ => return err(),
+                            }
+
+                            match value.as_ref() {
+                                ast::Ast::Function(_) => (),
+                                _ => return err(),
+                            }
+                        }
+                        _ => return err(),
+                    }
+                }
+                AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => match &binding.kind {
+                    ast::BindingKind::ExternFunction { .. } | ast::BindingKind::ExternVariable { .. } => (),
+                    _ => {
+                        return Err(invalid_attr_use(
+                            attr,
+                            "can only be used on extern variables and functions",
+                        ))
+                    }
+                },
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn maybe_get_extern_lib_attr(
+        &self,
+        env: &Env,
+        attrs: &Attrs,
+        kind: AttrKind,
+    ) -> DiagnosticResult<Option<ast::ExternLibrary>> {
+        if let Some(attr) = attrs.get(kind) {
+            let value = attr.value.as_str().unwrap().as_str();
+
+            let lib = ast::ExternLibrary::try_from_str(value, &RelativeTo::Path(env.module_info().dir()), attr.span)?;
+
+            Ok(Some(lib))
+        } else {
+            Ok(None)
         }
     }
 }

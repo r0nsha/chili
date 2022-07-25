@@ -25,9 +25,7 @@ where
 
 impl CheckTopLevel for ast::Binding {
     fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>> {
-        let node = sess.with_env(self.module_id, |sess, mut env| {
-            self.check(sess, &mut env, None)
-        })?;
+        let node = sess.with_env(self.module_id, |sess, mut env| self.check(sess, &mut env, None))?;
 
         let mut bound_names = UstrMap::<BindingId>::default();
 
@@ -80,43 +78,30 @@ impl<'s> CheckSess<'s> {
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
             if let Some(binding) = module.bindings.iter().find(|binding| match &binding.kind {
-                ast::BindingKind::Orphan { pattern, .. } => {
-                    pattern.iter().any(|pattern| pattern.name == name)
-                }
+                ast::BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
                 ast::BindingKind::ExternFunction {
-                    name:
-                        ast::NameAndSpan {
-                            name: binding_name, ..
-                        },
+                    name: ast::NameAndSpan { name: binding_name, .. },
                     ..
                 }
                 | ast::BindingKind::ExternVariable {
-                    name:
-                        ast::NameAndSpan {
-                            name: binding_name, ..
-                        },
+                    name: ast::NameAndSpan { name: binding_name, .. },
                     ..
                 }
                 | ast::BindingKind::Type {
-                    name:
-                        ast::NameAndSpan {
-                            name: binding_name, ..
-                        },
+                    name: ast::NameAndSpan { name: binding_name, .. },
                     ..
                 } => *binding_name == name,
             }) {
                 let bound_names = binding.check_top_level(self)?;
                 let desired_id = *bound_names.get(&name).unwrap();
 
-                self.workspace
-                    .add_binding_info_use(desired_id, caller_info.span);
+                self.workspace.add_binding_info_use(desired_id, caller_info.span);
 
                 self.validate_can_access_item(desired_id, caller_info)?;
 
                 Ok(desired_id)
             } else if let Some(&builtin_id) = self.builtin_types.get(&name) {
-                self.workspace
-                    .add_binding_info_use(builtin_id, caller_info.span);
+                self.workspace.add_binding_info_use(builtin_id, caller_info.span);
 
                 Ok(builtin_id)
             } else {
@@ -136,10 +121,7 @@ impl<'s> CheckSess<'s> {
         let message = if module_info.name.is_empty() {
             format!("cannot find value `{}` in this scope", name)
         } else {
-            format!(
-                "cannot find value `{}` in module `{}`",
-                name, module_info.name
-            )
+            format!("cannot find value `{}` in module `{}`", name, module_info.name)
         };
 
         let label_message = if module_info.name.is_empty() {
@@ -153,21 +135,12 @@ impl<'s> CheckSess<'s> {
             .with_label(Label::primary(caller_info.span, label_message))
     }
 
-    pub fn validate_can_access_item(
-        &self,
-        id: BindingId,
-        caller_info: CallerInfo,
-    ) -> DiagnosticResult<()> {
+    pub fn validate_can_access_item(&self, id: BindingId, caller_info: CallerInfo) -> DiagnosticResult<()> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-        if binding_info.visibility == ast::Visibility::Private
-            && binding_info.module_id != caller_info.module_id
-        {
+        if binding_info.visibility == ast::Visibility::Private && binding_info.module_id != caller_info.module_id {
             Err(Diagnostic::error()
-                .with_message(format!(
-                    "associated symbol `{}` is private",
-                    binding_info.name
-                ))
+                .with_message(format!("associated symbol `{}` is private", binding_info.name))
                 .with_label(Label::primary(caller_info.span, "accessed here"))
                 .with_label(Label::secondary(binding_info.span, "defined here")))
         } else {
@@ -255,16 +228,11 @@ impl<'s> CheckSess<'s> {
                     }
                 }
 
-                self.queued_modules
-                    .get_mut(&module.id)
-                    .unwrap()
-                    .all_complete = true;
+                self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
 
                 for const_ in module.consts.iter() {
                     // let expr = expr.clone();
-                    let node = self.with_env(module.id, |sess, mut env| {
-                        const_.check(sess, &mut env, None)
-                    })?;
+                    let node = self.with_env(module.id, |sess, mut env| const_.check(sess, &mut env, None))?;
 
                     if !self.workspace.build_options.check_mode {
                         self.eval(&node, module.id, const_.span)?;

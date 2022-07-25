@@ -40,12 +40,7 @@ impl StartWorkspaceResult {
         }
     }
 
-    fn new_typed_with_output(
-        workspace: Workspace,
-        tcx: TypeCtx,
-        cache: hir::Cache,
-        output_file: PathBuf,
-    ) -> Self {
+    fn new_typed_with_output(workspace: Workspace, tcx: TypeCtx, cache: hir::Cache, output_file: PathBuf) -> Self {
         Self {
             workspace,
             tcx: Some(tcx),
@@ -72,10 +67,9 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     // Check that root file exists
     if !source_file.exists() {
-        workspace.diagnostics.push(
-            Diagnostic::error()
-                .with_message(format!("file `{}` doesn't exist", source_file.display())),
-        );
+        workspace
+            .diagnostics
+            .push(Diagnostic::error().with_message(format!("file `{}` doesn't exist", source_file.display())));
 
         workspace.emit_diagnostics();
 

@@ -2,7 +2,7 @@ pub mod pattern;
 
 use self::pattern::NamePattern;
 use crate::{
-    common::path::{try_resolve_relative_path, RelativeTo},
+    common::path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
     define_id_type,
     error::DiagnosticResult,
     span::{FileId, Span},
@@ -459,24 +459,27 @@ impl ExternLibraryPath {
 }
 
 impl ExternLibrary {
-    pub fn try_from_str(
-        s: &str,
-        relative_to: RelativeTo<'_>,
-        span: Span,
-    ) -> DiagnosticResult<Self> {
+    pub fn try_from_str(s: &str, relative_to: &RelativeTo<'_>, span: Span) -> DiagnosticResult<Self> {
         let path = Path::new(s);
 
-        if path.extension().is_some() {
-            let path = try_resolve_relative_path(Path::new(s), relative_to, Some(span))?;
-            Ok(ExternLibrary::Path(ExternLibraryPath { path }))
+        if s.starts_with(&['.', '/', '\\']) || path.has_root() || path.extension().is_some() {
+            try_resolve_relative_path(path, relative_to, Some(span)).map(|path| Self::Path(ExternLibraryPath { path }))
         } else {
-            let lib = s.to_string();
-            Ok(ExternLibrary::System(lib))
+            Ok(Self::System(s.to_string()))
         }
     }
 
-    pub fn from_str(from: &str, relative_to: RelativeTo<'_>) -> Option<Self> {
-        Self::try_from_str(from, relative_to, Span::unknown()).ok()
+    #[allow(unused)]
+    pub fn from_str(s: &str, relative_to: &RelativeTo<'_>) -> Self {
+        let path = Path::new(s);
+
+        if s.starts_with(&['.', '/', '\\']) || path.has_root() || path.extension().is_some() {
+            Self::Path(ExternLibraryPath {
+                path: resolve_relative_path(path, relative_to),
+            })
+        } else {
+            Self::System(s.to_string())
+        }
     }
 
     pub fn path(&self) -> String {
@@ -506,12 +509,10 @@ pub enum BindingKind {
     },
     ExternFunction {
         name: NameAndSpan,
-        lib: Option<ExternLibrary>,
         sig: FunctionSig,
     },
     ExternVariable {
         name: NameAndSpan,
-        lib: Option<ExternLibrary>,
         is_mutable: bool,
         type_expr: Box<Ast>,
     },

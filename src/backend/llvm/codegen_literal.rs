@@ -7,11 +7,7 @@ use crate::{hir, infer::normalize::Normalize, types::*};
 use inkwell::{types::BasicType, values::BasicValueEnum, AddressSpace, IntPredicate};
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Literal {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         match self {
             hir::Literal::Struct(x) => x.codegen(generator, state),
             hir::Literal::Tuple(x) => x.codegen(generator, state),
@@ -22,11 +18,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Literal {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let ty = &self.ty.normalize(generator.tcx);
         let struct_ty = ty.as_struct();
         let llvm_type = ty.llvm_type(generator);
@@ -51,23 +43,16 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
                 generator.build_load(struct_ptr)
             }
             StructTypeKind::Union => {
-                let value = self
-                    .fields
-                    .first()
-                    .as_ref()
-                    .unwrap()
-                    .value
-                    .codegen(generator, state);
+                let value = self.fields.first().as_ref().unwrap().value.codegen(generator, state);
 
                 let field_ptr = generator.build_alloca(state, value.get_type());
 
                 generator.build_store(field_ptr, value);
 
-                let struct_ptr = generator.builder.build_pointer_cast(
-                    field_ptr,
-                    llvm_type.ptr_type(AddressSpace::Generic),
-                    "",
-                );
+                let struct_ptr =
+                    generator
+                        .builder
+                        .build_pointer_cast(field_ptr, llvm_type.ptr_type(AddressSpace::Generic), "");
 
                 generator.build_load(struct_ptr)
             }
@@ -76,11 +61,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let ty = self.ty.normalize(generator.tcx);
 
         let values: Vec<BasicValueEnum> = self
@@ -93,10 +74,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
         let tuple_ptr = generator.build_alloca(state, llvm_type);
 
         for (i, value) in values.iter().enumerate() {
-            let ptr = generator
-                .builder
-                .build_struct_gep(tuple_ptr, i as u32, "")
-                .unwrap();
+            let ptr = generator.builder.build_struct_gep(tuple_ptr, i as u32, "").unwrap();
 
             generator.build_store(ptr, *value);
         }
@@ -106,11 +84,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayLiteral {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let ty = self.ty.normalize(generator.tcx);
 
         let elements: Vec<BasicValueEnum> = self
@@ -147,11 +121,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayLiteral {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayFillLiteral {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let ty = self.ty.normalize(generator.tcx);
 
         let value = self.value.codegen(generator, state);
@@ -190,24 +160,17 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayFillLiteral {
         generator.start_block(state, loop_body);
 
         let dst_ptr = unsafe {
-            generator.builder.build_in_bounds_gep(
-                array_ptr,
-                &[generator.ptr_sized_int_type.const_zero(), it_value],
-                "",
-            )
+            generator
+                .builder
+                .build_in_bounds_gep(array_ptr, &[generator.ptr_sized_int_type.const_zero(), it_value], "")
         };
 
         let sz = size_of(element_type, generator.target_metrics.word_size);
-        generator.build_copy_nonoverlapping(
-            src_ptr,
-            dst_ptr,
-            generator.ptr_sized_int_type.const_int(sz as _, false),
-        );
+        generator.build_copy_nonoverlapping(src_ptr, dst_ptr, generator.ptr_sized_int_type.const_int(sz as _, false));
 
-        let next_it =
-            generator
-                .builder
-                .build_int_add(it_value, it_value.get_type().const_int(1, false), "");
+        let next_it = generator
+            .builder
+            .build_int_add(it_value, it_value.get_type().const_int(1, false), "");
 
         generator.build_store(it, next_it.into());
 

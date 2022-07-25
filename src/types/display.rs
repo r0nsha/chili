@@ -32,17 +32,13 @@ impl Display for Type {
                     FloatType::Float => "float",
                 }
                 .to_string(),
-                Type::Pointer(ty, is_mutable) =>
-                    format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
+                Type::Pointer(ty, is_mutable) => format!("*{}{}", if *is_mutable { "mut " } else { "" }, ty),
                 Type::Function(func) => func.to_string(),
                 Type::Array(inner, size) => format!("[{}]{}", size, inner),
                 Type::Slice(inner) => format!("[]{}", inner),
                 Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => format!(
                     "({})",
-                    tys.iter()
-                        .map(|t| t.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
+                    tys.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(", ")
                 ),
                 Type::Struct(ty) => ty.to_string(),
                 Type::Type(_) | Type::AnyType => "type".to_string(),

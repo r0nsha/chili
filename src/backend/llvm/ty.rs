@@ -104,10 +104,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context
             .struct_type(
                 &[
-                    element_ty
-                        .llvm_type(self)
-                        .ptr_type(AddressSpace::Generic)
-                        .into(),
+                    element_ty.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
                     self.ptr_sized_int_type.into(),
                 ],
                 false,
@@ -116,15 +113,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub(super) fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
-        let params: Vec<BasicMetadataTypeEnum> = f
-            .params
-            .iter()
-            .map(|p| p.ty.llvm_type(self).into())
-            .collect();
+        let params: Vec<BasicMetadataTypeEnum> = f.params.iter().map(|p| p.ty.llvm_type(self).into()).collect();
 
         let ret = f.return_type.llvm_type(self);
 
-        ret.fn_type(&params, f.varargs.is_some())
+        ret.fn_type(&params, f.is_variadic())
     }
 
     pub(super) fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
@@ -133,18 +126,12 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
     }
 
-    pub(super) fn abi_compliant_fn_type(
-        &mut self,
-        f: &FunctionType,
-    ) -> inkwell::types::FunctionType<'ctx> {
+    pub(super) fn abi_compliant_fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
         let abi_compliant_fn_ty = self.get_abi_compliant_fn(f);
         self.abi_fn_to_type(&abi_compliant_fn_ty)
     }
 
-    pub(super) fn abi_fn_to_type(
-        &mut self,
-        abi_fn: &AbiFunction<'ctx>,
-    ) -> inkwell::types::FunctionType<'ctx> {
+    pub(super) fn abi_fn_to_type(&mut self, abi_fn: &AbiFunction<'ctx>) -> inkwell::types::FunctionType<'ctx> {
         let mut offset = 0;
 
         let ret = match abi_fn.ret.kind {
@@ -196,10 +183,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub(super) fn create_named_struct_type(
-        &mut self,
-        struct_ty: &StructType,
-    ) -> inkwell::types::StructType<'ctx> {
+    pub(super) fn create_named_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
         let struct_type = self.context.opaque_struct_type(&struct_ty.name);
 
         self.types.insert(struct_ty.binding_id, struct_type.into());
@@ -209,13 +193,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         struct_type
     }
 
-    pub(super) fn create_anonymous_struct_type(
-        &mut self,
-        struct_ty: &StructType,
-    ) -> inkwell::types::StructType<'ctx> {
+    pub(super) fn create_anonymous_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
         let fields = self.create_struct_type_fields(struct_ty);
-        self.context
-            .struct_type(&fields, struct_ty.is_packed_struct())
+        self.context.struct_type(&fields, struct_ty.is_packed_struct())
     }
 
     fn create_struct_type_fields(&mut self, struct_ty: &StructType) -> Vec<BasicTypeEnum<'ctx>> {

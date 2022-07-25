@@ -26,10 +26,7 @@ impl IndexMut<usize> for Bytecode {
 
 impl Bytecode {
     pub fn new() -> Self {
-        Self {
-            buf: vec![],
-            locals: 0,
-        }
+        Self { buf: vec![], locals: 0 }
     }
 
     #[inline(always)]

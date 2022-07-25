@@ -47,9 +47,7 @@ fn find_libc() -> String {
     exists(format!("/lib/{}", libc_file_name))
         .or_else(|| exists(format!("/usr/lib/{}", libc_file_name)))
         .or_else(|| exists(format!("/lib/x86_64-linux-gnu/{}", libc_file_name)))
-        .unwrap_or_else(|| {
-            panic!("couldn't find libc on the current machine. this is most likely an ICE")
-        })
+        .unwrap_or_else(|| panic!("couldn't find libc on the current machine. this is most likely an ICE"))
 }
 
 impl Ffi {
@@ -79,28 +77,31 @@ impl Ffi {
 
     pub unsafe fn call(
         &mut self,
-        func: ExternFunction,
+        function: ExternFunction,
         mut args: Vec<Value>,
         vm: *mut VM,
         interp: *const Interp,
     ) -> Value {
-        let symbol = self.load_symbol(func.lib_path, func.name);
+        let symbol = self.load_symbol(function.lib_path, function.name);
 
-        let mut function = if func.variadic {
+        let function_type = &function.ty;
+        let param_types = function_type.params.iter().map(|p| p.ty.clone()).collect::<Vec<Type>>();
+
+        let mut function = if function_type.is_variadic() {
             let variadic_arg_types: Vec<Type> = args
                 .iter()
-                .skip(func.param_tys.len())
+                .skip(function_type.params.len())
                 .map(|value| value.get_type(&*interp))
                 .collect();
 
-            FfiFunction::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
+            FfiFunction::new_variadic(&param_types, &variadic_arg_types, &function_type.return_type)
         } else {
-            FfiFunction::new(&func.param_tys, &func.return_ty)
+            FfiFunction::new(&param_types, &function_type.return_type)
         };
 
         let result = function.call(*symbol, &mut args, self, vm);
 
-        Value::from_type_and_ptr(&func.return_ty, result as RawPointer)
+        Value::from_type_and_ptr(&function_type.return_type, result as RawPointer)
     }
 }
 
@@ -120,18 +121,10 @@ impl FfiFunction {
         Self { cif }
     }
 
-    unsafe fn new_variadic(
-        arg_types: &[Type],
-        variadic_arg_types: &[Type],
-        return_type: &Type,
-    ) -> Self {
+    unsafe fn new_variadic(arg_types: &[Type], variadic_arg_types: &[Type], return_type: &Type) -> Self {
         let cif_return_type: FfiType = return_type.as_ffi_type();
 
-        let arg_types: Vec<Type> = arg_types
-            .iter()
-            .chain(variadic_arg_types.iter())
-            .cloned()
-            .collect();
+        let arg_types: Vec<Type> = arg_types.iter().chain(variadic_arg_types.iter()).cloned().collect();
 
         let cif_arg_types: Vec<FfiType> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
 
@@ -172,23 +165,15 @@ impl FfiFunction {
                 Value::Function(addr) => match (*vm).interp.get_function(addr.id).unwrap() {
                     FunctionValue::Orphan(function) => {
                         let ffi_function = FfiFunction::new(
-                            &function
-                                .ty
-                                .params
-                                .iter()
-                                .map(|p| &p.ty)
-                                .cloned()
-                                .collect::<Vec<Type>>(),
+                            &function.ty.params.iter().map(|p| &p.ty).cloned().collect::<Vec<Type>>(),
                             &function.ty.return_type,
                         );
 
                         let user_data = bump.alloc(ClosureUserData { vm, function });
 
-                        let closure =
-                            bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
+                        let closure = bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
 
-                        let code_ptr =
-                            closure.instantiate_code_ptr::<c_void>() as *const c_void as RawPointer;
+                        let code_ptr = closure.instantiate_code_ptr::<c_void>() as *const c_void as RawPointer;
 
                         raw_ptr!(code_ptr)
                     }
@@ -322,13 +307,9 @@ impl AsFfiType for Type {
                     }
                 }
             },
-            Type::Unit | Type::Pointer(_, _) | Type::Function(_) | Type::Array(_, _) => {
-                FfiType::pointer()
-            }
+            Type::Unit | Type::Pointer(_, _) | Type::Function(_) | Type::Array(_, _) => FfiType::pointer(),
             Type::Slice(_) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
-            Type::Tuple(tuple_elements) => {
-                FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
-            }
+            Type::Tuple(tuple_elements) => FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type())),
             Type::Struct(st) => FfiType::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
             Type::Infer(_, ty) => match ty {
                 InferType::AnyInt => {

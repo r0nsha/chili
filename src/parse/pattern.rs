@@ -1,7 +1,5 @@
 use super::*;
-use crate::ast::pattern::{
-    HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard,
-};
+use crate::ast::pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard};
 use crate::error::SyntaxError;
 use crate::span::To;
 
@@ -103,13 +101,7 @@ impl Parser {
     fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous_span();
 
-        let symbols = parse_delimited_list!(
-            self,
-            CloseParen,
-            Comma,
-            self.parse_name_pattern()?,
-            ", or )"
-        );
+        let symbols = parse_delimited_list!(self, CloseParen, Comma, self.parse_name_pattern()?, ", or )");
 
         let unpack = UnpackPattern {
             symbols,

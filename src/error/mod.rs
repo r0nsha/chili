@@ -87,11 +87,7 @@ impl SyntaxError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn duplicate_binding(
-        already_defined_span: Span,
-        duplicate_span: Span,
-        name: Ustr,
-    ) -> Diagnostic {
+    pub fn duplicate_binding(already_defined_span: Span, duplicate_span: Span, name: Ustr) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("duplicate definitions with name `{}`", name))
             .with_label(Label::primary(duplicate_span, "duplicate definition here"))
@@ -101,16 +97,9 @@ impl SyntaxError {
             ))
     }
 
-    pub fn duplicate_struct_field(
-        defined_field_span: Span,
-        field_span: Span,
-        field_name: String,
-    ) -> Diagnostic {
+    pub fn duplicate_struct_field(defined_field_span: Span, field_span: Span, field_name: String) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!(
-                "struct field `{}` is defined more than once",
-                field_name
-            ))
+            .with_message(format!("struct field `{}` is defined more than once", field_name))
             .with_label(Label::primary(field_span, "field defined more than once"))
             .with_label(Label::secondary(
                 defined_field_span,
@@ -144,22 +133,13 @@ pub struct TypeError;
 impl TypeError {
     pub fn type_is_unsized(ty: String, span: Span) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!(
-                "the size of type `{}` cannot be known at compile-time",
-                ty
-            ))
-            .with_label(Label::primary(
-                span,
-                "doesn't have a size known at compile-time",
-            ))
+            .with_message(format!("the size of type `{}` cannot be known at compile-time", ty))
+            .with_label(Label::primary(span, "doesn't have a size known at compile-time"))
     }
 
     pub fn binding_is_unsized(name: &str, ty: String, span: Span) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!(
-                "the size of type `{}` cannot be known at compile-time",
-                ty
-            ))
+            .with_message(format!("the size of type `{}` cannot be known at compile-time", ty))
             .with_label(Label::primary(
                 span,
                 format!("`{}` doesn't have a size known at compile-time", name),
@@ -172,12 +152,7 @@ impl TypeError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn tuple_field_out_of_bounds(
-        span: Span,
-        field: &str,
-        ty: String,
-        max: usize,
-    ) -> Diagnostic {
+    pub fn tuple_field_out_of_bounds(span: Span, field: &str, ty: String, max: usize) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!(
                 "no field `{}` on type `{}`, expected index between 0 and {}",
@@ -188,14 +163,8 @@ impl TypeError {
 
     pub fn non_numeric_tuple_field(span: Span, field: &str, ty: String) -> Diagnostic {
         Diagnostic::error()
-            .with_message(format!(
-                "can only access tuple `{}` fields by its indices",
-                ty
-            ))
-            .with_label(Label::primary(
-                span,
-                format!("invalid tuple member `{}`", field),
-            ))
+            .with_message(format!("can only access tuple `{}` fields by its indices", ty))
+            .with_label(Label::primary(span, format!("invalid tuple member `{}`", field)))
     }
 
     pub fn invalid_struct_field(span: Span, field: Ustr, ty: String) -> Diagnostic {

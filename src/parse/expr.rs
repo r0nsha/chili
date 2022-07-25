@@ -54,11 +54,7 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            let attrs = if is!(self, Hash) {
-                self.parse_attrs()?
-            } else {
-                vec![]
-            };
+            let attrs = if is!(self, Hash) { self.parse_attrs()? } else { vec![] };
 
             let has_attrs = !attrs.is_empty();
 
@@ -69,10 +65,7 @@ impl Parser {
                         self.parse_logic_or()
                     } else {
                         Err(Diagnostic::error()
-                            .with_message(format!(
-                                "expected a binding, got `{}`",
-                                self.peek().lexeme
-                            ))
+                            .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
                             .with_label(Label::primary(self.span(), "unexpected token")))
                     }
                 }
@@ -127,16 +120,14 @@ impl Parser {
         while !eat!(self, CloseCurly) && !self.is_end() {
             self.skip_semicolons();
 
-            let expr = self
-                .parse_expr_res(Restrictions::STMT_EXPR)
-                .unwrap_or_else(|diag| {
-                    let span = self.previous_span();
+            let expr = self.parse_expr_res(Restrictions::STMT_EXPR).unwrap_or_else(|diag| {
+                let span = self.previous_span();
 
-                    self.cache.lock().diagnostics.push(diag);
-                    self.skip_until_recovery_point();
+                self.cache.lock().diagnostics.push(diag);
+                self.skip_until_recovery_point();
 
-                    ast::Ast::Error(ast::Empty { span })
-                });
+                ast::Ast::Error(ast::Empty { span })
+            });
 
             exprs.push(expr);
 
@@ -206,11 +197,7 @@ impl Parser {
     }
 
     pub fn parse_factor(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(
-            self,
-            pattern = Star | FwSlash | Percent,
-            next_fn = Parser::parse_unary
-        )
+        parse_binary!(self, pattern = Star | FwSlash | Percent, next_fn = Parser::parse_unary)
     }
 
     pub fn parse_unary(&mut self) -> DiagnosticResult<Ast> {
@@ -308,10 +295,7 @@ impl Parser {
             }
         } else if eat!(self, Break | Continue | Return) {
             self.parse_terminator()?
-        } else if eat!(
-            self,
-            Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)
-        ) {
+        } else if eat!(self, Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)) {
             self.parse_literal()?
         } else if eat!(self, OpenParen) {
             let start_span = self.previous_span();
@@ -337,7 +321,7 @@ impl Parser {
             }
         } else if eat!(self, Fn) {
             let name = self.get_decl_name();
-            self.parse_function(name, None)?
+            self.parse_function(name, false)?
         } else if eat!(self, Struct) {
             self.parse_struct_type()?
         } else if eat!(self, Union) {
@@ -530,8 +514,7 @@ impl Parser {
 
         Ok(Ast::For(ast::For {
             iter_binding: ast::NameAndSpan::new(iter_ident.name(), iter_ident.span),
-            index_binding: iter_index_ident
-                .map(|ident| ast::NameAndSpan::new(ident.name(), ident.span)),
+            index_binding: iter_index_ident.map(|ident| ast::NameAndSpan::new(ident.name(), ident.span)),
             iterator,
             block,
             span: start_span.to(self.previous_span()),

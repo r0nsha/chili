@@ -105,9 +105,10 @@ impl<'a> CollectHints<'a> for hir::Function {
                         continue;
                     }
 
-                    if binding_info.flags.contains(
-                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED,
-                    ) {
+                    if binding_info
+                        .flags
+                        .contains(BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED)
+                    {
                         sess.push_hint(binding_info.span, ty.to_string(), HintKind::Binding)
                     } else if binding_info
                         .flags
@@ -134,17 +135,9 @@ impl<'a> CollectHints<'a> for hir::Function {
                 }
 
                 if let Some(span) = inferred_return_type_span {
-                    match self
-                        .ty
-                        .normalize(sess.tcx)
-                        .into_function()
-                        .return_type
-                        .as_ref()
-                    {
+                    match self.ty.normalize(sess.tcx).into_function().return_type.as_ref() {
                         Type::Unit => (),
-                        return_type => {
-                            sess.push_hint(*span, return_type.to_string(), HintKind::ReturnType)
-                        }
+                        return_type => sess.push_hint(*span, return_type.to_string(), HintKind::ReturnType),
                     }
                 }
 
@@ -249,9 +242,7 @@ impl<'a> CollectHints<'a> for hir::Builtin {
             | hir::Builtin::BitAnd(x)
             | hir::Builtin::BitOr(x)
             | hir::Builtin::BitXor(x) => x.collect_hints(sess),
-            hir::Builtin::Not(x) | hir::Builtin::Neg(x) | hir::Builtin::Deref(x) => {
-                x.collect_hints(sess)
-            }
+            hir::Builtin::Not(x) | hir::Builtin::Neg(x) | hir::Builtin::Deref(x) => x.collect_hints(sess),
             hir::Builtin::Ref(x) => x.collect_hints(sess),
             hir::Builtin::Offset(x) => x.collect_hints(sess),
             hir::Builtin::Slice(x) => x.collect_hints(sess),

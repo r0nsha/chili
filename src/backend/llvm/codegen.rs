@@ -18,9 +18,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{
-        BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue,
-    },
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue},
     OptimizationLevel,
 };
 use std::{
@@ -146,8 +144,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn optimize(&mut self) {
         let pass_manager_builder = PassManagerBuilder::create();
 
-        let optimization_level: OptimizationLevel =
-            self.workspace.build_options.optimization_level.into();
+        let optimization_level: OptimizationLevel = self.workspace.build_options.optimization_level.into();
 
         let size_level: u32 = match self.workspace.build_options.optimization_level {
             build_options::OptimizationLevel::Debug => 1,
@@ -181,12 +178,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         decl
     }
 
-    pub(super) fn add_global(
-        &mut self,
-        id: BindingId,
-        ty: BasicTypeEnum<'ctx>,
-        linkage: Linkage,
-    ) -> GlobalValue<'ctx> {
+    pub(super) fn add_global(&mut self, id: BindingId, ty: BasicTypeEnum<'ctx>, linkage: Linkage) -> GlobalValue<'ctx> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
         let global_value = self.module.add_global(ty, None, &binding_info.name);
         global_value.set_linkage(linkage);
@@ -217,11 +209,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .unwrap_or_else(|| panic!("couldn't find {} in {}", name, module_name))
     }
 
-    pub(super) fn find_decl_by_name(
-        &mut self,
-        module_name: impl Into<Ustr>,
-        name: impl Into<Ustr>,
-    ) -> Decl<'ctx> {
+    pub(super) fn find_decl_by_name(&mut self, module_name: impl Into<Ustr>, name: impl Into<Ustr>) -> Decl<'ctx> {
         let id = self.find_binding_info_by_name(module_name, name).id;
         self.gen_top_level_binding(id)
     }
@@ -252,12 +240,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
         match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => inst
-                .get_operand(0)
-                .unwrap()
-                .left()
-                .unwrap()
-                .into_pointer_value(),
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
+                inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
+            }
             _ => self.local_with_alloca(state, id, value),
         }
     }
@@ -268,12 +253,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
         match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => inst
-                .get_operand(0)
-                .unwrap()
-                .left()
-                .unwrap()
-                .into_pointer_value(),
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
+                inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
+            }
             _ => {
                 let ptr = self.build_alloca(state, value.get_type());
                 self.build_store(ptr, value);
@@ -282,17 +264,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    fn gen_local_inner(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        id: BindingId,
-        ptr: PointerValue<'ctx>,
-    ) {
-        let name = self
-            .workspace
-            .binding_infos
-            .get(id)
-            .map_or(ustr(""), |b| b.name);
+    fn gen_local_inner(&mut self, state: &mut FunctionState<'ctx>, id: BindingId, ptr: PointerValue<'ctx>) {
+        let name = self.workspace.binding_infos.get(id).map_or(ustr(""), |b| b.name);
 
         ptr.set_name(&name);
 
@@ -301,10 +274,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             self.target_metrics.word_size,
         );
 
-        ptr.as_instruction_value()
-            .unwrap()
-            .set_alignment(align as u32)
-            .unwrap();
+        ptr.as_instruction_value().unwrap().set_alignment(align as u32).unwrap();
 
         if id != BindingId::unknown() {
             state.scopes.insert(id, Decl::Local(ptr));
@@ -319,11 +289,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match const_value {
             ConstValue::Unit(_) | ConstValue::Type(_) => self.unit_value(),
-            ConstValue::Bool(v) => self
-                .context
-                .bool_type()
-                .const_int(if *v { 1 } else { 0 }, false)
-                .into(),
+            ConstValue::Bool(v) => self.context.bool_type().const_int(if *v { 1 } else { 0 }, false).into(),
             ConstValue::Int(v) => {
                 if ty.is_any_integer() {
                     ty.llvm_type(self)
@@ -331,10 +297,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .const_int(*v as u64, ty.is_signed_int())
                         .into()
                 } else {
-                    ty.llvm_type(self)
-                        .into_float_type()
-                        .const_float(*v as f64)
-                        .into()
+                    ty.llvm_type(self).into_float_type().const_float(*v as f64).into()
                 }
             }
             ConstValue::Uint(v) => {
@@ -344,17 +307,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .const_int(*v, ty.is_signed_int())
                         .into()
                 } else {
-                    ty.llvm_type(self)
-                        .into_float_type()
-                        .const_float(*v as f64)
-                        .into()
+                    ty.llvm_type(self).into_float_type().const_float(*v as f64).into()
                 }
             }
-            ConstValue::Float(v) => ty
-                .llvm_type(self)
-                .into_float_type()
-                .const_float(*v as f64)
-                .into(),
+            ConstValue::Float(v) => ty.llvm_type(self).into_float_type().const_float(*v as f64).into(),
             ConstValue::Str(v) => self.const_str_slice("", *v).into(),
             ConstValue::Array(array) => {
                 let el_ty = array.element_ty.normalize(self.tcx);
@@ -370,9 +326,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             ConstValue::Tuple(elements) => {
                 let values = elements
                     .iter()
-                    .map(|element| {
-                        self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx))
-                    })
+                    .map(|element| self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx)))
                     .collect::<Vec<BasicValueEnum>>();
 
                 self.const_struct(&values).into()
@@ -380,16 +334,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             ConstValue::Struct(fields) => {
                 let values = fields
                     .values()
-                    .map(|element| {
-                        self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx))
-                    })
+                    .map(|element| self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx)))
                     .collect::<Vec<BasicValueEnum>>();
 
                 // self.context.const_struct(&values, false).into();
-                ty.llvm_type(self)
-                    .into_struct_type()
-                    .const_named_struct(&values)
-                    .into()
+                ty.llvm_type(self).into_struct_type().const_named_struct(&values).into()
             }
             ConstValue::Function(function) => {
                 let prev_block = if let Some(state) = state {
@@ -407,24 +356,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 function_value.as_global_value().as_pointer_value().into()
             }
             ConstValue::ExternVariable(variable) => {
-                if let Some(lib) = &variable.lib {
+                if let Some(lib) = variable.lib.as_ref().or(variable.dylib.as_ref()) {
                     self.extern_libraries.insert(lib.clone());
                 }
 
-                let global_value = self
-                    .extern_variables
-                    .get(&variable.name)
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        let llvm_type = variable.ty.llvm_type(self);
+                let global_value = self.extern_variables.get(&variable.name).cloned().unwrap_or_else(|| {
+                    let llvm_type = variable.ty.llvm_type(self);
 
-                        let global_value = self.module.add_global(llvm_type, None, &variable.name);
-                        global_value.set_linkage(Linkage::External);
+                    let global_value = self.module.add_global(llvm_type, None, &variable.name);
+                    global_value.set_linkage(Linkage::External);
 
-                        self.extern_variables.insert(variable.name, global_value);
+                    self.extern_variables.insert(variable.name, global_value);
 
-                        global_value
-                    });
+                    global_value
+                });
 
                 let ptr = global_value.as_pointer_value();
 
@@ -433,11 +378,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub(super) fn gen_return(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        value: Option<BasicValueEnum<'ctx>>,
-    ) {
+    pub(super) fn gen_return(&mut self, state: &mut FunctionState<'ctx>, value: Option<BasicValueEnum<'ctx>>) {
         let abi_fn = self.get_abi_compliant_fn(&state.fn_type);
 
         if abi_fn.ret.kind.is_indirect() {
@@ -466,11 +407,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         } else {
             let value = value.unwrap_or_else(|| self.unit_value());
 
-            let value = self.build_transmute(
-                state,
-                value,
-                state.function.get_type().get_return_type().unwrap(),
-            );
+            let value = self.build_transmute(state, value, state.function.get_type().get_return_type().unwrap());
 
             self.builder.build_return(Some(&value));
         }
@@ -481,11 +418,7 @@ pub(super) trait Codegen<'g, 'ctx>
 where
     Self: Debug,
 {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx>;
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx>;
 
     fn codegen_global(&self, _generator: &mut Generator<'g, 'ctx>) -> Decl<'ctx> {
         unimplemented!("{:?}", self)

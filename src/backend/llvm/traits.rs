@@ -18,10 +18,7 @@ impl<'ctx> IsALoadInst for BasicValueEnum<'ctx> {
 impl<'ctx> IsALoadInst for AnyValueEnum<'ctx> {
     fn is_a_load_inst(&self) -> bool {
         if self.is_instruction_value() {
-            matches!(
-                self.into_instruction_value().get_opcode(),
-                InstructionOpcode::Load
-            )
+            matches!(self.into_instruction_value().get_opcode(), InstructionOpcode::Load)
         } else {
             false
         }

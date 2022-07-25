@@ -6,28 +6,17 @@ use inkwell::values::{BasicValue, BasicValueEnum, IntValue};
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     #[allow(unused)]
-    pub(super) fn gen_panic_with_message(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        msg: impl AsRef<str>,
-        span: Span,
-    ) {
+    pub(super) fn gen_panic_with_message(&mut self, state: &mut FunctionState<'ctx>, msg: impl AsRef<str>, span: Span) {
         let message = self.const_str_slice("", msg.as_ref()).into();
         self.gen_panic(state, message, span)
     }
 
-    pub(super) fn gen_panic(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        message: BasicValueEnum<'ctx>,
-        span: Span,
-    ) {
+    pub(super) fn gen_panic(&mut self, state: &mut FunctionState<'ctx>, message: BasicValueEnum<'ctx>, span: Span) {
         let panic_fn = self
             .find_decl_by_name("std.panicking", "default_panic_handler")
             .into_function_value();
 
-        let default_panic_handler_info =
-            self.find_binding_info_by_name("std.panicking", "default_panic_handler");
+        let default_panic_handler_info = self.find_binding_info_by_name("std.panicking", "default_panic_handler");
 
         let panic_type = default_panic_handler_info
             .ty
@@ -41,13 +30,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .const_str_slice("panic_file_path", state.module_info.file_path)
             .as_basic_value_enum();
 
-        let line = self
-            .ptr_sized_int_type
-            .const_int(span.start.line as _, false);
+        let line = self.ptr_sized_int_type.const_int(span.start.line as _, false);
 
-        let column = self
-            .ptr_sized_int_type
-            .const_int(span.start.column as _, false);
+        let column = self.ptr_sized_int_type.const_int(span.start.column as _, false);
 
         let panic_info = self.build_struct(
             state,
@@ -57,13 +42,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let panic_info = self.build_load(panic_info.into());
 
-        self.gen_function_call(
-            state,
-            panic_fn,
-            &panic_type,
-            vec![panic_info],
-            &panic_type.return_type,
-        );
+        self.gen_function_call(state, panic_fn, &panic_type, vec![panic_info], &panic_type.return_type);
 
         self.build_unreachable();
     }

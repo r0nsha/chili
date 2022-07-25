@@ -172,9 +172,11 @@ impl<'i> InterpSess<'i> {
                 },
             );
 
-            self.interp
-                .constants
-                .push(Value::Function(FunctionAddress { id, name }));
+            self.interp.constants.push(Value::Function(FunctionAddress {
+                id,
+                is_extern: false,
+                name,
+            }));
 
             code.write_inst(Inst::LoadConst(const_slot as u32));
         }

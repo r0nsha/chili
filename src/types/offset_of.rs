@@ -22,16 +22,11 @@ impl OffsetOf for Type {
                 1 => word_size,
                 _ => panic!("{}", index),
             },
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
-                StructType::temp(
-                    elems
-                        .iter()
-                        .map(|t| StructTypeField::temp(t.clone()))
-                        .collect(),
-                    StructTypeKind::Struct,
-                )
-                .offset_of(index, word_size)
-            }
+            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+                elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
+                StructTypeKind::Struct,
+            )
+            .offset_of(index, word_size),
             Type::Struct(s) => s.offset_of(index, word_size),
             Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
                 let mut offset = 0;
@@ -63,12 +58,7 @@ impl OffsetOf for StructType {
 
                 offset
             }
-            StructTypeKind::PackedStruct => self
-                .fields
-                .iter()
-                .take(index)
-                .map(|f| f.ty.size_of(word_size))
-                .sum(),
+            StructTypeKind::PackedStruct => self.fields.iter().take(index).map(|f| f.ty.size_of(word_size)).sum(),
             StructTypeKind::Union => 0,
         }
     }

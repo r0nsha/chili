@@ -58,21 +58,20 @@ impl BuildOptions {
     }
 
     pub fn start_function_name(&self) -> Option<&'static str> {
-        self.need_entry_point_function()
-            .then(|| match &self.target_platform {
-                TargetPlatform::Windows386
-                | TargetPlatform::WindowsAmd64
-                | TargetPlatform::Linux386
-                | TargetPlatform::LinuxAmd64
-                | TargetPlatform::LinuxArm64
-                | TargetPlatform::DarwinAmd64
-                | TargetPlatform::DarwinArm64
-                | TargetPlatform::FreeBSD386
-                | TargetPlatform::FreeBSDAmd64
-                | TargetPlatform::EssenceAmd64 => "main",
+        self.need_entry_point_function().then(|| match &self.target_platform {
+            TargetPlatform::Windows386
+            | TargetPlatform::WindowsAmd64
+            | TargetPlatform::Linux386
+            | TargetPlatform::LinuxAmd64
+            | TargetPlatform::LinuxArm64
+            | TargetPlatform::DarwinAmd64
+            | TargetPlatform::DarwinArm64
+            | TargetPlatform::FreeBSD386
+            | TargetPlatform::FreeBSDAmd64
+            | TargetPlatform::EssenceAmd64 => "main",
 
-                p => panic!("unexpected TargetPlatform::{:?}", p),
-            })
+            p => panic!("unexpected TargetPlatform::{:?}", p),
+        })
     }
 }
 

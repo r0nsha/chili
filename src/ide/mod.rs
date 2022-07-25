@@ -70,16 +70,11 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, typed_ast: Opti
 
 pub fn hover_info(workspace: &Workspace, tcx: Option<&TypeCtx>, offset: usize) {
     if let Some(tcx) = tcx {
-        let searched_binding_info =
-            workspace
-                .binding_infos
-                .iter()
-                .map(|(_, b)| b)
-                .find(|binding_info| {
-                    binding_info.module_id == workspace.root_module_id
-                        && binding_info.is_is_user_defined()
-                        && binding_info.span.contains(offset)
-                });
+        let searched_binding_info = workspace.binding_infos.iter().map(|(_, b)| b).find(|binding_info| {
+            binding_info.module_id == workspace.root_module_id
+                && binding_info.is_is_user_defined()
+                && binding_info.span.contains(offset)
+        });
 
         if let Some(binding_info) = searched_binding_info {
             write(&HoverInfo {
@@ -105,10 +100,7 @@ pub fn goto_definition(workspace: &Workspace, tcx: Option<&TypeCtx>, offset: usi
                             end: EndPosition::initial(),
                         };
 
-                        write(&IdeSpan::from_span_and_file(
-                            span,
-                            module_info.file_path.to_string(),
-                        ));
+                        write(&IdeSpan::from_span_and_file(span, module_info.file_path.to_string()));
 
                         return;
                     }

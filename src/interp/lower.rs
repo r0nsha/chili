@@ -15,9 +15,7 @@ use crate::{
     },
     infer::normalize::Normalize,
     interp::vm::value::FunctionAddress,
-    types::{
-        offset_of::OffsetOf, size_of::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType,
-    },
+    types::{offset_of::OffsetOf, size_of::SizeOf, FloatType, InferType, IntType, Type, TypeId, UintType},
     workspace::{BindingId, BindingInfoKind},
 };
 use byteorder::{NativeEndian, WriteBytesExt};
@@ -76,11 +74,9 @@ impl Lower for hir::Function {
                     sess.env_mut().insert(params[index].id, offset);
                 }
 
-                body.as_ref().unwrap().lower(
-                    sess,
-                    &mut function_code,
-                    LowerContext { take_ptr: false },
-                );
+                body.as_ref()
+                    .unwrap()
+                    .lower(sess, &mut function_code, LowerContext { take_ptr: false });
 
                 function_code.write_inst(Inst::Return);
 
@@ -96,19 +92,17 @@ impl Lower for hir::Function {
                     },
                 );
             }
-            hir::FunctionKind::Extern { lib } => {
-                let lib_path = lib.as_ref().map_or_else(
+            hir::FunctionKind::Extern { dylib, link_name, .. } => {
+                let lib_path = dylib.as_ref().map_or_else(
                     || {
                         sess.diagnostics.push(
                             Diagnostic::error()
                                 .with_message(format!(
-                            "must specify `dylib` to use extern function `{}` at compile-time",
-                            self.name
-                        ))
-                                .with_label(Label::primary(
-                                    self.span,
-                                    "cannot run during compile-time",
-                                )),
+                                    "must specify a library to use extern function `{}` at compile-time",
+                                    self.name
+                                ))
+                                .with_label(Label::primary(self.span, "cannot use during compile-time"))
+                                .with_note("add #[lib = \"your_lib\"] above the declaration"),
                         );
 
                         ustr("")
@@ -120,10 +114,8 @@ impl Lower for hir::Function {
                     self.id,
                     ExternFunction {
                         lib_path,
-                        name: self.qualified_name,
-                        param_tys: function_type.params.iter().map(|p| p.ty.clone()).collect(),
-                        return_ty: *function_type.return_type,
-                        variadic: function_type.varargs.is_some(),
+                        name: *link_name,
+                        ty: function_type,
                     },
                 );
             }
@@ -136,16 +128,15 @@ impl Lower for hir::Function {
 
 impl Lower for hir::Binding {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
-        if let Some(ConstValue::ExternVariable(ConstExternVariable { lib: None, .. })) =
-            self.value.as_const_value()
-        {
+        if let Some(ConstValue::ExternVariable(ConstExternVariable { lib: None, .. })) = self.value.as_const_value() {
             sess.diagnostics.push(
                 Diagnostic::error()
                     .with_message(format!(
-                        "must specify `dylib` to use extern variable `{}` at compile-time",
+                        "must specify a library to use extern variable `{}` at compile-time",
                         self.name
                     ))
-                    .with_label(Label::primary(self.span, "cannot use during compile-time")),
+                    .with_label(Label::primary(self.span, "cannot use during compile-time"))
+                    .with_note("add #[lib = \"your_lib\"] above the declaration"),
             );
 
             return;
@@ -158,8 +149,7 @@ impl Lower for hir::Binding {
                 lower_static_binding(self, sess);
             }
             _ => {
-                self.value
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                self.value.lower(sess, code, LowerContext { take_ptr: false });
 
                 sess.add_local(code, self.id);
                 let last_local = code.locals as i32 - 1;
@@ -228,8 +218,7 @@ impl Lower for hir::Call {
             arg.lower(sess, code, LowerContext { take_ptr: false });
         }
 
-        self.callee
-            .lower(sess, code, LowerContext { take_ptr: false });
+        self.callee.lower(sess, code, LowerContext { take_ptr: false });
 
         code.write_inst(Inst::Call(self.args.len() as u32));
     }
@@ -237,8 +226,7 @@ impl Lower for hir::Call {
 
 impl Lower for hir::Cast {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
-        self.value
-            .lower(sess, code, LowerContext { take_ptr: false });
+        self.value.lower(sess, code, LowerContext { take_ptr: false });
 
         let target_type = self.ty.normalize(sess.tcx);
 
@@ -253,8 +241,7 @@ impl Lower for hir::Cast {
                     sess.push_const(code, Value::Type(value_type.clone()));
                     code.write_inst(Inst::BufferAlloc(value_type_size));
 
-                    self.value
-                        .lower(sess, code, LowerContext { take_ptr: true });
+                    self.value.lower(sess, code, LowerContext { take_ptr: true });
 
                     // calculate the new slice's offset
                     sess.push_const(code, Value::Uint(0));
@@ -299,15 +286,7 @@ impl Lower for hir::Sequence {
         for (index, expr) in self.statements.iter().enumerate() {
             let is_last = index == self.statements.len() - 1;
 
-            expr.lower(
-                sess,
-                code,
-                if is_last {
-                    ctx
-                } else {
-                    LowerContext { take_ptr: false }
-                },
-            );
+            expr.lower(sess, code, if is_last { ctx } else { LowerContext { take_ptr: false } });
 
             if !is_last {
                 code.write_inst(Inst::Pop);
@@ -328,19 +307,11 @@ impl Lower for hir::Control {
             hir::Control::Return(x) => x.lower(sess, code, ctx),
             hir::Control::Break(_) => {
                 let pos = code.write_inst(Inst::Jmp(INVALID_JMP_OFFSET));
-                sess.loop_env_stack
-                    .last_mut()
-                    .unwrap()
-                    .break_offsets
-                    .push(pos);
+                sess.loop_env_stack.last_mut().unwrap().break_offsets.push(pos);
             }
             hir::Control::Continue(_) => {
                 let pos = code.write_inst(Inst::Jmp(INVALID_JMP_OFFSET));
-                sess.loop_env_stack
-                    .last_mut()
-                    .unwrap()
-                    .break_offsets
-                    .push(pos);
+                sess.loop_env_stack.last_mut().unwrap().break_offsets.push(pos);
             }
         }
     }
@@ -351,14 +322,8 @@ impl Lower for hir::If {
         lower_conditional(
             sess,
             code,
-            |sess, code| {
-                self.condition
-                    .lower(sess, code, LowerContext { take_ptr: false })
-            },
-            |sess, code| {
-                self.then
-                    .lower(sess, code, LowerContext { take_ptr: false })
-            },
+            |sess, code| self.condition.lower(sess, code, LowerContext { take_ptr: false }),
+            |sess, code| self.then.lower(sess, code, LowerContext { take_ptr: false }),
             |sess, code| {
                 if let Some(otherwise) = &self.otherwise {
                     otherwise.lower(sess, code, LowerContext { take_ptr: false });
@@ -396,15 +361,13 @@ impl Lower for hir::While {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         let loop_start = code.len();
 
-        self.condition
-            .lower(sess, code, LowerContext { take_ptr: false });
+        self.condition.lower(sess, code, LowerContext { take_ptr: false });
 
         let exit_jmp = code.write_inst(Inst::Jmpf(INVALID_JMP_OFFSET));
 
         sess.loop_env_stack.push(LoopEnv::new());
 
-        self.body
-            .lower(sess, code, LowerContext { take_ptr: false });
+        self.body.lower(sess, code, LowerContext { take_ptr: false });
 
         let loop_env = sess.loop_env_stack.pop().unwrap();
 
@@ -437,8 +400,7 @@ impl Lower for hir::While {
 
 impl Lower for hir::Return {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
-        self.value
-            .lower(sess, code, LowerContext { take_ptr: false });
+        self.value.lower(sess, code, LowerContext { take_ptr: false });
         code.write_inst(Inst::Return);
     }
 }
@@ -447,72 +409,44 @@ impl Lower for hir::Builtin {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
         match self {
             hir::Builtin::Add(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Add);
             }
             hir::Builtin::Sub(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Sub);
             }
             hir::Builtin::Mul(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Mul);
             }
             hir::Builtin::Div(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Div);
             }
             hir::Builtin::Rem(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Rem);
             }
             hir::Builtin::Shl(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Shl);
             }
             hir::Builtin::Shr(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Shr);
             }
@@ -521,14 +455,10 @@ impl Lower for hir::Builtin {
                     sess,
                     code,
                     |sess, code| {
-                        binary
-                            .lhs
-                            .lower(sess, code, LowerContext { take_ptr: false });
+                        binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
                     },
                     |sess, code| {
-                        binary
-                            .rhs
-                            .lower(sess, code, LowerContext { take_ptr: false });
+                        binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
                     },
                     |sess, code| {
                         sess.push_const(code, Value::Bool(false));
@@ -540,140 +470,90 @@ impl Lower for hir::Builtin {
                     sess,
                     code,
                     |sess, code| {
-                        binary
-                            .lhs
-                            .lower(sess, code, LowerContext { take_ptr: false });
+                        binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
                     },
                     |sess, code| {
                         sess.push_const(code, Value::Bool(true));
                     },
                     |sess, code| {
-                        binary
-                            .rhs
-                            .lower(sess, code, LowerContext { take_ptr: false });
+                        binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
                     },
                 );
             }
             hir::Builtin::Lt(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Lt);
             }
             hir::Builtin::Le(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Le);
             }
             hir::Builtin::Gt(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Gt);
             }
             hir::Builtin::Ge(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Ge);
             }
             hir::Builtin::Eq(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Eq);
             }
             hir::Builtin::Ne(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Ne);
             }
             hir::Builtin::BitAnd(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::And);
             }
             hir::Builtin::BitOr(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Or);
             }
             hir::Builtin::BitXor(binary) => {
-                binary
-                    .lhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
-                binary
-                    .rhs
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                binary.lhs.lower(sess, code, LowerContext { take_ptr: false });
+                binary.rhs.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Xor);
             }
             hir::Builtin::Not(unary) => {
-                unary
-                    .value
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                unary.value.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Not);
             }
             hir::Builtin::Neg(unary) => {
-                unary
-                    .value
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                unary.value.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Neg);
             }
             hir::Builtin::Ref(unary) => {
-                unary
-                    .value
-                    .lower(sess, code, LowerContext { take_ptr: true });
+                unary.value.lower(sess, code, LowerContext { take_ptr: true });
             }
             hir::Builtin::Deref(unary) => {
-                unary
-                    .value
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                unary.value.lower(sess, code, LowerContext { take_ptr: false });
 
                 code.write_inst(Inst::Deref);
             }
             hir::Builtin::Offset(offset) => {
-                offset
-                    .value
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                offset.value.lower(sess, code, LowerContext { take_ptr: false });
 
                 let value_type = offset.value.ty().normalize(sess.tcx);
 
@@ -689,19 +569,13 @@ impl Lower for hir::Builtin {
                     _ => unreachable!("{}", value_type),
                 };
 
-                offset
-                    .index
-                    .lower(sess, code, LowerContext { take_ptr: false });
+                offset.index.lower(sess, code, LowerContext { take_ptr: false });
 
                 sess.push_const(code, Value::Uint(elem_size));
 
                 code.write_inst(Inst::Mul);
 
-                code.write_inst(if ctx.take_ptr {
-                    Inst::IndexPtr
-                } else {
-                    Inst::Index
-                });
+                code.write_inst(if ctx.take_ptr { Inst::IndexPtr } else { Inst::Index });
             }
             hir::Builtin::Slice(slice) => {
                 let value_type = slice.value.ty().normalize(sess.tcx);
@@ -721,14 +595,10 @@ impl Lower for hir::Builtin {
                         sess.push_const(code, Value::Type(value_type.clone()));
                         code.write_inst(Inst::BufferAlloc(value_type_size));
 
-                        slice
-                            .value
-                            .lower(sess, code, LowerContext { take_ptr: true });
+                        slice.value.lower(sess, code, LowerContext { take_ptr: true });
 
                         // calculate the new slice's offset
-                        slice
-                            .low
-                            .lower(sess, code, LowerContext { take_ptr: false });
+                        slice.low.lower(sess, code, LowerContext { take_ptr: false });
                         sess.push_const(code, Value::Uint(elem_size));
                         code.write_inst(Inst::Mul);
                         code.write_inst(Inst::Offset);
@@ -736,21 +606,15 @@ impl Lower for hir::Builtin {
                         code.write_inst(Inst::BufferPut(0));
 
                         // calculate the slice length, by doing `high - low`
-                        slice
-                            .high
-                            .lower(sess, code, LowerContext { take_ptr: false });
-                        slice
-                            .low
-                            .lower(sess, code, LowerContext { take_ptr: false });
+                        slice.high.lower(sess, code, LowerContext { take_ptr: false });
+                        slice.low.lower(sess, code, LowerContext { take_ptr: false });
                         code.write_inst(Inst::Sub);
 
                         code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                     }
                     Type::Pointer(inner, _) => match inner.as_ref() {
                         Type::Slice(_) => {
-                            slice
-                                .value
-                                .lower(sess, code, LowerContext { take_ptr: false });
+                            slice.value.lower(sess, code, LowerContext { take_ptr: false });
 
                             code.write_inst(Inst::Copy(0));
                             code.write_inst(Inst::ConstIndex(1));
@@ -763,9 +627,7 @@ impl Lower for hir::Builtin {
                             code.write_inst(Inst::Swap(1));
 
                             // calculate the new slice's offset
-                            slice
-                                .low
-                                .lower(sess, code, LowerContext { take_ptr: false });
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
                             sess.push_const(code, Value::Uint(elem_size));
                             code.write_inst(Inst::Mul);
                             code.write_inst(Inst::Offset);
@@ -773,12 +635,8 @@ impl Lower for hir::Builtin {
                             code.write_inst(Inst::BufferPut(0));
 
                             // calculate the slice length, by doing `high - low`
-                            slice
-                                .high
-                                .lower(sess, code, LowerContext { take_ptr: false });
-                            slice
-                                .low
-                                .lower(sess, code, LowerContext { take_ptr: false });
+                            slice.high.lower(sess, code, LowerContext { take_ptr: false });
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
                             code.write_inst(Inst::Sub);
 
                             code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
@@ -787,25 +645,17 @@ impl Lower for hir::Builtin {
                             sess.push_const(code, Value::Type(value_type.clone()));
                             code.write_inst(Inst::BufferAlloc(value_type_size));
 
-                            slice
-                                .value
-                                .lower(sess, code, LowerContext { take_ptr: false });
+                            slice.value.lower(sess, code, LowerContext { take_ptr: false });
 
-                            slice
-                                .low
-                                .lower(sess, code, LowerContext { take_ptr: false });
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
                             sess.push_const(code, Value::Uint(elem_size));
                             code.write_inst(Inst::Mul);
                             code.write_inst(Inst::Offset);
 
                             code.write_inst(Inst::BufferPut(0));
 
-                            slice
-                                .high
-                                .lower(sess, code, LowerContext { take_ptr: false });
-                            slice
-                                .low
-                                .lower(sess, code, LowerContext { take_ptr: false });
+                            slice.high.lower(sess, code, LowerContext { take_ptr: false });
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
                             code.write_inst(Inst::Sub);
 
                             code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
@@ -847,13 +697,9 @@ impl Lower for hir::StructLiteral {
         });
 
         for (index, field) in ordered_fields.iter().enumerate() {
-            field
-                .value
-                .lower(sess, code, LowerContext { take_ptr: false });
+            field.value.lower(sess, code, LowerContext { take_ptr: false });
 
-            code.write_inst(Inst::BufferPut(
-                struct_type.offset_of(index, WORD_SIZE) as u32
-            ));
+            code.write_inst(Inst::BufferPut(struct_type.offset_of(index, WORD_SIZE) as u32));
         }
     }
 }
@@ -868,9 +714,7 @@ impl Lower for hir::TupleLiteral {
 
         for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
-            code.write_inst(Inst::BufferPut(
-                tuple_type.offset_of(index, WORD_SIZE) as u32
-            ));
+            code.write_inst(Inst::BufferPut(tuple_type.offset_of(index, WORD_SIZE) as u32));
         }
     }
 }
@@ -881,9 +725,7 @@ impl Lower for hir::ArrayLiteral {
         let inner_ty_size = ty.element_type().unwrap().size_of(WORD_SIZE);
 
         sess.push_const(code, Value::Type(ty));
-        code.write_inst(Inst::BufferAlloc(
-            (self.elements.len() * inner_ty_size) as u32,
-        ));
+        code.write_inst(Inst::BufferAlloc((self.elements.len() * inner_ty_size) as u32));
 
         for (index, element) in self.elements.iter().enumerate() {
             element.lower(sess, code, LowerContext { take_ptr: false });
@@ -897,17 +739,12 @@ impl Lower for hir::ArrayFillLiteral {
         let ty = self.ty.normalize(sess.tcx);
         let inner_ty_size = ty.element_type().unwrap().size_of(WORD_SIZE);
 
-        let size = if let Type::Array(_, size) = ty {
-            size
-        } else {
-            panic!()
-        };
+        let size = if let Type::Array(_, size) = ty { size } else { panic!() };
 
         sess.push_const(code, Value::Type(ty));
         code.write_inst(Inst::BufferAlloc((size * inner_ty_size) as u32));
 
-        self.value
-            .lower(sess, code, LowerContext { take_ptr: false });
+        self.value.lower(sess, code, LowerContext { take_ptr: false });
 
         code.write_inst(Inst::BufferFill(size as u32));
     }
@@ -1054,9 +891,9 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                 }),
                 _ => {
                     function.lower(sess, &mut Bytecode::new(), LowerContext { take_ptr: false });
-
                     Value::Function(FunctionAddress {
                         id: f.id,
+                        is_extern: function.kind.as_extern().is_some(),
                         name: f.name,
                     })
                 }
@@ -1064,7 +901,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         }
         ConstValue::ExternVariable(variable) => Value::ExternVariable(ExternVariable {
             name: variable.name,
-            lib: variable.lib.clone().unwrap(),
+            lib: variable.dylib.clone().unwrap(),
             ty: variable.ty.normalize(sess.tcx),
         }),
     }
@@ -1094,9 +931,7 @@ fn lower_static_binding(binding: &hir::Binding, sess: &mut InterpSess) -> usize 
 
     sess.env_stack.push((binding.module_id, Env::default()));
 
-    binding
-        .value
-        .lower(sess, &mut code, LowerContext { take_ptr: false });
+    binding.value.lower(sess, &mut code, LowerContext { take_ptr: false });
 
     sess.env_stack.pop();
 

@@ -60,12 +60,8 @@ impl From<Diagnostic> for CodespanDiagnostic {
                 val.labels
                     .into_iter()
                     .map(|l| {
-                        codespan_reporting::diagnostic::Label::new(
-                            l.kind.into(),
-                            l.span.file_id,
-                            l.span.range(),
-                        )
-                        .with_message(l.message)
+                        codespan_reporting::diagnostic::Label::new(l.kind.into(), l.span.file_id, l.span.range())
+                            .with_message(l.message)
                     })
                     .collect(),
             )

@@ -13,13 +13,10 @@ pub enum RelativeTo<'a> {
 
 pub fn try_resolve_relative_path<'a>(
     path: &'a Path,
-    relative_to: RelativeTo,
+    relative_to: &RelativeTo,
     span: Option<Span>,
 ) -> DiagnosticResult<PathBuf> {
-    let absolute_path = match relative_to {
-        RelativeTo::Path(relative_to) => path.absolutize_from(relative_to).unwrap(),
-        RelativeTo::Cwd => path.absolutize().unwrap(),
-    };
+    let absolute_path = get_absolute_path(relative_to, path);
 
     if absolute_path.exists() {
         Ok(absolute_path.to_path_buf())
@@ -33,11 +30,19 @@ pub fn try_resolve_relative_path<'a>(
     }
 }
 
-pub fn resolve_relative_path(path: &Path, relative_to: RelativeTo) -> Option<PathBuf> {
-    let absolute_path = match relative_to {
+pub fn maybe_resolve_relative_path(path: &Path, relative_to: &RelativeTo) -> Option<PathBuf> {
+    let absolute_path = get_absolute_path(relative_to, path);
+    absolute_path.exists().then(|| absolute_path.to_path_buf())
+}
+
+#[allow(unused)]
+pub fn resolve_relative_path(path: &Path, relative_to: &RelativeTo) -> PathBuf {
+    get_absolute_path(relative_to, path).to_path_buf()
+}
+
+fn get_absolute_path<'a>(relative_to: &'a RelativeTo, path: &'a Path) -> std::borrow::Cow<'a, Path> {
+    match relative_to {
         RelativeTo::Path(relative_to) => path.absolutize_from(relative_to).unwrap(),
         RelativeTo::Cwd => path.absolutize().unwrap(),
-    };
-
-    absolute_path.exists().then(|| absolute_path.to_path_buf())
+    }
 }

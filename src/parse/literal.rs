@@ -62,13 +62,8 @@ impl Parser {
         }))
     }
 
-    pub fn parse_tuple_literal(
-        &mut self,
-        first_expr: Ast,
-        start_span: Span,
-    ) -> DiagnosticResult<Ast> {
-        let mut elements =
-            parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
+    pub fn parse_tuple_literal(&mut self, first_expr: Ast, start_span: Span) -> DiagnosticResult<Ast> {
+        let mut elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
 
         elements.insert(0, first_expr);
 
@@ -78,11 +73,7 @@ impl Parser {
         }))
     }
 
-    pub fn parse_struct_literal(
-        &mut self,
-        type_expr: Option<Box<Ast>>,
-        start_span: Span,
-    ) -> DiagnosticResult<Ast> {
+    pub fn parse_struct_literal(&mut self, type_expr: Option<Box<Ast>>, start_span: Span) -> DiagnosticResult<Ast> {
         let fields = parse_delimited_list!(
             self,
             CloseCurly,

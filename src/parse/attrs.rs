@@ -13,10 +13,7 @@ impl Parser {
             let id = require!(self, Ident(_), "an identifier")?;
             let name = id.name();
 
-            let name_and_span = ast::NameAndSpan {
-                name,
-                span: id.span,
-            };
+            let name_and_span = ast::NameAndSpan { name, span: id.span };
 
             let value = if eat!(self, Eq) {
                 Some(Box::new(self.parse_expr()?))

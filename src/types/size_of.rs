@@ -20,16 +20,11 @@ impl SizeOf for Type {
             },
             Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => {
-                StructType::temp(
-                    elems
-                        .iter()
-                        .map(|t| StructTypeField::temp(t.clone()))
-                        .collect(),
-                    StructTypeKind::Struct,
-                )
-                .size_of(word_size)
-            }
+            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+                elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
+                StructTypeKind::Struct,
+            )
+            .size_of(word_size),
             Type::Struct(s) => s.size_of(word_size),
             Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
                 let mut offset = 0;
@@ -102,16 +97,9 @@ impl SizeOf for StructType {
 
                 offset
             }
-            StructTypeKind::PackedStruct => {
-                self.fields.iter().map(|f| f.ty.size_of(word_size)).sum()
-            }
+            StructTypeKind::PackedStruct => self.fields.iter().map(|f| f.ty.size_of(word_size)).sum(),
             StructTypeKind::Union => {
-                let max_size = self
-                    .fields
-                    .iter()
-                    .map(|f| f.ty.size_of(word_size))
-                    .max()
-                    .unwrap_or(0);
+                let max_size = self.fields.iter().map(|f| f.ty.size_of(word_size)).max().unwrap_or(0);
 
                 let align = self.align_of(word_size);
 

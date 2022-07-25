@@ -13,10 +13,7 @@ pub(super) fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> Ab
     }
 }
 
-pub(super) fn get_params<'ctx>(
-    info: AbiInfo<'ctx>,
-    params: Vec<BasicTypeEnum<'ctx>>,
-) -> Vec<AbiTy<'ctx>> {
+pub(super) fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
     params
         .iter()
         .map(|&param| amd64_sysv_type(info, param, Amd64TypeAttributeKind::ByVal))
@@ -51,9 +48,7 @@ impl RegClass {
     fn is_sse(&self) -> bool {
         match self {
             RegClass::SSEFs | RegClass::SSEFv | RegClass::SSEDs | RegClass::SSEDv => true,
-            RegClass::SSEInt8 | RegClass::SSEInt16 | RegClass::SSEInt32 | RegClass::SSEInt64 => {
-                true
-            }
+            RegClass::SSEInt8 | RegClass::SSEInt16 | RegClass::SSEInt32 | RegClass::SSEInt64 => true,
             _ => false,
         }
     }
@@ -75,12 +70,7 @@ fn is_mem_class(classes: &[RegClass], attr_kind: Amd64TypeAttributeKind) -> bool
     match attr_kind {
         Amd64TypeAttributeKind::ByVal => classes
             .first()
-            .map(|class| {
-                matches!(
-                    class,
-                    RegClass::Memory | RegClass::X87 | RegClass::ComplexX87
-                )
-            })
+            .map(|class| matches!(class, RegClass::Memory | RegClass::X87 | RegClass::ComplexX87))
             .unwrap_or(false),
         Amd64TypeAttributeKind::StructRect => classes
             .first()
@@ -111,10 +101,10 @@ fn amd64_sysv_type<'ctx>(
             if attr_kind == Amd64TypeAttributeKind::ByVal {
                 AbiTy::indirect_byval(&info.context, ty, info.word_size)
             } else if attr_kind == Amd64TypeAttributeKind::StructRect {
-                *AbiTy::indirect(ty).with_attr(info.context.create_type_attribute(
-                    Attribute::get_named_enum_kind_id("sret"),
-                    ty.as_any_type_enum(),
-                ))
+                *AbiTy::indirect(ty).with_attr(
+                    info.context
+                        .create_type_attribute(Attribute::get_named_enum_kind_id("sret"), ty.as_any_type_enum()),
+                )
             } else {
                 AbiTy::indirect(ty)
             }
@@ -201,15 +191,7 @@ fn classify_type_with_classes<'ctx>(
             let el_align = size_of(el_ty, info.word_size);
 
             for i in 0..len {
-                classify_type_with_classes(
-                    info,
-                    classes,
-                    el_ty,
-                    el_size,
-                    el_align,
-                    index,
-                    offset + i * el_size,
-                );
+                classify_type_with_classes(info, classes, el_ty, el_size, el_align, index, offset + i * el_size);
             }
         }
         BasicTypeEnum::StructType(st) => {
@@ -225,15 +207,7 @@ fn classify_type_with_classes<'ctx>(
                     field_offset = calculate_align_from_offset(field_offset, field_align);
                 }
 
-                classify_type_with_classes(
-                    info,
-                    classes,
-                    field_ty,
-                    field_size,
-                    field_align,
-                    index,
-                    field_offset,
-                );
+                classify_type_with_classes(info, classes, field_ty, field_size, field_align, index, field_offset);
 
                 field_offset += field_size;
             }
@@ -258,15 +232,9 @@ fn unify_classes(classes: &mut [RegClass], index: usize, new_class: RegClass) {
         RegClass::Memory
     } else if old_class == RegClass::Int || new_class == RegClass::Int {
         RegClass::Int
-    } else if old_class == RegClass::X87
-        || old_class == RegClass::X87Up
-        || old_class == RegClass::ComplexX87
-    {
+    } else if old_class == RegClass::X87 || old_class == RegClass::X87Up || old_class == RegClass::ComplexX87 {
         RegClass::Memory
-    } else if new_class == RegClass::X87
-        || new_class == RegClass::X87Up
-        || new_class == RegClass::ComplexX87
-    {
+    } else if new_class == RegClass::X87 || new_class == RegClass::X87Up || new_class == RegClass::ComplexX87 {
         RegClass::Memory
     } else if new_class == RegClass::SSEUp {
         match old_class {
@@ -293,9 +261,7 @@ fn fixup_classes<'ctx>(classes: &mut [RegClass], ty: BasicTypeEnum<'ctx>) {
     if end > 2
         && matches!(
             ty,
-            BasicTypeEnum::StructType(_)
-                | BasicTypeEnum::ArrayType(_)
-                | BasicTypeEnum::VectorType(_)
+            BasicTypeEnum::StructType(_) | BasicTypeEnum::ArrayType(_) | BasicTypeEnum::VectorType(_)
         )
     {
         let old_class = classes[0];

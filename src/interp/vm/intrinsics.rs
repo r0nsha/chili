@@ -54,8 +54,7 @@ impl<'vm> VM<'vm> {
                     check_mode: false,
                 };
 
-                let result =
-                    crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
+                let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
 
                 let (output_file_str, ok) = if let Some(output_file) = &result.output_file {
                     (ustr(output_file.to_str().unwrap()), true)
@@ -66,10 +65,7 @@ impl<'vm> VM<'vm> {
                 let result_type = Type::Tuple(vec![Type::str(), Type::Bool]);
 
                 let result_value = Value::Buffer(Buffer::from_values(
-                    [
-                        Value::Buffer(Buffer::from_ustr(output_file_str)),
-                        Value::Bool(ok),
-                    ],
+                    [Value::Buffer(Buffer::from_ustr(output_file_str)), Value::Bool(ok)],
                     result_type,
                 ));
 

@@ -327,6 +327,8 @@ impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         let attrs = sess.check_attrs(&self.attrs, env)?;
 
+        sess.check_attrs_are_assigned_to_valid_binding(&attrs, self)?;
+
         match &self.kind {
             ast::BindingKind::Orphan {
                 pattern,
@@ -425,7 +427,6 @@ impl Check for ast::Binding {
             }
             ast::BindingKind::ExternFunction {
                 name: ast::NameAndSpan { name, span },
-                lib,
                 sig,
             } => {
                 let (name, span) = (*name, *span);
@@ -437,6 +438,14 @@ impl Check for ast::Binding {
                             .with_label(Label::primary(param.pattern.span(), "parameter type not specified")));
                     }
                 }
+
+                let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
+                let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
+                let link_name = if let Some(attr) = attrs.get(AttrKind::LinkName) {
+                    *attr.value.as_str().unwrap()
+                } else {
+                    name
+                };
 
                 let function_type_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
@@ -466,7 +475,11 @@ impl Check for ast::Binding {
                 } else {
                     (
                         name,
-                        hir::FunctionKind::Extern { lib: lib.clone() },
+                        hir::FunctionKind::Extern {
+                            lib: lib.clone(),
+                            dylib: dylib.or(lib),
+                            link_name,
+                        },
                         BindingInfoKind::ExternFunction,
                     )
                 };
@@ -505,7 +518,6 @@ impl Check for ast::Binding {
             }
             ast::BindingKind::ExternVariable {
                 name: ast::NameAndSpan { name, span },
-                lib,
                 is_mutable,
                 type_expr,
             } => {
@@ -513,10 +525,19 @@ impl Check for ast::Binding {
 
                 let ty = check_type_expr(type_expr, sess, env)?;
 
+                let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
+                let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
+                let link_name = if let Some(attr) = attrs.get(AttrKind::LinkName) {
+                    *attr.value.as_str().unwrap()
+                } else {
+                    name
+                };
+
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::ExternVariable(ConstExternVariable {
-                        name,
+                        name: link_name,
                         lib: lib.clone(),
+                        dylib: dylib.or(lib),
                         ty,
                     }),
                     ty,

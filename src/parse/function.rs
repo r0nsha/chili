@@ -8,14 +8,10 @@ use crate::{
 use ustr::Ustr;
 
 impl Parser {
-    pub fn parse_function(
-        &mut self,
-        name: Ustr,
-        extern_lib: Option<Option<ExternLibrary>>,
-    ) -> DiagnosticResult<Ast> {
+    pub fn parse_function(&mut self, name: Ustr, is_extern: bool) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let sig = self.parse_function_sig(name, extern_lib)?;
+        let sig = self.parse_function_sig(name, is_extern)?;
 
         if eat!(self, OpenCurly) {
             let body = self.parse_block()?;
@@ -30,19 +26,13 @@ impl Parser {
         }
     }
 
-    pub fn parse_function_sig(
-        &mut self,
-        name: Ustr,
-        extern_lib: Option<Option<ExternLibrary>>,
-    ) -> DiagnosticResult<FunctionSig> {
+    pub fn parse_function_sig(&mut self, name: Ustr, is_extern: bool) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
         let (params, varargs) = self.parse_function_params()?;
 
         let return_type = if eat!(self, RightArrow) {
-            Some(Box::new(
-                self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?,
-            ))
+            Some(Box::new(self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?))
         } else {
             None
         };
@@ -52,16 +42,16 @@ impl Parser {
             params,
             varargs,
             return_type,
-            kind: extern_lib.as_ref().map_or(FunctionTypeKind::Orphan, |lib| {
-                FunctionTypeKind::Extern { lib: lib.clone() }
-            }),
+            kind: if is_extern {
+                FunctionTypeKind::Extern
+            } else {
+                FunctionTypeKind::Orphan
+            },
             span: start_span.to(self.previous_span()),
         })
     }
 
-    pub fn parse_function_params(
-        &mut self,
-    ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
+    pub fn parse_function_params(&mut self) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
         if !eat!(self, OpenParen) {
             return Ok((vec![], None));
         }

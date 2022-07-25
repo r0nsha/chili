@@ -88,16 +88,12 @@ impl PutValue for [u8] {
             Value::I16(v) => self.as_mut().write_i16::<NativeEndian>(*v),
             Value::I32(v) => self.as_mut().write_i32::<NativeEndian>(*v),
             Value::I64(v) => self.as_mut().write_i64::<NativeEndian>(*v),
-            Value::Int(v) => self
-                .as_mut()
-                .write_int::<NativeEndian>(*v as i64, WORD_SIZE),
+            Value::Int(v) => self.as_mut().write_int::<NativeEndian>(*v as i64, WORD_SIZE),
             Value::U8(v) => self.as_mut().write_u8(*v),
             Value::U16(v) => self.as_mut().write_u16::<NativeEndian>(*v),
             Value::U32(v) => self.as_mut().write_u32::<NativeEndian>(*v),
             Value::U64(v) => self.as_mut().write_u64::<NativeEndian>(*v),
-            Value::Uint(v) => self
-                .as_mut()
-                .write_uint::<NativeEndian>(*v as u64, WORD_SIZE),
+            Value::Uint(v) => self.as_mut().write_uint::<NativeEndian>(*v as u64, WORD_SIZE),
             Value::F32(v) => self.as_mut().write_f32::<NativeEndian>(*v),
             Value::F64(v) => self.as_mut().write_f64::<NativeEndian>(*v),
             Value::Bool(v) => self.as_mut().write_u8(*v as u8),
@@ -109,10 +105,7 @@ impl PutValue for [u8] {
                 .as_mut()
                 .write_uint::<NativeEndian>(v.as_inner_raw() as u64, WORD_SIZE),
             Value::Function(_) => todo!(),
-            _ => panic!(
-                "can't convert `{}` to raw self.as_mut().inner",
-                value.to_string()
-            ),
+            _ => panic!("can't convert `{}` to raw self.as_mut().inner", value.to_string()),
         }
         .unwrap()
     }
@@ -138,23 +131,17 @@ impl GetValue for [u8] {
                 IntType::I16 => Value::I16(self.as_ref().read_i16::<NativeEndian>().unwrap()),
                 IntType::I32 => Value::I32(self.as_ref().read_i32::<NativeEndian>().unwrap()),
                 IntType::I64 => Value::I64(self.as_ref().read_i64::<NativeEndian>().unwrap()),
-                IntType::Int => {
-                    Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize)
-                }
+                IntType::Int => Value::Int(self.as_ref().read_int::<NativeEndian>(WORD_SIZE).unwrap() as isize),
             },
             Type::Uint(ty) => match ty {
                 UintType::U8 => Value::U8(self.as_ref().read_u8().unwrap()),
                 UintType::U16 => Value::U16(self.as_ref().read_u16::<NativeEndian>().unwrap()),
                 UintType::U32 => Value::U32(self.as_ref().read_u32::<NativeEndian>().unwrap()),
                 UintType::U64 => Value::U64(self.as_ref().read_u64::<NativeEndian>().unwrap()),
-                UintType::Uint => {
-                    Value::Uint(self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as usize)
-                }
+                UintType::Uint => Value::Uint(self.as_ref().read_uint::<NativeEndian>(WORD_SIZE).unwrap() as usize),
             },
             Type::Float(ty) => match ty {
-                FloatType::F16 | FloatType::F32 => {
-                    Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
-                }
+                FloatType::F16 | FloatType::F32 => Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap()),
                 FloatType::F64 => Value::F64(self.as_ref().read_f64::<NativeEndian>().unwrap()),
                 FloatType::Float => {
                     if IS_64BIT {
@@ -189,10 +176,7 @@ impl GetValue for [u8] {
                     Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
                 }
             }
-            _ => panic!(
-                "can't get value of type `{}` from raw self.as_ref().inner",
-                ty
-            ),
+            _ => panic!("can't get value of type `{}` from raw self.as_ref().inner", ty),
         }
     }
 }

@@ -7,12 +7,7 @@ use inkwell::{
 
 macro_rules! release_guard {
     ($generator: expr) => {{
-        if $generator
-            .workspace
-            .build_options
-            .optimization_level
-            .is_release()
-        {
+        if $generator.workspace.build_options.optimization_level.is_release() {
             return;
         }
     }};
@@ -28,15 +23,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         release_guard!(self);
 
         const NAME: &str = "__runtime_check_division_by_zero";
-        let condition = self.builder.build_int_compare(
-            IntPredicate::EQ,
-            divisor,
-            divisor.get_type().const_zero(),
-            "",
-        );
-        let message = self
-            .const_str_slice(NAME, "attempt to divide by zero")
-            .into();
+        let condition = self
+            .builder
+            .build_int_compare(IntPredicate::EQ, divisor, divisor.get_type().const_zero(), "");
+        let message = self.const_str_slice(NAME, "attempt to divide by zero").into();
         self.gen_conditional_panic(state, NAME, condition, message, span)
     }
 
@@ -84,26 +74,16 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         const NAME: &str = "__runtime_check_index_out_of_bounds";
 
         let message = self
-            .const_str_slice(
-                &NAME,
-                "index out of bounds: the len is (len) but the index is (index)",
-            )
+            .const_str_slice(&NAME, "index out of bounds: the len is (len) but the index is (index)")
             .into();
 
-        let is_lower_than_zero = self.builder.build_int_compare(
-            IntPredicate::ULT,
-            index,
-            index.get_type().const_zero(),
-            "",
-        );
+        let is_lower_than_zero =
+            self.builder
+                .build_int_compare(IntPredicate::ULT, index, index.get_type().const_zero(), "");
 
-        let is_larger_than_len = self
-            .builder
-            .build_int_compare(IntPredicate::UGE, index, len, "");
+        let is_larger_than_len = self.builder.build_int_compare(IntPredicate::UGE, index, len, "");
 
-        let condition = self
-            .builder
-            .build_or(is_lower_than_zero, is_larger_than_len, "");
+        let condition = self.builder.build_or(is_lower_than_zero, is_larger_than_len, "");
 
         self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
@@ -123,9 +103,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .const_str_slice(&NAME, "slice index starts at (start) but ends at (end)")
             .into();
 
-        let condition = self
-            .builder
-            .build_int_compare(IntPredicate::ULT, high, low, "");
+        let condition = self.builder.build_int_compare(IntPredicate::ULT, high, low, "");
 
         self.gen_conditional_panic(state, &NAME, condition, message, span);
     }
@@ -153,9 +131,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             self.builder
                 .build_int_compare(IntPredicate::ULT, low, low.get_type().const_zero(), "");
 
-        let is_high_larger_than_len =
-            self.builder
-                .build_int_compare(IntPredicate::UGT, high, len, "");
+        let is_high_larger_than_len = self.builder.build_int_compare(IntPredicate::UGT, high, len, "");
 
         let condition = self
             .builder

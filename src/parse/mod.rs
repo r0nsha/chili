@@ -9,7 +9,7 @@ mod postfix_expr;
 mod top_level;
 
 use crate::{
-    ast::{self, Ast, ExternLibrary},
+    ast::{self, Ast},
     error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
     span::{EndPosition, Position, Span, To},
     token::{lexer::Lexer, Token, TokenKind::*},
@@ -186,9 +186,7 @@ impl Parser {
                 self.tokens = tokens;
                 self.parse_all_top_level(file_id)
             }
-            Err(diag) => {
-                ParserResult::LexerFailed(ast::Module::new(file_id, self.module_info), diag)
-            }
+            Err(diag) => ParserResult::LexerFailed(ast::Module::new(file_id, self.module_info), diag),
         }
     }
 

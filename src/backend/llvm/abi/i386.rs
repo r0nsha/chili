@@ -15,10 +15,7 @@ pub(super) fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> Ab
 }
 
 #[allow(unused)]
-pub(super) fn get_params<'ctx>(
-    info: AbiInfo<'ctx>,
-    params: Vec<BasicTypeEnum<'ctx>>,
-) -> Vec<AbiTy<'ctx>> {
+pub(super) fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
     params
         .iter()
         .map(|&param| {
@@ -45,21 +42,17 @@ pub(super) fn get_return<'ctx>(info: AbiInfo<'ctx>, ret: BasicTypeEnum<'ctx>) ->
             2 => AbiTy::direct(info.context.i16_type().into()),
             4 => AbiTy::direct(info.context.i32_type().into()),
             8 => AbiTy::direct(info.context.i64_type().into()),
-            _ => *AbiTy::indirect(ret).with_attr(info.context.create_type_attribute(
-                Attribute::get_named_enum_kind_id("sret"),
-                ret.as_any_type_enum(),
-            )),
+            _ => *AbiTy::indirect(ret).with_attr(
+                info.context
+                    .create_type_attribute(Attribute::get_named_enum_kind_id("sret"), ret.as_any_type_enum()),
+            ),
         }
     } else {
         non_struct(info, ret, true)
     }
 }
 
-pub(super) fn non_struct<'ctx>(
-    info: AbiInfo<'ctx>,
-    ty: BasicTypeEnum<'ctx>,
-    is_return: bool,
-) -> AbiTy<'ctx> {
+pub(super) fn non_struct<'ctx>(info: AbiInfo<'ctx>, ty: BasicTypeEnum<'ctx>, is_return: bool) -> AbiTy<'ctx> {
     if !is_return && size_of(ty, info.word_size) > 8 {
         AbiTy::indirect(ty)
     } else {

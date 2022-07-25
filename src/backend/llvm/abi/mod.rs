@@ -152,19 +152,14 @@ impl<'ctx> AbiTy<'ctx> {
         }
     }
 
-    pub(super) fn indirect_byval(
-        context: &Context,
-        ty: BasicTypeEnum<'ctx>,
-        word_size: usize,
-    ) -> Self {
+    pub(super) fn indirect_byval(context: &Context, ty: BasicTypeEnum<'ctx>, word_size: usize) -> Self {
         Self {
             ty,
             kind: AbiType::Indirect,
             cast_to: None,
-            attr: Some(context.create_type_attribute(
-                Attribute::get_named_enum_kind_id("byval"),
-                ty.as_any_type_enum(),
-            )),
+            attr: Some(
+                context.create_type_attribute(Attribute::get_named_enum_kind_id("byval"), ty.as_any_type_enum()),
+            ),
             align_attr: Some(context.create_enum_attribute(
                 Attribute::get_named_enum_kind_id("align"),
                 align_of(ty, word_size).max(8) as u64,
