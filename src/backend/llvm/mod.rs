@@ -10,7 +10,7 @@ mod function;
 mod intrinsics;
 mod panic;
 mod runtime_check;
-mod startup;
+mod start;
 mod traits;
 mod ty;
 mod util;

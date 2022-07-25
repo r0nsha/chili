@@ -4,12 +4,8 @@ use inkwell::{module::Linkage, values::BasicValue, AddressSpace};
 use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub(super) fn gen_entry_point_function(&mut self) {
-        let name = self
-            .workspace
-            .build_options
-            .entry_point_function_name()
-            .unwrap();
+    pub(super) fn gen_start_function(&mut self) {
+        let name = self.workspace.build_options.start_function_name().unwrap();
 
         let linkage = Some(Linkage::External);
 
@@ -103,31 +99,21 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.startup_function_state = Some(state.clone());
 
         // Codegen the entry point function
-        self.gen_top_level_binding(self.workspace.entry_point_function_id.unwrap());
+        let entry_point_function = self.cache.entry_point_function().unwrap();
+
+        self.gen_function(entry_point_function.id, None);
 
         // Call the entry point function
-        let entry_point_func_id = self.workspace.entry_point_function_id.unwrap();
+        let entry_point_function_value = *self.functions.get(&entry_point_function.id).unwrap();
 
-        let entry_point_func_info = self
-            .workspace
-            .binding_infos
-            .get(entry_point_func_id)
-            .unwrap();
-
-        let entry_point_func = self
-            .global_decls
-            .get(&entry_point_func_id)
-            .unwrap()
-            .into_function_value();
-
-        let fn_ty = entry_point_func_info.ty.normalize(self.tcx).into_function();
+        let entry_point_function_type = entry_point_function.ty.normalize(self.tcx).into_function();
 
         self.gen_function_call(
             &mut state,
-            entry_point_func,
-            &fn_ty,
+            entry_point_function_value,
+            &entry_point_function_type,
             vec![],
-            &fn_ty.return_type,
+            &entry_point_function_type.return_type,
         );
 
         // TODO: if this is DLL Main, return 1 instead of 0

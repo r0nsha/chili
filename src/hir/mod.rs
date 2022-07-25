@@ -41,6 +41,9 @@ define_id_type!(FunctionId);
 pub struct Cache {
     pub bindings: HashMap<BindingId, Binding>,
     pub functions: IdCache<FunctionId, Function>,
+
+    // The entry point function's id (usually named "main"). Resolved during semantic analysis
+    pub entry_point_function_id: Option<FunctionId>,
 }
 
 impl Cache {
@@ -48,7 +51,13 @@ impl Cache {
         Self {
             bindings: HashMap::new(),
             functions: IdCache::new(),
+            entry_point_function_id: None,
         }
+    }
+
+    pub fn entry_point_function(&self) -> Option<&Function> {
+        self.entry_point_function_id
+            .and_then(|id| self.functions.get(id))
     }
 }
 

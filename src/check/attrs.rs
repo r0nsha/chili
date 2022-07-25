@@ -73,7 +73,7 @@ impl<'s> CheckSess<'s> {
 
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
-            AttrKind::Intrinsic => self.tcx.common_types.unit,
+            AttrKind::Intrinsic | AttrKind::Entry => self.tcx.common_types.unit,
         }
     }
 }

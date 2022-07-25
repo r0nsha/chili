@@ -44,10 +44,6 @@ pub struct Workspace {
     // Bindings resolved during semantic analysis
     // BindingInfoId -> BindingInfo
     pub binding_infos: IdCache<BindingId, BindingInfo>,
-
-    // TODO: Move entry_point_function_id to `hir::Cache`
-    // The entry point function's id (usually named "main"). Resolved during semantic analysis
-    pub entry_point_function_id: Option<BindingId>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -208,7 +204,6 @@ impl Workspace {
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
-            entry_point_function_id: None,
         }
     }
 
@@ -241,11 +236,6 @@ impl Workspace {
 
     pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
         self.binding_infos.get_mut(id).unwrap().add_use(span);
-    }
-
-    pub fn entry_point_function(&self) -> Option<&BindingInfo> {
-        self.entry_point_function_id
-            .and_then(|id| self.binding_infos.get(id))
     }
 }
 

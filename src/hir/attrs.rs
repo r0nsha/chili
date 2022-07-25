@@ -19,8 +19,12 @@ impl Attrs {
         self.inner.insert(attr.kind, attr)
     }
 
-    pub fn get(&self, key: AttrKind) -> Option<&Attr> {
-        self.inner.get(&key)
+    pub fn get(&self, kind: AttrKind) -> Option<&Attr> {
+        self.inner.get(&kind)
+    }
+
+    pub fn has(&self, kind: AttrKind) -> bool {
+        self.inner.contains_key(&kind)
     }
 
     #[allow(unused)]
@@ -44,6 +48,7 @@ pub struct Attr {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AttrKind {
     Intrinsic,
+    Entry,
 }
 
 impl TryFrom<&str> for AttrKind {
@@ -52,6 +57,7 @@ impl TryFrom<&str> for AttrKind {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "intrinsic" => Ok(AttrKind::Intrinsic),
+            "entry" => Ok(AttrKind::Entry),
             _ => Err(()),
         }
     }
@@ -61,6 +67,7 @@ impl Display for AttrKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AttrKind::Intrinsic => write!(f, "intrinsic"),
+            AttrKind::Entry => write!(f, "entry"),
         }
     }
 }
