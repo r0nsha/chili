@@ -1,8 +1,5 @@
 use super::*;
-use crate::{
-    ast::{self},
-    error::{diagnostic::Label, DiagnosticResult},
-};
+use crate::{ast, error::DiagnosticResult};
 
 impl Parser {
     pub(super) fn parse_attrs(&mut self) -> DiagnosticResult<Vec<ast::Attr>> {
@@ -21,15 +18,6 @@ impl Parser {
                 span: id.span,
             };
 
-            let kind = match name.as_str() {
-                "intrinsic" => ast::AttrKind::Intrinsic,
-                _ => {
-                    return Err(Diagnostic::error()
-                        .with_message(format!("unknown attribute `{}`", name))
-                        .with_label(Label::primary(id.span, "unknown attribute")))
-                }
-            };
-
             let value = if eat!(self, Eq) {
                 Some(Box::new(self.parse_expr()?))
             } else {
@@ -40,7 +28,6 @@ impl Parser {
 
             let attr = ast::Attr {
                 name: name_and_span,
-                kind,
                 value,
                 span: start_span.to(self.previous_span()),
             };

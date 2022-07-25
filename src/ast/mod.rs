@@ -563,22 +563,8 @@ impl Visibility {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attr {
     pub name: NameAndSpan,
-    pub kind: AttrKind,
     pub value: Option<Box<Ast>>,
     pub span: Span,
-}
-
-impl Attr {
-    pub fn key(&self) -> AttrKind {
-        match &self.kind {
-            AttrKind::Intrinsic => AttrKind::Intrinsic,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum AttrKind {
-    Intrinsic,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

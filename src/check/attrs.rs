@@ -16,7 +16,11 @@ impl<'s> CheckSess<'s> {
 
         for attr in attrs.iter() {
             let span = attr.span;
-            let kind: AttrKind = attr.kind.into();
+            let kind = AttrKind::try_from(attr.name.name.as_str()).map_err(|_| {
+                Diagnostic::error()
+                    .with_message(format!("unknown attribute `{}`", attr.name.name))
+                    .with_label(Label::primary(attr.name.span, "unknown attribute"))
+            })?;
 
             let expected_type = self.get_attr_expected_type(kind);
 

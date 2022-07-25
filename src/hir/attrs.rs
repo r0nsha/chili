@@ -1,4 +1,4 @@
-use crate::{ast, span::Span};
+use crate::span::Span;
 use std::{collections::HashMap, fmt::Display};
 
 use super::const_value::ConstValue;
@@ -28,6 +28,7 @@ impl Attrs {
         self.inner.len()
     }
 
+    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
@@ -45,10 +46,13 @@ pub enum AttrKind {
     Intrinsic,
 }
 
-impl From<ast::AttrKind> for AttrKind {
-    fn from(kind: ast::AttrKind) -> Self {
-        match kind {
-            ast::AttrKind::Intrinsic => AttrKind::Intrinsic,
+impl TryFrom<&str> for AttrKind {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "intrinsic" => Ok(AttrKind::Intrinsic),
+            _ => Err(()),
         }
     }
 }
