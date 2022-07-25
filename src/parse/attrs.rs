@@ -33,13 +33,22 @@ impl Parser {
                 }
             };
 
+            let value = if eat!(self, Eq) {
+                Some(Box::new(self.parse_expr()?))
+            } else {
+                None
+            };
+
             require!(self, CloseBracket, "]")?;
 
-            if let Some(used_attr) = attrs.insert(Attr {
+            let attr = Attr {
                 name: name_and_span,
                 kind,
+                value,
                 span: start_span.to(self.previous_span()),
-            }) {
+            };
+
+            if let Some(used_attr) = attrs.insert(attr) {
                 return Err(Diagnostic::error()
                     .with_message(format!("attribute `{}` has already been used", name))
                     .with_label(Label::primary(id.span, "duplicate attribute"))

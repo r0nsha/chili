@@ -1,10 +1,10 @@
-use super::NameAndSpan;
+use super::{Ast, NameAndSpan};
 use crate::span::Span;
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attrs {
-    inner: HashMap<AttrKey, Attr>,
+    inner: HashMap<AttrKind, Attr>,
 }
 
 impl Attrs {
@@ -18,7 +18,7 @@ impl Attrs {
         self.inner.insert(attr.key(), attr)
     }
 
-    pub fn get(&self, key: AttrKey) -> Option<&Attr> {
+    pub fn get(&self, key: AttrKind) -> Option<&Attr> {
         self.inner.get(&key)
     }
 
@@ -36,23 +36,19 @@ impl Attrs {
 pub struct Attr {
     pub name: NameAndSpan,
     pub kind: AttrKind,
+    pub value: Option<Box<Ast>>,
     pub span: Span,
 }
 
 impl Attr {
-    pub fn key(&self) -> AttrKey {
+    pub fn key(&self) -> AttrKind {
         match &self.kind {
-            AttrKind::Intrinsic => AttrKey::Intrinsic,
+            AttrKind::Intrinsic => AttrKind::Intrinsic,
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum AttrKind {
-    Intrinsic,
-}
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum AttrKey {
+pub enum AttrKind {
     Intrinsic,
 }

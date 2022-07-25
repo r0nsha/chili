@@ -7,7 +7,7 @@ mod top_level;
 
 use self::pattern::get_qualified_name;
 use crate::{
-    ast::{self, attrs::AttrKey, pattern::Pattern, BindingKind},
+    ast::{self, attrs::AttrKind, pattern::Pattern, BindingKind},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -388,6 +388,8 @@ impl Check for ast::Binding {
         env: &mut Env,
         _expected_type: Option<TypeId>,
     ) -> CheckResult {
+        todo!("let attrs = sess.check_attrs(&self.attrs, env)");
+
         match &self.kind {
             BindingKind::Orphan {
                 pattern,
@@ -552,7 +554,7 @@ impl Check for ast::Binding {
 
                 let (qualified_name, function_kind, binding_kind) = match self
                     .attrs
-                    .get(AttrKey::Intrinsic)
+                    .get(AttrKind::Intrinsic)
                 {
                     Some(_) => match hir::Intrinsic::try_from(name.as_str()) {
                         Ok(intrinsic) => {
