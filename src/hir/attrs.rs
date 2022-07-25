@@ -1,5 +1,8 @@
 use crate::span::Span;
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{hash_map, HashMap},
+    fmt::Display,
+};
 
 use super::const_value::ConstValue;
 
@@ -23,6 +26,10 @@ impl Attrs {
 
     pub fn has(&self, kind: AttrKind) -> bool {
         self.inner.contains_key(&kind)
+    }
+
+    pub fn iter(&self) -> hash_map::Iter<AttrKind, Attr> {
+        self.inner.iter()
     }
 
     #[allow(unused)]

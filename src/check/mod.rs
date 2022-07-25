@@ -327,6 +327,8 @@ impl Check for ast::Binding {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         let attrs = sess.check_attrs(&self.attrs, env)?;
 
+        sess.check_attrs_are_assigned_to_valid_binding(&attrs, self)?;
+
         match &self.kind {
             ast::BindingKind::Orphan {
                 pattern,
