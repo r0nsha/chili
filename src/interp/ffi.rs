@@ -77,28 +77,31 @@ impl Ffi {
 
     pub unsafe fn call(
         &mut self,
-        func: ExternFunction,
+        function: ExternFunction,
         mut args: Vec<Value>,
         vm: *mut VM,
         interp: *const Interp,
     ) -> Value {
-        let symbol = self.load_symbol(func.lib_path, func.name);
+        let symbol = self.load_symbol(function.lib_path, function.name);
 
-        let mut function = if func.variadic {
+        let function_type = &function.ty;
+        let param_types = function_type.params.iter().map(|p| p.ty.clone()).collect::<Vec<Type>>();
+
+        let mut function = if function_type.is_variadic() {
             let variadic_arg_types: Vec<Type> = args
                 .iter()
-                .skip(func.param_tys.len())
+                .skip(function_type.params.len())
                 .map(|value| value.get_type(&*interp))
                 .collect();
 
-            FfiFunction::new_variadic(&func.param_tys, &variadic_arg_types, &func.return_ty)
+            FfiFunction::new_variadic(&param_types, &variadic_arg_types, &function_type.return_type)
         } else {
-            FfiFunction::new(&func.param_tys, &func.return_ty)
+            FfiFunction::new(&param_types, &function_type.return_type)
         };
 
         let result = function.call(*symbol, &mut args, self, vm);
 
-        Value::from_type_and_ptr(&func.return_ty, result as RawPointer)
+        Value::from_type_and_ptr(&function_type.return_type, result as RawPointer)
     }
 }
 

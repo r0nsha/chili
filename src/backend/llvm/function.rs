@@ -110,7 +110,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                         function_value
                     }
-                    hir::FunctionKind::Extern { lib, dylib } => {
+                    hir::FunctionKind::Extern { lib, dylib, link_name } => {
                         match self.extern_functions.get(&function.qualified_name) {
                             Some(function) => *function,
                             None => {
@@ -119,8 +119,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                                 }
 
                                 let function_type = self.fn_type(&function_type);
-                                let function_value =
-                                    self.get_or_add_function(function.qualified_name, function_type, None);
+                                let function_value = self.get_or_add_function(link_name, function_type, None);
 
                                 self.extern_functions.insert(function.qualified_name, function_value);
 

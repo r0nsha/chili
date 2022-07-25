@@ -391,6 +391,7 @@ pub struct Function {
 #[derive(Debug, Clone)]
 pub struct FunctionAddress {
     pub id: hir::FunctionId,
+    pub is_extern: bool,
     pub name: Ustr,
 }
 
@@ -398,9 +399,7 @@ pub struct FunctionAddress {
 pub struct ExternFunction {
     pub lib_path: Ustr,
     pub name: Ustr,
-    pub param_tys: Vec<Type>,
-    pub return_ty: Type,
-    pub variadic: bool,
+    pub ty: FunctionType,
 }
 
 #[derive(Debug, Clone)]
@@ -586,7 +585,11 @@ impl Value {
             Self::Bool(_) => Type::Bool,
             Self::Buffer(arr) => arr.ty.clone(),
             Self::Pointer(p) => Type::Pointer(Box::new(p.get_type()), true),
-            Self::Function(f) => Type::Function(interp.functions.get(&f.id).unwrap().ty.clone()),
+            Self::Function(f) => Type::Function(if f.is_extern {
+                interp.extern_functions.get(&f.id).unwrap().ty.clone()
+            } else {
+                interp.functions.get(&f.id).unwrap().ty.clone()
+            }),
             Self::ExternVariable(v) => v.ty.clone(),
             Self::Intrinsic(_) | Self::Type(_) => todo!(),
         }
@@ -706,7 +709,7 @@ impl Value {
             Self::ExternVariable(v) => Ok(ConstValue::ExternVariable(ConstExternVariable {
                 name: v.name,
                 lib: Some(v.lib.clone()),
-                dylib: Some(v.lib.clone()),
+                dylib: Some(v.lib),
                 ty: tcx.bound(v.ty, eval_span),
             })),
             Self::Pointer(_) => Err("pointer"),

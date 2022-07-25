@@ -92,7 +92,7 @@ impl Lower for hir::Function {
                     },
                 );
             }
-            hir::FunctionKind::Extern { dylib, .. } => {
+            hir::FunctionKind::Extern { dylib, link_name, .. } => {
                 let lib_path = dylib.as_ref().map_or_else(
                     || {
                         sess.diagnostics.push(
@@ -114,10 +114,8 @@ impl Lower for hir::Function {
                     self.id,
                     ExternFunction {
                         lib_path,
-                        name: self.qualified_name,
-                        param_tys: function_type.params.iter().map(|p| p.ty.clone()).collect(),
-                        return_ty: *function_type.return_type,
-                        variadic: function_type.varargs.is_some(),
+                        name: *link_name,
+                        ty: function_type,
                     },
                 );
             }
@@ -893,7 +891,11 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                 }),
                 _ => {
                     function.lower(sess, &mut Bytecode::new(), LowerContext { take_ptr: false });
-                    Value::Function(FunctionAddress { id: f.id, name: f.name })
+                    Value::Function(FunctionAddress {
+                        id: f.id,
+                        is_extern: function.kind.as_extern().is_some(),
+                        name: f.name,
+                    })
                 }
             }
         }

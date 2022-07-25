@@ -32,7 +32,7 @@ impl<'s> CheckSess<'s> {
                     // Validate its type is fn() -> ()
                     if !(ty.return_type.is_unit() || ty.return_type.is_never())
                         || !ty.params.is_empty()
-                        || ty.varargs.is_some()
+                        || ty.is_variadic()
                     {
                         return Err(Diagnostic::error()
                             .with_message(format!(

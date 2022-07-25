@@ -82,7 +82,7 @@ impl<'s> CheckSess<'s> {
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
             AttrKind::Intrinsic | AttrKind::Entry => self.tcx.common_types.unit,
-            AttrKind::Lib | AttrKind::Dylib => self.tcx.common_types.str,
+            AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => self.tcx.common_types.str,
         }
     }
 
@@ -132,7 +132,7 @@ impl<'s> CheckSess<'s> {
                         _ => return err(),
                     }
                 }
-                AttrKind::Lib | AttrKind::Dylib => match &binding.kind {
+                AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => match &binding.kind {
                     ast::BindingKind::ExternFunction { .. } | ast::BindingKind::ExternVariable { .. } => (),
                     _ => {
                         return Err(invalid_attr_use(

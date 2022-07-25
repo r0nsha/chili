@@ -469,6 +469,7 @@ impl ExternLibrary {
         }
     }
 
+    #[allow(unused)]
     pub fn from_str(s: &str, relative_to: &RelativeTo<'_>) -> Self {
         let path = Path::new(s);
 

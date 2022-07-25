@@ -56,6 +56,7 @@ pub enum AttrKind {
     Entry,
     Lib,
     Dylib,
+    LinkName,
 }
 
 impl TryFrom<&str> for AttrKind {
@@ -67,6 +68,7 @@ impl TryFrom<&str> for AttrKind {
             "entry" => Ok(AttrKind::Entry),
             "lib" => Ok(AttrKind::Lib),
             "dylib" => Ok(AttrKind::Dylib),
+            "link_name" => Ok(AttrKind::LinkName),
             _ => Err(()),
         }
     }
@@ -79,6 +81,7 @@ impl Display for AttrKind {
             AttrKind::Entry => write!(f, "entry"),
             AttrKind::Lib => write!(f, "lib"),
             AttrKind::Dylib => write!(f, "dylib"),
+            AttrKind::LinkName => write!(f, "link_name"),
         }
     }
 }

@@ -441,6 +441,11 @@ impl Check for ast::Binding {
 
                 let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
                 let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
+                let link_name = if let Some(attr) = attrs.get(AttrKind::LinkName) {
+                    *attr.value.as_str().unwrap()
+                } else {
+                    name
+                };
 
                 let function_type_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
@@ -473,6 +478,7 @@ impl Check for ast::Binding {
                         hir::FunctionKind::Extern {
                             lib: lib.clone(),
                             dylib: dylib.or(lib),
+                            link_name,
                         },
                         BindingInfoKind::ExternFunction,
                     )
@@ -521,10 +527,15 @@ impl Check for ast::Binding {
 
                 let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
                 let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
+                let link_name = if let Some(attr) = attrs.get(AttrKind::LinkName) {
+                    *attr.value.as_str().unwrap()
+                } else {
+                    name
+                };
 
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::ExternVariable(ConstExternVariable {
-                        name,
+                        name: link_name,
                         lib: lib.clone(),
                         dylib: dylib.or(lib),
                         ty,

@@ -108,6 +108,12 @@ pub struct FunctionType {
     pub kind: FunctionTypeKind,
 }
 
+impl FunctionType {
+    pub fn is_variadic(&self) -> bool {
+        self.varargs.is_some()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionTypeParam {
     pub name: Ustr,

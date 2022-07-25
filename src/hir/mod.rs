@@ -91,6 +91,7 @@ pub enum FunctionKind {
     Extern {
         lib: Option<ExternLibrary>,
         dylib: Option<ExternLibrary>,
+        link_name: Ustr,
     },
     Intrinsic(Intrinsic),
 }

@@ -117,7 +117,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let ret = f.return_type.llvm_type(self);
 
-        ret.fn_type(&params, f.varargs.is_some())
+        ret.fn_type(&params, f.is_variadic())
     }
 
     pub(super) fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
