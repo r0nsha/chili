@@ -1,5 +1,6 @@
 pub mod pattern;
 
+use self::pattern::NamePattern;
 use crate::{
     common::path::{try_resolve_relative_path, RelativeTo},
     define_id_type,
@@ -18,8 +19,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use ustr::Ustr;
-
-use self::pattern::NamePattern;
 
 #[derive(Debug, Clone)]
 pub struct Module {
@@ -491,6 +490,7 @@ impl ExternLibrary {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     pub module_id: ModuleId,
+    pub attrs: Vec<Attr>,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub span: Span,
@@ -515,11 +515,6 @@ pub enum BindingKind {
         is_mutable: bool,
         type_expr: Box<Ast>,
     },
-    Intrinsic {
-        name: NameAndSpan,
-        intrinsic: Intrinsic,
-        function_type: FunctionSig,
-    },
     Type {
         name: NameAndSpan,
         type_expr: Box<Ast>,
@@ -535,36 +530,9 @@ impl Display for BindingKind {
                 BindingKind::Orphan { .. } => "orphan",
                 BindingKind::ExternFunction { .. } => "extern function",
                 BindingKind::ExternVariable { .. } => "extern variable",
-                BindingKind::Intrinsic { .. } => "intrinsic",
                 BindingKind::Type { .. } => "type",
             }
         )
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum Intrinsic {
-    StartWorkspace,
-}
-
-impl Intrinsic {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "start_workspace" => Some(Intrinsic::StartWorkspace),
-            _ => None,
-        }
-    }
-
-    pub fn to_str(&self) -> &str {
-        match self {
-            Intrinsic::StartWorkspace => "start_workspace",
-        }
-    }
-}
-
-impl Display for Intrinsic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_str())
     }
 }
 
@@ -590,6 +558,13 @@ impl Visibility {
     pub fn is_private(&self) -> bool {
         matches!(self, Visibility::Private)
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Attr {
+    pub name: NameAndSpan,
+    pub value: Option<Box<Ast>>,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

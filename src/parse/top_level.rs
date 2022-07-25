@@ -1,7 +1,9 @@
 use super::*;
-use crate::ast::{Module, Visibility};
-use crate::error::SyntaxError;
-use crate::span::FileId;
+use crate::{
+    ast,
+    error::{diagnostic::Label, SyntaxError},
+    span::FileId,
+};
 
 impl Parser {
     pub fn parse_all_top_level(&mut self, file_id: FileId) -> ParserResult {
@@ -37,34 +39,48 @@ impl Parser {
         ParserResult::NewModule(module)
     }
 
-    pub fn parse_top_level(&mut self, module: &mut Module) -> DiagnosticResult<()> {
-        let visibility = if eat!(self, Pub) {
-            Visibility::Public
+    pub fn parse_top_level(&mut self, module: &mut ast::Module) -> DiagnosticResult<()> {
+        let attrs = if is!(self, Hash) {
+            self.parse_attrs()?
         } else {
-            Visibility::Private
+            vec![]
         };
 
-        match self.try_parse_any_binding(visibility)? {
+        let has_attrs = !attrs.is_empty();
+
+        let visibility = if eat!(self, Pub) {
+            ast::Visibility::Public
+        } else {
+            ast::Visibility::Private
+        };
+
+        match self.try_parse_any_binding(attrs, visibility)? {
             Some(binding) => {
                 module.bindings.push(binding?);
                 Ok(())
             }
             None => {
-                if eat!(self, Const) {
-                    let start_span = self.previous_span();
-                    let expr = self.parse_expr()?;
+                if !has_attrs {
+                    if eat!(self, Const) {
+                        let start_span = self.previous_span();
+                        let expr = self.parse_expr()?;
 
-                    module.consts.push(ast::Const {
-                        expr: Box::new(expr),
-                        span: start_span.to(self.previous_span()),
-                    });
+                        module.consts.push(ast::Const {
+                            expr: Box::new(expr),
+                            span: start_span.to(self.previous_span()),
+                        });
 
-                    Ok(())
+                        Ok(())
+                    } else {
+                        Err(SyntaxError::expected(
+                            self.span(),
+                            &format!("an item, got `{}`", self.peek().lexeme),
+                        ))
+                    }
                 } else {
-                    Err(SyntaxError::expected(
-                        self.span(),
-                        &format!("an item, got `{}`", self.peek().lexeme),
-                    ))
+                    Err(Diagnostic::error()
+                        .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
+                        .with_label(Label::primary(self.span(), "unexpected token")))
                 }
             }
         }

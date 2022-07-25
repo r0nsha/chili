@@ -140,7 +140,7 @@ pub(super) struct LoopBlock<'ctx> {
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn start(&mut self) {
-        self.gen_entry_point_function();
+        self.gen_start_function();
     }
 
     pub(super) fn optimize(&mut self) {

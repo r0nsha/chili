@@ -1,28 +1,21 @@
 use super::*;
-use crate::{
-    ast::{pattern::Pattern, Binding, Intrinsic},
-    common::path::RelativeTo,
-    error::diagnostic::Label,
-    span::To,
-    workspace::ModuleId,
-};
+use crate::{ast::pattern::Pattern, common::path::RelativeTo, span::To, workspace::ModuleId};
 
 impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
-    ) -> DiagnosticResult<Option<DiagnosticResult<Binding>>> {
+    ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
-            Ok(Some(self.parse_binding(visibility, false)))
+            Ok(Some(self.parse_binding(attrs, visibility, false)))
         } else if eat!(self, Static) {
             require!(self, Let, "let")?;
-            Ok(Some(self.parse_binding(visibility, true)))
+            Ok(Some(self.parse_binding(attrs, visibility, true)))
         } else if eat!(self, Extern) {
-            Ok(Some(self.parse_extern_binding(visibility)))
-        } else if eat!(self, Intrinsic) {
-            Ok(Some(self.parse_intrinsic_binding(visibility)))
+            Ok(Some(self.parse_extern_binding(attrs, visibility)))
         } else if eat!(self, Type) {
-            Ok(Some(self.parse_type_binding(visibility)))
+            Ok(Some(self.parse_type_binding(attrs, visibility)))
         } else {
             Ok(None)
         }
@@ -30,9 +23,10 @@ impl Parser {
 
     pub fn parse_binding(
         &mut self,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
         is_static: bool,
-    ) -> DiagnosticResult<Binding> {
+    ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let pattern = self.parse_pattern()?;
@@ -50,8 +44,9 @@ impl Parser {
             _ => self.parse_expr()?,
         };
 
-        Ok(Binding {
+        Ok(ast::Binding {
             module_id: Default::default(),
+            attrs,
             visibility,
             kind: ast::BindingKind::Orphan {
                 pattern,
@@ -65,6 +60,7 @@ impl Parser {
 
     pub fn parse_extern_binding(
         &mut self,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -129,49 +125,18 @@ impl Parser {
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
+            attrs,
             visibility,
             kind,
             span: start_span.to(self.previous_span()),
         })
     }
 
-    pub fn parse_intrinsic_binding(
+    pub fn parse_type_binding(
         &mut self,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
-        let start_span = self.previous_span();
-
-        require!(self, Let, "let")?;
-
-        let id = require!(self, Ident(_), "an identifier")?;
-        let name = id.name();
-
-        let intrinsic = Intrinsic::from_str(&name).ok_or_else(|| {
-            Diagnostic::error()
-                .with_message(format!("unknown intrinsic `{}`", name))
-                .with_label(Label::primary(id.span, "unknown intrinsic"))
-        })?;
-
-        require!(self, Eq, "=")?;
-        require!(self, Fn, "fn")?;
-        let function_type = self.parse_function_sig(name, None)?;
-
-        Ok(ast::Binding {
-            module_id: ModuleId::unknown(),
-            visibility,
-            kind: ast::BindingKind::Intrinsic {
-                name: ast::NameAndSpan {
-                    name,
-                    span: id.span,
-                },
-                intrinsic,
-                function_type,
-            },
-            span: start_span.to(self.previous_span()),
-        })
-    }
-
-    pub fn parse_type_binding(&mut self, visibility: ast::Visibility) -> DiagnosticResult<Binding> {
         let start_span = self.previous_span();
 
         let id = require!(self, Ident(_), "an identifier")?;
@@ -183,6 +148,7 @@ impl Parser {
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
+            attrs,
             visibility,
             kind: ast::BindingKind::Type {
                 name: ast::NameAndSpan {

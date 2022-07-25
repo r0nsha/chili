@@ -57,7 +57,7 @@ impl BuildOptions {
             )
     }
 
-    pub fn entry_point_function_name(&self) -> Option<&'static str> {
+    pub fn start_function_name(&self) -> Option<&'static str> {
         self.need_entry_point_function()
             .then(|| match &self.target_platform {
                 TargetPlatform::Windows386

@@ -1,3 +1,4 @@
+pub mod attrs;
 pub mod const_value;
 pub mod pretty;
 
@@ -11,7 +12,7 @@ use crate::{
     workspace::{BindingId, ModuleId},
 };
 use enum_as_inner::EnumAsInner;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 use ustr::Ustr;
 
 macro_rules! node_struct {
@@ -40,6 +41,9 @@ define_id_type!(FunctionId);
 pub struct Cache {
     pub bindings: HashMap<BindingId, Binding>,
     pub functions: IdCache<FunctionId, Function>,
+
+    // The entry point function's id (usually named "main"). Resolved during semantic analysis
+    pub entry_point_function_id: Option<FunctionId>,
 }
 
 impl Cache {
@@ -47,7 +51,13 @@ impl Cache {
         Self {
             bindings: HashMap::new(),
             functions: IdCache::new(),
+            entry_point_function_id: None,
         }
+    }
+
+    pub fn entry_point_function(&self) -> Option<&Function> {
+        self.entry_point_function_id
+            .and_then(|id| self.functions.get(id))
     }
 }
 
@@ -110,6 +120,25 @@ impl Function {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Intrinsic {
     StartWorkspace,
+}
+
+impl TryFrom<&str> for Intrinsic {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "start_workspace" => Ok(Intrinsic::StartWorkspace),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Display for Intrinsic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Intrinsic::StartWorkspace => write!(f, "start_workspace"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]

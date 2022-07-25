@@ -42,6 +42,7 @@ pub enum TokenKind {
     Semicolon,
     Colon,
     At,
+    Hash,
 
     // Operators
     Plus,
@@ -98,7 +99,6 @@ pub enum TokenKind {
     Fn,
     Import,
     Extern,
-    Intrinsic,
     Pub,
     Mut,
     In,
@@ -147,7 +147,6 @@ impl From<&str> for TokenKind {
             "fn" => Fn,
             "import" => Import,
             "extern" => Extern,
-            "intrinsic" => Intrinsic,
             "pub" => Pub,
             "mut" => Mut,
             "in" => In,
@@ -166,6 +165,7 @@ impl TokenKind {
         use TokenKind::*;
 
         match self {
+            Hash => "#",
             At => "@",
             Semicolon => ";",
             Colon => ":",
@@ -227,7 +227,6 @@ impl TokenKind {
             Fn => "fn",
             Import => "import",
             Extern => "extern",
-            Intrinsic => "intrinsic",
             Pub => "pub",
             Mut => "mut",
             In => "in",
@@ -273,7 +272,6 @@ impl TokenKind {
                 | Let
                 | Fn
                 | Extern
-                | Intrinsic
                 | Pub
                 | Struct
                 | Union

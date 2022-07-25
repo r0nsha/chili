@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{self, Ast, BinaryOp, Block, BuiltinKind, ForIter, NameAndSpan, UnaryOp, Visibility},
+    ast,
     error::{
         diagnostic::{Diagnostic, Label},
         *,
@@ -18,7 +18,7 @@ macro_rules! parse_binary {
         let start_span = expr.span();
 
         while eat!($parser, $( $pattern )|+) {
-            let op: BinaryOp = $parser.previous().kind.into();
+            let op: ast::BinaryOp = $parser.previous().kind.into();
             let rhs = $next($parser)?;
             let span = start_span.to($parser.previous_span());
 
@@ -54,9 +54,28 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            match self.try_parse_any_binding(Visibility::Private)? {
+            let attrs = if is!(self, Hash) {
+                self.parse_attrs()?
+            } else {
+                vec![]
+            };
+
+            let has_attrs = !attrs.is_empty();
+
+            match self.try_parse_any_binding(attrs, ast::Visibility::Private)? {
                 Some(binding) => Ok(Ast::Binding(binding?)),
-                None => self.parse_logic_or(),
+                None => {
+                    if !has_attrs {
+                        self.parse_logic_or()
+                    } else {
+                        Err(Diagnostic::error()
+                            .with_message(format!(
+                                "expected a binding, got `{}`",
+                                self.peek().lexeme
+                            ))
+                            .with_label(Label::primary(self.span(), "unexpected token")))
+                    }
+                }
             }
         } else {
             self.parse_logic_or()
@@ -99,7 +118,7 @@ impl Parser {
         }))
     }
 
-    pub fn parse_block(&mut self) -> DiagnosticResult<Block> {
+    pub fn parse_block(&mut self) -> DiagnosticResult<ast::Block> {
         let start_span = self.previous_span();
 
         let mut exprs = vec![];
@@ -139,7 +158,7 @@ impl Parser {
             }
         }
 
-        Ok(Block {
+        Ok(ast::Block {
             statements: exprs,
             yields,
             span: start_span.to(self.previous_span()),
@@ -200,11 +219,11 @@ impl Parser {
             let token = self.previous().kind;
 
             let op = match token {
-                Amp => UnaryOp::Ref(eat!(self, Mut)),
-                Star => UnaryOp::Deref,
-                Minus => UnaryOp::Neg,
-                Plus => UnaryOp::Plus,
-                Bang => UnaryOp::Not,
+                Amp => ast::UnaryOp::Ref(eat!(self, Mut)),
+                Star => ast::UnaryOp::Deref,
+                Minus => ast::UnaryOp::Neg,
+                Plus => ast::UnaryOp::Plus,
+                Bang => ast::UnaryOp::Not,
                 t => panic!("{} is not a unary op", t),
             };
 
@@ -452,8 +471,8 @@ impl Parser {
         require!(self, OpenParen, "(")?;
 
         let kind = match symbol.as_str() {
-            "size_of" => BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
-            "align_of" => BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
+            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
+            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))
@@ -501,17 +520,18 @@ impl Parser {
 
         let iterator = if eat!(self, DotDot) {
             let iter_end = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
-            ForIter::Range(Box::new(iter_start), Box::new(iter_end))
+            ast::ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
-            ForIter::Value(Box::new(iter_start))
+            ast::ForIter::Value(Box::new(iter_start))
         };
 
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(Ast::For(ast::For {
-            iter_binding: NameAndSpan::new(iter_ident.name(), iter_ident.span),
-            index_binding: iter_index_ident.map(|ident| NameAndSpan::new(ident.name(), ident.span)),
+            iter_binding: ast::NameAndSpan::new(iter_ident.name(), iter_ident.span),
+            index_binding: iter_index_ident
+                .map(|ident| ast::NameAndSpan::new(ident.name(), ident.span)),
             iterator,
             block,
             span: start_span.to(self.previous_span()),

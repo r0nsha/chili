@@ -444,38 +444,6 @@ impl Type {
         }
     }
 
-    pub fn is_extern(&self) -> bool {
-        match self {
-            Type::Never
-            | Type::Unit
-            | Type::Bool
-            | Type::Int(_)
-            | Type::Uint(_)
-            | Type::Float(_) => true,
-
-            Type::Module(_)
-            | Type::Slice(_)
-            | Type::Type(_)
-            | Type::AnyType
-            | Type::Var(_)
-            | Type::Infer(_, _) => false,
-
-            Type::Pointer(inner, _) | Type::Array(inner, _) => inner.is_extern(),
-
-            Type::Function(f) => {
-                f.return_type.is_extern()
-                    && f.varargs
-                        .as_ref()
-                        .map_or(true, |v| v.ty.as_ref().map_or(true, Self::is_extern))
-                    && f.params.iter().map(|p| &p.ty).all(Self::is_extern)
-            }
-
-            Type::Tuple(tys) => tys.iter().all(Self::is_extern),
-
-            Type::Struct(st) => st.fields.iter().all(|f| f.ty.is_extern()),
-        }
-    }
-
     #[inline]
     pub fn unit() -> Type {
         Type::Unit
