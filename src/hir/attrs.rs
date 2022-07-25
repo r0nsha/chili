@@ -53,7 +53,6 @@ pub struct Attr {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AttrKind {
     Intrinsic,
-    Entry,
     Lib,
     Dylib,
     LinkName,
@@ -65,7 +64,6 @@ impl TryFrom<&str> for AttrKind {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "intrinsic" => Ok(AttrKind::Intrinsic),
-            "entry" => Ok(AttrKind::Entry),
             "lib" => Ok(AttrKind::Lib),
             "dylib" => Ok(AttrKind::Dylib),
             "link_name" => Ok(AttrKind::LinkName),
@@ -78,7 +76,6 @@ impl Display for AttrKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AttrKind::Intrinsic => write!(f, "intrinsic"),
-            AttrKind::Entry => write!(f, "entry"),
             AttrKind::Lib => write!(f, "lib"),
             AttrKind::Dylib => write!(f, "dylib"),
             AttrKind::LinkName => write!(f, "link_name"),

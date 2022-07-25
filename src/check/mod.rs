@@ -399,8 +399,31 @@ impl Check for ast::Binding {
                     ))
                 }
 
-                if let Some(attr) = attrs.get(AttrKind::Entry) {
-                    sess.try_assign_entry_point_function(env, &value_node, attr, pattern.span())?;
+                // If this binding matches the entry point function's requirements,
+                // Tag it as the entry function
+                // Requirements:
+                // - Is declared in the root module
+                // - It is in global scope
+                // - Its name is "main"
+                // - It is an Orphan function
+                if sess.workspace.build_options.need_entry_point_function()
+                    && self.module_id == sess.workspace.root_module_id
+                    && env.scope_level().is_global()
+                {
+                    if let Pattern::Name(pattern) = pattern {
+                        if pattern.name == "main" {
+                            if let Some(ConstValue::Function(f)) = value_node.as_const_value() {
+                                let function = sess.cache.functions.get(f.id).unwrap();
+
+                                match &function.kind {
+                                    hir::FunctionKind::Orphan { .. } => {
+                                        sess.cache.entry_point_function_id = Some(function.id);
+                                    }
+                                    _ => (),
+                                }
+                            }
+                        }
+                    }
                 }
 
                 let value_span = value_node.span();

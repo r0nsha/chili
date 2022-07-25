@@ -1,9 +1,6 @@
 use super::{env::Env, Check, CheckResult, CheckSess};
 use crate::{
-    ast::{
-        self,
-        pattern::{NamePattern, Pattern},
-    },
+    ast,
     common::path::RelativeTo,
     error::{
         diagnostic::{Diagnostic, Label},
@@ -81,7 +78,7 @@ impl<'s> CheckSess<'s> {
 
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
-            AttrKind::Intrinsic | AttrKind::Entry => self.tcx.common_types.unit,
+            AttrKind::Intrinsic => self.tcx.common_types.unit,
             AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => self.tcx.common_types.str,
         }
     }
@@ -103,35 +100,6 @@ impl<'s> CheckSess<'s> {
                     ast::BindingKind::ExternFunction { .. } => (),
                     _ => return Err(invalid_attr_use(attr, "can only be used on extern functions")),
                 },
-                AttrKind::Entry => {
-                    const USAGE: &str = "can only be used on immutable, let bound functions";
-
-                    let err = || -> DiagnosticResult<()> { Err(invalid_attr_use(attr, USAGE)) };
-
-                    match &binding.kind {
-                        ast::BindingKind::Orphan {
-                            pattern,
-                            value,
-                            is_static,
-                            ..
-                        } => {
-                            if *is_static {
-                                return err();
-                            }
-
-                            match pattern {
-                                Pattern::Name(NamePattern { is_mutable: false, .. }) => (),
-                                _ => return err(),
-                            }
-
-                            match value.as_ref() {
-                                ast::Ast::Function(_) => (),
-                                _ => return err(),
-                            }
-                        }
-                        _ => return err(),
-                    }
-                }
                 AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => match &binding.kind {
                     ast::BindingKind::ExternFunction { .. } | ast::BindingKind::ExternVariable { .. } => (),
                     _ => {
