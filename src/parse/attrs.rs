@@ -5,23 +5,21 @@ impl Parser {
     pub(super) fn parse_attrs(&mut self) -> DiagnosticResult<Vec<ast::Attr>> {
         let mut attrs = vec![];
 
-        while is!(self, Hash) {
+        while is!(self, At) {
             let start_span = self.bump().span;
-
-            require!(self, OpenBracket, "[")?;
 
             let id = require!(self, Ident(_), "an identifier")?;
             let name = id.name();
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-            let value = if eat!(self, Eq) {
-                Some(Box::new(self.parse_expr()?))
+            let value = if eat!(self, OpenParen) {
+                let value = Some(Box::new(self.parse_expr()?));
+                require!(self, CloseParen, ")")?;
+                value
             } else {
                 None
             };
-
-            require!(self, CloseBracket, "]")?;
 
             let attr = ast::Attr {
                 name: name_and_span,

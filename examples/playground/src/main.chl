@@ -1,4 +1,4 @@
-#[entry]
+@entry
 let main = fn() {
     println("Hello World");
 };

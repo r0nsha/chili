@@ -72,7 +72,9 @@ impl<'lx> Lexer<'lx> {
                                 .with_label(Label::primary(self.cursor.span(), "invalid shebang")));
                         }
                     } else {
-                        Hash
+                        return Err(Diagnostic::error()
+                            .with_message(format!("unknown character `{}`", ch))
+                            .with_label(Label::primary(self.cursor.span(), "unknown character")));
                     }
                 }
                 '@' => At,

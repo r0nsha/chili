@@ -54,7 +54,7 @@ impl Parser {
         self.decl_name_frames.push(decl_name);
 
         let expr = if is_stmt {
-            let attrs = if is!(self, Hash) { self.parse_attrs()? } else { vec![] };
+            let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
 
             let has_attrs = !attrs.is_empty();
 

@@ -42,7 +42,6 @@ pub enum TokenKind {
     Semicolon,
     Colon,
     At,
-    Hash,
 
     // Operators
     Plus,
@@ -165,7 +164,6 @@ impl TokenKind {
         use TokenKind::*;
 
         match self {
-            Hash => "#",
             At => "@",
             Semicolon => ";",
             Colon => ":",
