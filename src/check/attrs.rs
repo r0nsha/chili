@@ -13,7 +13,6 @@ use crate::{
         const_value::ConstValue,
     },
     infer::{display::OrReportErr, unify::UnifyType},
-    span::Span,
     types::TypeId,
 };
 
@@ -82,6 +81,7 @@ impl<'s> CheckSess<'s> {
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
             AttrKind::Intrinsic | AttrKind::Entry => self.tcx.common_types.unit,
+            AttrKind::Lib => self.tcx.common_types.str,
         }
     }
 
@@ -131,6 +131,15 @@ impl<'s> CheckSess<'s> {
                         _ => return err(),
                     }
                 }
+                AttrKind::Lib => match &binding.kind {
+                    ast::BindingKind::ExternFunction { .. } | ast::BindingKind::ExternVariable { .. } => (),
+                    _ => {
+                        return Err(invalid_attr_use(
+                            attr,
+                            "can only be used on extern variables and functions",
+                        ))
+                    }
+                },
             }
         }
 

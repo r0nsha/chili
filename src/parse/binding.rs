@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ast::pattern::Pattern, common::path::RelativeTo, span::To, workspace::ModuleId};
+use crate::{ast::pattern::Pattern, span::To, workspace::ModuleId};
 
 impl Parser {
     pub fn try_parse_any_binding(
@@ -65,17 +65,6 @@ impl Parser {
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let lib = eat!(self, Str(_)).then(|| self.previous().name());
-
-        let lib = if let Some(lib) = lib {
-            let lib =
-                ast::ExternLibrary::try_from_str(&lib, RelativeTo::Path(self.module_info.dir()), self.previous_span())?;
-
-            Some(lib)
-        } else {
-            None
-        };
-
         require!(self, Let, "let")?;
 
         let is_mutable = eat!(self, Mut);
@@ -91,7 +80,6 @@ impl Parser {
 
             ast::BindingKind::ExternVariable {
                 name: name_and_span,
-                lib,
                 is_mutable,
                 type_expr: Box::new(type_expr),
             }
@@ -100,7 +88,6 @@ impl Parser {
 
             ast::BindingKind::ExternVariable {
                 name: name_and_span,
-                lib,
                 is_mutable,
                 type_expr: Box::new(type_expr),
             }
@@ -110,7 +97,6 @@ impl Parser {
 
             ast::BindingKind::ExternFunction {
                 name: name_and_span,
-                lib,
                 sig,
             }
         } else {

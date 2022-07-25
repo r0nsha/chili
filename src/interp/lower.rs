@@ -98,7 +98,7 @@ impl Lower for hir::Function {
                         sess.diagnostics.push(
                             Diagnostic::error()
                                 .with_message(format!(
-                                    "must specify a library to use extern variable `{}` at compile-time",
+                                    "must specify a library to use extern function `{}` at compile-time",
                                     self.name
                                 ))
                                 .with_label(Label::primary(self.span, "cannot use during compile-time"))

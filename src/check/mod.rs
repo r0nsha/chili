@@ -12,6 +12,7 @@ use crate::{
     ast::{self, pattern::Pattern},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
+        path::RelativeTo,
         target::TargetMetrics,
     },
     error::{
@@ -427,7 +428,6 @@ impl Check for ast::Binding {
             }
             ast::BindingKind::ExternFunction {
                 name: ast::NameAndSpan { name, span },
-                lib,
                 sig,
             } => {
                 let (name, span) = (*name, *span);
@@ -439,6 +439,18 @@ impl Check for ast::Binding {
                             .with_label(Label::primary(param.pattern.span(), "parameter type not specified")));
                     }
                 }
+
+                let lib = if let Some(attr) = attrs.get(AttrKind::Lib) {
+                    let value = attr.value.as_str().unwrap().as_str();
+
+                    Some(ast::ExternLibrary::try_from_str(
+                        value,
+                        &RelativeTo::Path(env.module_info().dir()),
+                        attr.span,
+                    )?)
+                } else {
+                    None
+                };
 
                 let function_type_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
@@ -466,11 +478,7 @@ impl Check for ast::Binding {
                         }
                     }
                 } else {
-                    (
-                        name,
-                        hir::FunctionKind::Extern { lib: lib.clone() },
-                        BindingInfoKind::ExternFunction,
-                    )
+                    (name, hir::FunctionKind::Extern { lib }, BindingInfoKind::ExternFunction)
                 };
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
@@ -507,13 +515,24 @@ impl Check for ast::Binding {
             }
             ast::BindingKind::ExternVariable {
                 name: ast::NameAndSpan { name, span },
-                lib,
                 is_mutable,
                 type_expr,
             } => {
                 let (name, span) = (*name, *span);
 
                 let ty = check_type_expr(type_expr, sess, env)?;
+
+                let lib = if let Some(attr) = attrs.get(AttrKind::Lib) {
+                    let value = attr.value.as_str().unwrap().as_str();
+
+                    Some(ast::ExternLibrary::try_from_str(
+                        value,
+                        &RelativeTo::Path(env.module_info().dir()),
+                        attr.span,
+                    )?)
+                } else {
+                    None
+                };
 
                 let value = hir::Node::Const(hir::Const {
                     value: ConstValue::ExternVariable(ConstExternVariable {

@@ -54,6 +54,7 @@ pub struct Attr {
 pub enum AttrKind {
     Intrinsic,
     Entry,
+    Lib,
 }
 
 impl TryFrom<&str> for AttrKind {
@@ -63,6 +64,7 @@ impl TryFrom<&str> for AttrKind {
         match value {
             "intrinsic" => Ok(AttrKind::Intrinsic),
             "entry" => Ok(AttrKind::Entry),
+            "lib" => Ok(AttrKind::Lib),
             _ => Err(()),
         }
     }
@@ -73,6 +75,7 @@ impl Display for AttrKind {
         match self {
             AttrKind::Intrinsic => write!(f, "intrinsic"),
             AttrKind::Entry => write!(f, "entry"),
+            AttrKind::Lib => write!(f, "lib"),
         }
     }
 }

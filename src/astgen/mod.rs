@@ -1,6 +1,6 @@
 use crate::{
     ast,
-    common::path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
+    common::path::{try_resolve_relative_path, RelativeTo},
     parse::{spawn_parser, ParserCache, ParserResult},
     workspace::{compiler_info, PartialModuleInfo, Workspace},
 };
@@ -20,7 +20,7 @@ pub struct AstGenerationStats {
 pub type AstGenerationResult = Option<(Vec<ast::Module>, AstGenerationStats)>;
 
 pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
-    let root_file_path = try_resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd, None)
+    let root_file_path = try_resolve_relative_path(&workspace.build_options.source_file, &RelativeTo::Cwd, None)
         .map_err(|diag| workspace.diagnostics.push(diag))
         .ok()?;
 
@@ -42,11 +42,11 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
     Some((modules, stats))
 }
 
-fn generate_ast_inner(workspace: &mut Workspace, root_file_path: PathBuf) -> (Vec<ast::Module>, AstGenerationStats) {
+fn generate_ast_inner(workspace: &mut Workspace, root_file: PathBuf) -> (Vec<ast::Module>, AstGenerationStats) {
     let mut modules: Vec<ast::Module> = vec![];
 
     let cache = Arc::new(Mutex::new(ParserCache {
-        root_file: resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd).unwrap(),
+        root_file: root_file.clone(),
         root_dir: workspace.root_dir.clone(),
         std_dir: workspace.std_dir.clone(),
         include_paths: workspace.build_options.include_paths.clone(),
@@ -55,7 +55,7 @@ fn generate_ast_inner(workspace: &mut Workspace, root_file_path: PathBuf) -> (Ve
         total_lines: 0,
     }));
 
-    let root_module_info = PartialModuleInfo::from_path(&root_file_path);
+    let root_module_info = PartialModuleInfo::from_path(&root_file);
 
     let thread_pool = ThreadPool::new(num_cpus::get());
     let (tx, rx) = channel::<Box<ParserResult>>();
