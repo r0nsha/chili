@@ -459,11 +459,7 @@ impl ExternLibraryPath {
 }
 
 impl ExternLibrary {
-    pub fn try_from_str(
-        s: &str,
-        relative_to: RelativeTo<'_>,
-        span: Span,
-    ) -> DiagnosticResult<Self> {
+    pub fn try_from_str(s: &str, relative_to: RelativeTo<'_>, span: Span) -> DiagnosticResult<Self> {
         let path = Path::new(s);
 
         if path.extension().is_some() {
@@ -473,10 +469,6 @@ impl ExternLibrary {
             let lib = s.to_string();
             Ok(ExternLibrary::System(lib))
         }
-    }
-
-    pub fn from_str(from: &str, relative_to: RelativeTo<'_>) -> Option<Self> {
-        Self::try_from_str(from, relative_to, Span::unknown()).ok()
     }
 
     pub fn path(&self) -> String {

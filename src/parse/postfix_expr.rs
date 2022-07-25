@@ -48,7 +48,7 @@ impl Parser {
             } else if eat!(self, Fn) {
                 let start_span = expr.span();
 
-                let fn_arg = self.parse_function(ustr("_"), None)?;
+                let fn_arg = self.parse_function(ustr(""), false)?;
                 let span = start_span.to(self.previous_span());
 
                 match &mut expr {
@@ -167,12 +167,7 @@ impl Parser {
 
             OpenParen => self.parse_call(expr)?,
 
-            _ => {
-                return Err(SyntaxError::expected(
-                    self.span(),
-                    "an identifier, number or *",
-                ))
-            }
+            _ => return Err(SyntaxError::expected(self.span(), "an identifier, number or *")),
         };
 
         Ok(expr)
