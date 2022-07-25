@@ -398,7 +398,7 @@ impl Check for ast::Binding {
                 }
 
                 if let Some(attr) = attrs.get(AttrKind::Entry) {
-                    sess.try_assign_entry_point_function(&value_node, attr, env)?;
+                    sess.try_assign_entry_point_function(env, &value_node, attr, pattern.span())?;
                 }
 
                 let value_span = value_node.span();
