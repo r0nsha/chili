@@ -47,9 +47,7 @@ fn find_libc() -> String {
     exists(format!("/lib/{}", libc_file_name))
         .or_else(|| exists(format!("/usr/lib/{}", libc_file_name)))
         .or_else(|| exists(format!("/lib/x86_64-linux-gnu/{}", libc_file_name)))
-        .unwrap_or_else(|| {
-            panic!("couldn't find libc on the current machine. this is most likely an ICE")
-        })
+        .unwrap_or_else(|| panic!("couldn't find libc on the current machine. this is most likely an ICE"))
 }
 
 impl Ffi {
@@ -120,18 +118,10 @@ impl FfiFunction {
         Self { cif }
     }
 
-    unsafe fn new_variadic(
-        arg_types: &[Type],
-        variadic_arg_types: &[Type],
-        return_type: &Type,
-    ) -> Self {
+    unsafe fn new_variadic(arg_types: &[Type], variadic_arg_types: &[Type], return_type: &Type) -> Self {
         let cif_return_type: FfiType = return_type.as_ffi_type();
 
-        let arg_types: Vec<Type> = arg_types
-            .iter()
-            .chain(variadic_arg_types.iter())
-            .cloned()
-            .collect();
+        let arg_types: Vec<Type> = arg_types.iter().chain(variadic_arg_types.iter()).cloned().collect();
 
         let cif_arg_types: Vec<FfiType> = arg_types.iter().map(|arg| arg.as_ffi_type()).collect();
 
@@ -172,23 +162,15 @@ impl FfiFunction {
                 Value::Function(addr) => match (*vm).interp.get_function(addr.id).unwrap() {
                     FunctionValue::Orphan(function) => {
                         let ffi_function = FfiFunction::new(
-                            &function
-                                .ty
-                                .params
-                                .iter()
-                                .map(|p| &p.ty)
-                                .cloned()
-                                .collect::<Vec<Type>>(),
+                            &function.ty.params.iter().map(|p| &p.ty).cloned().collect::<Vec<Type>>(),
                             &function.ty.return_type,
                         );
 
                         let user_data = bump.alloc(ClosureUserData { vm, function });
 
-                        let closure =
-                            bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
+                        let closure = bump.alloc(Closure::new(ffi_function.cif, closure_callback, user_data));
 
-                        let code_ptr =
-                            closure.instantiate_code_ptr::<c_void>() as *const c_void as RawPointer;
+                        let code_ptr = closure.instantiate_code_ptr::<c_void>() as *const c_void as RawPointer;
 
                         raw_ptr!(code_ptr)
                     }
@@ -322,13 +304,9 @@ impl AsFfiType for Type {
                     }
                 }
             },
-            Type::Unit | Type::Pointer(_, _) | Type::Function(_) | Type::Array(_, _) => {
-                FfiType::pointer()
-            }
+            Type::Unit | Type::Pointer(_, _) | Type::Function(_) | Type::Array(_, _) => FfiType::pointer(),
             Type::Slice(_) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
-            Type::Tuple(tuple_elements) => {
-                FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type()))
-            }
+            Type::Tuple(tuple_elements) => FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type())),
             Type::Struct(st) => FfiType::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
             Type::Infer(_, ty) => match ty {
                 InferType::AnyInt => {

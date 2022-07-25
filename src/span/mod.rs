@@ -11,11 +11,7 @@ pub struct Span {
 
 impl Span {
     pub fn new(file_id: FileId, start: Position, end: EndPosition) -> Self {
-        Self {
-            file_id,
-            start,
-            end,
-        }
+        Self { file_id, start, end }
     }
 
     pub fn initial(file_id: FileId) -> Self {
@@ -76,11 +72,7 @@ pub struct Position {
 
 impl Position {
     pub fn new(index: usize, line: u32, column: u16) -> Self {
-        Self {
-            index,
-            line,
-            column,
-        }
+        Self { index, line, column }
     }
 
     pub fn initial() -> Self {

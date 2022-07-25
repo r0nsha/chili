@@ -22,12 +22,8 @@ impl Coerce for Type {
         use CoercionResult::*;
 
         match (self, to) {
-            (Type::Infer(_, InferType::AnyInt), Type::Infer(_, InferType::AnyFloat)) => {
-                CoerceToRight
-            }
-            (Type::Infer(_, InferType::AnyFloat), Type::Infer(_, InferType::AnyInt)) => {
-                CoerceToLeft
-            }
+            (Type::Infer(_, InferType::AnyInt), Type::Infer(_, InferType::AnyFloat)) => CoerceToRight,
+            (Type::Infer(_, InferType::AnyFloat), Type::Infer(_, InferType::AnyInt)) => CoerceToLeft,
 
             // * int -> same or bigger int
             (Type::Int(left), Type::Int(right)) => {

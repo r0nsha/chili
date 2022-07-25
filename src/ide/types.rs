@@ -23,12 +23,7 @@ impl IdeSpan {
         let module_id = workspace.find_module_id_by_file_id(span.file_id).unwrap();
         Self::from_span_and_file(
             span,
-            workspace
-                .module_infos
-                .get(module_id)
-                .unwrap()
-                .file_path
-                .to_string(),
+            workspace.module_infos.get(module_id).unwrap().file_path.to_string(),
         )
     }
 }

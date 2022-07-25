@@ -18,10 +18,7 @@ pub struct Stopwatch<'s> {
 impl<'s> Stopwatch<'s> {
     #[allow(unused)]
     pub fn new(label: &'s str) -> Self {
-        Self {
-            label,
-            sw: SW::new(),
-        }
+        Self { label, sw: SW::new() }
     }
 
     pub fn start_new(label: &'s str) -> Self {

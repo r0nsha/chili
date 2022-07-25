@@ -56,8 +56,7 @@ impl Cache {
     }
 
     pub fn entry_point_function(&self) -> Option<&Function> {
-        self.entry_point_function_id
-            .and_then(|id| self.functions.get(id))
+        self.entry_point_function_id.and_then(|id| self.functions.get(id))
     }
 }
 
@@ -87,7 +86,7 @@ pub enum FunctionKind {
     Orphan {
         params: Vec<FunctionParam>,
         inferred_return_type_span: Option<Span>, // This span will be filled when the function's return type is elided
-        body: Option<Sequence>, // The body will be filled after the function is fully checked
+        body: Option<Sequence>,                  // The body will be filled after the function is fully checked
     },
     Extern {
         lib: Option<ExternLibrary>,

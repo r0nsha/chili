@@ -28,9 +28,7 @@ pub fn binary(
         },
         ast::BinaryOp::Rem => match rhs {
             ConstValue::Int(0) | ConstValue::Uint(0) => Err(SyntaxError::divide_by_zero(span)),
-            _ => lhs
-                .rem(rhs)
-                .ok_or_else(|| int_overflow("taking the remainder of")),
+            _ => lhs.rem(rhs).ok_or_else(|| int_overflow("taking the remainder of")),
         },
         ast::BinaryOp::Eq => Ok(lhs.eq(rhs)),
         ast::BinaryOp::Ne => Ok(lhs.ne(rhs)),
@@ -48,13 +46,7 @@ pub fn binary(
     }
 }
 
-fn int_overflow(
-    action: &str,
-    lhs: &ConstValue,
-    rhs: &ConstValue,
-    span: Span,
-    tcx: &TypeCtx,
-) -> Diagnostic {
+fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span, tcx: &TypeCtx) -> Diagnostic {
     Diagnostic::error()
         .with_message(format!(
             "integer overflowed while {} {} and {} at compile-time",

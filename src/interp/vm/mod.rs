@@ -153,11 +153,8 @@ impl<'vm> VM<'vm> {
 
                     let value = match const_ {
                         Value::ExternVariable(variable) => {
-                            let symbol = unsafe {
-                                self.interp
-                                    .ffi
-                                    .load_symbol(ustr(&variable.lib.path()), variable.name)
-                            };
+                            let symbol =
+                                unsafe { self.interp.ffi.load_symbol(ustr(&variable.lib.path()), variable.name) };
 
                             unsafe { Value::from_type_and_ptr(&variable.ty, *symbol as RawPointer) }
                         }
@@ -183,9 +180,7 @@ impl<'vm> VM<'vm> {
                         (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a + b)),
                         (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a + b)),
                         (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a + b)),
-                        (Value::Pointer(a), Value::Int(b)) => {
-                            self.stack.push(Value::Pointer(unsafe { a.offset(*b) }))
-                        }
+                        (Value::Pointer(a), Value::Int(b)) => self.stack.push(Value::Pointer(unsafe { a.offset(*b) })),
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(+),
@@ -211,9 +206,7 @@ impl<'vm> VM<'vm> {
                         (Value::Uint(a), Value::Uint(b)) => self.stack.push(Value::Uint(a - b)),
                         (Value::F32(a), Value::F32(b)) => self.stack.push(Value::F32(a - b)),
                         (Value::F64(a), Value::F64(b)) => self.stack.push(Value::F64(a - b)),
-                        (Value::Pointer(a), Value::Int(b)) => {
-                            self.stack.push(Value::Pointer(unsafe { a.offset(-*b) }))
-                        }
+                        (Value::Pointer(a), Value::Int(b)) => self.stack.push(Value::Pointer(unsafe { a.offset(-*b) })),
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(-),
@@ -376,8 +369,7 @@ impl<'vm> VM<'vm> {
                     if self.frames.is_empty() {
                         break return_value;
                     } else {
-                        self.stack
-                            .truncate(frame.stack_slot - frame.func().ty.params.len());
+                        self.stack.truncate(frame.stack_slot - frame.func().ty.params.len());
                         self.frame = self.frames.last_mut() as _;
                         self.stack.push(return_value);
                     }
@@ -387,9 +379,10 @@ impl<'vm> VM<'vm> {
 
                     match self.stack.pop() {
                         Value::Function(addr) => {
-                            let function = self.interp.get_function(addr.id).unwrap_or_else(|| {
-                                panic!("couldn't find '{}' {:?}", addr.name, addr.id)
-                            });
+                            let function = self
+                                .interp
+                                .get_function(addr.id)
+                                .unwrap_or_else(|| panic!("couldn't find '{}' {:?}", addr.name, addr.id));
 
                             match function {
                                 FunctionValue::Orphan(function) => {
@@ -407,9 +400,7 @@ impl<'vm> VM<'vm> {
                                     let vm_ptr = self as *mut _;
                                     let interp_ptr = self.interp as *const _;
 
-                                    let result = unsafe {
-                                        self.interp.ffi.call(function, values, vm_ptr, interp_ptr)
-                                    };
+                                    let result = unsafe { self.interp.ffi.call(function, values, vm_ptr, interp_ptr) };
 
                                     self.stack.push(result);
                                 }
@@ -549,8 +540,7 @@ impl<'vm> VM<'vm> {
             self.stack.push(Value::default());
         }
 
-        self.frames
-            .push(StackFrame::<'vm>::new(function, stack_slot));
+        self.frames.push(StackFrame::<'vm>::new(function, stack_slot));
 
         self.frame = self.frames.last_mut() as _;
     }

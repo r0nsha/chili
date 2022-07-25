@@ -23,11 +23,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    fn get_or_create_intrinsic<F>(
-        &mut self,
-        intrinsic: &hir::Intrinsic,
-        create_fn: F,
-    ) -> FunctionValue<'ctx>
+    fn get_or_create_intrinsic<F>(&mut self, intrinsic: &hir::Intrinsic, create_fn: F) -> FunctionValue<'ctx>
     where
         F: FnOnce(&mut Generator<'g, 'ctx>) -> FunctionValue<'ctx>,
     {

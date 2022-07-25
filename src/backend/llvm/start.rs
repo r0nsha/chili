@@ -119,8 +119,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         // TODO: if this is DLL Main, return 1 instead of 0
 
         if self.current_block().get_terminator().is_none() {
-            self.builder
-                .build_return(Some(&self.context.i32_type().const_zero()));
+            self.builder.build_return(Some(&self.context.i32_type().const_zero()));
         }
 
         self.start_block(&mut state, decl_block);

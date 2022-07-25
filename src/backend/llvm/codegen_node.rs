@@ -16,11 +16,7 @@ use inkwell::{
 };
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         match self {
             hir::Node::Const(x) => x.codegen(generator, state),
             hir::Node::Binding(x) => x.codegen(generator, state),
@@ -38,11 +34,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Const {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let ty = self.ty.normalize(generator.tcx);
         generator.gen_const_value(Some(state), &self.value, &ty)
     }
@@ -69,18 +61,11 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
                     Decl::Global(global_value)
                 }
                 _ => match self.value.as_const_value() {
-                    Some(ConstValue::Function(function)) => {
-                        Decl::Function(generator.gen_function(function.id, None))
-                    }
+                    Some(ConstValue::Function(function)) => Decl::Function(generator.gen_function(function.id, None)),
                     Some(const_value) => {
-                        let global_value =
-                            generator.add_global(self.id, llvm_type, Linkage::Private);
+                        let global_value = generator.add_global(self.id, llvm_type, Linkage::Private);
 
-                        global_value.set_initializer(&generator.gen_const_value(
-                            None,
-                            const_value,
-                            &ty,
-                        ));
+                        global_value.set_initializer(&generator.gen_const_value(None, const_value, &ty));
 
                         Decl::Global(global_value)
                     }
@@ -94,11 +79,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
         }
     }
 
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let binding_info = generator.workspace.binding_infos.get(self.id).unwrap();
 
         let ty = binding_info.ty.normalize(generator.tcx);
@@ -125,16 +106,10 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let decl_ptr = match state.scopes.get(self.id) {
             Some((_, decl)) => decl.into_pointer_value(),
-            None => generator
-                .gen_top_level_binding(self.id)
-                .into_pointer_value(),
+            None => generator.gen_top_level_binding(self.id).into_pointer_value(),
         };
 
         generator.build_load(decl_ptr)
@@ -142,30 +117,21 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assignment {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let lhs = self.lhs.codegen(generator, state);
 
         let lhs = match lhs.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => inst
-                .get_operand(0)
-                .unwrap()
-                .left()
-                .unwrap()
-                .into_pointer_value(),
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
+                inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
+            }
             _ => lhs.into_pointer_value(),
         };
 
         let rhs = self.rhs.codegen(generator, state);
 
-        let lhs = generator.builder.build_pointer_cast(
-            lhs,
-            rhs.get_type().ptr_type(AddressSpace::Generic),
-            "",
-        );
+        let lhs = generator
+            .builder
+            .build_pointer_cast(lhs, rhs.get_type().ptr_type(AddressSpace::Generic), "");
 
         generator.builder.build_store(lhs, rhs);
         generator.unit_value()
@@ -173,22 +139,14 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assignment {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
         generator.gep_struct(value, self.member_index, &self.member_name)
     }
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Call {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let callee_ty = self.callee.ty().normalize(generator.tcx).into_function();
 
         let mut args = vec![];
@@ -223,11 +181,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Call {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
 
         let from_ty = &self.value.ty().normalize(generator.tcx);
@@ -253,92 +207,58 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
 
             (Type::Int(_), Type::Float(_)) => generator
                 .builder
-                .build_signed_int_to_float(
-                    value.into_int_value(),
-                    cast_type.into_float_type(),
-                    INST_NAME,
-                )
+                .build_signed_int_to_float(value.into_int_value(), cast_type.into_float_type(), INST_NAME)
                 .into(),
 
             (Type::Uint(_), Type::Float(_)) => generator
                 .builder
-                .build_unsigned_int_to_float(
-                    value.into_int_value(),
-                    cast_type.into_float_type(),
-                    INST_NAME,
-                )
+                .build_unsigned_int_to_float(value.into_int_value(), cast_type.into_float_type(), INST_NAME)
                 .into(),
 
             (Type::Float(_), Type::Int(_)) => generator
                 .builder
-                .build_float_to_signed_int(
-                    value.into_float_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
+                .build_float_to_signed_int(value.into_float_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
             (Type::Float(_), Type::Uint(_)) => generator
                 .builder
-                .build_float_to_unsigned_int(
-                    value.into_float_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
+                .build_float_to_unsigned_int(value.into_float_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
             (Type::Float(_), Type::Float(_)) => generator
                 .builder
-                .build_float_cast(
-                    value.into_float_value(),
-                    cast_type.into_float_type(),
-                    INST_NAME,
-                )
+                .build_float_cast(value.into_float_value(), cast_type.into_float_type(), INST_NAME)
                 .into(),
 
-            (Type::Pointer(left, _), Type::Pointer(right, _)) => {
-                match (left.as_ref(), right.as_ref()) {
-                    (Type::Array(_, size), Type::Slice(right)) => {
-                        let slice_type = generator.slice_type(right);
-                        let ptr = generator.build_alloca(state, slice_type);
+            (Type::Pointer(left, _), Type::Pointer(right, _)) => match (left.as_ref(), right.as_ref()) {
+                (Type::Array(_, size), Type::Slice(right)) => {
+                    let slice_type = generator.slice_type(right);
+                    let ptr = generator.build_alloca(state, slice_type);
 
-                        generator.build_slice(
-                            ptr,
-                            value,
-                            generator.ptr_sized_int_type.const_zero(),
-                            generator.ptr_sized_int_type.const_int(*size as u64, false),
-                            right.as_ref(),
-                        );
+                    generator.build_slice(
+                        ptr,
+                        value,
+                        generator.ptr_sized_int_type.const_zero(),
+                        generator.ptr_sized_int_type.const_int(*size as u64, false),
+                        right.as_ref(),
+                    );
 
-                        generator.build_load(ptr.into())
-                    }
-                    (_, _) => generator
-                        .builder
-                        .build_pointer_cast(
-                            value.into_pointer_value(),
-                            cast_type.into_pointer_type(),
-                            INST_NAME,
-                        )
-                        .into(),
+                    generator.build_load(ptr.into())
                 }
-            }
+                (_, _) => generator
+                    .builder
+                    .build_pointer_cast(value.into_pointer_value(), cast_type.into_pointer_type(), INST_NAME)
+                    .into(),
+            },
 
             // pointer <=> int | uint
             (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => generator
                 .builder
-                .build_ptr_to_int(
-                    value.into_pointer_value(),
-                    cast_type.into_int_type(),
-                    INST_NAME,
-                )
+                .build_ptr_to_int(value.into_pointer_value(), cast_type.into_int_type(), INST_NAME)
                 .into(),
 
             // int | uint <=> pointer
             (Type::Int(..) | Type::Uint(..), Type::Pointer(..)) => generator
                 .builder
-                .build_int_to_ptr(
-                    value.into_int_value(),
-                    cast_type.into_pointer_type(),
-                    INST_NAME,
-                )
+                .build_int_to_ptr(value.into_int_value(), cast_type.into_pointer_type(), INST_NAME)
                 .into(),
 
             _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
@@ -347,11 +267,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Sequence {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let mut yielded_value = generator.unit_value();
 
         state.push_scope();

@@ -34,10 +34,7 @@ impl<'vm> VM<'vm> {
                 Pointer::Buffer(buf) => {
                     let buf = unsafe { &mut **buf };
                     let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
-                    let value = Value::Pointer(Pointer::from_type_and_ptr(
-                        buf.ty.element_type().unwrap(),
-                        ptr as _,
-                    ));
+                    let value = Value::Pointer(Pointer::from_type_and_ptr(buf.ty.element_type().unwrap(), ptr as _));
                     self.stack.push(value);
                 }
                 _ => self.offset(value, index),
@@ -67,10 +64,8 @@ impl<'vm> VM<'vm> {
                     let raw = ptr.as_inner_raw();
                     let offset = unsafe { raw.add(index) };
 
-                    self.stack.push(Value::Pointer(Pointer::from_kind_and_ptr(
-                        ptr.kind(),
-                        offset,
-                    )))
+                    self.stack
+                        .push(Value::Pointer(Pointer::from_kind_and_ptr(ptr.kind(), offset)))
                 }
             },
             Value::Buffer(buf) => {

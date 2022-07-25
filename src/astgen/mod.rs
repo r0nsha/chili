@@ -20,10 +20,9 @@ pub struct AstGenerationStats {
 pub type AstGenerationResult = Option<(Vec<ast::Module>, AstGenerationStats)>;
 
 pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
-    let root_file_path =
-        try_resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd, None)
-            .map_err(|diag| workspace.diagnostics.push(diag))
-            .ok()?;
+    let root_file_path = try_resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd, None)
+        .map_err(|diag| workspace.diagnostics.push(diag))
+        .ok()?;
 
     let (mut modules, stats) = generate_ast_inner(workspace, root_file_path.clone());
 
@@ -43,15 +42,11 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
     Some((modules, stats))
 }
 
-fn generate_ast_inner(
-    workspace: &mut Workspace,
-    root_file_path: PathBuf,
-) -> (Vec<ast::Module>, AstGenerationStats) {
+fn generate_ast_inner(workspace: &mut Workspace, root_file_path: PathBuf) -> (Vec<ast::Module>, AstGenerationStats) {
     let mut modules: Vec<ast::Module> = vec![];
 
     let cache = Arc::new(Mutex::new(ParserCache {
-        root_file: resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd)
-            .unwrap(),
+        root_file: resolve_relative_path(&workspace.build_options.source_file, RelativeTo::Cwd).unwrap(),
         root_dir: workspace.root_dir.clone(),
         std_dir: workspace.std_dir.clone(),
         include_paths: workspace.build_options.include_paths.clone(),
@@ -72,12 +67,7 @@ fn generate_ast_inner(
         compiler_info::std_module_info(),
     );
 
-    spawn_parser(
-        thread_pool.clone(),
-        tx,
-        Arc::clone(&cache),
-        root_module_info,
-    );
+    spawn_parser(thread_pool.clone(), tx, Arc::clone(&cache), root_module_info);
 
     for result in rx.iter() {
         match *result {

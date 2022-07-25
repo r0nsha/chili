@@ -128,11 +128,7 @@ impl NormalizeCtx {
             Type::Pointer(inner, a) => Type::Pointer(Box::new(self.normalize_kind(tcx, inner)), *a),
             Type::Array(inner, a) => Type::Array(Box::new(self.normalize_kind(tcx, inner)), *a),
             Type::Slice(inner) => Type::Slice(Box::new(self.normalize_kind(tcx, inner))),
-            Type::Tuple(tys) => Type::Tuple(
-                tys.iter()
-                    .map(|kind| self.normalize_kind(tcx, kind))
-                    .collect(),
-            ),
+            Type::Tuple(tys) => Type::Tuple(tys.iter().map(|kind| self.normalize_kind(tcx, kind)).collect()),
             Type::Struct(st) => {
                 if st.binding_id != Default::default() && st.binding_id == self.parent_binding_id {
                     kind.clone()
@@ -174,12 +170,7 @@ impl NormalizeCtx {
                 } else {
                     Type::Infer(
                         *ty,
-                        InferType::PartialTuple(
-                            elements
-                                .iter()
-                                .map(|ty| self.normalize_kind(tcx, ty))
-                                .collect(),
-                        ),
+                        InferType::PartialTuple(elements.iter().map(|ty| self.normalize_kind(tcx, ty)).collect()),
                     )
                 }
             }
@@ -202,8 +193,7 @@ impl NormalizeCtx {
                     Type::Infer(
                         *ty,
                         InferType::PartialStruct(PartialStructType(IndexMap::from_iter(
-                            st.iter()
-                                .map(|(symbol, ty)| (*symbol, self.normalize_kind(tcx, ty))),
+                            st.iter().map(|(symbol, ty)| (*symbol, self.normalize_kind(tcx, ty))),
                         ))),
                     )
                 }

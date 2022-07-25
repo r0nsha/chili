@@ -90,10 +90,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Cache {
             .for_each(|(module_id, items)| {
                 let module_info = p.workspace.module_infos.get(module_id).unwrap();
 
-                p.write_comment(
-                    &format!("{} ({})\n\n", module_info.name, module_info.file_path),
-                    true,
-                );
+                p.write_comment(&format!("{} ({})\n\n", module_info.name, module_info.file_path), true);
 
                 for item in items {
                     match item {
@@ -265,10 +262,7 @@ impl<'a, W: Write> Print<'a, W> for ConstValue {
 
 impl<'a, W: Write> Print<'a, W> for hir::Id {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
-        p.write_indented(
-            &p.workspace.binding_infos.get(self.id).unwrap().name,
-            is_line_start,
-        );
+        p.write_indented(&p.workspace.binding_infos.get(self.id).unwrap().name, is_line_start);
     }
 }
 
@@ -371,12 +365,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Control {
 
 impl<'a, W: Write> Print<'a, W> for hir::Builtin {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
-        fn write_binary<'a, W: Write>(
-            op: &str,
-            binary: &hir::Binary,
-            p: &mut Printer<'a, W>,
-            is_line_start: bool,
-        ) {
+        fn write_binary<'a, W: Write>(op: &str, binary: &hir::Binary, p: &mut Printer<'a, W>, is_line_start: bool) {
             binary.lhs.print(p, is_line_start);
             p.write(" ");
             p.write(op);

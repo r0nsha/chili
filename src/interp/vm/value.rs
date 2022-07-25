@@ -14,8 +14,8 @@ use crate::{
     interp::interp::Interp,
     span::Span,
     types::{
-        align_of::AlignOf, offset_of::OffsetOf, size_of::SizeOf, FloatType, FunctionType,
-        InferType, IntType, Type, UintType,
+        align_of::AlignOf, offset_of::OffsetOf, size_of::SizeOf, FloatType, FunctionType, InferType, IntType, Type,
+        UintType,
     },
 };
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
@@ -275,11 +275,7 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn as_slice<T>(&self) -> &[T] {
-        let ptr = self
-            .bytes
-            .offset(0)
-            .read_uint::<NativeEndian>(WORD_SIZE)
-            .unwrap() as *mut T;
+        let ptr = self.bytes.offset(0).read_uint::<NativeEndian>(WORD_SIZE).unwrap() as *mut T;
 
         let len = self
             .bytes
@@ -362,10 +358,7 @@ impl Buffer {
 
         match &self.ty {
             Type::Unit => panic!("{}", index),
-            Type::Struct(struct_type) => self
-                .bytes
-                .offset(offset)
-                .get_value(&struct_type.fields[index].ty),
+            Type::Struct(struct_type) => self.bytes.offset(offset).get_value(&struct_type.fields[index].ty),
             Type::Infer(_, InferType::PartialStruct(partial_struct)) => self
                 .bytes
                 .offset(offset)
@@ -376,10 +369,7 @@ impl Buffer {
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(ty) => match index {
-                    0 => self
-                        .bytes
-                        .offset(offset)
-                        .get_value(&Type::Pointer(ty.clone(), false)),
+                    0 => self.bytes.offset(offset).get_value(&Type::Pointer(ty.clone(), false)),
                     1 => self.bytes.offset(offset).get_value(&Type::uint()),
                     _ => panic!("{}", index),
                 },
@@ -489,9 +479,7 @@ impl From<&Type> for ValueKind {
             Type::Array(_, _)
             | Type::Tuple(_)
             | Type::Struct(_)
-            | Type::Infer(_, InferType::PartialStruct(_) | InferType::PartialTuple(_)) => {
-                Self::Buffer
-            }
+            | Type::Infer(_, InferType::PartialStruct(_) | InferType::PartialTuple(_)) => Self::Buffer,
             Type::Module(_) => panic!(),
             Type::Type(_) => Self::Type,
             Type::Infer(_, InferType::AnyInt) => Self::Int,
@@ -544,9 +532,7 @@ impl Value {
                     }
                 }
             },
-            Type::Pointer(ty, _) => {
-                Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer)))
-            }
+            Type::Pointer(ty, _) => Self::Pointer(Pointer::from_type_and_ptr(ty, *(ptr as *mut RawPointer))),
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => Self::Buffer(Buffer {
                 bytes: ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE)),
@@ -659,10 +645,7 @@ impl Value {
                             Err("slice")
                         }
                     }
-                    _ => panic!(
-                        "value type mismatch. expected an aggregate type, got {}",
-                        ty
-                    ),
+                    _ => panic!("value type mismatch. expected an aggregate type, got {}", ty),
                 },
                 Type::Infer(_, InferType::PartialTuple(elements)) | Type::Tuple(elements) => {
                     let align = ty.align_of(WORD_SIZE);
@@ -717,15 +700,9 @@ impl Value {
 
                     Ok(ConstValue::Struct(fields))
                 }
-                ty => panic!(
-                    "value type mismatch. expected an aggregate type, got {}",
-                    ty
-                ),
+                ty => panic!("value type mismatch. expected an aggregate type, got {}", ty),
             },
-            Self::Function(f) => Ok(ConstValue::Function(ConstFunction {
-                id: f.id,
-                name: f.name,
-            })),
+            Self::Function(f) => Ok(ConstValue::Function(ConstFunction { id: f.id, name: f.name })),
             Self::ExternVariable(v) => Ok(ConstValue::ExternVariable(ConstExternVariable {
                 name: v.name,
                 lib: Some(v.lib.clone()),
@@ -778,13 +755,9 @@ impl Pointer {
             Type::Pointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => {
-                let bytes =
-                    ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
+                let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
 
-                let array = Box::new(Buffer {
-                    bytes,
-                    ty: ty.clone(),
-                });
+                let array = Box::new(Buffer { bytes, ty: ty.clone() });
 
                 // Note (Ron): Leak
                 Self::Buffer(Box::leak(array) as *mut Buffer)
@@ -843,16 +816,12 @@ impl Pointer {
             (Self::I16(p), Value::I16(v)) => slice(p).write_i16::<NativeEndian>(v).unwrap(),
             (Self::I32(p), Value::I32(v)) => slice(p).write_i32::<NativeEndian>(v).unwrap(),
             (Self::I64(p), Value::I64(v)) => slice(p).write_i64::<NativeEndian>(v).unwrap(),
-            (Self::Int(p), Value::Int(v)) => slice(p)
-                .write_int::<NativeEndian>(v as i64, WORD_SIZE)
-                .unwrap(),
+            (Self::Int(p), Value::Int(v)) => slice(p).write_int::<NativeEndian>(v as i64, WORD_SIZE).unwrap(),
             (Self::U8(p), Value::U8(v)) => slice(p).write_u8(v).unwrap(),
             (Self::U16(p), Value::U16(v)) => slice(p).write_u16::<NativeEndian>(v).unwrap(),
             (Self::U32(p), Value::U32(v)) => slice(p).write_u32::<NativeEndian>(v).unwrap(),
             (Self::U64(p), Value::U64(v)) => slice(p).write_u64::<NativeEndian>(v).unwrap(),
-            (Self::Uint(p), Value::Uint(v)) => slice(p)
-                .write_uint::<NativeEndian>(v as u64, WORD_SIZE)
-                .unwrap(),
+            (Self::Uint(p), Value::Uint(v)) => slice(p).write_uint::<NativeEndian>(v as u64, WORD_SIZE).unwrap(),
             (Self::F32(p), Value::F32(v)) => slice(p).write_f32::<NativeEndian>(v).unwrap(),
             (Self::F64(p), Value::F64(v)) => slice(p).write_f64::<NativeEndian>(v).unwrap(),
             (Self::Bool(p), Value::Bool(v)) => slice(p).write_u8(v as u8).unwrap(),
@@ -913,9 +882,7 @@ impl Display for Buffer {
             let len = match &self.ty {
                 Type::Struct(s) => s.fields.len(),
                 Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
-                Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
-                    elements.len()
-                }
+                Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements.len(),
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
                     Type::Slice(_) => 2,

@@ -17,11 +17,7 @@ pub fn is_std_module_path_start(path: &str) -> bool {
 
 pub fn std_module_root_dir() -> PathBuf {
     fn root_dir() -> PathBuf {
-        std::env::current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .to_path_buf()
+        std::env::current_exe().unwrap().parent().unwrap().to_path_buf()
     }
 
     let mut dir = root_dir();

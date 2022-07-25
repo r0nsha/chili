@@ -20,10 +20,7 @@ impl Parser {
                     // Especially since the language is expression-based.
                     if let Err(_) = require!(self, Semicolon, ";") {
                         let span = Parser::get_missing_delimiter_span(self.previous_span());
-                        self.cache
-                            .lock()
-                            .diagnostics
-                            .push(SyntaxError::expected(span, ";"));
+                        self.cache.lock().diagnostics.push(SyntaxError::expected(span, ";"));
                         self.skip_until_recovery_point();
                     }
                 }
@@ -40,11 +37,7 @@ impl Parser {
     }
 
     pub fn parse_top_level(&mut self, module: &mut ast::Module) -> DiagnosticResult<()> {
-        let attrs = if is!(self, Hash) {
-            self.parse_attrs()?
-        } else {
-            vec![]
-        };
+        let attrs = if is!(self, Hash) { self.parse_attrs()? } else { vec![] };
 
         let has_attrs = !attrs.is_empty();
 

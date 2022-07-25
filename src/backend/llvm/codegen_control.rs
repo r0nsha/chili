@@ -3,11 +3,7 @@ use crate::hir;
 use inkwell::values::BasicValueEnum;
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Control {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         match self {
             hir::Control::If(x) => x.codegen(generator, state),
             hir::Control::While(x) => x.codegen(generator, state),
@@ -27,25 +23,17 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Control {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::If {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         generator.gen_conditional(
             state,
             |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
                 self.condition.codegen(generator, state).into_int_value()
             },
-            |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
-                self.then.codegen(generator, state)
-            },
+            |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| self.then.codegen(generator, state),
             match &self.otherwise {
-                Some(otherwise) => Some(
-                    |generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
-                        otherwise.codegen(generator, state)
-                    },
-                ),
+                Some(otherwise) => Some(|generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
+                    otherwise.codegen(generator, state)
+                }),
                 _ => None,
             },
         )
@@ -53,11 +41,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::If {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::While {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let loop_head = generator.append_basic_block(state, "loop_head");
         let loop_body = generator.append_basic_block(state, "loop_body");
         let loop_exit = generator.append_basic_block(state, "loop_exit");
@@ -93,11 +77,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::While {
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Return {
-    fn codegen(
-        &self,
-        generator: &mut Generator<'g, 'ctx>,
-        state: &mut FunctionState<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+    fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
         generator.gen_return(state, Some(value));
         generator.unit_value()

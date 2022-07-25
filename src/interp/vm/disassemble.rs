@@ -92,10 +92,7 @@ impl<'a, W: Write> Disassemble<W> for BytecodeReader<'a> {
     }
 }
 
-pub(super) fn bytecode_reader_write_single_inst<'a, W: Write>(
-    reader: &mut BytecodeReader<'a>,
-    w: &mut W,
-) {
+pub(super) fn bytecode_reader_write_single_inst<'a, W: Write>(reader: &mut BytecodeReader<'a>, w: &mut W) {
     if let Some(op) = reader.try_read_op() {
         write!(w, "{:06}\t{}", reader.cursor() - 1, op).unwrap();
 

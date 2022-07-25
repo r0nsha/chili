@@ -10,9 +10,7 @@ pub struct Attrs {
 
 impl Attrs {
     pub fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
+        Self { inner: HashMap::new() }
     }
 
     pub fn insert(&mut self, attr: Attr) -> Option<Attr> {

@@ -52,13 +52,7 @@ impl Cursor {
     }
 
     pub fn span(&self) -> Span {
-        Span::new(
-            self.file_id,
-            self.start,
-            EndPosition {
-                index: self.end.index,
-            },
-        )
+        Span::new(self.file_id, self.start, EndPosition { index: self.end.index })
     }
 
     pub fn end_span(&self) -> Span {
@@ -69,9 +63,7 @@ impl Cursor {
                 line: self.start.line, // FIXME: this is the wrong line...
                 column: self.start.column,
             },
-            EndPosition {
-                index: self.end.index,
-            },
+            EndPosition { index: self.end.index },
         )
     }
 }

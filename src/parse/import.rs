@@ -35,8 +35,7 @@ impl Parser {
                 .join(PathBuf::from(path.trim_start_matches("~/")))
                 .with_extension(compiler_info::SOURCE_FILE_EXT);
 
-            let import_path =
-                try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(path_token.span))?;
+            let import_path = try_resolve_relative_path(&import_path, RelativeTo::Cwd, Some(path_token.span))?;
 
             self.check_import_path_is_under_root(&cache, &import_path, path_token.span)?;
 
@@ -60,11 +59,7 @@ impl Parser {
                 .join(trimmed_path)
                 .with_extension(compiler_info::SOURCE_FILE_EXT);
 
-            try_resolve_relative_path(
-                &full_std_import_path,
-                RelativeTo::Cwd,
-                Some(path_token.span),
-            )?
+            try_resolve_relative_path(&full_std_import_path, RelativeTo::Cwd, Some(path_token.span))?
         } else {
             // import relative to current dir
             // example: import("foo/bar")
@@ -74,10 +69,7 @@ impl Parser {
 
         let module_name = self.get_module_name_from_path(&cache, &absolute_import_path);
 
-        let module_info = PartialModuleInfo::new(
-            ustr(&module_name),
-            ustr(absolute_import_path.to_str().unwrap()),
-        );
+        let module_info = PartialModuleInfo::new(ustr(&module_name), ustr(absolute_import_path.to_str().unwrap()));
 
         spawn_parser(
             self.thread_pool.clone(),
@@ -92,12 +84,7 @@ impl Parser {
         }))
     }
 
-    fn search_for_import_path(
-        &self,
-        cache: &ParserCacheGuard,
-        path: &Path,
-        span: Span,
-    ) -> DiagnosticResult<PathBuf> {
+    fn search_for_import_path(&self, cache: &ParserCacheGuard, path: &Path, span: Span) -> DiagnosticResult<PathBuf> {
         let current_dir = self.module_info.dir();
 
         if let Some(import_path) = resolve_relative_path(&path, RelativeTo::Path(current_dir)) {

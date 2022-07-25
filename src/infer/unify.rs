@@ -1,6 +1,4 @@
-use super::{
-    display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, type_ctx::TypeCtx,
-};
+use super::{display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, type_ctx::TypeCtx};
 use crate::{
     common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     error::diagnostic::{Diagnostic, Label},
@@ -242,8 +240,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
         InferenceValue::PartialTuple(partial_tuple) => {
             let other_kind = other.normalize(tcx);
             match other_kind {
-                Type::Tuple(ref other_tuple)
-                | Type::Infer(_, InferType::PartialTuple(ref other_tuple)) => {
+                Type::Tuple(ref other_tuple) | Type::Infer(_, InferType::PartialTuple(ref other_tuple)) => {
                     let mut any_err = false;
 
                     if other_tuple.len() < partial_tuple.len() {
@@ -293,18 +290,12 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TypeCtx) -> bool {
             use InferenceValue::*;
             match tcx.value_of(other) {
                 Bound(ty) => occurs(var, ty, tcx) || var == other,
-                PartialStruct(partial) => {
-                    partial.values().any(|ty| occurs(var, ty, tcx)) || var == other
-                }
-                PartialTuple(partial) => {
-                    partial.iter().any(|ty| occurs(var, ty, tcx)) || var == other
-                }
+                PartialStruct(partial) => partial.values().any(|ty| occurs(var, ty, tcx)) || var == other,
+                PartialTuple(partial) => partial.iter().any(|ty| occurs(var, ty, tcx)) || var == other,
                 AnyInt | AnyFloat | Unbound => var == other,
             }
         }
-        Type::Function(f) => {
-            f.params.iter().any(|p| occurs(var, &p.ty, tcx)) || occurs(var, &f.return_type, tcx)
-        }
+        Type::Function(f) => f.params.iter().any(|p| occurs(var, &p.ty, tcx)) || occurs(var, &f.return_type, tcx),
         Type::Array(ty, _) => occurs(var, ty, tcx),
         Type::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tcx)),
         Type::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tcx)),
@@ -340,14 +331,9 @@ impl UnifyTypeErr {
 
         match self {
             UnifyTypeErr::Mismatch => Diagnostic::error()
-                .with_message(format!(
-                    "mismatched types - expected {}, found {}",
-                    expected, found
-                ))
+                .with_message(format!("mismatched types - expected {}, found {}", expected, found))
                 .with_label(Label::primary(found_span, format!("expected {}", expected)))
-                .maybe_with_label(
-                    expected_span.map(|span| Label::secondary(span, "expected due to this")),
-                ),
+                .maybe_with_label(expected_span.map(|span| Label::secondary(span, "expected due to this"))),
             UnifyTypeErr::Occurs => Diagnostic::error()
                 .with_message(format!("recursive type `{}` has infinite size", expected,))
                 .with_label(Label::primary(found_span, "type is recursive")),

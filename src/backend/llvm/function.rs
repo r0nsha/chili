@@ -4,18 +4,12 @@ use super::{
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::{
-    backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*,
-    workspace::BindingId,
-};
+use crate::{backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*, workspace::BindingId};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
     types::{AnyType, BasicTypeEnum},
-    values::{
-        BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue,
-        PointerValue,
-    },
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue, PointerValue},
 };
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
@@ -39,11 +33,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                             self.builder.get_insert_block()
                         };
 
-                        let function_value = self.declare_fn_sig(
-                            &function_type,
-                            function.qualified_name,
-                            Some(Linkage::Private),
-                        );
+                        let function_value =
+                            self.declare_fn_sig(&function_type, function.qualified_name, Some(Linkage::Private));
 
                         self.functions.insert(function.id, function_value);
 
@@ -53,10 +44,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         let abi_fn = self.get_abi_compliant_fn(&function_type);
 
                         let return_ptr = if abi_fn.ret.kind.is_indirect() {
-                            let return_ptr = function_value
-                                .get_first_param()
-                                .unwrap()
-                                .into_pointer_value();
+                            let return_ptr = function_value.get_first_param().unwrap().into_pointer_value();
                             return_ptr.set_name(&format!("{}.result", function.qualified_name));
                             Some(return_ptr)
                         } else {
@@ -86,9 +74,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                             function_params.remove(0);
                         }
 
-                        for (index, (&value, param)) in
-                            function_params.iter().zip(params.iter()).enumerate()
-                        {
+                        for (index, (&value, param)) in function_params.iter().zip(params.iter()).enumerate() {
                             let value = if abi_fn.params[index].kind.is_indirect() {
                                 self.build_load(value.into_pointer_value())
                             } else {
@@ -102,8 +88,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                             let llvm_param_ty = param_ty.llvm_type(self);
 
-                            let transmuted_value =
-                                self.build_transmute(&state, value, llvm_param_ty);
+                            let transmuted_value = self.build_transmute(&state, value, llvm_param_ty);
 
                             self.local_with_alloca(&mut state, param.id, transmuted_value);
                         }
@@ -134,22 +119,16 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                                 }
 
                                 let function_type = self.fn_type(&function_type);
-                                let function_value = self.get_or_add_function(
-                                    function.qualified_name,
-                                    function_type,
-                                    None,
-                                );
+                                let function_value =
+                                    self.get_or_add_function(function.qualified_name, function_type, None);
 
-                                self.extern_functions
-                                    .insert(function.qualified_name, function_value);
+                                self.extern_functions.insert(function.qualified_name, function_value);
 
                                 function_value
                             }
                         }
                     }
-                    hir::FunctionKind::Intrinsic(intrinsic) => {
-                        self.gen_intrinsic(intrinsic, &function_type)
-                    }
+                    hir::FunctionKind::Intrinsic(intrinsic) => self.gen_intrinsic(intrinsic, &function_type),
                 }
             }
         }
@@ -230,20 +209,16 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     let arg_type = arg.get_type();
 
                     match arg_type {
-                        BasicTypeEnum::PointerType(ptr_type)
-                            if ptr_type.get_element_type().is_array_type() =>
-                        {
+                        BasicTypeEnum::PointerType(ptr_type) if ptr_type.get_element_type().is_array_type() => {
                             let ptr = self.build_alloca(state, ptr_type.try_into().unwrap());
                             self.build_store(ptr, arg);
                             ptr.into()
                         }
                         _ => {
                             if !callee_ty.kind.is_extern() {
-                                self.local_or_load_addr(state, BindingId::unknown(), arg)
-                                    .into()
+                                self.local_or_load_addr(state, BindingId::unknown(), arg).into()
                             } else {
-                                self.build_copy_value_to_ptr(state, arg, arg_type, 16)
-                                    .into()
+                                self.build_copy_value_to_ptr(state, arg, arg_type, 16).into()
                             }
                         }
                     }
@@ -261,8 +236,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             }
         }
 
-        let processed_args: Vec<BasicMetadataValueEnum<'ctx>> =
-            processed_args.iter().map(|&a| a.into()).collect();
+        let processed_args: Vec<BasicMetadataValueEnum<'ctx>> = processed_args.iter().map(|&a| a.into()).collect();
 
         let value = if abi_fn.ret.kind.is_indirect() {
             let return_ptr = self.build_alloca(state, abi_fn.ret.ty);

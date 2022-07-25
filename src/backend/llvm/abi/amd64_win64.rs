@@ -10,18 +10,16 @@ pub(super) fn get_fn<'ctx>(info: AbiInfo<'ctx>, fn_ty: FunctionType<'ctx>) -> Ab
     }
 }
 
-pub(super) fn get_params<'ctx>(
-    info: AbiInfo<'ctx>,
-    params: Vec<BasicTypeEnum<'ctx>>,
-) -> Vec<AbiTy<'ctx>> {
+pub(super) fn get_params<'ctx>(info: AbiInfo<'ctx>, params: Vec<BasicTypeEnum<'ctx>>) -> Vec<AbiTy<'ctx>> {
     params
         .iter()
         .map(|&param| {
             if param.is_aggregate_type() {
                 let size = size_of(param, info.word_size);
                 match size {
-                    0 | 1 | 2 | 4 | 8 => *AbiTy::direct(param)
-                        .with_cast_to(info.context.custom_width_int_type((8 * size) as u32).into()),
+                    0 | 1 | 2 | 4 | 8 => {
+                        *AbiTy::direct(param).with_cast_to(info.context.custom_width_int_type((8 * size) as u32).into())
+                    }
                     _ => AbiTy::indirect(param),
                 }
             } else {

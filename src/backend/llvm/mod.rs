@@ -31,9 +31,7 @@ use execute::Execute;
 use inkwell::{
     context::Context,
     module::Module,
-    targets::{
-        CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
-    },
+    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     OptimizationLevel,
 };
 use path_absolutize::Absolutize;
@@ -62,9 +60,7 @@ pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> 
     match &target_metrics.arch {
         Arch::Amd64 | Arch::_386 => Target::initialize_x86(&InitializationConfig::default()),
         Arch::Arm64 => Target::initialize_aarch64(&InitializationConfig::default()),
-        Arch::Wasm32 | Arch::Wasm64 => {
-            Target::initialize_webassembly(&InitializationConfig::default())
-        }
+        Arch::Wasm32 | Arch::Wasm64 => Target::initialize_webassembly(&InitializationConfig::default()),
     }
 
     let triple = TargetTriple::create(target_metrics.target_triplet);
@@ -157,9 +153,7 @@ fn build_executable(
     }
 
     if build_options.codegen_options.emit_llvm_ir() {
-        module
-            .print_to_file(output_path.with_extension("ll"))
-            .unwrap();
+        module.print_to_file(output_path.with_extension("ll")).unwrap();
     }
 
     let object_file = if target_metrics.os == Os::Windows {

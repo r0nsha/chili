@@ -54,10 +54,7 @@ impl Pattern {
     }
 
     pub fn iter(&self) -> PatternIter {
-        PatternIter {
-            pattern: self,
-            pos: 0,
-        }
+        PatternIter { pattern: self, pos: 0 }
     }
 
     #[allow(unused)]
@@ -96,9 +93,7 @@ impl<'a> Iterator for PatternIter<'a> {
                 0 => Some(pattern),
                 _ => None,
             },
-            Pattern::StructUnpack(pattern) | Pattern::TupleUnpack(pattern) => {
-                pattern.symbols.get(self.pos)
-            }
+            Pattern::StructUnpack(pattern) | Pattern::TupleUnpack(pattern) => pattern.symbols.get(self.pos),
             Pattern::Hybrid(pattern) => match self.pos {
                 0 => Some(&pattern.name_pattern),
                 _ => pattern.unpack_pattern.as_inner().symbols.get(self.pos - 1),
@@ -159,12 +154,7 @@ pub struct NamePattern {
 
 impl Display for NamePattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            if self.is_mutable { "mut " } else { "" },
-            self.alias()
-        )
+        write!(f, "{}{}", if self.is_mutable { "mut " } else { "" }, self.alias())
     }
 }
 

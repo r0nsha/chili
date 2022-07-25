@@ -16,9 +16,7 @@ use crate::{
     infer::{display::OrReportErr, normalize::Normalize, unify::UnifyType},
     span::Span,
     types::{InferType, PartialStructType, Type, TypeId},
-    workspace::{
-        BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel,
-    },
+    workspace::{BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel},
 };
 use indexmap::IndexMap;
 use ustr::{ustr, Ustr};
@@ -69,10 +67,7 @@ impl<'s> CheckSess<'s> {
             const_value: if is_mutable || flags.contains(BindingInfoFlags::NO_CONST_FOLD) {
                 None
             } else {
-                value
-                    .as_ref()
-                    .map(|v| v.as_const_value().cloned())
-                    .flatten()
+                value.as_ref().map(|v| v.as_const_value().cloned()).flatten()
             },
             is_mutable,
             kind,
@@ -91,8 +86,7 @@ impl<'s> CheckSess<'s> {
             // check if there's already a binding with this symbol
             ScopeLevel::Global => {
                 if let Some(defined_id) = self.get_global_binding_id(module_id, name) {
-                    let defined_binding_info =
-                        self.workspace.binding_infos.get(defined_id).unwrap();
+                    let defined_binding_info = self.workspace.binding_infos.get(defined_id).unwrap();
 
                     if flags.contains(BindingInfoFlags::SHADOWABLE) {
                         // Do nothing, this is shadowed by the already defined binding
@@ -110,10 +104,7 @@ impl<'s> CheckSess<'s> {
                     if is_mutable && !matches!(kind, BindingInfoKind::Static) {
                         self.workspace.diagnostics.push(
                             Diagnostic::error()
-                                .with_message(format!(
-                                    "top level let binding `{}` cannot be mutable",
-                                    name
-                                ))
+                                .with_message(format!("top level let binding `{}` cannot be mutable", name))
                                 .with_label(Label::primary(span, "cannot be mutable"))
                                 .with_note("try prefix the binding with `static`"),
                         );
@@ -184,9 +175,7 @@ impl<'s> CheckSess<'s> {
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         match pattern {
-            Pattern::Name(pattern) => {
-                self.bind_name_pattern(env, pattern, visibility, ty, value, kind, flags)
-            }
+            Pattern::Name(pattern) => self.bind_name_pattern(env, pattern, visibility, ty, value, kind, flags),
             Pattern::StructUnpack(pattern) => {
                 let mut statements = vec![];
 
@@ -266,15 +255,8 @@ impl<'s> CheckSess<'s> {
             Pattern::Hybrid(pattern) => {
                 let mut statements = vec![];
 
-                let (id, bound_node) = self.bind_name_pattern(
-                    env,
-                    &pattern.name_pattern,
-                    visibility,
-                    ty,
-                    value.clone(),
-                    kind,
-                    flags,
-                )?;
+                let (id, bound_node) =
+                    self.bind_name_pattern(env, &pattern.name_pattern, visibility, ty, value.clone(), kind, flags)?;
 
                 let id_node = self.get_id_node_for_unpack_pattern(bound_node, &mut statements);
 
@@ -345,11 +327,7 @@ impl<'s> CheckSess<'s> {
         Ok((id, id_node))
     }
 
-    fn get_id_node_for_unpack_pattern(
-        &mut self,
-        bound_node: hir::Node,
-        statements: &mut Vec<hir::Node>,
-    ) -> hir::Node {
+    fn get_id_node_for_unpack_pattern(&mut self, bound_node: hir::Node, statements: &mut Vec<hir::Node>) -> hir::Node {
         match bound_node {
             hir::Node::Binding(ref binding) => {
                 let id_node = self.id_or_const_by_id(binding.id, binding.span);
@@ -391,13 +369,7 @@ impl<'s> CheckSess<'s> {
 
                     let id = match module_bindings.get(&pattern.name) {
                         Some(id) => *id,
-                        None => {
-                            return Err(self.name_not_found_error(
-                                module_id,
-                                pattern.name,
-                                caller_info,
-                            ))
-                        }
+                        None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
                     };
 
                     self.validate_can_access_item(id, caller_info)?;
@@ -449,9 +421,7 @@ impl<'s> CheckSess<'s> {
                         .map(|pattern| (pattern.name, self.tcx.var(pattern.span).as_kind())),
                 ));
 
-                let partial_struct_ty = self
-                    .tcx
-                    .partial_struct(partial_struct.clone(), unpack_pattern.span);
+                let partial_struct_ty = self.tcx.partial_struct(partial_struct.clone(), unpack_pattern.span);
 
                 ty.unify(&partial_struct_ty, &mut self.tcx).or_report_err(
                     &self.tcx,
@@ -462,9 +432,7 @@ impl<'s> CheckSess<'s> {
                 )?;
 
                 for (index, pattern) in unpack_pattern.symbols.iter().enumerate() {
-                    let ty = self
-                        .tcx
-                        .bound(partial_struct[&pattern.name].clone(), pattern.span);
+                    let ty = self.tcx.bound(partial_struct[&pattern.name].clone(), pattern.span);
 
                     let field_value = match value.as_const_value() {
                         Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {
@@ -504,12 +472,7 @@ impl<'s> CheckSess<'s> {
                     match type_kind {
                         Type::Struct(struct_ty) => {
                             for (index, field) in struct_ty.fields.iter().enumerate() {
-                                if unpack_pattern
-                                    .symbols
-                                    .iter()
-                                    .find(|p| field.name == p.name)
-                                    .is_some()
-                                {
+                                if unpack_pattern.symbols.iter().find(|p| field.name == p.name).is_some() {
                                     // skip explicitly unpacked fields
                                     continue;
                                 }
@@ -518,13 +481,7 @@ impl<'s> CheckSess<'s> {
 
                                 let field_value = match value.as_const_value() {
                                     Some(const_value) => hir::Node::Const(hir::Const {
-                                        value: const_value
-                                            .as_struct()
-                                            .unwrap()
-                                            .get(&field.name)
-                                            .unwrap()
-                                            .value
-                                            .clone(),
+                                        value: const_value.as_struct().unwrap().get(&field.name).unwrap().value.clone(),
                                         ty,
                                         span: field.span,
                                     }),
@@ -558,10 +515,7 @@ impl<'s> CheckSess<'s> {
                                     "cannot use wildcard unpack on partial struct type - {}",
                                     type_kind
                                 ))
-                                .with_label(Label::primary(
-                                    wildcard.span,
-                                    "illegal wildcard unpack",
-                                )))
+                                .with_label(Label::primary(wildcard.span, "illegal wildcard unpack")))
                         }
                         _ => {
                             return Err(Diagnostic::error()
@@ -569,10 +523,7 @@ impl<'s> CheckSess<'s> {
                                     "cannot use wildcard unpack on partial tuple type - {}",
                                     type_kind
                                 ))
-                                .with_label(Label::primary(
-                                    wildcard.span,
-                                    "illegal wildcard unpack",
-                                )))
+                                .with_label(Label::primary(wildcard.span, "illegal wildcard unpack")))
                         }
                     }
                 }

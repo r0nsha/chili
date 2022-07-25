@@ -95,30 +95,16 @@ impl ConstValue {
     pub fn add(&self, other: &ConstValue) -> Option<ConstValue> {
         match (self, other) {
             (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_add(*v2).map(ConstValue::Int),
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_add(*v2).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_add(*v2).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_add(*v2 as i64).map(ConstValue::Int)
-            }
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_add(*v2).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_add(*v2 as i64).map(ConstValue::Int),
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_add(*v2).map(ConstValue::Int),
 
-            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 + *v2 as f64))
-            }
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 + *v2)),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => Some(ConstValue::Float(*v1 + *v2 as f64)),
 
-            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 + *v2 as f64))
-            }
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 + *v2)),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => Some(ConstValue::Float(*v1 + *v2 as f64)),
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 + *v2)),
 
@@ -130,30 +116,16 @@ impl ConstValue {
         match (self, other) {
             (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_sub(*v2).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_sub(*v2).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_sub(*v2).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_sub(*v2 as i64).map(ConstValue::Int)
-            }
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_sub(*v2).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_sub(*v2 as i64).map(ConstValue::Int),
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_sub(*v2).map(ConstValue::Int),
 
-            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 - *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 - *v2 as f64))
-            }
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 - *v2)),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => Some(ConstValue::Float(*v1 - *v2 as f64)),
 
-            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 - *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 - *v2 as f64))
-            }
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 - *v2)),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => Some(ConstValue::Float(*v1 - *v2 as f64)),
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 - *v2)),
 
@@ -165,30 +137,16 @@ impl ConstValue {
         match (self, other) {
             (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_mul(*v2).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_mul(*v2).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_mul(*v2).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_mul(*v2 as i64).map(ConstValue::Int)
-            }
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_mul(*v2).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_mul(*v2 as i64).map(ConstValue::Int),
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_mul(*v2).map(ConstValue::Int),
 
-            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 + *v2 as f64))
-            }
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 + *v2)),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => Some(ConstValue::Float(*v1 + *v2 as f64)),
 
-            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 + *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 + *v2 as f64))
-            }
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 + *v2)),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => Some(ConstValue::Float(*v1 + *v2 as f64)),
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 + *v2)),
 
@@ -200,31 +158,17 @@ impl ConstValue {
         match (self, other) {
             (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_div(*v2).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_div(*v2).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_div(*v2).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_div(*v2 as i64).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_div(*v2 as i64).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_div(*v2).map(ConstValue::Int)
-            }
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_div(*v2).map(ConstValue::Int),
 
-            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 / *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 / *v2 as f64))
-            }
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 / *v2)),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => Some(ConstValue::Float(*v1 / *v2 as f64)),
 
-            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 / *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 / *v2 as f64))
-            }
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 / *v2)),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => Some(ConstValue::Float(*v1 / *v2 as f64)),
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 / *v2)),
 
@@ -236,31 +180,17 @@ impl ConstValue {
         match (self, other) {
             (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_rem(*v2).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_rem(*v2).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_rem(*v2).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_rem(*v2 as i64).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_rem(*v2 as i64).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_rem(*v2).map(ConstValue::Int)
-            }
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_rem(*v2).map(ConstValue::Int),
 
-            (ConstValue::Int(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 % *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Int(v2)) => {
-                Some(ConstValue::Float(*v1 % *v2 as f64))
-            }
+            (ConstValue::Int(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 % *v2)),
+            (ConstValue::Float(v1), ConstValue::Int(v2)) => Some(ConstValue::Float(*v1 % *v2 as f64)),
 
-            (ConstValue::Uint(v1), ConstValue::Float(v2)) => {
-                Some(ConstValue::Float(*v1 as f64 % *v2))
-            }
-            (ConstValue::Float(v1), ConstValue::Uint(v2)) => {
-                Some(ConstValue::Float(*v1 % *v2 as f64))
-            }
+            (ConstValue::Uint(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 as f64 % *v2)),
+            (ConstValue::Float(v1), ConstValue::Uint(v2)) => Some(ConstValue::Float(*v1 % *v2 as f64)),
 
             (ConstValue::Float(v1), ConstValue::Float(v2)) => Some(ConstValue::Float(*v1 % *v2)),
 
@@ -344,21 +274,13 @@ impl ConstValue {
 
     pub fn shl(&self, other: &ConstValue) -> Option<ConstValue> {
         match (self, other) {
-            (ConstValue::Int(v1), ConstValue::Int(v2)) => {
-                v1.checked_shl(*v2 as _).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_shl(*v2 as _).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_shl(*v2 as _).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_shl(*v2 as _).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_shl(*v2 as _).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_shl(*v2 as _).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_shl(*v2 as _).map(ConstValue::Int)
-            }
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_shl(*v2 as _).map(ConstValue::Int),
 
             _ => panic!("got {:?}", self),
         }
@@ -366,21 +288,13 @@ impl ConstValue {
 
     pub fn shr(&self, other: &ConstValue) -> Option<ConstValue> {
         match (self, other) {
-            (ConstValue::Int(v1), ConstValue::Int(v2)) => {
-                v1.checked_shr(*v2 as _).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Int(v2)) => v1.checked_shr(*v2 as _).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => {
-                v1.checked_shr(*v2 as _).map(ConstValue::Uint)
-            }
+            (ConstValue::Uint(v1), ConstValue::Uint(v2)) => v1.checked_shr(*v2 as _).map(ConstValue::Uint),
 
-            (ConstValue::Int(v1), ConstValue::Uint(v2)) => {
-                v1.checked_shr(*v2 as _).map(ConstValue::Int)
-            }
+            (ConstValue::Int(v1), ConstValue::Uint(v2)) => v1.checked_shr(*v2 as _).map(ConstValue::Int),
 
-            (ConstValue::Uint(v1), ConstValue::Int(v2)) => {
-                (*v1 as i64).checked_shr(*v2 as _).map(ConstValue::Int)
-            }
+            (ConstValue::Uint(v1), ConstValue::Int(v2)) => (*v1 as i64).checked_shr(*v2 as _).map(ConstValue::Int),
 
             _ => panic!("got {:?}", self),
         }

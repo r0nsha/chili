@@ -28,19 +28,20 @@ impl<'s> CheckSess<'s> {
                 Some(value) => {
                     let node = value.check(self, env, Some(expected_type))?;
 
-                    node.ty()
-                        .unify(&expected_type, &mut self.tcx)
-                        .or_report_err(&self.tcx, expected_type, None, node.ty(), node.span())?;
+                    node.ty().unify(&expected_type, &mut self.tcx).or_report_err(
+                        &self.tcx,
+                        expected_type,
+                        None,
+                        node.ty(),
+                        node.span(),
+                    )?;
 
                     let node_span = node.span();
 
                     node.into_const_value().ok_or_else(|| {
                         Diagnostic::error()
                             .with_message("attribute value must be compile-time known")
-                            .with_label(Label::primary(
-                                node_span,
-                                "value is not compile-time known",
-                            ))
+                            .with_label(Label::primary(node_span, "value is not compile-time known"))
                     })?
                 }
                 None => {

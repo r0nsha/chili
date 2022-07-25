@@ -13,11 +13,7 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn substitute<'a>(
-    diagnostics: &'a mut Diagnostics,
-    tcx: &'a mut TypeCtx,
-    cache: &'a hir::Cache,
-) {
+pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TypeCtx, cache: &'a hir::Cache) {
     let mut sess = Sess {
         diagnostics,
         tcx,
@@ -54,9 +50,8 @@ impl<'a> Sess<'a> {
             .flat_map(|(&ty, spans)| {
                 let ty_span = self.tcx.ty_span(ty);
 
-                let ty_origin_label = ty_span.map(|span| {
-                    Label::secondary(span, "because its type originates from this expression")
-                });
+                let ty_origin_label =
+                    ty_span.map(|span| Label::secondary(span, "because its type originates from this expression"));
 
                 spans
                     .iter()
@@ -76,12 +71,7 @@ impl<'a> Sess<'a> {
     }
 
     fn make_all_types_concrete(&mut self) {
-        let tys: Vec<TypeId> = self
-            .tcx
-            .bindings
-            .iter()
-            .map(|(ty, _)| TypeId::from(ty))
-            .collect();
+        let tys: Vec<TypeId> = self.tcx.bindings.iter().map(|(ty, _)| TypeId::from(ty)).collect();
 
         for ty in tys {
             let concrete_type = ty.concrete(&self.tcx);
@@ -205,9 +195,7 @@ impl<'a> Substitute<'a> for hir::Control {
                 return_.ty.substitute(sess, return_.span);
                 return_.value.substitute(sess);
             }
-            hir::Control::Break(term) | hir::Control::Continue(term) => {
-                term.ty.substitute(sess, term.span)
-            }
+            hir::Control::Break(term) | hir::Control::Continue(term) => term.ty.substitute(sess, term.span),
         }
     }
 }
@@ -353,9 +341,10 @@ impl<'a> SubstituteTy<'a> for TypeId {
             for &ty in free_types.iter() {
                 let span_set = sess.erroneous_types.entry(ty).or_default();
 
-                if let Some(index) = span_set.iter().position(|s| {
-                    s.start.index <= span.start.index && s.end.index >= span.end.index
-                }) {
+                if let Some(index) = span_set
+                    .iter()
+                    .position(|s| s.start.index <= span.start.index && s.end.index >= span.end.index)
+                {
                     span_set.remove(index);
                 }
 
@@ -371,9 +360,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
             free_types.insert(*var);
         }
         Type::Function(f) => {
-            f.params
-                .iter()
-                .for_each(|p| extract_free_type_vars(&p.ty, free_types));
+            f.params.iter().for_each(|p| extract_free_type_vars(&p.ty, free_types));
 
             extract_free_type_vars(&f.return_type, free_types);
 
@@ -381,21 +368,15 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
                 extract_free_type_vars(ty, free_types);
             }
         }
-        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) => {
-            extract_free_type_vars(ty, free_types)
+        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) => extract_free_type_vars(ty, free_types),
+        Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => {
+            tys.iter().for_each(|t| extract_free_type_vars(t, free_types))
         }
-        Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => tys
-            .iter()
-            .for_each(|t| extract_free_type_vars(t, free_types)),
         Type::Struct(StructType { fields, .. }) => {
-            fields
-                .iter()
-                .for_each(|f| extract_free_type_vars(&f.ty, free_types));
+            fields.iter().for_each(|f| extract_free_type_vars(&f.ty, free_types));
         }
         Type::Infer(_, InferType::PartialStruct(fields)) => {
-            fields
-                .iter()
-                .for_each(|(_, ty)| extract_free_type_vars(ty, free_types));
+            fields.iter().for_each(|(_, ty)| extract_free_type_vars(ty, free_types));
         }
         _ => (),
     }

@@ -68,13 +68,8 @@ impl<'lx> Lexer<'lx> {
                             self.eat_token()?
                         } else {
                             return Err(Diagnostic::error()
-                                .with_message(
-                                    "shebang is only supported on the first line of the file",
-                                )
-                                .with_label(Label::primary(
-                                    self.cursor.span(),
-                                    "invalid shebang",
-                                )));
+                                .with_message("shebang is only supported on the first line of the file")
+                                .with_label(Label::primary(self.cursor.span(), "invalid shebang")));
                         }
                     } else {
                         Hash
@@ -313,21 +308,13 @@ impl<'lx> Lexer<'lx> {
                     StrFlavor::Normal if contents.contains('\n') => {
                         return Err(Diagnostic::error()
                             .with_message("string cannot contain newline characters")
-                            .with_label(Label::primary(
-                                self.cursor.span(),
-                                "cannot contain newline",
-                            ))
-                            .with_note(
-                                "use a multiline string instead, example: \"\"\"your string\"\"\"",
-                            ))
+                            .with_label(Label::primary(self.cursor.span(), "cannot contain newline"))
+                            .with_note("use a multiline string instead, example: \"\"\"your string\"\"\""))
                     }
                     StrFlavor::Char if contents.len() != 1 => {
                         return Err(Diagnostic::error()
                             .with_message("character literal must be one character long")
-                            .with_label(Label::primary(
-                                self.cursor.span(),
-                                "not one character long",
-                            )))
+                            .with_label(Label::primary(self.cursor.span(), "not one character long")))
                     }
                     _ => (),
                 }
@@ -404,10 +391,7 @@ impl<'lx> Lexer<'lx> {
         while !self.is_eof() {
             let char = self.peek();
 
-            if ('0'..='9').contains(&char)
-                || ('A'..='F').contains(&char)
-                || ('a'..='f').contains(&char)
-            {
+            if ('0'..='9').contains(&char) || ('A'..='F').contains(&char) || ('a'..='f').contains(&char) {
                 hex_value.push(char);
                 self.bump();
             } else {

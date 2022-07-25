@@ -41,8 +41,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             if merge_block.is_none() {
                 merge_block = Some(self.append_basic_block(state, "if_merge"));
             }
-            self.builder
-                .build_unconditional_branch(merge_block.unwrap());
+            self.builder.build_unconditional_branch(merge_block.unwrap());
         }
 
         let then_block = self.current_block();
@@ -65,25 +64,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             if merge_block.is_none() {
                 merge_block = Some(self.append_basic_block(state, "if_merge"));
             }
-            self.builder
-                .build_unconditional_branch(merge_block.unwrap());
+            self.builder.build_unconditional_branch(merge_block.unwrap());
             if let Some(merge_block) = merge_block {
                 self.start_block(state, merge_block);
             }
 
             let phi = self.builder.build_phi(then_type, "if_result");
-            phi.add_incoming(&[
-                (&then_value, then_block),
-                (&otherwise_value, otherwise_block),
-            ]);
+            phi.add_incoming(&[(&then_value, then_block), (&otherwise_value, otherwise_block)]);
             phi.as_basic_value()
         } else {
             if !otherwise_has_terminator {
                 if merge_block.is_none() {
                     merge_block = Some(self.append_basic_block(state, "if_merge"));
                 }
-                self.builder
-                    .build_unconditional_branch(merge_block.unwrap());
+                self.builder.build_unconditional_branch(merge_block.unwrap());
             }
 
             if let Some(merge_block) = merge_block {

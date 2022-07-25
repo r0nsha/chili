@@ -17,9 +17,7 @@ pub fn can_cast_type(from: &Type, to: &Type) -> bool {
             | (Type::Int(_), Type::Infer(_, InferType::AnyFloat))
             | (Type::Int(_), Type::Float(_)) => true,
 
-            (Type::Uint(_), Type::Int(_))
-            | (Type::Uint(_), Type::Uint(_))
-            | (Type::Uint(_), Type::Float(_)) => true,
+            (Type::Uint(_), Type::Int(_)) | (Type::Uint(_), Type::Uint(_)) | (Type::Uint(_), Type::Float(_)) => true,
 
             (Type::Infer(_, InferType::AnyFloat), Type::Infer(_, InferType::AnyInt))
             | (Type::Infer(_, InferType::AnyFloat), Type::Int(_))
@@ -27,9 +25,7 @@ pub fn can_cast_type(from: &Type, to: &Type) -> bool {
             | (Type::Infer(_, InferType::AnyFloat), Type::Infer(_, InferType::AnyFloat))
             | (Type::Infer(_, InferType::AnyFloat), Type::Float(_)) => true,
 
-            (Type::Float(_), Type::Int(_))
-            | (Type::Float(_), Type::Uint(_))
-            | (Type::Float(_), Type::Float(_)) => true,
+            (Type::Float(_), Type::Int(_)) | (Type::Float(_), Type::Uint(_)) | (Type::Float(_), Type::Float(_)) => true,
 
             (Type::Pointer(..), Type::Int(..)) | (Type::Pointer(..), Type::Uint(..)) => true,
 
