@@ -356,7 +356,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 function_value.as_global_value().as_pointer_value().into()
             }
             ConstValue::ExternVariable(variable) => {
-                if let Some(lib) = &variable.lib {
+                if let Some(lib) = variable.lib.as_ref().or(variable.dylib.as_ref()) {
                     self.extern_libraries.insert(lib.clone());
                 }
 

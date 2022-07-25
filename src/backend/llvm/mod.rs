@@ -175,7 +175,7 @@ fn build_executable(
     };
 
     time! { build_options.emit_times, "link",
-        link(target_metrics, &output_file, &object_file,&extern_libraries,)
+        link(target_metrics, &output_file, &object_file, &extern_libraries)
     }
 
     let _ = std::fs::remove_file(object_file);

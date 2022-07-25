@@ -110,11 +110,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                         function_value
                     }
-                    hir::FunctionKind::Extern { lib, .. } => {
+                    hir::FunctionKind::Extern { lib, dylib } => {
                         match self.extern_functions.get(&function.qualified_name) {
                             Some(function) => *function,
                             None => {
-                                if let Some(lib) = lib {
+                                if let Some(lib) = lib.as_ref().or(dylib.as_ref()) {
                                     self.extern_libraries.insert(lib.clone());
                                 }
 
