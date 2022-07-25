@@ -1,15 +1,12 @@
 use super::*;
 use crate::{
-    ast::{
-        self,
-        attrs::{Attr, AttrKind, Attrs},
-    },
+    ast::{self},
     error::{diagnostic::Label, DiagnosticResult},
 };
 
 impl Parser {
-    pub(super) fn parse_attrs(&mut self) -> DiagnosticResult<Attrs> {
-        let mut attrs = Attrs::new();
+    pub(super) fn parse_attrs(&mut self) -> DiagnosticResult<Vec<ast::Attr>> {
+        let mut attrs = vec![];
 
         while is!(self, Hash) {
             let start_span = self.bump().span;
@@ -25,7 +22,7 @@ impl Parser {
             };
 
             let kind = match name.as_str() {
-                "intrinsic" => AttrKind::Intrinsic,
+                "intrinsic" => ast::AttrKind::Intrinsic,
                 _ => {
                     return Err(Diagnostic::error()
                         .with_message(format!("unknown attribute `{}`", name))
@@ -41,19 +38,14 @@ impl Parser {
 
             require!(self, CloseBracket, "]")?;
 
-            let attr = Attr {
+            let attr = ast::Attr {
                 name: name_and_span,
                 kind,
                 value,
                 span: start_span.to(self.previous_span()),
             };
 
-            if let Some(used_attr) = attrs.insert(attr) {
-                return Err(Diagnostic::error()
-                    .with_message(format!("attribute `{}` has already been used", name))
-                    .with_label(Label::primary(id.span, "duplicate attribute"))
-                    .with_label(Label::secondary(used_attr.name.span, "already used here")));
-            }
+            attrs.push(attr);
         }
 
         Ok(attrs)

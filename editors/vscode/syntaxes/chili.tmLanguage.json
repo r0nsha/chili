@@ -221,13 +221,13 @@
               "name": "entity.name.tag.chili"
             },
             "2": {
-              "name": "punctuation.chili"
+              "name": "entity.name.tag.chili"
             },
             "3": {
               "name": "entity.name.tag.chili"
             }
           },
-          "match": "(#\\[[_a-zA-Z][_a-zA-Z0-9]*)(\\s*=\\s*.*)?(\\])"
+          "match": "(#\\[[_a-zA-Z][_a-zA-Z0-9]*)(\\s*=\\s*)?.*(\\])"
         },
         {
           "comment": "function expression",

@@ -1,3 +1,4 @@
+pub mod attrs;
 pub mod const_value;
 pub mod pretty;
 

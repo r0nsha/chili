@@ -1,3 +1,4 @@
+mod attrs;
 mod builtin;
 mod const_fold;
 mod env;
@@ -7,7 +8,7 @@ mod top_level;
 
 use self::pattern::get_qualified_name;
 use crate::{
-    ast::{self, attrs::AttrKind, pattern::Pattern, BindingKind},
+    ast::{self, pattern::Pattern},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -18,6 +19,7 @@ use crate::{
     },
     hir::{
         self,
+        attrs::AttrKind,
         const_value::{ConstArray, ConstElement, ConstExternVariable, ConstFunction, ConstValue},
     },
     infer::{
@@ -388,10 +390,10 @@ impl Check for ast::Binding {
         env: &mut Env,
         _expected_type: Option<TypeId>,
     ) -> CheckResult {
-        todo!("let attrs = sess.check_attrs(&self.attrs, env)");
+        let attrs = sess.check_attrs(&self.attrs, env)?;
 
         match &self.kind {
-            BindingKind::Orphan {
+            ast::BindingKind::Orphan {
                 pattern,
                 type_expr,
                 value,
@@ -525,7 +527,7 @@ impl Check for ast::Binding {
 
                 Ok(bound_node)
             }
-            BindingKind::ExternFunction {
+            ast::BindingKind::ExternFunction {
                 name: ast::NameAndSpan { name, span },
                 lib,
                 sig,
@@ -552,8 +554,7 @@ impl Check for ast::Binding {
                     .into_type()
                     .unwrap();
 
-                let (qualified_name, function_kind, binding_kind) = match self
-                    .attrs
+                let (qualified_name, function_kind, binding_kind) = match attrs
                     .get(AttrKind::Intrinsic)
                 {
                     Some(_) => match hir::Intrinsic::try_from(name.as_str()) {
@@ -617,7 +618,7 @@ impl Check for ast::Binding {
                 )
                 .map(|(_, node)| node)
             }
-            BindingKind::ExternVariable {
+            ast::BindingKind::ExternVariable {
                 name: ast::NameAndSpan { name, span },
                 lib,
                 is_mutable,
@@ -650,7 +651,7 @@ impl Check for ast::Binding {
                 )
                 .map(|(_, node)| node)
             }
-            BindingKind::Type {
+            ast::BindingKind::Type {
                 name: ast::NameAndSpan { name, span },
                 type_expr,
             } => {

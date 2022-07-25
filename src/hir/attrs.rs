@@ -1,6 +1,7 @@
-use super::{Ast, NameAndSpan};
-use crate::span::Span;
-use std::collections::HashMap;
+use crate::{ast, span::Span};
+use std::{collections::HashMap, fmt::Display};
+
+use super::const_value::ConstValue;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attrs {
@@ -15,7 +16,7 @@ impl Attrs {
     }
 
     pub fn insert(&mut self, attr: Attr) -> Option<Attr> {
-        self.inner.insert(attr.key(), attr)
+        self.inner.insert(attr.kind, attr)
     }
 
     pub fn get(&self, key: AttrKind) -> Option<&Attr> {
@@ -34,21 +35,28 @@ impl Attrs {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attr {
-    pub name: NameAndSpan,
     pub kind: AttrKind,
-    pub value: Option<Box<Ast>>,
+    pub value: ConstValue,
     pub span: Span,
-}
-
-impl Attr {
-    pub fn key(&self) -> AttrKind {
-        match &self.kind {
-            AttrKind::Intrinsic => AttrKind::Intrinsic,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AttrKind {
     Intrinsic,
+}
+
+impl From<ast::AttrKind> for AttrKind {
+    fn from(kind: ast::AttrKind) -> Self {
+        match kind {
+            ast::AttrKind::Intrinsic => AttrKind::Intrinsic,
+        }
+    }
+}
+
+impl Display for AttrKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttrKind::Intrinsic => write!(f, "intrinsic"),
+        }
+    }
 }

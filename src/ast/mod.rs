@@ -1,6 +1,6 @@
-pub mod attrs;
 pub mod pattern;
 
+use self::pattern::NamePattern;
 use crate::{
     common::path::{try_resolve_relative_path, RelativeTo},
     define_id_type,
@@ -19,8 +19,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use ustr::Ustr;
-
-use self::{attrs::Attrs, pattern::NamePattern};
 
 #[derive(Debug, Clone)]
 pub struct Module {
@@ -492,7 +490,7 @@ impl ExternLibrary {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     pub module_id: ModuleId,
-    pub attrs: Attrs,
+    pub attrs: Vec<Attr>,
     pub visibility: Visibility,
     pub kind: BindingKind,
     pub span: Span,
@@ -560,6 +558,27 @@ impl Visibility {
     pub fn is_private(&self) -> bool {
         matches!(self, Visibility::Private)
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Attr {
+    pub name: NameAndSpan,
+    pub kind: AttrKind,
+    pub value: Option<Box<Ast>>,
+    pub span: Span,
+}
+
+impl Attr {
+    pub fn key(&self) -> AttrKind {
+        match &self.kind {
+            AttrKind::Intrinsic => AttrKind::Intrinsic,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum AttrKind {
+    Intrinsic,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

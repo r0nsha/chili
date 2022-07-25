@@ -1,9 +1,9 @@
 use super::*;
-use crate::ast::attrs::Attrs;
-use crate::ast::{Module, Visibility};
-use crate::error::diagnostic::Label;
-use crate::error::SyntaxError;
-use crate::span::FileId;
+use crate::{
+    ast,
+    error::{diagnostic::Label, SyntaxError},
+    span::FileId,
+};
 
 impl Parser {
     pub fn parse_all_top_level(&mut self, file_id: FileId) -> ParserResult {
@@ -39,19 +39,19 @@ impl Parser {
         ParserResult::NewModule(module)
     }
 
-    pub fn parse_top_level(&mut self, module: &mut Module) -> DiagnosticResult<()> {
+    pub fn parse_top_level(&mut self, module: &mut ast::Module) -> DiagnosticResult<()> {
         let attrs = if is!(self, Hash) {
             self.parse_attrs()?
         } else {
-            Attrs::new()
+            vec![]
         };
 
         let has_attrs = !attrs.is_empty();
 
         let visibility = if eat!(self, Pub) {
-            Visibility::Public
+            ast::Visibility::Public
         } else {
-            Visibility::Private
+            ast::Visibility::Private
         };
 
         match self.try_parse_any_binding(attrs, visibility)? {

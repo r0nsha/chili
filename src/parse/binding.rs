@@ -1,15 +1,10 @@
 use super::*;
-use crate::{
-    ast::{attrs::Attrs, pattern::Pattern},
-    common::path::RelativeTo,
-    span::To,
-    workspace::ModuleId,
-};
+use crate::{ast::pattern::Pattern, common::path::RelativeTo, span::To, workspace::ModuleId};
 
 impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
-        attrs: Attrs,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
@@ -28,7 +23,7 @@ impl Parser {
 
     pub fn parse_binding(
         &mut self,
-        attrs: Attrs,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
         is_static: bool,
     ) -> DiagnosticResult<ast::Binding> {
@@ -65,7 +60,7 @@ impl Parser {
 
     pub fn parse_extern_binding(
         &mut self,
-        attrs: Attrs,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
@@ -139,7 +134,7 @@ impl Parser {
 
     pub fn parse_type_binding(
         &mut self,
-        attrs: Attrs,
+        attrs: Vec<ast::Attr>,
         visibility: ast::Visibility,
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
