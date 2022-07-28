@@ -1,21 +1,124 @@
 fn main() = {
-    // scalars
-    // variables
-    // variable type inference
-    // control flow: if
-    // arrays
-    // control flow: while
-    // control flow: for
-    // slices
-    // functions & function expressions
-    // function type inference
-    // structs
-    // tuples
-    // binding patterns
-    // type aliases
-    // imports
-    // builtin functions
-    // extern functions
-    // running code at compile time
-    // starting a workspace
+    primitives_and_variables();
+    arithmetic();
+    control_flow_if();
+    arrays();
+    control_flow_while();
+    control_flow_for();
+    slices();
+    functions();
+    structs();
+    tuples();
+    imports();
+    binding_patterns();
+    type_aliases();
+    builtin_functions();
+    extern_functions();
+    running_code_at_compile_time();
+    starting_a_workspace();
+};
+
+fn primitives_and_variables = {
+    println("\nprimitives_and_variables:");
+    
+    // Primitive types:
+
+    // signed and unsigned integers
+    // --------
+    // types: 
+    //      i8, i16, i32, i64, int (machine-sized), 
+    //      u8, u16, u32, u64, uint (machine-sized)
+    //
+    // examples: 5, 100_000, etc.
+
+    // floats
+    // --------
+    // types: f16, f32, f64, float (machine-sized)
+    //
+    // examples: 5.0, 3.14, 90_051.22, etc.
+
+    // strings
+    // --------
+    // type: str
+    //
+    // examples: "Hello World"
+
+    // A variable declaration follows the syntax
+    // let [pattern]: [type] = [value]
+    let num: int = 5;
+    let pi: float = 3.14;
+    let hello: str = "Hello";
+
+    // The variable's type can be be inferred by its value
+    let num = 5;
+    let pi = 3.14;
+    let hello = "Hello";
+};
+
+fn arithmetic() = {
+    println("\narithmetic:");
+};
+
+fn control_flow_if = {
+    println("\ncontrol_flow_if:");
+};
+
+fn arrays = {
+    println("\narrays:");
+};
+
+fn control_flow_while = {
+    println("\ncontrol_flow_while:");
+};
+
+fn control_flow_for = {
+    println("\ncontrol_flow_for:");
+};
+
+fn slices = {
+    println("\nslices:");
+};
+
+fn functions = {
+    println("\nfunctions:");
+};
+
+fn function_type_inference = {
+    println("\nfunction_type_inference:");
+};
+
+fn structs = {
+    println("\nstructs:");
+};
+
+fn tuples = {
+    println("\ntuples:");
+};
+
+fn imports = {
+    println("\nimports:");
+};
+
+fn binding_patterns = {
+    println("\nbinding_patterns:");
+};
+
+fn type_aliases = {
+    println("\ntype_aliases:");
+};
+
+fn builtin_functions = {
+    println("\nbuiltin_functions:");
+};
+
+fn extern_functions = {
+    println("\nextern_functions:");
+};
+
+fn running_code_at_compile_time = {
+    println("\nrunning_code_at_compile_time:");
+};
+
+fn starting_a_workspace = {
+    println("\nstarting_a_workspace:");
 };

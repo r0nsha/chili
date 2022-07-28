@@ -23,5 +23,6 @@ vm.out
 *.txt
 dist
 examples/**/out
+docs/demo
 local_resources
 hir.pretty.chl
