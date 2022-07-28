@@ -40,7 +40,7 @@ impl Parser {
         require!(self, Eq, "=")?;
 
         let value = match &pattern {
-            Pattern::Name(pattern) => self.parse_decl_expr(pattern.name)?,
+            Pattern::Name(pattern) => self.parse_named_expr(pattern.name)?,
             _ => self.parse_expr()?,
         };
 
@@ -124,7 +124,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let type_expr = self.parse_decl_expr(name)?;
+        let type_expr = self.parse_named_expr(name)?;
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),

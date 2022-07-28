@@ -2812,18 +2812,17 @@ impl Check for ast::Cast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         let node = self.expr.check(sess, env, None)?;
 
-        let target_type = if let Some(type_expr) = &self.target {
-            check_type_expr(type_expr, sess, env)?
-        } else {
-            match expected_type {
-                Some(t) => t,
-                None => {
-                    return Err(Diagnostic::error()
-                        .with_message("can't infer the type cast's target type")
-                        .with_label(Label::primary(self.expr.span(), "can't infer")))
-                }
-            }
-        };
+        let target_type = check_type_expr(&self.target_type, sess, env)?;
+
+        if let Some(expected_type) = expected_type {
+            target_type.unify(&expected_type, &mut sess.tcx).or_report_err(
+                &sess.tcx,
+                expected_type,
+                sess.tcx.ty_span(expected_type),
+                target_type,
+                self.target_type.span(),
+            )?;
+        }
 
         let from = node.ty().normalize(&sess.tcx);
         let to = target_type.normalize(&sess.tcx);

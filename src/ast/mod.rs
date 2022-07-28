@@ -361,7 +361,7 @@ pub struct Assignment {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Cast {
     pub expr: Box<Ast>,
-    pub target: Option<Box<Ast>>,
+    pub target_type: Box<Ast>,
     pub span: Span,
 }
 

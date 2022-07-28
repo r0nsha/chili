@@ -31,6 +31,7 @@ bitflags! {
     pub struct Restrictions : u8 {
         const STMT_EXPR = 1 << 0;
         const NO_STRUCT_LITERAL = 1 << 1;
+        const NO_CAST = 1 << 2;
     }
 }
 

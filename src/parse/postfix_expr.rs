@@ -43,8 +43,8 @@ impl Parser {
                 self.parse_call(expr)?
             } else if eat!(self, OpenBracket) {
                 self.parse_subscript_or_slice(expr)?
-            } else if eat!(self, As) {
-                self.parse_as(expr)?
+            } else if !self.restrictions.contains(Restrictions::NO_CAST) && eat!(self, As) {
+                self.parse_cast(expr)?
             } else if eat!(self, Fn) {
                 let start_span = expr.span();
 
@@ -77,7 +77,7 @@ impl Parser {
     fn parse_assign(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let rvalue = self.parse_expr_res(self.restrictions)?;
+        let rvalue = self.parse_expr()?;
         let end_span = self.previous_span();
 
         Ok(Ast::Assignment(ast::Assignment {
@@ -89,7 +89,7 @@ impl Parser {
 
     fn parse_compound_assign(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
         let op: BinaryOp = self.previous().kind.into();
-        let rvalue = self.parse_expr_res(self.restrictions)?;
+        let rvalue = self.parse_expr()?;
 
         let lvalue_span = lhs.span();
         let rvalue_span = rvalue.span();
@@ -106,18 +106,14 @@ impl Parser {
         }))
     }
 
-    fn parse_as(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
+    fn parse_cast(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let type_expr = if eat!(self, Placeholder) {
-            None
-        } else {
-            Some(Box::new(self.parse_expr_res(self.restrictions)?))
-        };
+        let target_type = self.parse_expr_res(Restrictions::NO_CAST)?;
 
         Ok(Ast::Cast(Cast {
             expr: Box::new(expr),
-            target: type_expr,
+            target_type: Box::new(target_type),
             span: start_span.to(self.previous_span()),
         }))
     }

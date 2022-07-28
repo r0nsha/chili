@@ -40,12 +40,12 @@ impl Parser {
         self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(ustr("")))
     }
 
-    pub fn parse_expr_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
+    pub fn parse_named_expr(&mut self, name: Ustr) -> DiagnosticResult<Ast> {
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(name))
     }
 
-    pub fn parse_decl_expr(&mut self, decl_name: Ustr) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(decl_name))
+    pub fn parse_expr_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
+        self.with_res(self.restrictions | restrictions, |p| p.parse_expr_inner(ustr("")))
     }
 
     fn parse_expr_inner(&mut self, decl_name: Ustr) -> DiagnosticResult<Ast> {
@@ -264,7 +264,7 @@ impl Parser {
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
-            let expr = self.parse_expr_res(self.restrictions)?;
+            let expr = self.parse_expr()?;
 
             Ast::PointerType(ast::PointerType {
                 inner: Box::new(expr),
@@ -342,7 +342,7 @@ impl Parser {
         if eat!(self, CloseBracket) {
             if self.peek().kind.is_expr_start() {
                 // []T
-                let inner = self.parse_expr_res(self.restrictions)?;
+                let inner = self.parse_expr()?;
 
                 Ok(Ast::SliceType(ast::SliceType {
                     inner: Box::new(inner),
@@ -365,7 +365,7 @@ impl Parser {
                 }) if elements.len() == 1 && self.peek().kind.is_expr_start() => {
                     let size = &elements[0];
 
-                    let inner = self.parse_expr_res(self.restrictions)?;
+                    let inner = self.parse_expr()?;
 
                     Ok(Ast::ArrayType(ast::ArrayType {
                         inner: Box::new(inner),
@@ -437,7 +437,7 @@ impl Parser {
 
                 require!(self, Colon, ":")?;
 
-                let ty = self.parse_expr()?;
+                let ty = self.parse_named_expr(name)?;
 
                 ast::StructTypeField {
                     name,
