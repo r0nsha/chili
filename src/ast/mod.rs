@@ -26,7 +26,7 @@ pub struct Module {
     pub info: ModuleInfo,
     pub file_id: FileId,
     pub bindings: Vec<Binding>,
-    pub consts: Vec<Const>,
+    pub consts: Vec<StaticEval>,
 }
 
 impl Module {
@@ -50,7 +50,7 @@ pub enum Ast {
     Cast(Cast),
     Import(Import),
     Builtin(Builtin),
-    Const(Const),
+    StaticEval(StaticEval),
     Function(Function),
     While(While),
     For(For),
@@ -91,7 +91,7 @@ macro_rules! ast_field_dispatch {
                     Self::Cast(x) => x.$field,
                     Self::Import(x) => x.$field,
                     Self::Builtin(x) => x.$field,
-                    Self::Const(x) => x.$field,
+                    Self::StaticEval(x) => x.$field,
                     Self::Function(x) => x.$field,
                     Self::While(x) => x.$field,
                     Self::For(x) => x.$field,
@@ -131,7 +131,7 @@ macro_rules! ast_field_dispatch {
                         Self::Cast(x) => &mut x.$field,
                         Self::Import(x) => &mut x.$field,
                         Self::Builtin(x) => &mut x.$field,
-                        Self::Const(x) => &mut x.$field,
+                        Self::StaticEval(x) => &mut x.$field,
                         Self::Function(x) => &mut x.$field,
                         Self::While(x) => &mut x.$field,
                         Self::For(x) => &mut x.$field,
@@ -340,7 +340,7 @@ pub struct Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Const {
+pub struct StaticEval {
     pub expr: Box<Ast>,
     pub span: Span,
 }

@@ -10,8 +10,13 @@ impl Parser {
         if eat!(self, Let) {
             Ok(Some(self.parse_binding(attrs, visibility, false)))
         } else if eat!(self, Static) {
-            require!(self, Let, "let")?;
-            Ok(Some(self.parse_binding(attrs, visibility, true)))
+            if eat!(self, Let) {
+                Ok(Some(self.parse_binding(attrs, visibility, true)))
+            } else {
+                // This is considered OK, since this could be another kind of static expression
+                self.revert(1);
+                Ok(None)
+            }
         } else if eat!(self, Extern) {
             Ok(Some(self.parse_extern_binding(attrs, visibility)))
         } else if eat!(self, Type) {

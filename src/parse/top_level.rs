@@ -54,15 +54,9 @@ impl Parser {
             }
             None => {
                 if !has_attrs {
-                    if eat!(self, Const) {
-                        let start_span = self.previous_span();
-                        let expr = self.parse_expr()?;
-
-                        module.consts.push(ast::Const {
-                            expr: Box::new(expr),
-                            span: start_span.to(self.previous_span()),
-                        });
-
+                    if is!(self, Static) {
+                        let static_eval = self.parse_static_eval()?;
+                        module.consts.push(static_eval);
                         Ok(())
                     } else {
                         Err(SyntaxError::expected(

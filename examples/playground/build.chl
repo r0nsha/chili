@@ -20,4 +20,4 @@ let build = fn() {
 	}
 };
 
-const build();
+static { build() };

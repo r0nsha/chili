@@ -253,14 +253,8 @@ impl Parser {
             })
         } else if eat!(self, Import) {
             self.parse_import()?
-        } else if eat!(self, Const) {
-            let start_span = self.previous_span();
-            let expr = self.parse_expr()?;
-
-            Ast::Const(ast::Const {
-                expr: Box::new(expr),
-                span: start_span.to(self.previous_span()),
-            })
+        } else if is!(self, Static) {
+            Ast::StaticEval(self.parse_static_eval()?)
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
@@ -544,6 +538,23 @@ impl Parser {
             }
             _ => panic!("got an invalid terminator"),
         }
+    }
+
+    pub fn parse_static_eval(&mut self) -> DiagnosticResult<ast::StaticEval> {
+        let start_span = self.previous_span();
+
+        require!(self, Static, "static")?;
+
+        require!(self, OpenCurly, "{")?;
+
+        let expr = self.parse_expr()?;
+
+        require!(self, CloseCurly, "}")?;
+
+        Ok(ast::StaticEval {
+            expr: Box::new(expr),
+            span: start_span.to(self.previous_span()),
+        })
     }
 }
 

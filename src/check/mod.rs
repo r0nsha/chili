@@ -763,7 +763,7 @@ impl Check for ast::Ast {
                     }
                 }
             },
-            ast::Ast::Const(const_) => const_.check(sess, env, expected_type),
+            ast::Ast::StaticEval(const_) => const_.check(sess, env, expected_type),
             ast::Ast::Function(function) => function.check(sess, env, expected_type),
             ast::Ast::While(while_) => while_.check(sess, env, expected_type),
             ast::Ast::For(for_) => for_.check(sess, env, expected_type),
@@ -1946,7 +1946,7 @@ impl Check for ast::For {
     }
 }
 
-impl Check for ast::Const {
+impl Check for ast::StaticEval {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         // Note (Ron 02/07/2022):
         // The inner expression of `const` isn't allowed to capture its outer environment yet.
@@ -1956,6 +1956,8 @@ impl Check for ast::Const {
         let node = sess.with_env(env.module_id(), |sess, mut env| self.expr.check(sess, &mut env, None))?;
 
         if sess.workspace.build_options.check_mode {
+            // TODO: This is a hack so that printing won't interfere with our communication
+            // TODO: with the language server. This causes false-positives, and needs to be fixed.
             Ok(node)
         } else {
             let value = sess.eval(&node, env.module_id(), self.span)?;
