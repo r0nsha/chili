@@ -1,0 +1,21 @@
+fn main() = {
+    // scalars
+    // variables
+    // variable type inference
+    // control flow: if
+    // arrays
+    // control flow: while
+    // control flow: for
+    // slices
+    // functions & function expressions
+    // function type inference
+    // structs
+    // tuples
+    // binding patterns
+    // type aliases
+    // imports
+    // builtin functions
+    // extern functions
+    // running code at compile time
+    // starting a workspace
+};
