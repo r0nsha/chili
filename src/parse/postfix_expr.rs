@@ -48,7 +48,7 @@ impl Parser {
             } else if eat!(self, Fn) {
                 let start_span = expr.span();
 
-                let fn_arg = self.parse_function(ustr(""), false)?;
+                let fn_arg = self.parse_function(None, false)?;
                 let span = start_span.to(self.previous_span());
 
                 match &mut expr {

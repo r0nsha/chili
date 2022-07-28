@@ -320,8 +320,9 @@ impl Parser {
                 }
             }
         } else if eat!(self, Fn) {
+            // TODO: Make this into an anonymous function after we implement function decls
             let name = self.get_decl_name();
-            self.parse_function(name, false)?
+            self.parse_function(Some(name), false)?
         } else if eat!(self, Struct) {
             self.parse_struct_type()?
         } else if eat!(self, Union) {

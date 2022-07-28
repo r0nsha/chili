@@ -93,7 +93,7 @@ impl Parser {
             }
         } else if eat!(self, Eq) {
             require!(self, Fn, "fn")?;
-            let sig = self.parse_function_sig(name, true)?;
+            let sig = self.parse_function_sig(Some(name), true)?;
 
             ast::BindingKind::ExternFunction {
                 name: name_and_span,

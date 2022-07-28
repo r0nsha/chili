@@ -18,7 +18,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
 };
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 #[derive(Debug, Clone)]
 pub struct Module {
@@ -396,12 +396,18 @@ pub struct Function {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionSig {
-    pub name: Ustr,
+    pub name: Option<Ustr>,
     pub params: Vec<FunctionParam>,
     pub return_type: Option<Box<Ast>>,
     pub varargs: Option<FunctionVarargs>,
     pub kind: FunctionTypeKind,
     pub span: Span,
+}
+
+impl FunctionSig {
+    pub fn name_or_anonymous(&self) -> Ustr {
+        self.name.unwrap_or_else(|| ustr("anonymous"))
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -690,7 +696,7 @@ impl fmt::Display for FunctionSig {
         write!(
             f,
             "fn: {} ({}{})",
-            self.name,
+            self.name_or_anonymous(),
             self.params
                 .iter()
                 .map(|p| p.to_string())

@@ -8,7 +8,7 @@ use crate::{
 use ustr::Ustr;
 
 impl Parser {
-    pub fn parse_function(&mut self, name: Ustr, is_extern: bool) -> DiagnosticResult<Ast> {
+    pub fn parse_function(&mut self, name: Option<Ustr>, is_extern: bool) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
         let sig = self.parse_function_sig(name, is_extern)?;
@@ -26,7 +26,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_function_sig(&mut self, name: Ustr, is_extern: bool) -> DiagnosticResult<FunctionSig> {
+    pub fn parse_function_sig(&mut self, name: Option<Ustr>, is_extern: bool) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
         let (params, varargs) = self.parse_function_params()?;

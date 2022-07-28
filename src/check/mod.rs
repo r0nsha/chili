@@ -1971,7 +1971,7 @@ impl Check for ast::Const {
 
 impl Check for ast::Function {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
-        let name = self.sig.name;
+        let name = self.sig.name_or_anonymous();
         let qualified_name = get_qualified_name(env.scope_name(), name);
 
         let sig_node = self.sig.check(sess, env, expected_type)?;
