@@ -225,7 +225,7 @@ let foo @ { im_public } = import("foo");
 
 // the compiler can automatically unpack all public
 // symbols from `foo` for us, using `?`
-let ? = import("foo");
+let * = import("foo");
 
 // Using the imported symbol
 let main = fn() {

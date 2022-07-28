@@ -36,7 +36,7 @@ impl Parser {
             self.parse_struct_unpack()
         } else if eat!(self, OpenParen) {
             self.parse_tuple_unpack()
-        } else if eat!(self, QuestionMark) {
+        } else if eat!(self, Star) {
             let span = self.previous_span();
             Ok(Pattern::StructUnpack(UnpackPattern {
                 symbols: vec![],
@@ -55,7 +55,7 @@ impl Parser {
         let mut wildcard_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.is_end() {
-            if eat!(self, QuestionMark) {
+            if eat!(self, Star) {
                 wildcard_span = Some(self.previous().span);
                 require!(self, CloseCurly, "}")?;
                 break;

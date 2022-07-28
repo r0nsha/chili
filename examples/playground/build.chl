@@ -1,4 +1,4 @@
-let ? = import("std/build");
+let * = import("std/build");
 
 let build = fn() {
 	let build_options = BuildOptions {
