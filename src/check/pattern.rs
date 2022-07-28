@@ -210,7 +210,7 @@ impl<'s> CheckSess<'s> {
                         statements,
                         ty: self.tcx.common_types.unit,
                         span: pattern.span,
-                        is_block: false,
+                        is_scope: false,
                     }),
                 ))
             }
@@ -248,7 +248,7 @@ impl<'s> CheckSess<'s> {
                         statements,
                         ty: self.tcx.common_types.unit,
                         span: pattern.span,
-                        is_block: false,
+                        is_scope: false,
                     }),
                 ))
             }
@@ -291,7 +291,7 @@ impl<'s> CheckSess<'s> {
                         statements,
                         ty: self.tcx.common_types.unit,
                         span: pattern.span,
-                        is_block: false,
+                        is_scope: false,
                     }),
                 ))
             }

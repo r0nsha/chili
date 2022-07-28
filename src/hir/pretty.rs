@@ -310,7 +310,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Cast {
 
 impl<'a, W: Write> Print<'a, W> for hir::Sequence {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
-        if self.is_block {
+        if self.is_scope {
             p.write_indented("{\n", is_line_start);
             p.indent();
         }
@@ -324,7 +324,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Sequence {
             }
         }
 
-        if self.is_block {
+        if self.is_scope {
             p.dedent();
             p.write_indented("}", true);
         }

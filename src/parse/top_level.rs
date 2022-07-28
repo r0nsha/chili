@@ -47,7 +47,7 @@ impl Parser {
             ast::Visibility::Private
         };
 
-        match self.try_parse_any_binding(attrs, visibility)? {
+        match self.try_parse_any_binding(attrs, visibility, true)? {
             Some(binding) => {
                 module.bindings.push(binding?);
                 Ok(())

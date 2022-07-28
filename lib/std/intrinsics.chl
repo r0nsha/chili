@@ -2,4 +2,4 @@ let { Workspace } = import("std/build");
 
 // Workspace
 @intrinsic
-pub extern let start_workspace = fn(workspace: Workspace) -> (str, bool);
+pub extern fn start_workspace(workspace: Workspace) -> (str, bool);

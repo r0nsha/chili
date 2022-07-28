@@ -75,6 +75,7 @@ pub struct BindingInfo {
 pub enum BindingInfoKind {
     Orphan,
     Static,
+    Function,
     ExternFunction,
     ExternVariable,
     Intrinsic,

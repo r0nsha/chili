@@ -513,6 +513,11 @@ pub enum BindingKind {
         value: Box<Ast>,
         is_static: bool,
     },
+    Function {
+        name: NameAndSpan,
+        sig: FunctionSig,
+        body: Box<Ast>,
+    },
     ExternFunction {
         name: NameAndSpan,
         sig: FunctionSig,
@@ -535,6 +540,7 @@ impl Display for BindingKind {
             "{}",
             match self {
                 BindingKind::Orphan { .. } => "orphan",
+                BindingKind::Function { .. } => "function",
                 BindingKind::ExternFunction { .. } => "extern function",
                 BindingKind::ExternVariable { .. } => "extern variable",
                 BindingKind::Type { .. } => "type",
@@ -559,6 +565,12 @@ impl NameAndSpan {
 pub enum Visibility {
     Private,
     Public,
+}
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Self::Private
+    }
 }
 
 impl Visibility {

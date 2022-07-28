@@ -169,7 +169,7 @@ node_struct!(MemberAccess, { value: Box<Node>, member_name: Ustr, member_index: 
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
 node_struct!(Cast, { value: Box<Node> });
 
-node_struct!(Sequence, { statements: Vec<Node>, is_block: bool });
+node_struct!(Sequence, { statements: Vec<Node>, is_scope: bool });
 
 node_struct!(If, { condition: Box<Node>, then: Box<Node>, otherwise: Option<Box<Node>> });
 node_struct!(While, { condition: Box<Node>, body: Box<Node> });
@@ -387,7 +387,7 @@ impl Node {
             ty,
             span,
             statements: vec![],
-            is_block: false,
+            is_scope: false,
         })
     }
 }

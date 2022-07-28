@@ -1,76 +1,76 @@
 let LIB = "c";
 
 @lib(LIB)
-pub extern let putchar = fn(char: int) -> int;
+pub extern fn putchar(char: int) -> int;
 
 @lib(LIB)
-pub extern let getchar = fn() -> int;
+pub extern fn getchar() -> int;
 
 @lib(LIB)
-pub extern let printf = fn(input: *u8, args...) -> int;
+pub extern fn printf(input: *u8, args...) -> int;
 
 @lib(LIB)
-pub extern let sprintf_s = fn(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int;
+pub extern fn sprintf_s(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int;
 
 @lib(LIB)
-pub extern let strcpy = fn(dest: *u8, src: *u8) -> *u8;
+pub extern fn strcpy(dest: *u8, src: *u8) -> *u8;
 
 @lib(LIB)
-pub extern let malloc = fn(size: uint) -> *i8;
+pub extern fn malloc(size: uint) -> *i8;
 
 @lib(LIB)
-pub extern let calloc = fn(nitems: uint, size: uint) -> *i8;
+pub extern fn calloc(nitems: uint, size: uint) -> *i8;
 
 @lib(LIB)
-pub extern let realloc = fn(ptr: *i8, size: uint) -> *i8;
+pub extern fn realloc(ptr: *i8, size: uint) -> *i8;
 
 @lib(LIB)
-pub extern let free = fn(memblock: *i8);
+pub extern fn free(memblock: *i8);
 
 @lib(LIB)
-pub extern let abs = fn(x: i32) -> i32;
+pub extern fn abs(x: i32) -> i32;
 
 @lib(LIB)
-pub extern let sinf = fn(arg: f32) -> f32;
+pub extern fn sinf(arg: f32) -> f32;
 
 @lib(LIB)
-pub extern let sin = fn(arg: f64) -> f64;
+pub extern fn sin(arg: f64) -> f64;
 
 @lib(LIB)
-pub extern let cosf = fn(arg: f32) -> f32;
+pub extern fn cosf(arg: f32) -> f32;
 
 @lib(LIB)
-pub extern let cos = fn(arg: f64) -> f64;
+pub extern fn cos(arg: f64) -> f64;
 
 @lib(LIB)
-pub extern let atan2f = fn(y: f32, x: f32) -> f32;
+pub extern fn atan2f(y: f32, x: f32) -> f32;
 
 @lib(LIB)
-pub extern let atan2 = fn(y: f64, x: f64) -> f64;
+pub extern fn atan2(y: f64, x: f64) -> f64;
 
 @lib(LIB)
-pub extern let pow = fn(x: f64, y: f64) -> f64;
+pub extern fn pow(x: f64, y: f64) -> f64;
 
 @lib(LIB)
-pub extern let srand = fn(seed: uint);
+pub extern fn srand(seed: uint);
 
 @lib(LIB)
-pub extern let rand = fn() -> uint;
+pub extern fn rand() -> uint;
 
 @lib(LIB)
-pub extern let time = fn(some: *i8) -> uint;
+pub extern fn time(some: *i8) -> uint;
 
 @lib(LIB)
-pub extern let fork = fn() -> int;
+pub extern fn fork() -> int;
 
 @lib(LIB)
-pub extern let waitpid = fn(pid: int, status: *mut int, options: int) -> int;
+pub extern fn waitpid(pid: int, status: *mut int, options: int) -> int;
 
 @lib(LIB)
-pub extern let execl = fn(path: *u8, args...) -> int;
+pub extern fn execl(path: *u8, args...) -> int;
 
 @lib(LIB)
-pub extern let abort = fn() -> never;
+pub extern fn abort() -> never;
 
 @lib(LIB)
-pub extern let exit = fn(status: int) -> never;
+pub extern fn exit(status: int) -> never;

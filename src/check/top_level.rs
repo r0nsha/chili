@@ -79,7 +79,11 @@ impl<'s> CheckSess<'s> {
 
             if let Some(binding) = module.bindings.iter().find(|binding| match &binding.kind {
                 ast::BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
-                ast::BindingKind::ExternFunction {
+                ast::BindingKind::Function {
+                    name: ast::NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | ast::BindingKind::ExternFunction {
                     name: ast::NameAndSpan { name: binding_name, .. },
                     ..
                 }
