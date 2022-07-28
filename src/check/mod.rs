@@ -399,33 +399,6 @@ impl Check for ast::Binding {
                     ))
                 }
 
-                // If this binding matches the entry point function's requirements,
-                // Tag it as the entry function
-                // Requirements:
-                // - Is declared in the root module
-                // - It is in global scope
-                // - Its name is "main"
-                // - It is an Orphan function
-                if sess.workspace.build_options.need_entry_point_function()
-                    && self.module_id == sess.workspace.root_module_id
-                    && env.scope_level().is_global()
-                {
-                    if let Pattern::Name(pattern) = pattern {
-                        if pattern.name == "main" {
-                            if let Some(ConstValue::Function(f)) = value_node.as_const_value() {
-                                let function = sess.cache.functions.get(f.id).unwrap();
-
-                                match &function.kind {
-                                    hir::FunctionKind::Orphan { .. } => {
-                                        sess.cache.entry_point_function_id = Some(function.id);
-                                    }
-                                    _ => (),
-                                }
-                            }
-                        }
-                    }
-                }
-
                 let value_span = value_node.span();
                 let (_, bound_node) = sess.bind_pattern(
                     env,
@@ -447,6 +420,53 @@ impl Check for ast::Binding {
                 )?;
 
                 Ok(bound_node)
+            }
+            ast::BindingKind::Function {
+                name: ast::NameAndSpan { name, span },
+                sig,
+                body,
+            } => {
+                let (name, span) = (*name, *span);
+
+                let node = check_function(sig, body, span, sess, env, None)?;
+
+                // If this function binding matches the entry point function's requirements, Tag it as the entry function
+                // Requirements:
+                // - Is declared in the root module
+                // - It is in global scope
+                // - Its name is "main"
+                if sess.workspace.build_options.need_entry_point_function()
+                    && self.module_id == sess.workspace.root_module_id
+                    && env.scope_level().is_global()
+                {
+                    if name == "main" {
+                        if let Some(ConstValue::Function(f)) = node.as_const_value() {
+                            let function = sess.cache.functions.get(f.id).unwrap();
+
+                            match &function.kind {
+                                hir::FunctionKind::Orphan { .. } => {
+                                    sess.cache.entry_point_function_id = Some(function.id);
+                                }
+                                _ => (),
+                            }
+                        } else {
+                            unreachable!()
+                        }
+                    }
+                }
+
+                sess.bind_name(
+                    env,
+                    name,
+                    self.visibility,
+                    node.ty(),
+                    Some(node),
+                    false,
+                    BindingInfoKind::Function,
+                    span,
+                    BindingInfoFlags::IS_USER_DEFINED,
+                )
+                .map(|(_, node)| node)
             }
             ast::BindingKind::ExternFunction {
                 name: ast::NameAndSpan { name, span },
@@ -470,9 +490,9 @@ impl Check for ast::Binding {
                     name
                 };
 
-                let function_type_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
+                let sig_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
-                let ty = function_type_node.into_const_value().unwrap().into_type().unwrap();
+                let ty = sig_node.into_const_value().unwrap().into_type().unwrap();
 
                 let (qualified_name, function_kind, binding_kind) = if attrs.has(AttrKind::Intrinsic) {
                     match hir::Intrinsic::try_from(name.as_str()) {
@@ -1748,7 +1768,7 @@ impl Check for ast::For {
                     statements,
                     ty: unit_type,
                     span: self.span,
-                    is_block: false,
+                    is_scope: false,
                 }))
             }
             ast::ForIter::Value(value) => {
@@ -1939,7 +1959,7 @@ impl Check for ast::For {
                     statements,
                     ty: unit_type,
                     span: self.span,
-                    is_block: false,
+                    is_scope: false,
                 }))
             }
         }
@@ -1973,204 +1993,238 @@ impl Check for ast::StaticEval {
 
 impl Check for ast::Function {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
-        let name = self.sig.name_or_anonymous();
-        let qualified_name = get_qualified_name(env.scope_name(), name);
+        check_function(
+            &self.sig,
+            &ast::Ast::Block(self.body.clone()),
+            self.span,
+            sess,
+            env,
+            expected_type,
+        )
+    }
+}
 
-        let sig_node = self.sig.check(sess, env, expected_type)?;
+fn check_function<'s>(
+    sig: &ast::FunctionSig,
+    body: &ast::Ast,
+    span: Span,
+    sess: &mut CheckSess<'s>,
+    env: &mut Env,
+    expected_type: Option<TypeId>,
+) -> CheckResult {
+    let name = sig.name_or_anonymous();
+    let qualified_name = get_qualified_name(env.scope_name(), name);
 
-        let sig_type = sess.extract_const_type(&sig_node)?;
-        let function_type = sig_type.normalize(&sess.tcx).into_function();
+    let sig_node = sig.check(sess, env, expected_type)?;
 
-        let return_type = sess.tcx.bound(
-            function_type.return_type.as_ref().clone(),
-            self.sig.return_type.as_ref().map_or(self.sig.span, |e| e.span()),
-        );
+    let sig_type = sess.extract_const_type(&sig_node)?;
+    let function_type = sig_type.normalize(&sess.tcx).into_function();
 
-        let return_type_span = self.sig.return_type.as_ref().map_or(self.sig.span, |e| e.span());
+    let return_type = sess.tcx.bound(
+        function_type.return_type.as_ref().clone(),
+        sig.return_type.as_ref().map_or(sig.span, |e| e.span()),
+    );
 
-        env.push_scope(ScopeKind::Function);
+    let return_type_span = sig.return_type.as_ref().map_or(sig.span, |e| e.span());
 
-        let mut params: Vec<hir::FunctionParam> = vec![];
-        let mut param_bind_statements: Vec<hir::Node> = vec![];
+    env.push_scope(ScopeKind::Function);
 
-        for (index, param_type) in function_type.params.iter().enumerate() {
-            match self.sig.params.get(index) {
-                Some(param) => {
-                    let ty = sess.tcx.bound(
-                        param_type.ty.clone(),
-                        param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
-                    );
+    let mut params: Vec<hir::FunctionParam> = vec![];
+    let mut param_bind_statements: Vec<hir::Node> = vec![];
 
-                    let (bound_id, bound_node) = sess.bind_pattern(
-                        env,
-                        &param.pattern,
-                        ast::Visibility::Private,
-                        ty,
-                        None,
-                        BindingInfoKind::Orphan,
-                        param.pattern.span(),
-                        if param.type_expr.is_some() {
-                            BindingInfoFlags::IS_USER_DEFINED
-                        } else {
-                            BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
-                        },
-                    )?;
+    for (index, param_type) in function_type.params.iter().enumerate() {
+        match sig.params.get(index) {
+            Some(param) => {
+                let ty = sess.tcx.bound(
+                    param_type.ty.clone(),
+                    param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
+                );
 
-                    params.push(hir::FunctionParam {
-                        id: bound_id,
-                        ty,
-                        span: param.pattern.span(),
-                    });
+                let (bound_id, bound_node) = sess.bind_pattern(
+                    env,
+                    &param.pattern,
+                    ast::Visibility::Private,
+                    ty,
+                    None,
+                    BindingInfoKind::Orphan,
+                    param.pattern.span(),
+                    if param.type_expr.is_some() {
+                        BindingInfoFlags::IS_USER_DEFINED
+                    } else {
+                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
+                    },
+                )?;
 
-                    // If this is a single statement, we ignore it,
-                    // As it doesn't include any destructuring statements.
-                    match bound_node.into_sequence() {
-                        Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                        Err(_) => (),
-                    }
+                params.push(hir::FunctionParam {
+                    id: bound_id,
+                    ty,
+                    span: param.pattern.span(),
+                });
+
+                // If this is a single statement, we ignore it,
+                // As it doesn't include any destructuring statements.
+                match bound_node.into_sequence() {
+                    Ok(sequence) => param_bind_statements.extend(sequence.statements),
+                    Err(_) => (),
                 }
-                None => {
-                    // This parameter was inserted implicitly
-                    let span = self.sig.span;
-                    let ty = sess.tcx.bound(param_type.ty.clone(), span);
+            }
+            None => {
+                // This parameter was inserted implicitly
+                let span = sig.span;
+                let ty = sess.tcx.bound(param_type.ty.clone(), span);
 
-                    let (bound_id, bound_node) = sess.bind_name(
-                        env,
-                        param_type.name,
-                        ast::Visibility::Private,
-                        ty,
-                        None,
-                        false,
-                        BindingInfoKind::Orphan,
-                        span,
-                        BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
-                    )?;
+                let (bound_id, bound_node) = sess.bind_name(
+                    env,
+                    param_type.name,
+                    ast::Visibility::Private,
+                    ty,
+                    None,
+                    false,
+                    BindingInfoKind::Orphan,
+                    span,
+                    BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
+                )?;
 
-                    params.push(hir::FunctionParam { id: bound_id, ty, span });
+                params.push(hir::FunctionParam { id: bound_id, ty, span });
 
-                    // If this is a single statement, we ignore it,
-                    // As it doesn't include any destructuring statements.
-                    match bound_node.into_sequence() {
-                        Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                        Err(_) => (),
-                    }
+                // If this is a single statement, we ignore it,
+                // As it doesn't include any destructuring statements.
+                match bound_node.into_sequence() {
+                    Ok(sequence) => param_bind_statements.extend(sequence.statements),
+                    Err(_) => (),
                 }
             }
         }
+    }
 
-        if let Some(varargs) = &function_type.varargs {
-            if varargs.ty.is_none() {
-                return Err(Diagnostic::error()
-                    .with_message("untyped variadic parameters are only valid in extern functions")
-                    .with_label(Label::primary(
-                        self.sig.varargs.as_ref().unwrap().span,
-                        "variadic parameter must be typed",
-                    )));
-            }
+    if let Some(varargs) = &function_type.varargs {
+        if varargs.ty.is_none() {
+            return Err(Diagnostic::error()
+                .with_message("untyped variadic parameters are only valid in extern functions")
+                .with_label(Label::primary(
+                    sig.varargs.as_ref().unwrap().span,
+                    "variadic parameter must be typed",
+                )));
         }
+    }
 
-        let function_id = sess.cache.functions.insert_with_id(hir::Function {
-            id: hir::FunctionId::unknown(),
-            module_id: env.module_id(),
-            name,
-            qualified_name,
-            kind: hir::FunctionKind::Orphan {
-                params: params.clone(),
-                inferred_return_type_span: if self.sig.return_type.is_some() {
-                    None
-                } else {
-                    Some(self.sig.span)
-                },
-                body: None,
+    let function_id = sess.cache.functions.insert_with_id(hir::Function {
+        id: hir::FunctionId::unknown(),
+        module_id: env.module_id(),
+        name,
+        qualified_name,
+        kind: hir::FunctionKind::Orphan {
+            params: params.clone(),
+            inferred_return_type_span: if sig.return_type.is_some() {
+                None
+            } else {
+                Some(sig.span)
             },
-            ty: sig_type,
-            span: self.span,
-        });
+            body: None,
+        },
+        ty: sig_type,
+        span,
+    });
 
-        env.insert_function(name, function_id);
+    env.insert_function(name, function_id);
 
-        let mut body_node = sess
-            .with_function_frame(
-                FunctionFrame {
-                    return_type,
-                    return_type_span,
-                    scope_level: env.scope_level(),
-                },
-                |sess| self.body.check(sess, env, Some(return_type)),
-            )?
-            .into_sequence()
-            .unwrap();
-
-        param_bind_statements.append(&mut body_node.statements);
-        body_node.statements = param_bind_statements;
-
-        let mut unify_node = body_node.ty.unify(&return_type, &mut sess.tcx);
-
-        if let Some(last_statement) = body_node.statements.last_mut() {
-            unify_node = unify_node.or_coerce_into_ty(
-                last_statement,
-                return_type,
-                &mut sess.tcx,
-                sess.target_metrics.word_size,
-            );
-        }
-
-        unify_node.or_report_err(
-            &sess.tcx,
+    let body_node = sess.with_function_frame(
+        FunctionFrame {
             return_type,
-            Some(return_type_span),
-            body_node.ty,
-            self.body.span,
-        )?;
+            return_type_span,
+            scope_level: env.scope_level(),
+        },
+        |sess| body.check(sess, env, Some(return_type)),
+    )?;
 
-        env.pop_scope();
+    let mut body_sequence = match body_node {
+        hir::Node::Sequence(sequence) => sequence,
+        node => {
+            let ty = node.ty();
+            let span = node.span();
 
-        // Check that all parameter types are sized
-        for param in params.iter() {
-            let ty = param.ty.normalize(&sess.tcx);
+            hir::Sequence {
+                statements: vec![node],
+                is_scope: true,
+                ty,
+                span,
+            }
+        }
+    };
 
-            if ty.is_unsized() {
-                let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
+    param_bind_statements.append(&mut body_sequence.statements);
+    body_sequence.statements = param_bind_statements;
 
-                sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
-                    &binding_info.name,
-                    ty.display(&sess.tcx),
-                    binding_info.span,
+    let mut unify_node = body_sequence.ty.unify(&return_type, &mut sess.tcx);
+
+    if let Some(last_statement) = body_sequence.statements.last_mut() {
+        unify_node = unify_node.or_coerce_into_ty(
+            last_statement,
+            return_type,
+            &mut sess.tcx,
+            sess.target_metrics.word_size,
+        );
+    }
+
+    unify_node.or_report_err(
+        &sess.tcx,
+        return_type,
+        Some(return_type_span),
+        body_sequence.ty,
+        body.span(),
+    )?;
+
+    env.pop_scope();
+
+    // Check that all parameter types are sized
+    for param in params.iter() {
+        let ty = param.ty.normalize(&sess.tcx);
+
+        if ty.is_unsized() {
+            let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
+
+            sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
+                &binding_info.name,
+                ty.display(&sess.tcx),
+                binding_info.span,
+            ))
+        }
+    }
+
+    // Check that the return type is sized
+    let return_type_norm = return_type.normalize(&sess.tcx);
+    if return_type_norm.is_unsized() {
+        sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+            return_type_norm.display(&sess.tcx),
+            return_type_span,
+        ))
+    }
+
+    // Check that the variadic argument is sized
+    if let Some(varargs) = &function_type.varargs {
+        if let Some(varargs_type) = &varargs.ty {
+            let varargs_type = varargs_type.normalize(&sess.tcx);
+
+            if varargs_type.is_unsized() {
+                sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                    varargs_type.display(&sess.tcx),
+                    sig.varargs.as_ref().unwrap().span,
                 ))
             }
         }
-
-        // Check that the return type is sized
-        let return_type_norm = return_type.normalize(&sess.tcx);
-        if return_type_norm.is_unsized() {
-            sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-                return_type_norm.display(&sess.tcx),
-                return_type_span,
-            ))
-        }
-
-        // Check that the variadic argument is sized
-        if let Some(varargs) = &function_type.varargs {
-            if let Some(varargs_type) = &varargs.ty {
-                let varargs_type = varargs_type.normalize(&sess.tcx);
-
-                if varargs_type.is_unsized() {
-                    sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-                        varargs_type.display(&sess.tcx),
-                        self.sig.varargs.as_ref().unwrap().span,
-                    ))
-                }
-            }
-        }
-
-        sess.cache.functions.get_mut(function_id).unwrap().set_body(body_node);
-
-        Ok(hir::Node::Const(hir::Const {
-            value: ConstValue::Function(ConstFunction { id: function_id, name }),
-            ty: sig_type,
-            span: self.span,
-        }))
     }
+
+    sess.cache
+        .functions
+        .get_mut(function_id)
+        .unwrap()
+        .set_body(body_sequence);
+
+    Ok(hir::Node::Const(hir::Const {
+        value: ConstValue::Function(ConstFunction { id: function_id, name }),
+        ty: sig_type,
+        span,
+    }))
 }
 
 impl Check for ast::Assignment {
@@ -2585,7 +2639,7 @@ impl Check for ast::Unary {
                         statements: vec![bound_node, ref_node],
                         ty: ptr_type,
                         span: self.span,
-                        is_block: false,
+                        is_scope: false,
                     }))
                 }
             }
@@ -2866,7 +2920,7 @@ impl Check for ast::Block {
                 })],
                 ty: unit_type,
                 span: self.span,
-                is_block: true,
+                is_scope: true,
             }))
         } else {
             let mut statements: Vec<hir::Node> = vec![];
@@ -2910,7 +2964,7 @@ impl Check for ast::Block {
                 statements,
                 ty: yield_type,
                 span: self.span,
-                is_block: true,
+                is_scope: true,
             }))
         }
     }

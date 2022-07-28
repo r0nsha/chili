@@ -279,7 +279,7 @@ impl Lower for hir::Cast {
 
 impl Lower for hir::Sequence {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, ctx: LowerContext) {
-        if self.is_block {
+        if self.is_scope {
             sess.env_mut().push_scope();
         }
 
@@ -293,7 +293,7 @@ impl Lower for hir::Sequence {
             }
         }
 
-        if self.is_block {
+        if self.is_scope {
             sess.env_mut().pop_scope();
         }
     }
