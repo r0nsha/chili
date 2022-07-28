@@ -116,51 +116,50 @@ impl Parser {
     ) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        require!(self, Let, "let")?;
+        if eat!(self, Fn) {
+            let id = require!(self, Ident(_), "an identifier")?;
+            let name = id.name();
 
-        let is_mutable = eat!(self, Mut);
+            let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-        let id = require!(self, Ident(_), "an identifier")?;
-        let name = id.name();
-
-        let name_and_span = ast::NameAndSpan { name, span: id.span };
-
-        let kind = if is_mutable {
-            require!(self, Colon, ":")?;
-            let type_expr = self.parse_expr()?;
-
-            ast::BindingKind::ExternVariable {
-                name: name_and_span,
-                is_mutable,
-                type_expr: Box::new(type_expr),
-            }
-        } else if eat!(self, Colon) {
-            let type_expr = self.parse_expr()?;
-
-            ast::BindingKind::ExternVariable {
-                name: name_and_span,
-                is_mutable,
-                type_expr: Box::new(type_expr),
-            }
-        } else if eat!(self, Eq) {
-            require!(self, Fn, "fn")?;
             let sig = self.parse_function_sig(Some(name), true)?;
 
-            ast::BindingKind::ExternFunction {
-                name: name_and_span,
-                sig,
-            }
-        } else {
-            return Err(SyntaxError::expected(self.previous_span(), ": or ="));
-        };
+            Ok(ast::Binding {
+                module_id: ModuleId::unknown(),
+                attrs,
+                visibility,
+                kind: ast::BindingKind::ExternFunction {
+                    name: name_and_span,
+                    sig,
+                },
+                span: start_span.to(self.previous_span()),
+            })
+        } else if eat!(self, Let) {
+            let is_mutable = eat!(self, Mut);
 
-        Ok(ast::Binding {
-            module_id: ModuleId::unknown(),
-            attrs,
-            visibility,
-            kind,
-            span: start_span.to(self.previous_span()),
-        })
+            let id = require!(self, Ident(_), "an identifier")?;
+            let name = id.name();
+
+            let name_and_span = ast::NameAndSpan { name, span: id.span };
+
+            require!(self, Colon, ":")?;
+
+            let type_expr = self.parse_expr()?;
+
+            Ok(ast::Binding {
+                module_id: ModuleId::unknown(),
+                attrs,
+                visibility,
+                kind: ast::BindingKind::ExternVariable {
+                    name: name_and_span,
+                    is_mutable,
+                    type_expr: Box::new(type_expr),
+                },
+                span: start_span.to(self.previous_span()),
+            })
+        } else {
+            Err(SyntaxError::expected(self.span(), "fn or let"))
+        }
     }
 
     pub fn parse_type_binding(

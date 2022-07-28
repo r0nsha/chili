@@ -1,6 +1,1 @@
-fn main = {
-    println("Hello World");
-    std.c.printf("%d\n".data, add(1, 2));
-};
-
-fn add(a: i32, b: i32) -> i32 = a + b;
+fn main = println("Hello World");
