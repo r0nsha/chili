@@ -87,14 +87,12 @@ impl Parser {
 
         let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
 
-        require!(self, OpenCurly, "{")?;
         let then = self.parse_block_expr()?;
 
         let otherwise = if eat!(self, Else) {
             let expr = if eat!(self, If) {
                 self.parse_if()?
             } else {
-                require!(self, OpenCurly, "{")?;
                 self.parse_block_expr()?
             };
 
@@ -157,6 +155,7 @@ impl Parser {
     }
 
     pub fn parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
+        require!(self, OpenCurly, "{")?;
         Ok(Ast::Block(self.parse_block()?))
     }
 
@@ -271,7 +270,7 @@ impl Parser {
             self.parse_while()?
         } else if eat!(self, For) {
             self.parse_for()?
-        } else if eat!(self, OpenCurly) {
+        } else if is!(self, OpenCurly) {
             self.parse_block_expr()?
         } else if eat!(self, OpenBracket) {
             self.parse_array_type_or_literal()?
@@ -543,11 +542,7 @@ impl Parser {
 
         require!(self, Static, "static")?;
 
-        require!(self, OpenCurly, "{")?;
-
-        let expr = self.parse_expr()?;
-
-        require!(self, CloseCurly, "}")?;
+        let expr = self.parse_block_expr()?;
 
         Ok(ast::StaticEval {
             expr: Box::new(expr),

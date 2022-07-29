@@ -465,27 +465,31 @@ fn extern_functions = {
 fn running_code_at_compile_time = {
     println("running_code_at_compile_time");
 
-    let * = import("std/build");
-
-    let build_options = BuildOptions {
-        input_file: "static.chl",
-        output_file: "static",
-        target: BuildTarget_auto,
-        optimization_level: OptimizationLevel_debug,
-    };
-
-    let workspace = Workspace {
-        name: "hello",
-        build_options
-    };
-
-    let (output_file, ok) = start_workspace(workspace);
-
-    if ok {
-        run_output_file(output_file);
-    }
+    
 };
 
 fn starting_a_workspace = {
-    println("starting_a_workspace");
+    // Use a static block to run arbitrary code
+    // to return at compile time!
+    static {
+        let * = import("std/build");
+
+        let build_options = BuildOptions {
+            input_file: "static.chl",
+            output_file: "static",
+            target: BuildTarget_auto,
+            optimization_level: OptimizationLevel_debug,
+        };
+
+        let workspace = Workspace {
+            name: "hello",
+            build_options
+        };
+
+        let (output_file, ok) = start_workspace(workspace);
+
+        if ok {
+            run_output_file(output_file);
+        }
+    };
 };
