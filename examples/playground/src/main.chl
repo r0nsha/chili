@@ -1,1 +1,16 @@
-fn main = println("Hello World");
+fn main = {
+    println("Hello World");
+    let unit = {};
+
+    let point = .{ x: 1, y: 2 };
+    std.c.printf("x=%d y=%d\n".data, point.x, point.y);
+
+    let foo = .{ bar: 1 };
+    std.c.printf("foo.bar=%d\n".data, foo.bar);
+
+    let bar = .{ foo };
+    std.c.printf("bar.foo=%d\n".data, bar.foo);
+
+    let baz = .{ bar, };
+    std.c.printf("baz.bar=%d\n".data, baz.bar);
+};
