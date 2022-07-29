@@ -2,7 +2,7 @@ fn main = {
     println("Hello World");
     let unit = {};
 
-    let point = .{ x: 1, y: 2 };
+    let point = { x: 1, y: 2 };
     std.c.printf("x=%d y=%d\n".data, point.x, point.y);
 
     let foo = .{ bar: 1 };
