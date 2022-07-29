@@ -61,7 +61,7 @@ example: cargo run -- ./examples/main.chl --run
 
 As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes.
 
-[Our Discord Channel](https://discord.gg/Tu4s49Pdre)
+[Our Discord Server](https://discord.gg/Tu4s49Pdre)
 
 ## Main Tasks
 
