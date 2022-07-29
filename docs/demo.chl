@@ -333,10 +333,37 @@ fn functions = {
 
 fn structs = {
     println("structs");
+
+    type Point = struct { x: int, y: int };
+
+    // Access a struct's fields by using `.field`
+    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.x, p.y);
+
+    // Named initialization
+    let my_point = Point { x: 1, y: 2 };
+    print_point(my_point);
+
+    // Anonymous initialization
+    let my_point = .{ x: 1, y: 2 };
+    print_point(my_point);
 };
 
 fn tuples = {
     println("tuples");
+    
+    // Tuples are essentially anonymous structs, with positional elements
+    type Point = (i32, i32);
+
+    // Access a tuple's elements by using `.index`
+    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.0, p.1);
+
+    // Construct a tuple by listing its elements between parentheses
+    let point = (5, 10);
+    print_point(point);
+
+    // An empty tuple `()` is also called also the `unit` value. Its size is 0.
+    // We usually use the unit value to represent some kind of `void`.
+    let unit = ();
 };
 
 fn imports = {
