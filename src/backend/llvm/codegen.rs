@@ -8,7 +8,7 @@ use crate::{
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir::{self, const_value::ConstValue},
     infer::{normalize::Normalize, type_ctx::TypeCtx},
-    types::*,
+    types::{is_sized::IsSized, *},
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
 use inkwell::{
@@ -220,12 +220,12 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        let value = match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
-                self.builder.build_load(value.into_pointer_value(), "")
-            }
-            _ => value,
-        };
+        // let value = match value.as_instruction_value() {
+        //         Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
+        //             self.builder.build_load(value.into_pointer_value(), "")
+        //         }
+        //         _ => value,
+        //     };
 
         let ptr = self.build_alloca_named(state, value.get_type(), id);
         self.build_store(ptr, value);

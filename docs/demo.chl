@@ -6,17 +6,17 @@ fn main() = {
     arrays();
     control_flow_for();
     pointers_and_references();
-    slices();
-    functions();
-    structs();
-    tuples();
-    imports();
-    binding_patterns();
-    type_aliases();
-    builtin_functions();
-    extern_functions();
-    running_code_at_compile_time();
-    starting_a_workspace();
+    // slices();
+    // functions();
+    // structs();
+    // tuples();
+    // imports();
+    // binding_patterns();
+    // type_aliases();
+    // builtin_functions();
+    // extern_functions();
+    // running_code_at_compile_time();
+    // starting_a_workspace();
 };
 
 fn primitives_and_variables = {
@@ -240,7 +240,7 @@ fn pointers_and_references = {
     let mut x = 5;
     let y = &mut x;
 
-    y.* = y.* + 95;
+    y.* += 95;
     std.c.printf("x = %d, y = %d\n".data, x, y.*);
 };
 

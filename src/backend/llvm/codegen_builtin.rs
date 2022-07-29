@@ -155,12 +155,13 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
             hir::Builtin::Deref(unary) => {
                 let value = unary.value.codegen(generator, state);
 
-                let ptr = match value.as_instruction_value() {
-                    Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
-                        inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
-                    }
-                    _ => value.into_pointer_value(),
-                };
+                let ptr = value.into_pointer_value();
+                // let ptr = match value.as_instruction_value() {
+                //     Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
+                //         inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
+                //     }
+                //     _ => value.into_pointer_value(),
+                // };
 
                 generator.gen_runtime_check_null_pointer_deref(state, ptr, unary.span);
                 generator.builder.build_load(ptr, "deref")
