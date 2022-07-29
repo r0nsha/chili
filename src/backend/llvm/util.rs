@@ -57,33 +57,35 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub(super) fn build_slice(
         &mut self,
-        ptr: PointerValue<'ctx>,
-        sliced_value: BasicValueEnum<'ctx>,
+        slice_ptr: PointerValue<'ctx>,
+        sliced_value: PointerValue<'ctx>,
         low: IntValue<'ctx>,
         high: IntValue<'ctx>,
         elem_type: &Type,
     ) {
-        let sliced_value_ptr = self.builder.build_bitcast(
-            sliced_value,
-            elem_type.llvm_type(self).ptr_type(AddressSpace::Generic),
-            "bitcast_slice_data",
-        );
+        let sliced_value = self
+            .builder
+            .build_bitcast(
+                sliced_value,
+                elem_type.llvm_type(self).ptr_type(AddressSpace::Generic),
+                "bitcast_slice_data",
+            )
+            .into_pointer_value();
 
-        let data = unsafe {
-            self.builder
-                .build_in_bounds_gep(sliced_value_ptr.into_pointer_value(), &[low], "slice_low_addr")
-        };
-
-        let data_ptr = self.builder.build_struct_gep(ptr, 0, "slice_data").unwrap();
+        // Store the data pointer
+        let data_ptr = self.builder.build_struct_gep(slice_ptr, 0, "slice_data").unwrap();
+        let data = unsafe { self.builder.build_gep(sliced_value, &[low], "slice_low_addr") };
 
         self.build_store(data_ptr, data.into());
 
-        let slice_len = self.builder.build_int_sub(high, low, "get_slice_len");
-        let slice_len = self
-            .builder
-            .build_int_cast(slice_len, self.ptr_sized_int_type, "cast_slice_len_to_int");
+        // Store the length
+        let len_ptr = self.builder.build_struct_gep(slice_ptr, 1, "slice_len").unwrap();
 
-        let len_ptr = self.builder.build_struct_gep(ptr, 1, "slice_len").unwrap();
+        let slice_len = self.builder.build_int_cast(
+            self.builder.build_int_sub(high, low, "get_slice_len"),
+            self.ptr_sized_int_type,
+            "cast_slice_len_to_int",
+        );
 
         self.build_store(len_ptr, slice_len.into());
     }

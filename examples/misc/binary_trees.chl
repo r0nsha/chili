@@ -6,7 +6,7 @@ type Node = struct {
     r: *mut Node,
 };
 
-let node_check = fn(node: *Node) -> i32 {
+fn node_check(node: *Node) -> i32 = {
     let mut result = 1;
 
     if (node.l as uint) != 0 {
@@ -20,7 +20,7 @@ let node_check = fn(node: *Node) -> i32 {
     result
 };
 
-let node_create = fn(depth: i32) -> *mut Node {
+fn node_create(depth: i32) -> *mut Node = {
     let node = malloc(size_of!(Node)) as *mut Node;
 
     if depth > 0 {
@@ -33,7 +33,7 @@ let node_create = fn(depth: i32) -> *mut Node {
 
 let min_depth: i32 = 4;
 
-let main = fn {
+fn main = {
     let n = 10;
 
     let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n };

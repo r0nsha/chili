@@ -235,7 +235,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
 
                     generator.build_slice(
                         ptr,
-                        value,
+                        value.into_pointer_value(),
                         generator.ptr_sized_int_type.const_zero(),
                         generator.ptr_sized_int_type.const_int(*size as u64, false),
                         right.as_ref(),
@@ -270,7 +270,9 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Sequence {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let mut yielded_value = generator.unit_value();
 
-        state.push_scope();
+        if self.is_scope {
+            state.push_scope();
+        }
 
         for (i, statement) in self.statements.iter().enumerate() {
             let value = statement.codegen(generator, state);
@@ -279,7 +281,9 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Sequence {
             }
         }
 
-        state.pop_scope();
+        if self.is_scope {
+            state.pop_scope();
+        }
 
         yielded_value
     }

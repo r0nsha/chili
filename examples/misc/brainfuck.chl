@@ -22,7 +22,7 @@ let PROGRAM_SIZE uint = 4096;
 type Program = [PROGRAM_SIZE]Instruction;
 let empty_program Program = [Instruction{..}; PROGRAM_SIZE];
 
-let compile = fn(buf str) -> Program {
+fn compile(buf str) -> Program = {
     let STACK_SIZE uint = 512;
     type Stack = [STACK_SIZE]int;
 
@@ -79,7 +79,7 @@ let compile = fn(buf str) -> Program {
     }
 }
 
-let execute = fn(program Program) {
+fn execute(program Program) = {
     let mut data [DATA_SIZE]int;
     let mut ip = 0;
     let mut dp = 0;
@@ -115,7 +115,7 @@ let execute = fn(program Program) {
     }
 }
 
-let main = fn() {
+fn main = {
     let program = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
     let program = compile(program);
     if program.len > 0 {

@@ -1,12 +1,12 @@
-let { printf } = import("std/c")
+let { printf } = import("std/c");
 
-let main = fn {
+fn main = {
     for i in 0..100 {
         fizzbuzz(i)
     }
-}
+};
 
-let fizzbuzz = fn(i) {
+fn fizzbuzz(i) = {
     if i % 3 == 0 && i % 5 == 0 {
         printf("FizzBuzz\n".data)
     } else if i % 3 == 0 {
@@ -16,4 +16,4 @@ let fizzbuzz = fn(i) {
     } else {
         printf("%d\n".data, i)
     }
-}
+};

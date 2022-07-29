@@ -154,15 +154,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
             },
             hir::Builtin::Deref(unary) => {
                 let value = unary.value.codegen(generator, state);
-
                 let ptr = value.into_pointer_value();
-                // let ptr = match value.as_instruction_value() {
-                //     Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
-                //         inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
-                //     }
-                //     _ => value.into_pointer_value(),
-                // };
-
                 generator.gen_runtime_check_null_pointer_deref(state, ptr, unary.span);
                 generator.builder.build_load(ptr, "deref")
             }
@@ -264,7 +256,13 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
         let slice_llvm_type = self.ty.llvm_type(generator);
         let slice_ptr = generator.build_alloca(state, slice_llvm_type);
 
-        generator.build_slice(slice_ptr, sliced_value, low, high, value_type.element_type().unwrap());
+        generator.build_slice(
+            slice_ptr,
+            sliced_value.into_pointer_value(),
+            low,
+            high,
+            value_type.element_type().unwrap(),
+        );
 
         generator.builder.build_load(slice_ptr, "")
     }

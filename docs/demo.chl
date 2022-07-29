@@ -6,7 +6,7 @@ fn main() = {
     arrays();
     control_flow_for();
     pointers_and_references();
-    // slices();
+    slices();
     // functions();
     // structs();
     // tuples();
@@ -199,13 +199,21 @@ fn control_flow_while = {
 };
 
 fn arrays = {
-    // An array is a sequence of data, which its size is statically known at compile-time
+    // An array is a sequence of data, which its size is statically known at compile-time.
+    // Arrays are bounds checked, meaning you can't index them out of bounds.
     println("arrays");
 
     let array: [3]int = [1, 2, 3];
 
     // As before, we can infer the variables type
     let words = ["Hello", ",", "World"];
+
+    // Indexing the array
+    let one = array[0];
+    let world = words[2];
+
+    // Uncomment to get an error:
+    // let what_are_you_doing = words[5];
 };
 
 fn control_flow_for = {
@@ -245,7 +253,35 @@ fn pointers_and_references = {
 };
 
 fn slices = {
-    println("slices");
+    // println("slices");
+
+    // Slices are useful when you want to represent an array
+    // that doesn't have statically known size, safely, since they are
+    // bounds checked. They are essentially a pointer to some underlying data, and a length.
+
+    let array = [1, 2, 3, 4, 5];
+    
+    fn print_slice(slice: *[]int) = {
+        for x in slice {
+           std.c.printf("%d\n".data, x);
+        };
+        println("");
+    };
+
+    // TODO (ICE): This crashes...
+    // print_slice(&array[0..3]);
+    
+    // Slicing the elements 1-3 of the array
+    let slice = &array[1..3];
+    print_slice(slice);
+    
+    // Slicing the first 3 elements of the array
+    let slice = &array[..3];
+    print_slice(slice);
+    
+    // Slicing the last 3 elements of the array
+    let slice = &array[3..];
+    print_slice(slice);
 };
 
 fn functions = {

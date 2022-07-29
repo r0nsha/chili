@@ -31,7 +31,7 @@ impl<'s> CheckSess<'s> {
                             Span::initial(self.workspace.get_root_module_info().file_id),
                             "",
                         ))
-                        .with_note("define function `let main = fn() {}` in your root file"),
+                        .with_note("define function `fn main = ()` in your root file"),
                 )
             }
         }

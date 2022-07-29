@@ -1,6 +1,6 @@
 let { printf } = import("std/c");
 
-let fib = fn(n) {
+fn fib(n) = {
     if n <= 1 {
         n
     } else {
@@ -8,6 +8,6 @@ let fib = fn(n) {
     }
 };
 
-let main = fn() {
+fn main() = {
     printf("result = %lu\n".data, fib(24));
 };

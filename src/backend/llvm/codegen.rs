@@ -220,16 +220,26 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
-        // let value = match value.as_instruction_value() {
-        //         Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
-        //             self.builder.build_load(value.into_pointer_value(), "")
-        //         }
-        //         _ => value,
-        //     };
+        let binding_info = self.workspace.binding_infos.get(id).unwrap();
+        let ty = binding_info.ty.normalize(self.tcx);
 
-        let ptr = self.build_alloca_named(state, value.get_type(), id);
+        // Hack: This handles the weird alloca behavior of unsized types
+        let value = match ty {
+            Type::Pointer(inner, _) if inner.is_unsized() => match value.as_instruction_value() {
+                Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
+                    self.builder.build_load(value.into_pointer_value(), "")
+                }
+                _ => value,
+            },
+            _ => value,
+        };
+
+        let llvm_type = value.get_type();
+        let ptr = self.build_alloca_named(state, llvm_type, id);
+
         self.build_store(ptr, value);
         self.gen_local_inner(state, id, ptr);
+
         ptr
     }
 

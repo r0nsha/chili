@@ -7,7 +7,7 @@ type PanicInfo = struct {
     column: uint,
 };
 
-let default_panic_handler = fn(info: PanicInfo) -> never {
+fn default_panic_handler(info: PanicInfo) -> never = {
     // TODO: use our own print routine.
     let message = if info.message.len == 0 {
         ""

@@ -256,6 +256,11 @@ impl<'s> CheckSess<'s> {
 
     pub(super) fn id_or_const(&self, binding_info: &BindingInfo, span: Span) -> hir::Node {
         match &binding_info.const_value {
+            Some(value @ ConstValue::Type(_)) => hir::Node::Const(hir::Const {
+                value: value.clone(),
+                ty: binding_info.ty,
+                span,
+            }),
             Some(value) if !self.in_lvalue_context => hir::Node::Const(hir::Const {
                 value: value.clone(),
                 ty: binding_info.ty,
@@ -2622,14 +2627,12 @@ impl Check for ast::Unary {
                         BindingInfoFlags::NO_CONST_FOLD,
                     )?;
 
-                    let id_node = hir::Node::Id(hir::Id {
-                        id,
-                        ty: node_type,
-                        span: self.span,
-                    });
-
                     let ref_node = hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
-                        value: Box::new(id_node),
+                        value: Box::new(hir::Node::Id(hir::Id {
+                            id,
+                            ty: node_type,
+                            span: self.span,
+                        })),
                         is_mutable,
                         ty: ptr_type,
                         span: self.span,
