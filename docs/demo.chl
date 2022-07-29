@@ -240,7 +240,7 @@ fn pointers_and_references = {
     let mut x = 5;
     let y = &mut x;
 
-    y.* += 42;
+    y.* = y.* + 95;
     std.c.printf("x = %d, y = %d\n".data, x, y.*);
 };
 
