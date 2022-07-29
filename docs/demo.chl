@@ -449,7 +449,7 @@ fn builtin_functions = {
     // polymorphic functions are implemented.
 
     std.c.printf("size_of(i32) = %d\n".data, size_of!(i32));
-    std.c.printf("align_of(u8) = %d\n".data, size_of!(u8));
+    std.c.printf("align_of(u8) = %d\n".data, align_of!(u8));
 };
 
 fn extern_functions = {
