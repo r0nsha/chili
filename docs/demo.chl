@@ -7,16 +7,16 @@ fn main() = {
     control_flow_for();
     pointers_and_references();
     slices();
-    // functions();
-    // structs();
-    // tuples();
-    // imports();
-    // binding_patterns();
-    // type_aliases();
-    // builtin_functions();
-    // extern_functions();
-    // running_code_at_compile_time();
-    // starting_a_workspace();
+    functions();
+    structs();
+    tuples();
+    imports();
+    binding_patterns();
+    type_aliases();
+    builtin_functions();
+    extern_functions();
+    running_code_at_compile_time();
+    starting_a_workspace();
 };
 
 fn primitives_and_variables = {
@@ -285,11 +285,19 @@ fn slices = {
 };
 
 fn functions = {
-    println("functions");
-};
+    // Declaring a named function
+    fn answer() -> i32 = 42;
+    std.c.printf("answer = %d\n".data, answer());
 
-fn function_type_inference = {
-    println("function_type_inference");
+    // Function types can be fully inferred
+    fn answer() = 42;
+    // std.c.printf("answer = %d\n".data, answer());
+
+    // If the function takes no parameters, the parentheses can be omitted
+    // fn answer() = 42;
+    // std.c.printf("answer = %d\n".data, answer());
+
+    // println("functions");
 };
 
 fn structs = {

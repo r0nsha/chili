@@ -45,7 +45,7 @@ impl Parser {
     }
 
     pub fn parse_expr_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
-        self.with_res(self.restrictions | restrictions, |p| p.parse_expr_inner(ustr("")))
+        self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
     }
 
     fn parse_expr_inner(&mut self, decl_name: Ustr) -> DiagnosticResult<Ast> {
@@ -85,7 +85,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let condition = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
 
         require!(self, OpenCurly, "{")?;
         let then = self.parse_block_expr()?;
@@ -468,7 +468,7 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let condition = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
 
         require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
@@ -493,10 +493,10 @@ impl Parser {
 
         require!(self, In, "in")?;
 
-        let iter_start = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
+        let iter_start = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
 
         let iterator = if eat!(self, DotDot) {
-            let iter_end = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?;
+            let iter_end = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
             ast::ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ast::ForIter::Value(Box::new(iter_start))

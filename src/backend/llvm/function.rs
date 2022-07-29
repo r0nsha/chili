@@ -142,7 +142,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let fn_type = self.abi_compliant_fn_type(&ty);
         let abi_fn = self.get_abi_compliant_fn(&ty);
 
-        let function = self.get_or_add_function(name, fn_type, linkage);
+        let function = match ty.kind {
+            FunctionTypeKind::Orphan => self.add_function(name, fn_type, linkage),
+            FunctionTypeKind::Extern => self.get_or_add_function(name, fn_type, linkage),
+        };
 
         self.add_fn_attributes(function, &abi_fn);
 
@@ -304,6 +307,15 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let name = name.as_ref();
         self.module
             .get_function(name)
-            .unwrap_or_else(|| self.module.add_function(name, function_type, linkage))
+            .unwrap_or_else(|| self.add_function(name, function_type, linkage))
+    }
+
+    pub(super) fn add_function(
+        &self,
+        name: impl AsRef<str>,
+        function_type: inkwell::types::FunctionType<'ctx>,
+        linkage: Option<Linkage>,
+    ) -> FunctionValue<'ctx> {
+        self.module.add_function(name.as_ref(), function_type, linkage)
     }
 }
