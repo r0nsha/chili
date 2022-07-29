@@ -53,14 +53,14 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                     |generator, state| binary.lhs.codegen(generator, state).into_int_value(),
                     |generator, state: &mut FunctionState<'ctx>| binary.rhs.codegen(generator, state),
                     Some(|generator: &mut Generator<'g, 'ctx>, _: &mut FunctionState<'ctx>| {
-                        generator.context.bool_type().const_int(0, false).into()
+                        generator.const_bool(false).into()
                     }),
                 )
             }
             hir::Builtin::Or(binary) => generator.gen_conditional(
                 state,
                 |generator, state| binary.lhs.codegen(generator, state).into_int_value(),
-                |generator, _| generator.context.bool_type().const_int(1, false).into(),
+                |generator, _| generator.const_bool(true).into(),
                 Some(|generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>| {
                     binary.rhs.codegen(generator, state)
                 }),

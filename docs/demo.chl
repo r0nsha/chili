@@ -12,7 +12,6 @@ fn main() = {
     tuples();
     imports();
     binding_patterns();
-    type_aliases();
     builtin_functions();
     extern_functions();
     running_code_at_compile_time();
@@ -441,20 +440,50 @@ fn binding_patterns = {
     second_hello();
 };
 
-fn type_aliases = {
-    println("type_aliases");
-};
-
 fn builtin_functions = {
-    println("builtin_functions");
+    // There are two builtin functions
+    // size_of!(Type)  : returns a type's size
+    // align_of!(Type) : returns a type's alignment
+
+    // Note that builtin functions will be removed once 
+    // polymorphic functions are implemented.
+
+    std.c.printf("size_of(i32) = %d\n".data, size_of!(i32));
+    std.c.printf("align_of(u8) = %d\n".data, size_of!(u8));
 };
 
 fn extern_functions = {
-    println("extern_functions");
+    // To use a function or variable declared externally of our program,
+    // likely in some static/dynamic library, we declare an `extern` function.
+    extern fn printf(fmt: *u8, args...) -> int;
+    printf("Hello from my '%s'\n".data, "printf".data);
+
+    // Extern variables are declared like so:
+    // extern let baz: int;
 };
 
 fn running_code_at_compile_time = {
     println("running_code_at_compile_time");
+
+    let * = import("std/build");
+
+    let build_options = BuildOptions {
+        input_file: "static.chl",
+        output_file: "static",
+        target: BuildTarget_auto,
+        optimization_level: OptimizationLevel_debug,
+    };
+
+    let workspace = Workspace {
+        name: "hello",
+        build_options
+    };
+
+    let (output_file, ok) = start_workspace(workspace);
+
+    if ok {
+        run_output_file(output_file);
+    }
 };
 
 fn starting_a_workspace = {

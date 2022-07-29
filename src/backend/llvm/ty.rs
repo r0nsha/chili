@@ -132,23 +132,18 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub(super) fn abi_fn_to_type(&mut self, abi_fn: &AbiFunction<'ctx>) -> inkwell::types::FunctionType<'ctx> {
-        let mut offset = 0;
-
         let ret = match abi_fn.ret.kind {
             AbiType::Direct => match abi_fn.ret.cast_to {
                 Some(cast_to) => cast_to,
                 None => abi_fn.ret.ty,
             }
             .as_any_type_enum(),
-            AbiType::Indirect => {
-                offset += 1;
-                self.context.void_type().into()
-            }
-            AbiType::Ignore => self.context.void_type().into(),
+            AbiType::Indirect | AbiType::Ignore => self.context.void_type().into(),
         };
 
         let mut params: Vec<BasicMetadataTypeEnum> = vec![];
-        if offset == 1 {
+
+        if abi_fn.ret.kind.is_indirect() {
             params.push(abi_fn.ret.ty.ptr_type(AddressSpace::Generic).into());
         }
 

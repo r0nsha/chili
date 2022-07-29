@@ -1,6 +1,9 @@
 use super::codegen::Generator;
 use crate::{hir, types::FunctionType};
-use inkwell::{module::Linkage, values::FunctionValue};
+use inkwell::{
+    module::Linkage,
+    values::{BasicValue, FunctionValue},
+};
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn gen_intrinsic(
@@ -9,14 +12,26 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         function_type: &FunctionType,
     ) -> FunctionValue<'ctx> {
         match intrinsic {
-            hir::Intrinsic::StartWorkspace => self.get_or_create_intrinsic(intrinsic, |cg| {
+            hir::Intrinsic::StartWorkspace => self.get_or_create_intrinsic(intrinsic, |generator| {
                 const NAME: &str = "intrinsic#start_workspace";
-                let function = cg.declare_fn_sig(function_type, NAME, Some(Linkage::Private));
 
-                let entry_block = cg.context.append_basic_block(function, "entry");
+                let function = generator.declare_fn_sig(function_type, NAME, Some(Linkage::Private));
 
-                cg.builder.position_at_end(entry_block);
-                cg.builder.build_return(Some(&cg.unit_value()));
+                let entry_block = generator.context.append_basic_block(function, "entry");
+
+                generator.builder.position_at_end(entry_block);
+
+                let return_ptr = function.get_first_param().unwrap().into_pointer_value();
+
+                let str = generator.const_str_slice("", "");
+
+                let return_value = generator
+                    .const_struct(&[str.into(), generator.const_bool(false).into()])
+                    .as_basic_value_enum();
+
+                generator.build_store(return_ptr, return_value);
+
+                generator.builder.build_return(None);
 
                 function
             }),

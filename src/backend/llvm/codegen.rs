@@ -18,7 +18,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, IntValue, PointerValue},
     OptimizationLevel,
 };
 use std::{
@@ -262,6 +262,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
+    pub(super) fn const_bool(&self, b: bool) -> IntValue<'ctx> {
+        self.context.bool_type().const_int(if b { 1 } else { 0 }, false)
+    }
+
     pub(super) fn gen_const_value(
         &mut self,
         state: Option<&FunctionState<'ctx>>,
@@ -270,7 +274,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match const_value {
             ConstValue::Unit(_) | ConstValue::Type(_) => self.unit_value(),
-            ConstValue::Bool(v) => self.context.bool_type().const_int(if *v { 1 } else { 0 }, false).into(),
+            ConstValue::Bool(v) => self.const_bool(*v).into(),
             ConstValue::Int(v) => {
                 if ty.is_any_integer() {
                     ty.llvm_type(self)

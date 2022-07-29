@@ -106,13 +106,10 @@ pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> 
         cg.start();
     }};
 
-    cg.module
-        .verify()
-        .map_err(|e| {
-            cg.module.print_to_stderr();
-            eprintln!("{}", e);
-        })
-        .unwrap();
+    if let Err(e) = cg.module.verify() {
+        cg.module.print_to_file("fail.ll").unwrap();
+        panic!("{}", e);
+    }
 
     time! { workspace.build_options.emit_times, "llvm opt", {
         cg.optimize();

@@ -1,5 +1,5 @@
 use super::{
-    abi::{AbiFunction, AbiType},
+    abi::AbiType,
     codegen::{FunctionState, Generator},
     ty::IntoLlvmType,
     CallingConv,
@@ -68,13 +68,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                         state.push_scope();
 
-                        let mut function_params = function_value.get_params();
-
-                        if abi_fn.ret.kind.is_indirect() {
-                            function_params.remove(0);
-                        }
-
-                        for (index, (&value, param)) in function_params.iter().zip(params.iter()).enumerate() {
+                        for (index, (&value, param)) in function_value
+                            .get_params()
+                            .iter()
+                            .skip(if abi_fn.ret.kind.is_indirect() { 1 } else { 0 })
+                            .zip(params.iter())
+                            .enumerate()
+                        {
                             let value = if abi_fn.params[index].kind.is_indirect() {
                                 self.build_load(value.into_pointer_value())
                             } else {
@@ -142,33 +142,34 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let fn_type = self.abi_compliant_fn_type(&ty);
         let abi_fn = self.get_abi_compliant_fn(&ty);
 
+        // Add the function to the current module
         let function = match ty.kind {
             FunctionTypeKind::Orphan => self.add_function(name, fn_type, linkage),
             FunctionTypeKind::Extern => self.get_or_add_function(name, fn_type, linkage),
         };
 
-        self.add_fn_attributes(function, &abi_fn);
-
-        function
-    }
-
-    fn add_fn_attributes(&self, function: FunctionValue<'ctx>, abi_fn: &AbiFunction<'ctx>) {
+        // Add attributes
         for (index, param) in abi_fn.params.iter().enumerate() {
             if param.kind.is_ignore() {
                 continue;
             }
 
+            let offset = if abi_fn.ret.kind.is_indirect() {
+                index + 1
+            } else {
+                index
+            };
+
             if let Some(attr) = param.attr {
-                function.add_attribute(AttributeLoc::Param(index as u32), attr);
+                function.add_attribute(AttributeLoc::Param(offset as u32), attr);
             }
 
             if let Some(align_attr) = param.align_attr {
-                function.add_attribute(AttributeLoc::Param(index as u32), align_attr);
+                function.add_attribute(AttributeLoc::Param(offset as u32), align_attr);
             }
         }
 
         if abi_fn.ret.kind.is_indirect() && abi_fn.ret.attr.is_some() {
-            // TODO: maybe this should be AttributeLoc::Return
             function.add_attribute(AttributeLoc::Param(0), abi_fn.ret.attr.unwrap());
             function.add_attribute(
                 AttributeLoc::Param(0),
@@ -177,7 +178,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             );
         }
 
+        // Set calling convention
         function.set_call_conventions(CallingConv::C as _);
+
+        function
     }
 
     pub(super) fn gen_function_call(
