@@ -285,19 +285,50 @@ fn slices = {
 };
 
 fn functions = {
+    println("functions");
+
     // Declaring a named function
     fn answer() -> i32 = 42;
     std.c.printf("answer = %d\n".data, answer());
 
     // Function types can be fully inferred
-    fn answer() = 42;
-    // std.c.printf("answer = %d\n".data, answer());
+    fn five() = 5;
+    std.c.printf("five = %d\n".data, five());
 
     // If the function takes no parameters, the parentheses can be omitted
-    // fn answer() = 42;
-    // std.c.printf("answer = %d\n".data, answer());
+    fn pi = 3.14;
+    std.c.printf("pi = %f\n".data, pi());
 
-    // println("functions");
+    // A function can also be used as an expression, which makes it anonymous.
+    // Function expressions follow the same rules as function declaration regarding type inference, omitting parentheses, etc.
+    let hello = fn { "Hello" };
+    println(hello());
+
+    // Functions are first-class values, and can be passed to other functions
+    fn for_each(array: *[]int, f: fn(x: int) -> ()) = 
+        for x in array {
+            f(x)
+        };
+    
+    let array = [1 as int, 2, 3];
+    
+    for_each(&array, fn(x: int) { 
+        std.c.printf("x = %d\n".data, x) ;
+    });
+
+    // When a function has only one *expected* argument, is can be elided, 
+    // and will implicitly be called `it`.
+    for_each(&array, fn { 
+        std.c.printf("it = %d\n".data, it) ;
+    });
+
+    // Trailing functions:
+    // When a function expects another function as its last argument,
+    // that function argument can be put after the call. This doesn't
+    // have any semantic implications, it's only syntax sugar.
+    for_each(&array) fn { 
+        std.c.printf("it = %d\n".data, it) ;
+    };
 };
 
 fn structs = {

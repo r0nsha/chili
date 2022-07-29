@@ -220,6 +220,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         id: BindingId,
         value: BasicValueEnum<'ctx>,
     ) -> PointerValue<'ctx> {
+        debug_assert!(id != BindingId::unknown());
+
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
         let ty = binding_info.ty.normalize(self.tcx);
 
@@ -241,37 +243,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_local_inner(state, id, ptr);
 
         ptr
-    }
-
-    pub(super) fn local_or_load_addr(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        id: BindingId,
-        value: BasicValueEnum<'ctx>,
-    ) -> PointerValue<'ctx> {
-        match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
-                inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
-            }
-            _ => self.local_with_alloca(state, id, value),
-        }
-    }
-
-    pub(super) fn build_alloca_or_load_addr(
-        &mut self,
-        state: &mut FunctionState<'ctx>,
-        value: BasicValueEnum<'ctx>,
-    ) -> PointerValue<'ctx> {
-        match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Load => {
-                inst.get_operand(0).unwrap().left().unwrap().into_pointer_value()
-            }
-            _ => {
-                let ptr = self.build_alloca(state, value.get_type());
-                self.build_store(ptr, value);
-                ptr
-            }
-        }
     }
 
     fn gen_local_inner(&mut self, state: &mut FunctionState<'ctx>, id: BindingId, ptr: PointerValue<'ctx>) {

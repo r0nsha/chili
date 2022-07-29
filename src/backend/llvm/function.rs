@@ -4,7 +4,7 @@ use super::{
     ty::IntoLlvmType,
     CallingConv,
 };
-use crate::{backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*, workspace::BindingId};
+use crate::{backend::llvm::codegen::Codegen, hir, infer::normalize::Normalize, types::*};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     module::Linkage,
@@ -218,7 +218,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         }
                         _ => {
                             if !callee_ty.kind.is_extern() {
-                                self.local_or_load_addr(state, BindingId::unknown(), arg).into()
+                                self.build_alloca_or_load_addr(state, arg).into()
                             } else {
                                 self.build_copy_value_to_ptr(state, arg, arg_type, 16).into()
                             }

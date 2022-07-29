@@ -523,7 +523,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Ref {
                     InstructionOpcode::Load => inst.get_operand(0).unwrap().left().unwrap(),
                     // Note (Ron): Alloca is matched for DST's.
                     // This could be wrong, but I haven't encountered any issues with this yet
-                    // InstructionOpcode::Alloca => value,
+                    InstructionOpcode::Alloca => value,
                     _ => panic!("{:?}", value),
                 }
             }
