@@ -368,10 +368,77 @@ fn tuples = {
 
 fn imports = {
     println("imports");
+
+    // Import using the builtin `import` function.
+    // Import paths are relative to the current directory, of the current file.
+    let foo = import("foo");
+    foo.hello();
 };
 
 fn binding_patterns = {
     println("binding_patterns");
+
+    // Unpack patterns are used for conveniently using inner elements of
+    // compound structures such as tuples, structs and modules.
+    // Note that nested patterns are currently not supported.
+
+    // Tuple unpack:
+    // This pattern's sub-patterns are positional, so the first identifier maps
+    // to the first element, etc.
+    let (x, y) = (1, 2);
+    std.c.printf("%d %d\n".data, x, y);
+
+    // All patterns are not exhaustive, and can be partially applied
+    let (x) = (5, 6);
+    std.c.printf("%d\n".data, x);
+
+    // Struct unpack:
+    let { x, y } = .{ x: 40, y: 33 };
+    std.c.printf("%d %d\n".data, x, y);
+
+    // This pattern's sub-patterns are named, so it is order-free.
+    // Here we unpack the `y` field, even though it is the second one in the struct. 
+    let { y } = .{ x: 40, y: 33 };
+    std.c.printf("%d\n".data, x);
+
+    // Module unpack:
+    // Patterns also apply to module imports, and look exactly the same
+    // as the struct unpack pattern.
+    // Unpacked declarations can be aliased to name collision.
+    let { hello: my_hello } = import("foo");
+    my_hello();
+
+    // As a side note, the import function returns a module `value`,
+    // and as such, can be used directly.
+    import("foo").hello();
+
+    // The wildcard pattern unpacks all *public* fields/declarations from a 
+    // given struct/module;
+
+    // The next line automatically unpacks the `hello` function.
+    let { * } = import("foo");
+    //    ^---- `hello` comes from here
+
+    hello();
+
+    let { * } = .{ a: 3, b: 4 };
+    //    ^---- `a` and `b` come from here
+
+    std.c.printf("a=%d b=%d\n".data, a, b);
+
+    // Wildcard patterns can be partially applied
+    let { a, * } = .{ a: 8, b: 99 };
+    //       ^---- only `b` is unpacked here
+
+    std.c.printf("a=%d b=%d\n".data, a, b);
+
+    // The curly braces can be elided if only an `*` is used
+    let * = import("foo");
+
+    // You can both alias and unpack a value using `@`
+    let foo @ { hello: second_hello } = import("foo");
+    foo.hello();
+    second_hello();
 };
 
 fn type_aliases = {
