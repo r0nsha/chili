@@ -77,25 +77,37 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            if let Some(binding) = module.bindings.iter().find(|binding| match &binding.kind {
-                ast::BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
-                ast::BindingKind::Function {
-                    name: ast::NameAndSpan { name: binding_name, .. },
-                    ..
-                }
-                | ast::BindingKind::ExternFunction {
-                    name: ast::NameAndSpan { name: binding_name, .. },
-                    ..
-                }
-                | ast::BindingKind::ExternVariable {
-                    name: ast::NameAndSpan { name: binding_name, .. },
-                    ..
-                }
-                | ast::BindingKind::Type {
-                    name: ast::NameAndSpan { name: binding_name, .. },
-                    ..
-                } => *binding_name == name,
-            }) {
+            if let Some((index, binding)) =
+                module
+                    .bindings
+                    .iter()
+                    .enumerate()
+                    .find(|(_, binding)| match &binding.kind {
+                        ast::BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
+                        ast::BindingKind::Function {
+                            name: ast::NameAndSpan { name: binding_name, .. },
+                            ..
+                        }
+                        | ast::BindingKind::ExternFunction {
+                            name: ast::NameAndSpan { name: binding_name, .. },
+                            ..
+                        }
+                        | ast::BindingKind::ExternVariable {
+                            name: ast::NameAndSpan { name: binding_name, .. },
+                            ..
+                        }
+                        | ast::BindingKind::Type {
+                            name: ast::NameAndSpan { name: binding_name, .. },
+                            ..
+                        } => *binding_name == name,
+                    })
+            {
+                self.queued_modules
+                    .get_mut(&module.id)
+                    .unwrap()
+                    .complete_bindings
+                    .insert(index);
+
                 let bound_names = binding.check_top_level(self)?;
                 let desired_id = *bound_names.get(&name).unwrap();
 

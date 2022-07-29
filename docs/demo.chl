@@ -463,14 +463,16 @@ fn extern_functions = {
 };
 
 fn running_code_at_compile_time = {
+    // Use a static block to run arbitrary code to return at compile time!
+    // Static blocks translate to a no-op at runtime
     println("running_code_at_compile_time");
-
-    
+    static { println("Compile time: I appear first"); };
 };
 
 fn starting_a_workspace = {
-    // Use a static block to run arbitrary code
-    // to return at compile time!
+    println("starting_a_workspace:");
+    static { println("Compile time: I appear second"); };
+
     static {
         let * = import("std/build");
 
