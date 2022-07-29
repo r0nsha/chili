@@ -11,6 +11,7 @@ use crate::{
     types::Type,
     workspace::Workspace,
 };
+use indexmap::indexmap;
 use types::*;
 use util::*;
 
@@ -47,7 +48,7 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, typed_ast: Opti
             let mut sess = HintSess {
                 workspace,
                 tcx,
-                hints: vec![],
+                hints: indexmap!(),
             };
 
             typed_ast
@@ -60,7 +61,7 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, typed_ast: Opti
                 .iter()
                 .for_each(|(_, function)| function.collect_hints(&mut sess));
 
-            objects.extend(sess.hints.into_iter().map(IdeObject::Hint));
+            objects.extend(sess.hints.into_values().map(IdeObject::Hint));
         }
         _ => (),
     }

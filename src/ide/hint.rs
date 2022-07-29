@@ -1,3 +1,5 @@
+use indexmap::IndexMap;
+
 use super::types::*;
 use crate::{
     hir,
@@ -10,17 +12,20 @@ use crate::{
 pub(super) struct HintSess<'a> {
     pub(super) workspace: &'a Workspace,
     pub(super) tcx: &'a TypeCtx,
-    pub(super) hints: Vec<Hint>,
+    pub(super) hints: IndexMap<Span, Hint>,
 }
 
 impl<'a> HintSess<'a> {
     fn push_hint(&mut self, span: Span, type_name: String, kind: HintKind) {
         if let Some(file) = self.workspace.diagnostics.get_file(span.file_id) {
-            self.hints.push(Hint {
-                span: IdeSpan::from_span_and_file(span, file.name()),
-                type_name,
-                kind: kind.to_string(),
-            })
+            self.hints.insert(
+                span,
+                Hint {
+                    span: IdeSpan::from_span_and_file(span, file.name()),
+                    type_name,
+                    kind: kind.to_string(),
+                },
+            );
         }
     }
 }
