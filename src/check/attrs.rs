@@ -34,9 +34,9 @@ impl<'s> CheckSess<'s> {
 
                     node.ty().unify(&expected_type, &mut self.tcx).or_report_err(
                         &self.tcx,
-                        expected_type,
+                        &expected_type,
                         None,
-                        node.ty(),
+                        &node.ty(),
                         node.span(),
                     )?;
 
@@ -53,9 +53,9 @@ impl<'s> CheckSess<'s> {
 
                     unit.unify(&expected_type, &mut self.tcx).or_report_err(
                         &self.tcx,
-                        expected_type,
+                        &expected_type,
                         None,
-                        unit,
+                        &unit,
                         span,
                     )?;
 

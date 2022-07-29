@@ -304,7 +304,7 @@ fn functions = {
     println(hello());
 
     // Functions are first-class values, and can be passed to other functions
-    fn for_each(array: *[]int, f: fn(x: int) -> ()) = 
+    fn for_each(array: *[]int, f: fn(x) -> ()) = 
         for x in array {
             f(x)
         };

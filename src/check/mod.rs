@@ -351,9 +351,9 @@ impl Check for ast::Binding {
                     .or_coerce_into_ty(&mut value_node, ty, &mut sess.tcx, sess.target_metrics.word_size)
                     .or_report_err(
                         &sess.tcx,
-                        ty,
+                        &ty,
                         type_expr.as_ref().map(|e| e.span()),
-                        value_node.ty(),
+                        &value_node.ty(),
                         value.span(),
                     )?;
 
@@ -644,46 +644,28 @@ impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         let mut param_types: Vec<FunctionTypeParam> = vec![];
 
-        if !self.params.is_empty() {
-            let mut defined_params = UstrMap::default();
+        let mut defined_params = UstrMap::default();
 
-            for param in self.params.iter() {
-                let param_type = check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
+        for param in self.params.iter() {
+            let param_type = check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
 
-                for pattern in param.pattern.iter() {
-                    let name = pattern.name;
+            for pattern in param.pattern.iter() {
+                let name = pattern.name;
 
-                    if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
-                        return Err(SyntaxError::duplicate_binding(already_defined_span, pattern.span, name));
-                    }
-                }
-
-                param_types.push(FunctionTypeParam {
-                    name: match &param.pattern {
-                        Pattern::Name(p) => p.name,
-                        Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
-                        Pattern::Hybrid(p) => p.name_pattern.name,
-                    },
-                    ty: param_type.as_kind(),
-                });
-            }
-        } else {
-            // if the function signature has no parameters, and the
-            // parent type is a function with 1 parameter, add an implicit `it` parameter
-            if let Some(ty) = expected_type {
-                match ty.normalize(&sess.tcx) {
-                    Type::Function(f) => {
-                        if f.params.len() == 1 {
-                            param_types.push(FunctionTypeParam {
-                                name: ustr("it"),
-                                ty: f.params[0].ty.clone(),
-                            });
-                        }
-                    }
-                    _ => (),
+                if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
+                    return Err(SyntaxError::duplicate_binding(already_defined_span, pattern.span, name));
                 }
             }
-        };
+
+            param_types.push(FunctionTypeParam {
+                name: match &param.pattern {
+                    Pattern::Name(p) => p.name,
+                    Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
+                    Pattern::Hybrid(p) => p.name_pattern.name,
+                },
+                ty: param_type.as_kind(),
+            });
+        }
 
         let return_type = if self.return_type.is_none() && self.kind.is_extern() {
             sess.tcx.common_types.unit
@@ -712,6 +694,19 @@ impl Check for ast::FunctionSig {
         } else {
             None
         };
+
+        if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
+            if self.params.is_empty() {
+                // if the function signature has no parameters, and the
+                // parent type is a function with 1 parameter, add an implicit `it` parameter
+                if expected_function_type.params.len() == 1 {
+                    param_types.push(FunctionTypeParam {
+                        name: ustr("it"),
+                        ty: expected_function_type.params[0].ty.clone(),
+                    });
+                }
+            }
+        }
 
         let function_type = sess.tcx.bound(
             Type::Function(FunctionType {
@@ -826,7 +821,7 @@ impl Check for ast::Ast {
                     .ty()
                     .unify(&uint, &mut sess.tcx)
                     .or_coerce_into_ty(&mut offset_node, uint, &mut sess.tcx, sess.target_metrics.word_size)
-                    .or_report_err(&sess.tcx, uint, None, offset_node.ty(), sub.index.span())?;
+                    .or_report_err(&sess.tcx, &uint, None, &offset_node.ty(), sub.index.span())?;
 
                 let node = sub.expr.check(sess, env, None)?;
                 let node_type = node.ty().normalize(&sess.tcx);
@@ -908,7 +903,7 @@ impl Check for ast::Ast {
                         .ty()
                         .unify(&uint, &mut sess.tcx)
                         .or_coerce_into_ty(&mut low_node, uint, &mut sess.tcx, sess.target_metrics.word_size)
-                        .or_report_err(&sess.tcx, uint, None, low_node.ty(), low_node.span())?;
+                        .or_report_err(&sess.tcx, &uint, None, &low_node.ty(), low_node.span())?;
 
                     low_node
                 } else {
@@ -928,9 +923,9 @@ impl Check for ast::Ast {
                         .or_coerce_into_ty(&mut high_node, uint, &mut sess.tcx, sess.target_metrics.word_size)
                         .or_report_err(
                             &sess.tcx,
-                            uint,
+                            &uint,
                             slice.low.as_ref().map(|e| e.span()),
-                            high_node.ty(),
+                            &high_node.ty(),
                             high_node.span(),
                         )?;
 
@@ -1026,9 +1021,9 @@ impl Check for ast::Ast {
 
                         node.ty().unify(&partial_ty, &mut sess.tcx).or_report_err(
                             &sess.tcx,
-                            partial_ty,
+                            &partial_ty,
                             None,
-                            node.ty(),
+                            &node.ty(),
                             access.expr.span(),
                         )?;
                     }
@@ -1278,7 +1273,7 @@ impl Check for ast::Ast {
                         node.ty()
                             .unify(&element_ty, &mut sess.tcx)
                             .or_coerce_into_ty(&mut node, element_ty, &mut sess.tcx, sess.target_metrics.word_size)
-                            .or_report_err(&sess.tcx, element_ty, Some(element_ty_span), node.ty(), el.span())?;
+                            .or_report_err(&sess.tcx, &element_ty, Some(element_ty_span), &node.ty(), el.span())?;
 
                         element_nodes.push(node);
                     }
@@ -1474,42 +1469,6 @@ impl Check for ast::Ast {
             ast::Ast::StructType(struct_type) => struct_type.check(sess, env, expected_type),
             ast::Ast::FunctionType(sig) => {
                 let node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                let function_type = node.ty().normalize(&sess.tcx).into_type().into_function();
-
-                for (i, param) in function_type.params.iter().enumerate() {
-                    let ty = param.ty.normalize(&sess.tcx);
-
-                    if ty.is_unsized() {
-                        let pattern = &sig.params[i].pattern;
-
-                        sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
-                            &pattern.to_string(),
-                            ty.display(&sess.tcx),
-                            pattern.span(),
-                        ))
-                    }
-                }
-
-                let return_type_norm = function_type.return_type.normalize(&sess.tcx);
-                if return_type_norm.is_unsized() {
-                    sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-                        return_type_norm.display(&sess.tcx),
-                        sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span),
-                    ))
-                }
-
-                if let Some(varargs) = &function_type.varargs {
-                    if let Some(varargs_type) = &varargs.ty {
-                        let varargs_type = varargs_type.normalize(&sess.tcx);
-
-                        if varargs_type.is_unsized() {
-                            sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-                                varargs_type.display(&sess.tcx),
-                                sig.varargs.as_ref().unwrap().span,
-                            ))
-                        }
-                    }
-                }
 
                 for param in sig.params.iter() {
                     match &param.pattern {
@@ -1568,7 +1527,7 @@ impl Check for ast::While {
                 &mut sess.tcx,
                 sess.target_metrics.word_size,
             )
-            .or_report_err(&sess.tcx, bool_type, None, condition_node.ty(), self.condition.span())?;
+            .or_report_err(&sess.tcx, &bool_type, None, &condition_node.ty(), self.condition.span())?;
 
         env.push_scope(ScopeKind::Loop);
         sess.loop_depth += 1;
@@ -1625,9 +1584,9 @@ impl Check for ast::For {
 
                 start_node.ty().unify(&anyint, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    anyint,
+                    &anyint,
                     None,
-                    start_node.ty(),
+                    &start_node.ty(),
                     start_node.span(),
                 )?;
 
@@ -1642,9 +1601,9 @@ impl Check for ast::For {
                     )
                     .or_report_err(
                         &sess.tcx,
-                        start_node.ty(),
+                        &start_node.ty(),
                         Some(start.span()),
-                        end_node.ty(),
+                        &end_node.ty(),
                         end.span(),
                     )?;
 
@@ -2173,9 +2132,9 @@ fn check_function<'s>(
 
     unify_node.or_report_err(
         &sess.tcx,
-        return_type,
+        &return_type,
         Some(return_type_span),
-        body_sequence.ty,
+        &body_sequence.ty,
         body.span(),
     )?;
 
@@ -2251,9 +2210,9 @@ impl Check for ast::Assignment {
             )
             .or_report_err(
                 &sess.tcx,
-                lhs_node.ty(),
+                &lhs_node.ty(),
                 Some(lhs_node.span()),
-                rhs_node.ty(),
+                &rhs_node.ty(),
                 rhs_node.span(),
             )?;
 
@@ -2283,9 +2242,9 @@ impl Check for ast::Return {
                 .or_coerce_into_ty(&mut node, return_type, &mut sess.tcx, sess.target_metrics.word_size)
                 .or_report_err(
                     &sess.tcx,
-                    return_type,
+                    &return_type,
                     Some(function_frame.return_type_span),
-                    node.ty(),
+                    &node.ty(),
                     expr.span(),
                 )?;
 
@@ -2296,7 +2255,7 @@ impl Check for ast::Return {
             function_frame
                 .return_type
                 .unify(&unit_type, &mut sess.tcx)
-                .or_report_err(&sess.tcx, unit_type, None, function_frame.return_type, self.span)?;
+                .or_report_err(&sess.tcx, &unit_type, None, &function_frame.return_type, self.span)?;
 
             hir::Node::Const(hir::Const {
                 value: ConstValue::Unit(()),
@@ -2328,7 +2287,7 @@ impl Check for ast::If {
                 &mut sess.tcx,
                 sess.target_metrics.word_size,
             )
-            .or_report_err(&sess.tcx, bool_type, None, condition_node.ty(), self.condition.span())?;
+            .or_report_err(&sess.tcx, &bool_type, None, &condition_node.ty(), self.condition.span())?;
 
         // if the condition is compile-time known, only check the resulting branch
         match condition_node.as_const_value() {
@@ -2361,9 +2320,9 @@ impl Check for ast::If {
                         )
                         .or_report_err(
                             &sess.tcx,
-                            then_node.ty(),
+                            &then_node.ty(),
                             Some(self.then.span()),
-                            otherwise_node.ty(),
+                            &otherwise_node.ty(),
                             otherwise.span(),
                         )?;
 
@@ -2401,9 +2360,9 @@ impl Check for ast::Binary {
 
                 lhs_node.ty().unify(&bool_type, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    bool_type,
+                    &bool_type,
                     None,
-                    lhs_node.ty(),
+                    &lhs_node.ty(),
                     lhs_node.span(),
                 )?;
 
@@ -2418,9 +2377,9 @@ impl Check for ast::Binary {
 
                 lhs_node.ty().unify(&bool_type, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    bool_type,
+                    &bool_type,
                     None,
-                    lhs_node.ty(),
+                    &lhs_node.ty(),
                     lhs_node.span(),
                 )?;
 
@@ -2478,9 +2437,9 @@ impl Check for ast::Binary {
 
                     lhs_node.ty().unify(&anyint_type, &mut sess.tcx).or_report_err(
                         &sess.tcx,
-                        anyint_type,
+                        &anyint_type,
                         None,
-                        lhs_node.ty(),
+                        &lhs_node.ty(),
                         lhs_node.span(),
                     )?;
 
@@ -2491,9 +2450,9 @@ impl Check for ast::Binary {
 
                     lhs_node.ty().unify(&bool_type, &mut sess.tcx).or_report_err(
                         &sess.tcx,
-                        bool_type,
+                        &bool_type,
                         None,
-                        lhs_node.ty(),
+                        &lhs_node.ty(),
                         lhs_node.span(),
                     )?;
 
@@ -2512,7 +2471,7 @@ impl Check for ast::Binary {
                 &mut sess.tcx,
                 sess.target_metrics.word_size,
             )
-            .or_report_err(&sess.tcx, expected_rhs_type, None, rhs_node.ty(), self.rhs.span())?;
+            .or_report_err(&sess.tcx, &expected_rhs_type, None, &rhs_node.ty(), self.rhs.span())?;
 
         let result_type = match lhs_node_type {
             Type::Pointer(..) => match &self.op {
@@ -2678,7 +2637,7 @@ impl Check for ast::Unary {
                         node_type
                             .unify(&ptr_ty, &mut sess.tcx)
                             .or_coerce_into_ty(&mut node, ptr_ty, &mut sess.tcx, sess.target_metrics.word_size)
-                            .or_report_err(&sess.tcx, ptr_ty, None, node_type, self.value.span())?;
+                            .or_report_err(&sess.tcx, &ptr_ty, None, &node_type, self.value.span())?;
 
                         Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
                             ty: pointee_ty,
@@ -2701,7 +2660,7 @@ impl Check for ast::Unary {
                 node_type
                     .unify(&bool, &mut sess.tcx)
                     .or_else(|_| node_type.unify(&anyint, &mut sess.tcx))
-                    .or_report_err(&sess.tcx, bool, None, node_type, self.value.span())?;
+                    .or_report_err(&sess.tcx, &bool, None, &node_type, self.value.span())?;
 
                 if let Some(const_value) = node.as_const_value() {
                     Ok(hir::Node::Const(hir::Const {
@@ -2725,9 +2684,9 @@ impl Check for ast::Unary {
 
                 node_type.unify(&anyint, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    anyint,
+                    &anyint,
                     None,
-                    node_type,
+                    &node_type,
                     self.value.span(),
                 )?;
 
@@ -2753,9 +2712,9 @@ impl Check for ast::Unary {
 
                 node_type.unify(&anyint, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    anyint,
+                    &anyint,
                     None,
-                    node_type,
+                    &node_type,
                     self.value.span(),
                 )?;
 
@@ -2810,7 +2769,7 @@ impl Check for ast::Call {
                         node.ty()
                             .unify(&param_ty, &mut sess.tcx)
                             .or_coerce_into_ty(&mut node, param_ty, &mut sess.tcx, sess.target_metrics.word_size)
-                            .or_report_err(&sess.tcx, param_ty, None, node.ty(), arg.span())?;
+                            .or_report_err(&sess.tcx, &param_ty, None, &node.ty(), arg.span())?;
 
                         args.push(node);
                     } else {
@@ -2852,9 +2811,9 @@ impl Check for ast::Call {
 
                 ty.unify(&inferred_fn_ty, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    inferred_fn_ty,
+                    &inferred_fn_ty,
                     None,
-                    ty,
+                    &ty,
                     self.callee.span(),
                 )?;
 
@@ -2897,9 +2856,9 @@ impl Check for ast::Cast {
         if let Some(expected_type) = expected_type {
             target_type.unify(&expected_type, &mut sess.tcx).or_report_err(
                 &sess.tcx,
-                expected_type,
+                &expected_type,
                 sess.tcx.ty_span(expected_type),
-                target_type,
+                &target_type,
                 self.target_type.span(),
             )?;
         }
@@ -3193,7 +3152,7 @@ impl Check for ast::StructType {
         });
 
         if occurs(struct_type_var, &struct_type, &sess.tcx) {
-            Err(UnifyTypeErr::Occurs.into_diagnostic(&sess.tcx, struct_type, None, struct_type_var, self.span))
+            Err(UnifyTypeErr::Occurs.into_diagnostic(&sess.tcx, &struct_type, None, &struct_type_var, self.span))
         } else {
             Ok(hir::Node::Const(hir::Const {
                 ty: sess.tcx.bound(struct_type.clone().create_type(), self.span),
@@ -3237,9 +3196,9 @@ fn check_named_struct_literal(
                     .or_coerce_into_ty(&mut node, expected_type, &mut sess.tcx, sess.target_metrics.word_size)
                     .or_report_err(
                         &sess.tcx,
-                        expected_type,
+                        &expected_type,
                         Some(ty_field.span),
-                        node.ty(),
+                        &node.ty(),
                         field.expr.span(),
                     )?;
 

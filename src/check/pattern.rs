@@ -425,9 +425,9 @@ impl<'s> CheckSess<'s> {
 
                 ty.unify(&partial_struct_ty, &mut self.tcx).or_report_err(
                     &self.tcx,
-                    partial_struct_ty,
+                    &partial_struct_ty,
                     Some(unpack_pattern.span),
-                    ty,
+                    &ty,
                     ty_origin_span,
                 )?;
 
@@ -555,9 +555,9 @@ impl<'s> CheckSess<'s> {
 
         ty.unify(&partial_tuple, &mut self.tcx).or_report_err(
             &self.tcx,
-            partial_tuple,
+            &partial_tuple,
             Some(pattern.span),
-            ty,
+            &ty,
             ty_origin_span,
         )?;
 

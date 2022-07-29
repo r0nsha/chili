@@ -21,9 +21,9 @@ pub trait OrReportErr {
     fn or_report_err(
         self,
         tcx: &TypeCtx,
-        expected: impl DisplayTy,
+        expected: &impl DisplayTy,
         expected_span: Option<Span>,
-        found: impl DisplayTy,
+        found: &impl DisplayTy,
         found_span: Span,
     ) -> DiagnosticResult<()>;
 }
@@ -32,9 +32,9 @@ impl OrReportErr for UnifyTypeResult {
     fn or_report_err(
         self,
         tcx: &TypeCtx,
-        expected: impl DisplayTy,
+        expected: &impl DisplayTy,
         expected_span: Option<Span>,
-        found: impl DisplayTy,
+        found: &impl DisplayTy,
         found_span: Span,
     ) -> DiagnosticResult<()> {
         self.map_err(|e| UnifyTypeErr::into_diagnostic(e, tcx, expected, expected_span, found, found_span))

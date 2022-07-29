@@ -321,9 +321,9 @@ impl UnifyTypeErr {
     pub fn into_diagnostic(
         self,
         tcx: &TypeCtx,
-        expected: impl DisplayTy,
+        expected: &impl DisplayTy,
         expected_span: Option<Span>,
-        found: impl DisplayTy,
+        found: &impl DisplayTy,
         found_span: Span,
     ) -> Diagnostic {
         let expected = expected.display(tcx);
