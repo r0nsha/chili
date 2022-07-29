@@ -153,9 +153,16 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 _ => unreachable!("{}", &unary.value.ty().display(&generator.tcx)),
             },
             hir::Builtin::Deref(unary) => {
-                let value = unary.value.codegen(generator, state).into_pointer_value();
-                generator.gen_runtime_check_null_pointer_deref(state, value, unary.span);
-                generator.builder.build_load(value, "deref")
+                let value = unary.value.codegen(generator, state);
+
+                match value.as_instruction_value() {
+                    Some(inst) if inst.get_opcode() == InstructionOpcode::Load => value,
+                    _ => {
+                        let ptr = value.into_pointer_value();
+                        generator.gen_runtime_check_null_pointer_deref(state, ptr, unary.span);
+                        generator.builder.build_load(ptr, "deref")
+                    }
+                }
             }
             hir::Builtin::Ref(ref_) => ref_.codegen(generator, state),
             hir::Builtin::Offset(offset) => offset.codegen(generator, state),

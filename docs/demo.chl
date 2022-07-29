@@ -1,10 +1,11 @@
 fn main() = {
     primitives_and_variables();
-    arithmetic();
+    operators();
     control_flow_if();
-    arrays();
     control_flow_while();
+    arrays();
     control_flow_for();
+    pointers_and_references();
     slices();
     functions();
     structs();
@@ -19,9 +20,16 @@ fn main() = {
 };
 
 fn primitives_and_variables = {
-    println("\nprimitives_and_variables:");
+    println("primitives_and_variables");
     
     // Primitive types:
+
+    // boolean
+    // --------
+    // types: 
+    //      bool
+    //
+    // examples: true, false
 
     // signed and unsigned integers
     // --------
@@ -53,72 +61,233 @@ fn primitives_and_variables = {
     let num = 5;
     let pi = 3.14;
     let hello = "Hello";
+
+    // Variables are immutable by default, meaning you can't reassign them twice.
+    // Uncomment the next line to get a compiler error:
+    // num = 42;
+
+    // To declare a variable as mutable, add the `mut` keyword after the `let`
+    let mut foo = 42;
+    foo = 1;
+
+    // Variables can also be shadowed, meaning you can declare the same name twice (in local scope)
+    let foo = true;
 };
 
-fn arithmetic() = {
-    println("\narithmetic:");
+fn operators() = {
+    println("operators");
+    
+    // Not
+    let x = !true;
+
+    // Negate
+    let x = -5;
+
+    // Addition
+    let mut x = 1 + 2;
+    x += 3;
+
+    // Subtraction
+    let mut x = 1 - 2;
+    x -= 3;
+
+    // Multiplication
+    let mut x = 1 * 2;
+    x *= 3;
+    
+    // Division
+    let mut x = 1 / 2;
+    x /= 3;
+    
+    // And
+    let mut x = true && false;
+    x &&= false;
+    
+    // Or
+    let mut x = true || false;
+    x ||= false;
+    
+    // Equal
+    let x = 1 == 2;
+
+    // Not equal
+    let x = 1 != 2;
+
+    // Less than
+    let x = 1 < 2;
+
+    // Less than or equal
+    let x = 1 <= 2;
+
+    // Greater than
+    let x = 1 > 2;
+
+    // Greater than or equal
+    let x = 1 >= 2;
+        
+    // Bitwise not
+    let x = !1;
+
+    // Bitwise and
+    let mut x = 1 & 2;
+    x &= 3;
+    
+    // Bitwise or
+    let mut x = 1 | 2;
+    x |= 3;
+
+    // Bitwise xor
+    let mut x = 1 ^ 2;
+    x ^= 3;
+
+    // Shift left
+    let mut x = 1 << 2;
+    x <<= 3;
+
+    // Shift right
+    let mut x = 1 >> 2;
+    x >>= 3;
 };
 
 fn control_flow_if = {
-    println("\ncontrol_flow_if:");
+    println("control_flow_if");
+
+    // If can be used as a statement
+    let is_nice = true;
+
+    if is_nice {
+        println("Nice!");
+    } else {
+        println("Oof...");
+    }
+
+    // If is an expression, which yields 
+    // the last value of the block, depending on the condition
+    let answer = if true { 42 } else { -1 };
+
+    // Since everything is an expression, you can compose blocks and ifs easily
+    let some_condition = true;
+    let calculation = if some_condition { 
+        let this = {
+            let is = 1;
+            let really = 2;
+        };
+
+        let complicated = true;
+
+        let result = 42;
+
+        // The last expression in a block is yielded from the block,
+        42 // You can make the 42 not be yielded, by adding a `;` after it
+    } else { 
+        -1 
+    };
+};
+
+
+fn control_flow_while = {
+    println("control_flow_while");
+
+    let mut i = 3;
+
+    while i > 0 {
+        std.c.printf("Countdown: %d\n".data, i);
+        i -= 1;
+    }
+
+    println("Launch!");
 };
 
 fn arrays = {
-    println("\narrays:");
-};
+    // An array is a sequence of data, which its size is statically known at compile-time
+    println("arrays");
 
-fn control_flow_while = {
-    println("\ncontrol_flow_while:");
+    let array: [3]int = [1, 2, 3];
+
+    // As before, we can infer the variables type
+    let words = ["Hello", ",", "World"];
 };
 
 fn control_flow_for = {
-    println("\ncontrol_flow_for:");
+    println("control_flow_for");
+
+    for item, index in [42, 3.14, 666.0] {
+        std.c.printf("array[%d]: %f\n".data, index, item);
+    }
+};
+
+fn pointers_and_references = {
+    println("pointers_and_references");
+
+    let foo = 5;
+
+    // Take the address of `foo` immutably with `&`
+    std.c.printf("foo = %d, addr = %p\n".data, foo, &foo);
+
+    let addr = &foo;
+
+    // Dereference using a postfix `.*`
+    let bar = addr.* + 42;
+    std.c.printf("bar = %d\n".data, bar);
+
+    // `&` references are immutable.
+    // You can take a mutable reference by using `&mut`
+    // In order to take something mutably, is also has to be mutable.
+    // Uncomment the next two lines to get a compiler error:
+    // let x = 5;
+    // let y = &mut x;
+
+    let mut x = 5;
+    let y = &mut x;
+
+    y.* += 42;
+    std.c.printf("x = %d, y = %d\n".data, x, y.*);
 };
 
 fn slices = {
-    println("\nslices:");
+    println("slices");
 };
 
 fn functions = {
-    println("\nfunctions:");
+    println("functions");
 };
 
 fn function_type_inference = {
-    println("\nfunction_type_inference:");
+    println("function_type_inference");
 };
 
 fn structs = {
-    println("\nstructs:");
+    println("structs");
 };
 
 fn tuples = {
-    println("\ntuples:");
+    println("tuples");
 };
 
 fn imports = {
-    println("\nimports:");
+    println("imports");
 };
 
 fn binding_patterns = {
-    println("\nbinding_patterns:");
+    println("binding_patterns");
 };
 
 fn type_aliases = {
-    println("\ntype_aliases:");
+    println("type_aliases");
 };
 
 fn builtin_functions = {
-    println("\nbuiltin_functions:");
+    println("builtin_functions");
 };
 
 fn extern_functions = {
-    println("\nextern_functions:");
+    println("extern_functions");
 };
 
 fn running_code_at_compile_time = {
-    println("\nrunning_code_at_compile_time:");
+    println("running_code_at_compile_time");
 };
 
 fn starting_a_workspace = {
-    println("\nstarting_a_workspace:");
+    println("starting_a_workspace");
 };

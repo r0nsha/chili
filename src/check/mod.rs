@@ -2644,28 +2644,49 @@ impl Check for ast::Unary {
                 }
             }
             ast::UnaryOp::Deref => {
-                let node = self.value.check(sess, env, None)?;
+                let mut node = self.value.check(sess, env, None)?;
                 let node_type = node.ty();
 
-                let pointee_ty = sess.tcx.var(self.span);
+                let node_type_norm = node_type.normalize(&sess.tcx);
+                match &node_type_norm {
+                    Type::Pointer(inner, _) => {
+                        if inner.is_unsized() {
+                            Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot dereference value of type `{}`",
+                                    node_type_norm.display(&sess.tcx)
+                                ))
+                                .with_label(Label::primary(self.span, "cannot dereference")))
+                        } else {
+                            Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
+                                ty: sess.tcx.bound(inner.as_ref().clone(), self.span),
+                                span: self.span,
+                                value: Box::new(node),
+                            })))
+                        }
+                    }
+                    Type::Var(_) => {
+                        let pointee_ty = sess.tcx.var(self.span);
 
-                let ptr_ty = sess
-                    .tcx
-                    .bound(Type::Pointer(Box::new(pointee_ty.into()), false), self.span);
+                        let ptr_ty = sess
+                            .tcx
+                            .bound(Type::Pointer(Box::new(pointee_ty.into()), true), self.span);
 
-                node_type.unify(&ptr_ty, &mut sess.tcx).or_report_err(
-                    &sess.tcx,
-                    ptr_ty,
-                    None,
-                    node_type,
-                    self.value.span(),
-                )?;
+                        node_type
+                            .unify(&ptr_ty, &mut sess.tcx)
+                            .or_coerce_into_ty(&mut node, ptr_ty, &mut sess.tcx, sess.target_metrics.word_size)
+                            .or_report_err(&sess.tcx, ptr_ty, None, node_type, self.value.span())?;
 
-                Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                    ty: pointee_ty,
-                    span: self.span,
-                    value: Box::new(node),
-                })))
+                        Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
+                            ty: pointee_ty,
+                            span: self.span,
+                            value: Box::new(node),
+                        })))
+                    }
+                    ty => Err(Diagnostic::error()
+                        .with_message(format!("cannot dereference value of type `{}`", ty.display(&sess.tcx)))
+                        .with_label(Label::primary(self.span, "cannot dereference"))),
+                }
             }
             ast::UnaryOp::Not => {
                 let node = self.value.check(sess, env, None)?;
