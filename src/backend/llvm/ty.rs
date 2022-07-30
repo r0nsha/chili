@@ -5,6 +5,7 @@ use super::{
 use crate::{
     infer::normalize::Normalize,
     types::{size_of::SizeOf, *},
+    workspace::BindingId,
 };
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},
@@ -76,7 +77,7 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 )
                 .into(),
             Type::Struct(struct_ty) => {
-                let struct_type = if struct_ty.name.is_empty() {
+                let struct_type = if struct_ty.binding_id == BindingId::unknown() {
                     generator.create_anonymous_struct_type(struct_ty)
                 } else {
                     generator.get_or_create_named_struct_type(struct_ty)

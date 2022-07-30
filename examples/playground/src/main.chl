@@ -1,19 +1,3 @@
 fn main = {
     println("Hello World");
-    let unit = {};
-
-    type Point = struct { x: int, y: int };
-    type Foo = struct { quox: int };
-
-    let point = Point { x: 1, y: 2 };
-    std.c.printf("x=%d y=%d\n".data, point.x, point.y);
-
-    let foo: Foo = { quox: 1 };
-    std.c.printf("foo.quox=%d\n".data, foo.quox);
-
-    let bar = { foo };
-    std.c.printf("bar.quox=%d\n".data, bar.quox);
-
-    let baz = { bar, };
-    std.c.printf("baz.bar.quox=%d\n".data, baz.bar.quox);
 };
