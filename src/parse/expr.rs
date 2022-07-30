@@ -271,21 +271,9 @@ impl Parser {
         } else if eat!(self, For) {
             self.parse_for()?
         } else if is!(self, OpenCurly) {
-            self.parse_block_expr()?
+            self.parse_struct_literal_or_parse_block_expr()?
         } else if eat!(self, OpenBracket) {
             self.parse_array_type_or_literal()?
-        } else if eat!(self, Dot) {
-            let start_span = self.previous_span();
-
-            if eat!(self, OpenCurly) {
-                // anonymous struct literal
-                self.parse_struct_literal(None, start_span)?
-            } else {
-                return Err(SyntaxError::expected(
-                    self.span(),
-                    &format!("{{, got `{}`", self.peek().lexeme),
-                ));
-            }
         } else if eat!(self, Break | Continue | Return) {
             self.parse_terminator()?
         } else if eat!(self, Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)) {
