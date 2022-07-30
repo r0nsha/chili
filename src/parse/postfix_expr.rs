@@ -8,9 +8,8 @@ use ustr::ustr;
 impl Parser {
     pub fn parse_postfix_expr(&mut self, mut expr: Ast) -> DiagnosticResult<Ast> {
         // named struct literal
-        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && eat!(self, OpenCurly) {
-            let start_span = expr.span();
-            return self.parse_struct_literal(Some(Box::new(expr)), start_span);
+        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
+            return self.parse_struct_literal(Some(Box::new(expr)));
         }
 
         if self.restrictions.contains(Restrictions::STMT_EXPR) {

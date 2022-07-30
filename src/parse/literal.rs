@@ -73,7 +73,10 @@ impl Parser {
         }))
     }
 
-    pub fn parse_struct_literal(&mut self, type_expr: Option<Box<Ast>>, start_span: Span) -> DiagnosticResult<Ast> {
+    pub fn parse_struct_literal(&mut self, type_expr: Option<Box<Ast>>) -> DiagnosticResult<Ast> {
+        let open_curly_span = require!(self, OpenCurly, "{")?.span;
+        let start_span = type_expr.as_ref().map(|e| e.span()).unwrap_or(open_curly_span);
+
         let fields = parse_delimited_list!(
             self,
             CloseCurly,
@@ -110,5 +113,27 @@ impl Parser {
             fields,
             span: start_span.to(self.previous_span()),
         }))
+    }
+
+    pub fn parse_struct_literal_or_parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
+        let start_span = require!(self, OpenCurly, "{")?.span;
+
+        if eat!(self, CloseCurly) {
+            Ok(Ast::Block(ast::Block {
+                statements: vec![],
+                yields: true,
+                span: start_span.to(self.previous_span()),
+            }))
+        } else if eat!(self, Ident(_)) {
+            if is!(self, Colon | Comma) {
+                self.revert(2);
+                self.parse_struct_literal(None)
+            } else {
+                self.revert(1);
+                Ok(Ast::Block(self.parse_block()?))
+            }
+        } else {
+            Ok(Ast::Block(self.parse_block()?))
+        }
     }
 }
