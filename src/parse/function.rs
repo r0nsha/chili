@@ -90,7 +90,17 @@ impl Parser {
 
                     break;
                 } else {
-                    FunctionParam { pattern, type_expr }
+                    let default_value = if eat!(self, Eq) {
+                        Some(Box::new(self.parse_expr()?))
+                    } else {
+                        None
+                    };
+
+                    FunctionParam {
+                        pattern,
+                        type_expr,
+                        default_value,
+                    }
                 }
             },
             ", or )"

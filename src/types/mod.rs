@@ -6,6 +6,7 @@ pub mod size_of;
 
 use crate::{
     define_id_type,
+    hir::const_value::ConstValue,
     span::Span,
     workspace::{BindingId, ModuleId},
 };
@@ -27,7 +28,7 @@ impl TypeId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Never,
     Unit,
@@ -48,7 +49,7 @@ pub enum Type {
     Infer(TypeId, InferType),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum InferType {
     AnyInt,
     AnyFloat,
@@ -56,7 +57,7 @@ pub enum InferType {
     PartialTuple(Vec<Type>),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum IntType {
     I8,
     I16,
@@ -71,7 +72,7 @@ impl Default for IntType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UintType {
     U8,
     U16,
@@ -86,7 +87,7 @@ impl Default for UintType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FloatType {
     F16,
     F32,
@@ -100,7 +101,7 @@ impl Default for FloatType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionType {
     pub params: Vec<FunctionTypeParam>,
     pub return_type: Box<Type>,
@@ -114,19 +115,20 @@ impl FunctionType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionTypeParam {
     pub name: Ustr,
     pub ty: Type,
+    pub default_value: Option<ConstValue>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionTypeVarargs {
     pub name: Ustr,
     pub ty: Option<Type>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum FunctionTypeKind {
     Orphan,
     Extern,
@@ -142,7 +144,7 @@ impl FunctionTypeKind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StructType {
     pub name: Ustr,
     pub binding_id: BindingId,
@@ -164,7 +166,7 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PartialStructType(pub IndexMap<Ustr, Type>);
 
 impl Deref for PartialStructType {
@@ -219,7 +221,7 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum StructTypeKind {
     Struct,
     PackedStruct,
@@ -250,7 +252,7 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StructTypeField {
     pub name: Ustr,
     pub ty: Type,

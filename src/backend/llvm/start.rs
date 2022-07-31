@@ -48,10 +48,12 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 FunctionTypeParam {
                     name: ustr("argc"),
                     ty: Type::u32(),
+                    default_value: None,
                 },
                 FunctionTypeParam {
                     name: ustr("argv"),
                     ty: Type::u8().pointer_type(false).pointer_type(false),
+                    default_value: None,
                 },
             ],
             return_type: Box::new(Type::u32()),

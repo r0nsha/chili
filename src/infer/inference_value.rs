@@ -1,7 +1,7 @@
 use crate::types::{PartialStructType, Type};
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum InferenceValue {
     Bound(Type),
     AnyInt,

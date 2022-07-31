@@ -643,11 +643,19 @@ impl Check for ast::Binding {
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         let mut param_types: Vec<FunctionTypeParam> = vec![];
-
         let mut defined_params = UstrMap::default();
+        let mut first_default_param_span: Option<Span> = None;
 
         for param in self.params.iter() {
-            let param_type = check_optional_type_expr(&param.type_expr, sess, env, param.pattern.span())?;
+            let param_span = param.pattern.span();
+
+            let name = match &param.pattern {
+                Pattern::Name(p) => p.name,
+                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
+                Pattern::Hybrid(p) => p.name_pattern.name,
+            };
+
+            let param_type = check_optional_type_expr(&param.type_expr, sess, env, param_span)?;
 
             for pattern in param.pattern.iter() {
                 let name = pattern.name;
@@ -657,13 +665,37 @@ impl Check for ast::FunctionSig {
                 }
             }
 
+            let default_value = if let Some(default_value) = &param.default_value {
+                first_default_param_span = Some(param_span);
+
+                let node = default_value.check(sess, env, Some(param_type))?;
+
+                let default_value = node.into_const_value().ok_or_else(|| {
+                    Diagnostic::error()
+                        .with_message("default parameter value must be a constant value")
+                        .with_label(Label::primary(default_value.span(), "not a constant value"))
+                })?;
+
+                Some(default_value)
+            } else if let Some(first_default_param_span) = first_default_param_span {
+                return Err(Diagnostic::error()
+                    .with_message("parameter is missing a default value")
+                    .with_label(Label::primary(param_span, "missing a default value"))
+                    .with_label(Label::secondary(
+                        first_default_param_span,
+                        "first parameter with default value here",
+                    ))
+                    .with_note(
+                        "parameters following a parameter with a default value, must also have a default value",
+                    ));
+            } else {
+                None
+            };
+
             param_types.push(FunctionTypeParam {
-                name: match &param.pattern {
-                    Pattern::Name(p) => p.name,
-                    Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
-                    Pattern::Hybrid(p) => p.name_pattern.name,
-                },
+                name,
                 ty: param_type.as_kind(),
+                default_value,
             });
         }
 
@@ -700,9 +732,11 @@ impl Check for ast::FunctionSig {
                 // if the function signature has no parameters, and the
                 // parent type is a function with 1 parameter, add an implicit `it` parameter
                 if expected_function_type.params.len() == 1 {
+                    let param = &expected_function_type.params[0];
                     param_types.push(FunctionTypeParam {
                         name: ustr("it"),
-                        ty: expected_function_type.params[0].ty.clone(),
+                        ty: param.ty.clone(),
+                        default_value: param.default_value.clone(),
                     });
                 }
             }
@@ -2728,18 +2762,12 @@ impl Check for ast::Call {
         let callee = self.callee.check(sess, env, None)?;
 
         let call_node = match callee.ty().normalize(&sess.tcx) {
-            Type::Function(fn_ty) => {
-                let arg_mismatch = match &fn_ty.varargs {
-                    Some(_) if self.args.len() < fn_ty.params.len() => true,
-                    None if self.args.len() != fn_ty.params.len() => true,
-                    _ => false,
-                };
-
-                if arg_mismatch {
-                    let expected = fn_ty.params.len();
+            Type::Function(function_type) => {
+                let arg_mismatch = || {
+                    let expected = function_type.params.len();
                     let actual = self.args.len();
 
-                    return Err(Diagnostic::error()
+                    Diagnostic::error()
                         .with_message(format!(
                             "function expects {} argument{}, but {} {} supplied",
                             expected,
@@ -2756,13 +2784,19 @@ impl Check for ast::Call {
                                 actual
                             ),
                         ))
-                        .with_note(format!("function is of type `{}`", fn_ty)));
+                        .with_note(format!("function is of type `{}`", function_type))
+                };
+
+                match &function_type.varargs {
+                    Some(_) if self.args.len() < function_type.params.len() => return Err(arg_mismatch()),
+                    None if self.args.len() != function_type.params.len() => return Err(arg_mismatch()),
+                    _ => (),
                 }
 
                 let mut args = vec![];
 
                 for (index, arg) in self.args.iter().enumerate() {
-                    if let Some(param) = fn_ty.params.get(index) {
+                    if let Some(param) = function_type.params.get(index) {
                         let param_ty = sess.tcx.bound(param.ty.clone(), self.span);
                         let mut node = arg.check(sess, env, Some(param_ty))?;
 
@@ -2772,16 +2806,17 @@ impl Check for ast::Call {
                             .or_report_err(&sess.tcx, &param_ty, None, &node.ty(), arg.span())?;
 
                         args.push(node);
-                    } else {
+                    } else if let Some(_) = &function_type.varargs {
                         // this is a variadic argument, meaning that the argument's
                         // index is greater than the function's param length
                         let node = arg.check(sess, env, None)?;
                         args.push(node);
+                    } else {
                     }
                 }
 
                 hir::Call {
-                    ty: sess.tcx.bound(fn_ty.return_type.as_ref().clone(), self.span),
+                    ty: sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span),
                     span: self.span,
                     callee: Box::new(callee),
                     args,
@@ -2796,12 +2831,13 @@ impl Check for ast::Call {
 
                 let return_ty = sess.tcx.var(self.span);
 
-                let inferred_fn_ty = Type::Function(FunctionType {
+                let inferred_function_type = Type::Function(FunctionType {
                     params: args
                         .iter()
                         .map(|arg| FunctionTypeParam {
                             name: ustr(""),
                             ty: arg.ty().into(),
+                            default_value: None,
                         })
                         .collect(),
                     return_type: Box::new(return_ty.into()),
@@ -2809,9 +2845,9 @@ impl Check for ast::Call {
                     kind: FunctionTypeKind::Orphan,
                 });
 
-                ty.unify(&inferred_fn_ty, &mut sess.tcx).or_report_err(
+                ty.unify(&inferred_function_type, &mut sess.tcx).or_report_err(
                     &sess.tcx,
-                    &inferred_fn_ty,
+                    &inferred_function_type,
                     None,
                     &ty,
                     self.callee.span(),

@@ -421,6 +421,7 @@ pub struct FunctionVarargs {
 pub struct FunctionParam {
     pub pattern: Pattern,
     pub type_expr: Option<Box<Ast>>,
+    pub default_value: Option<Box<Ast>>,
 }
 
 impl ToString for FunctionParam {
