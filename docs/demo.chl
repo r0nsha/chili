@@ -312,13 +312,13 @@ fn functions = {
     let array = [1 as int, 2, 3];
     
     for_each(&array, fn(x: int) { 
-        std.c.printf("x = %d\n".data, x) ;
+        std.c.printf("x = %d\n".data, x);
     });
 
     // When a function has only one *expected* argument, is can be elided, 
     // and will implicitly be called `it`.
     for_each(&array, fn { 
-        std.c.printf("it = %d\n".data, it) ;
+        std.c.printf("it = %d\n".data, it);
     });
 
     // Trailing functions:
@@ -326,8 +326,14 @@ fn functions = {
     // that function argument can be put after the call. This doesn't
     // have any semantic implications, it's only syntax sugar.
     for_each(&array) fn { 
-        std.c.printf("it = %d\n".data, it) ;
+        std.c.printf("it = %d\n".data, it);
     };
+
+    // Functions can have default arguments
+    // - Parameters with a default value must come last
+    // - Default values must be compile-time known
+    fn mul(a: i32, b: i32 = 2) = a * b;
+    std.c.printf("mul(5) = %d\n".data, mul(5));
 };
 
 fn structs = {
