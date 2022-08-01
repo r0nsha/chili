@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     ast, hir,
-    infer::{display::DisplayTy, normalize::Normalize},
+    infer::{display::DisplayType, normalize::Normalize},
     span::Span,
     types::*,
 };
@@ -217,7 +217,7 @@ fn gen_cmp<'g, 'ctx>(
 
             generator.builder.build_int_compare(int_predicate, lhs, rhs, "").into()
         }
-        ty => panic!("unexpected type: {}", ty),
+        ty => panic!("unexpected type: {}", ty.display(generator.tcx)),
     }
 }
 
@@ -232,7 +232,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
                 _ => value,
             },
             Type::Array(..) => value,
-            _ => unreachable!("got {}", value_type),
+            _ => unreachable!("got {}", value_type.display(generator.tcx)),
         };
 
         let low = self.low.codegen(generator, state).into_int_value();
@@ -246,7 +246,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
                 _ => None,
             },
             Type::Array(_, size) => Some(generator.ptr_sized_int_type.const_int(*size as _, false)),
-            _ => unreachable!("got {}", value_type),
+            _ => unreachable!("got {}", value_type.display(generator.tcx)),
         };
 
         if let Some(len) = len {
@@ -299,7 +299,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     .build_gep(lhs.into_pointer_value(), &[rhs.into_int_value()], "padd")
                     .into()
             },
-            _ => panic!("unexpected type `{}`", ty),
+            _ => panic!("unexpected type `{}`", ty.display(self.tcx)),
         }
     }
 
@@ -333,7 +333,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     .build_gep(lhs.into_pointer_value(), &[rhs.into_int_value()], "psub")
                     .into()
             },
-            _ => panic!("unexpected type `{}`", ty),
+            _ => panic!("unexpected type `{}`", ty.display(self.tcx)),
         }
     }
 
@@ -362,7 +362,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .builder
                 .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "fmul")
                 .into(),
-            _ => panic!("unexpected type `{}`", ty),
+            _ => panic!("unexpected type `{}`", ty.display(self.tcx)),
         }
     }
 
@@ -391,7 +391,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .builder
                 .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "fdiv")
                 .into(),
-            _ => panic!("unexpected type `{}`", ty),
+            _ => panic!("unexpected type `{}`", ty.display(self.tcx)),
         }
     }
 
@@ -420,7 +420,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .builder
                 .build_float_rem(lhs.into_float_value(), rhs.into_float_value(), "frem")
                 .into(),
-            _ => panic!("unexpected type `{}`", ty),
+            _ => panic!("unexpected type `{}`", ty.display(self.tcx)),
         }
     }
 
@@ -546,7 +546,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
                 Type::Slice(..) => Some(generator.gep_slice_len(value)),
                 _ => None,
             },
-            ty => unreachable!("got {}", ty),
+            ty => unreachable!("got {}", ty.display(generator.tcx)),
         };
 
         if let Some(len) = len {
@@ -560,7 +560,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
                 Type::Slice(..) => generator.gep_slice_data(value),
                 _ => value.into_pointer_value(),
             },
-            ty => unreachable!("{}", ty),
+            ty => unreachable!("{}", ty.display(generator.tcx)),
         };
 
         let ptr_offset = match &ty {
@@ -578,7 +578,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
                 Type::Slice(..) => unsafe { generator.builder.build_in_bounds_gep(ptr, &[index], "offset") },
                 _ => unsafe { generator.builder.build_in_bounds_gep(ptr, &[index], "offset") },
             },
-            ty => unreachable!("{}", ty),
+            ty => unreachable!("{}", ty.display(generator.tcx)),
         };
 
         generator.builder.build_load(ptr_offset, "")

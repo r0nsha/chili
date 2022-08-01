@@ -5,7 +5,7 @@ use crate::{
         DiagnosticResult,
     },
     hir,
-    infer::{display::DisplayTy, normalize::Normalize},
+    infer::{display::DisplayType, normalize::Normalize},
     span::Span,
     types::Type,
     workspace::BindingId,
@@ -67,7 +67,7 @@ impl<'s> CheckSess<'s> {
                         })
                     }
                 } else {
-                    unreachable!("got {}", ty)
+                    unreachable!("got {}", ty.display(&self.tcx))
                 }
             }
             hir::Node::Builtin(hir::Builtin::Offset(offset)) => self.check_lvalue_access_inner(&offset.value, false),

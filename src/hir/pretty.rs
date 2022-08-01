@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     hir,
-    infer::{display::DisplayTy, normalize::Normalize, type_ctx::TypeCtx},
+    infer::{display::DisplayType, normalize::Normalize, type_ctx::TypeCtx},
     workspace::Workspace,
 };
 use std::{fs::OpenOptions, io::Write, path::Path};

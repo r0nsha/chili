@@ -3,7 +3,11 @@ use super::{
     codegen::{Codegen, FunctionState, Generator},
     ty::IntoLlvmType,
 };
-use crate::{hir, infer::normalize::Normalize, types::*};
+use crate::{
+    hir,
+    infer::{display::DisplayType, normalize::Normalize},
+    types::*,
+};
 use inkwell::{types::BasicType, values::BasicValueEnum, AddressSpace, IntPredicate};
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Literal {
@@ -95,7 +99,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayLiteral {
 
         let size = match &ty {
             Type::Array(_, size) => *size,
-            _ => unreachable!("got ty `{}`", ty),
+            _ => unreachable!("got ty `{}`", ty.display(generator.tcx)),
         };
 
         let llvm_type = ty.llvm_type(generator);

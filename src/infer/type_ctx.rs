@@ -1,4 +1,4 @@
-use super::{inference_value::InferenceValue, normalize::Normalize};
+use super::{display::DisplayType, inference_value::InferenceValue, normalize::Normalize};
 use crate::{
     common::id_cache::IdCache,
     span::Span,
@@ -108,14 +108,14 @@ impl TypeCtx {
     pub fn print_all_bindings(&self, only_concrete: bool) {
         for (i, b) in self.bindings.iter() {
             if !only_concrete || b.is_concrete() {
-                println!("'{} :: {}", i, b)
+                println!("'{} :: {}", i, b.display(self))
             }
         }
     }
 
     #[allow(unused)]
     pub fn print_binding(&self, ty: TypeId) {
-        println!("'{} :: {}", ty.inner(), self.bindings[ty]);
+        println!("'{} :: {}", ty.inner(), self.bindings[ty].display(self));
     }
 }
 

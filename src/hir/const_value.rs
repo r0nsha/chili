@@ -1,7 +1,7 @@
 use super::FunctionId;
 use crate::{
     ast::{self, ExternLibrary},
-    infer::{display::DisplayTy, type_ctx::TypeCtx},
+    infer::{display::DisplayType, type_ctx::TypeCtx},
     types::TypeId,
 };
 use enum_as_inner::EnumAsInner;

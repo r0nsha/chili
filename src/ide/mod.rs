@@ -6,7 +6,7 @@ use self::hint::{CollectHints, HintSess};
 use crate::{
     error::diagnostic::DiagnosticSeverity,
     hir,
-    infer::{normalize::Normalize, type_ctx::TypeCtx},
+    infer::{display::DisplayType, normalize::Normalize, type_ctx::TypeCtx},
     span::{EndPosition, Position, Span},
     types::Type,
     workspace::Workspace,
@@ -79,7 +79,7 @@ pub fn hover_info(workspace: &Workspace, tcx: Option<&TypeCtx>, offset: usize) {
 
         if let Some(binding_info) = searched_binding_info {
             write(&HoverInfo {
-                contents: binding_info.ty.normalize(tcx).to_string(),
+                contents: binding_info.ty.normalize(tcx).display(tcx),
             });
         }
     } else {

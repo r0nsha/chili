@@ -26,7 +26,7 @@ use crate::{
     infer::{
         cast::{can_cast_type, try_cast_const_value},
         coerce::{OrCoerce, OrCoerceIntoTy},
-        display::{DisplayTy, OrReportErr},
+        display::{DisplayType, OrReportErr},
         normalize::Normalize,
         substitute::substitute,
         type_ctx::TypeCtx,
@@ -1807,14 +1807,14 @@ impl Check for ast::For {
                         _ => {
                             // TODO: duplicate error
                             return Err(Diagnostic::error()
-                                .with_message(format!("can't iterate over `{}`", value_node_type))
+                                .with_message(format!("can't iterate over `{}`", value_node_type.display(&sess.tcx)))
                                 .with_label(Label::primary(value.span(), "can't iterate")));
                         }
                     },
                     _ => {
                         // TODO: duplicate error
                         return Err(Diagnostic::error()
-                            .with_message(format!("can't iterate over `{}`", value_node_type))
+                            .with_message(format!("can't iterate over `{}`", value_node_type.display(&sess.tcx)))
                             .with_label(Label::primary(value.span(), "can't iterate")));
                     }
                 };
@@ -2456,7 +2456,7 @@ impl Check for ast::Binary {
                         .with_label(Label::primary(self.span, "invalid in pointer arithmetic"))
                         .with_label(Label::secondary(
                             lhs_node.span(),
-                            format!("because this is of type {}", lhs_node_type),
+                            format!("because this is of type {}", lhs_node_type.display(&sess.tcx)),
                         )))
                 }
             },
@@ -2771,9 +2771,14 @@ impl Check for ast::Call {
 
         let call_node = match callee.ty().normalize(&sess.tcx) {
             Type::Function(function_type) => {
-                let arg_mismatch = || {
+                fn arg_mismatch(
+                    sess: &CheckSess,
+                    function_type: &FunctionType,
+                    arg_count: usize,
+                    span: Span,
+                ) -> Diagnostic {
                     let expected = function_type.params.len();
-                    let actual = self.args.len();
+                    let actual = arg_count;
 
                     Diagnostic::error()
                         .with_message(format!(
@@ -2784,7 +2789,7 @@ impl Check for ast::Call {
                             if actual == 0 || actual > 1 { "were" } else { "was" },
                         ))
                         .with_label(Label::primary(
-                            self.span,
+                            span,
                             format!(
                                 "expected {} argument{}, got {}",
                                 expected,
@@ -2792,8 +2797,8 @@ impl Check for ast::Call {
                                 actual
                             ),
                         ))
-                        .with_note(format!("function is of type `{}`", function_type))
-                };
+                        .with_note(format!("function is of type `{}`", function_type.display(&sess.tcx)))
+                }
 
                 let mut args = vec![];
 
@@ -2821,6 +2826,8 @@ impl Check for ast::Call {
                         }
 
                         args.push(node);
+                    } else {
+                        return Err(arg_mismatch(sess, &function_type, self.args.len(), self.span));
                     }
                 }
 
@@ -2833,14 +2840,18 @@ impl Check for ast::Call {
                                 span: self.span,
                             }))
                         } else {
-                            return Err(arg_mismatch());
+                            return Err(arg_mismatch(sess, &function_type, args.len(), self.span));
                         }
                     }
                 }
 
                 match &function_type.varargs {
-                    Some(_) if args.len() < function_type.params.len() => return Err(arg_mismatch()),
-                    None if args.len() != function_type.params.len() => return Err(arg_mismatch()),
+                    Some(_) if args.len() < function_type.params.len() => {
+                        return Err(arg_mismatch(sess, &function_type, args.len(), self.span))
+                    }
+                    None if args.len() != function_type.params.len() => {
+                        return Err(arg_mismatch(sess, &function_type, args.len(), self.span))
+                    }
                     _ => (),
                 }
 
@@ -2949,8 +2960,15 @@ impl Check for ast::Cast {
             }))
         } else {
             Err(Diagnostic::error()
-                .with_message(format!("cannot cast from `{}` to `{}`", from, to))
-                .with_label(Label::primary(self.span, format!("invalid cast to `{}`", to))))
+                .with_message(format!(
+                    "cannot cast from `{}` to `{}`",
+                    from.display(&sess.tcx),
+                    to.display(&sess.tcx)
+                ))
+                .with_label(Label::primary(
+                    self.span,
+                    format!("invalid cast to `{}`", to.display(&sess.tcx)),
+                )))
         }
     }
 }
@@ -3287,7 +3305,10 @@ fn check_named_struct_literal(
     if struct_ty.is_union() && fields.len() != 1 {
         return Err(Diagnostic::error()
             .with_message("union literal should have exactly one field")
-            .with_label(Label::primary(span, format!("type is `{}`", struct_ty))));
+            .with_label(Label::primary(
+                span,
+                format!("type is `{}`", struct_ty.display(&sess.tcx)),
+            )));
     }
 
     if !struct_ty.is_union() && !uninit_fields.is_empty() {

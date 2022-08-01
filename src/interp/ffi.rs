@@ -330,7 +330,7 @@ impl AsFfiType for Type {
                 InferType::PartialTuple(_) => todo!(),
             },
             Type::Never => FfiType::void(),
-            _ => panic!("invalid type {}", self),
+            _ => panic!("invalid type {:?}", self),
         }
     }
 }

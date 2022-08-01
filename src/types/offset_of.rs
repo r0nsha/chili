@@ -15,7 +15,7 @@ impl OffsetOf for Type {
                     1 => word_size,
                     _ => panic!("{}", index),
                 },
-                ty => panic!("{} isn't an aggregate type", ty),
+                ty => panic!("{:?} isn't an aggregate type", ty),
             },
             Type::Slice(..) => match index {
                 0 => 0,
@@ -39,7 +39,7 @@ impl OffsetOf for Type {
 
                 offset
             }
-            ty => panic!("{} isn't an aggregate type", ty),
+            ty => panic!("{:?} isn't an aggregate type", ty),
         }
     }
 }

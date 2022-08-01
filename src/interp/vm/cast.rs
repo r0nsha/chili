@@ -83,7 +83,7 @@ impl<'vm> VM<'vm> {
                 let new_ptr = Pointer::from_type_and_ptr(&inner, raw_ptr);
                 Value::Pointer(new_ptr)
             }
-            _ => panic!("{}", ty),
+            _ => panic!("{:?}", ty),
         };
 
         self.stack.push(new_value);
