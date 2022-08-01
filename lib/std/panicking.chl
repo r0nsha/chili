@@ -4,7 +4,7 @@ let { Location } = import("std/intrinsics");
 fn panic(fmt: str, location: Location) -> never = {
     // TODO: use our own print routine.
     printf(
-        "panic: \"%s\" at %s:%d:%d\n".data, 
+        "panic: \"%s\" at %s:%u:%u\n".data, 
         fmt.data,
         location.file.data,
         location.line,
