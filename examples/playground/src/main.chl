@@ -1,5 +1,3 @@
 fn main = {
     println("Hello World");
-    let mut y = 1;
-    let x = 1 + 2 + y;
 };
