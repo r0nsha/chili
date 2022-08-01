@@ -1,6 +1,4 @@
 fn main = {
     println("Hello World");
-    std.c.printf("%d\n".data, add(1));
+    println();
 };
-
-fn add(a: int, b: int = 5) -> int = a + b;

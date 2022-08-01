@@ -2779,16 +2779,16 @@ impl Check for ast::Call {
                         .with_message(format!(
                             "function expects {} argument{}, but {} {} supplied",
                             expected,
-                            if expected > 1 { "s" } else { "" },
+                            if expected == 0 || expected > 1 { "s" } else { "" },
                             actual,
-                            if actual > 1 { "were" } else { "was" },
+                            if actual == 0 || actual > 1 { "were" } else { "was" },
                         ))
                         .with_label(Label::primary(
                             self.span,
                             format!(
                                 "expected {} argument{}, got {}",
                                 expected,
-                                if expected > 1 { "s" } else { "" },
+                                if expected == 0 || expected > 1 { "s" } else { "" },
                                 actual
                             ),
                         ))
@@ -2799,7 +2799,7 @@ impl Check for ast::Call {
 
                 for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = function_type.params.get(index) {
-                        let param_type = sess.tcx.bound(param.ty.clone(), self.span);
+                        let param_type = sess.tcx.bound(param.ty.clone(), arg.span());
                         let mut node = arg.check(sess, env, Some(param_type))?;
 
                         node.ty()
@@ -2821,13 +2821,26 @@ impl Check for ast::Call {
                         }
 
                         args.push(node);
-                    } else {
+                    }
+                }
+
+                if args.len() < function_type.params.len() {
+                    for param in function_type.params.iter().skip(args.len()) {
+                        if let Some(default_value) = &param.default_value {
+                            args.push(hir::Node::Const(hir::Const {
+                                value: default_value.clone(),
+                                ty: sess.tcx.bound(param.ty.clone(), self.span),
+                                span: self.span,
+                            }))
+                        } else {
+                            return Err(arg_mismatch());
+                        }
                     }
                 }
 
                 match &function_type.varargs {
-                    Some(_) if self.args.len() < function_type.params.len() => return Err(arg_mismatch()),
-                    None if self.args.len() != function_type.params.len() => return Err(arg_mismatch()),
+                    Some(_) if args.len() < function_type.params.len() => return Err(arg_mismatch()),
+                    None if args.len() != function_type.params.len() => return Err(arg_mismatch()),
                     _ => (),
                 }
 
