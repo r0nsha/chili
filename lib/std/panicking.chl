@@ -1,14 +1,26 @@
 let { printf, exit } = import("std/c");
-let { Location } = import("std/intrinsics");
 
-fn panic(fmt: str, location: Location) -> never = {
+type PanicInfo = struct {
+    message: str,
+    file_path: str,
+    line: uint,
+    column: uint,
+};
+
+fn default_panic_handler(info: PanicInfo) -> never = {
     // TODO: use our own print routine.
+    let message = if info.message.len == 0 {
+        ""
+    } else {
+        info.message
+    };
+
     printf(
         "panic: \"%s\" at %s:%d:%d\n".data, 
-        fmt.data,
-        location.file.data,
-        location.line,
-        location.column
+        message.data,
+        info.file_path.data,
+        info.line,
+        info.column
     );
 
     exit(1)

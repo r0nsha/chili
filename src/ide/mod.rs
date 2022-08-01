@@ -15,7 +15,7 @@ use indexmap::indexmap;
 use types::*;
 use util::*;
 
-pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, cache: Option<&hir::Cache>) {
+pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, typed_ast: Option<&hir::Cache>) {
     let mut objects: Vec<IdeObject> = vec![];
 
     objects.extend(
@@ -43,20 +43,20 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, cache: Option<&
             .flatten(),
     );
 
-    match (tcx, cache) {
-        (Some(tcx), Some(cache)) => {
+    match (tcx, typed_ast) {
+        (Some(tcx), Some(typed_ast)) => {
             let mut sess = HintSess {
                 workspace,
                 tcx,
                 hints: indexmap!(),
             };
 
-            cache
+            typed_ast
                 .bindings
                 .iter()
                 .for_each(|(_, binding)| binding.collect_hints(&mut sess));
 
-            cache
+            typed_ast
                 .functions
                 .iter()
                 .for_each(|(_, function)| function.collect_hints(&mut sess));

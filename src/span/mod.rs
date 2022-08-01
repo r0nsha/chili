@@ -67,11 +67,11 @@ impl PartialOrd for Span {
 pub struct Position {
     pub index: usize,
     pub line: u32,
-    pub column: u32,
+    pub column: u16,
 }
 
 impl Position {
-    pub fn new(index: usize, line: u32, column: u32) -> Self {
+    pub fn new(index: usize, line: u32, column: u16) -> Self {
         Self { index, line, column }
     }
 
