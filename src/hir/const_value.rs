@@ -335,7 +335,7 @@ impl ConstValue {
     pub fn display(&self, tcx: &TypeCtx) -> String {
         match self {
             ConstValue::Unit(_) => "()".to_string(),
-            ConstValue::Type(t) => format!("type {}", t.display(tcx)),
+            ConstValue::Type(t) => t.display(tcx),
             ConstValue::Bool(v) => format!("{}", v),
             ConstValue::Int(v) => format!("{}", v),
             ConstValue::Uint(v) => format!("{}", v),

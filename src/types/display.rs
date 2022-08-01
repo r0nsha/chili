@@ -96,7 +96,13 @@ impl Display for FunctionType {
             "fn({}{}) -> {}",
             self.params
                 .iter()
-                .map(|p| format!("{}: {}", p.name, p.ty.to_string()))
+                .map(|p| format!(
+                    "{}: {}{}",
+                    p.name,
+                    p.ty,
+                    // TODO: display default value as part of the type
+                    "" //p.default_value.as_ref().map(|v| v.display(tcx)).unwrap_or_default()
+                ))
                 .collect::<Vec<String>>()
                 .join(", "),
             match &self.varargs {

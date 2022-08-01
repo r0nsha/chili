@@ -670,6 +670,14 @@ impl Check for ast::FunctionSig {
 
                 let node = default_value.check(sess, env, Some(param_type))?;
 
+                node.ty().unify(&param_type, &mut sess.tcx).or_report_err(
+                    &sess.tcx,
+                    &param_type,
+                    Some(param_span),
+                    &node.ty(),
+                    node.span(),
+                )?;
+
                 let default_value = node.into_const_value().ok_or_else(|| {
                     Diagnostic::error()
                         .with_message("default parameter value must be a constant value")
