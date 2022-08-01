@@ -347,9 +347,9 @@ impl Buffer {
                 Type::Slice(..) => {
                     vec![self.get_value_at_index(0), self.get_value_at_index(1)]
                 }
-                ty => panic!("{}", ty),
+                ty => panic!("{:?}", ty),
             },
-            ty => panic!("{}", ty),
+            ty => panic!("{:?}", ty),
         }
     }
 
@@ -373,9 +373,9 @@ impl Buffer {
                     1 => self.bytes.offset(offset).get_value(&Type::uint()),
                     _ => panic!("{}", index),
                 },
-                _ => panic!("{}", &self.ty),
+                _ => panic!("{:?}", &self.ty),
             },
-            _ => panic!("{}", &self.ty),
+            _ => panic!("{:?}", &self.ty),
         }
     }
 }
@@ -489,7 +489,7 @@ impl From<&Type> for ValueKind {
                     Self::F32
                 }
             }
-            _ => panic!("invalid type {}", ty),
+            _ => panic!("invalid type {:?}", ty),
         }
     }
 }
@@ -564,7 +564,7 @@ impl Value {
                 }
             }
             Type::Infer(_, _) => todo!(),
-            _ => panic!("invalid type {}", ty),
+            _ => panic!("invalid type {:?}", ty),
         }
     }
 
@@ -648,7 +648,7 @@ impl Value {
                             Err("slice")
                         }
                     }
-                    _ => panic!("value type mismatch. expected an aggregate type, got {}", ty),
+                    _ => panic!("value type mismatch. expected an aggregate type, got {:?}", ty),
                 },
                 Type::Infer(_, InferType::PartialTuple(elements)) | Type::Tuple(elements) => {
                     let align = ty.align_of(WORD_SIZE);
@@ -703,7 +703,7 @@ impl Value {
 
                     Ok(ConstValue::Struct(fields))
                 }
-                ty => panic!("value type mismatch. expected an aggregate type, got {}", ty),
+                ty => panic!("value type mismatch. expected an aggregate type, got {:?}", ty),
             },
             Self::Function(f) => Ok(ConstValue::Function(ConstFunction { id: f.id, name: f.name })),
             Self::ExternVariable(v) => Ok(ConstValue::ExternVariable(ConstExternVariable {
@@ -777,7 +777,7 @@ impl Pointer {
                 }
             }
             Type::Infer(_, _) => todo!(),
-            _ => panic!("invalid type {}", ty),
+            _ => panic!("invalid type {:?}", ty),
         }
     }
 
@@ -864,7 +864,7 @@ impl Display for Value {
                 Value::Function(f) => f.to_string(),
                 Value::ExternVariable(v) => v.to_string(),
                 Value::Intrinsic(v) => v.to_string(),
-                Value::Type(ty) => format!("type {}", ty),
+                Value::Type(ty) => format!("type {:?}", ty),
             }
         )
     }
@@ -890,9 +890,9 @@ impl Display for Buffer {
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
                     Type::Slice(_) => 2,
-                    ty => panic!("{}", ty),
+                    ty => panic!("{:?}", ty),
                 },
-                ty => panic!("{}", ty),
+                ty => panic!("{:?}", ty),
             };
 
             let extra_values = len as isize - MAX_CONSECUTIVE_VALUES;
@@ -914,9 +914,9 @@ impl Display for Buffer {
                 }
                 Type::Pointer(inner, _) => match inner.as_ref() {
                     Type::Slice(_) => write!(f, "&[{}{}]", values_joined, extra_values_str),
-                    ty => panic!("{}", ty),
+                    ty => panic!("{:?}", ty),
                 },
-                ty => panic!("{}", ty),
+                ty => panic!("{:?}", ty),
             }
         }
     }
@@ -971,7 +971,7 @@ impl Display for Pointer {
                     Pointer::Function(f) => (**f).to_string(),
                     Pointer::ExternVariable(v) => (**v).to_string(),
                     Pointer::Intrinsic(v) => (**v).to_string(),
-                    Pointer::Type(ty) => format!("type {}", (**ty)),
+                    Pointer::Type(ty) => format!("type {:?}", (**ty)),
                 }
             }
         };

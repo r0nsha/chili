@@ -2,7 +2,7 @@ use super::LintSess;
 use crate::{
     error::diagnostic::{Diagnostic, Label},
     hir,
-    infer::{display::DisplayTy, normalize::Normalize},
+    infer::{display::DisplayType, normalize::Normalize},
     span::Span,
     types::Type,
     workspace::{BindingId, BindingInfo, ModuleId},

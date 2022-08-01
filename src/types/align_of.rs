@@ -29,7 +29,7 @@ impl AlignOf for Type {
             }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.align_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.align_of(word_size),
-            _ => panic!("type {} is unsized", self),
+            _ => panic!("type {:?} is unsized", self),
         }
     }
 }

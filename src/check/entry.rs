@@ -1,7 +1,7 @@
 use super::CheckSess;
 use crate::{
     error::diagnostic::{Diagnostic, Label},
-    infer::normalize::Normalize,
+    infer::{display::DisplayType, normalize::Normalize},
     span::Span,
 };
 
@@ -18,7 +18,8 @@ impl<'s> CheckSess<'s> {
                         Diagnostic::error()
                             .with_message(format!(
                                 "entry point function `{}` has type `{}`, expected `fn() -> ()`",
-                                function.name, ty
+                                function.name,
+                                ty.display(&self.tcx)
                             ))
                             .with_label(Label::primary(function.span, "invalid entry point function type")),
                     )

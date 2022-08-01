@@ -1,7 +1,7 @@
+use super::display::DisplayType;
 use crate::types::{PartialStructType, Type};
-use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum InferenceValue {
     Bound(Type),
     AnyInt,
@@ -11,20 +11,16 @@ pub enum InferenceValue {
     Unbound,
 }
 
-impl fmt::Display for InferenceValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                InferenceValue::Bound(t) => t.to_string(),
-                InferenceValue::AnyInt => "[integer]".to_string(),
-                InferenceValue::AnyFloat => "[float]".to_string(),
-                InferenceValue::PartialTuple(elements) => Type::Tuple(elements.clone()).to_string(),
-                InferenceValue::PartialStruct(partial) => partial.to_string(),
-                InferenceValue::Unbound => "unbound".to_string(),
-            }
-        )
+impl DisplayType for InferenceValue {
+    fn display(&self, tcx: &super::type_ctx::TypeCtx) -> String {
+        match self {
+            InferenceValue::Bound(t) => t.display(tcx),
+            InferenceValue::AnyInt => "[integer]".to_string(),
+            InferenceValue::AnyFloat => "[float]".to_string(),
+            InferenceValue::PartialTuple(elements) => Type::Tuple(elements.clone()).display(tcx),
+            InferenceValue::PartialStruct(partial) => partial.display(tcx),
+            InferenceValue::Unbound => "unbound".to_string(),
+        }
     }
 }
 

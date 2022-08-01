@@ -114,6 +114,7 @@ impl NormalizeCtx {
                     .map(|p| FunctionTypeParam {
                         name: p.name,
                         ty: self.normalize_kind(tcx, &p.ty),
+                        default_value: p.default_value.clone(),
                     })
                     .collect(),
                 return_type: Box::new(self.normalize_kind(tcx, &f.return_type)),

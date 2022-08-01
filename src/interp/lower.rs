@@ -256,7 +256,7 @@ impl Lower for hir::Cast {
                         Type::Array(_, size) => {
                             sess.push_const(code, Value::Uint(size));
                         }
-                        ty => unreachable!("unexpected type `{}`", ty),
+                        ty => unreachable!("unexpected type `{:?}`", ty),
                     }
 
                     sess.push_const(code, Value::Uint(0));
@@ -566,7 +566,7 @@ impl Lower for hir::Builtin {
                         _ => inner.size_of(WORD_SIZE),
                     },
                     Type::Array(inner, _) => inner.size_of(WORD_SIZE),
-                    _ => unreachable!("{}", value_type),
+                    _ => unreachable!("{:?}", value_type),
                 };
 
                 offset.index.lower(sess, code, LowerContext { take_ptr: false });
@@ -587,7 +587,7 @@ impl Lower for hir::Builtin {
                         _ => inner.size_of(WORD_SIZE),
                     },
                     Type::Array(inner, _) => inner.size_of(WORD_SIZE),
-                    _ => unreachable!("{}", value_type),
+                    _ => unreachable!("{:?}", value_type),
                 };
 
                 match &value_type {
@@ -661,7 +661,7 @@ impl Lower for hir::Builtin {
                             code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                         }
                     },
-                    _ => panic!("unexpected type {}", value_type),
+                    _ => panic!("unexpected type {:?}", value_type),
                 }
             }
         }
@@ -791,7 +791,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     Value::F32(*v as _)
                 }
             }
-            _ => panic!("invalid ty {}", ty),
+            _ => panic!("invalid ty {:?}", ty),
         },
         ConstValue::Uint(v) => match ty {
             Type::Int(int_ty) => match int_ty {
@@ -827,7 +827,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     Value::F32(*v as _)
                 }
             }
-            _ => panic!("invalid ty {}", ty),
+            _ => panic!("invalid ty {:?}", ty),
         },
         ConstValue::Float(v) => match ty {
             Type::Float(float_ty) => match float_ty {
@@ -848,7 +848,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
                     Value::F32(*v as _)
                 }
             }
-            _ => panic!("invalid ty {}", ty),
+            _ => panic!("invalid ty {:?}", ty),
         },
         ConstValue::Str(str) => Value::Buffer(Buffer::from_ustr(*str)),
         ConstValue::Tuple(elems) => Value::Buffer(Buffer::from_values(

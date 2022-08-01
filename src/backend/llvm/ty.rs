@@ -3,7 +3,7 @@ use super::{
     codegen::Generator,
 };
 use crate::{
-    infer::normalize::Normalize,
+    infer::{display::DisplayType, normalize::Normalize},
     types::{size_of::SizeOf, *},
     workspace::BindingId,
 };
@@ -86,7 +86,7 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 struct_type.into()
             }
             _ => {
-                panic!("bug: type `{}` in llvm codegen", self)
+                panic!("bug: type `{}` in llvm codegen", self.display(generator.tcx))
             }
         }
     }

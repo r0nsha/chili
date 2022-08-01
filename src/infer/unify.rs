@@ -1,4 +1,4 @@
-use super::{display::DisplayTy, inference_value::InferenceValue, normalize::Normalize, type_ctx::TypeCtx};
+use super::{display::DisplayType, inference_value::InferenceValue, normalize::Normalize, type_ctx::TypeCtx};
 use crate::{
     common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     error::diagnostic::{Diagnostic, Label},
@@ -321,9 +321,9 @@ impl UnifyTypeErr {
     pub fn into_diagnostic(
         self,
         tcx: &TypeCtx,
-        expected: &impl DisplayTy,
+        expected: &impl DisplayType,
         expected_span: Option<Span>,
-        found: &impl DisplayTy,
+        found: &impl DisplayType,
         found_span: Span,
     ) -> Diagnostic {
         let expected = expected.display(tcx);

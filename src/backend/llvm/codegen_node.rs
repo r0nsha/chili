@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     hir::{self, const_value::ConstValue},
-    infer::normalize::Normalize,
+    infer::{display::DisplayType, normalize::Normalize},
     types::*,
     workspace::BindingInfoKind,
 };
@@ -261,7 +261,11 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                 .build_int_to_ptr(value.into_int_value(), cast_type.into_pointer_type(), INST_NAME)
                 .into(),
 
-            _ => unreachable!("can't cast {} to {}", from_ty, target_ty),
+            _ => unreachable!(
+                "can't cast {} to {}",
+                from_ty.display(generator.tcx),
+                target_ty.display(generator.tcx)
+            ),
         }
     }
 }

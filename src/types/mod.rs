@@ -1,11 +1,11 @@
 pub mod align_of;
-pub mod display;
 pub mod is_sized;
 pub mod offset_of;
 pub mod size_of;
 
 use crate::{
     define_id_type,
+    hir::const_value::ConstValue,
     span::Span,
     workspace::{BindingId, ModuleId},
 };
@@ -27,7 +27,7 @@ impl TypeId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Never,
     Unit,
@@ -48,7 +48,7 @@ pub enum Type {
     Infer(TypeId, InferType),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum InferType {
     AnyInt,
     AnyFloat,
@@ -56,7 +56,7 @@ pub enum InferType {
     PartialTuple(Vec<Type>),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum IntType {
     I8,
     I16,
@@ -71,7 +71,7 @@ impl Default for IntType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UintType {
     U8,
     U16,
@@ -86,7 +86,7 @@ impl Default for UintType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FloatType {
     F16,
     F32,
@@ -100,7 +100,7 @@ impl Default for FloatType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionType {
     pub params: Vec<FunctionTypeParam>,
     pub return_type: Box<Type>,
@@ -114,25 +114,27 @@ impl FunctionType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionTypeParam {
     pub name: Ustr,
     pub ty: Type,
+    pub default_value: Option<ConstValue>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionTypeVarargs {
     pub name: Ustr,
     pub ty: Option<Type>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum FunctionTypeKind {
     Orphan,
     Extern,
 }
 
 impl FunctionTypeKind {
+    #[allow(unused)]
     pub fn is_orphan(&self) -> bool {
         matches!(self, FunctionTypeKind::Orphan)
     }
@@ -142,7 +144,7 @@ impl FunctionTypeKind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StructType {
     pub name: Ustr,
     pub binding_id: BindingId,
@@ -164,7 +166,7 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PartialStructType(pub IndexMap<Ustr, Type>);
 
 impl Deref for PartialStructType {
@@ -182,6 +184,7 @@ impl DerefMut for PartialStructType {
 }
 
 impl PartialStructType {
+    #[allow(unused)]
     pub fn into_struct(&self) -> StructType {
         StructType {
             name: ustr(""),
@@ -206,6 +209,7 @@ impl From<StructType> for Type {
 }
 
 impl StructType {
+    #[allow(unused)]
     pub fn is_struct(&self) -> bool {
         matches!(self.kind, StructTypeKind::Struct)
     }
@@ -219,7 +223,7 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum StructTypeKind {
     Struct,
     PackedStruct,
@@ -245,12 +249,13 @@ impl StructType {
         }
     }
 
+    #[allow(unused)]
     pub fn is_anonymous(&self) -> bool {
         self.name.is_empty()
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StructTypeField {
     pub name: Ustr,
     pub ty: Type,
@@ -267,24 +272,20 @@ impl StructTypeField {
     }
 }
 
-impl From<Type> for String {
-    fn from(val: Type) -> Self {
-        val.to_string()
-    }
-}
-
 impl Type {
+    #[allow(unused)]
     pub fn as_inner(&self) -> &Type {
         match self {
             Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner) | Type::Type(inner) => inner,
-            _ => panic!("type {} doesn't have an inner type", self),
+            _ => panic!("type {:?} doesn't have an inner type", self),
         }
     }
 
+    #[allow(unused)]
     pub fn into_inner(self) -> Type {
         match self {
             Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner) | Type::Type(inner) => *inner,
-            _ => panic!("type {} doesn't have an inner type", self),
+            _ => panic!("type {:?} doesn't have an inner type", self),
         }
     }
 
@@ -295,7 +296,7 @@ impl Type {
                 inner => Some(inner),
             },
             Type::Array(inner, _) | Type::Type(inner) => Some(inner),
-            _ => panic!("type {} doesn't have an inner type", self),
+            _ => panic!("type {:?} doesn't have an inner type", self),
         }
     }
 
@@ -303,6 +304,7 @@ impl Type {
         matches!(self, Type::Type(_) | Type::AnyType)
     }
 
+    #[allow(unused)]
     pub fn is_anytype(&self) -> bool {
         matches!(self, Type::AnyType)
     }
@@ -311,6 +313,7 @@ impl Type {
         matches!(self, Type::Module(_))
     }
 
+    #[allow(unused)]
     pub fn is_number(&self) -> bool {
         self.is_any_integer() || self.is_float()
     }
@@ -327,6 +330,7 @@ impl Type {
         matches!(self, Type::Infer(_, InferType::AnyInt))
     }
 
+    #[allow(unused)]
     pub fn is_anyfloat(&self) -> bool {
         matches!(self, Type::Infer(_, InferType::AnyFloat))
     }
@@ -339,6 +343,7 @@ impl Type {
         matches!(self, Type::Uint(_))
     }
 
+    #[allow(unused)]
     pub fn is_float(&self) -> bool {
         matches!(self, Type::Float(_))
     }
@@ -347,22 +352,27 @@ impl Type {
         matches!(self, Type::Pointer(..))
     }
 
+    #[allow(unused)]
     pub fn is_bool(&self) -> bool {
         matches!(self, Type::Bool)
     }
 
+    #[allow(unused)]
     pub fn is_function(&self) -> bool {
         matches!(self, Type::Function(..))
     }
 
+    #[allow(unused)]
     pub fn is_var(&self) -> bool {
         matches!(self, Type::Var(..))
     }
 
+    #[allow(unused)]
     pub fn is_array(&self) -> bool {
         matches!(self, Type::Array(..))
     }
 
+    #[allow(unused)]
     pub fn is_slice(&self) -> bool {
         matches!(self, Type::Slice(..))
     }
@@ -375,12 +385,9 @@ impl Type {
         matches!(self, Type::Never)
     }
 
+    #[allow(unused)]
     pub fn is_struct(&self) -> bool {
         matches!(self, Type::Struct(_))
-    }
-
-    pub fn is_aggregate(&self) -> bool {
-        self.is_array() || self.is_struct()
     }
 
     pub fn as_struct(&self) -> &StructType {
@@ -390,6 +397,7 @@ impl Type {
         }
     }
 
+    #[allow(unused)]
     pub fn into_struct(self) -> StructType {
         match self {
             Type::Struct(ty) => ty,
@@ -397,6 +405,7 @@ impl Type {
         }
     }
 
+    #[allow(unused)]
     pub fn as_function(&self) -> &FunctionType {
         match self {
             Type::Function(ty) => ty,
@@ -411,6 +420,7 @@ impl Type {
         }
     }
 
+    #[allow(unused)]
     pub fn as_type(&self) -> &Type {
         match self {
             Type::Type(ty) => ty,
@@ -418,6 +428,7 @@ impl Type {
         }
     }
 
+    #[allow(unused)]
     pub fn into_type(self) -> Type {
         match self {
             Type::Type(ty) => *ty,
@@ -440,16 +451,19 @@ impl Type {
         }
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn unit() -> Type {
         Type::Unit
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn never() -> Type {
         Type::Never
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn bool() -> Type {
         Type::Bool
@@ -525,6 +539,7 @@ impl Type {
         Type::Float(FloatType::Float)
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn raw_pointer(is_mutable: bool) -> Type {
         Type::Pointer(Box::new(Type::i8()), is_mutable)

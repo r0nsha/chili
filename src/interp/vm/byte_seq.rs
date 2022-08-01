@@ -176,7 +176,7 @@ impl GetValue for [u8] {
                     Value::F32(self.as_ref().read_f32::<NativeEndian>().unwrap())
                 }
             }
-            _ => panic!("can't get value of type `{}` from raw self.as_ref().inner", ty),
+            _ => panic!("can't get value of type `{:?}` from raw self.as_ref().inner", ty),
         }
     }
 }

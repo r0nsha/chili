@@ -13,7 +13,11 @@ use crate::{
         DiagnosticResult, SyntaxError,
     },
     hir,
-    infer::{display::OrReportErr, normalize::Normalize, unify::UnifyType},
+    infer::{
+        display::{DisplayType, OrReportErr},
+        normalize::Normalize,
+        unify::UnifyType,
+    },
     span::Span,
     types::{InferType, PartialStructType, Type, TypeId},
     workspace::{BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel},
@@ -513,7 +517,7 @@ impl<'s> CheckSess<'s> {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot use wildcard unpack on partial struct type - {}",
-                                    type_kind
+                                    type_kind.display(&self.tcx)
                                 ))
                                 .with_label(Label::primary(wildcard.span, "illegal wildcard unpack")))
                         }
@@ -521,7 +525,7 @@ impl<'s> CheckSess<'s> {
                             return Err(Diagnostic::error()
                                 .with_message(format!(
                                     "cannot use wildcard unpack on partial tuple type - {}",
-                                    type_kind
+                                    type_kind.display(&self.tcx)
                                 ))
                                 .with_label(Label::primary(wildcard.span, "illegal wildcard unpack")))
                         }
