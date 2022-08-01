@@ -96,7 +96,9 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();
         return StartWorkspaceResult::new_typed(workspace, tcx, cache);
-    } else if workspace.build_options.emit_hir {
+    }
+
+    if workspace.build_options.emit_hir {
         hir::pretty::print(&cache, &workspace, &tcx);
     }
 
