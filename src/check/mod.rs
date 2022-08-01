@@ -348,7 +348,7 @@ impl Check for ast::Binding {
                 value_node
                     .ty()
                     .unify(&ty, &mut sess.tcx)
-                    .or_coerce_into_ty(&mut value_node, ty, &mut sess.tcx, sess.target_metrics.word_size)
+                    .or_coerce_into_ty(&mut value_node, &ty, &mut sess.tcx, sess.target_metrics.word_size)
                     .or_report_err(
                         &sess.tcx,
                         &ty,
@@ -854,7 +854,7 @@ impl Check for ast::Ast {
                 offset_node
                     .ty()
                     .unify(&uint, &mut sess.tcx)
-                    .or_coerce_into_ty(&mut offset_node, uint, &mut sess.tcx, sess.target_metrics.word_size)
+                    .or_coerce_into_ty(&mut offset_node, &uint, &mut sess.tcx, sess.target_metrics.word_size)
                     .or_report_err(&sess.tcx, &uint, None, &offset_node.ty(), sub.index.span())?;
 
                 let node = sub.expr.check(sess, env, None)?;
@@ -936,7 +936,7 @@ impl Check for ast::Ast {
                     low_node
                         .ty()
                         .unify(&uint, &mut sess.tcx)
-                        .or_coerce_into_ty(&mut low_node, uint, &mut sess.tcx, sess.target_metrics.word_size)
+                        .or_coerce_into_ty(&mut low_node, &uint, &mut sess.tcx, sess.target_metrics.word_size)
                         .or_report_err(&sess.tcx, &uint, None, &low_node.ty(), low_node.span())?;
 
                     low_node
@@ -954,7 +954,7 @@ impl Check for ast::Ast {
                     high_node
                         .ty()
                         .unify(&uint, &mut sess.tcx)
-                        .or_coerce_into_ty(&mut high_node, uint, &mut sess.tcx, sess.target_metrics.word_size)
+                        .or_coerce_into_ty(&mut high_node, &uint, &mut sess.tcx, sess.target_metrics.word_size)
                         .or_report_err(
                             &sess.tcx,
                             &uint,
@@ -1306,7 +1306,7 @@ impl Check for ast::Ast {
 
                         node.ty()
                             .unify(&element_ty, &mut sess.tcx)
-                            .or_coerce_into_ty(&mut node, element_ty, &mut sess.tcx, sess.target_metrics.word_size)
+                            .or_coerce_into_ty(&mut node, &element_ty, &mut sess.tcx, sess.target_metrics.word_size)
                             .or_report_err(&sess.tcx, &element_ty, Some(element_ty_span), &node.ty(), el.span())?;
 
                         element_nodes.push(node);
@@ -1557,7 +1557,7 @@ impl Check for ast::While {
             .unify(&bool_type, &mut sess.tcx)
             .or_coerce_into_ty(
                 &mut condition_node,
-                bool_type,
+                &bool_type,
                 &mut sess.tcx,
                 sess.target_metrics.word_size,
             )
@@ -2158,7 +2158,7 @@ fn check_function<'s>(
     if let Some(last_statement) = body_sequence.statements.last_mut() {
         unify_node = unify_node.or_coerce_into_ty(
             last_statement,
-            return_type,
+            &return_type,
             &mut sess.tcx,
             sess.target_metrics.word_size,
         );
@@ -2238,7 +2238,7 @@ impl Check for ast::Assignment {
             .unify(&lhs_node.ty(), &mut sess.tcx)
             .or_coerce_into_ty(
                 &mut rhs_node,
-                lhs_node.ty(),
+                &lhs_node.ty(),
                 &mut sess.tcx,
                 sess.target_metrics.word_size,
             )
@@ -2273,7 +2273,7 @@ impl Check for ast::Return {
 
             node.ty()
                 .unify(&return_type, &mut sess.tcx)
-                .or_coerce_into_ty(&mut node, return_type, &mut sess.tcx, sess.target_metrics.word_size)
+                .or_coerce_into_ty(&mut node, &return_type, &mut sess.tcx, sess.target_metrics.word_size)
                 .or_report_err(
                     &sess.tcx,
                     &return_type,
@@ -2317,7 +2317,7 @@ impl Check for ast::If {
             .unify(&bool_type, &mut sess.tcx)
             .or_coerce_into_ty(
                 &mut condition_node,
-                bool_type,
+                &bool_type,
                 &mut sess.tcx,
                 sess.target_metrics.word_size,
             )
@@ -2670,7 +2670,7 @@ impl Check for ast::Unary {
 
                         node_type
                             .unify(&ptr_ty, &mut sess.tcx)
-                            .or_coerce_into_ty(&mut node, ptr_ty, &mut sess.tcx, sess.target_metrics.word_size)
+                            .or_coerce_into_ty(&mut node, &ptr_ty, &mut sess.tcx, sess.target_metrics.word_size)
                             .or_report_err(&sess.tcx, &ptr_ty, None, &node_type, self.value.span())?;
 
                         Ok(hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
@@ -2787,32 +2787,40 @@ impl Check for ast::Call {
                         .with_note(format!("function is of type `{}`", function_type))
                 };
 
-                match &function_type.varargs {
-                    Some(_) if self.args.len() < function_type.params.len() => return Err(arg_mismatch()),
-                    None if self.args.len() != function_type.params.len() => return Err(arg_mismatch()),
-                    _ => (),
-                }
-
                 let mut args = vec![];
 
                 for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = function_type.params.get(index) {
-                        let param_ty = sess.tcx.bound(param.ty.clone(), self.span);
-                        let mut node = arg.check(sess, env, Some(param_ty))?;
+                        let param_type = sess.tcx.bound(param.ty.clone(), self.span);
+                        let mut node = arg.check(sess, env, Some(param_type))?;
 
                         node.ty()
-                            .unify(&param_ty, &mut sess.tcx)
-                            .or_coerce_into_ty(&mut node, param_ty, &mut sess.tcx, sess.target_metrics.word_size)
-                            .or_report_err(&sess.tcx, &param_ty, None, &node.ty(), arg.span())?;
+                            .unify(&param_type, &mut sess.tcx)
+                            .or_coerce_into_ty(&mut node, &param_type, &mut sess.tcx, sess.target_metrics.word_size)
+                            .or_report_err(&sess.tcx, &param_type, None, &node.ty(), arg.span())?;
 
                         args.push(node);
-                    } else if let Some(_) = &function_type.varargs {
+                    } else if let Some(varargs) = &function_type.varargs {
                         // this is a variadic argument, meaning that the argument's
                         // index is greater than the function's param length
-                        let node = arg.check(sess, env, None)?;
+                        let mut node = arg.check(sess, env, None)?;
+
+                        if let Some(vararg_type) = &varargs.ty {
+                            node.ty()
+                                .unify(vararg_type, &mut sess.tcx)
+                                .or_coerce_into_ty(&mut node, vararg_type, &mut sess.tcx, sess.target_metrics.word_size)
+                                .or_report_err(&sess.tcx, vararg_type, None, &node.ty(), arg.span())?;
+                        }
+
                         args.push(node);
                     } else {
                     }
+                }
+
+                match &function_type.varargs {
+                    Some(_) if self.args.len() < function_type.params.len() => return Err(arg_mismatch()),
+                    None if self.args.len() != function_type.params.len() => return Err(arg_mismatch()),
+                    _ => (),
                 }
 
                 hir::Call {
@@ -3229,7 +3237,7 @@ fn check_named_struct_literal(
 
                 node.ty()
                     .unify(&expected_type, &mut sess.tcx)
-                    .or_coerce_into_ty(&mut node, expected_type, &mut sess.tcx, sess.target_metrics.word_size)
+                    .or_coerce_into_ty(&mut node, &expected_type, &mut sess.tcx, sess.target_metrics.word_size)
                     .or_report_err(
                         &sess.tcx,
                         &expected_type,

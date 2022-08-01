@@ -151,7 +151,7 @@ pub trait OrCoerceIntoTy {
     fn or_coerce_into_ty(
         self,
         node: &mut hir::Node,
-        ty: impl Normalize,
+        ty: &impl Normalize,
         tcx: &mut TypeCtx,
         word_size: usize,
     ) -> UnifyTypeResult;
@@ -161,7 +161,7 @@ impl OrCoerceIntoTy for UnifyTypeResult {
     fn or_coerce_into_ty(
         self,
         node: &mut hir::Node,
-        ty: impl Normalize,
+        ty: &impl Normalize,
         tcx: &mut TypeCtx,
         word_size: usize,
     ) -> UnifyTypeResult {
