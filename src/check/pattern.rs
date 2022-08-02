@@ -357,9 +357,10 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tcx).maybe_deref_once() {
             Type::Module(module_id) => {
-                // TODO: This could cause bugs, need to check
-                //       that there is no way that the last statement isn't a binding
-                statements.pop();
+                // if let Some(b) = statements.last().map(|node| node.as_binding()).flatten() {
+                //     println!("{}", b.name);
+                //     statements.pop();
+                // }
 
                 self.check_module_by_id(module_id)?;
 
@@ -376,7 +377,7 @@ impl<'s> CheckSess<'s> {
                         None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
                     };
 
-                    self.validate_can_access_item(id, caller_info)?;
+                    self.validate_item_visibility(id, caller_info)?;
 
                     let binding_info = self.workspace.binding_infos.get(id).unwrap();
 

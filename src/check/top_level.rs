@@ -45,7 +45,7 @@ impl CheckTopLevel for ast::Binding {
                     bound_names.insert(name, id);
                 }
             }
-            _ => (),
+            _ => unreachable!(),
         }
 
         Ok(bound_names)
@@ -67,7 +67,7 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<BindingId> {
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
-            self.validate_can_access_item(id, caller_info)?;
+            self.validate_item_visibility(id, caller_info)?;
 
             Ok(id)
         } else {
@@ -113,7 +113,7 @@ impl<'s> CheckSess<'s> {
 
                 self.workspace.add_binding_info_use(desired_id, caller_info.span);
 
-                self.validate_can_access_item(desired_id, caller_info)?;
+                self.validate_item_visibility(desired_id, caller_info)?;
 
                 Ok(desired_id)
             } else if let Some(&builtin_id) = self.builtin_types.get(&name) {
@@ -151,7 +151,7 @@ impl<'s> CheckSess<'s> {
             .with_label(Label::primary(caller_info.span, label_message))
     }
 
-    pub fn validate_can_access_item(&self, id: BindingId, caller_info: CallerInfo) -> DiagnosticResult<()> {
+    pub fn validate_item_visibility(&self, id: BindingId, caller_info: CallerInfo) -> DiagnosticResult<()> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
         if binding_info.visibility == ast::Visibility::Private && binding_info.module_id != caller_info.module_id {
