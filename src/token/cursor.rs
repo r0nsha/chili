@@ -28,7 +28,7 @@ impl Cursor {
         self.end.index += 1;
 
         if newline {
-            self.end.column = 0;
+            self.end.column = 1;
             self.end.line += 1;
         } else {
             self.end.column += 1;

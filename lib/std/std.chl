@@ -1,4 +1,3 @@
-// pub let std = import("std");
 pub let intrinsics @ { location } = import("std/intrinsics");
 pub let build = import("std/build");
 pub let c = import("std/c");
