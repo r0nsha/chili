@@ -317,6 +317,49 @@ impl<'s> CheckSess<'s> {
             }
         }
     }
+
+    pub(super) fn get_type_by_name(&self, module_name: &str, scope_level: ScopeLevel, name: &str) -> TypeId {
+        let module_id = self
+            .workspace
+            .module_infos
+            .iter()
+            .find(|(_, m)| m.name == module_name)
+            .map(|(id, _)| ModuleId::from(id))
+            .unwrap_or_else(|| panic!("couldn't find module '{}'", module_name));
+
+        self.workspace
+            .binding_infos
+            .iter()
+            .find(|(_, b)| b.module_id == module_id && b.scope_level == scope_level && b.name == name)
+            .map(|(_, b)| *b.const_value.as_ref().unwrap().as_type().unwrap())
+            .unwrap_or_else(|| panic!("couldn't find '{}' in module '{}'", name, module_name))
+    }
+
+    pub(super) fn build_location_value(&self, env: &Env, span: Span) -> ConstValue {
+        let location_type = self
+            .get_type_by_name("std.intrinsics", ScopeLevel::Global, "Location")
+            .normalize(&self.tcx)
+            .into_struct();
+
+        let file_field = location_type.field("file").unwrap();
+        let line_field = location_type.field("line").unwrap();
+        let column_field = location_type.field("column").unwrap();
+
+        ConstValue::Struct(indexmap! {
+            file_field.name => ConstElement {
+                value: ConstValue::Str(env.module_info().file_path),
+                ty: self.tcx.common_types.str_pointer
+            },
+            line_field.name => ConstElement {
+                value: ConstValue::Uint(span.start.line as _),
+                ty: self.tcx.common_types.u32
+            },
+            column_field.name => ConstElement {
+                value: ConstValue::Uint(span.start.column as _),
+                ty: self.tcx.common_types.u32
+            }
+        })
+    }
 }
 
 type CheckResult<T = hir::Node> = DiagnosticResult<T>;
@@ -2896,31 +2939,7 @@ impl Check for ast::Call {
 
                 if let Some(intrinsic) = is_callee_const_intrinsic(sess, &callee) {
                     let value = match intrinsic {
-                        hir::Intrinsic::Location => {
-                            let location_type = sess
-                                .get_type_by_name("std.intrinsics", ScopeLevel::Global, "Location")
-                                .normalize(&sess.tcx)
-                                .into_struct();
-
-                            let file_field = location_type.field("file").unwrap();
-                            let line_field = location_type.field("line").unwrap();
-                            let column_field = location_type.field("column").unwrap();
-
-                            ConstValue::Struct(indexmap! {
-                                file_field.name => ConstElement{
-                                    value: ConstValue::Str(env.module_info().file_path),
-                                    ty: sess.tcx.bound(file_field.ty.clone(), self.span)
-                                },
-                                line_field.name => ConstElement{
-                                    value: ConstValue::Uint(self.span.start.line as _),
-                                    ty: sess.tcx.bound(line_field.ty.clone(), self.span)
-                                },
-                                column_field.name => ConstElement{
-                                    value: ConstValue::Uint(self.span.start.column as _),
-                                    ty: sess.tcx.bound(column_field.ty.clone(), self.span)
-                                }
-                            })
-                        }
+                        hir::Intrinsic::Location => sess.build_location_value(env, self.span),
                         hir::Intrinsic::StartWorkspace => unreachable!(),
                     };
 
