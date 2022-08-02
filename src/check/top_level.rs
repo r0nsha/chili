@@ -194,46 +194,52 @@ impl<'s> CheckSess<'s> {
                         },
                     );
 
-                    // Auto import std
-                    self.with_env(module.id, |sess, mut env| {
-                        let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
-                            name_pattern: NamePattern {
-                                id: BindingId::unknown(),
-                                name: ustr(STD),
-                                alias: None,
+                    if !module
+                        .info
+                        .file_path
+                        .starts_with(self.workspace.std_dir.to_str().unwrap())
+                    {
+                        // Auto import std
+                        self.with_env(module.id, |sess, mut env| {
+                            let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
+                                name_pattern: NamePattern {
+                                    id: BindingId::unknown(),
+                                    name: ustr(STD),
+                                    alias: None,
+                                    span,
+                                    is_mutable: false,
+                                    ignore: false,
+                                },
+                                unpack_pattern: UnpackPatternKind::Struct(UnpackPattern {
+                                    symbols: vec![],
+                                    span,
+                                    wildcard: Some(Wildcard { span }),
+                                }),
                                 span,
-                                is_mutable: false,
-                                ignore: false,
-                            },
-                            unpack_pattern: UnpackPatternKind::Struct(UnpackPattern {
-                                symbols: vec![],
+                            });
+
+                            let std_module_id = sess
+                                .workspace
+                                .module_infos
+                                .iter()
+                                .position(|(_, module)| module.name == STD)
+                                .map(ModuleId::from)
+                                .unwrap();
+
+                            let std_module_type = sess.check_module_by_id(std_module_id)?;
+
+                            sess.bind_pattern(
+                                &mut env,
+                                &auto_import_std_pattern,
+                                ast::Visibility::Private,
+                                std_module_type,
+                                None,
+                                BindingInfoKind::Orphan,
                                 span,
-                                wildcard: Some(Wildcard { span }),
-                            }),
-                            span,
-                        });
-
-                        let std_module_id = sess
-                            .workspace
-                            .module_infos
-                            .iter()
-                            .position(|(_, module)| module.name == STD)
-                            .map(ModuleId::from)
-                            .unwrap();
-
-                        let std_module_type = sess.check_module_by_id(std_module_id)?;
-
-                        sess.bind_pattern(
-                            &mut env,
-                            &auto_import_std_pattern,
-                            ast::Visibility::Private,
-                            std_module_type,
-                            None,
-                            BindingInfoKind::Orphan,
-                            span,
-                            BindingInfoFlags::SHADOWABLE,
-                        )
-                    })?;
+                                BindingInfoFlags::SHADOWABLE,
+                            )
+                        })?;
+                    }
 
                     module_type
                 }

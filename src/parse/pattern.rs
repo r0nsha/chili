@@ -2,6 +2,7 @@ use super::*;
 use crate::ast::pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard};
 use crate::error::SyntaxError;
 use crate::span::To;
+use crate::workspace::BindingId;
 
 impl Parser {
     pub fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
@@ -124,7 +125,7 @@ impl Parser {
         };
 
         Ok(NamePattern {
-            id: Default::default(),
+            id: BindingId::unknown(),
             name: symbol,
             alias: None,
             is_mutable,
