@@ -1,4 +1,5 @@
 fn main = {
     println("Hello World");
+    panic();
     panic("Yo!", location());
 };
