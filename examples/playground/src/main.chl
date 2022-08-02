@@ -1,3 +1,11 @@
 fn main = {
     println("Hello World");
+
+    let location = std.intrinsics.Location {
+        file: "/home/ron/projects/chili-lang/examples/playground/src/main.chl",
+        line: 10,
+        column: 5
+    };
+
+    panic("Yo!", location);
 };

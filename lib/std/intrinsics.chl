@@ -1,10 +1,10 @@
 let { Workspace } = import("std/build");
 
 @intrinsic
-pub extern fn start_workspace(workspace: Workspace) -> (str, bool);
+pub extern fn start_workspace(workspace: Workspace) -> (*str, bool);
 
 pub type Location = struct {
-    file: str,
+    file: *str,
     line: u32,
     column: u32,
 };

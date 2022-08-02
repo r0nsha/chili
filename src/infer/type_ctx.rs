@@ -137,6 +137,7 @@ pub struct CommonTypes {
     pub f64: TypeId,
     pub float: TypeId,
     pub str: TypeId,
+    pub str_pointer: TypeId,
     pub never: TypeId,
     pub anytype: TypeId,
 }
@@ -169,6 +170,7 @@ impl CommonTypes {
             f64: mk(Type::f64()),
             float: mk(Type::float()),
             str: mk(Type::str()),
+            str_pointer: mk(Type::str_pointer()),
             never: mk(Type::Never),
             anytype: mk(Type::AnyType),
         }

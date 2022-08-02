@@ -291,7 +291,7 @@ impl Buffer {
     }
 
     pub fn from_ustr(s: Ustr) -> Self {
-        let ty = Type::str();
+        let ty = Type::str_pointer();
         let size = ty.size_of(WORD_SIZE);
 
         let mut bytes = ByteSeq::new(size);

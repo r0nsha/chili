@@ -46,7 +46,7 @@ fn primitives_and_variables = {
 
     // strings
     // --------
-    // type: str
+    // type: *str
     //
     // examples: "Hello World"
 
@@ -54,7 +54,7 @@ fn primitives_and_variables = {
     // let [pattern]: [type] = [value]
     let num: int = 5;
     let pi: float = 3.14;
-    let hello: str = "Hello";
+    let hello: *str = "Hello";
 
     // The variable's type can be be inferred by its value
     let num = 5;

@@ -547,6 +547,11 @@ impl Type {
 
     #[inline]
     pub fn str() -> Type {
+        Type::Slice(Box::new(Type::char()))
+    }
+
+    #[inline]
+    pub fn str_pointer() -> Type {
         Type::Pointer(Box::new(Type::Slice(Box::new(Type::char()))), false)
     }
 

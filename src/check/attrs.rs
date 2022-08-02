@@ -79,7 +79,7 @@ impl<'s> CheckSess<'s> {
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
             AttrKind::Intrinsic => self.tcx.common_types.unit,
-            AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => self.tcx.common_types.str,
+            AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => self.tcx.common_types.str_pointer,
         }
     }
 

@@ -1426,7 +1426,7 @@ impl Check for ast::Ast {
                     ast::LiteralKind::Bool(_) => sess.tcx.common_types.bool,
                     ast::LiteralKind::Int(_) => sess.tcx.anyint(lit.span),
                     ast::LiteralKind::Float(_) => sess.tcx.anyfloat(lit.span),
-                    ast::LiteralKind::Str(_) => sess.tcx.common_types.str,
+                    ast::LiteralKind::Str(_) => sess.tcx.common_types.str_pointer,
                     ast::LiteralKind::Char(_) => sess.tcx.common_types.u8,
                 };
 

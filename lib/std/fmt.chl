@@ -1,9 +1,9 @@
 let { printf } = import("std/c");
 
-pub fn print(fmt: str) = {
+pub fn print(fmt: *str) = {
     printf(fmt.data);
 };
 
-pub fn println(fmt: str = "") = {
+pub fn println(fmt: *str = "") = {
     printf("%s\n".data, fmt.data);
 };
