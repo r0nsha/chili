@@ -8,3 +8,6 @@ pub type Location = struct {
     line: u32,
     column: u32,
 };
+
+@intrinsic
+pub extern fn location() -> Location;

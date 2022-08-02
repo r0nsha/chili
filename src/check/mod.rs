@@ -43,7 +43,7 @@ use crate::{
     },
 };
 use env::{Env, Scope, ScopeKind};
-use indexmap::IndexMap;
+use indexmap::{indexmap, IndexMap};
 use std::{
     collections::{HashMap, HashSet},
     iter::repeat_with,
@@ -1172,7 +1172,7 @@ impl Check for ast::Ast {
                             )),
                         }
                     }
-                    ty @ Type::Struct(st) => match st.find_field_full(access.member) {
+                    ty @ Type::Struct(st) => match st.field_and_position(access.member) {
                         Some((index, field)) => {
                             let ty = sess.tcx.bound(field.ty.clone(), access.span);
 
@@ -2767,9 +2767,44 @@ impl Check for ast::Unary {
 }
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
+        fn is_callee_const_intrinsic(sess: &mut CheckSess, callee: &hir::Node) -> Option<hir::Intrinsic> {
+            if let Some(ConstValue::Function(f)) = callee.as_const_value() {
+                let function = sess.cache.functions.get(f.id).unwrap();
+                match &function.kind {
+                    hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
+                        hir::Intrinsic::Location => Some(*intrinsic),
+                        hir::Intrinsic::StartWorkspace => None,
+                    },
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+
+        fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticResult<()> {
+            for arg in args.iter() {
+                match arg.ty().normalize(&sess.tcx) {
+                    Type::Type(_) | Type::AnyType => {
+                        return Err(Diagnostic::error()
+                            .with_message("types cannot be passed as function arguments")
+                            .with_label(Label::primary(arg.span(), "cannot pass type")))
+                    }
+                    Type::Module(_) => {
+                        return Err(Diagnostic::error()
+                            .with_message("modules cannot be passed as function arguments")
+                            .with_label(Label::primary(arg.span(), "cannot pass module")))
+                    }
+                    _ => (),
+                }
+            }
+
+            Ok(())
+        }
+
         let callee = self.callee.check(sess, env, None)?;
 
-        let call_node = match callee.ty().normalize(&sess.tcx) {
+        match callee.ty().normalize(&sess.tcx) {
             Type::Function(function_type) => {
                 fn arg_mismatch(
                     sess: &CheckSess,
@@ -2855,11 +2890,52 @@ impl Check for ast::Call {
                     _ => (),
                 }
 
-                hir::Call {
-                    ty: sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span),
-                    span: self.span,
-                    callee: Box::new(callee),
-                    args,
+                validate_call_args(sess, &args)?;
+
+                let return_type = sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span);
+
+                if let Some(intrinsic) = is_callee_const_intrinsic(sess, &callee) {
+                    let value = match intrinsic {
+                        hir::Intrinsic::Location => {
+                            let location_type = sess
+                                .get_type_by_name("std.intrinsics", ScopeLevel::Global, "Location")
+                                .normalize(&sess.tcx)
+                                .into_struct();
+
+                            let file_field = location_type.field("file").unwrap();
+                            let line_field = location_type.field("line").unwrap();
+                            let column_field = location_type.field("column").unwrap();
+
+                            ConstValue::Struct(indexmap! {
+                                file_field.name => ConstElement{
+                                    value: ConstValue::Str(env.module_info().file_path),
+                                    ty: sess.tcx.bound(file_field.ty.clone(), self.span)
+                                },
+                                line_field.name => ConstElement{
+                                    value: ConstValue::Uint(self.span.start.line as _),
+                                    ty: sess.tcx.bound(line_field.ty.clone(), self.span)
+                                },
+                                column_field.name => ConstElement{
+                                    value: ConstValue::Uint(self.span.start.column as _),
+                                    ty: sess.tcx.bound(column_field.ty.clone(), self.span)
+                                }
+                            })
+                        }
+                        hir::Intrinsic::StartWorkspace => unreachable!(),
+                    };
+
+                    Ok(hir::Node::Const(hir::Const {
+                        value,
+                        ty: return_type,
+                        span: self.span,
+                    }))
+                } else {
+                    Ok(hir::Node::Call(hir::Call {
+                        callee: Box::new(callee),
+                        args,
+                        ty: return_type,
+                        span: self.span,
+                    }))
                 }
             }
             ty => {
@@ -2869,7 +2945,7 @@ impl Check for ast::Call {
                     .map(|arg| arg.check(sess, env, None))
                     .collect::<DiagnosticResult<Vec<_>>>()?;
 
-                let return_ty = sess.tcx.var(self.span);
+                let return_type = sess.tcx.var(self.span);
 
                 let inferred_function_type = Type::Function(FunctionType {
                     params: args
@@ -2880,7 +2956,7 @@ impl Check for ast::Call {
                             default_value: None,
                         })
                         .collect(),
-                    return_type: Box::new(return_ty.into()),
+                    return_type: Box::new(return_type.into()),
                     varargs: None,
                     kind: FunctionTypeKind::Orphan,
                 });
@@ -2893,33 +2969,16 @@ impl Check for ast::Call {
                     self.callee.span(),
                 )?;
 
-                hir::Call {
-                    ty: return_ty,
-                    span: self.span,
+                validate_call_args(sess, &args)?;
+
+                Ok(hir::Node::Call(hir::Call {
                     callee: Box::new(callee),
                     args,
-                }
-            }
-        };
-
-        for arg in call_node.args.iter() {
-            let arg_type = arg.ty().normalize(&sess.tcx);
-            match arg_type {
-                Type::Type(_) | Type::AnyType => {
-                    return Err(Diagnostic::error()
-                        .with_message("types cannot be passed as function arguments")
-                        .with_label(Label::primary(arg.span(), "cannot pass type")))
-                }
-                Type::Module(_) => {
-                    return Err(Diagnostic::error()
-                        .with_message("modules cannot be passed as function arguments")
-                        .with_label(Label::primary(arg.span(), "cannot pass module")))
-                }
-                _ => (),
+                    ty: return_type,
+                    span: self.span,
+                }))
             }
         }
-
-        Ok(hir::Node::Call(call_node))
     }
 }
 
@@ -3162,9 +3221,8 @@ impl Check for ast::StructType {
         // the struct's main type variable, in its `type` variation
         let struct_type_type_var = sess.tcx.bound(struct_type_var.as_kind().create_type(), self.span);
 
-        sess.self_types.push(struct_type_var);
-
         env.push_scope(ScopeKind::Block);
+        sess.self_types.push(struct_type_var);
 
         let (binding_id, _) = sess.bind_name(
             env,
@@ -3209,9 +3267,8 @@ impl Check for ast::StructType {
             });
         }
 
-        env.pop_scope();
-
         sess.self_types.pop();
+        env.pop_scope();
 
         for field in struct_type_fields.iter() {
             let field_type = field.ty.normalize(&sess.tcx);
@@ -3267,7 +3324,7 @@ fn check_named_struct_literal(
             ));
         }
 
-        match struct_ty.find_field(field.name) {
+        match struct_ty.field(field.name) {
             Some(ty_field) => {
                 uninit_fields.remove(&field.name);
 

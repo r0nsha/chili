@@ -418,6 +418,10 @@ impl From<hir::Intrinsic> for IntrinsicFunction {
     fn from(intrinsic: hir::Intrinsic) -> Self {
         match intrinsic {
             hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+            hir::Intrinsic::Location => panic!(
+                "intrinsic function '{}' should have been evaluated at compile-time",
+                intrinsic
+            ),
         }
     }
 }

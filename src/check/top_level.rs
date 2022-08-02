@@ -11,7 +11,7 @@ use crate::{
     hir,
     span::Span,
     types::{Type, TypeId},
-    workspace::{compiler_info::STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
+    workspace::{compiler_info::STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, ScopeLevel},
 };
 use std::collections::HashSet;
 use ustr::{Ustr, UstrMap};
@@ -258,5 +258,22 @@ impl<'s> CheckSess<'s> {
                 Ok(module_type)
             }
         }
+    }
+
+    pub(super) fn get_type_by_name(&self, module_name: &str, scope_level: ScopeLevel, name: &str) -> TypeId {
+        let module_id = self
+            .workspace
+            .module_infos
+            .iter()
+            .find(|(_, m)| m.name == module_name)
+            .map(|(id, _)| ModuleId::from(id))
+            .unwrap_or_else(|| panic!("couldn't find module '{}'", module_name));
+
+        self.workspace
+            .binding_infos
+            .iter()
+            .find(|(_, b)| b.module_id == module_id && b.scope_level == scope_level && b.name == name)
+            .map(|(_, b)| *b.const_value.as_ref().unwrap().as_type().unwrap())
+            .unwrap_or_else(|| panic!("couldn't find '{}' in module '{}'", name, module_name))
     }
 }

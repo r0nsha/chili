@@ -121,6 +121,7 @@ impl Function {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Intrinsic {
     StartWorkspace,
+    Location,
 }
 
 impl TryFrom<&str> for Intrinsic {
@@ -129,6 +130,7 @@ impl TryFrom<&str> for Intrinsic {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "start_workspace" => Ok(Intrinsic::StartWorkspace),
+            "location" => Ok(Intrinsic::Location),
             _ => Err(()),
         }
     }
@@ -138,6 +140,7 @@ impl Display for Intrinsic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Intrinsic::StartWorkspace => write!(f, "start_workspace"),
+            Intrinsic::Location => write!(f, "location"),
         }
     }
 }
