@@ -1,5 +1,5 @@
 let { printf, exit } = import("std/c");
-let { Location, location } = import("std/intrinsics");
+let { Location } = import("std/intrinsics");
 
 pub fn panic(
     fmt: *str = "unknown reason", 

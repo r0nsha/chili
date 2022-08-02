@@ -2,7 +2,7 @@ use super::{Check, CheckSess, QueuedModule};
 use crate::{
     ast::{
         self,
-        pattern::{Pattern, UnpackPattern, Wildcard},
+        pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -14,7 +14,7 @@ use crate::{
     workspace::{compiler_info::STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
 };
 use std::collections::HashSet;
-use ustr::{Ustr, UstrMap};
+use ustr::{ustr, Ustr, UstrMap};
 
 pub(super) trait CheckTopLevel
 where
@@ -165,98 +165,115 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn check_module_by_id(&mut self, id: ModuleId) -> DiagnosticResult<TypeId> {
-        let module = self
-            .modules
-            .iter()
-            .find(|m| m.id == id)
-            .unwrap_or_else(|| panic!("couldn't find {:?}", id));
+        self.get_completed_module_type(id).map(Ok).unwrap_or_else(|| {
+            let module = self
+                .modules
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("couldn't find {:?}", id));
 
-        self.check_module(module)
+            self.check_module(module)
+        })
     }
 
     pub fn check_module(&mut self, module: &ast::Module) -> DiagnosticResult<TypeId> {
-        match self.queued_modules.get(&module.id) {
+        self.get_completed_module_type(module.id).map(Ok).unwrap_or_else(|| {
+            let module_type = match self.queued_modules.get(&module.id) {
+                Some(queued) => queued.module_type,
+                None => {
+                    let span = Span::initial(module.file_id);
+                    let module_type = self.tcx.bound(Type::Module(module.id), span);
+
+                    // Add the module to the queued modules map
+                    self.queued_modules.insert(
+                        module.id,
+                        QueuedModule {
+                            module_type,
+                            all_complete: false,
+                            complete_bindings: HashSet::new(),
+                        },
+                    );
+
+                    // Auto import std
+                    self.with_env(module.id, |sess, mut env| {
+                        let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
+                            name_pattern: NamePattern {
+                                id: BindingId::unknown(),
+                                name: ustr(STD),
+                                alias: None,
+                                span,
+                                is_mutable: false,
+                                ignore: false,
+                            },
+                            unpack_pattern: UnpackPatternKind::Struct(UnpackPattern {
+                                symbols: vec![],
+                                span,
+                                wildcard: Some(Wildcard { span }),
+                            }),
+                            span,
+                        });
+
+                        let std_module_id = sess
+                            .workspace
+                            .module_infos
+                            .iter()
+                            .position(|(_, module)| module.name == STD)
+                            .map(ModuleId::from)
+                            .unwrap();
+
+                        let std_module_type = sess.check_module_by_id(std_module_id)?;
+
+                        sess.bind_pattern(
+                            &mut env,
+                            &auto_import_std_pattern,
+                            ast::Visibility::Private,
+                            std_module_type,
+                            None,
+                            BindingInfoKind::Orphan,
+                            span,
+                            BindingInfoFlags::SHADOWABLE,
+                        )
+                    })?;
+
+                    module_type
+                }
+            };
+
+            for (index, binding) in module.bindings.iter().enumerate() {
+                if self
+                    .queued_modules
+                    .get_mut(&module.id)
+                    .unwrap()
+                    .complete_bindings
+                    .insert(index)
+                {
+                    binding.check_top_level(self)?;
+                }
+            }
+
+            self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
+
+            for const_ in module.consts.iter() {
+                // let expr = expr.clone();
+                let node = self.with_env(module.id, |sess, mut env| const_.check(sess, &mut env, None))?;
+
+                if !self.workspace.build_options.check_mode {
+                    self.eval(&node, module.id, const_.span)?;
+                }
+            }
+
+            Ok(module_type)
+        })
+    }
+
+    fn get_completed_module_type(&self, id: ModuleId) -> Option<TypeId> {
+        match self.queued_modules.get(&id) {
             Some(QueuedModule {
                 module_type,
                 all_complete: true,
                 ..
-            }) => Ok(*module_type),
-            _ => {
-                let module_type = match self.queued_modules.get(&module.id) {
-                    Some(queued) => queued.module_type,
-                    None => {
-                        let span = Span::initial(module.file_id);
-                        let module_type = self.tcx.bound(Type::Module(module.id), span);
-
-                        // Add the module to the queued modules map
-                        self.queued_modules.insert(
-                            module.id,
-                            QueuedModule {
-                                module_type,
-                                all_complete: false,
-                                complete_bindings: HashSet::new(),
-                            },
-                        );
-
-                        // Auto import std
-                        self.with_env(module.id, |sess, mut env| {
-                            let auto_import_std_pattern = Pattern::StructUnpack(UnpackPattern {
-                                symbols: vec![],
-                                span,
-                                wildcard: Some(Wildcard { span }),
-                            });
-
-                            let std_module_id = sess
-                                .workspace
-                                .module_infos
-                                .iter()
-                                .position(|(_, module)| module.name == STD)
-                                .map(ModuleId::from)
-                                .unwrap();
-
-                            let std_module_type = sess.tcx.bound(Type::Module(std_module_id), span);
-
-                            sess.bind_pattern(
-                                &mut env,
-                                &auto_import_std_pattern,
-                                ast::Visibility::Private,
-                                std_module_type,
-                                None,
-                                BindingInfoKind::Orphan,
-                                span,
-                                BindingInfoFlags::SHADOWABLE,
-                            )
-                        })?;
-
-                        module_type
-                    }
-                };
-
-                for (index, binding) in module.bindings.iter().enumerate() {
-                    if self
-                        .queued_modules
-                        .get_mut(&module.id)
-                        .unwrap()
-                        .complete_bindings
-                        .insert(index)
-                    {
-                        binding.check_top_level(self)?;
-                    }
-                }
-
-                self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
-
-                for const_ in module.consts.iter() {
-                    // let expr = expr.clone();
-                    let node = self.with_env(module.id, |sess, mut env| const_.check(sess, &mut env, None))?;
-
-                    if !self.workspace.build_options.check_mode {
-                        self.eval(&node, module.id, const_.span)?;
-                    }
-                }
-
-                Ok(module_type)
-            }
+            }) => Some(*module_type),
+            _ => None,
         }
     }
 }
