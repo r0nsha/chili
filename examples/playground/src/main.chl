@@ -1,4 +1,9 @@
 fn main = {
     println("Hello World");
+    f(&[1, 2, 3]);
     panic("Whoopsie...");
+};
+
+fn f(nums: *[]int) = for n in nums {
+    std.c.printf("%d ".data, n);
 };

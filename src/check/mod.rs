@@ -1815,7 +1815,7 @@ impl Check for ast::For {
                 });
 
                 // index <= value.len
-                let value_len_node = match &value_node_type {
+                let value_len_node = match &value_node_type.maybe_deref_once() {
                     Type::Array(_, size) => hir::Node::Const(hir::Const {
                         value: ConstValue::Uint(*size as _),
                         ty: index_type,

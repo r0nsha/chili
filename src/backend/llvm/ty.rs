@@ -61,7 +61,8 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 }
             },
             Type::Slice(inner) => generator.slice_type(inner),
-            Type::Type(_) | Type::Unit | Type::Never | Type::Module { .. } => generator.unit_type(),
+            Type::Type(_) | Type::Unit | Type::Module { .. } => generator.unit_type(),
+            Type::Never => generator.never_type(),
             Type::Function(func) => generator
                 .abi_compliant_fn_type(func)
                 .ptr_type(AddressSpace::Generic)
@@ -97,6 +98,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.struct_type(&[], false).into()
     }
 
+    pub(super) fn never_type(&self) -> BasicTypeEnum<'ctx> {
+        self.unit_type()
+    }
+
     pub(super) fn raw_pointer_type(&self) -> PointerType<'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
@@ -123,7 +128,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     pub(super) fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {
         let fn_type = self.fn_type(f);
-
         abi::get_abi_compliant_fn(self.context, &self.target_metrics, fn_type)
     }
 

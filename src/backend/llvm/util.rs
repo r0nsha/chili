@@ -463,7 +463,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let ptr = self.build_alloca(state, llvm_type.into());
 
         for (i, value) in values.iter().enumerate() {
-            let field_ptr = self.builder.build_struct_gep(ptr, i as _, "").unwrap();
+            let field_ptr = self
+                .builder
+                .build_struct_gep(ptr, i as _, "")
+                .unwrap_or_else(|_| panic!("{} in {:?}", i, ptr));
+
             self.build_store(field_ptr, *value);
         }
 

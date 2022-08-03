@@ -3,8 +3,8 @@ use super::{
     type_ctx::TypeCtx,
     unify::{can_coerce_mut, UnifyTypeResult},
 };
-use crate::hir;
 use crate::types::{size_of::SizeOf, *};
+use crate::{hir, infer::unify::UnifyType};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoercionResult {
@@ -14,11 +14,11 @@ pub enum CoercionResult {
 }
 
 trait Coerce {
-    fn coerce(&self, to: &Type, word_size: usize) -> CoercionResult;
+    fn coerce(&self, to: &Type, tcx: &mut TypeCtx, word_size: usize) -> CoercionResult;
 }
 
 impl Coerce for Type {
-    fn coerce(&self, to: &Type, word_size: usize) -> CoercionResult {
+    fn coerce(&self, to: &Type, tcx: &mut TypeCtx, word_size: usize) -> CoercionResult {
         use CoercionResult::*;
 
         match (self, to) {
@@ -74,20 +74,13 @@ impl Coerce for Type {
                 if can_coerce_mut(*lmut, *rmut) {
                     match (left.as_ref(), right.as_ref()) {
                         // * array[N] of T -> slice of T
-                        (Type::Array(t_array, _), Type::Slice(t_slice)) => {
-                            if t_array == t_slice {
-                                CoerceToRight
-                            } else {
-                                NoCoercion
-                            }
-                        }
+                        (Type::Array(left, _), Type::Slice(right)) => left
+                            .as_ref()
+                            .unify(right.as_ref(), tcx)
+                            .map_or(NoCoercion, |_| CoerceToRight),
                         // * array[N] of T -> pointer of T
-                        (Type::Array(t_array, _), right) => {
-                            if t_array.as_ref() == right {
-                                CoerceToRight
-                            } else {
-                                NoCoercion
-                            }
+                        (Type::Array(left, _), right) => {
+                            left.as_ref().unify(right, tcx).map_or(NoCoercion, |_| CoerceToRight)
                         }
                         _ => NoCoercion,
                     }
@@ -131,7 +124,7 @@ impl OrCoerce for UnifyTypeResult {
             Ok(r) => Ok(r),
             Err(e) => {
                 let (left_ty, right_ty) = (left.ty().normalize(tcx), right.ty().normalize(tcx));
-                match left_ty.coerce(&right_ty, word_size) {
+                match left_ty.coerce(&right_ty, tcx, word_size) {
                     CoercionResult::CoerceToLeft => {
                         coerce_node(tcx, right, left_ty);
                         Ok(())
@@ -171,7 +164,7 @@ impl OrCoerceIntoTy for UnifyTypeResult {
                 let node_ty = node.ty().normalize(tcx);
                 let ty = ty.normalize(tcx);
 
-                match node_ty.coerce(&ty, word_size) {
+                match node_ty.coerce(&ty, tcx, word_size) {
                     CoercionResult::CoerceToRight => {
                         coerce_node(tcx, node, ty);
                         Ok(())
