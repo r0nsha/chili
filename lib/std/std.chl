@@ -1,5 +1,5 @@
-pub let intrinsics @ { location } = import("std/intrinsics");
-pub let build = import("std/build");
-pub let c = import("std/c");
-pub let fmt @ { print, println } = import("std/fmt");
-pub let panicking @ { panic } = import("std/panicking");
+pub let intrinsics @ { location } = import("intrinsics");
+pub let build = import("build");
+pub let c = import("c");
+pub let fmt @ { print, println } = import("fmt");
+pub let panicking @ { panic } = import("panicking");
