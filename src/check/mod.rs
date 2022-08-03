@@ -3303,10 +3303,10 @@ fn check_function<'s>(
                     false,
                     BindingInfoKind::Orphan,
                     span,
-                    if is_implicitly_generated_param {
-                        BindingInfoFlags::empty()
-                    } else {
+                    if param_type.name == "it" {
                         BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM
+                    } else {
+                        BindingInfoFlags::empty()
                     },
                 )?;
 

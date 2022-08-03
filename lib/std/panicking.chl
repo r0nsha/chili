@@ -5,8 +5,8 @@ let { caller_location } = import("std/intrinsics");
 pub fn panic(
     fmt: *str = "unknown reason",
 ) -> never = {
-    let location = caller_location();
     // TODO: use our own println function.
+    let location = caller_location();
 
     printf(
         "panic: \"%s\" at %s:%u:%u\n".data, 
