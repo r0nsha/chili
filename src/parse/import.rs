@@ -10,6 +10,9 @@ use crate::{
 use std::path::Path;
 use ustr::ustr;
 
+const STD_PREFIX_FW: &str = "std/";
+const STD_PREFIX_BK: &str = "std\\";
+
 impl Parser {
     pub fn parse_import(&mut self) -> DiagnosticResult<ast::Ast> {
         let start_span = self.previous_span();
@@ -40,7 +43,7 @@ impl Parser {
             self.check_import_path_is_under_root(&cache, &import_path, path_token.span)?;
 
             import_path
-        } else if compiler_info::is_std_module_path(&path) {
+        } else if path == compiler_info::STD {
             // import std root file
             // example: import("std")
             try_resolve_relative_path(
@@ -48,14 +51,13 @@ impl Parser {
                 &RelativeTo::Cwd,
                 Some(path_token.span),
             )?
-        } else if compiler_info::is_std_module_path_start(&path) {
+        } else if path.starts_with(STD_PREFIX_FW) || path.starts_with(STD_PREFIX_BK) {
             // import relative to std root dir
             // example: import("std/foo/bar")
-            let trimmed_path = path
-                .trim_start_matches(compiler_info::STD_PREFIX_FW)
-                .trim_start_matches(compiler_info::STD_PREFIX_BK);
+            let trimmed_path = path.trim_start_matches(STD_PREFIX_FW).trim_start_matches(STD_PREFIX_BK);
 
-            let full_std_import_path = compiler_info::std_module_root_dir()
+            let full_std_import_path = cache
+                .std_dir
                 .join(trimmed_path)
                 .with_extension(compiler_info::SOURCE_FILE_EXT);
 

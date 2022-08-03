@@ -11,6 +11,7 @@ use std::{
     sync::{mpsc::channel, Arc},
 };
 use threadpool::ThreadPool;
+use ustr::ustr;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AstGenerationStats {
@@ -64,7 +65,10 @@ fn generate_ast_inner(workspace: &mut Workspace, root_file: PathBuf) -> (Vec<ast
         thread_pool.clone(),
         tx.clone(),
         Arc::clone(&cache),
-        compiler_info::std_module_info(),
+        PartialModuleInfo {
+            file_path: ustr(compiler_info::std_module_root_file().to_str().unwrap()),
+            name: ustr(compiler_info::STD),
+        },
     );
 
     spawn_parser(thread_pool.clone(), tx, Arc::clone(&cache), root_module_info);
