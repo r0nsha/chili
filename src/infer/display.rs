@@ -3,7 +3,7 @@ use super::{
     type_ctx::TypeCtx,
     unify::{UnifyTypeErr, UnifyTypeResult},
 };
-use crate::{error::DiagnosticResult, types::*};
+use crate::{check::symbols, error::DiagnosticResult, types::*};
 use crate::{span::Span, workspace::BindingId};
 
 pub trait DisplayType {
@@ -11,7 +11,6 @@ pub trait DisplayType {
 }
 
 impl<T: Normalize> DisplayType for T {
-    #[inline(always)]
     fn display(&self, tcx: &TypeCtx) -> String {
         display_type(&self.normalize(tcx), tcx)
     }
@@ -106,11 +105,13 @@ impl DisplayType for FunctionType {
             "fn({}{}) -> {}",
             self.params
                 .iter()
-                .map(|p| format!(
+                .filter(|param| !symbols::is_implicitly_generated_param(&param.name))
+                .map(|param| format!(
                     "{}: {}{}",
-                    p.name,
-                    display_type(&p.ty, tcx),
-                    p.default_value
+                    param.name,
+                    display_type(&param.ty, tcx),
+                    param
+                        .default_value
                         .as_ref()
                         .map(|v| format!(" = {}", v.display(tcx)))
                         .unwrap_or_default(),

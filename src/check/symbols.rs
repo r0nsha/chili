@@ -18,3 +18,7 @@ pub const SYM_STR: &str = "str";
 pub const SYM_NEVER: &str = "never";
 
 pub const SYM_TRACK_CALLER_LOCATION_PARAM: &str = "track_caller@location";
+
+pub fn is_implicitly_generated_param(name: &str) -> bool {
+    name == SYM_TRACK_CALLER_LOCATION_PARAM
+}

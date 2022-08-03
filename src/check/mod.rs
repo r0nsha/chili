@@ -1,10 +1,10 @@
 mod attrs;
-mod builtin;
 mod const_fold;
 mod entry;
 mod env;
 mod lvalue_access;
 mod pattern;
+pub mod symbols;
 mod top_level;
 
 use self::pattern::get_qualified_name;
@@ -215,29 +215,29 @@ impl<'s> CheckSess<'s> {
             sess.builtin_types.insert(name, id);
         };
 
-        mk(self, builtin::SYM_UNIT, self.tcx.common_types.unit);
-        mk(self, builtin::SYM_BOOL, self.tcx.common_types.bool);
+        mk(self, symbols::SYM_UNIT, self.tcx.common_types.unit);
+        mk(self, symbols::SYM_BOOL, self.tcx.common_types.bool);
 
-        mk(self, builtin::SYM_I8, self.tcx.common_types.i8);
-        mk(self, builtin::SYM_I16, self.tcx.common_types.i16);
-        mk(self, builtin::SYM_I32, self.tcx.common_types.i32);
-        mk(self, builtin::SYM_I64, self.tcx.common_types.i64);
-        mk(self, builtin::SYM_INT, self.tcx.common_types.int);
+        mk(self, symbols::SYM_I8, self.tcx.common_types.i8);
+        mk(self, symbols::SYM_I16, self.tcx.common_types.i16);
+        mk(self, symbols::SYM_I32, self.tcx.common_types.i32);
+        mk(self, symbols::SYM_I64, self.tcx.common_types.i64);
+        mk(self, symbols::SYM_INT, self.tcx.common_types.int);
 
-        mk(self, builtin::SYM_U8, self.tcx.common_types.u8);
-        mk(self, builtin::SYM_U16, self.tcx.common_types.u16);
-        mk(self, builtin::SYM_U32, self.tcx.common_types.u32);
-        mk(self, builtin::SYM_U64, self.tcx.common_types.u64);
-        mk(self, builtin::SYM_UINT, self.tcx.common_types.uint);
+        mk(self, symbols::SYM_U8, self.tcx.common_types.u8);
+        mk(self, symbols::SYM_U16, self.tcx.common_types.u16);
+        mk(self, symbols::SYM_U32, self.tcx.common_types.u32);
+        mk(self, symbols::SYM_U64, self.tcx.common_types.u64);
+        mk(self, symbols::SYM_UINT, self.tcx.common_types.uint);
 
-        mk(self, builtin::SYM_F16, self.tcx.common_types.f16);
-        mk(self, builtin::SYM_F32, self.tcx.common_types.f32);
-        mk(self, builtin::SYM_F64, self.tcx.common_types.f64);
-        mk(self, builtin::SYM_FLOAT, self.tcx.common_types.float);
+        mk(self, symbols::SYM_F16, self.tcx.common_types.f16);
+        mk(self, symbols::SYM_F32, self.tcx.common_types.f32);
+        mk(self, symbols::SYM_F64, self.tcx.common_types.f64);
+        mk(self, symbols::SYM_FLOAT, self.tcx.common_types.float);
 
-        mk(self, builtin::SYM_NEVER, self.tcx.common_types.never);
+        mk(self, symbols::SYM_NEVER, self.tcx.common_types.never);
 
-        mk(self, builtin::SYM_STR, self.tcx.common_types.str);
+        mk(self, symbols::SYM_STR, self.tcx.common_types.str);
     }
 
     pub(super) fn is_lvalue(&self, node: &hir::Node) -> bool {
@@ -2551,7 +2551,7 @@ impl Check for ast::Call {
                 // If the function was annotated by track_caller, its first parameter
                 // should be the inserted location parameter: track_caller@location
                 if let Some(param) = function_type.params.first() {
-                    if param.name == builtin::SYM_TRACK_CALLER_LOCATION_PARAM {
+                    if param.name == symbols::SYM_TRACK_CALLER_LOCATION_PARAM {
                         let value = sess.build_location_value(env, self.span)?;
                         let ty = sess.location_type()?;
 
@@ -2644,7 +2644,7 @@ impl Check for ast::Call {
                                     .with_label(Label::primary(self.span, "cannot be used within the current scope"))
                             };
 
-                            match env.find_binding(ustr(builtin::SYM_TRACK_CALLER_LOCATION_PARAM)) {
+                            match env.find_binding(ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM)) {
                                 Some(id) => match sess.function_frame() {
                                     Some(frame) => {
                                         let binding_info = sess.workspace.binding_infos.get(id).unwrap();
@@ -3256,10 +3256,8 @@ fn check_function<'s>(
     let mut param_bind_statements: Vec<hir::Node> = vec![];
 
     for (index, param_type) in function_type.params.iter().enumerate() {
-        let is_implicitly_generated_param = param_type.name == builtin::SYM_TRACK_CALLER_LOCATION_PARAM;
-
         let (param, bound_node) = match sig.params.get(index) {
-            Some(param) if !is_implicitly_generated_param => {
+            Some(param) if !symbols::is_implicitly_generated_param(&param_type.name) => {
                 let ty = sess.tcx.bound(
                     param_type.ty.clone(),
                     param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
@@ -3468,7 +3466,7 @@ fn check_function_sig<'s>(
     // Whenever a function declaration is annotated with @track_caller, we implicitly
     // insert a location parameter at the start - track_caller@location: Location
     if track_caller {
-        let name = ustr(builtin::SYM_TRACK_CALLER_LOCATION_PARAM);
+        let name = ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM);
         let ty = sess.location_type()?.normalize(&sess.tcx);
 
         if let Some(already_defined_span) = defined_params.insert(name, sig.span) {
