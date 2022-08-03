@@ -117,7 +117,7 @@ impl<'a> CollectHints<'a> for hir::Function {
                         sess.push_hint(binding_info.span, ty.display(&sess.tcx), HintKind::Binding)
                     } else if binding_info
                         .flags
-                        .contains(BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER)
+                        .contains(BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM)
                     {
                         let index_after_fn_kw = self.span.start.index + 2;
                         let span_after_fn_kw = self

@@ -1202,13 +1202,13 @@ impl Check for ast::Ast {
                             if binding_info.const_value.is_none() {
                                 let binding_ty = binding_info.ty.normalize(&sess.tcx);
 
-                                let min_scope_level =
+                                let function_scope =
                                     sess.function_frame().map_or(ScopeLevel::Global, |f| f.scope_level);
 
                                 if !binding_ty.is_type()
                                     && !binding_ty.is_module()
                                     && !binding_info.scope_level.is_global()
-                                    && binding_info.scope_level < min_scope_level
+                                    && binding_info.scope_level < function_scope
                                 {
                                     return Err(Diagnostic::error()
                                         .with_message("can't capture environment - closures are not implemented yet")
@@ -2482,7 +2482,7 @@ impl Check for ast::Call {
                 let function = sess.cache.functions.get(f.id).unwrap();
                 match &function.kind {
                     hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
-                        hir::Intrinsic::Location => Some(*intrinsic),
+                        hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => Some(*intrinsic),
                         hir::Intrinsic::StartWorkspace => None,
                     },
                     _ => None,
@@ -2544,8 +2544,6 @@ impl Check for ast::Call {
                         ))
                         .with_note(format!("function is of type `{}`", function_type.display(&sess.tcx)))
                 }
-
-                // builtin::SYM_TRACK_CALLER_LOCATION_PARAM
 
                 let mut args = vec![];
                 let mut param_offset = 0;
@@ -2622,24 +2620,59 @@ impl Check for ast::Call {
 
                 validate_call_args(sess, &args)?;
 
-                let return_type = sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span);
+                let ty = sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span);
 
                 if let Some(intrinsic) = is_callee_const_intrinsic(sess, &callee) {
-                    let value = match intrinsic {
-                        hir::Intrinsic::Location => sess.build_location_value(env, self.span)?,
-                        hir::Intrinsic::StartWorkspace => unreachable!(),
-                    };
+                    match intrinsic {
+                        hir::Intrinsic::Location => {
+                            let value = sess.build_location_value(env, self.span)?;
 
-                    Ok(hir::Node::Const(hir::Const {
-                        value,
-                        ty: return_type,
-                        span: self.span,
-                    }))
+                            Ok(hir::Node::Const(hir::Const {
+                                value,
+                                ty,
+                                span: self.span,
+                            }))
+                        }
+                        hir::Intrinsic::CallerLocation => {
+                            let invalid_scope_err = || {
+                                Diagnostic::error()
+                                    .with_message(format!(
+                                        "`{}` can only be used in a function annotated with @{}",
+                                        hir::INTRINSIC_NAME_CALLER_LOCATION,
+                                        hir::attrs::ATTR_NAME_TRACK_CALLER,
+                                    ))
+                                    .with_label(Label::primary(self.span, "cannot be used within the current scope"))
+                            };
+
+                            match env.find_binding(ustr(builtin::SYM_TRACK_CALLER_LOCATION_PARAM)) {
+                                Some(id) => match sess.function_frame() {
+                                    Some(frame) => {
+                                        let binding_info = sess.workspace.binding_infos.get(id).unwrap();
+
+                                        if env.scope_level() >= frame.scope_level
+                                            && binding_info.scope_level == frame.scope_level
+                                        {
+                                            Ok(hir::Node::Id(hir::Id {
+                                                id,
+                                                ty,
+                                                span: self.span,
+                                            }))
+                                        } else {
+                                            Err(invalid_scope_err())
+                                        }
+                                    }
+                                    None => Err(invalid_scope_err()),
+                                },
+                                None => Err(invalid_scope_err()),
+                            }
+                        }
+                        hir::Intrinsic::StartWorkspace => unreachable!(),
+                    }
                 } else {
                     Ok(hir::Node::Call(hir::Call {
                         callee: Box::new(callee),
                         args,
-                        ty: return_type,
+                        ty,
                         span: self.span,
                     }))
                 }
@@ -3223,8 +3256,10 @@ fn check_function<'s>(
     let mut param_bind_statements: Vec<hir::Node> = vec![];
 
     for (index, param_type) in function_type.params.iter().enumerate() {
-        match sig.params.get(index) {
-            Some(param) => {
+        let is_implicitly_generated_param = param_type.name == builtin::SYM_TRACK_CALLER_LOCATION_PARAM;
+
+        let (param, bound_node) = match sig.params.get(index) {
+            Some(param) if !is_implicitly_generated_param => {
                 let ty = sess.tcx.bound(
                     param_type.ty.clone(),
                     param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
@@ -3245,20 +3280,16 @@ fn check_function<'s>(
                     },
                 )?;
 
-                params.push(hir::FunctionParam {
-                    id: bound_id,
-                    ty,
-                    span: param.pattern.span(),
-                });
-
-                // If this is a single statement, we ignore it,
-                // As it doesn't include any destructuring statements.
-                match bound_node.into_sequence() {
-                    Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                    Err(_) => (),
-                }
+                (
+                    hir::FunctionParam {
+                        id: bound_id,
+                        ty,
+                        span: param.pattern.span(),
+                    },
+                    bound_node,
+                )
             }
-            None => {
+            _ => {
                 // This parameter was inserted implicitly
                 let span = sig.span;
                 let ty = sess.tcx.bound(param_type.ty.clone(), span);
@@ -3272,18 +3303,24 @@ fn check_function<'s>(
                     false,
                     BindingInfoKind::Orphan,
                     span,
-                    BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
+                    if is_implicitly_generated_param {
+                        BindingInfoFlags::empty()
+                    } else {
+                        BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM
+                    },
                 )?;
 
-                params.push(hir::FunctionParam { id: bound_id, ty, span });
-
-                // If this is a single statement, we ignore it,
-                // As it doesn't include any destructuring statements.
-                match bound_node.into_sequence() {
-                    Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                    Err(_) => (),
-                }
+                (hir::FunctionParam { id: bound_id, ty, span }, bound_node)
             }
+        };
+
+        params.push(param);
+
+        // If this is a single statement, we ignore it,
+        // As it doesn't include any destructuring statements.
+        match bound_node.into_sequence() {
+            Ok(sequence) => param_bind_statements.extend(sequence.statements),
+            Err(_) => (),
         }
     }
 

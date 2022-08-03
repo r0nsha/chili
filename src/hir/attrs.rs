@@ -59,11 +59,11 @@ pub enum AttrKind {
     TrackCaller,
 }
 
-const ATTR_NAME_INTRINSIC: &str = "intrinsic";
-const ATTR_NAME_LIB: &str = "lib";
-const ATTR_NAME_DYLIB: &str = "dylib";
-const ATTR_NAME_LINK_NAME: &str = "link_name";
-const ATTR_NAME_TRACK_CALLER: &str = "track_caller";
+pub const ATTR_NAME_INTRINSIC: &str = "intrinsic";
+pub const ATTR_NAME_LIB: &str = "lib";
+pub const ATTR_NAME_DYLIB: &str = "dylib";
+pub const ATTR_NAME_LINK_NAME: &str = "link_name";
+pub const ATTR_NAME_TRACK_CALLER: &str = "track_caller";
 
 impl TryFrom<&str> for AttrKind {
     type Error = ();

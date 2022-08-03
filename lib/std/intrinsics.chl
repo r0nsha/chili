@@ -11,3 +11,6 @@ pub type Location = struct {
 
 @intrinsic
 pub extern fn location() -> Location;
+
+@intrinsic
+pub extern fn caller_location() -> Location;

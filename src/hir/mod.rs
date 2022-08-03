@@ -122,15 +122,21 @@ impl Function {
 pub enum Intrinsic {
     StartWorkspace,
     Location,
+    CallerLocation,
 }
+
+pub const INTRINSIC_NAME_START_WORKSPACE: &str = "start_workspace";
+pub const INTRINSIC_NAME_LOCATION: &str = "location";
+pub const INTRINSIC_NAME_CALLER_LOCATION: &str = "caller_location";
 
 impl TryFrom<&str> for Intrinsic {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "start_workspace" => Ok(Intrinsic::StartWorkspace),
-            "location" => Ok(Intrinsic::Location),
+            INTRINSIC_NAME_START_WORKSPACE => Ok(Intrinsic::StartWorkspace),
+            INTRINSIC_NAME_LOCATION => Ok(Intrinsic::Location),
+            INTRINSIC_NAME_CALLER_LOCATION => Ok(Intrinsic::CallerLocation),
             _ => Err(()),
         }
     }
@@ -138,10 +144,15 @@ impl TryFrom<&str> for Intrinsic {
 
 impl Display for Intrinsic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Intrinsic::StartWorkspace => write!(f, "start_workspace"),
-            Intrinsic::Location => write!(f, "location"),
-        }
+        write!(
+            f,
+            "{}",
+            match self {
+                Intrinsic::StartWorkspace => INTRINSIC_NAME_START_WORKSPACE,
+                Intrinsic::Location => INTRINSIC_NAME_LOCATION,
+                Intrinsic::CallerLocation => INTRINSIC_NAME_CALLER_LOCATION,
+            }
+        )
     }
 }
 
