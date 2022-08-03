@@ -397,7 +397,7 @@ impl<'s> CheckSess<'s> {
                     for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-                        if binding_info.visibility.is_private() {
+                        if binding_info.visibility == ast::Visibility::Private {
                             continue;
                         }
 

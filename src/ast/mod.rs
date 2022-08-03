@@ -587,12 +587,6 @@ impl Default for Visibility {
     }
 }
 
-impl Visibility {
-    pub fn is_private(&self) -> bool {
-        matches!(self, Visibility::Private)
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attr {
     pub name: NameAndSpan,
