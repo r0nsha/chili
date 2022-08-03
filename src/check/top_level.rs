@@ -2,7 +2,7 @@ use super::{Check, CheckSess, QueuedModule};
 use crate::{
     ast::{
         self,
-        pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard},
+        pattern::{HybridPattern, NamePattern, Pattern, StructUnpackPattern, UnpackPatternKind, Wildcard},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -210,7 +210,7 @@ impl<'s> CheckSess<'s> {
                                     is_mutable: false,
                                     ignore: false,
                                 },
-                                unpack_pattern: UnpackPatternKind::Struct(UnpackPattern {
+                                unpack_pattern: UnpackPatternKind::Struct(StructUnpackPattern {
                                     symbols: vec![],
                                     span,
                                     wildcard: Some(Wildcard { span }),

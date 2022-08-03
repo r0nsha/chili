@@ -1,3 +1,5 @@
 fn main = {
+    let ((first, last), age) = (("Ron", "Shavit"), 26);
+    std.c.printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age);
     println("Hello World");
 };

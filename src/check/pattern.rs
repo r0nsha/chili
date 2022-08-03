@@ -6,7 +6,7 @@ use super::{
 use crate::{
     ast::{
         self,
-        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
+        pattern::{NamePattern, Pattern, StructUnpackPattern, TupleUnpackPattern, UnpackPatternKind},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -183,15 +183,13 @@ impl<'s> CheckSess<'s> {
             Pattern::StructUnpack(pattern) => {
                 let mut statements = vec![];
 
-                let name = self.generate_name("v");
                 let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
-                    name,
                     visibility,
                     ty,
                     value,
                     kind,
-                    pattern,
+                    pattern.span,
                     &mut statements,
                     flags,
                 )?;
@@ -221,15 +219,13 @@ impl<'s> CheckSess<'s> {
             Pattern::TupleUnpack(pattern) => {
                 let mut statements = vec![];
 
-                let name = self.generate_name("v");
                 let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
-                    name,
                     visibility,
                     ty,
                     value,
                     kind,
-                    pattern,
+                    pattern.span,
                     &mut statements,
                     flags,
                 )?;
@@ -239,7 +235,6 @@ impl<'s> CheckSess<'s> {
                     env,
                     pattern,
                     visibility,
-                    ty,
                     id_node,
                     kind,
                     ty_origin_span,
@@ -281,7 +276,6 @@ impl<'s> CheckSess<'s> {
                         env,
                         pattern,
                         visibility,
-                        ty,
                         id_node,
                         kind,
                         ty_origin_span,
@@ -305,15 +299,16 @@ impl<'s> CheckSess<'s> {
     fn bind_temp_name_for_unpack_pattern(
         &mut self,
         env: &mut Env,
-        name: Ustr,
         visibility: ast::Visibility,
         ty: TypeId,
         value: Option<hir::Node>,
         kind: BindingInfoKind,
-        pattern: &UnpackPattern,
+        span: Span,
         statements: &mut Vec<hir::Node>,
         flags: BindingInfoFlags,
     ) -> Result<(BindingId, hir::Node), Diagnostic> {
+        let name = self.generate_name("v");
+
         let (id, bound_node) = self.bind_name(
             env,
             name,
@@ -322,7 +317,7 @@ impl<'s> CheckSess<'s> {
             value,
             false,
             kind,
-            pattern.span,
+            span,
             flags - BindingInfoFlags::IS_USER_DEFINED,
         )?;
 
@@ -347,7 +342,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        unpack_pattern: &UnpackPattern,
+        unpack_pattern: &StructUnpackPattern,
         visibility: ast::Visibility,
         ty: TypeId,
         value: hir::Node,
@@ -541,21 +536,24 @@ impl<'s> CheckSess<'s> {
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        pattern: &UnpackPattern,
+        pattern: &TupleUnpackPattern,
         visibility: ast::Visibility,
-        ty: TypeId,
         value: hir::Node,
         kind: BindingInfoKind,
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
-        let elements = pattern
-            .symbols
-            .iter()
-            .map(|symbol| self.tcx.var(symbol.span).as_kind())
-            .collect::<Vec<Type>>();
+        let ty = value.ty();
 
-        let partial_tuple = self.tcx.partial_tuple(elements.clone(), pattern.span);
+        let element_types: Vec<TypeId> = pattern
+            .sub_patterns
+            .iter()
+            .map(|pattern| self.tcx.var(pattern.span()))
+            .collect();
+
+        let partial_tuple = self
+            .tcx
+            .partial_tuple(element_types.iter().map(TypeId::as_kind).collect(), pattern.span);
 
         ty.unify(&partial_tuple, &mut self.tcx).or_report_err(
             &self.tcx,
@@ -565,11 +563,9 @@ impl<'s> CheckSess<'s> {
             ty_origin_span,
         )?;
 
-        for (index, pattern) in pattern.symbols.iter().enumerate() {
-            let ty = self.tcx.bound(elements[index].clone(), pattern.span);
-
-            let element_value = match value.as_const_value() {
-                Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {
+        for ((index, sub_pattern), &ty) in pattern.sub_patterns.iter().enumerate().zip(element_types.iter()) {
+            let element_value = |pattern: &Pattern| match value.as_const_value() {
+                Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
                     value: const_value.as_tuple().unwrap()[index].value.clone(),
                     ty,
                     span: value.span(),
@@ -583,13 +579,16 @@ impl<'s> CheckSess<'s> {
                 }),
             };
 
-            let (_, bound_node) = self.bind_name_pattern(
+            let element_value = element_value(sub_pattern);
+
+            let (_, bound_node) = self.bind_pattern(
                 env,
-                pattern,
+                sub_pattern,
                 visibility,
                 ty,
                 Some(element_value),
                 kind,
+                ty_origin_span,
                 flags | BindingInfoFlags::TYPE_WAS_INFERRED,
             )?;
 

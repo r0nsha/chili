@@ -1,5 +1,7 @@
 use super::*;
-use crate::ast::pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard};
+use crate::ast::pattern::{
+    HybridPattern, NamePattern, Pattern, StructUnpackPattern, TupleUnpackPattern, UnpackPatternKind, Wildcard,
+};
 use crate::error::SyntaxError;
 use crate::span::To;
 use crate::workspace::BindingId;
@@ -39,7 +41,7 @@ impl Parser {
             self.parse_tuple_unpack()
         } else if eat!(self, Star) {
             let span = self.previous_span();
-            Ok(Pattern::StructUnpack(UnpackPattern {
+            Ok(Pattern::StructUnpack(StructUnpackPattern {
                 symbols: vec![],
                 span,
                 wildcard: Some(Wildcard { span }),
@@ -90,27 +92,22 @@ impl Parser {
             }
         }
 
-        let unpack = UnpackPattern {
+        Ok(Pattern::StructUnpack(StructUnpackPattern {
             symbols,
             span: start_span.to(self.previous_span()),
             wildcard: wildcard_span.map(|span| Wildcard { span }),
-        };
-
-        Ok(Pattern::StructUnpack(unpack))
+        }))
     }
 
     fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous_span();
 
-        let symbols = parse_delimited_list!(self, CloseParen, Comma, self.parse_name_pattern()?, ", or )");
+        let sub_patterns = parse_delimited_list!(self, CloseParen, Comma, self.parse_pattern()?, ", or )");
 
-        let unpack = UnpackPattern {
-            symbols,
+        Ok(Pattern::TupleUnpack(TupleUnpackPattern {
+            sub_patterns,
             span: start_span.to(self.previous_span()),
-            wildcard: None,
-        };
-
-        Ok(Pattern::TupleUnpack(unpack))
+        }))
     }
 
     pub fn parse_name_pattern(&mut self) -> DiagnosticResult<NamePattern> {

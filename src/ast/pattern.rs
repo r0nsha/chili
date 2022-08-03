@@ -6,16 +6,22 @@ use ustr::Ustr;
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Pattern {
     Name(NamePattern),
-    StructUnpack(UnpackPattern),
-    TupleUnpack(UnpackPattern),
+    StructUnpack(StructUnpackPattern),
+    TupleUnpack(TupleUnpackPattern),
     Hybrid(HybridPattern),
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct UnpackPattern {
+pub struct StructUnpackPattern {
     pub symbols: Vec<NamePattern>,
     pub span: Span,
     pub wildcard: Option<Wildcard>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TupleUnpackPattern {
+    pub sub_patterns: Vec<Pattern>,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -25,16 +31,8 @@ pub struct Wildcard {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnpackPatternKind {
-    Struct(UnpackPattern),
-    Tuple(UnpackPattern),
-}
-
-impl UnpackPatternKind {
-    pub fn as_inner(&self) -> &UnpackPattern {
-        match self {
-            UnpackPatternKind::Struct(p) | UnpackPatternKind::Tuple(p) => p,
-        }
-    }
+    Struct(StructUnpackPattern),
+    Tuple(TupleUnpackPattern),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -48,13 +46,17 @@ impl Pattern {
     pub fn span(&self) -> Span {
         match self {
             Pattern::Name(p) => p.span,
-            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.span,
+            Pattern::StructUnpack(p) => p.span,
+            Pattern::TupleUnpack(p) => p.span,
             Pattern::Hybrid(p) => p.span,
         }
     }
 
     pub fn iter(&self) -> PatternIter {
-        PatternIter { pattern: self, pos: 0 }
+        PatternIter {
+            patterns: vec![self],
+            positions: vec![0],
+        }
     }
 
     #[allow(unused)]
@@ -66,41 +68,73 @@ impl Pattern {
     pub fn count(&self) -> usize {
         match self {
             Pattern::Name(_) => 1,
-            Pattern::StructUnpack(p) | Pattern::TupleUnpack(p) => p.symbols.len(),
-            Pattern::Hybrid(p) => {
-                let unpack_pattern = match &p.unpack_pattern {
-                    UnpackPatternKind::Struct(p) => p,
-                    UnpackPatternKind::Tuple(p) => p,
-                };
-
-                1 + unpack_pattern.symbols.len()
-            }
+            Pattern::StructUnpack(p) => p.symbols.len(),
+            Pattern::TupleUnpack(p) => p.sub_patterns.len(),
+            Pattern::Hybrid(p) => match &p.unpack_pattern {
+                UnpackPatternKind::Struct(p) => 1 + p.symbols.len(),
+                UnpackPatternKind::Tuple(p) => 1 + p.sub_patterns.len(),
+            },
         }
+    }
+
+    pub fn is_mutable(&self) -> bool {
+        self.iter().any(|p| p.is_mutable)
     }
 }
 
 pub struct PatternIter<'a> {
-    pattern: &'a Pattern,
-    pos: usize,
+    patterns: Vec<&'a Pattern>,
+    positions: Vec<usize>,
+}
+
+impl<'a> PatternIter<'a> {
+    fn push(&mut self, pattern: &'a Pattern) {
+        self.patterns.push(pattern);
+        self.positions.push(0);
+    }
+
+    fn pop(&mut self) {
+        self.patterns.pop();
+        self.positions.pop();
+    }
+
+    fn handle_tuple_unpack(&mut self, pattern: &'a TupleUnpackPattern, pos: usize) -> Option<<Self as Iterator>::Item> {
+        match pattern.sub_patterns.get(pos) {
+            Some(pattern) => {
+                *self.positions.last_mut().unwrap() += 1;
+                self.push(pattern);
+            }
+            None => self.pop(),
+        }
+
+        self.next()
+    }
 }
 
 impl<'a> Iterator for PatternIter<'a> {
     type Item = &'a NamePattern;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let item = match &self.pattern {
-            Pattern::Name(pattern) => match self.pos {
+        let pattern = self.patterns.last().unwrap();
+        let pos = *self.positions.last_mut().unwrap();
+
+        let item = match pattern {
+            Pattern::Name(pattern) => match pos {
                 0 => Some(pattern),
                 _ => None,
             },
-            Pattern::StructUnpack(pattern) | Pattern::TupleUnpack(pattern) => pattern.symbols.get(self.pos),
-            Pattern::Hybrid(pattern) => match self.pos {
+            Pattern::StructUnpack(pattern) => pattern.symbols.get(pos),
+            Pattern::TupleUnpack(pattern) => self.handle_tuple_unpack(pattern, pos),
+            Pattern::Hybrid(pattern) => match pos {
                 0 => Some(&pattern.name_pattern),
-                _ => pattern.unpack_pattern.as_inner().symbols.get(self.pos - 1),
+                _ => match &pattern.unpack_pattern {
+                    UnpackPatternKind::Struct(pattern) => pattern.symbols.get(pos - 1),
+                    UnpackPatternKind::Tuple(pattern) => self.handle_tuple_unpack(pattern, pos),
+                },
             },
         };
 
-        self.pos += 1;
+        *self.positions.last_mut().unwrap() += 1;
 
         item
     }
@@ -113,14 +147,14 @@ impl Display for Pattern {
             "{}",
             match self {
                 Pattern::Name(pattern) => pattern.to_string(),
-                Pattern::StructUnpack(pattern) => format!("{{ {} }}", pattern),
-                Pattern::TupleUnpack(pattern) => format!("({})", pattern),
+                Pattern::StructUnpack(pattern) => pattern.to_string(),
+                Pattern::TupleUnpack(pattern) => pattern.to_string(),
                 Pattern::Hybrid(pattern) => format!(
                     "{} @ {}",
                     pattern.name_pattern,
                     match &pattern.unpack_pattern {
-                        UnpackPatternKind::Struct(pattern) => format!("{{ {} }}", pattern),
-                        UnpackPatternKind::Tuple(pattern) => format!("({})", pattern),
+                        UnpackPatternKind::Struct(pattern) => pattern.to_string(),
+                        UnpackPatternKind::Tuple(pattern) => pattern.to_string(),
                     }
                 ),
             }
@@ -128,12 +162,26 @@ impl Display for Pattern {
     }
 }
 
-impl Display for UnpackPattern {
+impl Display for StructUnpackPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}",
+            "{{ {} }}",
             self.symbols
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+impl Display for TupleUnpackPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({})",
+            self.sub_patterns
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>()
