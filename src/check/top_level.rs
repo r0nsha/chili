@@ -211,7 +211,7 @@ impl<'s> CheckSess<'s> {
                                     ignore: false,
                                 },
                                 unpack_pattern: UnpackPatternKind::Struct(StructUnpackPattern {
-                                    symbols: vec![],
+                                    sub_patterns: vec![],
                                     span,
                                     wildcard: Some(Wildcard { span }),
                                 }),

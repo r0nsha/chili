@@ -13,7 +13,7 @@ pub enum Pattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructUnpackPattern {
-    pub symbols: Vec<NamePattern>,
+    pub sub_patterns: Vec<NamePattern>,
     pub span: Span,
     pub wildcard: Option<Wildcard>,
 }
@@ -68,10 +68,10 @@ impl Pattern {
     pub fn count(&self) -> usize {
         match self {
             Pattern::Name(_) => 1,
-            Pattern::StructUnpack(p) => p.symbols.len(),
+            Pattern::StructUnpack(p) => p.sub_patterns.len(),
             Pattern::TupleUnpack(p) => p.sub_patterns.len(),
             Pattern::Hybrid(p) => match &p.unpack_pattern {
-                UnpackPatternKind::Struct(p) => 1 + p.symbols.len(),
+                UnpackPatternKind::Struct(p) => 1 + p.sub_patterns.len(),
                 UnpackPatternKind::Tuple(p) => 1 + p.sub_patterns.len(),
             },
         }
@@ -123,12 +123,12 @@ impl<'a> Iterator for PatternIter<'a> {
                 0 => Some(pattern),
                 _ => None,
             },
-            Pattern::StructUnpack(pattern) => pattern.symbols.get(pos),
+            Pattern::StructUnpack(pattern) => pattern.sub_patterns.get(pos),
             Pattern::TupleUnpack(pattern) => self.handle_tuple_unpack(pattern, pos),
             Pattern::Hybrid(pattern) => match pos {
                 0 => Some(&pattern.name_pattern),
                 _ => match &pattern.unpack_pattern {
-                    UnpackPatternKind::Struct(pattern) => pattern.symbols.get(pos - 1),
+                    UnpackPatternKind::Struct(pattern) => pattern.sub_patterns.get(pos - 1),
                     UnpackPatternKind::Tuple(pattern) => self.handle_tuple_unpack(pattern, pos),
                 },
             },
@@ -167,7 +167,7 @@ impl Display for StructUnpackPattern {
         write!(
             f,
             "{{ {} }}",
-            self.symbols
+            self.sub_patterns
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>()

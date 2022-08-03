@@ -231,20 +231,18 @@ impl Parser {
 
     pub fn parse_primary(&mut self) -> DiagnosticResult<Ast> {
         let expr = if eat!(self, Ident(_)) {
-            const SELF_SYMBOL: &str = "Self";
+            // TODO: `Self` should be a keyword
+            const SYM_SELF: &str = "Self";
 
             let token = self.previous().clone();
-            let symbol = token.name();
+            let name = token.name();
 
-            if symbol == SELF_SYMBOL {
+            if name == SYM_SELF {
                 Ast::SelfType(ast::Empty { span: token.span })
             } else if eat!(self, Bang) {
-                self.parse_builtin(symbol, token.span)?
+                self.parse_builtin(name, token.span)?
             } else {
-                Ast::Ident(ast::Ident {
-                    name: symbol,
-                    span: token.span,
-                })
+                Ast::Ident(ast::Ident { name, span: token.span })
             }
         } else if eat!(self, Placeholder) {
             Ast::Placeholder(ast::Empty {
@@ -431,10 +429,10 @@ impl Parser {
         Ok(fields)
     }
 
-    fn parse_builtin(&mut self, symbol: Ustr, start_span: Span) -> DiagnosticResult<Ast> {
+    fn parse_builtin(&mut self, name: Ustr, start_span: Span) -> DiagnosticResult<Ast> {
         require!(self, OpenParen, "(")?;
 
-        let kind = match symbol.as_str() {
+        let kind = match name.as_str() {
             "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
             "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
             name => {

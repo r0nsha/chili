@@ -42,7 +42,7 @@ impl Parser {
         } else if eat!(self, Star) {
             let span = self.previous_span();
             Ok(Pattern::StructUnpack(StructUnpackPattern {
-                symbols: vec![],
+                sub_patterns: vec![],
                 span,
                 wildcard: Some(Wildcard { span }),
             }))
@@ -54,7 +54,7 @@ impl Parser {
     fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous_span();
 
-        let mut symbols = vec![];
+        let mut sub_patterns = vec![];
         let mut wildcard_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.is_end() {
@@ -63,23 +63,23 @@ impl Parser {
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
-                let mut symbol = self.parse_name_pattern()?;
+                let mut pattern = self.parse_name_pattern()?;
 
                 // This means the user used `_`, instead of `x: _` - which is illegal
-                if symbol.ignore {
-                    return Err(SyntaxError::expected(symbol.span, "an identifier, ? or }"));
+                if pattern.ignore {
+                    return Err(SyntaxError::expected(pattern.span, "an identifier, ? or }"));
                 }
 
                 if eat!(self, Colon) {
                     if eat!(self, Placeholder) {
-                        symbol.ignore = true;
+                        pattern.ignore = true;
                     } else {
                         let id_token = require!(self, Ident(_), "an identifier")?;
-                        symbol.alias = Some(id_token.name());
+                        pattern.alias = Some(id_token.name());
                     }
                 }
 
-                symbols.push(symbol);
+                sub_patterns.push(pattern);
 
                 if eat!(self, Comma) {
                     continue;
@@ -93,7 +93,7 @@ impl Parser {
         }
 
         Ok(Pattern::StructUnpack(StructUnpackPattern {
-            symbols,
+            sub_patterns,
             span: start_span.to(self.previous_span()),
             wildcard: wildcard_span.map(|span| Wildcard { span }),
         }))
@@ -113,7 +113,7 @@ impl Parser {
     pub fn parse_name_pattern(&mut self) -> DiagnosticResult<NamePattern> {
         let is_mutable = eat!(self, Mut);
 
-        let (symbol, ignore) = if eat!(self, Ident(_)) {
+        let (name, ignore) = if eat!(self, Ident(_)) {
             (self.previous().name(), false)
         } else if eat!(self, Placeholder) {
             (ustr(Placeholder.lexeme()), true)
@@ -123,7 +123,7 @@ impl Parser {
 
         Ok(NamePattern {
             id: BindingId::unknown(),
-            name: symbol,
+            name,
             alias: None,
             is_mutable,
             span: self.previous_span(),

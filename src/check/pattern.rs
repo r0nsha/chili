@@ -360,7 +360,7 @@ impl<'s> CheckSess<'s> {
 
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
-                for pattern in unpack_pattern.symbols.iter() {
+                for pattern in unpack_pattern.sub_patterns.iter() {
                     let caller_info = CallerInfo {
                         module_id: env.module_id(),
                         span: pattern.span,
@@ -415,7 +415,7 @@ impl<'s> CheckSess<'s> {
             type_kind => {
                 let partial_struct = PartialStructType(IndexMap::from_iter(
                     unpack_pattern
-                        .symbols
+                        .sub_patterns
                         .iter()
                         .map(|pattern| (pattern.name, self.tcx.var(pattern.span).as_kind())),
                 ));
@@ -430,7 +430,7 @@ impl<'s> CheckSess<'s> {
                     ty_origin_span,
                 )?;
 
-                for (index, pattern) in unpack_pattern.symbols.iter().enumerate() {
+                for (index, pattern) in unpack_pattern.sub_patterns.iter().enumerate() {
                     let ty = self.tcx.bound(partial_struct[&pattern.name].clone(), pattern.span);
 
                     let field_value = match value.as_const_value() {
@@ -471,7 +471,12 @@ impl<'s> CheckSess<'s> {
                     match type_kind {
                         Type::Struct(struct_ty) => {
                             for (index, field) in struct_ty.fields.iter().enumerate() {
-                                if unpack_pattern.symbols.iter().find(|p| field.name == p.name).is_some() {
+                                if unpack_pattern
+                                    .sub_patterns
+                                    .iter()
+                                    .find(|p| field.name == p.name)
+                                    .is_some()
+                                {
                                     // skip explicitly unpacked fields
                                     continue;
                                 }

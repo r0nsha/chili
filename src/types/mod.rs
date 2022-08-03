@@ -194,8 +194,8 @@ impl PartialStructType {
             binding_id: Default::default(),
             fields: self
                 .iter()
-                .map(|(&symbol, ty)| StructTypeField {
-                    name: symbol,
+                .map(|(&name, ty)| StructTypeField {
+                    name,
                     ty: ty.clone(),
                     span: Span::unknown(),
                 })

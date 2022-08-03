@@ -185,9 +185,9 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                     Ok(())
                 }
                 Type::Struct(ref other_struct) => {
-                    for (symbol, ty) in partial_struct.iter() {
+                    for (name, ty) in partial_struct.iter() {
                         // if both the partial struct and the struct have this field, unify their types
-                        if let Some(other_ty) = other_struct.field(*symbol) {
+                        if let Some(other_ty) = other_struct.field(*name) {
                             ty.unify(&other_ty.ty, tcx)?;
                         } else {
                             // any field that exists in the partial struct, but doesn't exist in struct, is an error
@@ -200,22 +200,22 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                     Ok(())
                 }
                 Type::Module(module_id) => {
-                    // TODO: check that the symbols in this PartialStruct actually exist in this module
+                    // TODO: check that the names in this PartialStruct actually exist in this module
                     tcx.bind_ty(var, Type::Module(module_id));
                     Ok(())
                 }
                 Type::Infer(other, InferType::PartialStruct(ref other_partial)) => {
-                    for (symbol, ty) in partial_struct.iter() {
+                    for (name, ty) in partial_struct.iter() {
                         // if both partial structs have this field, unify their types
-                        if let Some(other_ty) = other_partial.get(symbol) {
+                        if let Some(other_ty) = other_partial.get(name) {
                             ty.unify(other_ty, tcx)?;
                         }
                     }
 
-                    for (symbol, ty) in other_partial.iter() {
+                    for (name, ty) in other_partial.iter() {
                         // if the other partial struct has fields that this struct doesn't, add them
-                        if !partial_struct.contains_key(symbol) {
-                            partial_struct.insert(*symbol, ty.clone());
+                        if !partial_struct.contains_key(name) {
+                            partial_struct.insert(*name, ty.clone());
                         }
                     }
 
