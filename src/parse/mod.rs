@@ -13,7 +13,7 @@ use crate::{
     error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
     span::{EndPosition, Position, Span, To},
     token::{lexer::Lexer, Token, TokenKind::*},
-    workspace::{ModuleInfo, PartialModuleInfo},
+    workspace::{library::Library, ModuleInfo, PartialModuleInfo},
 };
 use bitflags::bitflags;
 use parking_lot::{Mutex, MutexGuard};
@@ -121,7 +121,7 @@ pub struct Parser {
 pub struct ParserCache {
     pub root_file: PathBuf,
     pub root_dir: PathBuf,
-    pub std_dir: PathBuf,
+    pub std_library: Library,
     pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
     pub parsed_files: HashSet<Ustr>,

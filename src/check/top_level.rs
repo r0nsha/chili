@@ -11,7 +11,7 @@ use crate::{
     hir,
     span::Span,
     types::{Type, TypeId},
-    workspace::{compiler_info::STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
+    workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
 };
 use std::collections::HashSet;
 use ustr::{ustr, Ustr, UstrMap};
@@ -198,13 +198,13 @@ impl<'s> CheckSess<'s> {
                     if !module
                         .info
                         .file_path
-                        .starts_with(self.workspace.std_dir.to_str().unwrap())
+                        .starts_with(self.workspace.std_library().root_dir.to_str().unwrap())
                     {
                         self.with_env(module.id, |sess, mut env| {
                             let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
                                 name_pattern: NamePattern {
                                     id: BindingId::unknown(),
-                                    name: ustr(STD),
+                                    name: ustr(LIB_NAME_STD),
                                     alias: None,
                                     span,
                                     is_mutable: false,
@@ -222,7 +222,7 @@ impl<'s> CheckSess<'s> {
                                 .workspace
                                 .module_infos
                                 .iter()
-                                .position(|(_, module)| module.name == STD)
+                                .position(|(_, module)| module.name == LIB_NAME_STD)
                                 .map(ModuleId::from)
                                 .unwrap();
 

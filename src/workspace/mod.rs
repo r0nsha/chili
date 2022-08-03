@@ -15,9 +15,11 @@ use std::{
     cmp::Ordering,
     path::{Path, PathBuf},
 };
-use ustr::{ustr, Ustr};
+use ustr::{ustr, Ustr, UstrMap};
 
-pub mod compiler_info;
+use self::library::{Library, LIB_NAME_STD};
+
+pub mod library;
 
 pub struct Workspace {
     pub name: String,
@@ -32,7 +34,7 @@ pub struct Workspace {
     pub root_dir: PathBuf,
 
     // Std library's root directory
-    pub std_dir: PathBuf,
+    pub libraries: UstrMap<Library>,
 
     // The root module's id. Resolved after ast generation
     pub root_module_id: ModuleId,
@@ -189,17 +191,21 @@ bitflags! {
 }
 
 impl Workspace {
-    pub fn new(name: String, build_options: BuildOptions, root_dir: PathBuf, std_dir: PathBuf) -> Self {
+    pub fn new(name: String, build_options: BuildOptions, root_dir: PathBuf) -> Self {
         Self {
             name,
             diagnostics: Diagnostics::new(),
             build_options,
             root_dir,
-            std_dir,
+            libraries: UstrMap::from_iter([(ustr(LIB_NAME_STD), Library::std())]),
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
         }
+    }
+
+    pub fn std_library(&self) -> &Library {
+        self.libraries.get(&ustr(LIB_NAME_STD)).unwrap()
     }
 
     pub fn emit_diagnostics(&self) {

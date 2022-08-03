@@ -2,7 +2,7 @@ use crate::{
     ast,
     common::path::{try_resolve_relative_path, RelativeTo},
     parse::{spawn_parser, ParserCache, ParserResult},
-    workspace::{compiler_info, PartialModuleInfo, Workspace},
+    workspace::{library::LIB_NAME_STD, PartialModuleInfo, Workspace},
 };
 use parking_lot::Mutex;
 use std::{
@@ -49,7 +49,7 @@ fn generate_ast_inner(workspace: &mut Workspace, root_file: PathBuf) -> (Vec<ast
     let cache = Arc::new(Mutex::new(ParserCache {
         root_file: root_file.clone(),
         root_dir: workspace.root_dir.clone(),
-        std_dir: workspace.std_dir.clone(),
+        std_library: workspace.std_library().clone(),
         include_paths: workspace.build_options.include_paths.clone(),
         diagnostics: workspace.diagnostics.clone(),
         parsed_files: HashSet::new(),
@@ -66,8 +66,8 @@ fn generate_ast_inner(workspace: &mut Workspace, root_file: PathBuf) -> (Vec<ast
         tx.clone(),
         Arc::clone(&cache),
         PartialModuleInfo {
-            file_path: ustr(compiler_info::std_module_root_file().to_str().unwrap()),
-            name: ustr(compiler_info::STD),
+            file_path: ustr(workspace.std_library().root_file.to_str().unwrap()),
+            name: ustr(LIB_NAME_STD),
         },
     );
 
