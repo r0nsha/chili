@@ -506,6 +506,19 @@ pub struct Binding {
     pub span: Span,
 }
 
+impl Binding {
+    #[allow(unused)]
+    pub fn debug_name(&self) -> String {
+        match &self.kind {
+            BindingKind::Orphan { pattern, .. } => pattern.to_string(),
+            BindingKind::Function { name, .. }
+            | BindingKind::ExternFunction { name, .. }
+            | BindingKind::ExternVariable { name, .. }
+            | BindingKind::Type { name, .. } => name.name.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
     Orphan {

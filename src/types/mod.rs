@@ -153,15 +153,18 @@ pub struct StructType {
 }
 
 impl StructType {
-    pub fn find_field(&self, field: Ustr) -> Option<&StructTypeField> {
+    pub fn field(&self, name: impl AsRef<str>) -> Option<&StructTypeField> {
+        let field = name.as_ref();
         self.fields.iter().find(|f| f.name == field)
     }
 
-    pub fn find_field_position(&self, field: Ustr) -> Option<usize> {
+    pub fn field_position(&self, name: impl AsRef<str>) -> Option<usize> {
+        let field = name.as_ref();
         self.fields.iter().position(|f| f.name == field)
     }
 
-    pub fn find_field_full(&self, field: Ustr) -> Option<(usize, &StructTypeField)> {
+    pub fn field_and_position(&self, name: impl AsRef<str>) -> Option<(usize, &StructTypeField)> {
+        let field = name.as_ref();
         self.fields.iter().enumerate().find(|(_, f)| f.name == field)
     }
 }
@@ -547,6 +550,11 @@ impl Type {
 
     #[inline]
     pub fn str() -> Type {
+        Type::Slice(Box::new(Type::char()))
+    }
+
+    #[inline]
+    pub fn str_pointer() -> Type {
         Type::Pointer(Box::new(Type::Slice(Box::new(Type::char()))), false)
     }
 

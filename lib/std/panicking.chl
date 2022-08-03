@@ -1,26 +1,19 @@
 let { printf, exit } = import("std/c");
+let { caller_location } = import("std/intrinsics");
 
-type PanicInfo = struct {
-    message: str,
-    file_path: str,
-    line: uint,
-    column: uint,
-};
-
-fn default_panic_handler(info: PanicInfo) -> never = {
-    // TODO: use our own print routine.
-    let message = if info.message.len == 0 {
-        ""
-    } else {
-        info.message
-    };
+@track_caller
+pub fn panic(
+    fmt: *str = "unknown reason",
+) -> never = {
+    // TODO: use our own println function.
+    let location = caller_location();
 
     printf(
-        "panic: \"%s\" at %s:%d:%d\n".data, 
-        message.data,
-        info.file_path.data,
-        info.line,
-        info.column
+        "panic: \"%s\" at %s:%u:%u\n".data, 
+        fmt.data,
+        location.file.data,
+        location.line,
+        location.column
     );
 
     exit(1)

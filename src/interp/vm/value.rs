@@ -291,7 +291,7 @@ impl Buffer {
     }
 
     pub fn from_ustr(s: Ustr) -> Self {
-        let ty = Type::str();
+        let ty = Type::str_pointer();
         let size = ty.size_of(WORD_SIZE);
 
         let mut bytes = ByteSeq::new(size);
@@ -418,6 +418,10 @@ impl From<hir::Intrinsic> for IntrinsicFunction {
     fn from(intrinsic: hir::Intrinsic) -> Self {
         match intrinsic {
             hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
+            hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => panic!(
+                "intrinsic function '{}' should have been evaluated at compile-time",
+                intrinsic
+            ),
         }
     }
 }

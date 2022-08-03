@@ -229,18 +229,18 @@ async function validateTextDocument(
               break;
           }
 
-          if (file != tmpFile.name) {
-            continue;
+          const textDocument = documents.get(file);
+
+          if (textDocument) {
+            const range = spanToRange(textDocument, object.span);
+
+            diagnostics.push({
+              severity,
+              range,
+              message: object.message,
+              source: file,
+            });
           }
-
-          const range = spanToRange(textDocument, object.span);
-
-          diagnostics.push({
-            severity,
-            range,
-            message: object.message,
-            source: textDocument.uri.toString(),
-          });
         } else if (object.type == "Hint") {
           const file = object.span.file;
 

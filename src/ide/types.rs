@@ -1,7 +1,6 @@
-use std::fmt::Display;
-
 use crate::{span::Span, workspace::Workspace};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IdeSpan {

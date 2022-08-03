@@ -29,7 +29,7 @@ impl<'s> CheckSess<'s> {
     pub fn get_global_binding_id(&self, module_id: ModuleId, name: Ustr) -> Option<BindingId> {
         self.global_scopes
             .get(&module_id)
-            .and_then(|global_scope| global_scope.bindings.get(&name).cloned())
+            .and_then(|scope| scope.bindings.get(&name).cloned())
     }
 
     pub fn insert_global_binding_id(&mut self, module_id: ModuleId, name: Ustr, id: BindingId) {
@@ -99,9 +99,9 @@ impl<'s> CheckSess<'s> {
                         self.insert_global_binding_id(module_id, name, id);
                     } else if defined_binding_info.span != span {
                         return Err(SyntaxError::duplicate_binding(
-                            defined_binding_info.span,
-                            span,
                             defined_binding_info.name,
+                            span,
+                            defined_binding_info.span,
                         ));
                     }
                 } else {
@@ -357,9 +357,9 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tcx).maybe_deref_once() {
             Type::Module(module_id) => {
-                // TODO: This could cause bugs, need to check
-                //       that there is no way that the last statement isn't a binding
-                statements.pop();
+                // if let Some(b) = statements.last().map(|node| node.as_binding()).flatten() {
+                //     statements.pop();
+                // }
 
                 self.check_module_by_id(module_id)?;
 
@@ -376,7 +376,7 @@ impl<'s> CheckSess<'s> {
                         None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
                     };
 
-                    self.validate_can_access_item(id, caller_info)?;
+                    self.validate_item_visibility(id, caller_info)?;
 
                     let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
@@ -393,7 +393,7 @@ impl<'s> CheckSess<'s> {
                     statements.push(binding);
                 }
 
-                if let Some(_) = &unpack_pattern.wildcard {
+                if let Some(wildcard) = &unpack_pattern.wildcard {
                     for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
@@ -406,10 +406,10 @@ impl<'s> CheckSess<'s> {
                             binding_info.name,
                             visibility,
                             binding_info.ty,
-                            Some(self.id_or_const(binding_info, binding_info.span)),
+                            Some(self.id_or_const(binding_info, wildcard.span)),
                             binding_info.is_mutable,
                             binding_info.kind,
-                            binding_info.span,
+                            wildcard.span,
                             flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
 

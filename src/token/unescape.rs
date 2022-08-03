@@ -36,7 +36,7 @@ pub fn unescape(s: &str, start_span: Span) -> Result<String, UnescapeError> {
                         Position {
                             index: start_span.start.index + processed,
                             line: start_span.start.line,
-                            column: start_span.start.column + processed as u16,
+                            column: start_span.start.column + processed as u32,
                         },
                         EndPosition {
                             index: start_span.start.index + processed + 1,

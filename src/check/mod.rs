@@ -43,7 +43,7 @@ use crate::{
     },
 };
 use env::{Env, Scope, ScopeKind};
-use indexmap::IndexMap;
+use indexmap::{indexmap, IndexMap};
 use std::{
     collections::{HashMap, HashSet},
     iter::repeat_with,
@@ -317,6 +317,60 @@ impl<'s> CheckSess<'s> {
             }
         }
     }
+
+    pub(super) fn get_type_by_name(
+        &mut self,
+        module_name: &str,
+        scope_level: ScopeLevel,
+        name: &str,
+    ) -> DiagnosticResult<TypeId> {
+        let module_id = self
+            .workspace
+            .module_infos
+            .iter()
+            .find(|(_, m)| m.name == module_name)
+            .map(|(id, _)| ModuleId::from(id))
+            .unwrap_or_else(|| panic!("couldn't find module '{}'", module_name));
+
+        self.check_module_by_id(module_id)?;
+
+        let ty = self
+            .workspace
+            .binding_infos
+            .iter()
+            .find(|(_, b)| b.module_id == module_id && b.scope_level == scope_level && b.name == name)
+            .map(|(_, b)| *b.const_value.as_ref().unwrap().as_type().unwrap())
+            .unwrap_or_else(|| panic!("couldn't find '{}' in module '{}'", name, module_name));
+
+        Ok(ty)
+    }
+
+    pub(super) fn location_type(&mut self) -> DiagnosticResult<TypeId> {
+        self.get_type_by_name("std.intrinsics", ScopeLevel::Global, "Location")
+    }
+
+    pub(super) fn build_location_value(&mut self, env: &Env, span: Span) -> DiagnosticResult<ConstValue> {
+        let location_type = self.location_type()?.normalize(&self.tcx).into_struct();
+
+        let file_field = location_type.field("file").unwrap();
+        let line_field = location_type.field("line").unwrap();
+        let column_field = location_type.field("column").unwrap();
+
+        Ok(ConstValue::Struct(indexmap! {
+            file_field.name => ConstElement {
+                value: ConstValue::Str(env.module_info().file_path),
+                ty: self.tcx.common_types.str_pointer
+            },
+            line_field.name => ConstElement {
+                value: ConstValue::Uint(span.start.line as _),
+                ty: self.tcx.common_types.u32
+            },
+            column_field.name => ConstElement {
+                value: ConstValue::Uint(span.start.column as _),
+                ty: self.tcx.common_types.u32
+            }
+        }))
+    }
 }
 
 type CheckResult<T = hir::Node> = DiagnosticResult<T>;
@@ -433,7 +487,7 @@ impl Check for ast::Binding {
             } => {
                 let (name, span) = (*name, *span);
 
-                let node = check_function(sig, body, span, sess, env, None)?;
+                let node = check_function(sess, env, sig, body, span, None, attrs.has(AttrKind::TrackCaller))?;
 
                 // If this function binding matches the entry point function's requirements, Tag it as the entry function
                 // Requirements:
@@ -441,7 +495,7 @@ impl Check for ast::Binding {
                 // - It is in global scope
                 // - Its name is "main"
                 if sess.workspace.build_options.need_entry_point_function()
-                    && self.module_id == sess.workspace.root_module_id
+                    && env.module_id() == sess.workspace.root_module_id
                     && env.scope_level().is_global()
                 {
                     if name == "main" {
@@ -502,7 +556,7 @@ impl Check for ast::Binding {
                 let (qualified_name, function_kind, binding_kind) = if attrs.has(AttrKind::Intrinsic) {
                     match hir::Intrinsic::try_from(name.as_str()) {
                         Ok(intrinsic) => {
-                            if lib.is_some() {
+                            if lib.is_some() || dylib.is_some() || attrs.has(AttrKind::LinkName) {
                                 return Err(Diagnostic::error()
                                     .with_message("intrinsic function cannot have a library defined")
                                     .with_label(Label::primary(span, "cannot define a library")));
@@ -642,129 +696,7 @@ impl Check for ast::Binding {
 
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
-        let mut param_types: Vec<FunctionTypeParam> = vec![];
-        let mut defined_params = UstrMap::default();
-        let mut first_default_param_span: Option<Span> = None;
-
-        for param in self.params.iter() {
-            let param_span = param.pattern.span();
-
-            let name = match &param.pattern {
-                Pattern::Name(p) => p.name,
-                Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
-                Pattern::Hybrid(p) => p.name_pattern.name,
-            };
-
-            let param_type = check_optional_type_expr(&param.type_expr, sess, env, param_span)?;
-
-            for pattern in param.pattern.iter() {
-                let name = pattern.name;
-
-                if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
-                    return Err(SyntaxError::duplicate_binding(already_defined_span, pattern.span, name));
-                }
-            }
-
-            let default_value = if let Some(default_value) = &param.default_value {
-                first_default_param_span = Some(param_span);
-
-                let node = default_value.check(sess, env, Some(param_type))?;
-
-                node.ty().unify(&param_type, &mut sess.tcx).or_report_err(
-                    &sess.tcx,
-                    &param_type,
-                    Some(param_span),
-                    &node.ty(),
-                    node.span(),
-                )?;
-
-                let default_value = node.into_const_value().ok_or_else(|| {
-                    Diagnostic::error()
-                        .with_message("default parameter value must be a constant value")
-                        .with_label(Label::primary(default_value.span(), "not a constant value"))
-                })?;
-
-                Some(default_value)
-            } else if let Some(first_default_param_span) = first_default_param_span {
-                return Err(Diagnostic::error()
-                    .with_message("parameter is missing a default value")
-                    .with_label(Label::primary(param_span, "missing a default value"))
-                    .with_label(Label::secondary(
-                        first_default_param_span,
-                        "first parameter with default value here",
-                    ))
-                    .with_note(
-                        "parameters following a parameter with a default value, must also have a default value",
-                    ));
-            } else {
-                None
-            };
-
-            param_types.push(FunctionTypeParam {
-                name,
-                ty: param_type.as_kind(),
-                default_value,
-            });
-        }
-
-        let return_type = if self.return_type.is_none() && self.kind.is_extern() {
-            sess.tcx.common_types.unit
-        } else {
-            check_optional_type_expr(&self.return_type, sess, env, self.span)?
-        };
-
-        let varargs = if let Some(varargs) = &self.varargs {
-            let ty = if varargs.type_expr.is_some() {
-                let ty = check_optional_type_expr(&varargs.type_expr, sess, env, self.span)?;
-                Some(ty.as_kind())
-            } else {
-                None
-            };
-
-            if ty.is_none() && !self.kind.is_extern() {
-                return Err(Diagnostic::error()
-                    .with_message("variadic parameter must be typed")
-                    .with_label(Label::primary(varargs.span, "missing a type annotation")));
-            }
-
-            Some(Box::new(FunctionTypeVarargs {
-                name: varargs.name.name,
-                ty,
-            }))
-        } else {
-            None
-        };
-
-        if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
-            if self.params.is_empty() {
-                // if the function signature has no parameters, and the
-                // parent type is a function with 1 parameter, add an implicit `it` parameter
-                if expected_function_type.params.len() == 1 {
-                    let param = &expected_function_type.params[0];
-                    param_types.push(FunctionTypeParam {
-                        name: ustr("it"),
-                        ty: param.ty.clone(),
-                        default_value: param.default_value.clone(),
-                    });
-                }
-            }
-        }
-
-        let function_type = sess.tcx.bound(
-            Type::Function(FunctionType {
-                params: param_types,
-                return_type: Box::new(return_type.into()),
-                varargs,
-                kind: self.kind.clone(),
-            }),
-            self.span,
-        );
-
-        Ok(hir::Node::Const(hir::Const {
-            value: ConstValue::Type(function_type),
-            ty: sess.tcx.bound(function_type.as_kind().create_type(), self.span),
-            span: self.span,
-        }))
+        check_function_sig(sess, env, self, expected_type, false)
     }
 }
 
@@ -1172,7 +1104,7 @@ impl Check for ast::Ast {
                             )),
                         }
                     }
-                    ty @ Type::Struct(st) => match st.find_field_full(access.member) {
+                    ty @ Type::Struct(st) => match st.field_and_position(access.member) {
                         Some((index, field)) => {
                             let ty = sess.tcx.bound(field.ty.clone(), access.span);
 
@@ -1270,13 +1202,13 @@ impl Check for ast::Ast {
                             if binding_info.const_value.is_none() {
                                 let binding_ty = binding_info.ty.normalize(&sess.tcx);
 
-                                let min_scope_level =
+                                let function_scope =
                                     sess.function_frame().map_or(ScopeLevel::Global, |f| f.scope_level);
 
                                 if !binding_ty.is_type()
                                     && !binding_ty.is_module()
                                     && !binding_info.scope_level.is_global()
-                                    && binding_info.scope_level < min_scope_level
+                                    && binding_info.scope_level < function_scope
                                 {
                                     return Err(Diagnostic::error()
                                         .with_message("can't capture environment - closures are not implemented yet")
@@ -1426,7 +1358,7 @@ impl Check for ast::Ast {
                     ast::LiteralKind::Bool(_) => sess.tcx.common_types.bool,
                     ast::LiteralKind::Int(_) => sess.tcx.anyint(lit.span),
                     ast::LiteralKind::Float(_) => sess.tcx.anyfloat(lit.span),
-                    ast::LiteralKind::Str(_) => sess.tcx.common_types.str,
+                    ast::LiteralKind::Str(_) => sess.tcx.common_types.str_pointer,
                     ast::LiteralKind::Char(_) => sess.tcx.common_types.u8,
                 };
 
@@ -2000,237 +1932,15 @@ impl Check for ast::StaticEval {
 impl Check for ast::Function {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         check_function(
+            sess,
+            env,
             &self.sig,
             &ast::Ast::Block(self.body.clone()),
             self.span,
-            sess,
-            env,
             expected_type,
+            false,
         )
     }
-}
-
-fn check_function<'s>(
-    sig: &ast::FunctionSig,
-    body: &ast::Ast,
-    span: Span,
-    sess: &mut CheckSess<'s>,
-    env: &mut Env,
-    expected_type: Option<TypeId>,
-) -> CheckResult {
-    let name = sig.name_or_anonymous();
-    let qualified_name = get_qualified_name(env.scope_name(), name);
-
-    let sig_node = sig.check(sess, env, expected_type)?;
-
-    let sig_type = sess.extract_const_type(&sig_node)?;
-    let function_type = sig_type.normalize(&sess.tcx).into_function();
-
-    let return_type = sess.tcx.bound(
-        function_type.return_type.as_ref().clone(),
-        sig.return_type.as_ref().map_or(sig.span, |e| e.span()),
-    );
-
-    let return_type_span = sig.return_type.as_ref().map_or(sig.span, |e| e.span());
-
-    env.push_scope(ScopeKind::Function);
-
-    let mut params: Vec<hir::FunctionParam> = vec![];
-    let mut param_bind_statements: Vec<hir::Node> = vec![];
-
-    for (index, param_type) in function_type.params.iter().enumerate() {
-        match sig.params.get(index) {
-            Some(param) => {
-                let ty = sess.tcx.bound(
-                    param_type.ty.clone(),
-                    param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
-                );
-
-                let (bound_id, bound_node) = sess.bind_pattern(
-                    env,
-                    &param.pattern,
-                    ast::Visibility::Private,
-                    ty,
-                    None,
-                    BindingInfoKind::Orphan,
-                    param.pattern.span(),
-                    if param.type_expr.is_some() {
-                        BindingInfoFlags::IS_USER_DEFINED
-                    } else {
-                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
-                    },
-                )?;
-
-                params.push(hir::FunctionParam {
-                    id: bound_id,
-                    ty,
-                    span: param.pattern.span(),
-                });
-
-                // If this is a single statement, we ignore it,
-                // As it doesn't include any destructuring statements.
-                match bound_node.into_sequence() {
-                    Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                    Err(_) => (),
-                }
-            }
-            None => {
-                // This parameter was inserted implicitly
-                let span = sig.span;
-                let ty = sess.tcx.bound(param_type.ty.clone(), span);
-
-                let (bound_id, bound_node) = sess.bind_name(
-                    env,
-                    param_type.name,
-                    ast::Visibility::Private,
-                    ty,
-                    None,
-                    false,
-                    BindingInfoKind::Orphan,
-                    span,
-                    BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER,
-                )?;
-
-                params.push(hir::FunctionParam { id: bound_id, ty, span });
-
-                // If this is a single statement, we ignore it,
-                // As it doesn't include any destructuring statements.
-                match bound_node.into_sequence() {
-                    Ok(sequence) => param_bind_statements.extend(sequence.statements),
-                    Err(_) => (),
-                }
-            }
-        }
-    }
-
-    if let Some(varargs) = &function_type.varargs {
-        if varargs.ty.is_none() {
-            return Err(Diagnostic::error()
-                .with_message("untyped variadic parameters are only valid in extern functions")
-                .with_label(Label::primary(
-                    sig.varargs.as_ref().unwrap().span,
-                    "variadic parameter must be typed",
-                )));
-        }
-    }
-
-    let function_id = sess.cache.functions.insert_with_id(hir::Function {
-        id: hir::FunctionId::unknown(),
-        module_id: env.module_id(),
-        name,
-        qualified_name,
-        kind: hir::FunctionKind::Orphan {
-            params: params.clone(),
-            inferred_return_type_span: if sig.return_type.is_some() {
-                None
-            } else {
-                Some(sig.span)
-            },
-            body: None,
-        },
-        ty: sig_type,
-        span,
-    });
-
-    env.insert_function(name, function_id);
-
-    let body_node = sess.with_function_frame(
-        FunctionFrame {
-            return_type,
-            return_type_span,
-            scope_level: env.scope_level(),
-        },
-        |sess| body.check(sess, env, Some(return_type)),
-    )?;
-
-    let mut body_sequence = match body_node {
-        hir::Node::Sequence(sequence) => sequence,
-        node => {
-            let ty = node.ty();
-            let span = node.span();
-
-            hir::Sequence {
-                statements: vec![node],
-                is_scope: true,
-                ty,
-                span,
-            }
-        }
-    };
-
-    param_bind_statements.append(&mut body_sequence.statements);
-    body_sequence.statements = param_bind_statements;
-
-    let mut unify_node = body_sequence.ty.unify(&return_type, &mut sess.tcx);
-
-    if let Some(last_statement) = body_sequence.statements.last_mut() {
-        unify_node = unify_node.or_coerce_into_ty(
-            last_statement,
-            &return_type,
-            &mut sess.tcx,
-            sess.target_metrics.word_size,
-        );
-    }
-
-    unify_node.or_report_err(
-        &sess.tcx,
-        &return_type,
-        Some(return_type_span),
-        &body_sequence.ty,
-        body.span(),
-    )?;
-
-    env.pop_scope();
-
-    // Check that all parameter types are sized
-    for param in params.iter() {
-        let ty = param.ty.normalize(&sess.tcx);
-
-        if ty.is_unsized() {
-            let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
-
-            sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
-                &binding_info.name,
-                ty.display(&sess.tcx),
-                binding_info.span,
-            ))
-        }
-    }
-
-    // Check that the return type is sized
-    let return_type_norm = return_type.normalize(&sess.tcx);
-    if return_type_norm.is_unsized() {
-        sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-            return_type_norm.display(&sess.tcx),
-            return_type_span,
-        ))
-    }
-
-    // Check that the variadic argument is sized
-    if let Some(varargs) = &function_type.varargs {
-        if let Some(varargs_type) = &varargs.ty {
-            let varargs_type = varargs_type.normalize(&sess.tcx);
-
-            if varargs_type.is_unsized() {
-                sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-                    varargs_type.display(&sess.tcx),
-                    sig.varargs.as_ref().unwrap().span,
-                ))
-            }
-        }
-    }
-
-    sess.cache
-        .functions
-        .get_mut(function_id)
-        .unwrap()
-        .set_body(body_sequence);
-
-    Ok(hir::Node::Const(hir::Const {
-        value: ConstValue::Function(ConstFunction { id: function_id, name }),
-        ty: sig_type,
-        span,
-    }))
 }
 
 impl Check for ast::Assignment {
@@ -2767,9 +2477,44 @@ impl Check for ast::Unary {
 }
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
+        fn is_callee_const_intrinsic(sess: &mut CheckSess, callee: &hir::Node) -> Option<hir::Intrinsic> {
+            if let Some(ConstValue::Function(f)) = callee.as_const_value() {
+                let function = sess.cache.functions.get(f.id).unwrap();
+                match &function.kind {
+                    hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
+                        hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => Some(*intrinsic),
+                        hir::Intrinsic::StartWorkspace => None,
+                    },
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+
+        fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticResult<()> {
+            for arg in args.iter() {
+                match arg.ty().normalize(&sess.tcx) {
+                    Type::Type(_) | Type::AnyType => {
+                        return Err(Diagnostic::error()
+                            .with_message("types cannot be passed as function arguments")
+                            .with_label(Label::primary(arg.span(), "cannot pass type")))
+                    }
+                    Type::Module(_) => {
+                        return Err(Diagnostic::error()
+                            .with_message("modules cannot be passed as function arguments")
+                            .with_label(Label::primary(arg.span(), "cannot pass module")))
+                    }
+                    _ => (),
+                }
+            }
+
+            Ok(())
+        }
+
         let callee = self.callee.check(sess, env, None)?;
 
-        let call_node = match callee.ty().normalize(&sess.tcx) {
+        match callee.ty().normalize(&sess.tcx) {
             Type::Function(function_type) => {
                 fn arg_mismatch(
                     sess: &CheckSess,
@@ -2801,9 +2546,27 @@ impl Check for ast::Call {
                 }
 
                 let mut args = vec![];
+                let mut param_offset = 0;
+
+                // If the function was annotated by track_caller, its first parameter
+                // should be the inserted location parameter: track_caller@location
+                if let Some(param) = function_type.params.first() {
+                    if param.name == builtin::SYM_TRACK_CALLER_LOCATION_PARAM {
+                        let value = sess.build_location_value(env, self.span)?;
+                        let ty = sess.location_type()?;
+
+                        args.push(hir::Node::Const(hir::Const {
+                            value,
+                            ty,
+                            span: self.span,
+                        }));
+
+                        param_offset += 1;
+                    }
+                }
 
                 for (index, arg) in self.args.iter().enumerate() {
-                    if let Some(param) = function_type.params.get(index) {
+                    if let Some(param) = function_type.params.get(index + param_offset) {
                         let param_type = sess.tcx.bound(param.ty.clone(), arg.span());
                         let mut node = arg.check(sess, env, Some(param_type))?;
 
@@ -2855,11 +2618,63 @@ impl Check for ast::Call {
                     _ => (),
                 }
 
-                hir::Call {
-                    ty: sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span),
-                    span: self.span,
-                    callee: Box::new(callee),
-                    args,
+                validate_call_args(sess, &args)?;
+
+                let ty = sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span);
+
+                if let Some(intrinsic) = is_callee_const_intrinsic(sess, &callee) {
+                    match intrinsic {
+                        hir::Intrinsic::Location => {
+                            let value = sess.build_location_value(env, self.span)?;
+
+                            Ok(hir::Node::Const(hir::Const {
+                                value,
+                                ty,
+                                span: self.span,
+                            }))
+                        }
+                        hir::Intrinsic::CallerLocation => {
+                            let invalid_scope_err = || {
+                                Diagnostic::error()
+                                    .with_message(format!(
+                                        "`{}` can only be used in a function annotated with @{}",
+                                        hir::INTRINSIC_NAME_CALLER_LOCATION,
+                                        hir::attrs::ATTR_NAME_TRACK_CALLER,
+                                    ))
+                                    .with_label(Label::primary(self.span, "cannot be used within the current scope"))
+                            };
+
+                            match env.find_binding(ustr(builtin::SYM_TRACK_CALLER_LOCATION_PARAM)) {
+                                Some(id) => match sess.function_frame() {
+                                    Some(frame) => {
+                                        let binding_info = sess.workspace.binding_infos.get(id).unwrap();
+
+                                        if env.scope_level() >= frame.scope_level
+                                            && binding_info.scope_level == frame.scope_level
+                                        {
+                                            Ok(hir::Node::Id(hir::Id {
+                                                id,
+                                                ty,
+                                                span: self.span,
+                                            }))
+                                        } else {
+                                            Err(invalid_scope_err())
+                                        }
+                                    }
+                                    None => Err(invalid_scope_err()),
+                                },
+                                None => Err(invalid_scope_err()),
+                            }
+                        }
+                        hir::Intrinsic::StartWorkspace => unreachable!(),
+                    }
+                } else {
+                    Ok(hir::Node::Call(hir::Call {
+                        callee: Box::new(callee),
+                        args,
+                        ty,
+                        span: self.span,
+                    }))
                 }
             }
             ty => {
@@ -2869,7 +2684,7 @@ impl Check for ast::Call {
                     .map(|arg| arg.check(sess, env, None))
                     .collect::<DiagnosticResult<Vec<_>>>()?;
 
-                let return_ty = sess.tcx.var(self.span);
+                let return_type = sess.tcx.var(self.span);
 
                 let inferred_function_type = Type::Function(FunctionType {
                     params: args
@@ -2880,7 +2695,7 @@ impl Check for ast::Call {
                             default_value: None,
                         })
                         .collect(),
-                    return_type: Box::new(return_ty.into()),
+                    return_type: Box::new(return_type.into()),
                     varargs: None,
                     kind: FunctionTypeKind::Orphan,
                 });
@@ -2893,33 +2708,16 @@ impl Check for ast::Call {
                     self.callee.span(),
                 )?;
 
-                hir::Call {
-                    ty: return_ty,
-                    span: self.span,
+                validate_call_args(sess, &args)?;
+
+                Ok(hir::Node::Call(hir::Call {
                     callee: Box::new(callee),
                     args,
-                }
-            }
-        };
-
-        for arg in call_node.args.iter() {
-            let arg_type = arg.ty().normalize(&sess.tcx);
-            match arg_type {
-                Type::Type(_) | Type::AnyType => {
-                    return Err(Diagnostic::error()
-                        .with_message("types cannot be passed as function arguments")
-                        .with_label(Label::primary(arg.span(), "cannot pass type")))
-                }
-                Type::Module(_) => {
-                    return Err(Diagnostic::error()
-                        .with_message("modules cannot be passed as function arguments")
-                        .with_label(Label::primary(arg.span(), "cannot pass module")))
-                }
-                _ => (),
+                    ty: return_type,
+                    span: self.span,
+                }))
             }
         }
-
-        Ok(hir::Node::Call(call_node))
     }
 }
 
@@ -3162,9 +2960,8 @@ impl Check for ast::StructType {
         // the struct's main type variable, in its `type` variation
         let struct_type_type_var = sess.tcx.bound(struct_type_var.as_kind().create_type(), self.span);
 
-        sess.self_types.push(struct_type_var);
-
         env.push_scope(ScopeKind::Block);
+        sess.self_types.push(struct_type_var);
 
         let (binding_id, _) = sess.bind_name(
             env,
@@ -3209,9 +3006,8 @@ impl Check for ast::StructType {
             });
         }
 
-        env.pop_scope();
-
         sess.self_types.pop();
+        env.pop_scope();
 
         for field in struct_type_fields.iter() {
             let field_type = field.ty.normalize(&sess.tcx);
@@ -3267,7 +3063,7 @@ fn check_named_struct_literal(
             ));
         }
 
-        match struct_ty.find_field(field.name) {
+        match struct_ty.field(field.name) {
             Some(ty_field) => {
                 uninit_fields.remove(&field.name);
 
@@ -3429,4 +3225,378 @@ pub(super) fn check_type_expr<'s>(
 ) -> DiagnosticResult<TypeId> {
     let node = type_expr.check(sess, env, Some(sess.tcx.common_types.anytype))?;
     sess.extract_const_type(&node)
+}
+
+fn check_function<'s>(
+    sess: &mut CheckSess<'s>,
+    env: &mut Env,
+    sig: &ast::FunctionSig,
+    body: &ast::Ast,
+    span: Span,
+    expected_type: Option<TypeId>,
+    track_caller: bool,
+) -> CheckResult {
+    let name = sig.name_or_anonymous();
+    let qualified_name = get_qualified_name(env.scope_name(), name);
+
+    let sig_node = check_function_sig(sess, env, sig, expected_type, track_caller)?;
+    let sig_type = sess.extract_const_type(&sig_node)?;
+    let function_type = sig_type.normalize(&sess.tcx).into_function();
+
+    let return_type = sess.tcx.bound(
+        function_type.return_type.as_ref().clone(),
+        sig.return_type.as_ref().map_or(sig.span, |e| e.span()),
+    );
+
+    let return_type_span = sig.return_type.as_ref().map_or(sig.span, |e| e.span());
+
+    env.push_scope(ScopeKind::Function);
+
+    let mut params: Vec<hir::FunctionParam> = vec![];
+    let mut param_bind_statements: Vec<hir::Node> = vec![];
+
+    for (index, param_type) in function_type.params.iter().enumerate() {
+        let is_implicitly_generated_param = param_type.name == builtin::SYM_TRACK_CALLER_LOCATION_PARAM;
+
+        let (param, bound_node) = match sig.params.get(index) {
+            Some(param) if !is_implicitly_generated_param => {
+                let ty = sess.tcx.bound(
+                    param_type.ty.clone(),
+                    param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
+                );
+
+                let (bound_id, bound_node) = sess.bind_pattern(
+                    env,
+                    &param.pattern,
+                    ast::Visibility::Private,
+                    ty,
+                    None,
+                    BindingInfoKind::Orphan,
+                    param.pattern.span(),
+                    if param.type_expr.is_some() {
+                        BindingInfoFlags::IS_USER_DEFINED
+                    } else {
+                        BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED
+                    },
+                )?;
+
+                (
+                    hir::FunctionParam {
+                        id: bound_id,
+                        ty,
+                        span: param.pattern.span(),
+                    },
+                    bound_node,
+                )
+            }
+            _ => {
+                // This parameter was inserted implicitly
+                let span = sig.span;
+                let ty = sess.tcx.bound(param_type.ty.clone(), span);
+
+                let (bound_id, bound_node) = sess.bind_name(
+                    env,
+                    param_type.name,
+                    ast::Visibility::Private,
+                    ty,
+                    None,
+                    false,
+                    BindingInfoKind::Orphan,
+                    span,
+                    if param_type.name == "it" {
+                        BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM
+                    } else {
+                        BindingInfoFlags::empty()
+                    },
+                )?;
+
+                (hir::FunctionParam { id: bound_id, ty, span }, bound_node)
+            }
+        };
+
+        params.push(param);
+
+        // If this is a single statement, we ignore it,
+        // As it doesn't include any destructuring statements.
+        match bound_node.into_sequence() {
+            Ok(sequence) => param_bind_statements.extend(sequence.statements),
+            Err(_) => (),
+        }
+    }
+
+    if let Some(varargs) = &function_type.varargs {
+        if varargs.ty.is_none() {
+            return Err(Diagnostic::error()
+                .with_message("untyped variadic parameters are only valid in extern functions")
+                .with_label(Label::primary(
+                    sig.varargs.as_ref().unwrap().span,
+                    "variadic parameter must be typed",
+                )));
+        }
+    }
+
+    let function_id = sess.cache.functions.insert_with_id(hir::Function {
+        id: hir::FunctionId::unknown(),
+        module_id: env.module_id(),
+        name,
+        qualified_name,
+        kind: hir::FunctionKind::Orphan {
+            params: params.clone(),
+            inferred_return_type_span: if sig.return_type.is_some() {
+                None
+            } else {
+                Some(sig.span)
+            },
+            body: None,
+        },
+        ty: sig_type,
+        span,
+    });
+
+    env.insert_function(name, function_id);
+
+    let body_node = sess.with_function_frame(
+        FunctionFrame {
+            return_type,
+            return_type_span,
+            scope_level: env.scope_level(),
+        },
+        |sess| body.check(sess, env, Some(return_type)),
+    )?;
+
+    let mut body_sequence = match body_node {
+        hir::Node::Sequence(sequence) => sequence,
+        node => {
+            let ty = node.ty();
+            let span = node.span();
+
+            hir::Sequence {
+                statements: vec![node],
+                is_scope: true,
+                ty,
+                span,
+            }
+        }
+    };
+
+    param_bind_statements.append(&mut body_sequence.statements);
+    body_sequence.statements = param_bind_statements;
+
+    let mut unify_node = body_sequence.ty.unify(&return_type, &mut sess.tcx);
+
+    if let Some(last_statement) = body_sequence.statements.last_mut() {
+        unify_node = unify_node.or_coerce_into_ty(
+            last_statement,
+            &return_type,
+            &mut sess.tcx,
+            sess.target_metrics.word_size,
+        );
+    }
+
+    unify_node.or_report_err(
+        &sess.tcx,
+        &return_type,
+        Some(return_type_span),
+        &body_sequence.ty,
+        body.span(),
+    )?;
+
+    env.pop_scope();
+
+    // Check that all parameter types are sized
+    for param in params.iter() {
+        let ty = param.ty.normalize(&sess.tcx);
+
+        if ty.is_unsized() {
+            let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
+
+            sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
+                &binding_info.name,
+                ty.display(&sess.tcx),
+                binding_info.span,
+            ))
+        }
+    }
+
+    // Check that the return type is sized
+    let return_type_norm = return_type.normalize(&sess.tcx);
+    if return_type_norm.is_unsized() {
+        sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+            return_type_norm.display(&sess.tcx),
+            return_type_span,
+        ))
+    }
+
+    // Check that the variadic argument is sized
+    if let Some(varargs) = &function_type.varargs {
+        if let Some(varargs_type) = &varargs.ty {
+            let varargs_type = varargs_type.normalize(&sess.tcx);
+
+            if varargs_type.is_unsized() {
+                sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+                    varargs_type.display(&sess.tcx),
+                    sig.varargs.as_ref().unwrap().span,
+                ))
+            }
+        }
+    }
+
+    sess.cache
+        .functions
+        .get_mut(function_id)
+        .unwrap()
+        .set_body(body_sequence);
+
+    Ok(hir::Node::Const(hir::Const {
+        value: ConstValue::Function(ConstFunction { id: function_id, name }),
+        ty: sig_type,
+        span,
+    }))
+}
+
+fn check_function_sig<'s>(
+    sess: &mut CheckSess<'s>,
+    env: &mut Env,
+    sig: &ast::FunctionSig,
+    expected_type: Option<TypeId>,
+    track_caller: bool,
+) -> CheckResult {
+    let mut param_types: Vec<FunctionTypeParam> = vec![];
+    let mut defined_params = UstrMap::default();
+    let mut first_default_param_span: Option<Span> = None;
+
+    // Whenever a function declaration is annotated with @track_caller, we implicitly
+    // insert a location parameter at the start - track_caller@location: Location
+    if track_caller {
+        let name = ustr(builtin::SYM_TRACK_CALLER_LOCATION_PARAM);
+        let ty = sess.location_type()?.normalize(&sess.tcx);
+
+        if let Some(already_defined_span) = defined_params.insert(name, sig.span) {
+            return Err(SyntaxError::duplicate_binding(name, sig.span, already_defined_span));
+        }
+
+        param_types.push(FunctionTypeParam {
+            name,
+            ty,
+            default_value: None,
+        })
+    }
+
+    for param in sig.params.iter() {
+        let param_span = param.pattern.span();
+
+        let name = match &param.pattern {
+            Pattern::Name(p) => p.name,
+            Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
+            Pattern::Hybrid(p) => p.name_pattern.name,
+        };
+
+        let param_type = check_optional_type_expr(&param.type_expr, sess, env, param_span)?;
+
+        for pattern in param.pattern.iter() {
+            let name = pattern.name;
+
+            if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
+                return Err(SyntaxError::duplicate_binding(name, pattern.span, already_defined_span));
+            }
+        }
+
+        let default_value = if let Some(default_value) = &param.default_value {
+            first_default_param_span = Some(param_span);
+
+            let node = default_value.check(sess, env, Some(param_type))?;
+
+            node.ty().unify(&param_type, &mut sess.tcx).or_report_err(
+                &sess.tcx,
+                &param_type,
+                Some(param_span),
+                &node.ty(),
+                node.span(),
+            )?;
+
+            let default_value = node.into_const_value().ok_or_else(|| {
+                Diagnostic::error()
+                    .with_message("default parameter value must be a constant value")
+                    .with_label(Label::primary(default_value.span(), "not a constant value"))
+            })?;
+
+            Some(default_value)
+        } else if let Some(first_default_param_span) = first_default_param_span {
+            return Err(Diagnostic::error()
+                .with_message("parameter is missing a default value")
+                .with_label(Label::primary(param_span, "missing a default value"))
+                .with_label(Label::secondary(
+                    first_default_param_span,
+                    "first parameter with default value here",
+                ))
+                .with_note("parameters following a parameter with a default value, must also have a default value"));
+        } else {
+            None
+        };
+
+        param_types.push(FunctionTypeParam {
+            name,
+            ty: param_type.as_kind(),
+            default_value,
+        });
+    }
+
+    let return_type = if sig.return_type.is_none() && sig.kind.is_extern() {
+        sess.tcx.common_types.unit
+    } else {
+        check_optional_type_expr(&sig.return_type, sess, env, sig.span)?
+    };
+
+    let varargs = if let Some(varargs) = &sig.varargs {
+        let ty = if varargs.type_expr.is_some() {
+            let ty = check_optional_type_expr(&varargs.type_expr, sess, env, sig.span)?;
+            Some(ty.as_kind())
+        } else {
+            None
+        };
+
+        if ty.is_none() && !sig.kind.is_extern() {
+            return Err(Diagnostic::error()
+                .with_message("variadic parameter must be typed")
+                .with_label(Label::primary(varargs.span, "missing a type annotation")));
+        }
+
+        Some(Box::new(FunctionTypeVarargs {
+            name: varargs.name.name,
+            ty,
+        }))
+    } else {
+        None
+    };
+
+    if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
+        if sig.params.is_empty() {
+            // if the function signature has no parameters, and the
+            // parent type is a function with 1 parameter, add an implicit `it` parameter
+            if expected_function_type.params.len() == 1 {
+                let param = &expected_function_type.params[0];
+                param_types.push(FunctionTypeParam {
+                    name: ustr("it"),
+                    ty: param.ty.clone(),
+                    default_value: param.default_value.clone(),
+                });
+            }
+        }
+    }
+
+    let function_type = sess.tcx.bound(
+        Type::Function(FunctionType {
+            params: param_types,
+            return_type: Box::new(return_type.into()),
+            varargs,
+            kind: sig.kind.clone(),
+        }),
+        sig.span,
+    );
+
+    Ok(hir::Node::Const(hir::Const {
+        value: ConstValue::Type(function_type),
+        ty: sess.tcx.bound(function_type.as_kind().create_type(), sig.span),
+        span: sig.span,
+    }))
 }

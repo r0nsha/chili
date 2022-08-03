@@ -691,8 +691,8 @@ impl Lower for hir::StructLiteral {
         let mut ordered_fields = self.fields.clone();
 
         ordered_fields.sort_by(|f1, f2| {
-            let index_1 = struct_type.find_field_position(f1.name).unwrap();
-            let index_2 = struct_type.find_field_position(f2.name).unwrap();
+            let index_1 = struct_type.field_position(f1.name).unwrap();
+            let index_2 = struct_type.field_position(f2.name).unwrap();
             index_1.cmp(&index_2)
         });
 
@@ -886,9 +886,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             let function = sess.cache.functions.get(f.id).unwrap();
 
             match &function.kind {
-                hir::FunctionKind::Intrinsic(intrinsic) => Value::Intrinsic(match intrinsic {
-                    hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
-                }),
+                hir::FunctionKind::Intrinsic(intrinsic) => Value::Intrinsic(IntrinsicFunction::from(*intrinsic)),
                 _ => {
                     function.lower(sess, &mut Bytecode::new(), LowerContext { take_ptr: false });
                     Value::Function(FunctionAddress {

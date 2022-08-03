@@ -62,7 +62,7 @@ impl<'vm> VM<'vm> {
                     (ustr(""), false)
                 };
 
-                let result_type = Type::Tuple(vec![Type::str(), Type::Bool]);
+                let result_type = Type::Tuple(vec![Type::str_pointer(), Type::Bool]);
 
                 let result_value = Value::Buffer(Buffer::from_values(
                     [Value::Buffer(Buffer::from_ustr(output_file_str)), Value::Bool(ok)],

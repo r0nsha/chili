@@ -117,8 +117,8 @@ impl BindingInfo {
 
     #[inline]
     #[allow(unused)]
-    pub fn is_is_implicit_it_fn_parameter(&self) -> bool {
-        self.flags.contains(BindingInfoFlags::IS_IMPLICIT_IT_FN_PARAMETER)
+    pub fn is_implicit_it_function_param(&self) -> bool {
+        self.flags.contains(BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM)
     }
 
     #[inline]
@@ -177,8 +177,8 @@ bitflags! {
         const IS_USER_DEFINED = 1 << 1;
         // Whether the type of this binding was inferred. This depends on IS_USER_BINDING.
         const TYPE_WAS_INFERRED = 1 << 2;
-        // Whether this the implicit "it" parameter.
-        const IS_IMPLICIT_IT_FN_PARAMETER = 1 << 3;
+        // Whether this is the `it` implicitly inserted function parameter
+        const IMPLICIT_IT_FUNCTION_PARAM = 1 << 3;
         // Whether this binding should store a constant value
         const NO_CONST_FOLD = 1 << 4;
         // Whether this binding should store a constant value

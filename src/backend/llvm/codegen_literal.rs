@@ -32,7 +32,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
                 let struct_ptr = generator.build_alloca(state, llvm_type);
 
                 for field in self.fields.iter() {
-                    let field_index = struct_ty.find_field_position(field.name).unwrap();
+                    let field_index = struct_ty.field_position(field.name).unwrap();
 
                     let field_ptr = generator
                         .builder

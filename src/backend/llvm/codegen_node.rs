@@ -17,6 +17,10 @@ use inkwell::{
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
+        if state.current_block.get_terminator().is_some() {
+            return generator.unit_value();
+        }
+
         match self {
             hir::Node::Const(x) => x.codegen(generator, state),
             hir::Node::Binding(x) => x.codegen(generator, state),
