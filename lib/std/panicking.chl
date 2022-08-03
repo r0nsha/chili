@@ -1,8 +1,8 @@
 let { printf, exit } = import("std/c");
-let { Location } = import("std/intrinsics");
+let { Location, location } = import("std/intrinsics");
 
 pub fn panic(
-    fmt: *str = "unknown reason", 
+    fmt: *str = "unknown reason",
     location: Location = location()
 ) -> never = {
     // TODO: use our own print routine.

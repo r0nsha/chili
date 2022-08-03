@@ -99,9 +99,9 @@ impl<'s> CheckSess<'s> {
                         self.insert_global_binding_id(module_id, name, id);
                     } else if defined_binding_info.span != span {
                         return Err(SyntaxError::duplicate_binding(
-                            defined_binding_info.span,
-                            span,
                             defined_binding_info.name,
+                            span,
+                            defined_binding_info.span,
                         ));
                     }
                 } else {
@@ -358,7 +358,6 @@ impl<'s> CheckSess<'s> {
         match ty.normalize(&self.tcx).maybe_deref_once() {
             Type::Module(module_id) => {
                 // if let Some(b) = statements.last().map(|node| node.as_binding()).flatten() {
-                //     println!("{}", b.name);
                 //     statements.pop();
                 // }
 
@@ -394,7 +393,7 @@ impl<'s> CheckSess<'s> {
                     statements.push(binding);
                 }
 
-                if let Some(_) = &unpack_pattern.wildcard {
+                if let Some(wildcard) = &unpack_pattern.wildcard {
                     for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
@@ -407,10 +406,10 @@ impl<'s> CheckSess<'s> {
                             binding_info.name,
                             visibility,
                             binding_info.ty,
-                            Some(self.id_or_const(binding_info, binding_info.span)),
+                            Some(self.id_or_const(binding_info, wildcard.span)),
                             binding_info.is_mutable,
                             binding_info.kind,
-                            binding_info.span,
+                            wildcard.span,
                             flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
 

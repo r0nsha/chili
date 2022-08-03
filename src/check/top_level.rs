@@ -45,7 +45,7 @@ impl CheckTopLevel for ast::Binding {
                     bound_names.insert(name, id);
                 }
             }
-            _ => unreachable!(),
+            _ => unreachable!("{:?}", node),
         }
 
         Ok(bound_names)
@@ -112,13 +112,11 @@ impl<'s> CheckSess<'s> {
                 let desired_id = *bound_names.get(&name).unwrap();
 
                 self.workspace.add_binding_info_use(desired_id, caller_info.span);
-
                 self.validate_item_visibility(desired_id, caller_info)?;
 
                 Ok(desired_id)
             } else if let Some(&builtin_id) = self.builtin_types.get(&name) {
                 self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-
                 Ok(builtin_id)
             } else {
                 Err(self.name_not_found_error(module_id, name, caller_info))
@@ -194,12 +192,14 @@ impl<'s> CheckSess<'s> {
                         },
                     );
 
+                    // Auto import std
+                    // Note: Because of circular import conflicts, we *don't* import the prelude
+                    // automatically for std files.
                     if !module
                         .info
                         .file_path
                         .starts_with(self.workspace.std_dir.to_str().unwrap())
                     {
-                        // Auto import std
                         self.with_env(module.id, |sess, mut env| {
                             let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
                                 name_pattern: NamePattern {
@@ -260,7 +260,6 @@ impl<'s> CheckSess<'s> {
             self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
 
             for const_ in module.consts.iter() {
-                // let expr = expr.clone();
                 let node = self.with_env(module.id, |sess, mut env| const_.check(sess, &mut env, None))?;
 
                 if !self.workspace.build_options.check_mode {

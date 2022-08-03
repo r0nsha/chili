@@ -87,7 +87,7 @@ impl SyntaxError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn duplicate_binding(already_defined_span: Span, duplicate_span: Span, name: Ustr) -> Diagnostic {
+    pub fn duplicate_binding(name: Ustr, duplicate_span: Span, already_defined_span: Span) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("duplicate definitions with name `{}`", name))
             .with_label(Label::primary(duplicate_span, "duplicate definition here"))

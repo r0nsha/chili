@@ -484,7 +484,7 @@ impl Check for ast::Binding {
                 // - It is in global scope
                 // - Its name is "main"
                 if sess.workspace.build_options.need_entry_point_function()
-                    && self.module_id == sess.workspace.root_module_id
+                    && env.module_id() == sess.workspace.root_module_id
                     && env.scope_level().is_global()
                 {
                     if name == "main" {
@@ -545,7 +545,7 @@ impl Check for ast::Binding {
                 let (qualified_name, function_kind, binding_kind) = if attrs.has(AttrKind::Intrinsic) {
                     match hir::Intrinsic::try_from(name.as_str()) {
                         Ok(intrinsic) => {
-                            if lib.is_some() {
+                            if lib.is_some() || dylib.is_some() || attrs.has(AttrKind::LinkName) {
                                 return Err(Diagnostic::error()
                                     .with_message("intrinsic function cannot have a library defined")
                                     .with_label(Label::primary(span, "cannot define a library")));
@@ -704,7 +704,7 @@ impl Check for ast::FunctionSig {
                 let name = pattern.name;
 
                 if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
-                    return Err(SyntaxError::duplicate_binding(already_defined_span, pattern.span, name));
+                    return Err(SyntaxError::duplicate_binding(name, pattern.span, already_defined_span));
                 }
             }
 
