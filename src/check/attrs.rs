@@ -78,7 +78,7 @@ impl<'s> CheckSess<'s> {
 
     fn get_attr_expected_type(&self, kind: AttrKind) -> TypeId {
         match kind {
-            AttrKind::Intrinsic => self.tcx.common_types.unit,
+            AttrKind::Intrinsic | AttrKind::TrackCaller => self.tcx.common_types.unit,
             AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => self.tcx.common_types.str_pointer,
         }
     }
@@ -105,9 +105,13 @@ impl<'s> CheckSess<'s> {
                     _ => {
                         return Err(invalid_attr_use(
                             attr,
-                            "can only be used on extern variables and functions",
+                            "can only be used on extern variables and extern functions",
                         ))
                     }
+                },
+                AttrKind::TrackCaller => match &binding.kind {
+                    ast::BindingKind::Function { .. } => (),
+                    _ => return Err(invalid_attr_use(attr, "can only be used on functions")),
                 },
             }
         }

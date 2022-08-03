@@ -56,17 +56,25 @@ pub enum AttrKind {
     Lib,
     Dylib,
     LinkName,
+    TrackCaller,
 }
+
+const ATTR_NAME_INTRINSIC: &str = "intrinsic";
+const ATTR_NAME_LIB: &str = "lib";
+const ATTR_NAME_DYLIB: &str = "dylib";
+const ATTR_NAME_LINK_NAME: &str = "link_name";
+const ATTR_NAME_TRACK_CALLER: &str = "track_caller";
 
 impl TryFrom<&str> for AttrKind {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "intrinsic" => Ok(AttrKind::Intrinsic),
-            "lib" => Ok(AttrKind::Lib),
-            "dylib" => Ok(AttrKind::Dylib),
-            "link_name" => Ok(AttrKind::LinkName),
+            ATTR_NAME_INTRINSIC => Ok(AttrKind::Intrinsic),
+            ATTR_NAME_LIB => Ok(AttrKind::Lib),
+            ATTR_NAME_DYLIB => Ok(AttrKind::Dylib),
+            ATTR_NAME_LINK_NAME => Ok(AttrKind::LinkName),
+            ATTR_NAME_TRACK_CALLER => Ok(AttrKind::TrackCaller),
             _ => Err(()),
         }
     }
@@ -74,11 +82,16 @@ impl TryFrom<&str> for AttrKind {
 
 impl Display for AttrKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AttrKind::Intrinsic => write!(f, "intrinsic"),
-            AttrKind::Lib => write!(f, "lib"),
-            AttrKind::Dylib => write!(f, "dylib"),
-            AttrKind::LinkName => write!(f, "link_name"),
-        }
+        write!(
+            f,
+            "{}",
+            match self {
+                AttrKind::Intrinsic => ATTR_NAME_INTRINSIC,
+                AttrKind::Lib => ATTR_NAME_LIB,
+                AttrKind::Dylib => ATTR_NAME_DYLIB,
+                AttrKind::LinkName => ATTR_NAME_LINK_NAME,
+                AttrKind::TrackCaller => ATTR_NAME_TRACK_CALLER,
+            }
+        )
     }
 }
