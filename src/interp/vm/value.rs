@@ -347,6 +347,15 @@ impl Buffer {
                 Type::Slice(..) => {
                     vec![self.get_value_at_index(0), self.get_value_at_index(1)]
                 }
+                Type::Array(_, size) => {
+                    let mut values = vec![];
+
+                    for i in 0..*size {
+                        values.push(self.get_value_at_index(i));
+                    }
+
+                    values
+                }
                 ty => panic!("{:?}", ty),
             },
             ty => panic!("{:?}", ty),

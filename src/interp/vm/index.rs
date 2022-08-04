@@ -13,11 +13,7 @@ impl<'vm> VM<'vm> {
                     let value = buf.get_value_at_index(index);
                     self.stack.push(value);
                 }
-                _ => {
-                    self.offset(value, index);
-                    let ptr = self.stack.pop().into_pointer();
-                    self.stack.push(unsafe { ptr.deref_value() });
-                }
+                _ => panic!("invalid value {}", value.to_string()),
             },
             Value::Buffer(buf) => {
                 let value = buf.get_value_at_index(index);
@@ -37,7 +33,7 @@ impl<'vm> VM<'vm> {
                     let value = Value::Pointer(Pointer::from_type_and_ptr(buf.ty.element_type().unwrap(), ptr as _));
                     self.stack.push(value);
                 }
-                _ => self.offset(value, index),
+                _ => panic!("invalid value {}", value.to_string()),
             },
             Value::Buffer(_) => self.offset(value, index),
             _ => panic!("invalid value {}", value.to_string()),

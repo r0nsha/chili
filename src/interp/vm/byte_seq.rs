@@ -84,30 +84,29 @@ impl PutValue for ByteSeq {
 impl PutValue for [u8] {
     fn put_value(&mut self, value: &Value) {
         match value {
-            Value::I8(v) => self.as_mut().write_i8(*v),
-            Value::I16(v) => self.as_mut().write_i16::<NativeEndian>(*v),
-            Value::I32(v) => self.as_mut().write_i32::<NativeEndian>(*v),
-            Value::I64(v) => self.as_mut().write_i64::<NativeEndian>(*v),
-            Value::Int(v) => self.as_mut().write_int::<NativeEndian>(*v as i64, WORD_SIZE),
-            Value::U8(v) => self.as_mut().write_u8(*v),
-            Value::U16(v) => self.as_mut().write_u16::<NativeEndian>(*v),
-            Value::U32(v) => self.as_mut().write_u32::<NativeEndian>(*v),
-            Value::U64(v) => self.as_mut().write_u64::<NativeEndian>(*v),
-            Value::Uint(v) => self.as_mut().write_uint::<NativeEndian>(*v as u64, WORD_SIZE),
-            Value::F32(v) => self.as_mut().write_f32::<NativeEndian>(*v),
-            Value::F64(v) => self.as_mut().write_f64::<NativeEndian>(*v),
-            Value::Bool(v) => self.as_mut().write_u8(*v as u8),
+            Value::I8(v) => self.as_mut().write_i8(*v).unwrap(),
+            Value::I16(v) => self.as_mut().write_i16::<NativeEndian>(*v).unwrap(),
+            Value::I32(v) => self.as_mut().write_i32::<NativeEndian>(*v).unwrap(),
+            Value::I64(v) => self.as_mut().write_i64::<NativeEndian>(*v).unwrap(),
+            Value::Int(v) => self.as_mut().write_int::<NativeEndian>(*v as i64, WORD_SIZE).unwrap(),
+            Value::U8(v) => self.as_mut().write_u8(*v).unwrap(),
+            Value::U16(v) => self.as_mut().write_u16::<NativeEndian>(*v).unwrap(),
+            Value::U32(v) => self.as_mut().write_u32::<NativeEndian>(*v).unwrap(),
+            Value::U64(v) => self.as_mut().write_u64::<NativeEndian>(*v).unwrap(),
+            Value::Uint(v) => self.as_mut().write_uint::<NativeEndian>(*v as u64, WORD_SIZE).unwrap(),
+            Value::F32(v) => self.as_mut().write_f32::<NativeEndian>(*v).unwrap(),
+            Value::F64(v) => self.as_mut().write_f64::<NativeEndian>(*v).unwrap(),
+            Value::Bool(v) => self.as_mut().write_u8(*v as u8).unwrap(),
             Value::Buffer(v) => {
                 self.as_mut().write_all(v.bytes.inner.as_ref()).unwrap();
-                Ok(())
             }
             Value::Pointer(v) => self
                 .as_mut()
-                .write_uint::<NativeEndian>(v.as_inner_raw() as u64, WORD_SIZE),
+                .write_uint::<NativeEndian>(v.as_inner_raw() as u64, WORD_SIZE)
+                .unwrap(),
             Value::Function(_) => todo!(),
             _ => panic!("can't convert `{}` to raw self.as_mut().inner", value.to_string()),
         }
-        .unwrap()
     }
 }
 

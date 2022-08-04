@@ -452,16 +452,6 @@ impl<'vm> VM<'vm> {
                     let value = self.stack.pop();
                     self.stack.set(slot as usize, value);
                 }
-                Op::Index => {
-                    let index = self.stack.pop().into_uint();
-                    let value = self.stack.pop();
-                    self.index(value, index);
-                }
-                Op::IndexPtr => {
-                    let index = self.stack.pop().into_uint();
-                    let value = self.stack.pop();
-                    self.index_ptr(value, index);
-                }
                 Op::Offset => {
                     let index = self.stack.pop().into_uint();
                     let value = self.stack.pop();

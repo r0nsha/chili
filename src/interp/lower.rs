@@ -69,9 +69,9 @@ impl Lower for hir::Function {
 
                 let mut function_code = Bytecode::new();
 
-                for index in 0..function_type.params.len() {
-                    let offset = -(function_type.params.len() as i16) + index as i16;
-                    sess.env_mut().insert(params[index].id, offset);
+                for (index, param) in params.iter().enumerate() {
+                    let offset = -(params.len() as i16) + index as i16;
+                    sess.env_mut().insert(param.id, offset);
                 }
 
                 body.as_ref()
@@ -234,7 +234,7 @@ impl Lower for hir::Cast {
             Type::Never | Type::Unit | Type::Bool => (),
             Type::Pointer(ref inner, _) => match inner.as_ref() {
                 Type::Slice(_) => {
-                    let value_type = self.value.ty().normalize(sess.tcx);
+                    let value_type = self.ty.normalize(sess.tcx);
                     let value_type_size = value_type.size_of(WORD_SIZE) as u32;
                     let inner_type_size = value_type.element_type().unwrap().size_of(WORD_SIZE);
 
@@ -252,7 +252,7 @@ impl Lower for hir::Cast {
                     code.write_inst(Inst::BufferPut(0));
 
                     // calculate the slice length, by doing `high - low`
-                    match value_type.maybe_deref_once() {
+                    match self.value.ty().normalize(sess.tcx).maybe_deref_once() {
                         Type::Array(_, size) => {
                             sess.push_const(code, Value::Uint(size));
                         }
@@ -572,10 +572,13 @@ impl Lower for hir::Builtin {
                 offset.index.lower(sess, code, LowerContext { take_ptr: false });
 
                 sess.push_const(code, Value::Uint(elem_size));
-
                 code.write_inst(Inst::Mul);
 
-                code.write_inst(if ctx.take_ptr { Inst::IndexPtr } else { Inst::Index });
+                code.write_inst(Inst::Offset);
+
+                if !ctx.take_ptr {
+                    code.write_inst(Inst::Deref);
+                }
             }
             hir::Builtin::Slice(slice) => {
                 let value_type = slice.value.ty().normalize(sess.tcx);
