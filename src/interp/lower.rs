@@ -866,7 +866,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         ConstValue::Array(array) => {
             let array_len = array.values.len();
 
-            let elem_type = array.element_ty;
+            let elem_type = array.element_type;
             let elem_type_kind = elem_type.normalize(sess.tcx);
             let elem_size = elem_type_kind.size_of(WORD_SIZE);
 

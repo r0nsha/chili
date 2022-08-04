@@ -640,7 +640,7 @@ impl Value {
 
                     Ok(ConstValue::Array(ConstArray {
                         values,
-                        element_ty: tcx.bound(*el_ty, eval_span),
+                        element_type: tcx.bound(*el_ty, eval_span),
                     }))
                 }
                 Type::Pointer(inner, _) => match inner.as_ref() {

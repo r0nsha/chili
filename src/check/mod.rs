@@ -399,6 +399,73 @@ impl<'s> CheckSess<'s> {
             None => Err(invalid_scope_err()),
         }
     }
+
+    pub(super) fn build_rvalue(
+        &mut self,
+        env: &mut Env,
+        value: hir::Node,
+        is_mutable: bool,
+        span: Span,
+    ) -> DiagnosticResult<(hir::Node, hir::Node)> {
+        let ty = value.ty();
+        let ptr_type = self.tcx.bound(Type::Pointer(Box::new(ty.as_kind()), is_mutable), span);
+
+        let rvalue_name = self.generate_name("rvalue");
+
+        let (id, bound_node) = self.bind_name(
+            env,
+            rvalue_name,
+            ast::Visibility::Private,
+            ty,
+            Some(value),
+            is_mutable,
+            BindingInfoKind::Orphan,
+            span,
+            BindingInfoFlags::NO_CONST_FOLD,
+        )?;
+
+        let ref_node = hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
+            value: Box::new(hir::Node::Id(hir::Id { id, ty, span })),
+            is_mutable,
+            ty: ptr_type,
+            span,
+        }));
+
+        Ok((bound_node, ref_node))
+    }
+
+    pub(crate) fn array_literal_or_const(
+        &mut self,
+        elements: Vec<hir::Node>,
+        element_type: Type,
+        span: Span,
+    ) -> hir::Node {
+        let element_type_ty = self.tcx.bound(element_type.clone(), span);
+
+        let array_type = self
+            .tcx
+            .bound(Type::Array(Box::new(element_type), elements.len()), span);
+
+        if elements.iter().all(|a| a.is_const()) {
+            hir::Node::Const(hir::Const {
+                value: ConstValue::Array(ConstArray {
+                    values: elements
+                        .into_iter()
+                        .map(|elem| elem.into_const_value().unwrap())
+                        .collect(),
+                    element_type: element_type_ty,
+                }),
+                ty: array_type,
+                span,
+            })
+        } else {
+            hir::Node::Literal(hir::Literal::Array(hir::ArrayLiteral {
+                elements,
+                ty: array_type,
+                span,
+            }))
+        }
+    }
 }
 
 type CheckResult<T = hir::Node> = DiagnosticResult<T>;
@@ -1292,7 +1359,7 @@ impl Check for ast::Ast {
                                 .iter()
                                 .map(|node| node.as_const_value().unwrap().clone())
                                 .collect(),
-                            element_ty,
+                            element_type: element_ty,
                         });
 
                         Ok(hir::Node::Const(hir::Const {
@@ -1325,7 +1392,7 @@ impl Check for ast::Ast {
                     if let Some(const_value) = node.as_const_value() {
                         let const_array = ConstValue::Array(ConstArray {
                             values: vec![const_value.clone(); len as usize],
-                            element_ty: node.ty(),
+                            element_type: node.ty(),
                         });
 
                         Ok(hir::Node::Const(hir::Const {
@@ -2352,33 +2419,10 @@ impl Check for ast::Unary {
                         span: self.span,
                     })))
                 } else {
-                    let rvalue_name = sess.generate_name("rval");
-
-                    let (id, bound_node) = sess.bind_name(
-                        env,
-                        rvalue_name,
-                        ast::Visibility::Private,
-                        node_type,
-                        Some(node),
-                        is_mutable,
-                        BindingInfoKind::Orphan,
-                        self.span,
-                        BindingInfoFlags::NO_CONST_FOLD,
-                    )?;
-
-                    let ref_node = hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
-                        value: Box::new(hir::Node::Id(hir::Id {
-                            id,
-                            ty: node_type,
-                            span: self.span,
-                        })),
-                        is_mutable,
-                        ty: ptr_type,
-                        span: self.span,
-                    }));
+                    let (bound_node, rvalue_node) = sess.build_rvalue(env, node, is_mutable, self.span)?;
 
                     Ok(hir::Node::Sequence(hir::Sequence {
-                        statements: vec![bound_node, ref_node],
+                        statements: vec![bound_node, rvalue_node],
                         ty: ptr_type,
                         span: self.span,
                         is_scope: false,
@@ -2574,6 +2618,7 @@ impl Check for ast::Call {
                 }
 
                 let mut args = vec![];
+                let mut variadic_args = vec![];
 
                 // If the function was annotated by track_caller, its first argument
                 // should be the inserted location parameter: track_caller@location
@@ -2605,6 +2650,7 @@ impl Check for ast::Call {
                     _ => 0,
                 };
 
+                // Check the arguments passed against the function's parameter types
                 for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = function_type.params.get(index + param_offset) {
                         let param_type = sess.tcx.bound(param.ty.clone(), arg.span());
@@ -2626,11 +2672,43 @@ impl Check for ast::Call {
                                 .unify(vararg_type, &mut sess.tcx)
                                 .or_coerce_into_ty(&mut node, vararg_type, &mut sess.tcx, sess.target_metrics.word_size)
                                 .or_report_err(&sess.tcx, vararg_type, None, &node.ty(), arg.span())?;
-                        }
 
-                        args.push(node);
+                            variadic_args.push(node);
+                        } else {
+                            args.push(node);
+                        }
                     } else {
                         return Err(arg_mismatch(sess, &function_type, self.args.len(), self.span));
+                    }
+                }
+
+                if let Some(varargs) = &function_type.varargs {
+                    if let Some(vararg_type) = &varargs.ty {
+                        // Build a slice out of the passed variadic arguments
+                        let varargs_array_literal =
+                            sess.array_literal_or_const(variadic_args, vararg_type.clone(), self.span);
+
+                        let (bound_node, rvalue_node) =
+                            sess.build_rvalue(env, varargs_array_literal, false, self.span)?;
+
+                        let slice_type = sess
+                            .tcx
+                            .bound(Type::slice_pointer(vararg_type.clone(), false), self.span);
+
+                        let varargs_slice = hir::Node::Cast(hir::Cast {
+                            value: Box::new(rvalue_node),
+                            ty: slice_type,
+                            span: self.span,
+                        });
+
+                        let varargs_seq = hir::Node::Sequence(hir::Sequence {
+                            statements: vec![bound_node, varargs_slice],
+                            ty: slice_type,
+                            span: self.span,
+                            is_scope: false,
+                        });
+
+                        args.push(varargs_seq);
                     }
                 }
 
@@ -3339,13 +3417,33 @@ fn check_function<'s>(
     }
 
     if let Some(varargs) = &function_type.varargs {
-        if varargs.ty.is_none() {
-            return Err(Diagnostic::error()
-                .with_message("untyped variadic parameters are only valid in extern functions")
-                .with_label(Label::primary(
-                    sig.varargs.as_ref().unwrap().span,
-                    "variadic parameter must be typed",
-                )));
+        match &varargs.ty {
+            Some(ty) => {
+                let span = sig.varargs.as_ref().unwrap().type_expr.as_ref().unwrap().span();
+                let ty = sess.tcx.bound(Type::slice_pointer(ty.clone(), false), span);
+
+                let (bound_id, _) = sess.bind_name(
+                    env,
+                    varargs.name,
+                    ast::Visibility::Private,
+                    ty,
+                    None,
+                    false,
+                    BindingInfoKind::Orphan,
+                    span,
+                    BindingInfoFlags::empty(),
+                )?;
+
+                params.push(hir::FunctionParam { id: bound_id, ty, span });
+            }
+            None => {
+                return Err(Diagnostic::error()
+                    .with_message("untyped variadic parameters are only valid in extern functions")
+                    .with_label(Label::primary(
+                        sig.varargs.as_ref().unwrap().span,
+                        "variadic parameter must be typed",
+                    )))
+            }
         }
     }
 

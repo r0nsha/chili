@@ -124,7 +124,7 @@ fn cli() {
                     source_file,
                     output_file: None,
                     target_platform: current_target_platform(),
-                    optimization_level: OptimizationLevel::Debug,
+                    optimization_level: OptimizationLevel::Release,
                     emit_times: args.emit_times,
                     emit_hir: args.emit_hir,
                     emit_bytecode: args.emit_bytecode,

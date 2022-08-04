@@ -87,7 +87,7 @@ impl Ffi {
         let function_type = &function.ty;
         let param_types = function_type.params.iter().map(|p| p.ty.clone()).collect::<Vec<Type>>();
 
-        let mut function = if function_type.is_variadic() {
+        let mut function = if function_type.has_c_varargs() {
             let variadic_arg_types: Vec<Type> = args
                 .iter()
                 .skip(function_type.params.len())

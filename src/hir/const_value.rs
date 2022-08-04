@@ -36,7 +36,7 @@ pub struct ConstElement {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ConstArray {
     pub values: Vec<ConstValue>,
-    pub element_ty: TypeId,
+    pub element_type: TypeId,
 }
 
 #[derive(Debug, PartialEq, Clone)]
