@@ -371,6 +371,34 @@ impl<'s> CheckSess<'s> {
             }
         }))
     }
+
+    pub(super) fn get_track_caller_location_param_id(&self, env: &Env, span: Span) -> DiagnosticResult<BindingId> {
+        let invalid_scope_err = || {
+            Diagnostic::error()
+                .with_message(format!(
+                    "`{}` can only be used in a function annotated with @{}",
+                    hir::INTRINSIC_NAME_CALLER_LOCATION,
+                    hir::attrs::ATTR_NAME_TRACK_CALLER,
+                ))
+                .with_label(Label::primary(span, "cannot be used within the current scope"))
+        };
+
+        match env.find_binding(ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM)) {
+            Some(id) => match self.function_frame() {
+                Some(frame) => {
+                    let binding_info = self.workspace.binding_infos.get(id).unwrap();
+
+                    if env.scope_level() >= frame.scope_level && binding_info.scope_level == frame.scope_level {
+                        Ok(id)
+                    } else {
+                        Err(invalid_scope_err())
+                    }
+                }
+                None => Err(invalid_scope_err()),
+            },
+            None => Err(invalid_scope_err()),
+        }
+    }
 }
 
 type CheckResult<T = hir::Node> = DiagnosticResult<T>;
@@ -2546,24 +2574,36 @@ impl Check for ast::Call {
                 }
 
                 let mut args = vec![];
-                let mut param_offset = 0;
 
-                // If the function was annotated by track_caller, its first parameter
+                // If the function was annotated by track_caller, its first argument
                 // should be the inserted location parameter: track_caller@location
-                if let Some(param) = function_type.params.first() {
-                    if param.name == symbols::SYM_TRACK_CALLER_LOCATION_PARAM {
-                        let value = sess.build_location_value(env, self.span)?;
+                let param_offset = match function_type.params.first() {
+                    Some(param) if param.name == symbols::SYM_TRACK_CALLER_LOCATION_PARAM => {
                         let ty = sess.location_type()?;
 
-                        args.push(hir::Node::Const(hir::Const {
-                            value,
-                            ty,
-                            span: self.span,
-                        }));
+                        let arg = match sess.get_track_caller_location_param_id(env, self.span) {
+                            Ok(id) => hir::Node::Id(hir::Id {
+                                id,
+                                ty,
+                                span: self.span,
+                            }),
+                            Err(_) => {
+                                let value = sess.build_location_value(env, self.span)?;
 
-                        param_offset += 1;
+                                hir::Node::Const(hir::Const {
+                                    value,
+                                    ty,
+                                    span: self.span,
+                                })
+                            }
+                        };
+
+                        args.push(arg);
+
+                        1
                     }
-                }
+                    _ => 0,
+                };
 
                 for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = function_type.params.get(index + param_offset) {
@@ -2634,37 +2674,13 @@ impl Check for ast::Call {
                             }))
                         }
                         hir::Intrinsic::CallerLocation => {
-                            let invalid_scope_err = || {
-                                Diagnostic::error()
-                                    .with_message(format!(
-                                        "`{}` can only be used in a function annotated with @{}",
-                                        hir::INTRINSIC_NAME_CALLER_LOCATION,
-                                        hir::attrs::ATTR_NAME_TRACK_CALLER,
-                                    ))
-                                    .with_label(Label::primary(self.span, "cannot be used within the current scope"))
-                            };
-
-                            match env.find_binding(ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM)) {
-                                Some(id) => match sess.function_frame() {
-                                    Some(frame) => {
-                                        let binding_info = sess.workspace.binding_infos.get(id).unwrap();
-
-                                        if env.scope_level() >= frame.scope_level
-                                            && binding_info.scope_level == frame.scope_level
-                                        {
-                                            Ok(hir::Node::Id(hir::Id {
-                                                id,
-                                                ty,
-                                                span: self.span,
-                                            }))
-                                        } else {
-                                            Err(invalid_scope_err())
-                                        }
-                                    }
-                                    None => Err(invalid_scope_err()),
-                                },
-                                None => Err(invalid_scope_err()),
-                            }
+                            sess.get_track_caller_location_param_id(env, self.span).map(|id| {
+                                hir::Node::Id(hir::Id {
+                                    id,
+                                    ty,
+                                    span: self.span,
+                                })
+                            })
                         }
                         hir::Intrinsic::StartWorkspace => unreachable!(),
                     }
