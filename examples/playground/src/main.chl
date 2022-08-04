@@ -1,14 +1,3 @@
-let std @ {
-    fmt: { println },
-    c: { printf }
-} = import("std");
-
 fn main = {
-    let ((first, last), age) = (("John", "Doe"), 42);
-    std.c.printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age);
-
-    let { name: { first, last }, age } = { name: { first: "Rick", last: "Sanchez" }, age: 9000 };
-    printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age);
-
     println("Hello World");
 };
