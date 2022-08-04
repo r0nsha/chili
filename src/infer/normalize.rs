@@ -194,7 +194,7 @@ impl NormalizeCtx {
                     Type::Infer(
                         *ty,
                         InferType::PartialStruct(PartialStructType(IndexMap::from_iter(
-                            st.iter().map(|(symbol, ty)| (*symbol, self.normalize_kind(tcx, ty))),
+                            st.iter().map(|(name, ty)| (*name, self.normalize_kind(tcx, ty))),
                         ))),
                     )
                 }

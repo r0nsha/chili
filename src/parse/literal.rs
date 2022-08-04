@@ -1,8 +1,10 @@
 use super::*;
-use crate::ast::{self, LiteralKind, StructLiteralField};
-use crate::error::*;
-use crate::span::{Span, To};
-use crate::token::TokenKind::*;
+use crate::{
+    ast::{self, LiteralKind, StructLiteralField},
+    error::*,
+    span::Span,
+    token::TokenKind::*,
+};
 
 impl Parser {
     pub fn parse_literal(&mut self) -> DiagnosticResult<Ast> {

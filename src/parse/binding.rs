@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ast::pattern::Pattern, span::To, workspace::ModuleId};
+use crate::{ast::pattern::Pattern, workspace::ModuleId};
 
 impl Parser {
     pub fn try_parse_any_binding(

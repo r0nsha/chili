@@ -49,6 +49,30 @@ impl Span {
     pub fn contains(&self, index: usize) -> bool {
         self.range().contains(&index)
     }
+
+    pub fn to(&self, other: Self) -> Self {
+        if self.file_id != other.file_id {
+            panic!("can't merge spans from different files");
+        }
+
+        let start = if self.start.index < other.start.index {
+            self.start
+        } else {
+            other.start
+        };
+
+        let end = if self.end.index < other.end.index {
+            other.end
+        } else {
+            self.end
+        };
+
+        Self {
+            file_id: self.file_id,
+            start,
+            end,
+        }
+    }
 }
 
 impl Ord for Span {
@@ -96,36 +120,6 @@ impl EndPosition {
 
     pub fn initial() -> Self {
         Self { index: 0 }
-    }
-}
-
-pub trait To {
-    fn to(&self, other: Self) -> Self;
-}
-
-impl To for Span {
-    fn to(&self, other: Self) -> Self {
-        if self.file_id != other.file_id {
-            panic!("can't merge spans from different files");
-        }
-
-        let start = if self.start.index < other.start.index {
-            self.start
-        } else {
-            other.start
-        };
-
-        let end = if self.end.index < other.end.index {
-            other.end
-        } else {
-            self.end
-        };
-
-        Self {
-            file_id: self.file_id,
-            start,
-            end,
-        }
     }
 }
 

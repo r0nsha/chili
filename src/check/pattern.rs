@@ -6,7 +6,9 @@ use super::{
 use crate::{
     ast::{
         self,
-        pattern::{NamePattern, Pattern, UnpackPattern, UnpackPatternKind},
+        pattern::{
+            NamePattern, Pattern, StructUnpackPattern, StructUnpackSubPattern, TupleUnpackPattern, UnpackPatternKind,
+        },
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -152,7 +154,7 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         self.bind_name(
             env,
-            pattern.alias(),
+            pattern.name,
             visibility,
             ty,
             value,
@@ -183,15 +185,13 @@ impl<'s> CheckSess<'s> {
             Pattern::StructUnpack(pattern) => {
                 let mut statements = vec![];
 
-                let name = self.generate_name("v");
                 let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
-                    name,
                     visibility,
                     ty,
                     value,
                     kind,
-                    pattern,
+                    pattern.span,
                     &mut statements,
                     flags,
                 )?;
@@ -221,15 +221,13 @@ impl<'s> CheckSess<'s> {
             Pattern::TupleUnpack(pattern) => {
                 let mut statements = vec![];
 
-                let name = self.generate_name("v");
                 let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
-                    name,
                     visibility,
                     ty,
                     value,
                     kind,
-                    pattern,
+                    pattern.span,
                     &mut statements,
                     flags,
                 )?;
@@ -239,7 +237,6 @@ impl<'s> CheckSess<'s> {
                     env,
                     pattern,
                     visibility,
-                    ty,
                     id_node,
                     kind,
                     ty_origin_span,
@@ -281,7 +278,6 @@ impl<'s> CheckSess<'s> {
                         env,
                         pattern,
                         visibility,
-                        ty,
                         id_node,
                         kind,
                         ty_origin_span,
@@ -305,15 +301,16 @@ impl<'s> CheckSess<'s> {
     fn bind_temp_name_for_unpack_pattern(
         &mut self,
         env: &mut Env,
-        name: Ustr,
         visibility: ast::Visibility,
         ty: TypeId,
         value: Option<hir::Node>,
         kind: BindingInfoKind,
-        pattern: &UnpackPattern,
+        span: Span,
         statements: &mut Vec<hir::Node>,
         flags: BindingInfoFlags,
     ) -> Result<(BindingId, hir::Node), Diagnostic> {
+        let name = self.generate_name("v");
+
         let (id, bound_node) = self.bind_name(
             env,
             name,
@@ -322,7 +319,7 @@ impl<'s> CheckSess<'s> {
             value,
             false,
             kind,
-            pattern.span,
+            span,
             flags - BindingInfoFlags::IS_USER_DEFINED,
         )?;
 
@@ -347,7 +344,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        unpack_pattern: &UnpackPattern,
+        unpack_pattern: &StructUnpackPattern,
         visibility: ast::Visibility,
         ty: TypeId,
         value: hir::Node,
@@ -365,32 +362,66 @@ impl<'s> CheckSess<'s> {
 
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
-                for pattern in unpack_pattern.symbols.iter() {
-                    let caller_info = CallerInfo {
-                        module_id: env.module_id(),
-                        span: pattern.span,
-                    };
+                for pattern in unpack_pattern.sub_patterns.iter() {
+                    match pattern {
+                        StructUnpackSubPattern::Name(pattern) => {
+                            let caller_info = CallerInfo {
+                                module_id: env.module_id(),
+                                span: pattern.span,
+                            };
 
-                    let id = match module_bindings.get(&pattern.name) {
-                        Some(id) => *id,
-                        None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
-                    };
+                            let id = match module_bindings.get(&pattern.name) {
+                                Some(id) => *id,
+                                None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
+                            };
 
-                    self.validate_item_visibility(id, caller_info)?;
+                            self.validate_item_visibility(id, caller_info)?;
 
-                    let binding_info = self.workspace.binding_infos.get(id).unwrap();
+                            let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-                    let (_, binding) = self.bind_name_pattern(
-                        env,
-                        pattern,
-                        visibility,
-                        binding_info.ty,
-                        Some(self.id_or_const(binding_info, pattern.span)),
-                        kind,
-                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                    )?;
+                            let (_, binding) = self.bind_name_pattern(
+                                env,
+                                pattern,
+                                visibility,
+                                binding_info.ty,
+                                Some(self.id_or_const(binding_info, pattern.span)),
+                                kind,
+                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                            )?;
 
-                    statements.push(binding);
+                            statements.push(binding);
+                        }
+                        StructUnpackSubPattern::NameAndPattern(ast::NameAndSpan { name, span }, pattern) => {
+                            let (name, span) = (*name, *span);
+
+                            let caller_info = CallerInfo {
+                                module_id: env.module_id(),
+                                span: span,
+                            };
+
+                            let id = match module_bindings.get(&name) {
+                                Some(id) => *id,
+                                None => return Err(self.name_not_found_error(module_id, name, caller_info)),
+                            };
+
+                            self.validate_item_visibility(id, caller_info)?;
+
+                            let binding_info = self.workspace.binding_infos.get(id).unwrap();
+
+                            let (_, binding) = self.bind_pattern(
+                                env,
+                                pattern,
+                                visibility,
+                                binding_info.ty,
+                                Some(self.id_or_const(binding_info, span)),
+                                kind,
+                                ty_origin_span,
+                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                            )?;
+
+                            statements.push(binding);
+                        }
+                    }
                 }
 
                 if let Some(wildcard) = &unpack_pattern.wildcard {
@@ -398,6 +429,16 @@ impl<'s> CheckSess<'s> {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                         if binding_info.visibility == ast::Visibility::Private {
+                            continue;
+                        }
+
+                        if unpack_pattern
+                            .sub_patterns
+                            .iter()
+                            .find(|p| binding_info.name == p.name())
+                            .is_some()
+                        {
+                            // skip explicitly unpacked fields
                             continue;
                         }
 
@@ -420,9 +461,9 @@ impl<'s> CheckSess<'s> {
             type_kind => {
                 let partial_struct = PartialStructType(IndexMap::from_iter(
                     unpack_pattern
-                        .symbols
+                        .sub_patterns
                         .iter()
-                        .map(|pattern| (pattern.name, self.tcx.var(pattern.span).as_kind())),
+                        .map(|pattern| (pattern.name(), self.tcx.var(pattern.span()).as_kind())),
                 ));
 
                 let partial_struct_ty = self.tcx.partial_struct(partial_struct.clone(), unpack_pattern.span);
@@ -435,39 +476,47 @@ impl<'s> CheckSess<'s> {
                     ty_origin_span,
                 )?;
 
-                for (index, pattern) in unpack_pattern.symbols.iter().enumerate() {
-                    let ty = self.tcx.bound(partial_struct[&pattern.name].clone(), pattern.span);
+                for (index, pattern) in unpack_pattern.sub_patterns.iter().enumerate() {
+                    let name = pattern.name();
+
+                    let ty = self.tcx.bound(partial_struct[&name].clone(), pattern.span());
 
                     let field_value = match value.as_const_value() {
-                        Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {
-                            value: const_value
-                                .as_struct()
-                                .unwrap()
-                                .get(&pattern.name)
-                                .unwrap()
-                                .clone()
-                                .value,
+                        Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
+                            value: const_value.as_struct().unwrap().get(&name).unwrap().clone().value,
                             ty,
-                            span: pattern.span,
+                            span: pattern.span(),
                         }),
                         _ => hir::Node::MemberAccess(hir::MemberAccess {
                             value: Box::new(value.clone()),
-                            member_name: pattern.name,
+                            member_name: name,
                             member_index: index as _,
                             ty,
-                            span: pattern.span,
+                            span: pattern.span(),
                         }),
                     };
 
-                    let (_, bound_node) = self.bind_name_pattern(
-                        env,
-                        pattern,
-                        visibility,
-                        ty,
-                        Some(field_value),
-                        kind,
-                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                    )?;
+                    let (_, bound_node) = match pattern {
+                        StructUnpackSubPattern::Name(pattern) => self.bind_name_pattern(
+                            env,
+                            pattern,
+                            visibility,
+                            ty,
+                            Some(field_value),
+                            kind,
+                            flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                        )?,
+                        StructUnpackSubPattern::NameAndPattern(_, pattern) => self.bind_pattern(
+                            env,
+                            pattern,
+                            visibility,
+                            ty,
+                            Some(field_value),
+                            kind,
+                            ty_origin_span,
+                            flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                        )?,
+                    };
 
                     statements.push(bound_node);
                 }
@@ -476,7 +525,12 @@ impl<'s> CheckSess<'s> {
                     match type_kind {
                         Type::Struct(struct_ty) => {
                             for (index, field) in struct_ty.fields.iter().enumerate() {
-                                if unpack_pattern.symbols.iter().find(|p| field.name == p.name).is_some() {
+                                if unpack_pattern
+                                    .sub_patterns
+                                    .iter()
+                                    .find(|p| field.name == p.name())
+                                    .is_some()
+                                {
                                     // skip explicitly unpacked fields
                                     continue;
                                 }
@@ -541,21 +595,24 @@ impl<'s> CheckSess<'s> {
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        pattern: &UnpackPattern,
+        pattern: &TupleUnpackPattern,
         visibility: ast::Visibility,
-        ty: TypeId,
         value: hir::Node,
         kind: BindingInfoKind,
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
-        let elements = pattern
-            .symbols
-            .iter()
-            .map(|symbol| self.tcx.var(symbol.span).as_kind())
-            .collect::<Vec<Type>>();
+        let ty = value.ty();
 
-        let partial_tuple = self.tcx.partial_tuple(elements.clone(), pattern.span);
+        let element_types: Vec<TypeId> = pattern
+            .sub_patterns
+            .iter()
+            .map(|pattern| self.tcx.var(pattern.span()))
+            .collect();
+
+        let partial_tuple = self
+            .tcx
+            .partial_tuple(element_types.iter().map(TypeId::as_kind).collect(), pattern.span);
 
         ty.unify(&partial_tuple, &mut self.tcx).or_report_err(
             &self.tcx,
@@ -565,11 +622,9 @@ impl<'s> CheckSess<'s> {
             ty_origin_span,
         )?;
 
-        for (index, pattern) in pattern.symbols.iter().enumerate() {
-            let ty = self.tcx.bound(elements[index].clone(), pattern.span);
-
-            let element_value = match value.as_const_value() {
-                Some(const_value) if !pattern.is_mutable => hir::Node::Const(hir::Const {
+        for ((index, sub_pattern), &ty) in pattern.sub_patterns.iter().enumerate().zip(element_types.iter()) {
+            let element_value = |pattern: &Pattern| match value.as_const_value() {
+                Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
                     value: const_value.as_tuple().unwrap()[index].value.clone(),
                     ty,
                     span: value.span(),
@@ -583,13 +638,16 @@ impl<'s> CheckSess<'s> {
                 }),
             };
 
-            let (_, bound_node) = self.bind_name_pattern(
+            let element_value = element_value(sub_pattern);
+
+            let (_, bound_node) = self.bind_pattern(
                 env,
-                pattern,
+                sub_pattern,
                 visibility,
                 ty,
                 Some(element_value),
                 kind,
+                ty_origin_span,
                 flags | BindingInfoFlags::TYPE_WAS_INFERRED,
             )?;
 

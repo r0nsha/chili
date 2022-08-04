@@ -1,8 +1,12 @@
 use super::*;
-use crate::ast::pattern::{HybridPattern, NamePattern, Pattern, UnpackPattern, UnpackPatternKind, Wildcard};
-use crate::error::SyntaxError;
-use crate::span::To;
-use crate::workspace::BindingId;
+use crate::{
+    ast::pattern::{
+        HybridPattern, NamePattern, Pattern, StructUnpackPattern, StructUnpackSubPattern, TupleUnpackPattern,
+        UnpackPatternKind, Wildcard,
+    },
+    error::SyntaxError,
+    workspace::BindingId,
+};
 
 impl Parser {
     pub fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
@@ -39,8 +43,8 @@ impl Parser {
             self.parse_tuple_unpack()
         } else if eat!(self, Star) {
             let span = self.previous_span();
-            Ok(Pattern::StructUnpack(UnpackPattern {
-                symbols: vec![],
+            Ok(Pattern::StructUnpack(StructUnpackPattern {
+                sub_patterns: vec![],
                 span,
                 wildcard: Some(Wildcard { span }),
             }))
@@ -52,7 +56,7 @@ impl Parser {
     fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous_span();
 
-        let mut symbols = vec![];
+        let mut sub_patterns = vec![];
         let mut wildcard_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.is_end() {
@@ -61,23 +65,39 @@ impl Parser {
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
-                let mut symbol = self.parse_name_pattern()?;
+                fn parse_name(
+                    parser: &mut Parser,
+                    sub_patterns: &mut Vec<StructUnpackSubPattern>,
+                ) -> DiagnosticResult<()> {
+                    let pattern = parser.parse_name_pattern()?;
 
-                // This means the user used `_`, instead of `x: _` - which is illegal
-                if symbol.ignore {
-                    return Err(SyntaxError::expected(symbol.span, "an identifier, ? or }"));
-                }
-
-                if eat!(self, Colon) {
-                    if eat!(self, Placeholder) {
-                        symbol.ignore = true;
-                    } else {
-                        let id_token = require!(self, Ident(_), "an identifier")?;
-                        symbol.alias = Some(id_token.name());
+                    // This means the user used `_`, instead of `x: _` - which is illegal
+                    if pattern.ignore {
+                        return Err(SyntaxError::expected(pattern.span, "an identifier, ? or }"));
                     }
+
+                    sub_patterns.push(StructUnpackSubPattern::Name(pattern));
+
+                    Ok(())
                 }
 
-                symbols.push(symbol);
+                if eat!(self, Ident(_)) {
+                    if is!(self, Colon) {
+                        let ident = self.previous();
+                        let name = ast::NameAndSpan::new(ident.name(), ident.span);
+
+                        self.bump();
+
+                        let pattern = self.parse_pattern()?;
+
+                        sub_patterns.push(StructUnpackSubPattern::NameAndPattern(name, pattern));
+                    } else {
+                        self.revert(1);
+                        parse_name(self, &mut sub_patterns)?;
+                    }
+                } else {
+                    parse_name(self, &mut sub_patterns)?;
+                }
 
                 if eat!(self, Comma) {
                     continue;
@@ -90,33 +110,28 @@ impl Parser {
             }
         }
 
-        let unpack = UnpackPattern {
-            symbols,
+        Ok(Pattern::StructUnpack(StructUnpackPattern {
+            sub_patterns,
             span: start_span.to(self.previous_span()),
             wildcard: wildcard_span.map(|span| Wildcard { span }),
-        };
-
-        Ok(Pattern::StructUnpack(unpack))
+        }))
     }
 
     fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pattern> {
         let start_span = self.previous_span();
 
-        let symbols = parse_delimited_list!(self, CloseParen, Comma, self.parse_name_pattern()?, ", or )");
+        let sub_patterns = parse_delimited_list!(self, CloseParen, Comma, self.parse_pattern()?, ", or )");
 
-        let unpack = UnpackPattern {
-            symbols,
+        Ok(Pattern::TupleUnpack(TupleUnpackPattern {
+            sub_patterns,
             span: start_span.to(self.previous_span()),
-            wildcard: None,
-        };
-
-        Ok(Pattern::TupleUnpack(unpack))
+        }))
     }
 
     pub fn parse_name_pattern(&mut self) -> DiagnosticResult<NamePattern> {
         let is_mutable = eat!(self, Mut);
 
-        let (symbol, ignore) = if eat!(self, Ident(_)) {
+        let (name, ignore) = if eat!(self, Ident(_)) {
             (self.previous().name(), false)
         } else if eat!(self, Placeholder) {
             (ustr(Placeholder.lexeme()), true)
@@ -126,8 +141,7 @@ impl Parser {
 
         Ok(NamePattern {
             id: BindingId::unknown(),
-            name: symbol,
-            alias: None,
+            name,
             is_mutable,
             span: self.previous_span(),
             ignore,
