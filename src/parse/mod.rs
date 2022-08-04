@@ -11,7 +11,7 @@ mod top_level;
 use crate::{
     ast::{self, Ast},
     error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
-    span::{EndPosition, Position, Span, To},
+    span::{EndPosition, Position, Span},
     token::{lexer::Lexer, Token, TokenKind::*},
     workspace::{library::Library, ModuleInfo, PartialModuleInfo},
 };

@@ -27,26 +27,24 @@ impl CheckTopLevel for ast::Binding {
     fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>> {
         let node = sess.with_env(self.module_id, |sess, mut env| self.check(sess, &mut env, None))?;
 
-        let mut bound_names = UstrMap::<BindingId>::default();
-
-        match node {
-            hir::Node::Binding(binding) => {
-                let (name, id) = (binding.name, binding.id);
-                sess.cache.bindings.insert(id, binding);
-                bound_names.insert(name, id);
-            }
-            hir::Node::Sequence(sequence) => {
-                for statement in sequence.statements.into_iter() {
-                    let binding = statement.into_binding().unwrap();
+        fn collect_bound_names(node: hir::Node, bound_names: &mut UstrMap<BindingId>, sess: &mut CheckSess) {
+            match node {
+                hir::Node::Binding(binding) => {
                     let (name, id) = (binding.name, binding.id);
-
                     sess.cache.bindings.insert(id, binding);
-
                     bound_names.insert(name, id);
                 }
+                hir::Node::Sequence(sequence) => {
+                    sequence.statements.into_iter().for_each(|statement| {
+                        collect_bound_names(statement, bound_names, sess);
+                    });
+                }
+                _ => unreachable!("{:#?}", node),
             }
-            _ => unreachable!("{:?}", node),
         }
+
+        let mut bound_names = UstrMap::<BindingId>::default();
+        collect_bound_names(node, &mut bound_names, sess);
 
         Ok(bound_names)
     }
@@ -205,7 +203,6 @@ impl<'s> CheckSess<'s> {
                                 name_pattern: NamePattern {
                                     id: BindingId::unknown(),
                                     name: ustr(LIB_NAME_STD),
-                                    alias: None,
                                     span,
                                     is_mutable: false,
                                     ignore: false,

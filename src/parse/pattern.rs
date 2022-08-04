@@ -1,10 +1,12 @@
 use super::*;
-use crate::ast::pattern::{
-    HybridPattern, NamePattern, Pattern, StructUnpackPattern, TupleUnpackPattern, UnpackPatternKind, Wildcard,
+use crate::{
+    ast::pattern::{
+        HybridPattern, NamePattern, Pattern, StructUnpackPattern, StructUnpackSubPattern, TupleUnpackPattern,
+        UnpackPatternKind, Wildcard,
+    },
+    error::SyntaxError,
+    workspace::BindingId,
 };
-use crate::error::SyntaxError;
-use crate::span::To;
-use crate::workspace::BindingId;
 
 impl Parser {
     pub fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
@@ -63,23 +65,39 @@ impl Parser {
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
-                let mut pattern = self.parse_name_pattern()?;
+                fn parse_name(
+                    parser: &mut Parser,
+                    sub_patterns: &mut Vec<StructUnpackSubPattern>,
+                ) -> DiagnosticResult<()> {
+                    let pattern = parser.parse_name_pattern()?;
 
-                // This means the user used `_`, instead of `x: _` - which is illegal
-                if pattern.ignore {
-                    return Err(SyntaxError::expected(pattern.span, "an identifier, ? or }"));
-                }
-
-                if eat!(self, Colon) {
-                    if eat!(self, Placeholder) {
-                        pattern.ignore = true;
-                    } else {
-                        let id_token = require!(self, Ident(_), "an identifier")?;
-                        pattern.alias = Some(id_token.name());
+                    // This means the user used `_`, instead of `x: _` - which is illegal
+                    if pattern.ignore {
+                        return Err(SyntaxError::expected(pattern.span, "an identifier, ? or }"));
                     }
+
+                    sub_patterns.push(StructUnpackSubPattern::Name(pattern));
+
+                    Ok(())
                 }
 
-                sub_patterns.push(pattern);
+                if eat!(self, Ident(_)) {
+                    if is!(self, Colon) {
+                        let ident = self.previous();
+                        let name = ast::NameAndSpan::new(ident.name(), ident.span);
+
+                        self.bump();
+
+                        let pattern = self.parse_pattern()?;
+
+                        sub_patterns.push(StructUnpackSubPattern::NameAndPattern(name, pattern));
+                    } else {
+                        self.revert(1);
+                        parse_name(self, &mut sub_patterns)?;
+                    }
+                } else {
+                    parse_name(self, &mut sub_patterns)?;
+                }
 
                 if eat!(self, Comma) {
                     continue;
@@ -124,7 +142,6 @@ impl Parser {
         Ok(NamePattern {
             id: BindingId::unknown(),
             name,
-            alias: None,
             is_mutable,
             span: self.previous_span(),
             ignore,

@@ -5,7 +5,7 @@ use crate::{
         diagnostic::{Diagnostic, Label},
         *,
     },
-    span::{Span, To},
+    span::Span,
     token::TokenKind::*,
     types::StructTypeKind,
 };

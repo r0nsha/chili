@@ -1,8 +1,10 @@
 use super::*;
-use crate::ast::{self, Ast, BinaryOp, Call, Cast, UnaryOp};
-use crate::error::*;
-use crate::span::{EndPosition, To};
-use crate::token::TokenKind::*;
+use crate::{
+    ast::{self, Ast, BinaryOp, Call, Cast, UnaryOp},
+    error::*,
+    span::EndPosition,
+    token::TokenKind::*,
+};
 use ustr::ustr;
 
 impl Parser {

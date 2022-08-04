@@ -2,7 +2,6 @@ use super::*;
 use crate::{
     ast::{Function, FunctionParam, FunctionSig, FunctionVarargs},
     error::{DiagnosticResult, SyntaxError},
-    span::To,
     types::FunctionTypeKind,
 };
 use ustr::Ustr;
