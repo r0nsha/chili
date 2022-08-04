@@ -112,7 +112,7 @@ pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> 
     }
 
     time! { workspace.build_options.emit_times, "llvm opt", {
-        // cg.optimize();
+        cg.optimize();
     }};
 
     build_executable(
