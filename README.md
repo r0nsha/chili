@@ -46,11 +46,22 @@ As there's no freestanding binary yet, we still need to build the compiler from 
 cargo build
 ```
 
-To run the compiler directly from cargo:
+### Running the compiler from cargo:
+
+The compiler is ran in interpreter mode by default, which means that your code won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl) for more information about compile-time evaluation.
+
+To run the compiler (in interpreter mode):
+
+```
+cargo run -- %source_file_path%
+example: cargo run -- ./build.chl
+```
+
+As a convinience, you can compile and run a file directly, by specifying the `--run` flag:
 
 ```
 cargo run -- %source_file_path% --run
-example: cargo run -- ./examples/main.chl --run
+example: cargo run -- ./src/main.chl --run
 ```
 
 ## Tooling
