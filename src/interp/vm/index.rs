@@ -51,17 +51,17 @@ impl<'vm> VM<'vm> {
                     self.stack.push(value);
                 }
                 ptr => {
-                    // let ptr = if ptr.is_pointer() {
-                    //     unsafe { &*ptr.into_pointer() }
-                    // } else {
-                    //     &ptr
-                    // };
-                    self.stack.push(unsafe { Value::Pointer(ptr.offset(offset as _)) })
-                    // let raw = ptr.as_inner_raw();
-                    // let offset = unsafe { raw.add(offset) };
+                    let ptr = if ptr.is_pointer() {
+                        unsafe { &*ptr.into_pointer() }
+                    } else {
+                        &ptr
+                    };
 
-                    // self.stack
-                    //     .push(Value::Pointer(Pointer::from_kind_and_ptr(ptr.kind(), offset)))
+                    let raw = ptr.as_inner_raw();
+                    let offset = unsafe { raw.add(offset) };
+
+                    self.stack
+                        .push(Value::Pointer(Pointer::from_kind_and_ptr(ptr.kind(), offset)))
                 }
             },
             Value::Buffer(buf) => {

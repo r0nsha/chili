@@ -234,11 +234,10 @@ impl Lower for hir::Cast {
             }
             Type::Pointer(ref inner, _) => match inner.as_ref() {
                 Type::Slice(_) => {
-                    let value_type = self.ty.normalize(sess.tcx);
-                    let value_type_size = value_type.size_of(WORD_SIZE) as u32;
-                    let inner_type_size = value_type.element_type().unwrap().size_of(WORD_SIZE);
+                    let value_type_size = target_type.size_of(WORD_SIZE) as u32;
+                    let inner_type_size = target_type.element_type().unwrap().size_of(WORD_SIZE);
 
-                    sess.push_const(code, Value::Type(value_type.clone()));
+                    sess.push_const(code, Value::Type(target_type.clone()));
                     code.write_inst(Inst::BufferAlloc(value_type_size));
 
                     self.value.lower(sess, code, LowerContext { take_ptr: false });
@@ -249,12 +248,14 @@ impl Lower for hir::Cast {
                     code.write_inst(Inst::Mul);
                     code.write_inst(Inst::Offset);
 
+                    let value_type = self.value.ty().normalize(sess.tcx).maybe_deref_once();
+
                     code.write_inst(Inst::BufferPut(0));
 
                     // calculate the slice length, by doing `high - low`
-                    match self.value.ty().normalize(sess.tcx).maybe_deref_once() {
+                    match &value_type {
                         Type::Array(_, size) => {
-                            sess.push_const(code, Value::Uint(size));
+                            sess.push_const(code, Value::Uint(*size));
                         }
                         ty => unreachable!("unexpected type `{:?}`", ty),
                     }
@@ -593,27 +594,6 @@ impl Lower for hir::Builtin {
                 };
 
                 match &value_type {
-                    Type::Array(..) => {
-                        sess.push_const(code, Value::Type(value_type.clone()));
-                        code.write_inst(Inst::BufferAlloc(value_type_size));
-
-                        slice.value.lower(sess, code, LowerContext { take_ptr: true });
-
-                        // calculate the new slice's offset
-                        slice.low.lower(sess, code, LowerContext { take_ptr: false });
-                        sess.push_const(code, Value::Uint(elem_size));
-                        code.write_inst(Inst::Mul);
-                        code.write_inst(Inst::Offset);
-
-                        code.write_inst(Inst::BufferPut(0));
-
-                        // calculate the slice length, by doing `high - low`
-                        slice.high.lower(sess, code, LowerContext { take_ptr: false });
-                        slice.low.lower(sess, code, LowerContext { take_ptr: false });
-                        code.write_inst(Inst::Sub);
-
-                        code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
-                    }
                     Type::Pointer(inner, _) => match inner.as_ref() {
                         Type::Slice(_) => {
                             slice.value.lower(sess, code, LowerContext { take_ptr: false });
@@ -627,6 +607,29 @@ impl Lower for hir::Builtin {
                             code.write_inst(Inst::BufferAlloc(value_type_size));
 
                             code.write_inst(Inst::Swap(1));
+
+                            // calculate the new slice's offset
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
+                            sess.push_const(code, Value::Uint(elem_size));
+                            code.write_inst(Inst::Mul);
+                            code.write_inst(Inst::Offset);
+
+                            code.write_inst(Inst::BufferPut(0));
+
+                            // calculate the slice length, by doing `high - low`
+                            slice.high.lower(sess, code, LowerContext { take_ptr: false });
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
+                            code.write_inst(Inst::Sub);
+
+                            code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
+                        }
+                        Type::Array(..) => {
+                            sess.push_const(code, Value::Type(value_type.clone()));
+                            code.write_inst(Inst::BufferAlloc(value_type_size));
+
+                            slice.value.lower(sess, code, LowerContext { take_ptr: false });
+
+                            code.write_inst(Inst::Deref);
 
                             // calculate the new slice's offset
                             slice.low.lower(sess, code, LowerContext { take_ptr: false });

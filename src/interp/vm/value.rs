@@ -763,9 +763,9 @@ impl Pointer {
                 FloatType::F64 => Self::F64(ptr as _),
                 FloatType::Float => {
                     if IS_64BIT {
-                        Self::F32(ptr as _)
-                    } else {
                         Self::F64(ptr as _)
+                    } else {
+                        Self::F32(ptr as _)
                     }
                 }
             },
@@ -869,8 +869,8 @@ impl Display for Value {
                 Value::U32(v) => format!("u32 {}", v),
                 Value::U64(v) => format!("u64 {}", v),
                 Value::Uint(v) => format!("uint {}", v),
-                Value::F32(v) => format!("f32 {}", v),
-                Value::F64(v) => format!("f64 {}", v),
+                Value::F32(v) => format!("f32 {:.2}", v),
+                Value::F64(v) => format!("f64 {:.2}", v),
                 Value::Bool(v) => format!("bool {}", v),
                 Value::Buffer(v) => v.to_string(),
                 Value::Pointer(p) => p.to_string(),
@@ -976,8 +976,8 @@ impl Display for Pointer {
                     Pointer::U32(v) => format!("u32 {}", **v),
                     Pointer::U64(v) => format!("u64 {}", **v),
                     Pointer::Uint(v) => format!("uint {}", **v),
-                    Pointer::F32(v) => format!("f32 {}", **v),
-                    Pointer::F64(v) => format!("f64 {}", **v),
+                    Pointer::F32(v) => format!("f32 {:.2}", **v),
+                    Pointer::F64(v) => format!("f64 {:.2}", **v),
                     Pointer::Bool(v) => format!("bool {}", **v),
                     Pointer::Buffer(v) => (**v).to_string(),
                     Pointer::Pointer(p) => (**p).to_string(),

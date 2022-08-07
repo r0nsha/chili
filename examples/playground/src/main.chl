@@ -1,21 +1,17 @@
 fn main = {
-    // println("Hello World");
-	// printints(1, 2, 3);
-	// printwords("John", "Doe");
+    println("Hello World");
+	printints(1, 2, 3);
+	printwords("John", "Doe");
 };
 
-fn printints(args: int...) = for a in args {
+fn printints(args: float...) = for a in args {
 	std.c.printf("%d\n".data, a);
 };
 
-// fn printwords(words: *str...) = { 
-//     for word in words {
-// 	    std.c.printf("%s ".data, word);
-//     };
+fn printwords(words: *str...) = { 
+    for word in words {
+	    std.c.printf("%s ".data, word);
+    };
 
-//     println();
-// };
-
-static { 
-	printints(1, 2, 3);
+    println();
 };
