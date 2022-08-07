@@ -308,7 +308,7 @@ impl AsFfiType for Type {
                 }
             },
             Type::Unit | Type::Pointer(_, _) | Type::Function(_) | Type::Array(_, _) => FfiType::pointer(),
-            Type::Slice(_) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
+            Type::Slice(_) | Type::Str(_) => FfiType::structure([FfiType::pointer(), FfiType::usize()]),
             Type::Tuple(tuple_elements) => FfiType::structure(tuple_elements.iter().map(|ty| ty.as_ffi_type())),
             Type::Struct(st) => FfiType::structure(st.fields.iter().map(|f| f.ty.as_ffi_type())),
             Type::Infer(_, ty) => match ty {

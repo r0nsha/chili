@@ -10,14 +10,14 @@ impl OffsetOf for Type {
         match self {
             Type::Array(ty, ..) => ty.size_of(word_size) * index,
             Type::Pointer(ty, _) => match ty.as_ref() {
-                Type::Slice(..) => match index {
+                Type::Slice(_) | Type::Str(_) => match index {
                     0 => 0,
                     1 => word_size,
                     _ => panic!("{}", index),
                 },
                 ty => panic!("{:?} isn't an aggregate type", ty),
             },
-            Type::Slice(..) => match index {
+            Type::Slice(_) | Type::Str(_) => match index {
                 0 => 0,
                 1 => word_size,
                 _ => panic!("{}", index),

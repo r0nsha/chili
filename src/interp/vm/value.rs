@@ -344,7 +344,7 @@ impl Buffer {
                 .map(|index| self.get_value_at_index(index))
                 .collect(),
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(..) => {
+                Type::Slice(_) | Type::Str(_) => {
                     vec![self.get_value_at_index(0), self.get_value_at_index(1)]
                 }
                 Type::Array(_, size) => {
@@ -377,7 +377,7 @@ impl Buffer {
             }
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(ty) => match index {
+                Type::Slice(ty) | Type::Str(ty) => match index {
                     0 => self.bytes.offset(offset).get_value(&Type::Pointer(ty.clone(), false)),
                     1 => self.bytes.offset(offset).get_value(&Type::uint()),
                     _ => panic!("{}", index),
@@ -484,7 +484,7 @@ impl From<&Type> for ValueKind {
                 }
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_) => Self::Buffer,
+                Type::Slice(_) | Type::Str(_) => Self::Buffer,
                 _ => Self::Pointer,
             },
             Type::Function(_) => Self::Function,
@@ -653,7 +653,7 @@ impl Value {
                     }))
                 }
                 Type::Pointer(inner, _) => match inner.as_ref() {
-                    Type::Slice(inner) => {
+                    Type::Slice(inner) | Type::Str(inner) => {
                         if matches!(inner.as_ref(), Type::Uint(UintType::U8)) {
                             let str = buf.as_str();
                             Ok(ConstValue::Str(ustr(str)))
@@ -902,7 +902,7 @@ impl Display for Buffer {
                 Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements.len(),
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
-                    Type::Slice(_) => 2,
+                    Type::Slice(_) | Type::Str(_) => 2,
                     ty => panic!("{:?}", ty),
                 },
                 ty => panic!("{:?}", ty),
@@ -926,7 +926,7 @@ impl Display for Buffer {
                     write!(f, "[{}{}]", values_joined, extra_values_str)
                 }
                 Type::Pointer(inner, _) => match inner.as_ref() {
-                    Type::Slice(_) => write!(f, "&[{}{}]", values_joined, extra_values_str),
+                    Type::Slice(_) | Type::Str(_) => write!(f, "&[{}{}]", values_joined, extra_values_str),
                     ty => panic!("{:?}", ty),
                 },
                 ty => panic!("{:?}", ty),

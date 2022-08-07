@@ -61,6 +61,11 @@ impl UnifyType<Type> for Type {
                 Ok(())
             }
 
+            (Type::Str(t1), Type::Str(t2)) => {
+                t1.unify(t2.as_ref(), tcx)?;
+                Ok(())
+            }
+
             (Type::Function(f1), Type::Function(f2)) => {
                 for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
                     p1.ty.unify(&p2.ty, tcx)?;
@@ -177,7 +182,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                     tcx.bind_ty(var, other_kind);
                     Ok(())
                 }
-                Type::Slice(..)
+                Type::Slice(_) | Type::Str(_)
                     if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN))
                         || partial_struct.contains_key(&ustr(BUILTIN_FIELD_DATA)) =>
                 {

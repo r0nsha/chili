@@ -80,7 +80,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                                 ty => ty,
                             };
 
-                            let value = if abi_fn.params[index].kind.is_indirect() && !param_type.is_slice_pointer() {
+                            let value = if abi_fn.params[index].kind.is_indirect() && !param_type.is_fat_pointer() {
                                 self.build_load(value.into_pointer_value())
                             } else {
                                 value

@@ -233,7 +233,7 @@ impl Lower for hir::Cast {
                 self.value.lower(sess, code, LowerContext { take_ptr: false });
             }
             Type::Pointer(ref inner, _) => match inner.as_ref() {
-                Type::Slice(_) => {
+                Type::Slice(_) | Type::Str(_) => {
                     let value_type_size = target_type.size_of(WORD_SIZE) as u32;
                     let inner_type_size = target_type.element_type().unwrap().size_of(WORD_SIZE);
 
@@ -559,7 +559,7 @@ impl Lower for hir::Builtin {
 
                 let elem_size = match value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner) => {
+                        Type::Slice(inner) | Type::Str(inner) => {
                             code.write_inst(Inst::ConstIndex(0));
                             inner.size_of(WORD_SIZE)
                         }
@@ -586,7 +586,7 @@ impl Lower for hir::Builtin {
 
                 let elem_size = match &value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner) => inner.size_of(WORD_SIZE),
+                        Type::Slice(inner) | Type::Str(inner) => inner.size_of(WORD_SIZE),
                         _ => inner.size_of(WORD_SIZE),
                     },
                     Type::Array(inner, _) => inner.size_of(WORD_SIZE),
@@ -595,7 +595,7 @@ impl Lower for hir::Builtin {
 
                 match &value_type {
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(_) => {
+                        Type::Slice(_) | Type::Str(_) => {
                             slice.value.lower(sess, code, LowerContext { take_ptr: false });
 
                             code.write_inst(Inst::Copy(0));
