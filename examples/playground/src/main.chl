@@ -4,7 +4,7 @@ fn main = {
 	printwords("John", "Doe");
 };
 
-fn printints(args: float...) = for a in args {
+fn printints(args: int...) = for a in args {
 	std.c.printf("%d\n".data, a);
 };
 
