@@ -400,7 +400,7 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    pub(super) fn build_rvalue(
+    pub(super) fn build_rvalue_ref(
         &mut self,
         env: &mut Env,
         value: hir::Node,
@@ -410,22 +410,29 @@ impl<'s> CheckSess<'s> {
         let ty = value.ty();
         let ptr_type = self.tcx.bound(Type::Pointer(Box::new(ty.as_kind()), is_mutable), span);
 
-        let rvalue_name = self.generate_name("rvalue");
+        let (value, bound_node) = match value {
+            hir::Node::Id(_) => (value.clone(), value),
+            _ => {
+                let rvalue_name = self.generate_name("rvalue");
 
-        let (id, bound_node) = self.bind_name(
-            env,
-            rvalue_name,
-            ast::Visibility::Private,
-            ty,
-            Some(value),
-            is_mutable,
-            BindingInfoKind::Orphan,
-            span,
-            BindingInfoFlags::NO_CONST_FOLD,
-        )?;
+                let (id, bound_node) = self.bind_name(
+                    env,
+                    rvalue_name,
+                    ast::Visibility::Private,
+                    ty,
+                    Some(value),
+                    is_mutable,
+                    BindingInfoKind::Orphan,
+                    span,
+                    BindingInfoFlags::NO_CONST_FOLD,
+                )?;
+
+                (hir::Node::Id(hir::Id { id, ty, span }), bound_node)
+            }
+        };
 
         let ref_node = hir::Node::Builtin(hir::Builtin::Ref(hir::Ref {
-            value: Box::new(hir::Node::Id(hir::Id { id, ty, span })),
+            value: Box::new(value),
             is_mutable,
             ty: ptr_type,
             span,
@@ -2419,7 +2426,7 @@ impl Check for ast::Unary {
                         span: self.span,
                     })))
                 } else {
-                    let (bound_node, rvalue_node) = sess.build_rvalue(env, node, is_mutable, self.span)?;
+                    let (bound_node, rvalue_node) = sess.build_rvalue_ref(env, node, is_mutable, self.span)?;
 
                     Ok(hir::Node::Sequence(hir::Sequence {
                         statements: vec![bound_node, rvalue_node],
@@ -2617,8 +2624,15 @@ impl Check for ast::Call {
                         .with_note(format!("function is of type `{}`", function_type.display(&sess.tcx)))
                 }
 
-                let mut args = vec![];
-                let mut variadic_args = vec![];
+                let mut args: Vec<hir::Node> = vec![];
+
+                enum Varargs {
+                    Empty,
+                    Individual(Vec<hir::Node>),
+                    Spread(hir::Node),
+                }
+
+                let mut vararg_args = Varargs::Empty;
 
                 // If the function was annotated by track_caller, its first argument
                 // should be the inserted location parameter: track_caller@location
@@ -2653,29 +2667,161 @@ impl Check for ast::Call {
                 // Check the arguments passed against the function's parameter types
                 for (index, arg) in self.args.iter().enumerate() {
                     if let Some(param) = function_type.params.get(index + param_offset) {
-                        let param_type = sess.tcx.bound(param.ty.clone(), arg.span());
-                        let mut node = arg.check(sess, env, Some(param_type))?;
+                        let param_type = sess.tcx.bound(param.ty.clone(), arg.value.span());
+                        let mut node = arg.value.check(sess, env, Some(param_type))?;
 
                         node.ty()
                             .unify(&param_type, &mut sess.tcx)
                             .or_coerce_into_ty(&mut node, &param_type, &mut sess.tcx, sess.target_metrics.word_size)
-                            .or_report_err(&sess.tcx, &param_type, None, &node.ty(), arg.span())?;
+                            .or_report_err(&sess.tcx, &param_type, None, &node.ty(), arg.value.span())?;
 
                         args.push(node);
                     } else if let Some(varargs) = &function_type.varargs {
                         // this is a variadic argument, meaning that the argument's
                         // index is greater than the function's param length
-                        let mut node = arg.check(sess, env, None)?;
+                        let mut node = arg.value.check(sess, env, None)?;
 
                         if let Some(vararg_type) = &varargs.ty {
-                            node.ty()
-                                .unify(vararg_type, &mut sess.tcx)
-                                .or_coerce_into_ty(&mut node, vararg_type, &mut sess.tcx, sess.target_metrics.word_size)
-                                .or_report_err(&sess.tcx, vararg_type, None, &node.ty(), arg.span())?;
+                            let is_last = index == self.args.len() - 1;
+                            match (arg.spread, is_last) {
+                                (true, true) => {
+                                    // This is a spreaded variadic argument
+                                    match &vararg_args {
+                                        Varargs::Individual(varargs) => {
+                                            return Err(Diagnostic::error()
+                                                .with_message(
+                                                    "variadic arguments cannot be passed and spreaded at the same time",
+                                                )
+                                                .with_label(Label::primary(
+                                                    arg.value.span(),
+                                                    "cannot spread this argument",
+                                                ))
+                                                .with_label(Label::secondary(
+                                                    varargs[0].span(),
+                                                    "first variadic argument passed here",
+                                                )))
+                                        }
+                                        Varargs::Spread(node) => {
+                                            return Err(Diagnostic::error()
+                                                .with_message("already spreaded variadic arguments")
+                                                .with_label(Label::primary(
+                                                    arg.value.span(),
+                                                    "variadic arguments spreaded twice",
+                                                ))
+                                                .with_label(Label::secondary(node.span(), "first spread here")))
+                                        }
+                                        _ => {
+                                            let ty = node.ty().normalize(&sess.tcx);
 
-                            variadic_args.push(node);
+                                            match node.ty().normalize(&sess.tcx) {
+                                                Type::Pointer(inner, _) => match inner.as_ref() {
+                                                    Type::Slice(elem_type) => {
+                                                        elem_type.unify(vararg_type, &mut sess.tcx).or_report_err(
+                                                            &sess.tcx,
+                                                            vararg_type,
+                                                            None,
+                                                            elem_type.as_ref(),
+                                                            node.span(),
+                                                        )?;
+
+                                                        vararg_args = Varargs::Spread(node);
+                                                    }
+                                                    _ => {
+                                                        return Err(Diagnostic::error()
+                                                            .with_message(format!(
+                                                                "cannot spread argument of type `{}`",
+                                                                ty.display(&sess.tcx)
+                                                            ))
+                                                            .with_label(Label::primary(
+                                                                arg.value.span(),
+                                                                "invalid argument type",
+                                                            )))
+                                                    }
+                                                },
+                                                Type::Array(elem_type, _) => {
+                                                    elem_type.unify(vararg_type, &mut sess.tcx).or_report_err(
+                                                        &sess.tcx,
+                                                        vararg_type,
+                                                        None,
+                                                        elem_type.as_ref(),
+                                                        node.span(),
+                                                    )?;
+
+                                                    let (bound_node, rvalue_node) =
+                                                        sess.build_rvalue_ref(env, node, false, self.span)?;
+
+                                                    let slice_type = sess.tcx.bound(
+                                                        Type::slice_pointer(vararg_type.clone(), false),
+                                                        self.span,
+                                                    );
+
+                                                    let varargs_slice = hir::Node::Cast(hir::Cast {
+                                                        value: Box::new(rvalue_node),
+                                                        ty: slice_type,
+                                                        span: self.span,
+                                                    });
+
+                                                    let varargs_seq = hir::Node::Sequence(hir::Sequence {
+                                                        statements: vec![bound_node, varargs_slice],
+                                                        ty: slice_type,
+                                                        span: self.span,
+                                                        is_scope: false,
+                                                    });
+
+                                                    vararg_args = Varargs::Spread(varargs_seq);
+                                                }
+                                                _ => {
+                                                    return Err(Diagnostic::error()
+                                                        .with_message(format!(
+                                                            "cannot spread argument of type `{}`",
+                                                            ty.display(&sess.tcx)
+                                                        ))
+                                                        .with_label(Label::primary(
+                                                            arg.value.span(),
+                                                            "invalid argument type",
+                                                        )))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                (true, false) => {
+                                    return Err(Diagnostic::error()
+                                        .with_message("variadic argument spread must come last")
+                                        .with_label(Label::primary(arg.value.span(), "invalid argument spread")))
+                                }
+                                _ => {
+                                    // This is a regular variadic argument
+
+                                    node.ty()
+                                        .unify(vararg_type, &mut sess.tcx)
+                                        .or_coerce_into_ty(
+                                            &mut node,
+                                            vararg_type,
+                                            &mut sess.tcx,
+                                            sess.target_metrics.word_size,
+                                        )
+                                        .or_report_err(&sess.tcx, vararg_type, None, &node.ty(), arg.value.span())?;
+
+                                    match &mut vararg_args {
+                                        Varargs::Individual(varargs) => {
+                                            varargs.push(node);
+                                        }
+                                        Varargs::Spread(_) => unreachable!(),
+                                        _ => {
+                                            vararg_args = Varargs::Individual(vec![node]);
+                                        }
+                                    }
+                                }
+                            }
                         } else {
-                            args.push(node);
+                            if arg.spread {
+                                return Err(Diagnostic::error()
+                                    .with_message("cannot spread untyped variadic arguments")
+                                    .with_label(Label::primary(arg.value.span(), "cannot spread this argument")));
+                            } else {
+                                args.push(node);
+                            }
                         }
                     } else {
                         return Err(arg_mismatch(sess, &function_type, self.args.len(), self.span));
@@ -2684,31 +2830,37 @@ impl Check for ast::Call {
 
                 if let Some(varargs) = &function_type.varargs {
                     if let Some(vararg_type) = &varargs.ty {
-                        // Build a slice out of the passed variadic arguments
-                        let varargs_array_literal =
-                            sess.array_literal_or_const(variadic_args, vararg_type.clone(), self.span);
+                        match vararg_args {
+                            Varargs::Empty => (),
+                            Varargs::Individual(vararg_args) => {
+                                // Build a slice out of the passed variadic arguments
+                                let varargs_array_literal =
+                                    sess.array_literal_or_const(vararg_args, vararg_type.clone(), self.span);
 
-                        let (bound_node, rvalue_node) =
-                            sess.build_rvalue(env, varargs_array_literal, false, self.span)?;
+                                let (bound_node, rvalue_node) =
+                                    sess.build_rvalue_ref(env, varargs_array_literal, false, self.span)?;
 
-                        let slice_type = sess
-                            .tcx
-                            .bound(Type::slice_pointer(vararg_type.clone(), false), self.span);
+                                let slice_type = sess
+                                    .tcx
+                                    .bound(Type::slice_pointer(vararg_type.clone(), false), self.span);
 
-                        let varargs_slice = hir::Node::Cast(hir::Cast {
-                            value: Box::new(rvalue_node),
-                            ty: slice_type,
-                            span: self.span,
-                        });
+                                let varargs_slice = hir::Node::Cast(hir::Cast {
+                                    value: Box::new(rvalue_node),
+                                    ty: slice_type,
+                                    span: self.span,
+                                });
 
-                        let varargs_seq = hir::Node::Sequence(hir::Sequence {
-                            statements: vec![bound_node, varargs_slice],
-                            ty: slice_type,
-                            span: self.span,
-                            is_scope: false,
-                        });
+                                let varargs_seq = hir::Node::Sequence(hir::Sequence {
+                                    statements: vec![bound_node, varargs_slice],
+                                    ty: slice_type,
+                                    span: self.span,
+                                    is_scope: false,
+                                });
 
-                        args.push(varargs_seq);
+                                args.push(varargs_seq);
+                            }
+                            Varargs::Spread(node) => args.push(node),
+                        }
                     }
                 }
 
@@ -2775,7 +2927,7 @@ impl Check for ast::Call {
                 let args = self
                     .args
                     .iter()
-                    .map(|arg| arg.check(sess, env, None))
+                    .map(|arg| arg.value.check(sess, env, None))
                     .collect::<DiagnosticResult<Vec<_>>>()?;
 
                 let return_type = sess.tcx.var(self.span);
