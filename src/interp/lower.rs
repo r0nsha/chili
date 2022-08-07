@@ -226,12 +226,12 @@ impl Lower for hir::Call {
 
 impl Lower for hir::Cast {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
-        self.value.lower(sess, code, LowerContext { take_ptr: false });
-
         let target_type = self.ty.normalize(sess.tcx);
 
         match target_type {
-            Type::Never | Type::Unit | Type::Bool => (),
+            Type::Never | Type::Unit | Type::Bool => {
+                self.value.lower(sess, code, LowerContext { take_ptr: false });
+            }
             Type::Pointer(ref inner, _) => match inner.as_ref() {
                 Type::Slice(_) => {
                     let value_type = self.ty.normalize(sess.tcx);
@@ -241,7 +241,7 @@ impl Lower for hir::Cast {
                     sess.push_const(code, Value::Type(value_type.clone()));
                     code.write_inst(Inst::BufferAlloc(value_type_size));
 
-                    self.value.lower(sess, code, LowerContext { take_ptr: true });
+                    self.value.lower(sess, code, LowerContext { take_ptr: false });
 
                     // calculate the new slice's offset
                     sess.push_const(code, Value::Uint(0));
@@ -265,11 +265,13 @@ impl Lower for hir::Cast {
                     code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                 }
                 _ => {
+                    self.value.lower(sess, code, LowerContext { take_ptr: false });
                     sess.push_const(code, Value::Type(target_type));
                     code.write_inst(Inst::Cast);
                 }
             },
             _ => {
+                self.value.lower(sess, code, LowerContext { take_ptr: false });
                 sess.push_const(code, Value::Type(target_type));
                 code.write_inst(Inst::Cast);
             }
@@ -536,12 +538,10 @@ impl Lower for hir::Builtin {
             }
             hir::Builtin::Not(unary) => {
                 unary.value.lower(sess, code, LowerContext { take_ptr: false });
-
                 code.write_inst(Inst::Not);
             }
             hir::Builtin::Neg(unary) => {
                 unary.value.lower(sess, code, LowerContext { take_ptr: false });
-
                 code.write_inst(Inst::Neg);
             }
             hir::Builtin::Ref(unary) => {
@@ -549,7 +549,6 @@ impl Lower for hir::Builtin {
             }
             hir::Builtin::Deref(unary) => {
                 unary.value.lower(sess, code, LowerContext { take_ptr: false });
-
                 code.write_inst(Inst::Deref);
             }
             hir::Builtin::Offset(offset) => {

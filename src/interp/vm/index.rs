@@ -41,31 +41,31 @@ impl<'vm> VM<'vm> {
     }
 
     #[inline]
-    pub fn offset(&mut self, value: Value, index: usize) {
+    pub fn offset(&mut self, value: Value, offset: usize) {
         match value {
             Value::Pointer(ptr) => match ptr {
                 Pointer::Buffer(buf) => {
                     let buf = unsafe { &mut *buf };
-                    let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
+                    let ptr = buf.bytes.offset_mut(offset).as_mut_ptr();
                     let value = Value::Pointer(Pointer::from_type_and_ptr(&buf.ty, ptr as _));
                     self.stack.push(value);
                 }
                 ptr => {
-                    let ptr = if ptr.is_pointer() {
-                        unsafe { &*ptr.into_pointer() }
-                    } else {
-                        &ptr
-                    };
+                    // let ptr = if ptr.is_pointer() {
+                    //     unsafe { &*ptr.into_pointer() }
+                    // } else {
+                    //     &ptr
+                    // };
+                    self.stack.push(unsafe { Value::Pointer(ptr.offset(offset as _)) })
+                    // let raw = ptr.as_inner_raw();
+                    // let offset = unsafe { raw.add(offset) };
 
-                    let raw = ptr.as_inner_raw();
-                    let offset = unsafe { raw.add(index) };
-
-                    self.stack
-                        .push(Value::Pointer(Pointer::from_kind_and_ptr(ptr.kind(), offset)))
+                    // self.stack
+                    //     .push(Value::Pointer(Pointer::from_kind_and_ptr(ptr.kind(), offset)))
                 }
             },
             Value::Buffer(buf) => {
-                let bytes = buf.bytes.offset(index);
+                let bytes = buf.bytes.offset(offset);
                 let ptr = &bytes[0];
                 self.stack.push(Value::Pointer(Pointer::from_type_and_ptr(
                     &buf.ty,
