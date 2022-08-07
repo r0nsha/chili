@@ -25,7 +25,8 @@ pub(super) fn get_abi_compliant_fn<'ctx>(
     match &target_metrics.arch {
         Arch::Amd64 => match &target_metrics.os {
             Os::Windows => amd64_win64::get_fn(info, fn_ty),
-            _ => amd64_system_v::get_fn(info, fn_ty),
+            Os::Linux => amd64_system_v::get_fn(info, fn_ty),
+            os => unimplemented!("{}", os.name()),
         },
         arch => unimplemented!("{}", arch.name()),
     }

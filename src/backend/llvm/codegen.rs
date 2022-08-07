@@ -298,7 +298,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             ConstValue::Float(v) => ty.llvm_type(self).into_float_type().const_float(*v as f64).into(),
             ConstValue::Str(v) => self.const_str_slice("", *v).into(),
             ConstValue::Array(array) => {
-                let el_ty = array.element_ty.normalize(self.tcx);
+                let el_ty = array.element_type.normalize(self.tcx);
 
                 let values: Vec<BasicValueEnum> = array
                     .values

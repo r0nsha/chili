@@ -8,6 +8,7 @@ fn main() = {
     pointers_and_references();
     slices();
     functions();
+    variadic_functions();
     structs();
     tuples();
     imports();
@@ -334,6 +335,28 @@ fn functions = {
     // - Default values must be compile-time known
     fn mul(a: i32, b: i32 = 2) = a * b;
     std.c.printf("mul(5) = %d\n".data, mul(5));
+};
+
+fn variadic_functions = {
+    println("variadic functions");
+
+    // The last parameter of a function can be variadic, 
+    // meaning that it can be passed as individual arguments instead of a slice of elements.
+    fn printints(args: int...) = for a in args {
+        std.c.printf("%d\n".data, a);
+    };
+
+    println("printing integers:");
+    printints(1, 2, 3);
+
+    // You can also "spread" a slice or an array as the variadic argument
+    println("printing spreaded slice:");
+    let slice: *[]int = &[4, 5, 6];
+	printints(slice...);
+    
+    println("printing spreaded array:");
+    let array = [7, 8, 9];
+	printints(array...);
 };
 
 fn structs = {

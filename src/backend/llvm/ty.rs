@@ -119,11 +119,19 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub(super) fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
-        let params: Vec<BasicMetadataTypeEnum> = f.params.iter().map(|p| p.ty.llvm_type(self).into()).collect();
-
+        let mut params: Vec<BasicMetadataTypeEnum> = f.params.iter().map(|p| p.ty.llvm_type(self).into()).collect();
         let ret = f.return_type.llvm_type(self);
 
-        ret.fn_type(&params, f.is_variadic())
+        match &f.varargs {
+            Some(varargs) => match &varargs.ty {
+                Some(ty) => {
+                    params.push(self.slice_type(ty).into());
+                    ret.fn_type(&params, false)
+                }
+                None => ret.fn_type(&params, true),
+            },
+            None => ret.fn_type(&params, false),
+        }
     }
 
     pub(super) fn get_abi_compliant_fn(&mut self, f: &FunctionType) -> AbiFunction<'ctx> {

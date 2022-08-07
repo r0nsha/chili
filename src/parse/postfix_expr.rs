@@ -55,14 +55,21 @@ impl Parser {
                 match &mut expr {
                     Ast::Call(call) => {
                         // map(x) fn ...
-                        call.args.push(fn_arg);
+                        call.args.push(ast::CallArg {
+                            value: fn_arg,
+                            spread: false,
+                        });
+
                         expr
                     }
                     _ => {
                         // map fn ...
                         Ast::Call(Call {
                             callee: Box::new(expr),
-                            args: vec![fn_arg],
+                            args: vec![ast::CallArg {
+                                value: fn_arg,
+                                spread: false,
+                            }],
                             span,
                         })
                     }
@@ -172,7 +179,18 @@ impl Parser {
 
     fn parse_call(&mut self, callee: Ast) -> DiagnosticResult<Ast> {
         let start_span = callee.span();
-        let args = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
+        let args = parse_delimited_list!(
+            self,
+            CloseParen,
+            Comma,
+            {
+                let value = self.parse_expr()?;
+                let spread = eat!(self, DotDotDot);
+
+                ast::CallArg { value, spread }
+            },
+            ", or )"
+        );
 
         Ok(Ast::Call(Call {
             callee: Box::new(callee),

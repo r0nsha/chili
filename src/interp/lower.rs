@@ -69,9 +69,9 @@ impl Lower for hir::Function {
 
                 let mut function_code = Bytecode::new();
 
-                for index in 0..function_type.params.len() {
-                    let offset = -(function_type.params.len() as i16) + index as i16;
-                    sess.env_mut().insert(params[index].id, offset);
+                for (index, param) in params.iter().enumerate() {
+                    let offset = -(params.len() as i16) + index as i16;
+                    sess.env_mut().insert(param.id, offset);
                 }
 
                 body.as_ref()
@@ -226,22 +226,21 @@ impl Lower for hir::Call {
 
 impl Lower for hir::Cast {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
-        self.value.lower(sess, code, LowerContext { take_ptr: false });
-
         let target_type = self.ty.normalize(sess.tcx);
 
         match target_type {
-            Type::Never | Type::Unit | Type::Bool => (),
+            Type::Never | Type::Unit | Type::Bool => {
+                self.value.lower(sess, code, LowerContext { take_ptr: false });
+            }
             Type::Pointer(ref inner, _) => match inner.as_ref() {
                 Type::Slice(_) => {
-                    let value_type = self.value.ty().normalize(sess.tcx);
-                    let value_type_size = value_type.size_of(WORD_SIZE) as u32;
-                    let inner_type_size = value_type.element_type().unwrap().size_of(WORD_SIZE);
+                    let value_type_size = target_type.size_of(WORD_SIZE) as u32;
+                    let inner_type_size = target_type.element_type().unwrap().size_of(WORD_SIZE);
 
-                    sess.push_const(code, Value::Type(value_type.clone()));
+                    sess.push_const(code, Value::Type(target_type.clone()));
                     code.write_inst(Inst::BufferAlloc(value_type_size));
 
-                    self.value.lower(sess, code, LowerContext { take_ptr: true });
+                    self.value.lower(sess, code, LowerContext { take_ptr: false });
 
                     // calculate the new slice's offset
                     sess.push_const(code, Value::Uint(0));
@@ -249,12 +248,14 @@ impl Lower for hir::Cast {
                     code.write_inst(Inst::Mul);
                     code.write_inst(Inst::Offset);
 
+                    let value_type = self.value.ty().normalize(sess.tcx).maybe_deref_once();
+
                     code.write_inst(Inst::BufferPut(0));
 
                     // calculate the slice length, by doing `high - low`
-                    match value_type.maybe_deref_once() {
+                    match &value_type {
                         Type::Array(_, size) => {
-                            sess.push_const(code, Value::Uint(size));
+                            sess.push_const(code, Value::Uint(*size));
                         }
                         ty => unreachable!("unexpected type `{:?}`", ty),
                     }
@@ -265,11 +266,13 @@ impl Lower for hir::Cast {
                     code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                 }
                 _ => {
+                    self.value.lower(sess, code, LowerContext { take_ptr: false });
                     sess.push_const(code, Value::Type(target_type));
                     code.write_inst(Inst::Cast);
                 }
             },
             _ => {
+                self.value.lower(sess, code, LowerContext { take_ptr: false });
                 sess.push_const(code, Value::Type(target_type));
                 code.write_inst(Inst::Cast);
             }
@@ -536,12 +539,10 @@ impl Lower for hir::Builtin {
             }
             hir::Builtin::Not(unary) => {
                 unary.value.lower(sess, code, LowerContext { take_ptr: false });
-
                 code.write_inst(Inst::Not);
             }
             hir::Builtin::Neg(unary) => {
                 unary.value.lower(sess, code, LowerContext { take_ptr: false });
-
                 code.write_inst(Inst::Neg);
             }
             hir::Builtin::Ref(unary) => {
@@ -549,7 +550,6 @@ impl Lower for hir::Builtin {
             }
             hir::Builtin::Deref(unary) => {
                 unary.value.lower(sess, code, LowerContext { take_ptr: false });
-
                 code.write_inst(Inst::Deref);
             }
             hir::Builtin::Offset(offset) => {
@@ -572,10 +572,13 @@ impl Lower for hir::Builtin {
                 offset.index.lower(sess, code, LowerContext { take_ptr: false });
 
                 sess.push_const(code, Value::Uint(elem_size));
-
                 code.write_inst(Inst::Mul);
 
-                code.write_inst(if ctx.take_ptr { Inst::IndexPtr } else { Inst::Index });
+                code.write_inst(Inst::Offset);
+
+                if !ctx.take_ptr {
+                    code.write_inst(Inst::Deref);
+                }
             }
             hir::Builtin::Slice(slice) => {
                 let value_type = slice.value.ty().normalize(sess.tcx);
@@ -591,27 +594,6 @@ impl Lower for hir::Builtin {
                 };
 
                 match &value_type {
-                    Type::Array(..) => {
-                        sess.push_const(code, Value::Type(value_type.clone()));
-                        code.write_inst(Inst::BufferAlloc(value_type_size));
-
-                        slice.value.lower(sess, code, LowerContext { take_ptr: true });
-
-                        // calculate the new slice's offset
-                        slice.low.lower(sess, code, LowerContext { take_ptr: false });
-                        sess.push_const(code, Value::Uint(elem_size));
-                        code.write_inst(Inst::Mul);
-                        code.write_inst(Inst::Offset);
-
-                        code.write_inst(Inst::BufferPut(0));
-
-                        // calculate the slice length, by doing `high - low`
-                        slice.high.lower(sess, code, LowerContext { take_ptr: false });
-                        slice.low.lower(sess, code, LowerContext { take_ptr: false });
-                        code.write_inst(Inst::Sub);
-
-                        code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
-                    }
                     Type::Pointer(inner, _) => match inner.as_ref() {
                         Type::Slice(_) => {
                             slice.value.lower(sess, code, LowerContext { take_ptr: false });
@@ -625,6 +607,29 @@ impl Lower for hir::Builtin {
                             code.write_inst(Inst::BufferAlloc(value_type_size));
 
                             code.write_inst(Inst::Swap(1));
+
+                            // calculate the new slice's offset
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
+                            sess.push_const(code, Value::Uint(elem_size));
+                            code.write_inst(Inst::Mul);
+                            code.write_inst(Inst::Offset);
+
+                            code.write_inst(Inst::BufferPut(0));
+
+                            // calculate the slice length, by doing `high - low`
+                            slice.high.lower(sess, code, LowerContext { take_ptr: false });
+                            slice.low.lower(sess, code, LowerContext { take_ptr: false });
+                            code.write_inst(Inst::Sub);
+
+                            code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
+                        }
+                        Type::Array(..) => {
+                            sess.push_const(code, Value::Type(value_type.clone()));
+                            code.write_inst(Inst::BufferAlloc(value_type_size));
+
+                            slice.value.lower(sess, code, LowerContext { take_ptr: false });
+
+                            code.write_inst(Inst::Deref);
 
                             // calculate the new slice's offset
                             slice.low.lower(sess, code, LowerContext { take_ptr: false });
@@ -866,7 +871,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
         ConstValue::Array(array) => {
             let array_len = array.values.len();
 
-            let elem_type = array.element_ty;
+            let elem_type = array.element_type;
             let elem_type_kind = elem_type.normalize(sess.tcx);
             let elem_size = elem_type_kind.size_of(WORD_SIZE);
 

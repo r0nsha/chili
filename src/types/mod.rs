@@ -109,7 +109,7 @@ pub struct FunctionType {
 }
 
 impl FunctionType {
-    pub fn is_variadic(&self) -> bool {
+    pub fn has_c_varargs(&self) -> bool {
         self.varargs.is_some()
     }
 }
@@ -555,11 +555,27 @@ impl Type {
 
     #[inline]
     pub fn str_pointer() -> Type {
-        Type::Pointer(Box::new(Type::Slice(Box::new(Type::char()))), false)
+        Type::slice_pointer(Type::char(), false)
     }
 
     #[inline]
     pub fn char() -> Type {
         Type::Uint(UintType::U8)
+    }
+
+    #[inline]
+    pub fn slice_pointer(element: Type, is_mutable: bool) -> Type {
+        Type::Pointer(Box::new(Type::Slice(Box::new(element))), is_mutable)
+    }
+
+    #[inline]
+    pub fn is_slice_pointer(&self) -> bool {
+        match self {
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_) => true,
+                _ => false,
+            },
+            _ => false,
+        }
     }
 }

@@ -200,8 +200,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn build_store(&self, ptr: PointerValue<'ctx>, value: BasicValueEnum<'ctx>) {
         match value.get_type() {
             BasicTypeEnum::PointerType(ptr_type) if ptr_type.get_element_type().is_array_type() => {
-                let element_type = ptr_type.get_element_type();
-                let size = size_of(element_type.try_into().unwrap(), self.target_metrics.word_size);
+                let size = size_of(
+                    ptr_type.get_element_type().try_into().unwrap(),
+                    self.target_metrics.word_size,
+                );
                 let size_value = self.ptr_sized_int_type.const_int(size as _, true);
                 self.build_copy_nonoverlapping(value.into_pointer_value(), ptr, size_value);
             }
@@ -360,7 +362,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .into(),
 
             (src_type, dst_type)
-                if mem::discriminant(&src_type) == mem::discriminant(&dst_type) && !src_type.is_aggregate_type() =>
+                if mem::discriminant(&src_type) == mem::discriminant(&dst_type)
+                    && !src_type.is_aggregate_type()
+                    && !dst_type.is_aggregate_type() =>
             {
                 self.builder.build_bitcast(value, dst_type, "")
             }

@@ -281,8 +281,14 @@ pub struct StructLiteralField {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Call {
     pub callee: Box<Ast>,
-    pub args: Vec<Ast>,
+    pub args: Vec<CallArg>,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CallArg {
+    pub value: Ast,
+    pub spread: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]

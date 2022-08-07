@@ -75,18 +75,18 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                             .zip(params.iter())
                             .enumerate()
                         {
-                            let value = if abi_fn.params[index].kind.is_indirect() {
+                            let param_type = match param.ty.normalize(self.tcx) {
+                                Type::Type(inner) => *inner,
+                                ty => ty,
+                            };
+
+                            let value = if abi_fn.params[index].kind.is_indirect() && !param_type.is_slice_pointer() {
                                 self.build_load(value.into_pointer_value())
                             } else {
                                 value
                             };
 
-                            let param_ty = match param.ty.normalize(self.tcx) {
-                                Type::Type(inner) => *inner,
-                                t => t,
-                            };
-
-                            let llvm_param_ty = param_ty.llvm_type(self);
+                            let llvm_param_ty = param_type.llvm_type(self);
 
                             let transmuted_value = self.build_transmute(&state, value, llvm_param_ty);
 
@@ -197,6 +197,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let mut processed_args = vec![];
 
         let mut param_index = 0;
+
         for (index, param) in abi_fn.params.iter().enumerate() {
             let arg = args[index];
 
@@ -221,10 +222,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                             ptr.into()
                         }
                         _ => {
-                            if !callee_ty.kind.is_extern() {
-                                self.build_alloca_or_load_addr(state, arg).into()
-                            } else {
+                            if callee_ty.kind.is_extern() {
                                 self.build_copy_value_to_ptr(state, arg, arg_type, 16).into()
+                            } else {
+                                self.build_alloca_or_load_addr(state, arg).into()
                             }
                         }
                     }

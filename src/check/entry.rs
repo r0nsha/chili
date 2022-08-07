@@ -12,7 +12,9 @@ impl<'s> CheckSess<'s> {
                 let ty = function.ty.normalize(&self.tcx).into_function();
 
                 // Validate its type is fn() -> ()
-                if !(ty.return_type.is_unit() || ty.return_type.is_never()) || !ty.params.is_empty() || ty.is_variadic()
+                if !(ty.return_type.is_unit() || ty.return_type.is_never())
+                    || !ty.params.is_empty()
+                    || ty.has_c_varargs()
                 {
                     self.workspace.diagnostics.push(
                         Diagnostic::error()
