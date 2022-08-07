@@ -39,6 +39,7 @@ pub enum Type {
     Function(FunctionType),
     Array(Box<Type>, usize),
     Slice(Box<Type>),
+    Str(Box<Type>),
     Tuple(Vec<Type>),
     Struct(StructType),
     Module(ModuleId),
@@ -279,7 +280,11 @@ impl Type {
     #[allow(unused)]
     pub fn as_inner(&self) -> &Type {
         match self {
-            Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner) | Type::Type(inner) => inner,
+            Type::Pointer(inner, _)
+            | Type::Array(inner, _)
+            | Type::Slice(inner)
+            | Type::Str(inner)
+            | Type::Type(inner) => inner,
             _ => panic!("type {:?} doesn't have an inner type", self),
         }
     }
@@ -287,7 +292,11 @@ impl Type {
     #[allow(unused)]
     pub fn into_inner(self) -> Type {
         match self {
-            Type::Pointer(inner, _) | Type::Array(inner, _) | Type::Slice(inner) | Type::Type(inner) => *inner,
+            Type::Pointer(inner, _)
+            | Type::Array(inner, _)
+            | Type::Slice(inner)
+            | Type::Str(inner)
+            | Type::Type(inner) => *inner,
             _ => panic!("type {:?} doesn't have an inner type", self),
         }
     }
@@ -295,7 +304,7 @@ impl Type {
     pub fn element_type(&self) -> Option<&Type> {
         match self {
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(inner) => Some(inner),
+                Type::Slice(inner) | Type::Str(inner) => Some(inner),
                 inner => Some(inner),
             },
             Type::Array(inner, _) | Type::Type(inner) => Some(inner),
@@ -377,7 +386,7 @@ impl Type {
 
     #[allow(unused)]
     pub fn is_slice(&self) -> bool {
-        matches!(self, Type::Slice(..))
+        matches!(self, Type::Slice(_))
     }
 
     pub fn is_unit(&self) -> bool {
@@ -549,18 +558,18 @@ impl Type {
     }
 
     #[inline]
+    pub fn char() -> Type {
+        Type::Uint(UintType::U8)
+    }
+
+    #[inline]
     pub fn str() -> Type {
-        Type::Slice(Box::new(Type::char()))
+        Type::Str(Box::new(Type::char()))
     }
 
     #[inline]
     pub fn str_pointer() -> Type {
-        Type::slice_pointer(Type::char(), false)
-    }
-
-    #[inline]
-    pub fn char() -> Type {
-        Type::Uint(UintType::U8)
+        Type::Pointer(Box::new(Type::str()), false)
     }
 
     #[inline]
@@ -569,10 +578,10 @@ impl Type {
     }
 
     #[inline]
-    pub fn is_slice_pointer(&self) -> bool {
+    pub fn is_fat_pointer(&self) -> bool {
         match self {
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_) => true,
+                Type::Slice(_) | Type::Str(_) => true,
                 _ => false,
             },
             _ => false,

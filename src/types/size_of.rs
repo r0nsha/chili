@@ -15,7 +15,7 @@ impl SizeOf for Type {
             Type::Uint(ty) => ty.size_of(word_size),
             Type::Float(ty) => ty.size_of(word_size),
             Type::Pointer(ty, _) => match ty.as_ref() {
-                Type::Slice(..) => word_size * 2,
+                Type::Slice(_) | Type::Str(_) => word_size * 2,
                 _ => word_size,
             },
             Type::Function(..) => word_size,

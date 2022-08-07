@@ -55,12 +55,14 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(inner) => generator.slice_type(inner),
+                Type::Str(inner) => generator.slice_type(inner),
                 _ => {
                     let ty = inner.llvm_type(generator);
                     ty.ptr_type(AddressSpace::Generic).into()
                 }
             },
             Type::Slice(inner) => generator.slice_type(inner),
+            Type::Str(inner) => generator.slice_type(inner),
             Type::Type(_) | Type::Unit | Type::Module { .. } => generator.unit_type(),
             Type::Never => generator.never_type(),
             Type::Function(func) => generator
@@ -106,11 +108,11 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub(super) fn slice_type(&mut self, element_ty: &Type) -> BasicTypeEnum<'ctx> {
+    pub(super) fn slice_type(&mut self, elem_type: &Type) -> BasicTypeEnum<'ctx> {
         self.context
             .struct_type(
                 &[
-                    element_ty.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
+                    elem_type.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
                     self.ptr_sized_int_type.into(),
                 ],
                 false,

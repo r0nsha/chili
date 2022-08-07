@@ -937,10 +937,10 @@ impl Check for ast::Ast {
                 };
 
                 let inner = match &node_type {
-                    Type::Array(inner, _) => inner.as_ref(),
+                    Type::Array(inner, _) => inner.as_ref().clone(),
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Array(inner, _) | Type::Slice(inner) => inner.as_ref(),
-                        inner => inner,
+                        Type::Array(inner, _) | Type::Slice(inner) | Type::Str(inner) => inner.as_ref().clone(),
+                        inner => inner.clone(),
                     },
                     _ => {
                         return Err(Diagnostic::error()
@@ -1014,7 +1014,7 @@ impl Check for ast::Ast {
                             span: slice.span,
                         }),
                         Type::Pointer(inner, _) => match inner.as_ref() {
-                            Type::Slice(..) => hir::Node::MemberAccess(hir::MemberAccess {
+                            Type::Slice(_) | Type::Str(_) => hir::Node::MemberAccess(hir::MemberAccess {
                                 value: Box::new(node.clone()),
                                 ty: uint,
                                 span: slice.span,
@@ -1035,10 +1035,11 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let inner_type = match node_type {
-                    Type::Array(inner, ..) => inner,
+                let result_type = match &node_type {
+                    Type::Array(inner, ..) => Type::Slice(inner.clone()),
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner) => inner.clone(),
+                        Type::Slice(inner) => Type::Slice(inner.clone()),
+                        Type::Str(inner) => Type::Str(inner.clone()),
                         _ => {
                             if slice.high.is_none() {
                                 return Err(Diagnostic::error()
@@ -1046,7 +1047,7 @@ impl Check for ast::Ast {
                                     .with_label(Label::primary(slice.expr.span(), "pointer has an unknown length")));
                             }
 
-                            inner
+                            Type::Slice(inner.clone())
                         }
                     },
                     _ => {
@@ -1056,7 +1057,7 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let ty = sess.tcx.bound(Type::Slice(inner_type), slice.span);
+                let ty = sess.tcx.bound(result_type, slice.span);
 
                 Ok(hir::Node::Builtin(hir::Builtin::Slice(hir::Slice {
                     ty,
@@ -1110,7 +1111,7 @@ impl Check for ast::Ast {
 
                 match &node_type {
                     Type::Pointer(inner, is_mutable) => match inner.as_ref() {
-                        Type::Slice(inner) => {
+                        Type::Slice(inner) | Type::Str(inner) => {
                             if access.member.as_str() == BUILTIN_FIELD_LEN {
                                 let ty = sess.tcx.common_types.uint;
 
@@ -1837,7 +1838,7 @@ impl Check for ast::For {
                 let inner = match &value_node_type {
                     Type::Array(inner, _) => inner.clone(),
                     Type::Pointer(inner, _) => match inner.as_ref() {
-                        Type::Slice(inner) | Type::Array(inner, _) => inner.clone(),
+                        Type::Array(inner, _) | Type::Slice(inner) | Type::Str(inner) => inner.clone(),
                         _ => {
                             // TODO: duplicate error
                             return Err(Diagnostic::error()
