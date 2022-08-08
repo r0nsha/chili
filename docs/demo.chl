@@ -340,8 +340,10 @@ fn functions = {
 fn variadic_functions = {
     println("variadic functions");
 
-    // The last parameter of a function can be variadic, 
-    // meaning that it can be passed as individual arguments instead of a slice of elements.
+    // Variadic parameters are treated as a boundless number of optional parameters.
+    // When passing arguments for a variadic parameter, you can pass as many as you want.
+    // You can even pass none. Under the hood, the compiler will build a slice of the
+    // arguments passed in.
     fn printints(args: int...) = for a in args {
         std.c.printf("%d\n".data, a);
     };
@@ -352,11 +354,11 @@ fn variadic_functions = {
     // You can also "spread" a slice or an array as the variadic argument
     println("printing spreaded slice:");
     let slice: *[]int = &[4, 5, 6];
-	printints(slice...);
+    printints(slice...);
     
     println("printing spreaded array:");
     let array = [7, 8, 9];
-	printints(array...);
+    printints(array...);
 };
 
 fn structs = {
