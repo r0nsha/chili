@@ -121,7 +121,7 @@ impl DisplayType for FunctionType {
                 .join(", "),
             match &self.varargs {
                 Some(varargs) => format!(
-                    "{}{}",
+                    ", {}{}",
                     varargs.name,
                     match &varargs.ty {
                         Some(ty) => format!(": {}...", display_type(ty, tcx)),
