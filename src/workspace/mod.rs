@@ -189,13 +189,13 @@ bitflags! {
 }
 
 impl Workspace {
-    pub fn new(name: String, build_options: BuildOptions, root_library: Library) -> Self {
+    pub fn new(name: String, build_options: BuildOptions, main_library: Library) -> Self {
         Self {
             name,
             diagnostics: Diagnostics::new(),
             build_options,
             libraries: {
-                UstrMap::from_iter([(root_library.name, root_library), (ustr(LIB_NAME_STD), Library::std())])
+                UstrMap::from_iter([(main_library.name, main_library), (ustr(LIB_NAME_STD), Library::std())])
             },
             module_infos: Default::default(),
             root_module_id: Default::default(),
@@ -203,7 +203,7 @@ impl Workspace {
         }
     }
 
-    pub fn root_library(&self) -> &Library {
+    pub fn main_library(&self) -> &Library {
         // The root library is named after its workspace
         self.libraries.get(&ustr(&self.name)).unwrap()
     }
@@ -296,9 +296,13 @@ impl ModulePath {
     }
 
     pub fn path(&self) -> PathBuf {
-        let mut path = self.library.root_dir().to_path_buf();
+        Self::build_path(self.library.root_dir(), &self.components)
+    }
 
-        for component in self.components.iter() {
+    pub fn build_path(root_dir: &Path, components: &[Ustr]) -> PathBuf {
+        let mut path = root_dir.to_path_buf();
+
+        for component in components {
             path.push(component.as_str());
         }
 

@@ -20,6 +20,7 @@ use parking_lot::Mutex;
 use std::{
     collections::HashSet,
     fmt::Debug,
+    path::PathBuf,
     sync::{mpsc::Sender, Arc},
 };
 use threadpool::ThreadPool;
@@ -119,8 +120,9 @@ pub struct Parser {
 
 #[derive(Debug)]
 pub struct ParserCache {
-    pub root_library: Library,
+    pub main_library: Library,
     pub std_library: Library,
+    pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
     pub parsed_files: HashSet<Ustr>,
     pub total_lines: u32,
@@ -175,10 +177,7 @@ impl Parser {
 
                         (file_id, source)
                     }
-                    Err(_) => {
-                        dbg!(self.module_info);
-                        return ParserResult::ParserFailed;
-                    }
+                    Err(_) => return ParserResult::ParserFailed,
                 }
             }
         };

@@ -45,6 +45,24 @@ impl Parser {
         if path.exists() {
             Ok(module_path)
         } else {
+            if module_path.library().is_main {
+                let cache = self.cache.lock();
+
+                for include_path in cache.include_paths.iter() {
+                    let path = ModulePath::build_path(include_path, module_path.components());
+
+                    if path.exists() {
+                        let tmp_library = Library {
+                            name: ustr("tmp"),
+                            root_file: path,
+                            is_main: false,
+                        };
+
+                        return Ok(tmp_library.as_module_path());
+                    }
+                }
+            }
+
             Err(Diagnostic::error()
                 .with_message(format!("module `{}` doesn't exist", module_path.name()))
                 .with_label(Label::primary(start_span.to(self.previous_span()), "doesn't exist"))

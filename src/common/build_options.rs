@@ -19,8 +19,8 @@ pub struct BuildOptions {
     pub diagnostic_options: DiagnosticOptions,
     pub codegen_options: CodegenOptions,
 
-    /// The compiled file's library root, useful when checking/compiling temporary files.
-    pub custom_library_root: Option<PathBuf>,
+    /// Additional include paths
+    pub include_paths: Vec<PathBuf>,
 
     /// Print timing information of every compiler pass
     pub emit_times: bool,

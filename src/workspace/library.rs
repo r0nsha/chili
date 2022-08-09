@@ -12,6 +12,7 @@ pub const LIB_NAME_STD: &str = "std";
 pub struct Library {
     pub name: Ustr,
     pub root_file: PathBuf,
+    pub is_main: bool,
 }
 
 impl Library {
@@ -27,10 +28,11 @@ impl Library {
         Self {
             name: ustr(NAME),
             root_file,
+            is_main: false,
         }
     }
 
-    pub fn root_module_path(&self) -> ModulePath {
+    pub fn as_module_path(&self) -> ModulePath {
         ModulePath::new(self.clone(), vec![ustr(self.root_file_name())])
     }
 

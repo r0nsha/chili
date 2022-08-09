@@ -56,12 +56,13 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     // Set up workspace
     let source_file = resolve_relative_path(&build_options.source_file, &RelativeTo::Cwd);
 
-    let root_library = Library {
+    let main_library = Library {
         name: ustr(&name),
         root_file: build_options.source_file.clone(),
+        is_main: true,
     };
 
-    let mut workspace = Workspace::new(name, build_options, root_library);
+    let mut workspace = Workspace::new(name, build_options, main_library);
 
     let all_sw = workspace.build_options.emit_times.then(|| Stopwatch::start_new("time"));
 
