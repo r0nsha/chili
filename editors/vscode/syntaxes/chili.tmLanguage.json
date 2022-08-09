@@ -53,11 +53,11 @@
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|type|fn|import|extern|static|use|mod|as|struct|union)\\b"
+          "match": "\\b(let|type|fn|import|extern|static|as|struct|union)\\b"
         },
         {
           "name": "storage.modifier.chili",
-          "match": "\\b(pub|mut)\\b"
+          "match": "\\b(pub|pub\\(dir\\)|mut)\\b"
         },
         {
           "name": "constant.language.chili",
@@ -149,7 +149,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "comment": "extern let binding",
@@ -173,7 +173,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?\\b(extern)\\b\\s*(\".+\"\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?\\b(extern)\\b\\s*(\".+\"\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "comment": "static let binding",
@@ -197,7 +197,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(\\b(static)\\b)\\s*(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?(\\b(static)\\b)\\s*(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "comment": "type binding",
@@ -212,7 +212,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*)?(type)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?(type)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "comment": "attribute",
@@ -307,7 +307,7 @@
       "patterns": [
         {
           "name": "punctuation.chili",
-          "match": "\\(|\\)|\\{|\\}|;|:|\\[|\\]|\\.|,|->|#"
+          "match": "\\(|\\)|\\{|\\}|;|:|\\[|\\]|\\.|,|->|#|@"
         }
       ]
     }
