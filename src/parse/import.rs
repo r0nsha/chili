@@ -48,6 +48,7 @@ impl Parser {
             if module_path.library().is_main {
                 let cache = self.cache.lock();
 
+                // This is used for LSP integration, because it creates temp files that could be outside this library's root
                 for include_path in cache.include_paths.iter() {
                     let path = ModulePath::build_path(include_path, module_path.components());
 
