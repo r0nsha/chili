@@ -6,13 +6,11 @@ use ustr::{ustr, Ustr};
 
 use super::ModulePath;
 
-pub const LIB_NAME_ROOT: &str = "lib";
 pub const LIB_NAME_STD: &str = "std";
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Hash)]
 pub struct Library {
     pub name: Ustr,
-    pub custom_root_dir: Option<PathBuf>,
     pub root_file: PathBuf,
 }
 
@@ -28,7 +26,6 @@ impl Library {
 
         Self {
             name: ustr(NAME),
-            custom_root_dir: None,
             root_file,
         }
     }

@@ -1,4 +1,4 @@
-use self::library::{Library, LIB_NAME_ROOT, LIB_NAME_STD};
+use self::library::{Library, LIB_NAME_STD};
 use crate::{
     ast,
     common::{
@@ -31,7 +31,7 @@ pub struct Workspace {
     // Diagnostics are responsible for both keeping errors/warnings and for emitting them
     pub diagnostics: Diagnostics,
 
-    // Std library's root directory
+    // All libraries used by this workspace
     pub libraries: UstrMap<Library>,
 
     // The root module's id. Resolved after ast generation
@@ -204,7 +204,8 @@ impl Workspace {
     }
 
     pub fn root_library(&self) -> &Library {
-        self.libraries.get(&ustr(LIB_NAME_ROOT)).unwrap()
+        // The root library is named after its workspace
+        self.libraries.get(&ustr(&self.name)).unwrap()
     }
 
     pub fn std_library(&self) -> &Library {

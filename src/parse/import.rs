@@ -4,7 +4,7 @@ use crate::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult, SyntaxError,
     },
-    workspace::library::{LIB_NAME_ROOT, LIB_NAME_STD},
+    workspace::library::LIB_NAME_STD,
 };
 
 impl Parser {
@@ -82,7 +82,7 @@ impl Parser {
             }
             Ident(ident) => match ident.as_str() {
                 // Lib & Lib root dir
-                LIB_NAME_ROOT => Ok(ModulePath::new(self.module_path.library().clone(), vec![])),
+                "lib" => Ok(ModulePath::new(self.module_path.library().clone(), vec![])),
                 // Std & Std root dir
                 LIB_NAME_STD => Ok(ModulePath::new(cache.std_library.clone(), vec![])),
                 _ => Err(SyntaxError::expected(token.span, "lib or std")),

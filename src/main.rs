@@ -195,8 +195,11 @@ fn cli() {
 
 fn get_workspace_name(source_file: &Path) -> String {
     source_file
-        .file_stem()
-        .map_or("root", |p| p.to_str().unwrap())
+        .parent()
+        .or(Some(source_file))
+        .map(|path| path.file_stem())
+        .flatten()
+        .map_or("root", |file| file.to_str().unwrap())
         .to_string()
 }
 
