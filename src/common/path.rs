@@ -30,6 +30,7 @@ pub fn try_resolve_relative_path<'a>(
     }
 }
 
+#[allow(unused)]
 pub fn maybe_resolve_relative_path(path: &Path, relative_to: &RelativeTo) -> Option<PathBuf> {
     let absolute_path = get_absolute_path(relative_to, path);
     absolute_path.exists().then(|| absolute_path.to_path_buf())

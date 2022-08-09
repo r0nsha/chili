@@ -50,7 +50,7 @@ impl<'vm> VM<'vm> {
                     codegen_options: CodegenOptions::Codegen {
                         emit_llvm_ir: self.interp.build_options.codegen_options.emit_llvm_ir(),
                     },
-                    include_paths: vec![],
+                    custom_library_root: None,
                     check_mode: false,
                 };
 

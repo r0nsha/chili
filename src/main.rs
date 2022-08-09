@@ -79,9 +79,9 @@ struct Args {
     #[clap(long)]
     no_color: bool,
 
-    /// Additional include paths, separated by ;.
-    #[clap(long)]
-    include_paths: Option<String>,
+    /// The compiled file's library root, useful when checking/compiling temporary files.
+    #[clap(long = "lib-root")]
+    custom_library_root: Option<String>,
 
     // Check mode options
     //
@@ -134,7 +134,7 @@ fn cli() {
                     codegen_options: CodegenOptions::Codegen {
                         emit_llvm_ir: args.emit_llvm_ir,
                     },
-                    include_paths: get_include_paths(&args.include_paths),
+                    custom_library_root: args.custom_library_root.map(|root| PathBuf::from(root)),
                     check_mode: false,
                 };
 
@@ -154,7 +154,7 @@ fn cli() {
                     emit_bytecode: false,
                     diagnostic_options: DiagnosticOptions::DontEmit,
                     codegen_options: CodegenOptions::Skip { emit_llvm_ir: false },
-                    include_paths: get_include_paths(&args.include_paths),
+                    custom_library_root: args.custom_library_root.map(|root| PathBuf::from(root)),
                     check_mode: true,
                 };
 
@@ -182,7 +182,7 @@ fn cli() {
                     codegen_options: CodegenOptions::Skip {
                         emit_llvm_ir: args.emit_llvm_ir,
                     },
-                    include_paths: get_include_paths(&args.include_paths),
+                    custom_library_root: args.custom_library_root.map(|root| PathBuf::from(root)),
                     check_mode: false,
                 };
 
@@ -224,10 +224,4 @@ fn current_target_platform() -> TargetPlatform {
 
 fn print_err(msg: &str) {
     println!("\n{} {}\n", "error:".red().bold(), msg.bold());
-}
-
-fn get_include_paths(include_paths: &Option<String>) -> Vec<PathBuf> {
-    include_paths
-        .as_ref()
-        .map_or_else(|| vec![], |i| i.split(';').map(|s| PathBuf::from(s)).collect())
 }

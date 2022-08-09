@@ -108,11 +108,11 @@ export async function runCompiler(
   return stdout;
 }
 
-export function includeFlagForPath(file_path: string): string {
+export function libRootFlagForPath(file_path: string): string {
   const protocol_end = file_path.indexOf("://");
-  if (protocol_end == -1) return " --include-paths " + file_path;
+  if (protocol_end == -1) return " --lib-root " + file_path;
   // Not protocol.length + 3, include the last '/'
-  return " --include-paths " + path.dirname(file_path.slice(protocol_end + 2));
+  return " --lib-root " + path.dirname(file_path.slice(protocol_end + 2));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

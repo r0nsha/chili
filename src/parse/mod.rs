@@ -13,14 +13,13 @@ use crate::{
     error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
     span::{EndPosition, Position, Span},
     token::{lexer::Lexer, Token, TokenKind::*},
-    workspace::{library::Library, ModuleInfo, PartialModuleInfo},
+    workspace::{library::Library, ModuleInfo, ModulePath},
 };
 use bitflags::bitflags;
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::Mutex;
 use std::{
     collections::HashSet,
     fmt::Debug,
-    path::PathBuf,
     sync::{mpsc::Sender, Arc},
 };
 use threadpool::ThreadPool;
@@ -99,10 +98,10 @@ pub fn spawn_parser(
     thread_pool: ThreadPool,
     tx: Sender<Box<ParserResult>>,
     cache: Arc<Mutex<ParserCache>>,
-    partial_module_info: PartialModuleInfo,
+    module_path: ModulePath,
 ) {
     thread_pool.clone().execute(move || {
-        Parser::new(thread_pool, tx, Arc::clone(&cache), partial_module_info).parse();
+        Parser::new(thread_pool, tx, Arc::clone(&cache), module_path).parse();
     });
 }
 
@@ -113,26 +112,24 @@ pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
     module_info: ModuleInfo,
+    module_path: ModulePath,
     decl_name_frames: Vec<Ustr>,
     restrictions: Restrictions,
 }
 
 #[derive(Debug)]
 pub struct ParserCache {
-    pub root_file: PathBuf,
-    pub root_dir: PathBuf,
+    pub root_library: Library,
     pub std_library: Library,
-    pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
     pub parsed_files: HashSet<Ustr>,
     pub total_lines: u32,
 }
 
-pub type ParserCacheGuard<'a> = MutexGuard<'a, ParserCache>;
-
 pub enum ParserResult {
     NewModule(ast::Module),
     AlreadyParsed,
+    ParserFailed,
     LexerFailed(ast::Module, Diagnostic),
 }
 
@@ -141,7 +138,7 @@ impl Parser {
         thread_pool: ThreadPool,
         tx: Sender<Box<ParserResult>>,
         cache: Arc<Mutex<ParserCache>>,
-        partial_module_info: PartialModuleInfo,
+        module_path: ModulePath,
     ) -> Self {
         Self {
             cache,
@@ -149,7 +146,8 @@ impl Parser {
             tx,
             tokens: vec![],
             current: 0,
-            module_info: partial_module_info.into(),
+            module_info: ModuleInfo::from(&module_path),
+            module_path,
             decl_name_frames: Default::default(),
             restrictions: Restrictions::empty(),
         }
@@ -167,16 +165,21 @@ impl Parser {
             if !cache.parsed_files.insert(self.module_info.file_path) {
                 return ParserResult::AlreadyParsed;
             } else {
-                let source = std::fs::read_to_string(self.module_info.file_path.as_str())
-                    .unwrap_or_else(|_| panic!("failed to read `{}`", self.module_info.file_path));
+                match std::fs::read_to_string(self.module_info.file_path.as_str()) {
+                    Ok(source) => {
+                        cache.total_lines += source.lines().count() as u32;
 
-                cache.total_lines += source.lines().count() as u32;
+                        let file_id = cache
+                            .diagnostics
+                            .add_file(self.module_info.file_path.to_string(), unindent(&source));
 
-                let file_id = cache
-                    .diagnostics
-                    .add_file(self.module_info.file_path.to_string(), unindent(&source));
-
-                (file_id, source)
+                        (file_id, source)
+                    }
+                    Err(_) => {
+                        dbg!(self.module_info);
+                        return ParserResult::ParserFailed;
+                    }
+                }
             }
         };
 

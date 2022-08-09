@@ -27,7 +27,7 @@ import {
   convertPosition,
   convertSpan,
   findLineBreaks,
-  includeFlagForPath,
+  libRootFlagForPath,
   runCompiler,
   throttle,
 } from "./util";
@@ -177,7 +177,9 @@ documents.onDidChangeContent(
 // documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
 
 documents.onDidOpen((e) => {
-  tmpFiles[e.document.uri] = tmp.fileSync();
+  tmpFiles[e.document.uri] = tmp.fileSync({
+    template: "chili_vscode_tmp_XXXXXX.chl",
+  });
 });
 
 documents.onDidClose((e) => {
@@ -207,7 +209,7 @@ async function validateTextDocument(
   const stdout = await runCompiler(
     tmpFile,
     textDocument.getText(),
-    "--diagnostics " + includeFlagForPath(textDocument.uri)
+    "--diagnostics " + libRootFlagForPath(textDocument.uri)
   );
 
   const lines = stdout.split("\n").filter((l) => l.length > 0);
@@ -309,7 +311,7 @@ connection.onHover(async (request) => {
   const stdout = await runCompiler(
     tmpFile,
     text,
-    "--hover-info " + offset + includeFlagForPath(request.textDocument.uri)
+    "--hover-info " + offset + libRootFlagForPath(request.textDocument.uri)
   );
   // console.log("got: ", stdout);
 
@@ -360,7 +362,7 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
   const stdout = await runCompiler(
     tmpFile,
     text,
-    "--goto-def " + offset + includeFlagForPath(request.textDocument.uri)
+    "--goto-def " + offset + libRootFlagForPath(request.textDocument.uri)
   );
   // console.log("got: ", stdout);
 

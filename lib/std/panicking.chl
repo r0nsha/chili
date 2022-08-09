@@ -1,5 +1,5 @@
-let { printf, exit } = import("c");
-let { caller_location } = import("intrinsics");
+let { printf, exit } = import ./c;
+let { caller_location } = import ./intrinsics;
 
 @track_caller
 pub fn panic(
