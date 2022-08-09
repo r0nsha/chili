@@ -44,7 +44,7 @@ impl Library {
         &self.root_file.parent().unwrap()
     }
 
-    fn root_file_name(&self) -> &str {
+    pub fn root_file_name(&self) -> &str {
         self.root_file.file_stem().unwrap().to_str().unwrap()
     }
 }

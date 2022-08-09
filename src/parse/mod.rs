@@ -25,7 +25,7 @@ use std::{
 };
 use threadpool::ThreadPool;
 use unindent::unindent;
-use ustr::{ustr, Ustr};
+use ustr::{ustr, Ustr, UstrMap};
 
 bitflags! {
     pub struct Restrictions : u8 {
@@ -120,8 +120,7 @@ pub struct Parser {
 
 #[derive(Debug)]
 pub struct ParserCache {
-    pub main_library: Library,
-    pub std_library: Library,
+    pub libraries: UstrMap<Library>,
     pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
     pub parsed_files: HashSet<Ustr>,

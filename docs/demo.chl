@@ -408,10 +408,7 @@ fn imports = {
     // Import using the builtin `import` function.
 
     // An import path starting with . are relative to the current directory.
-    let foo = import ./foo;
-
-    // An import path starting with . are relative to the parent directory.
-    let foo = import ../foo;
+    let foo = import foo;
 
     // An import path starting with `lib` are relative to the root directory.
     let foo = import lib/foo;
@@ -452,18 +449,18 @@ fn binding_patterns = {
     // Patterns also apply to module imports, and look exactly the same
     // as the struct unpack pattern.
     // Unpacked declarations can be aliased to name collision.
-    let { hello: my_hello } = import ./foo;
+    let { hello: my_hello } = import foo;
     my_hello();
 
     // As a side note, the import function returns a module `value`,
     // and as such, can be used directly.
-    import ./foo.hello();
+    import foo.hello();
 
     // The wildcard pattern unpacks all *public* fields/declarations from a 
     // given struct/module;
 
     // The next line automatically unpacks the `hello` function.
-    let { * } = import ./foo;
+    let { * } = import foo;
     //    ^---- `hello` comes from here
 
     hello();
@@ -480,10 +477,10 @@ fn binding_patterns = {
     std.c.printf("a=%d b=%d\n".data, a, b);
 
     // The curly braces can be elided if only an `*` is used
-    let * = import ./foo;
+    let * = import foo;
 
     // You can both alias and unpack a value using `@`
-    let foo @ { hello: second_hello } = import ./foo;
+    let foo @ { hello: second_hello } = import foo;
     foo.hello();
     second_hello();
 
