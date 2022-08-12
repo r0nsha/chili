@@ -1,14 +1,14 @@
 use super::{
     abi::{align_of, size_of},
     traits::IsALoadInst,
-    ty::IntoLlvmType,
 };
 use crate::{
     ast::ExternLibrary,
+    backend::llvm::ty::IntoLlvmType,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
-    hir::{self, const_value::ConstValue},
+    hir,
     infer::{normalize::Normalize, type_ctx::TypeCtx},
-    types::{is_sized::IsSized, *},
+    types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
 use inkwell::{
@@ -18,14 +18,14 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, IntValue, PointerValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue},
     OptimizationLevel,
 };
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
 };
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Decl<'ctx> {
@@ -97,7 +97,7 @@ pub(super) struct FunctionState<'ctx> {
     pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
     pub(super) decl_block: BasicBlock<'ctx>,
     pub(super) current_block: BasicBlock<'ctx>,
-    pub(super) scopes: Scopes<BindingId, Decl<'ctx>>, // TODO: switch to BindingInfoId
+    pub(super) scopes: Scopes<BindingId, Decl<'ctx>>,
 }
 
 impl<'ctx> FunctionState<'ctx> {
@@ -214,7 +214,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.gen_top_level_binding(id)
     }
 
-    pub(super) fn local_with_alloca(
+    pub(super) fn gen_local(
         &mut self,
         state: &mut FunctionState<'ctx>,
         id: BindingId,
@@ -226,13 +226,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let ty = binding_info.ty.normalize(self.tcx);
 
         // Hack: This handles the weird alloca behavior of unsized types
-        let value = match ty {
-            Type::Pointer(inner, _) if inner.is_unsized() => match value.as_instruction_value() {
-                Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
-                    self.builder.build_load(value.into_pointer_value(), "")
-                }
-                _ => value,
-            },
+        let value = match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca && ty.is_fat_pointer() => {
+                self.build_load(value.into_pointer_value())
+            }
             _ => value,
         };
 
@@ -240,15 +237,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let ptr = self.build_alloca_named(state, llvm_type, id);
 
         self.build_store(ptr, value);
-        self.gen_local_inner(state, id, ptr);
 
-        ptr
-    }
-
-    fn gen_local_inner(&mut self, state: &mut FunctionState<'ctx>, id: BindingId, ptr: PointerValue<'ctx>) {
-        let name = self.workspace.binding_infos.get(id).map_or(ustr(""), |b| b.name);
-
-        ptr.set_name(&name);
+        ptr.set_name(&binding_info.name);
 
         let align = align_of(
             ptr.get_type().get_element_type().try_into().unwrap(),
@@ -257,110 +247,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         ptr.as_instruction_value().unwrap().set_alignment(align as u32).unwrap();
 
-        if id != BindingId::unknown() {
-            state.scopes.insert(id, Decl::Local(ptr));
-        }
-    }
+        state.scopes.insert(id, Decl::Local(ptr));
 
-    pub(super) fn const_bool(&self, b: bool) -> IntValue<'ctx> {
-        self.context.bool_type().const_int(if b { 1 } else { 0 }, false)
-    }
-
-    pub(super) fn gen_const_value(
-        &mut self,
-        state: Option<&FunctionState<'ctx>>,
-        const_value: &ConstValue,
-        ty: &Type,
-    ) -> BasicValueEnum<'ctx> {
-        match const_value {
-            ConstValue::Unit(_) | ConstValue::Type(_) => self.unit_value(),
-            ConstValue::Bool(v) => self.const_bool(*v).into(),
-            ConstValue::Int(v) => {
-                if ty.is_any_integer() {
-                    ty.llvm_type(self)
-                        .into_int_type()
-                        .const_int(*v as u64, ty.is_signed_int())
-                        .into()
-                } else {
-                    ty.llvm_type(self).into_float_type().const_float(*v as f64).into()
-                }
-            }
-            ConstValue::Uint(v) => {
-                if ty.is_any_integer() {
-                    ty.llvm_type(self)
-                        .into_int_type()
-                        .const_int(*v, ty.is_signed_int())
-                        .into()
-                } else {
-                    ty.llvm_type(self).into_float_type().const_float(*v as f64).into()
-                }
-            }
-            ConstValue::Float(v) => ty.llvm_type(self).into_float_type().const_float(*v as f64).into(),
-            ConstValue::Str(v) => self.const_str_slice("", *v).into(),
-            ConstValue::Array(array) => {
-                let el_ty = array.element_type.normalize(self.tcx);
-
-                let values: Vec<BasicValueEnum> = array
-                    .values
-                    .iter()
-                    .map(|value| self.gen_const_value(state, value, &el_ty))
-                    .collect();
-
-                el_ty.llvm_type(self).const_array(&values).into()
-            }
-            ConstValue::Tuple(elements) => {
-                let values = elements
-                    .iter()
-                    .map(|element| self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx)))
-                    .collect::<Vec<BasicValueEnum>>();
-
-                self.const_struct(&values).into()
-            }
-            ConstValue::Struct(fields) => {
-                let values = fields
-                    .values()
-                    .map(|element| self.gen_const_value(state, &element.value, &element.ty.normalize(self.tcx)))
-                    .collect::<Vec<BasicValueEnum>>();
-
-                // self.context.const_struct(&values, false).into();
-                ty.llvm_type(self).into_struct_type().const_named_struct(&values).into()
-            }
-            ConstValue::Function(function) => {
-                let prev_block = if let Some(state) = state {
-                    Some(state.current_block)
-                } else {
-                    self.builder.get_insert_block()
-                };
-
-                let function_value = self.gen_function(function.id, state.cloned());
-
-                if let Some(previous_block) = prev_block {
-                    self.builder.position_at_end(previous_block);
-                }
-
-                function_value.as_global_value().as_pointer_value().into()
-            }
-            ConstValue::ExternVariable(variable) => {
-                if let Some(lib) = variable.lib.as_ref().or(variable.dylib.as_ref()) {
-                    self.extern_libraries.insert(lib.clone());
-                }
-
-                let global_value = self.extern_variables.get(&variable.name).cloned().unwrap_or_else(|| {
-                    let llvm_type = variable.ty.llvm_type(self);
-
-                    let global_value = self.module.add_global(llvm_type, None, &variable.name);
-                    global_value.set_linkage(Linkage::External);
-
-                    self.extern_variables.insert(variable.name, global_value);
-
-                    global_value
-                });
-
-                let ptr = global_value.as_pointer_value();
-
-                self.build_load(ptr)
-            }
-        }
+        ptr
     }
 
     pub(super) fn gen_return(&mut self, state: &mut FunctionState<'ctx>, value: Option<BasicValueEnum<'ctx>>) {
@@ -384,13 +273,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     }
                 }
                 _ => {
-                    self.build_store(return_ptr, self.unit_value());
+                    self.build_store(return_ptr, self.const_unit());
                 }
             };
 
             self.builder.build_return(None);
         } else {
-            let value = value.unwrap_or_else(|| self.unit_value());
+            let value = value.unwrap_or_else(|| self.const_unit());
 
             let value = self.build_transmute(state, value, state.function.get_type().get_return_type().unwrap());
 

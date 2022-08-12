@@ -156,7 +156,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 let value = unary.value.codegen(generator, state);
                 let ptr = value.into_pointer_value();
                 generator.gen_runtime_check_null_pointer_deref(state, ptr, unary.span);
-                generator.builder.build_load(ptr, "deref")
+                generator.build_load(ptr)
             }
             hir::Builtin::Ref(ref_) => ref_.codegen(generator, state),
             hir::Builtin::Offset(offset) => offset.codegen(generator, state),
@@ -228,7 +228,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
 
         let sliced_value = match &value_type {
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_) | Type::Str(_) => generator.gep_slice_data(value).as_basic_value_enum(),
+                Type::Slice(_) | Type::Str(_) => generator.gep_slice_ptr(value).as_basic_value_enum(),
                 _ => value,
             },
             Type::Array(..) => value,
@@ -264,7 +264,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             value_type.element_type().unwrap(),
         );
 
-        generator.builder.build_load(slice_ptr, "")
+        generator.build_load(slice_ptr)
     }
 }
 
@@ -557,7 +557,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             Type::Array(..) => value.into_pointer_value(),
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Array(..) => value.into_pointer_value(),
-                Type::Slice(_) | Type::Str(_) => generator.gep_slice_data(value),
+                Type::Slice(_) | Type::Str(_) => generator.gep_slice_ptr(value),
                 _ => value.into_pointer_value(),
             },
             ty => unreachable!("{}", ty.display(generator.tcx)),
@@ -583,6 +583,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             ty => unreachable!("{}", ty.display(generator.tcx)),
         };
 
-        generator.builder.build_load(ptr_offset, "")
+        generator.build_load(ptr_offset)
     }
 }

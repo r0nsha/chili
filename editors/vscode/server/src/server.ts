@@ -27,7 +27,7 @@ import {
   convertPosition,
   convertSpan,
   findLineBreaks,
-  includeFlagForPath,
+  libRootFlagForPath,
   runCompiler,
   throttle,
 } from "./util";
@@ -177,7 +177,9 @@ documents.onDidChangeContent(
 // documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
 
 documents.onDidOpen((e) => {
-  tmpFiles[e.document.uri] = tmp.fileSync();
+  tmpFiles[e.document.uri] = tmp.fileSync({
+    template: "chili_vscode_tmp_XXXXXX.chl",
+  });
 });
 
 documents.onDidClose((e) => {
@@ -207,7 +209,7 @@ async function validateTextDocument(
   const stdout = await runCompiler(
     tmpFile,
     textDocument.getText(),
-    "--diagnostics " + includeFlagForPath(textDocument.uri)
+    "--diagnostics " + libRootFlagForPath(textDocument.uri)
   );
 
   const lines = stdout.split("\n").filter((l) => l.length > 0);
@@ -219,9 +221,15 @@ async function validateTextDocument(
       // console.log(objects);
 
       for (const object of objects) {
-        if (object.type == "Diagnostic") {
-          const file = object.span.file;
+        const file = object.span.file;
+        const objectTextDocument: ChiliTextDocument | undefined =
+          file == tmpFile.name ? textDocument : documents.get(file);
 
+        if (!objectTextDocument) {
+          continue;
+        }
+
+        if (object.type == "Diagnostic") {
           let severity = DiagnosticSeverity.Error;
           switch (object.severity) {
             case LspDiagnosticSeverity.Error:
@@ -229,18 +237,14 @@ async function validateTextDocument(
               break;
           }
 
-          const textDocument = documents.get(file);
+          const range = spanToRange(objectTextDocument, object.span);
 
-          if (textDocument) {
-            const range = spanToRange(textDocument, object.span);
-
-            diagnostics.push({
-              severity,
-              range,
-              message: object.message,
-              source: file,
-            });
-          }
+          diagnostics.push({
+            severity,
+            range,
+            message: object.message,
+            source: file,
+          });
         } else if (object.type == "Hint") {
           const file = object.span.file;
 
@@ -250,7 +254,7 @@ async function validateTextDocument(
 
           seenTypeHintPositions.add(object.span);
 
-          const position = textDocument.positionAt(object.span.end);
+          const position = objectTextDocument.positionAt(object.span.end);
 
           let hintString: string;
 
@@ -272,7 +276,7 @@ async function validateTextDocument(
             InlayHintKind.Type
           );
 
-          textDocument.chiliInlayHints.push(inlayHint);
+          objectTextDocument.chiliInlayHints.push(inlayHint);
         }
       }
     } catch (e) {
@@ -307,7 +311,7 @@ connection.onHover(async (request) => {
   const stdout = await runCompiler(
     tmpFile,
     text,
-    "--hover-info " + offset + includeFlagForPath(request.textDocument.uri)
+    "--hover-info " + offset + libRootFlagForPath(request.textDocument.uri)
   );
   // console.log("got: ", stdout);
 
@@ -358,7 +362,7 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
   const stdout = await runCompiler(
     tmpFile,
     text,
-    "--goto-def " + offset + includeFlagForPath(request.textDocument.uri)
+    "--goto-def " + offset + libRootFlagForPath(request.textDocument.uri)
   );
   // console.log("got: ", stdout);
 

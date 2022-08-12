@@ -19,7 +19,7 @@ pub struct BuildOptions {
     pub diagnostic_options: DiagnosticOptions,
     pub codegen_options: CodegenOptions,
 
-    /// Additional search paths for imports
+    /// Additional include paths
     pub include_paths: Vec<PathBuf>,
 
     /// Print timing information of every compiler pass

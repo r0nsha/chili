@@ -53,16 +53,8 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 }
                 .into(),
             },
-            Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(inner) => generator.slice_type(inner),
-                Type::Str(inner) => generator.slice_type(inner),
-                _ => {
-                    let ty = inner.llvm_type(generator);
-                    ty.ptr_type(AddressSpace::Generic).into()
-                }
-            },
-            Type::Slice(inner) => generator.slice_type(inner),
-            Type::Str(inner) => generator.slice_type(inner),
+            Type::Pointer(inner, _) => inner.llvm_type(generator).ptr_type(AddressSpace::Generic).into(),
+            Type::Slice(inner) | Type::Str(inner) => generator.slice_type(inner).into(),
             Type::Type(_) | Type::Unit | Type::Module { .. } => generator.unit_type(),
             Type::Never => generator.never_type(),
             Type::Function(func) => generator
@@ -108,16 +100,22 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub(super) fn slice_type(&mut self, elem_type: &Type) -> BasicTypeEnum<'ctx> {
-        self.context
-            .struct_type(
-                &[
-                    elem_type.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
-                    self.ptr_sized_int_type.into(),
-                ],
-                false,
-            )
-            .into()
+    pub(super) fn slice_type(&mut self, elem_type: &Type) -> inkwell::types::StructType<'ctx> {
+        self.fat_pointer_type(elem_type, &Type::uint())
+    }
+
+    pub(super) fn fat_pointer_type(
+        &mut self,
+        elem_type: &Type,
+        metadata_type: &Type,
+    ) -> inkwell::types::StructType<'ctx> {
+        self.context.struct_type(
+            &[
+                elem_type.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
+                metadata_type.llvm_type(self),
+            ],
+            false,
+        )
     }
 
     pub(super) fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
@@ -127,7 +125,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         match &f.varargs {
             Some(varargs) => match &varargs.ty {
                 Some(ty) => {
-                    params.push(self.slice_type(ty).into());
+                    params.push(self.slice_type(ty).ptr_type(AddressSpace::Generic).into());
                     ret.fn_type(&params, false)
                 }
                 None => ret.fn_type(&params, true),

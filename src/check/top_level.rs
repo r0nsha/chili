@@ -191,12 +191,12 @@ impl<'s> CheckSess<'s> {
                     );
 
                     // Auto import std
-                    // Note: Because of circular import conflicts, we *don't* import the prelude
-                    // automatically for std files.
+                    // TODO: Because of circular import conflicts, we *don't* import the prelude
+                    //       automatically for std files. We should fix this...
                     if !module
                         .info
                         .file_path
-                        .starts_with(self.workspace.std_library().root_dir.to_str().unwrap())
+                        .starts_with(self.workspace.std_library().root_dir().to_str().unwrap())
                     {
                         self.with_env(module.id, |sess, mut env| {
                             let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
@@ -215,11 +215,12 @@ impl<'s> CheckSess<'s> {
                                 span,
                             });
 
+                            let std_root_module_name = sess.workspace.std_library().root_module_name();
                             let std_module_id = sess
                                 .workspace
                                 .module_infos
                                 .iter()
-                                .position(|(_, module)| module.name == LIB_NAME_STD)
+                                .position(|(_, module)| module.name == std_root_module_name)
                                 .map(ModuleId::from)
                                 .unwrap();
 

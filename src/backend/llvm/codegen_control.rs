@@ -11,12 +11,12 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Control {
             hir::Control::Break(_) => {
                 let exit_block = state.loop_blocks.last().unwrap().exit;
                 generator.builder.build_unconditional_branch(exit_block);
-                generator.unit_value()
+                generator.const_unit()
             }
             hir::Control::Continue(_) => {
                 let head_block = state.loop_blocks.last().unwrap().head;
                 generator.builder.build_unconditional_branch(head_block);
-                generator.unit_value()
+                generator.const_unit()
             }
         }
     }
@@ -72,7 +72,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::While {
 
         generator.start_block(state, loop_exit);
 
-        return generator.unit_value();
+        return generator.const_unit();
     }
 }
 
@@ -80,6 +80,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Return {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
         generator.gen_return(state, Some(value));
-        generator.unit_value()
+        generator.const_unit()
     }
 }

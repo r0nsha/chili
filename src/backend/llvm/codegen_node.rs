@@ -18,7 +18,7 @@ use inkwell::{
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         if state.current_block.get_terminator().is_some() {
-            return generator.unit_value();
+            return generator.const_unit();
         }
 
         match self {
@@ -101,11 +101,11 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
             }
             _ => {
                 let value = self.value.codegen(generator, state);
-                generator.local_with_alloca(state, self.id, value);
+                generator.gen_local(state, self.id, value);
             }
         }
 
-        generator.unit_value()
+        generator.const_unit()
     }
 }
 
@@ -138,13 +138,21 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assignment {
             .build_pointer_cast(lhs, rhs.get_type().ptr_type(AddressSpace::Generic), "");
 
         generator.builder.build_store(lhs, rhs);
-        generator.unit_value()
+        generator.const_unit()
     }
 }
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
+
+        // Hack: Compensate for the fact that a fat pointer can be a double pointer here
+        let value = if self.value.ty().normalize(generator.tcx).is_fat_pointer() {
+            generator.build_load(value.into_pointer_value())
+        } else {
+            value
+        };
+
         generator.gep_struct(value, self.member_index, &self.member_name)
     }
 }
@@ -233,23 +241,9 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                 .into(),
 
             (Type::Pointer(left, _), Type::Pointer(right, _)) => match (left.as_ref(), right.as_ref()) {
-                (Type::Array(_, size), Type::Slice(right)) => {
+                (Type::Array(_, size), Type::Slice(right) | Type::Str(right)) => {
                     let slice_type = generator.slice_type(right);
-                    let ptr = generator.build_alloca(state, slice_type);
-
-                    generator.build_slice(
-                        ptr,
-                        value.into_pointer_value(),
-                        generator.ptr_sized_int_type.const_zero(),
-                        generator.ptr_sized_int_type.const_int(*size as u64, false),
-                        right.as_ref(),
-                    );
-
-                    generator.build_load(ptr.into())
-                }
-                (Type::Array(_, size), Type::Str(_)) => {
-                    let slice_type = generator.slice_type(&Type::u8());
-                    let ptr = generator.build_alloca(state, slice_type);
+                    let ptr = generator.build_alloca(state, slice_type.into());
 
                     generator.build_slice(
                         ptr,
@@ -290,7 +284,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Sequence {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
-        let mut yielded_value = generator.unit_value();
+        let mut yielded_value = generator.const_unit();
 
         if self.is_scope {
             state.push_scope();

@@ -2,16 +2,14 @@ use crate::{
     ast,
     common::path::{try_resolve_relative_path, RelativeTo},
     parse::{spawn_parser, ParserCache, ParserResult},
-    workspace::{library::LIB_NAME_STD, PartialModuleInfo, Workspace},
+    workspace::Workspace,
 };
 use parking_lot::Mutex;
 use std::{
     collections::HashSet,
-    path::PathBuf,
     sync::{mpsc::channel, Arc},
 };
 use threadpool::ThreadPool;
-use ustr::ustr;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AstGenerationStats {
@@ -25,7 +23,7 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
         .map_err(|diag| workspace.diagnostics.push(diag))
         .ok()?;
 
-    let (mut modules, stats) = generate_ast_inner(workspace, root_file_path.clone());
+    let (mut modules, stats) = generate_ast_inner(workspace);
 
     // Add all module_infos to the workspace
     for module in modules.iter_mut() {
@@ -43,20 +41,16 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
     Some((modules, stats))
 }
 
-fn generate_ast_inner(workspace: &mut Workspace, root_file: PathBuf) -> (Vec<ast::Module>, AstGenerationStats) {
+fn generate_ast_inner(workspace: &mut Workspace) -> (Vec<ast::Module>, AstGenerationStats) {
     let mut modules: Vec<ast::Module> = vec![];
 
     let cache = Arc::new(Mutex::new(ParserCache {
-        root_file: root_file.clone(),
-        root_dir: workspace.root_dir.clone(),
-        std_library: workspace.std_library().clone(),
+        libraries: workspace.libraries.clone(),
         include_paths: workspace.build_options.include_paths.clone(),
         diagnostics: workspace.diagnostics.clone(),
         parsed_files: HashSet::new(),
         total_lines: 0,
     }));
-
-    let root_module_info = PartialModuleInfo::from_path(&root_file);
 
     let thread_pool = ThreadPool::new(num_cpus::get());
     let (tx, rx) = channel::<Box<ParserResult>>();
@@ -65,18 +59,20 @@ fn generate_ast_inner(workspace: &mut Workspace, root_file: PathBuf) -> (Vec<ast
         thread_pool.clone(),
         tx.clone(),
         Arc::clone(&cache),
-        PartialModuleInfo {
-            file_path: ustr(workspace.std_library().root_file.to_str().unwrap()),
-            name: ustr(LIB_NAME_STD),
-        },
+        workspace.main_library().as_module_path(),
     );
 
-    spawn_parser(thread_pool.clone(), tx, Arc::clone(&cache), root_module_info);
+    spawn_parser(
+        thread_pool.clone(),
+        tx,
+        Arc::clone(&cache),
+        workspace.std_library().as_module_path(),
+    );
 
     for result in rx.iter() {
         match *result {
             ParserResult::NewModule(module) => modules.push(module),
-            ParserResult::AlreadyParsed => (),
+            ParserResult::AlreadyParsed | ParserResult::ParserFailed => (),
             ParserResult::LexerFailed(module, diag) => {
                 modules.push(module);
                 cache.lock().diagnostics.push(diag);

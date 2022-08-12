@@ -108,7 +108,7 @@ export async function runCompiler(
   return stdout;
 }
 
-export function includeFlagForPath(file_path: string): string {
+export function libRootFlagForPath(file_path: string): string {
   const protocol_end = file_path.indexOf("://");
   if (protocol_end == -1) return " --include-paths " + file_path;
   // Not protocol.length + 3, include the last '/'

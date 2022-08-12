@@ -1,3 +1,4 @@
+use self::library::{Library, LIB_NAME_STD};
 use crate::{
     ast,
     common::{
@@ -17,9 +18,9 @@ use std::{
 };
 use ustr::{ustr, Ustr, UstrMap};
 
-use self::library::{Library, LIB_NAME_STD};
-
 pub mod library;
+
+const SOURCE_FILE_EXT: &str = "chl";
 
 pub struct Workspace {
     pub name: String,
@@ -30,10 +31,7 @@ pub struct Workspace {
     // Diagnostics are responsible for both keeping errors/warnings and for emitting them
     pub diagnostics: Diagnostics,
 
-    // The workspace's root directory
-    pub root_dir: PathBuf,
-
-    // Std library's root directory
+    // All libraries used by this workspace
     pub libraries: UstrMap<Library>,
 
     // The root module's id. Resolved after ast generation
@@ -191,17 +189,23 @@ bitflags! {
 }
 
 impl Workspace {
-    pub fn new(name: String, build_options: BuildOptions, root_dir: PathBuf) -> Self {
+    pub fn new(name: String, build_options: BuildOptions, main_library: Library) -> Self {
         Self {
             name,
             diagnostics: Diagnostics::new(),
             build_options,
-            root_dir,
-            libraries: UstrMap::from_iter([(ustr(LIB_NAME_STD), Library::std())]),
+            libraries: {
+                UstrMap::from_iter([(main_library.name, main_library), (ustr(LIB_NAME_STD), Library::std())])
+            },
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
         }
+    }
+
+    pub fn main_library(&self) -> &Library {
+        // The root library is named after its workspace
+        self.libraries.get(&ustr(&self.name)).unwrap()
     }
 
     pub fn std_library(&self) -> &Library {
@@ -247,46 +251,74 @@ pub struct ModuleInfo {
 }
 
 impl ModuleInfo {
-    pub fn new(name: Ustr, file_path: Ustr, file_id: FileId) -> Self {
+    pub fn dir(&self) -> &Path {
+        Path::new(self.file_path.as_str()).parent().unwrap()
+    }
+}
+
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Hash)]
+pub struct ModulePath {
+    library: Library,
+    components: Vec<Ustr>,
+}
+
+impl ModulePath {
+    pub fn new(library: Library, components: Vec<Ustr>) -> Self {
         Self {
-            name,
-            file_path,
-            file_id,
+            library: library.clone(),
+            components,
         }
     }
 
-    pub fn dir(&self) -> &Path {
-        Path::new(self.file_path.as_str()).parent().unwrap()
+    pub fn push(&mut self, component: Ustr) {
+        self.components.push(component)
+    }
+
+    pub fn pop(&mut self) -> Option<Ustr> {
+        self.components.pop()
+    }
+
+    pub fn library(&self) -> &Library {
+        &self.library
+    }
+
+    pub fn components(&self) -> &[Ustr] {
+        &self.components
+    }
+
+    pub fn name(&self) -> String {
+        [self.library.name]
+            .iter()
+            .chain(self.components.iter())
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join(".")
+    }
+
+    pub fn path(&self) -> PathBuf {
+        Self::build_path(self.library.root_dir(), &self.components)
+    }
+
+    pub fn build_path(root_dir: &Path, components: &[Ustr]) -> PathBuf {
+        let mut path = root_dir.to_path_buf();
+
+        for component in components {
+            path.push(component.as_str());
+        }
+
+        path.set_extension(SOURCE_FILE_EXT);
+
+        path
     }
 }
 
-#[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct PartialModuleInfo {
-    pub name: Ustr,
-    pub file_path: Ustr,
-}
-
-impl PartialModuleInfo {
-    pub fn new(name: Ustr, file_path: Ustr) -> Self {
-        Self { name, file_path }
-    }
-
-    pub fn from_path<'a>(file_path: &'a Path) -> Self {
-        Self::new(
-            ustr(file_path.file_stem().unwrap().to_str().unwrap()),
-            ustr(file_path.to_str().unwrap()),
-        )
-    }
-
-    #[allow(unused)]
-    pub fn dir(&self) -> &Path {
-        Path::new(self.file_path.as_str()).parent().unwrap()
-    }
-}
-
-impl From<PartialModuleInfo> for ModuleInfo {
-    fn from(p: PartialModuleInfo) -> Self {
-        Self::new(p.name, p.file_path, FileId::MAX)
+impl From<&ModulePath> for ModuleInfo {
+    fn from(p: &ModulePath) -> Self {
+        Self {
+            name: ustr(&p.name()),
+            file_path: ustr(&p.path().to_str().unwrap()),
+            file_id: FileId::MAX,
+        }
     }
 }
 

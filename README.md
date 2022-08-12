@@ -74,7 +74,7 @@ As the language is in its very early stages, every contribution will help in sha
 
 [Our Discord Server](https://discord.gg/Tu4s49Pdre)
 
-## Main Tasks
+## Tasks
 
 - [x] Functions
 - [x] Variables
@@ -91,10 +91,10 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Dynamically sized types
 - [x] Static variables
 - [x] Attributes
-- [ ] Default function arguments
-- [ ] Named function arguments
-- [ ] Panic function
-- [ ] Varargs
+- [x] Default function arguments
+- [x] Panic function
+- [x] Varargs
+- [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
 - [ ] Tagged unions
@@ -108,3 +108,4 @@ As the language is in its very early stages, every contribution will help in sha
 - [ ] Associated functions / Methods
 - [ ] Traits / Typeclasses
 - [ ] Closures
+- [ ] Named function arguments

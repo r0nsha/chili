@@ -2,17 +2,19 @@ use crate::{
     astgen::AstGenerationStats,
     common::{
         build_options::{BuildOptions, CodegenOptions},
+        path::{resolve_relative_path, RelativeTo},
         Stopwatch,
     },
     error::diagnostic::Diagnostic,
     hir,
     infer::type_ctx::TypeCtx,
     time,
-    workspace::Workspace,
+    workspace::{library::Library, Workspace},
 };
 use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
 use std::path::PathBuf;
+use ustr::ustr;
 
 pub struct StartWorkspaceResult {
     pub workspace: Workspace,
@@ -52,17 +54,17 @@ impl StartWorkspaceResult {
 
 pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorkspaceResult {
     // Set up workspace
-    let source_file = &build_options.source_file;
+    let source_file = resolve_relative_path(&build_options.source_file, &RelativeTo::Cwd);
 
-    let root_dir = source_file.parent().unwrap().to_path_buf();
-
-    let mut workspace = Workspace::new(name, build_options.clone(), root_dir);
-
-    let all_sw = if workspace.build_options.emit_times {
-        Some(Stopwatch::start_new("time"))
-    } else {
-        None
+    let main_library = Library {
+        name: ustr(&name),
+        root_file: build_options.source_file.clone(),
+        is_main: true,
     };
+
+    let mut workspace = Workspace::new(name, build_options, main_library);
+
+    let all_sw = workspace.build_options.emit_times.then(|| Stopwatch::start_new("time"));
 
     // Check that root file exists
     if !source_file.exists() {

@@ -1,4 +1,4 @@
-let { printf, malloc, free } = import("std/c");
+let { printf, malloc, free } = import std/c;
 
 let main = fn {
     let n = 4;
