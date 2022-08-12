@@ -8,7 +8,7 @@ use crate::{
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir::{self, const_value::ConstValue},
     infer::{normalize::Normalize, type_ctx::TypeCtx},
-    types::{is_sized::IsSized, *},
+    types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
 use inkwell::{
@@ -18,14 +18,14 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, IntValue, PointerValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue},
     OptimizationLevel,
 };
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
 };
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Decl<'ctx> {
@@ -97,7 +97,7 @@ pub(super) struct FunctionState<'ctx> {
     pub(super) loop_blocks: Vec<LoopBlock<'ctx>>,
     pub(super) decl_block: BasicBlock<'ctx>,
     pub(super) current_block: BasicBlock<'ctx>,
-    pub(super) scopes: Scopes<BindingId, Decl<'ctx>>, // TODO: switch to BindingInfoId
+    pub(super) scopes: Scopes<BindingId, Decl<'ctx>>,
 }
 
 impl<'ctx> FunctionState<'ctx> {
@@ -226,13 +226,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let ty = binding_info.ty.normalize(self.tcx);
 
         // Hack: This handles the weird alloca behavior of unsized types
-        let value = match ty {
-            Type::Pointer(inner, _) if inner.is_unsized() => match value.as_instruction_value() {
-                Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca => {
-                    self.builder.build_load(value.into_pointer_value(), "")
-                }
-                _ => value,
-            },
+        let value = match value.as_instruction_value() {
+            Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca && ty.is_fat_pointer() => {
+                self.builder.build_load(value.into_pointer_value(), "")
+            }
             _ => value,
         };
 
@@ -240,15 +237,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let ptr = self.build_alloca_named(state, llvm_type, id);
 
         self.build_store(ptr, value);
-        self.gen_local_inner(state, id, ptr);
 
-        ptr
-    }
-
-    fn gen_local_inner(&mut self, state: &mut FunctionState<'ctx>, id: BindingId, ptr: PointerValue<'ctx>) {
-        let name = self.workspace.binding_infos.get(id).map_or(ustr(""), |b| b.name);
-
-        ptr.set_name(&name);
+        ptr.set_name(&binding_info.name);
 
         let align = align_of(
             ptr.get_type().get_element_type().try_into().unwrap(),
@@ -257,13 +247,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         ptr.as_instruction_value().unwrap().set_alignment(align as u32).unwrap();
 
-        if id != BindingId::unknown() {
-            state.scopes.insert(id, Decl::Local(ptr));
-        }
-    }
+        state.scopes.insert(id, Decl::Local(ptr));
 
-    pub(super) fn const_bool(&self, b: bool) -> IntValue<'ctx> {
-        self.context.bool_type().const_int(if b { 1 } else { 0 }, false)
+        ptr
     }
 
     pub(super) fn gen_const_value(
