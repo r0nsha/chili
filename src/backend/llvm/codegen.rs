@@ -4,7 +4,6 @@ use super::{
 };
 use crate::{
     ast::ExternLibrary,
-    backend::llvm::ty::IntoLlvmType,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir,
     infer::{normalize::Normalize, type_ctx::TypeCtx},
