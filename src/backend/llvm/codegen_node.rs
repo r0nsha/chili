@@ -18,7 +18,7 @@ use inkwell::{
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         if state.current_block.get_terminator().is_some() {
-            return generator.unit_value();
+            return generator.const_unit();
         }
 
         match self {
@@ -101,11 +101,11 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
             }
             _ => {
                 let value = self.value.codegen(generator, state);
-                generator.local_with_alloca(state, self.id, value);
+                generator.gen_local(state, self.id, value);
             }
         }
 
-        generator.unit_value()
+        generator.const_unit()
     }
 }
 
@@ -138,7 +138,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assignment {
             .build_pointer_cast(lhs, rhs.get_type().ptr_type(AddressSpace::Generic), "");
 
         generator.builder.build_store(lhs, rhs);
-        generator.unit_value()
+        generator.const_unit()
     }
 }
 
@@ -276,7 +276,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
 
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Sequence {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
-        let mut yielded_value = generator.unit_value();
+        let mut yielded_value = generator.const_unit();
 
         if self.is_scope {
             state.push_scope();

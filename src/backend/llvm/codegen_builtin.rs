@@ -156,7 +156,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 let value = unary.value.codegen(generator, state);
                 let ptr = value.into_pointer_value();
                 generator.gen_runtime_check_null_pointer_deref(state, ptr, unary.span);
-                generator.builder.build_load(ptr, "deref")
+                generator.build_load(ptr)
             }
             hir::Builtin::Ref(ref_) => ref_.codegen(generator, state),
             hir::Builtin::Offset(offset) => offset.codegen(generator, state),
@@ -264,7 +264,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             value_type.element_type().unwrap(),
         );
 
-        generator.builder.build_load(slice_ptr, "")
+        generator.build_load(slice_ptr)
     }
 }
 
@@ -583,6 +583,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             ty => unreachable!("{}", ty.display(generator.tcx)),
         };
 
-        generator.builder.build_load(ptr_offset, "")
+        generator.build_load(ptr_offset)
     }
 }

@@ -54,7 +54,9 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 .into(),
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(inner) | Type::Str(inner) => generator.slice_type(inner).into(),
+                Type::Slice(inner) | Type::Str(inner) => {
+                    generator.slice_type(inner).ptr_type(AddressSpace::Generic).into()
+                }
                 _ => inner.llvm_type(generator).ptr_type(AddressSpace::Generic).into(),
             },
             Type::Type(_) | Type::Unit | Type::Module { .. } => generator.unit_type(),
@@ -111,15 +113,13 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         elem_type: &Type,
         metadata_type: &Type,
     ) -> inkwell::types::StructType<'ctx> {
-        self.context
-            .struct_type(
-                &[
-                    elem_type.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
-                    metadata_type.llvm_type(self),
-                ],
-                false,
-            )
-            .into()
+        self.context.struct_type(
+            &[
+                elem_type.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
+                metadata_type.llvm_type(self),
+            ],
+            false,
+        )
     }
 
     pub(super) fn fn_type(&mut self, f: &FunctionType) -> inkwell::types::FunctionType<'ctx> {
@@ -129,7 +129,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         match &f.varargs {
             Some(varargs) => match &varargs.ty {
                 Some(ty) => {
-                    params.push(self.slice_type(ty).into());
+                    params.push(self.slice_type(ty).ptr_type(AddressSpace::Generic).into());
                     ret.fn_type(&params, false)
                 }
                 None => ret.fn_type(&params, true),

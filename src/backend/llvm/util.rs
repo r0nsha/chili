@@ -1,59 +1,26 @@
 use super::{
     abi::{align_of, size_of},
     codegen::{FunctionState, Generator},
+    traits::{IsALoadInst, IsAggregateType},
     ty::IntoLlvmType,
 };
-use crate::{
-    backend::llvm::traits::{IsALoadInst, IsAggregateType},
-    common::mem::calculate_align,
-    types::*,
-    workspace::BindingId,
-};
+use crate::{common::mem::calculate_align, types::*, workspace::BindingId};
 use inkwell::{
     basic_block::BasicBlock,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, InstructionOpcode, IntValue, PointerValue, StructValue},
+    values::{BasicValue, BasicValueEnum, InstructionOpcode, IntValue, PointerValue},
     AddressSpace, IntPredicate,
 };
 use std::mem;
-use ustr::{ustr, Ustr};
+use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
-    pub(super) fn unit_value(&self) -> BasicValueEnum<'ctx> {
-        self.context.const_struct(&[], false).into()
-    }
-
     pub(super) fn gep_slice_ptr(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
         self.gep_struct(slice, 0, "ptr").into_pointer_value()
     }
 
     pub(super) fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
         self.gep_struct(slice, 1, "len").into_int_value()
-    }
-
-    pub(super) fn const_str_slice(&mut self, name: &str, value: impl Into<Ustr>) -> StructValue<'ctx> {
-        let value = value.into();
-        let cached_str = self.static_strs.get(&value).map(|v| *v);
-
-        let ptr = cached_str.unwrap_or_else(|| self.builder.build_global_string_ptr(&value, name).as_pointer_value());
-        let len = self.ptr_sized_int_type.const_int(value.len() as u64, false);
-
-        self.const_slice(ptr, len)
-    }
-
-    #[inline]
-    pub(super) fn const_slice(&self, ptr: PointerValue<'ctx>, len: IntValue<'ctx>) -> StructValue<'ctx> {
-        self.const_struct(&[ptr.as_basic_value_enum(), len.as_basic_value_enum()])
-    }
-
-    #[inline]
-    pub(super) fn const_struct(&self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
-        self.context.const_struct(&values, false)
-    }
-
-    #[inline]
-    pub(super) fn const_bool(&self, b: bool) -> IntValue<'ctx> {
-        self.context.bool_type().const_int(if b { 1 } else { 0 }, false)
     }
 
     pub(super) fn build_slice(
@@ -441,9 +408,14 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         field_index: u32,
         field_name: &str,
     ) -> BasicValueEnum<'ctx> {
-        match value.as_instruction_value() {
-            Some(instruction) if instruction.get_opcode() == InstructionOpcode::Load => {
-                let pointer = instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value();
+        match value {
+            BasicValueEnum::PointerValue(pointer) => {
+                let pointer = match pointer.as_instruction_value() {
+                    Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
+                        instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value()
+                    }
+                    _ => pointer,
+                };
 
                 let gep = self
                     .builder
@@ -452,11 +424,44 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 self.builder.build_load(gep, field_name)
             }
-            _ => self
+            // match pointer.as_instruction_value() {
+            //     Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
+            //         let pointer = instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value();
+
+            //         let gep = self
+            //             .builder
+            //             .build_struct_gep(pointer, field_index, field_name)
+            //             .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
+
+            //         self.build_load(gep)
+            //     }
+            //     _ => self
+            //         .builder
+            //         .build_extract_value(value.into_struct_value(), field_index, field_name)
+            //         .unwrap_or_else(|| panic!("{:#?}", value)),
+            // },
+            BasicValueEnum::StructValue(value) => self
                 .builder
-                .build_extract_value(value.into_struct_value(), field_index, field_name)
+                .build_extract_value(value, field_index, field_name)
                 .unwrap_or_else(|| panic!("{:#?}", value)),
+            _ => panic!("{:#?}", value),
         }
+        // match value.as_instruction_value() {
+        //     Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
+        //         let pointer = instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value();
+
+        //         let gep = self
+        //             .builder
+        //             .build_struct_gep(pointer, field_index, field_name)
+        //             .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
+
+        //         self.build_load(gep)
+        //     }
+        //     _ => self
+        //         .builder
+        //         .build_extract_value(value.into_struct_value(), field_index, field_name)
+        //         .unwrap_or_else(|| panic!("{:#?}", value)),
+        // }
     }
 
     pub(super) fn build_struct(

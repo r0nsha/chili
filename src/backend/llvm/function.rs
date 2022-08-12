@@ -90,7 +90,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                             let transmuted_value = self.build_transmute(&state, value, llvm_param_ty);
 
-                            self.local_with_alloca(&mut state, param.id, transmuted_value);
+                            self.gen_local(&mut state, param.id, transmuted_value);
                         }
 
                         let return_value = body.as_ref().unwrap().codegen(self, &mut state);
@@ -299,7 +299,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         match ret.try_as_basic_value().left() {
             Some(value) => value,
-            None => self.unit_value(),
+            None => self.const_unit(),
         }
     }
 
