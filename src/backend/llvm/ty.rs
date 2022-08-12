@@ -53,12 +53,8 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 }
                 .into(),
             },
-            Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(inner) | Type::Str(inner) => {
-                    generator.slice_type(inner).ptr_type(AddressSpace::Generic).into()
-                }
-                _ => inner.llvm_type(generator).ptr_type(AddressSpace::Generic).into(),
-            },
+            Type::Pointer(inner, _) => inner.llvm_type(generator).ptr_type(AddressSpace::Generic).into(),
+            Type::Slice(inner) | Type::Str(inner) => generator.slice_type(inner).into(),
             Type::Type(_) | Type::Unit | Type::Module { .. } => generator.unit_type(),
             Type::Never => generator.never_type(),
             Type::Function(func) => generator

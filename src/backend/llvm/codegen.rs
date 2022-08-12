@@ -1,12 +1,12 @@
 use super::{
     abi::{align_of, size_of},
     traits::IsALoadInst,
-    ty::IntoLlvmType,
 };
 use crate::{
     ast::ExternLibrary,
+    backend::llvm::ty::IntoLlvmType,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
-    hir::{self, const_value::ConstValue},
+    hir,
     infer::{normalize::Normalize, type_ctx::TypeCtx},
     types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
