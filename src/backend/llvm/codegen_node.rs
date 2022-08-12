@@ -233,22 +233,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                 .into(),
 
             (Type::Pointer(left, _), Type::Pointer(right, _)) => match (left.as_ref(), right.as_ref()) {
-                (Type::Array(_, size), Type::Slice(right)) => {
+                (Type::Array(_, size), Type::Slice(right) | Type::Str(right)) => {
                     let slice_type = generator.slice_type(right);
-                    let ptr = generator.build_alloca(state, slice_type.into());
-
-                    generator.build_slice(
-                        ptr,
-                        value.into_pointer_value(),
-                        generator.ptr_sized_int_type.const_zero(),
-                        generator.ptr_sized_int_type.const_int(*size as u64, false),
-                        right.as_ref(),
-                    );
-
-                    generator.build_load(ptr.into())
-                }
-                (Type::Array(_, size), Type::Str(_)) => {
-                    let slice_type = generator.slice_type(&Type::u8());
                     let ptr = generator.build_alloca(state, slice_type.into());
 
                     generator.build_slice(

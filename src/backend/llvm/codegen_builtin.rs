@@ -228,7 +228,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
 
         let sliced_value = match &value_type {
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_) | Type::Str(_) => generator.gep_slice_data(value).as_basic_value_enum(),
+                Type::Slice(_) | Type::Str(_) => generator.gep_slice_ptr(value).as_basic_value_enum(),
                 _ => value,
             },
             Type::Array(..) => value,
@@ -557,7 +557,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             Type::Array(..) => value.into_pointer_value(),
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Array(..) => value.into_pointer_value(),
-                Type::Slice(_) | Type::Str(_) => generator.gep_slice_data(value),
+                Type::Slice(_) | Type::Str(_) => generator.gep_slice_ptr(value),
                 _ => value.into_pointer_value(),
             },
             ty => unreachable!("{}", ty.display(generator.tcx)),

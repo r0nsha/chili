@@ -12,7 +12,7 @@ use crate::{
 use inkwell::{
     basic_block::BasicBlock,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, GlobalValue, InstructionOpcode, IntValue, PointerValue, StructValue},
+    values::{BasicValue, BasicValueEnum, InstructionOpcode, IntValue, PointerValue, StructValue},
     AddressSpace, IntPredicate,
 };
 use std::mem;
@@ -23,36 +23,37 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.const_struct(&[], false).into()
     }
 
-    pub(super) fn gep_slice_data(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
-        self.gep_struct(slice, 0, "data").into_pointer_value()
+    pub(super) fn gep_slice_ptr(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
+        self.gep_struct(slice, 0, "ptr").into_pointer_value()
     }
 
     pub(super) fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
         self.gep_struct(slice, 1, "len").into_int_value()
     }
 
-    pub(super) fn const_str(&mut self, name: &str, value: &str) -> GlobalValue<'ctx> {
-        self.builder.build_global_string_ptr(value, name)
-    }
-
     pub(super) fn const_str_slice(&mut self, name: &str, value: impl Into<Ustr>) -> StructValue<'ctx> {
         let value = value.into();
         let cached_str = self.static_strs.get(&value).map(|v| *v);
 
-        let ptr = cached_str.unwrap_or_else(|| self.const_str(name, &value).as_pointer_value());
+        let ptr = cached_str.unwrap_or_else(|| self.builder.build_global_string_ptr(&value, name).as_pointer_value());
         let len = self.ptr_sized_int_type.const_int(value.len() as u64, false);
 
         self.const_slice(ptr, len)
     }
 
     #[inline]
-    pub(super) fn const_slice(&mut self, ptr: PointerValue<'ctx>, len: IntValue<'ctx>) -> StructValue<'ctx> {
+    pub(super) fn const_slice(&self, ptr: PointerValue<'ctx>, len: IntValue<'ctx>) -> StructValue<'ctx> {
         self.const_struct(&[ptr.as_basic_value_enum(), len.as_basic_value_enum()])
     }
 
     #[inline]
-    pub(super) fn const_struct(&mut self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
+    pub(super) fn const_struct(&self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
         self.context.const_struct(&values, false)
+    }
+
+    #[inline]
+    pub(super) fn const_bool(&self, b: bool) -> IntValue<'ctx> {
+        self.context.bool_type().const_int(if b { 1 } else { 0 }, false)
     }
 
     pub(super) fn build_slice(
@@ -68,12 +69,12 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .build_bitcast(
                 sliced_value,
                 elem_type.llvm_type(self).ptr_type(AddressSpace::Generic),
-                "bitcast_slice_data",
+                "bitcast_slice_ptr",
             )
             .into_pointer_value();
 
         // Store the data pointer
-        let data_ptr = self.builder.build_struct_gep(slice_ptr, 0, "slice_data").unwrap();
+        let data_ptr = self.builder.build_struct_gep(slice_ptr, 0, "slice_ptr").unwrap();
         let data = unsafe { self.builder.build_gep(sliced_value, &[low], "slice_low_addr") };
 
         self.build_store(data_ptr, data.into());
