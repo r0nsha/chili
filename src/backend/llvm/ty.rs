@@ -54,15 +54,13 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 .into(),
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(inner) => generator.slice_type(inner),
-                Type::Str(inner) => generator.slice_type(inner),
+                Type::Slice(inner) => generator.slice_type(inner).into(),
+                Type::Str(inner) => generator.slice_type(inner).into(),
                 _ => {
                     let ty = inner.llvm_type(generator);
                     ty.ptr_type(AddressSpace::Generic).into()
                 }
             },
-            Type::Slice(inner) => generator.slice_type(inner),
-            Type::Str(inner) => generator.slice_type(inner),
             Type::Type(_) | Type::Unit | Type::Module { .. } => generator.unit_type(),
             Type::Never => generator.never_type(),
             Type::Function(func) => generator
@@ -108,12 +106,20 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         self.context.i8_type().ptr_type(AddressSpace::Generic)
     }
 
-    pub(super) fn slice_type(&mut self, elem_type: &Type) -> BasicTypeEnum<'ctx> {
+    pub(super) fn slice_type(&mut self, elem_type: &Type) -> inkwell::types::StructType<'ctx> {
+        self.fat_pointer_type(elem_type, &Type::uint())
+    }
+
+    pub(super) fn fat_pointer_type(
+        &mut self,
+        elem_type: &Type,
+        metadata_type: &Type,
+    ) -> inkwell::types::StructType<'ctx> {
         self.context
             .struct_type(
                 &[
                     elem_type.llvm_type(self).ptr_type(AddressSpace::Generic).into(),
-                    self.ptr_sized_int_type.into(),
+                    metadata_type.llvm_type(self),
                 ],
                 false,
             )
