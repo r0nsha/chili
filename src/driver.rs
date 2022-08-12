@@ -9,7 +9,7 @@ use crate::{
     hir,
     infer::type_ctx::TypeCtx,
     time,
-    workspace::{library::Library, Workspace},
+    workspace::{library::Library, LibraryId, Workspace},
 };
 use colored::Colorize;
 use num_format::{Locale, ToFormattedString};
@@ -57,6 +57,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     let source_file = resolve_relative_path(&build_options.source_file, &RelativeTo::Cwd);
 
     let main_library = Library {
+        id: LibraryId::unknown(),
         name: ustr(&name),
         root_file: build_options.source_file.clone(),
         is_main: true,

@@ -1,7 +1,10 @@
 use super::*;
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult, SyntaxError,
+use crate::{
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError,
+    },
+    workspace::LibraryId,
 };
 
 impl Parser {
@@ -48,6 +51,7 @@ impl Parser {
 
                         if path.exists() {
                             let tmp_library = Library {
+                                id: LibraryId::unknown(),
                                 name: ustr("tmp"),
                                 root_file: path,
                                 is_main: false,

@@ -45,7 +45,7 @@ fn generate_ast_inner(workspace: &mut Workspace) -> (Vec<ast::Module>, AstGenera
     let mut modules: Vec<ast::Module> = vec![];
 
     let cache = Arc::new(Mutex::new(ParserCache {
-        libraries: workspace.libraries.clone(),
+        libraries: workspace.library_map(),
         include_paths: workspace.build_options.include_paths.clone(),
         diagnostics: workspace.diagnostics.clone(),
         parsed_files: HashSet::new(),

@@ -1,4 +1,4 @@
-use self::library::{Library, LIB_NAME_STD};
+use self::library::Library;
 use crate::{
     ast,
     common::{
@@ -32,7 +32,7 @@ pub struct Workspace {
     pub diagnostics: Diagnostics,
 
     // All libraries used by this workspace
-    pub libraries: UstrMap<Library>,
+    pub libraries: IdCache<LibraryId, Library>,
 
     // The root module's id. Resolved after ast generation
     pub root_module_id: ModuleId,
@@ -190,13 +190,16 @@ bitflags! {
 
 impl Workspace {
     pub fn new(name: String, build_options: BuildOptions, main_library: Library) -> Self {
+        let mut libraries = IdCache::new();
+
+        libraries.insert_with_id(main_library);
+        libraries.insert_with_id(Library::std());
+
         Self {
             name,
             diagnostics: Diagnostics::new(),
             build_options,
-            libraries: {
-                UstrMap::from_iter([(main_library.name, main_library), (ustr(LIB_NAME_STD), Library::std())])
-            },
+            libraries,
             module_infos: Default::default(),
             root_module_id: Default::default(),
             binding_infos: Default::default(),
@@ -204,12 +207,21 @@ impl Workspace {
     }
 
     pub fn main_library(&self) -> &Library {
-        // The root library is named after its workspace
-        self.libraries.get(&ustr(&self.name)).unwrap()
+        self.libraries.get(LIBRARY_ID_MAIN).unwrap()
     }
 
     pub fn std_library(&self) -> &Library {
-        self.libraries.get(&ustr(LIB_NAME_STD)).unwrap()
+        self.libraries.get(LIBRARY_ID_STD).unwrap()
+    }
+
+    pub fn library_map(&self) -> UstrMap<Library> {
+        let mut map = UstrMap::default();
+
+        for (_, library) in self.libraries.iter() {
+            map.insert(library.name, library.clone());
+        }
+
+        map
     }
 
     pub fn emit_diagnostics(&self) {
@@ -239,6 +251,11 @@ impl Workspace {
         self.binding_infos.get_mut(id).unwrap().add_use(span);
     }
 }
+
+define_id_type!(LibraryId);
+
+const LIBRARY_ID_MAIN: LibraryId = LibraryId(0);
+const LIBRARY_ID_STD: LibraryId = LibraryId(1);
 
 define_id_type!(ModuleId);
 define_id_type!(BindingId);

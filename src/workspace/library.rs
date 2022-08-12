@@ -4,15 +4,28 @@ use std::{
 };
 use ustr::{ustr, Ustr};
 
-use super::ModulePath;
+use crate::common::id_cache::WithId;
+
+use super::{LibraryId, ModulePath};
 
 pub const LIB_NAME_STD: &str = "std";
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Hash)]
 pub struct Library {
+    pub id: LibraryId,
     pub name: Ustr,
     pub root_file: PathBuf,
     pub is_main: bool,
+}
+
+impl WithId<LibraryId> for Library {
+    fn id(&self) -> &LibraryId {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut LibraryId {
+        &mut self.id
+    }
 }
 
 impl Library {
@@ -26,6 +39,7 @@ impl Library {
         let root_file = root_dir.join(Path::new("lib.chl"));
 
         Self {
+            id: LibraryId::unknown(),
             name: ustr(NAME),
             root_file,
             is_main: false,
