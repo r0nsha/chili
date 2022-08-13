@@ -36,45 +36,47 @@ macro_rules! parse_binary {
 }
 
 impl Parser {
-    pub fn parse_expr(&mut self) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(ustr("")))
-    }
+    pub fn parse_stmt(&mut self) -> DiagnosticResult<Ast> {
+        let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
+        let has_attrs = !attrs.is_empty();
 
-    pub fn parse_named_expr(&mut self, name: Ustr) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(name))
-    }
+        let parse_binding_result = self.try_parse_any_binding(attrs, ast::Visibility::Private, false)?;
 
-    pub fn parse_expr_res(&mut self, restrictions: Restrictions) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_expr_inner(ustr("")))
-    }
-
-    fn parse_expr_inner(&mut self, decl_name: Ustr) -> DiagnosticResult<Ast> {
-        let is_stmt = self.restrictions.contains(Restrictions::STMT_EXPR);
-
-        self.decl_name_frames.push(decl_name);
-
-        let expr = if is_stmt {
-            let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
-
-            let has_attrs = !attrs.is_empty();
-
-            match self.try_parse_any_binding(attrs, ast::Visibility::Private, false)? {
-                Some(binding) => Ok(Ast::Binding(binding?)),
-                None => {
-                    if !has_attrs {
-                        self.parse_logic_or()
-                    } else {
-                        Err(Diagnostic::error()
-                            .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
-                            .with_label(Label::primary(self.span(), "unexpected token")))
-                    }
+        let expr = match parse_binding_result {
+            Some(binding) => Ok(Ast::Binding(binding?)),
+            None => {
+                if !has_attrs {
+                    self.parse_logic_or()
+                } else {
+                    Err(Diagnostic::error()
+                        .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
+                        .with_label(Label::primary(self.span(), "unexpected token")))
                 }
             }
-        } else {
-            self.parse_logic_or()
         }?;
 
-        let expr = self.parse_postfix_expr(expr)?;
+        self.parse_operand_postfix_operator(expr, true)
+    }
+
+    pub fn parse_expr(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
+        self.with_res(Restrictions::empty(), |p| {
+            p.parse_expr_inner(ustr(""), allow_assignments)
+        })
+    }
+
+    pub fn parse_named_expr(&mut self, name: Ustr, allow_assignments: bool) -> DiagnosticResult<Ast> {
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(name, allow_assignments))
+    }
+
+    pub fn parse_expr_res(&mut self, restrictions: Restrictions, allow_assignments: bool) -> DiagnosticResult<Ast> {
+        self.with_res(restrictions, |p| p.parse_expr_inner(ustr(""), allow_assignments))
+    }
+
+    fn parse_expr_inner(&mut self, decl_name: Ustr, allow_assignments: bool) -> DiagnosticResult<Ast> {
+        self.decl_name_frames.push(decl_name);
+
+        let expr = self.parse_logic_or()?;
+        let expr = self.parse_operand_postfix_operator(expr, allow_assignments)?;
 
         self.decl_name_frames.pop();
 
@@ -85,7 +87,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
 
         let then = self.parse_block_expr()?;
 
@@ -110,6 +112,8 @@ impl Parser {
     }
 
     pub fn parse_block(&mut self) -> DiagnosticResult<ast::Block> {
+        require!(self, OpenCurly, "{")?;
+
         let start_span = self.previous_span();
 
         let mut exprs = vec![];
@@ -118,7 +122,7 @@ impl Parser {
         while !eat!(self, CloseCurly) && !self.is_end() {
             self.skip_semicolons();
 
-            let expr = self.parse_expr_res(Restrictions::STMT_EXPR).unwrap_or_else(|diag| {
+            let expr = self.parse_stmt().unwrap_or_else(|diag| {
                 let span = self.previous_span();
 
                 self.cache.lock().diagnostics.push(diag);
@@ -155,7 +159,6 @@ impl Parser {
     }
 
     pub fn parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
-        require!(self, OpenCurly, "{")?;
         Ok(Ast::Block(self.parse_block()?))
     }
 
@@ -225,11 +228,11 @@ impl Parser {
 
             Ok(expr)
         } else {
-            self.parse_primary()
+            self.parse_operand_base()
         }
     }
 
-    pub fn parse_primary(&mut self) -> DiagnosticResult<Ast> {
+    pub fn parse_operand_base(&mut self) -> DiagnosticResult<Ast> {
         let expr = if eat!(self, Ident(_)) {
             // TODO: `Self` should be a keyword
             const SYM_SELF: &str = "Self";
@@ -255,7 +258,7 @@ impl Parser {
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
-            let expr = self.parse_expr()?;
+            let expr = self.parse_expr(false)?;
 
             Ast::PointerType(ast::PointerType {
                 inner: Box::new(expr),
@@ -285,7 +288,7 @@ impl Parser {
                     span: start_span.to(self.previous_span()),
                 })
             } else {
-                let mut expr = self.parse_expr()?;
+                let mut expr = self.parse_expr(false)?;
 
                 if eat!(self, Comma) {
                     self.parse_tuple_literal(expr, start_span)?
@@ -311,7 +314,7 @@ impl Parser {
             ));
         };
 
-        self.parse_postfix_expr(expr)
+        self.parse_operand_postfix_operator(expr, false)
     }
 
     fn parse_array_type_or_literal(&mut self) -> DiagnosticResult<Ast> {
@@ -320,7 +323,7 @@ impl Parser {
         if eat!(self, CloseBracket) {
             if self.peek().kind.is_expr_start() {
                 // []T
-                let inner = self.parse_expr()?;
+                let inner = self.parse_expr(false)?;
 
                 Ok(Ast::SliceType(ast::SliceType {
                     inner: Box::new(inner),
@@ -343,7 +346,7 @@ impl Parser {
                 }) if elements.len() == 1 && self.peek().kind.is_expr_start() => {
                     let size = &elements[0];
 
-                    let inner = self.parse_expr()?;
+                    let inner = self.parse_expr(false)?;
 
                     Ok(Ast::ArrayType(ast::ArrayType {
                         inner: Box::new(inner),
@@ -415,7 +418,7 @@ impl Parser {
 
                 require!(self, Colon, ":")?;
 
-                let ty = self.parse_named_expr(name)?;
+                let ty = self.parse_named_expr(name, false)?;
 
                 ast::StructTypeField {
                     name,
@@ -433,8 +436,8 @@ impl Parser {
         require!(self, OpenParen, "(")?;
 
         let kind = match name.as_str() {
-            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expr()?)),
-            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expr()?)),
+            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expr(false)?)),
+            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expr(false)?)),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))
@@ -453,9 +456,8 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
+        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
 
-        require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(Ast::While(ast::While {
@@ -478,16 +480,15 @@ impl Parser {
 
         require!(self, In, "in")?;
 
-        let iter_start = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
+        let iter_start = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
 
         let iterator = if eat!(self, DotDot) {
-            let iter_end = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL)?;
+            let iter_end = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
             ast::ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ast::ForIter::Value(Box::new(iter_start))
         };
 
-        require!(self, OpenCurly, "{")?;
         let block = self.parse_block()?;
 
         Ok(Ast::For(ast::For {
@@ -510,7 +511,7 @@ impl Parser {
                 let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
                 } else {
-                    let expr = self.parse_expr()?;
+                    let expr = self.parse_expr(false)?;
                     Some(Box::new(expr))
                 };
 

@@ -52,7 +52,7 @@ impl Parser {
         let pattern = self.parse_pattern()?;
 
         let type_expr = if eat!(self, Colon) {
-            Some(Box::new(self.parse_expr()?))
+            Some(Box::new(self.parse_expr(false)?))
         } else {
             None
         };
@@ -60,8 +60,8 @@ impl Parser {
         require!(self, Eq, "=")?;
 
         let value = match &pattern {
-            Pattern::Name(pattern) => self.parse_named_expr(pattern.name)?,
-            _ => self.parse_expr()?,
+            Pattern::Name(pattern) => self.parse_named_expr(pattern.name, false)?,
+            _ => self.parse_expr(false)?,
         };
 
         Ok(ast::Binding {
@@ -94,7 +94,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let body = Box::new(self.parse_expr()?);
+        let body = Box::new(self.parse_expr(false)?);
 
         Ok(ast::Binding {
             module_id: Default::default(),
@@ -144,7 +144,7 @@ impl Parser {
 
             require!(self, Colon, ":")?;
 
-            let type_expr = self.parse_expr()?;
+            let type_expr = self.parse_expr(false)?;
 
             Ok(ast::Binding {
                 module_id: ModuleId::unknown(),
@@ -174,7 +174,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let type_expr = self.parse_named_expr(name)?;
+        let type_expr = self.parse_named_expr(name, false)?;
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),

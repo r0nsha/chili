@@ -30,11 +30,11 @@ impl Parser {
         let mut is_first_el = true;
 
         while !eat!(self, CloseBracket) && !self.is_end() {
-            let expr = self.parse_expr()?;
+            let expr = self.parse_expr(false)?;
 
             if is_first_el {
                 if eat!(self, Semicolon) {
-                    let len = self.parse_expr()?;
+                    let len = self.parse_expr(false)?;
                     require!(self, CloseBracket, "]")?;
 
                     return Ok(Ast::ArrayLiteral(ast::ArrayLiteral {
@@ -65,7 +65,7 @@ impl Parser {
     }
 
     pub fn parse_tuple_literal(&mut self, first_expr: Ast, start_span: Span) -> DiagnosticResult<Ast> {
-        let mut elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr()?, ", or )");
+        let mut elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr(false)?, ", or )");
 
         elements.insert(0, first_expr);
 
@@ -91,7 +91,7 @@ impl Parser {
                 };
 
                 let expr = if eat!(self, Colon) {
-                    self.parse_expr()?
+                    self.parse_expr(false)?
                 } else {
                     Ast::Ident(ast::Ident {
                         name: id_token.name(),
@@ -127,14 +127,15 @@ impl Parser {
                 span: start_span.to(self.previous_span()),
             }))
         } else if eat!(self, Ident(_)) {
+            self.revert(2);
+
             if is!(self, Colon | Comma) {
-                self.revert(2);
                 self.parse_struct_literal(None)
             } else {
-                self.revert(1);
                 Ok(Ast::Block(self.parse_block()?))
             }
         } else {
+            self.revert(1);
             Ok(Ast::Block(self.parse_block()?))
         }
     }

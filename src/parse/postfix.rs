@@ -8,13 +8,13 @@ use crate::{
 use ustr::ustr;
 
 impl Parser {
-    pub fn parse_postfix_expr(&mut self, mut expr: Ast) -> DiagnosticResult<Ast> {
+    pub fn parse_operand_postfix_operator(&mut self, mut expr: Ast, allow_assignments: bool) -> DiagnosticResult<Ast> {
         // named struct literal
         if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
             return self.parse_struct_literal(Some(Box::new(expr)));
         }
 
-        if self.restrictions.contains(Restrictions::STMT_EXPR) {
+        if allow_assignments {
             if eat!(
                 self,
                 PlusEq
@@ -85,7 +85,7 @@ impl Parser {
     fn parse_assign(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let rvalue = self.parse_expr()?;
+        let rvalue = self.parse_expr(false)?;
         let end_span = self.previous_span();
 
         Ok(Ast::Assignment(ast::Assignment {
@@ -97,7 +97,7 @@ impl Parser {
 
     fn parse_compound_assign(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
         let op: BinaryOp = self.previous().kind.into();
-        let rvalue = self.parse_expr()?;
+        let rvalue = self.parse_expr(false)?;
 
         let lvalue_span = lhs.span();
         let rvalue_span = rvalue.span();
@@ -117,7 +117,7 @@ impl Parser {
     fn parse_cast(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let target_type = self.parse_expr_res(Restrictions::NO_CAST)?;
+        let target_type = self.parse_expr_res(Restrictions::NO_CAST, false)?;
 
         Ok(Ast::Cast(Cast {
             expr: Box::new(expr),
@@ -184,7 +184,7 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                let value = self.parse_expr()?;
+                let value = self.parse_expr(false)?;
                 let spread = eat!(self, DotDotDot);
 
                 ast::CallArg { value, spread }
@@ -206,7 +206,7 @@ impl Parser {
             let high = if eat!(self, CloseBracket) {
                 None
             } else {
-                let high = self.parse_expr()?;
+                let high = self.parse_expr(false)?;
                 require!(self, CloseBracket, "]")?;
                 Some(Box::new(high))
             };
@@ -218,13 +218,13 @@ impl Parser {
                 span: start_span.to(self.previous_span()),
             }))
         } else {
-            let index = self.parse_expr()?;
+            let index = self.parse_expr(false)?;
 
             if eat!(self, DotDot) {
                 let high = if eat!(self, CloseBracket) {
                     None
                 } else {
-                    let high = self.parse_expr()?;
+                    let high = self.parse_expr(false)?;
                     require!(self, CloseBracket, "]")?;
                     Some(Box::new(high))
                 };

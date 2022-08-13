@@ -12,7 +12,7 @@ impl Parser {
 
         let sig = self.parse_function_sig(name, is_extern)?;
 
-        if eat!(self, OpenCurly) {
+        if is!(self, OpenCurly) {
             let body = self.parse_block()?;
 
             Ok(Ast::Function(Function {
@@ -31,7 +31,7 @@ impl Parser {
         let (params, varargs) = self.parse_function_params()?;
 
         let return_type = if eat!(self, RightArrow) {
-            Some(Box::new(self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL)?))
+            Some(Box::new(self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL, false)?))
         } else {
             None
         };
@@ -65,7 +65,7 @@ impl Parser {
                 let pattern = self.parse_pattern()?;
 
                 let type_expr = if eat!(self, Colon) {
-                    Some(Box::new(self.parse_expr()?))
+                    Some(Box::new(self.parse_expr(false)?))
                 } else {
                     None
                 };
@@ -90,7 +90,7 @@ impl Parser {
                     break;
                 } else {
                     let default_value = if eat!(self, Eq) {
-                        Some(Box::new(self.parse_expr()?))
+                        Some(Box::new(self.parse_expr(false)?))
                     } else {
                         None
                     };
