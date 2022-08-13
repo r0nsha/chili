@@ -146,6 +146,68 @@ impl Parser {
         Ok(Ast::Block(self.parse_block()?))
     }
 
+    fn parse_binary_operator(&mut self, allow_assignments: bool) -> DiagnosticResult<ast::BinaryOp> {
+        let token = self.bump().clone();
+
+        let op = match &token.kind {
+            Plus | PlusEq => ast::BinaryOp::Add,
+            Minus | MinusEq => ast::BinaryOp::Sub,
+            Star | StarEq => ast::BinaryOp::Mul,
+            FwSlash | FwSlashEq => ast::BinaryOp::Div,
+            Percent | PercentEq => ast::BinaryOp::Rem,
+            EqEq => ast::BinaryOp::Eq,
+            BangEq => ast::BinaryOp::Ne,
+            Lt => ast::BinaryOp::Lt,
+            LtEq => ast::BinaryOp::Le,
+            Gt => ast::BinaryOp::Gt,
+            GtEq => ast::BinaryOp::Ge,
+            AmpAmp | AmpAmpEq => ast::BinaryOp::And,
+            BarBar | BarBarEq => ast::BinaryOp::Or,
+            LtLt | LtLtEq => ast::BinaryOp::Shl,
+            GtGt | GtGtEq => ast::BinaryOp::Shr,
+            Amp | AmpEq => ast::BinaryOp::BitAnd,
+            Bar | BarEq => ast::BinaryOp::BitOr,
+            Caret | CaretEq => ast::BinaryOp::BitXor,
+            kind => {
+                return Err(Diagnostic::error()
+                    .with_message(format!("`{}` is not a binary operator", kind.lexeme()))
+                    .with_label(Label::primary(token.span, "invalid binary operator")))
+            }
+        };
+
+        if op.is_assignment() && !allow_assignments {
+            Err(Diagnostic::error()
+                .with_message("assignment is not allowed in this position")
+                .with_label(Label::primary(token.span, "assignment not allowed")))
+        } else {
+            Ok(op)
+        }
+    }
+
+    fn binary_operator_precedence(op: ast::BinaryOp) -> usize {
+        match op {
+            ast::BinaryOp::Mul | ast::BinaryOp::Div | ast::BinaryOp::Rem => 100,
+
+            ast::BinaryOp::Add | ast::BinaryOp::Sub => 90,
+
+            ast::BinaryOp::Shl | ast::BinaryOp::Shr => 85,
+
+            ast::BinaryOp::Eq
+            | ast::BinaryOp::Ne
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::Le
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::Ge => 80,
+
+            ast::BinaryOp::BitAnd => 73,
+            ast::BinaryOp::BitXor => 72,
+            ast::BinaryOp::BitOr => 71,
+            ast::BinaryOp::Or => 70,
+            ast::BinaryOp::And => 69,
+            // TODO: Assign operators => 50
+        }
+    }
+
     pub fn parse_logic_or(&mut self) -> DiagnosticResult<Ast> {
         parse_binary!(self, pattern = BarBar, next_fn = Parser::parse_logic_and)
     }

@@ -6,7 +6,6 @@ use crate::{
     define_id_type,
     error::DiagnosticResult,
     span::{FileId, Span},
-    token::TokenKind,
     types::*,
     workspace::{ModuleId, ModuleInfo},
 };
@@ -652,29 +651,10 @@ impl Display for BinaryOp {
     }
 }
 
-impl From<TokenKind> for BinaryOp {
-    fn from(kind: TokenKind) -> Self {
-        use TokenKind::*;
-        match kind {
-            Plus | PlusEq => BinaryOp::Add,
-            Minus | MinusEq => BinaryOp::Sub,
-            Star | StarEq => BinaryOp::Mul,
-            FwSlash | FwSlashEq => BinaryOp::Div,
-            Percent | PercentEq => BinaryOp::Rem,
-            EqEq => BinaryOp::Eq,
-            BangEq => BinaryOp::Ne,
-            Lt => BinaryOp::Lt,
-            LtEq => BinaryOp::Le,
-            Gt => BinaryOp::Gt,
-            GtEq => BinaryOp::Ge,
-            AmpAmp | AmpAmpEq => BinaryOp::And,
-            BarBar | BarBarEq => BinaryOp::Or,
-            LtLt | LtLtEq => BinaryOp::Shl,
-            GtGt | GtGtEq => BinaryOp::Shr,
-            Amp | AmpEq => BinaryOp::BitAnd,
-            Bar | BarEq => BinaryOp::BitOr,
-            Caret | CaretEq => BinaryOp::BitXor,
-            _ => panic!("{} is not a binary op", kind),
+impl BinaryOp {
+    pub fn is_assignment(&self) -> bool {
+        match self {
+            _ => false,
         }
     }
 }
