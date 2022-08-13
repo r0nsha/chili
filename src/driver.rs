@@ -90,6 +90,11 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
         }
     };
 
+    if workspace.diagnostics.has_errors() {
+        workspace.emit_diagnostics();
+        return StartWorkspaceResult::new_untyped(workspace);
+    }
+
     // Type inference, type checking, static analysis, const folding, etc..
     let (cache, tcx) = time! { workspace.build_options.emit_times, "check", {
         crate::check::check(&mut workspace, modules)

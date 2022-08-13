@@ -657,6 +657,25 @@ impl BinaryOp {
             _ => false,
         }
     }
+
+    pub fn precedence(&self) -> usize {
+        match self {
+            BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => 100,
+
+            BinaryOp::Add | BinaryOp::Sub => 90,
+
+            BinaryOp::Shl | BinaryOp::Shr => 85,
+
+            BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => 80,
+
+            BinaryOp::BitAnd => 73,
+            BinaryOp::BitXor => 72,
+            BinaryOp::BitOr => 71,
+            BinaryOp::Or => 70,
+            BinaryOp::And => 69,
+            // TODO: Assign operators => 50
+        }
+    }
 }
 
 #[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone, Copy)]

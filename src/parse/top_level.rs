@@ -9,7 +9,7 @@ impl Parser {
     pub fn parse_all_top_level(&mut self, file_id: FileId) -> ParserResult {
         let mut module = ast::Module::new(file_id, self.module_info);
 
-        while !self.is_end() {
+        while !self.eof() {
             match self.parse_top_level(&mut module) {
                 Ok(_) => {
                     // Note (Ron 20/07/2022):
@@ -18,7 +18,7 @@ impl Parser {
                     // I did experiment with optional semicolon, but they ended up
                     // add much more complexity then benefit.
                     // Especially since the language is expression-based.
-                    if let Err(_) = require!(self, Semicolon, ";") {
+                    if !eat!(self, Semicolon) {
                         let span = Parser::get_missing_delimiter_span(self.previous_span());
                         self.cache.lock().diagnostics.push(SyntaxError::expected(span, ";"));
                         self.skip_until_recovery_point();

@@ -14,7 +14,7 @@ impl Parser {
             let name_and_span = ast::NameAndSpan { name, span: id.span };
 
             let value = if eat!(self, OpenParen) {
-                let value = Some(Box::new(self.parse_expression(false)?));
+                let value = Some(Box::new(self.parse_expression(false, true)?));
                 require!(self, CloseParen, ")")?;
                 value
             } else {

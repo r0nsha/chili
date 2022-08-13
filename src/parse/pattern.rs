@@ -59,7 +59,7 @@ impl Parser {
         let mut sub_patterns = vec![];
         let mut wildcard_span: Option<Span> = None;
 
-        while !eat!(self, CloseCurly) && !self.is_end() {
+        while !eat!(self, CloseCurly) && !self.eof() {
             if eat!(self, Star) {
                 wildcard_span = Some(self.previous().span);
                 require!(self, CloseCurly, "}")?;

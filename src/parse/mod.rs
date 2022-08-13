@@ -36,7 +36,7 @@ bitflags! {
 
 macro_rules! is {
     ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        if $parser.is_end() {
+        if $parser.eof() {
             false
         } else {
             match &$parser.peek().kind {
@@ -72,7 +72,7 @@ macro_rules! parse_delimited_list {
     ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:expr) => {{
         let mut items = vec![];
 
-        while !eat!($parser, $close_delim) && !$parser.is_end() {
+        while !eat!($parser, $close_delim) && !$parser.eof() {
             items.push($parse);
 
             if eat!($parser, $sep) {
@@ -199,7 +199,7 @@ impl Parser {
 
     #[inline]
     pub fn bump(&mut self) -> &Token {
-        if !self.is_end() {
+        if !self.eof() {
             self.current += 1;
         }
         self.previous()
@@ -212,7 +212,7 @@ impl Parser {
     }
 
     #[inline]
-    pub fn is_end(&self) -> bool {
+    pub fn eof(&self) -> bool {
         self.peek().kind == Eof
     }
 
@@ -245,7 +245,7 @@ impl Parser {
 
     #[inline]
     pub fn skip_until_recovery_point(&mut self) {
-        while !is!(self, Semicolon) && !self.is_end() {
+        while !is!(self, Semicolon) && !self.eof() {
             self.bump();
         }
     }
@@ -263,6 +263,13 @@ impl Parser {
         };
 
         after_span.with_start(start_pos).with_end(end_pos)
+    }
+
+    pub fn skip_newlines(&mut self) {
+        // TODO
+        // while .current() is Eol {
+        //     .index++
+        // }
     }
 }
 pub(super) trait Recover<T> {

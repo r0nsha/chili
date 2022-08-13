@@ -11,29 +11,6 @@ use crate::{
 };
 use std::vec;
 
-macro_rules! parse_binary {
-    ($parser:expr, pattern = $(|) ? $($pattern : pat_param) | +, next_fn = $next:expr) => {{
-        let mut expr = $next($parser)?;
-        let start_span = expr.span();
-
-        while eat!($parser, $( $pattern )|+) {
-            let op: ast::BinaryOp = $parser.previous().kind.into();
-            let rhs = $next($parser)?;
-            let span = start_span.to($parser.previous_span());
-
-            expr = Ast::Binary(ast::Binary {
-                    lhs: Box::new(expr),
-                    op,
-                    rhs: Box::new(rhs),
-                    span,
-                }
-            );
-        }
-
-        Ok(expr)
-    }};
-}
-
 impl Parser {
     pub fn parse_statement(&mut self) -> DiagnosticResult<Ast> {
         let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
@@ -45,7 +22,7 @@ impl Parser {
             Some(binding) => Ok(Ast::Binding(binding?)),
             None => {
                 if !has_attrs {
-                    self.parse_expression(true)
+                    self.parse_expression(true, true)
                 } else {
                     Err(Diagnostic::error()
                         .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
@@ -55,23 +32,131 @@ impl Parser {
         }
     }
 
-    pub fn parse_expression(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_operand())
+    pub fn parse_expression(&mut self, allow_assignments: bool, allow_newlines: bool) -> DiagnosticResult<Ast> {
+        self.with_res(Restrictions::empty(), |p| {
+            p.parse_expression_inner(allow_assignments, allow_newlines)
+        })
     }
 
     pub fn parse_expression_res(
         &mut self,
         restrictions: Restrictions,
         allow_assignments: bool,
+        allow_newlines: bool,
     ) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_operand())
+        self.with_res(restrictions, |p| {
+            p.parse_expression_inner(allow_assignments, allow_newlines)
+        })
+    }
+
+    fn parse_expression_inner(&mut self, allow_assignments: bool, allow_newlines: bool) -> DiagnosticResult<Ast> {
+        let mut expr_stack: Vec<Ast> = vec![];
+        let mut op_stack: Vec<ast::BinaryOp> = vec![];
+        let mut last_precedence = 1000000;
+
+        expr_stack.push(self.parse_operand()?);
+
+        loop {
+            if allow_newlines {
+                if self.eof() {
+                    break;
+                }
+                self.skip_newlines()
+            } else {
+                // TODO
+                // if self.eol() {
+                //     break
+                // }
+            }
+
+            if allow_assignments {
+                if is!(
+                    self,
+                    PlusEq
+                        | MinusEq
+                        | StarEq
+                        | FwSlashEq
+                        | PercentEq
+                        | AmpEq
+                        | BarEq
+                        | CaretEq
+                        | LtLtEq
+                        | GtGtEq
+                        | AmpAmpEq
+                        | BarBarEq
+                ) {
+                    let lhs = expr_stack.into_iter().next().unwrap();
+                    return self.parse_compound_assignment(lhs);
+                } else if is!(self, Eq) {
+                    let lhs = expr_stack.into_iter().next().unwrap();
+                    return self.parse_assignment(lhs);
+                }
+            }
+
+            let op = match self.parse_operator(allow_assignments)? {
+                Some(op) => op,
+                None => break,
+            };
+
+            let precedence = op.precedence();
+
+            self.skip_newlines();
+
+            let rhs = self.parse_operand()?;
+
+            while precedence <= last_precedence && expr_stack.len() > 1 {
+                let rhs = expr_stack.pop().unwrap();
+                let op = op_stack.pop().unwrap();
+
+                last_precedence = op.precedence();
+
+                if last_precedence < precedence {
+                    expr_stack.push(rhs);
+                    op_stack.push(op);
+                    break;
+                }
+
+                let lhs = expr_stack.pop().unwrap();
+
+                let span = lhs.span().to(rhs.span());
+
+                expr_stack.push(Ast::Binary(ast::Binary {
+                    lhs: Box::new(lhs),
+                    op,
+                    rhs: Box::new(rhs),
+                    span,
+                }));
+            }
+
+            op_stack.push(op);
+            expr_stack.push(rhs);
+
+            last_precedence = precedence;
+        }
+
+        while expr_stack.len() > 1 {
+            let rhs = expr_stack.pop().unwrap();
+            let op = op_stack.pop().unwrap();
+            let lhs = expr_stack.pop().unwrap();
+
+            let span = lhs.span().to(rhs.span());
+
+            expr_stack.push(Ast::Binary(ast::Binary {
+                lhs: Box::new(lhs),
+                op,
+                rhs: Box::new(rhs),
+                span,
+            }));
+        }
+
+        Ok(expr_stack.into_iter().next().unwrap())
     }
 
     pub fn parse_if(&mut self) -> DiagnosticResult<Ast> {
         let token = self.previous();
         let span = token.span;
 
-        let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+        let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
         let then = self.parse_block_expr()?;
 
@@ -103,7 +188,7 @@ impl Parser {
         let mut exprs = vec![];
         let mut yields = false;
 
-        while !eat!(self, CloseCurly) && !self.is_end() {
+        while !eat!(self, CloseCurly) && !self.eof() {
             self.skip_semicolons();
 
             let expr = self.parse_statement().unwrap_or_else(|diag| {
@@ -146,10 +231,8 @@ impl Parser {
         Ok(Ast::Block(self.parse_block()?))
     }
 
-    fn parse_binary_operator(&mut self, allow_assignments: bool) -> DiagnosticResult<ast::BinaryOp> {
-        let token = self.bump().clone();
-
-        let op = match &token.kind {
+    pub fn parse_operator(&mut self, allow_assignments: bool) -> DiagnosticResult<Option<ast::BinaryOp>> {
+        let op = match &self.peek().kind {
             Plus | PlusEq => ast::BinaryOp::Add,
             Minus | MinusEq => ast::BinaryOp::Sub,
             Star | StarEq => ast::BinaryOp::Mul,
@@ -168,92 +251,22 @@ impl Parser {
             Amp | AmpEq => ast::BinaryOp::BitAnd,
             Bar | BarEq => ast::BinaryOp::BitOr,
             Caret | CaretEq => ast::BinaryOp::BitXor,
-            kind => {
-                return Err(Diagnostic::error()
-                    .with_message(format!("`{}` is not a binary operator", kind.lexeme()))
-                    .with_label(Label::primary(token.span, "invalid binary operator")))
-            }
+            _ => return Ok(None),
         };
+
+        let token = self.bump();
 
         if op.is_assignment() && !allow_assignments {
             Err(Diagnostic::error()
                 .with_message("assignment is not allowed in this position")
                 .with_label(Label::primary(token.span, "assignment not allowed")))
         } else {
-            Ok(op)
+            Ok(Some(op))
         }
-    }
-
-    fn binary_operator_precedence(op: ast::BinaryOp) -> usize {
-        match op {
-            ast::BinaryOp::Mul | ast::BinaryOp::Div | ast::BinaryOp::Rem => 100,
-
-            ast::BinaryOp::Add | ast::BinaryOp::Sub => 90,
-
-            ast::BinaryOp::Shl | ast::BinaryOp::Shr => 85,
-
-            ast::BinaryOp::Eq
-            | ast::BinaryOp::Ne
-            | ast::BinaryOp::Lt
-            | ast::BinaryOp::Le
-            | ast::BinaryOp::Gt
-            | ast::BinaryOp::Ge => 80,
-
-            ast::BinaryOp::BitAnd => 73,
-            ast::BinaryOp::BitXor => 72,
-            ast::BinaryOp::BitOr => 71,
-            ast::BinaryOp::Or => 70,
-            ast::BinaryOp::And => 69,
-            // TODO: Assign operators => 50
-        }
-    }
-
-    pub fn parse_logic_or(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = BarBar, next_fn = Parser::parse_logic_and)
-    }
-
-    pub fn parse_logic_and(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = AmpAmp, next_fn = Parser::parse_comparison)
-    }
-
-    pub fn parse_comparison(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(
-            self,
-            pattern = BangEq | EqEq | Gt | GtEq | Lt | LtEq,
-            next_fn = Parser::parse_bitwise_or
-        )
-    }
-
-    pub fn parse_bitwise_or(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = Bar, next_fn = Parser::parse_bitwise_xor)
-    }
-
-    pub fn parse_bitwise_xor(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = Caret, next_fn = Parser::parse_bitwise_and)
-    }
-
-    pub fn parse_bitwise_and(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = Amp, next_fn = Parser::parse_bitshift)
-    }
-
-    pub fn parse_bitshift(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = LtLt | GtGt, next_fn = Parser::parse_term)
-    }
-
-    pub fn parse_term(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = Minus | Plus, next_fn = Parser::parse_factor)
-    }
-
-    pub fn parse_factor(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(
-            self,
-            pattern = Star | FwSlash | Percent,
-            next_fn = Parser::parse_operand_base
-        )
     }
 
     pub fn parse_operand(&mut self) -> DiagnosticResult<Ast> {
-        let expr = self.parse_logic_or()?;
+        let expr = self.parse_operand_base()?;
         self.parse_operand_postfix_operator(expr)
     }
 
@@ -355,7 +368,7 @@ impl Parser {
                     span: start_span.to(self.previous_span()),
                 }))
             } else {
-                let mut expr = self.parse_expression(false)?;
+                let mut expr = self.parse_expression(false, true)?;
 
                 if eat!(self, Comma) {
                     self.parse_tuple_literal(expr, start_span)
@@ -388,7 +401,7 @@ impl Parser {
         if eat!(self, CloseBracket) {
             if self.peek().kind.is_expr_start() {
                 // []T
-                let inner = self.parse_expression(false)?;
+                let inner = self.parse_expression(false, true)?;
 
                 Ok(Ast::SliceType(ast::SliceType {
                     inner: Box::new(inner),
@@ -411,7 +424,7 @@ impl Parser {
                 }) if elements.len() == 1 && self.peek().kind.is_expr_start() => {
                     let size = &elements[0];
 
-                    let inner = self.parse_expression(false)?;
+                    let inner = self.parse_expression(false, true)?;
 
                     Ok(Ast::ArrayType(ast::ArrayType {
                         inner: Box::new(inner),
@@ -481,7 +494,7 @@ impl Parser {
 
                 require!(self, Colon, ":")?;
 
-                let mut ty = self.parse_expression(false)?;
+                let mut ty = self.parse_expression(false, true)?;
                 Self::assign_expr_name_if_needed(&mut ty, name);
 
                 ast::StructTypeField {
@@ -500,8 +513,8 @@ impl Parser {
         require!(self, OpenParen, "(")?;
 
         let kind = match name.as_str() {
-            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expression(false)?)),
-            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expression(false)?)),
+            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expression(false, true)?)),
+            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expression(false, true)?)),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))
@@ -520,7 +533,7 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+        let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
         let block = self.parse_block()?;
 
@@ -544,10 +557,11 @@ impl Parser {
 
         require!(self, In, "in")?;
 
-        let iter_start = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+        let iter_start = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
         let iterator = if eat!(self, DotDot) {
-            let iter_end = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+            let iter_end =
+                self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
             ast::ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ast::ForIter::Value(Box::new(iter_start))
@@ -575,7 +589,7 @@ impl Parser {
                 let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
                 } else {
-                    let expr = self.parse_expression(false)?;
+                    let expr = self.parse_expression(false, true)?;
                     Some(Box::new(expr))
                 };
 
