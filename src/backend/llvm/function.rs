@@ -81,7 +81,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                             };
 
                             let value = if abi_fn.params[index].kind.is_indirect() && !param_type.is_fat_pointer() {
-                                self.build_load(value.into_pointer_value())
+                                self.build_load(
+                                    value.into_pointer_value(),
+                                    &self.workspace.binding_infos.get(param.id).unwrap().name,
+                                )
                             } else {
                                 value
                             };
@@ -249,7 +252,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             let return_ptr = self.build_alloca(state, abi_fn.ret.ty);
             return_ptr.set_name("__call_result");
             self.gen_function_call_inner(callee, processed_args, Some(return_ptr));
-            self.build_load(return_ptr.into())
+            self.build_load(return_ptr.into(), "load__call_result")
         } else {
             let value = self.gen_function_call_inner(callee, processed_args, None);
             let value = self.build_transmute(

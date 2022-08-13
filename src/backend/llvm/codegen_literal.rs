@@ -44,7 +44,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
                     generator.build_store(field_ptr, value);
                 }
 
-                generator.build_load(struct_ptr)
+                generator.build_load(struct_ptr, "load_struct")
             }
             StructTypeKind::Union => {
                 let value = self.fields.first().as_ref().unwrap().value.codegen(generator, state);
@@ -58,7 +58,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::StructLiteral {
                         .builder
                         .build_pointer_cast(field_ptr, llvm_type.ptr_type(AddressSpace::Generic), "");
 
-                generator.build_load(struct_ptr)
+                generator.build_load(struct_ptr, "load_union")
             }
         }
     }
@@ -83,7 +83,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::TupleLiteral {
             generator.build_store(ptr, *value);
         }
 
-        generator.build_load(tuple_ptr)
+        generator.build_load(tuple_ptr, "load_tuple")
     }
 }
 
@@ -151,7 +151,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayFillLiteral {
         generator.builder.build_unconditional_branch(loop_head);
         generator.start_block(state, loop_head);
 
-        let it_value = generator.build_load(it.into()).into_int_value();
+        let it_value = generator.build_load(it.into(), "").into_int_value();
 
         let condition = generator
             .builder

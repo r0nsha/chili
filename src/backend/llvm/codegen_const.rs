@@ -137,7 +137,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 let ptr = global_value.as_pointer_value();
 
-                self.build_load(ptr)
+                self.build_load(ptr, &variable.name)
             }
         }
     }

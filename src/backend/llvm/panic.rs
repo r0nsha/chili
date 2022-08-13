@@ -31,7 +31,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             &[file_path, line.into(), column.into()],
         );
 
-        let location = self.build_load(location.into());
+        let location = self.build_load(location.into(), "");
 
         self.gen_function_call(
             state,

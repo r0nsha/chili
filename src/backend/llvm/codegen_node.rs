@@ -116,7 +116,10 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
             None => generator.gen_top_level_binding(self.id).into_pointer_value(),
         };
 
-        generator.build_load(decl_ptr)
+        generator.build_load(
+            decl_ptr,
+            &format!("load_{}", &generator.workspace.binding_infos.get(self.id).unwrap().name),
+        )
     }
 }
 
@@ -250,7 +253,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                         right.as_ref(),
                     );
 
-                    generator.build_load(ptr.into())
+                    generator.build_load(ptr.into(), "")
                 }
                 (_, _) => generator
                     .builder
