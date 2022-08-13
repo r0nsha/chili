@@ -165,7 +165,7 @@ impl Parser {
     fn parse_subscript_or_slice(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        if eat!(self, DotDot) {
+        if eat!(self, Colon) {
             let high = if eat!(self, CloseBracket) {
                 None
             } else {
@@ -183,7 +183,7 @@ impl Parser {
         } else {
             let index = self.parse_expression(false, true)?;
 
-            if eat!(self, DotDot) {
+            if eat!(self, Colon) {
                 let high = if eat!(self, CloseBracket) {
                     None
                 } else {
