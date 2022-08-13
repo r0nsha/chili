@@ -806,7 +806,7 @@ impl Check for ast::Ast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         match self {
             ast::Ast::Binding(binding) => binding.check(sess, env, None),
-            ast::Ast::Assignment(assignment) => assignment.check(sess, env, expected_type),
+            ast::Ast::Assign(assign) => assign.check(sess, env, expected_type),
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_type),
             ast::Ast::Import(import) => {
                 let import_path = import.path.to_str().unwrap();
@@ -1762,7 +1762,7 @@ impl Check for ast::For {
                 let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
 
                 // index += 1
-                block_node.statements.push(hir::Node::Assignment(hir::Assignment {
+                block_node.statements.push(hir::Node::Assign(hir::Assign {
                     lhs: Box::new(index_id_node.clone()),
                     rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
                         ty: index_type,
@@ -1779,7 +1779,7 @@ impl Check for ast::For {
                 }));
 
                 // iter += 1
-                block_node.statements.push(hir::Node::Assignment(hir::Assignment {
+                block_node.statements.push(hir::Node::Assign(hir::Assign {
                     lhs: Box::new(iter_id_node.clone()),
                     rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
                         ty: iter_type,
@@ -1970,7 +1970,7 @@ impl Check for ast::For {
                 block_node.statements.insert(0, iter_binding);
 
                 // index += 1
-                block_node.statements.push(hir::Node::Assignment(hir::Assignment {
+                block_node.statements.push(hir::Node::Assign(hir::Assign {
                     lhs: Box::new(index_id_node.clone()),
                     rhs: Box::new(hir::Node::Builtin(hir::Builtin::Add(hir::Binary {
                         ty: index_type,
@@ -2046,7 +2046,7 @@ impl Check for ast::Function {
     }
 }
 
-impl Check for ast::Assignment {
+impl Check for ast::Assign {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         sess.in_lvalue_context = true;
         let lhs_node = self.lhs.check(sess, env, None)?;
@@ -2073,7 +2073,7 @@ impl Check for ast::Assignment {
 
         sess.check_mutable_lvalue_access(&lhs_node)?;
 
-        Ok(hir::Node::Assignment(hir::Assignment {
+        Ok(hir::Node::Assign(hir::Assign {
             ty: sess.tcx.common_types.unit,
             span: self.span,
             lhs: Box::new(lhs_node),

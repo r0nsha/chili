@@ -110,7 +110,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Node {
             hir::Node::Const(x) => x.print(p, is_line_start),
             hir::Node::Binding(x) => x.print(p, is_line_start),
             hir::Node::Id(x) => x.print(p, is_line_start),
-            hir::Node::Assignment(x) => x.print(p, is_line_start),
+            hir::Node::Assign(x) => x.print(p, is_line_start),
             hir::Node::MemberAccess(x) => x.print(p, is_line_start),
             hir::Node::Call(x) => x.print(p, is_line_start),
             hir::Node::Cast(x) => x.print(p, is_line_start),
@@ -266,7 +266,7 @@ impl<'a, W: Write> Print<'a, W> for hir::Id {
     }
 }
 
-impl<'a, W: Write> Print<'a, W> for hir::Assignment {
+impl<'a, W: Write> Print<'a, W> for hir::Assign {
     fn print(&self, p: &mut Printer<'a, W>, is_line_start: bool) {
         self.lhs.print(p, is_line_start);
         p.write(" = ");

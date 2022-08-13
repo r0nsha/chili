@@ -161,7 +161,7 @@ pub enum Node {
     Const(Const),
     Binding(Binding),
     Id(Id),
-    Assignment(Assignment),
+    Assign(Assign),
     MemberAccess(MemberAccess),
     Call(Call),
     Cast(Cast),
@@ -177,7 +177,7 @@ node_struct!(Const, { value: ConstValue });
 
 node_struct!(Binding, { module_id: ModuleId, id: BindingId, name: Ustr, value: Box<Node> });
 node_struct!(Id, { id: BindingId });
-node_struct!(Assignment, { lhs: Box<Node>, rhs: Box<Node> });
+node_struct!(Assign, { lhs: Box<Node>, rhs: Box<Node> });
 node_struct!(MemberAccess, { value: Box<Node>, member_name: Ustr, member_index: u32 });
 
 node_struct!(Call, { callee: Box<Node>, args: Vec<Node> });
@@ -264,7 +264,7 @@ macro_rules! node_field_dispatch {
                     Self::Const(x) => x.$field,
                     Self::Binding(x) => x.$field,
                     Self::Id(x) => x.$field,
-                    Self::Assignment(x) => x.$field,
+                    Self::Assign(x) => x.$field,
                     Self::MemberAccess(x) => x.$field,
                     Self::Call(x) => x.$field,
                     Self::Cast(x) => x.$field,

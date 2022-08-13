@@ -62,7 +62,7 @@ impl<'a> CollectHints<'a> for hir::Node {
             hir::Node::Const(x) => x.collect_hints(sess),
             hir::Node::Binding(x) => x.collect_hints(sess),
             hir::Node::Id(x) => x.collect_hints(sess),
-            hir::Node::Assignment(x) => x.collect_hints(sess),
+            hir::Node::Assign(x) => x.collect_hints(sess),
             hir::Node::MemberAccess(x) => x.collect_hints(sess),
             hir::Node::Call(x) => x.collect_hints(sess),
             hir::Node::Cast(x) => x.collect_hints(sess),
@@ -168,7 +168,7 @@ impl<'a> CollectHints<'a> for hir::Id {
     fn collect_hints(&self, _sess: &mut HintSess<'a>) {}
 }
 
-impl<'a> CollectHints<'a> for hir::Assignment {
+impl<'a> CollectHints<'a> for hir::Assign {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         self.lhs.collect_hints(sess);
         self.rhs.collect_hints(sess);

@@ -36,7 +36,7 @@ impl Lower for hir::Node {
             hir::Node::Const(x) => x.lower(sess, code, ctx),
             hir::Node::Binding(x) => x.lower(sess, code, ctx),
             hir::Node::Id(x) => x.lower(sess, code, ctx),
-            hir::Node::Assignment(x) => x.lower(sess, code, ctx),
+            hir::Node::Assign(x) => x.lower(sess, code, ctx),
             hir::Node::MemberAccess(x) => x.lower(sess, code, ctx),
             hir::Node::Call(x) => x.lower(sess, code, ctx),
             hir::Node::Cast(x) => x.lower(sess, code, ctx),
@@ -192,7 +192,7 @@ impl Lower for hir::Id {
     }
 }
 
-impl Lower for hir::Assignment {
+impl Lower for hir::Assign {
     fn lower(&self, sess: &mut InterpSess, code: &mut Bytecode, _ctx: LowerContext) {
         self.rhs.lower(sess, code, LowerContext { take_ptr: false });
         self.lhs.lower(sess, code, LowerContext { take_ptr: true });

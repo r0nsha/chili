@@ -46,7 +46,7 @@ define_id_type!(FunctionId);
 #[derive(Debug, PartialEq, Clone)]
 pub enum Ast {
     Binding(Binding),
-    Assignment(Assignment),
+    Assign(Assign),
     Cast(Cast),
     Import(Import),
     Builtin(Builtin),
@@ -87,7 +87,7 @@ macro_rules! ast_field_dispatch {
             pub fn $field(&self) -> $ty {
                 match self {
                     Self::Binding(x) => x.$field,
-                    Self::Assignment(x) => x.$field,
+                    Self::Assign(x) => x.$field,
                     Self::Cast(x) => x.$field,
                     Self::Import(x) => x.$field,
                     Self::Builtin(x) => x.$field,
@@ -127,7 +127,7 @@ macro_rules! ast_field_dispatch {
                 pub fn [< $field:snake _mut >](&mut self) -> &mut $ty {
                     match self {
                         Self::Binding(x) => &mut x.$field,
-                        Self::Assignment(x) => &mut x.$field,
+                        Self::Assign(x) => &mut x.$field,
                         Self::Cast(x) => &mut x.$field,
                         Self::Import(x) => &mut x.$field,
                         Self::Builtin(x) => &mut x.$field,
@@ -358,7 +358,7 @@ pub enum BuiltinKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Assignment {
+pub struct Assign {
     pub lhs: Box<Ast>,
     pub rhs: Box<Ast>,
     pub span: Span,

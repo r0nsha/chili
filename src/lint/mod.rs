@@ -57,7 +57,7 @@ impl Lint for hir::Node {
             hir::Node::Const(x) => x.lint(sess),
             hir::Node::Binding(x) => x.lint(sess),
             hir::Node::Id(x) => x.lint(sess),
-            hir::Node::Assignment(x) => x.lint(sess),
+            hir::Node::Assign(x) => x.lint(sess),
             hir::Node::MemberAccess(x) => x.lint(sess),
             hir::Node::Call(x) => x.lint(sess),
             hir::Node::Cast(x) => x.lint(sess),
@@ -100,7 +100,7 @@ impl Lint for hir::Id {
     fn lint(&self, _sess: &mut LintSess) {}
 }
 
-impl Lint for hir::Assignment {
+impl Lint for hir::Assign {
     fn lint(&self, sess: &mut LintSess) {
         self.lhs.lint(sess);
     }

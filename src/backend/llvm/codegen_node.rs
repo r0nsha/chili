@@ -25,7 +25,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Node {
             hir::Node::Const(x) => x.codegen(generator, state),
             hir::Node::Binding(x) => x.codegen(generator, state),
             hir::Node::Id(x) => x.codegen(generator, state),
-            hir::Node::Assignment(x) => x.codegen(generator, state),
+            hir::Node::Assign(x) => x.codegen(generator, state),
             hir::Node::MemberAccess(x) => x.codegen(generator, state),
             hir::Node::Call(x) => x.codegen(generator, state),
             hir::Node::Cast(x) => x.codegen(generator, state),
@@ -120,7 +120,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
     }
 }
 
-impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assignment {
+impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assign {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let lhs = self.lhs.codegen(generator, state);
 

@@ -123,7 +123,7 @@ impl<'a> Substitute<'a> for hir::Node {
             hir::Node::Const(x) => x.substitute(sess),
             hir::Node::Binding(x) => x.substitute(sess),
             hir::Node::Id(x) => x.substitute(sess),
-            hir::Node::Assignment(x) => x.substitute(sess),
+            hir::Node::Assign(x) => x.substitute(sess),
             hir::Node::MemberAccess(x) => x.substitute(sess),
             hir::Node::Call(x) => x.substitute(sess),
             hir::Node::Cast(x) => x.substitute(sess),
@@ -154,7 +154,7 @@ impl<'a> Substitute<'a> for hir::Id {
     }
 }
 
-impl<'a> Substitute<'a> for hir::Assignment {
+impl<'a> Substitute<'a> for hir::Assign {
     fn substitute(&self, sess: &mut Sess<'a>) {
         self.ty.substitute(sess, self.span);
         self.lhs.substitute(sess);

@@ -30,9 +30,9 @@ impl Parser {
                     | AmpAmpEq
                     | BarBarEq
             ) {
-                return self.parse_compound_assign(expr);
+                return self.parse_compound_assignment(expr);
             } else if eat!(self, Eq) {
-                return self.parse_assign(expr);
+                return self.parse_assignment(expr);
             }
         }
 
@@ -82,27 +82,27 @@ impl Parser {
         Ok(expr)
     }
 
-    fn parse_assign(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
+    fn parse_assignment(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
         let rvalue = self.parse_expr(false)?;
         let end_span = self.previous_span();
 
-        Ok(Ast::Assignment(ast::Assignment {
+        Ok(Ast::Assign(ast::Assign {
             lhs: Box::new(expr),
             rhs: Box::new(rvalue),
             span: start_span.to(end_span),
         }))
     }
 
-    fn parse_compound_assign(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
+    fn parse_compound_assignment(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
         let op: BinaryOp = self.previous().kind.into();
         let rvalue = self.parse_expr(false)?;
 
         let lvalue_span = lhs.span();
         let rvalue_span = rvalue.span();
 
-        Ok(Ast::Assignment(ast::Assignment {
+        Ok(Ast::Assign(ast::Assign {
             lhs: Box::new(lhs.clone()),
             rhs: Box::new(Ast::Binary(ast::Binary {
                 lhs: Box::new(lhs),
