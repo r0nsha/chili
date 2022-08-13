@@ -156,7 +156,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                 let value = unary.value.codegen(generator, state);
                 let ptr = value.into_pointer_value();
                 generator.gen_runtime_check_null_pointer_deref(state, ptr, unary.span);
-                generator.build_load(ptr)
+                generator.build_load(ptr, "deref")
             }
             hir::Builtin::Ref(ref_) => ref_.codegen(generator, state),
             hir::Builtin::Offset(offset) => offset.codegen(generator, state),
@@ -264,7 +264,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Slice {
             value_type.element_type().unwrap(),
         );
 
-        generator.build_load(slice_ptr)
+        generator.build_load(slice_ptr, "load_build_slice")
     }
 }
 
@@ -504,8 +504,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let return_value = call_value.try_as_basic_value().left().unwrap();
 
-        let result = self.gep_struct(return_value, 0, "result");
-        let overflow_bit = self.gep_struct(return_value, 1, "overflow_bit");
+        let result = self.gep_struct(return_value, 0, "result", false);
+        let overflow_bit = self.gep_struct(return_value, 1, "overflow_bit", false);
 
         self.gen_runtime_check_overflow(state, overflow_bit.into_int_value(), span, op);
 
@@ -583,6 +583,6 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Offset {
             ty => unreachable!("{}", ty.display(generator.tcx)),
         };
 
-        generator.build_load(ptr_offset)
+        generator.build_load(ptr_offset, "load_offset")
     }
 }

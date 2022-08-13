@@ -16,11 +16,11 @@ use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn gep_slice_ptr(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
-        self.gep_struct(slice, 0, "ptr").into_pointer_value()
+        self.gep_struct(slice, 0, "slice_ptr", true).into_pointer_value()
     }
 
     pub(super) fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
-        self.gep_struct(slice, 1, "len").into_int_value()
+        self.gep_struct(slice, 1, "slice_len", true).into_int_value()
     }
 
     pub(super) fn build_slice(
@@ -152,10 +152,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         ptr
     }
 
-    pub(super) fn build_load(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
+    pub(super) fn build_load(&self, ptr: PointerValue<'ctx>, name: &str) -> BasicValueEnum<'ctx> {
         match ptr.get_type().get_element_type() {
             AnyTypeEnum::FunctionType(_) | AnyTypeEnum::ArrayType(_) => ptr.into(),
-            _ => self.builder.build_load(ptr, ""),
+            _ => self.builder.build_load(ptr, name),
         }
     }
 
@@ -280,6 +280,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let src_type = value.get_type();
 
+        // println!("src_type => {:#?}", src_type);
+        // println!("dst_type => {:#?}", dst_type);
+
         if src_type == dst_type {
             return value;
         }
@@ -287,16 +290,15 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let src_size = size_of(src_type, self.target_metrics.word_size);
         let dst_size = size_of(dst_type, self.target_metrics.word_size);
 
-        let mut src_align = align_of(src_type, self.target_metrics.word_size);
+        let src_align = align_of(src_type, self.target_metrics.word_size);
         let dst_align = align_of(dst_type, self.target_metrics.word_size);
 
-        // println!("src_type => {:#?}", src_type);
-        // println!("dst_type => {:#?}", dst_type);
-
-        if value.is_a_load_inst() {
+        let src_align = if value.is_a_load_inst() {
             let inst_align = value.as_instruction_value().unwrap().get_alignment().unwrap();
-            src_align = src_align.min(inst_align as usize);
-        }
+            src_align.min(inst_align as usize)
+        } else {
+            src_align
+        };
 
         match (src_type, dst_type) {
             (_, IntType(i)) if i.get_bit_width() == 1 => self
@@ -338,7 +340,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             }
 
             _ => {
-                src_align = src_align.max(dst_align as _) as _;
+                let src_align = src_align.max(dst_align as _) as _;
 
                 if value.is_a_load_inst() && src_align < dst_align {
                     let inst = value.as_instruction_value().unwrap();
@@ -353,7 +355,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                                     .as_instruction_value()
                                     .unwrap_or_else(|| panic!("{:#?}", value_ptr));
 
-                                src_align = value_inst.get_alignment().unwrap().max(dst_align as _) as _;
+                                let src_align = value_inst.get_alignment().unwrap().max(dst_align as _);
 
                                 value_inst.set_alignment(src_align as _).unwrap();
                             }
@@ -375,7 +377,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .builder
                         .build_pointer_cast(value_ptr, dst_type.ptr_type(AddressSpace::Generic), "");
 
-                    self.build_load(ptr.into())
+                    self.build_load(ptr.into(), "")
                 } else {
                     let ptr = self.build_alloca(state, dst_type);
 
@@ -396,7 +398,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .builder
                         .build_pointer_cast(ptr, dst_type.ptr_type(AddressSpace::Generic), "");
 
-                    self.build_load(ptr.into())
+                    self.build_load(ptr.into(), "")
                 }
             }
         }
@@ -407,11 +409,14 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         value: BasicValueEnum<'ctx>,
         field_index: u32,
         field_name: &str,
+        is_fat_pointer: bool,
     ) -> BasicValueEnum<'ctx> {
         match value {
             BasicValueEnum::PointerValue(pointer) => {
                 let pointer = match pointer.as_instruction_value() {
-                    Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
+                    Some(instruction)
+                        if !is_fat_pointer && matches!(instruction.get_opcode(), InstructionOpcode::Load) =>
+                    {
                         instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value()
                     }
                     _ => pointer,
@@ -422,24 +427,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     .build_struct_gep(pointer, field_index, field_name)
                     .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
 
-                self.builder.build_load(gep, field_name)
+                self.build_load(gep, field_name)
             }
-            // match pointer.as_instruction_value() {
-            //     Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
-            //         let pointer = instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value();
 
-            //         let gep = self
-            //             .builder
-            //             .build_struct_gep(pointer, field_index, field_name)
-            //             .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
-
-            //         self.build_load(gep)
-            //     }
-            //     _ => self
-            //         .builder
-            //         .build_extract_value(value.into_struct_value(), field_index, field_name)
-            //         .unwrap_or_else(|| panic!("{:#?}", value)),
-            // },
             BasicValueEnum::StructValue(value) => self
                 .builder
                 .build_extract_value(value, field_index, field_name)

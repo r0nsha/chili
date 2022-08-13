@@ -10,8 +10,12 @@ use crate::{
 
 impl Parser {
     pub fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
+        self.skip_newlines();
+
         if is!(self, Mut | Ident(_) | Placeholder) {
             let pattern = self.parse_name_pattern().map(Pattern::Name)?;
+
+            self.skip_newlines();
 
             if eat!(self, At) {
                 let pattern = pattern.into_name().unwrap();
@@ -37,6 +41,8 @@ impl Parser {
     }
 
     fn parse_unpack_pattern(&mut self, expectation: &str) -> DiagnosticResult<Pattern> {
+        self.skip_newlines();
+
         if eat!(self, OpenCurly) {
             self.parse_struct_unpack()
         } else if eat!(self, OpenParen) {
@@ -60,6 +66,8 @@ impl Parser {
         let mut wildcard_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.eof() {
+            self.skip_newlines();
+
             if eat!(self, Star) {
                 wildcard_span = Some(self.previous().span);
                 require!(self, CloseCurly, "}")?;
@@ -81,6 +89,8 @@ impl Parser {
                     Ok(())
                 }
 
+                self.skip_newlines();
+
                 if eat!(self, Ident(_)) {
                     if is!(self, Colon) {
                         let ident = self.previous();
@@ -98,6 +108,8 @@ impl Parser {
                 } else {
                     parse_name(self, &mut sub_patterns)?;
                 }
+
+                self.skip_newlines();
 
                 if eat!(self, Comma) {
                     continue;

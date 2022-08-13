@@ -116,7 +116,10 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
             None => generator.gen_top_level_binding(self.id).into_pointer_value(),
         };
 
-        generator.build_load(decl_ptr)
+        generator.build_load(
+            decl_ptr,
+            &format!("load_{}", &generator.workspace.binding_infos.get(self.id).unwrap().name),
+        )
     }
 }
 
@@ -145,15 +148,12 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assign {
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
-
-        // Hack: Compensate for the fact that a fat pointer can be a double pointer here
-        let value = if self.value.ty().normalize(generator.tcx).is_fat_pointer() {
-            generator.build_load(value.into_pointer_value())
-        } else {
-            value
-        };
-
-        generator.gep_struct(value, self.member_index, &self.member_name)
+        generator.gep_struct(
+            value,
+            self.member_index,
+            &self.member_name,
+            self.value.ty().normalize(generator.tcx).is_fat_pointer(),
+        )
     }
 }
 
@@ -253,7 +253,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                         right.as_ref(),
                     );
 
-                    generator.build_load(ptr.into())
+                    generator.build_load(ptr.into(), "")
                 }
                 (_, _) => generator
                     .builder

@@ -6,7 +6,7 @@ use crate::{
     ast::ExternLibrary,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir,
-    infer::{normalize::Normalize, type_ctx::TypeCtx},
+    infer::type_ctx::TypeCtx,
     types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
@@ -17,7 +17,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     OptimizationLevel,
 };
 use std::{
@@ -222,15 +222,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         debug_assert!(id != BindingId::unknown());
 
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
-        let ty = binding_info.ty.normalize(self.tcx);
-
-        // Hack: This handles the weird alloca behavior of unsized types
-        let value = match value.as_instruction_value() {
-            Some(inst) if inst.get_opcode() == InstructionOpcode::Alloca && ty.is_fat_pointer() => {
-                self.build_load(value.into_pointer_value())
-            }
-            _ => value,
-        };
 
         let llvm_type = value.get_type();
         let ptr = self.build_alloca_named(state, llvm_type, id);

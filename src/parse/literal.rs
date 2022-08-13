@@ -30,6 +30,7 @@ impl Parser {
         let mut is_first_el = true;
 
         while !eat!(self, CloseBracket) && !self.eof() {
+            self.skip_newlines();
             let expr = self.parse_expression(false, true)?;
 
             if is_first_el {
@@ -51,6 +52,7 @@ impl Parser {
             elements.push(expr);
 
             if eat!(self, Comma) {
+                self.skip_newlines();
                 continue;
             } else {
                 require!(self, CloseBracket, "]")?;
@@ -91,6 +93,8 @@ impl Parser {
                     break;
                 };
 
+                self.skip_newlines();
+
                 let expr = if eat!(self, Colon) {
                     self.parse_expression(false, true)?
                 } else {
@@ -119,6 +123,7 @@ impl Parser {
     }
 
     pub fn parse_struct_literal_or_parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
+        let last_index = self.current;
         let start_span = require!(self, OpenCurly, "{")?.span;
 
         if eat!(self, CloseCurly) {
@@ -128,11 +133,11 @@ impl Parser {
                 span: start_span.to(self.previous_span()),
             }))
         } else if eat!(self, Ident(_)) {
-            self.revert(2);
-
             if is!(self, Colon | Comma) {
+                self.current = last_index;
                 self.parse_struct_literal(None)
             } else {
+                self.current = last_index;
                 Ok(Ast::Block(self.parse_block()?))
             }
         } else {
