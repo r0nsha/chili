@@ -12,27 +12,9 @@ impl Parser {
         while !self.eof() {
             if let Err(diag) = self.parse_top_level(&mut module) {
                 self.cache.lock().diagnostics.push(diag);
-                return ParserResult::ParserFailed;
+                self.skip_until_recovery_point();
+                // return ParserResult::ParserFailed;
             }
-            // match self.parse_top_level(&mut module) {
-            //     Ok(_) => {
-            //         // Note (Ron 20/07/2022):
-            //         // This piece of code requires semicolons for top level items.
-            //         // This is not semantically required, but is placed for orthogonallity.
-            //         // I did experiment with optional semicolon, but they ended up
-            //         // add much more complexity then benefit.
-            //         // Especially since the language is expression-based.
-            //         // if !eat!(self, Semicolon) {
-            //         //     let span = Parser::get_missing_delimiter_span(self.previous_span());
-            //         //     self.cache.lock().diagnostics.push(SyntaxError::expected(span, ";"));
-            //         //     self.skip_until_recovery_point();
-            //         // }
-            //     }
-            //     Err(diag) => {
-            //         self.cache.lock().diagnostics.push(diag);
-            //         self.skip_until_recovery_point();
-            //     }
-            // }
         }
 
         ParserResult::NewModule(module)

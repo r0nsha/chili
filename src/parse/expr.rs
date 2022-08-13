@@ -178,16 +178,17 @@ impl Parser {
             } else if eat!(self, Semicolon | Newline) {
                 continue;
             } else {
-                // let expr = self.parse_statement().unwrap_or_else(|diag| {
-                //     let span = self.previous_span();
+                let statement = self.parse_statement().unwrap_or_else(|diag| {
+                    let span = self.previous_span();
 
-                //     self.cache.lock().diagnostics.push(diag);
-                //     self.skip_until_recovery_point();
+                    self.cache.lock().diagnostics.push(diag);
+                    self.skip_until_recovery_point();
 
-                //     ast::Ast::Error(ast::Empty { span })
-                // });
+                    ast::Ast::Error(ast::Empty { span })
+                });
 
-                statements.push(self.parse_statement()?);
+                statements.push(statement);
+                // statements.push(self.parse_statement()?);
             }
         }
 
@@ -196,7 +197,7 @@ impl Parser {
             .diagnostics
             .push(SyntaxError::expected(self.span(), "}"));
 
-        // self.skip_until_recovery_point();
+        self.skip_until_recovery_point();
 
         Ok(ast::Block {
             statements,
