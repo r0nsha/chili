@@ -85,7 +85,7 @@ impl Parser {
     fn parse_assignment(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let rvalue = self.parse_expr(false)?;
+        let rvalue = self.parse_expression(false)?;
         let end_span = self.previous_span();
 
         Ok(Ast::Assign(ast::Assign {
@@ -97,7 +97,7 @@ impl Parser {
 
     fn parse_compound_assignment(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
         let op: BinaryOp = self.previous().kind.into();
-        let rvalue = self.parse_expr(false)?;
+        let rvalue = self.parse_expression(false)?;
 
         let lvalue_span = lhs.span();
         let rvalue_span = rvalue.span();
@@ -117,7 +117,7 @@ impl Parser {
     fn parse_cast(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        let target_type = self.parse_expr_res(Restrictions::NO_CAST, false)?;
+        let target_type = self.parse_expression_res(Restrictions::NO_CAST, false)?;
 
         Ok(Ast::Cast(Cast {
             expr: Box::new(expr),
@@ -184,7 +184,7 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                let value = self.parse_expr(false)?;
+                let value = self.parse_expression(false)?;
                 let spread = eat!(self, DotDotDot);
 
                 ast::CallArg { value, spread }
@@ -206,7 +206,7 @@ impl Parser {
             let high = if eat!(self, CloseBracket) {
                 None
             } else {
-                let high = self.parse_expr(false)?;
+                let high = self.parse_expression(false)?;
                 require!(self, CloseBracket, "]")?;
                 Some(Box::new(high))
             };
@@ -218,13 +218,13 @@ impl Parser {
                 span: start_span.to(self.previous_span()),
             }))
         } else {
-            let index = self.parse_expr(false)?;
+            let index = self.parse_expression(false)?;
 
             if eat!(self, DotDot) {
                 let high = if eat!(self, CloseBracket) {
                     None
                 } else {
-                    let high = self.parse_expr(false)?;
+                    let high = self.parse_expression(false)?;
                     require!(self, CloseBracket, "]")?;
                     Some(Box::new(high))
                 };

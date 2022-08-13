@@ -35,7 +35,7 @@ macro_rules! parse_binary {
 }
 
 impl Parser {
-    pub fn parse_stmt(&mut self) -> DiagnosticResult<Ast> {
+    pub fn parse_statement(&mut self) -> DiagnosticResult<Ast> {
         let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
         let has_attrs = !attrs.is_empty();
 
@@ -45,7 +45,7 @@ impl Parser {
             Some(binding) => Ok(Ast::Binding(binding?)),
             None => {
                 if !has_attrs {
-                    self.parse_expr(true)
+                    self.parse_expression(true)
                 } else {
                     Err(Diagnostic::error()
                         .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
@@ -55,15 +55,19 @@ impl Parser {
         }
     }
 
-    pub fn parse_expr(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(allow_assignments))
+    pub fn parse_expression(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
+        self.with_res(Restrictions::empty(), |p| p.parse_expression_inner(allow_assignments))
     }
 
-    pub fn parse_expr_res(&mut self, restrictions: Restrictions, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_expr_inner(allow_assignments))
+    pub fn parse_expression_res(
+        &mut self,
+        restrictions: Restrictions,
+        allow_assignments: bool,
+    ) -> DiagnosticResult<Ast> {
+        self.with_res(restrictions, |p| p.parse_expression_inner(allow_assignments))
     }
 
-    fn parse_expr_inner(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
+    fn parse_expression_inner(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
         let expr = self.parse_logic_or()?;
         self.parse_operand_postfix_operator(expr, allow_assignments)
     }
@@ -72,7 +76,7 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
-        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+        let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
 
         let then = self.parse_block_expr()?;
 
@@ -107,7 +111,7 @@ impl Parser {
         while !eat!(self, CloseCurly) && !self.is_end() {
             self.skip_semicolons();
 
-            let expr = self.parse_stmt().unwrap_or_else(|diag| {
+            let expr = self.parse_statement().unwrap_or_else(|diag| {
                 let span = self.previous_span();
 
                 self.cache.lock().diagnostics.push(diag);
@@ -243,7 +247,7 @@ impl Parser {
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
-            let expr = self.parse_expr(false)?;
+            let expr = self.parse_expression(false)?;
 
             Ast::PointerType(ast::PointerType {
                 inner: Box::new(expr),
@@ -273,7 +277,7 @@ impl Parser {
                     span: start_span.to(self.previous_span()),
                 })
             } else {
-                let mut expr = self.parse_expr(false)?;
+                let mut expr = self.parse_expression(false)?;
 
                 if eat!(self, Comma) {
                     self.parse_tuple_literal(expr, start_span)?
@@ -308,7 +312,7 @@ impl Parser {
         if eat!(self, CloseBracket) {
             if self.peek().kind.is_expr_start() {
                 // []T
-                let inner = self.parse_expr(false)?;
+                let inner = self.parse_expression(false)?;
 
                 Ok(Ast::SliceType(ast::SliceType {
                     inner: Box::new(inner),
@@ -331,7 +335,7 @@ impl Parser {
                 }) if elements.len() == 1 && self.peek().kind.is_expr_start() => {
                     let size = &elements[0];
 
-                    let inner = self.parse_expr(false)?;
+                    let inner = self.parse_expression(false)?;
 
                     Ok(Ast::ArrayType(ast::ArrayType {
                         inner: Box::new(inner),
@@ -401,7 +405,7 @@ impl Parser {
 
                 require!(self, Colon, ":")?;
 
-                let mut ty = self.parse_expr(false)?;
+                let mut ty = self.parse_expression(false)?;
                 Self::assign_expr_name_if_needed(&mut ty, name);
 
                 ast::StructTypeField {
@@ -420,8 +424,8 @@ impl Parser {
         require!(self, OpenParen, "(")?;
 
         let kind = match name.as_str() {
-            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expr(false)?)),
-            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expr(false)?)),
+            "size_of" => ast::BuiltinKind::SizeOf(Box::new(self.parse_expression(false)?)),
+            "align_of" => ast::BuiltinKind::AlignOf(Box::new(self.parse_expression(false)?)),
             name => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown builtin function `{}`", name))
@@ -440,7 +444,7 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let condition = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+        let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
 
         let block = self.parse_block()?;
 
@@ -464,10 +468,10 @@ impl Parser {
 
         require!(self, In, "in")?;
 
-        let iter_start = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+        let iter_start = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
 
         let iterator = if eat!(self, DotDot) {
-            let iter_end = self.parse_expr_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
+            let iter_end = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false)?;
             ast::ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ast::ForIter::Value(Box::new(iter_start))
@@ -495,7 +499,7 @@ impl Parser {
                 let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
                     None
                 } else {
-                    let expr = self.parse_expr(false)?;
+                    let expr = self.parse_expression(false)?;
                     Some(Box::new(expr))
                 };
 

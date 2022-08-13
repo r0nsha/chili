@@ -30,11 +30,11 @@ impl Parser {
         let mut is_first_el = true;
 
         while !eat!(self, CloseBracket) && !self.is_end() {
-            let expr = self.parse_expr(false)?;
+            let expr = self.parse_expression(false)?;
 
             if is_first_el {
                 if eat!(self, Semicolon) {
-                    let len = self.parse_expr(false)?;
+                    let len = self.parse_expression(false)?;
                     require!(self, CloseBracket, "]")?;
 
                     return Ok(Ast::ArrayLiteral(ast::ArrayLiteral {
@@ -65,7 +65,7 @@ impl Parser {
     }
 
     pub fn parse_tuple_literal(&mut self, first_expr: Ast, start_span: Span) -> DiagnosticResult<Ast> {
-        let mut elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_expr(false)?, ", or )");
+        let mut elements = parse_delimited_list!(self, CloseParen, Comma, self.parse_expression(false)?, ", or )");
 
         elements.insert(0, first_expr);
 
@@ -91,7 +91,7 @@ impl Parser {
                 };
 
                 let expr = if eat!(self, Colon) {
-                    self.parse_expr(false)?
+                    self.parse_expression(false)?
                 } else {
                     Ast::Ident(ast::Ident {
                         name: id_token.name(),

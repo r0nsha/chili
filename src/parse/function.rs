@@ -31,7 +31,9 @@ impl Parser {
         let (params, varargs) = self.parse_function_params()?;
 
         let return_type = if eat!(self, RightArrow) {
-            Some(Box::new(self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL, false)?))
+            Some(Box::new(
+                self.parse_expression_res(Restrictions::NO_STRUCT_LITERAL, false)?,
+            ))
         } else {
             None
         };
@@ -65,7 +67,7 @@ impl Parser {
                 let pattern = self.parse_pattern()?;
 
                 let type_expr = if eat!(self, Colon) {
-                    Some(Box::new(self.parse_expr(false)?))
+                    Some(Box::new(self.parse_expression(false)?))
                 } else {
                     None
                 };
@@ -90,7 +92,7 @@ impl Parser {
                     break;
                 } else {
                     let default_value = if eat!(self, Eq) {
-                        Some(Box::new(self.parse_expr(false)?))
+                        Some(Box::new(self.parse_expression(false)?))
                     } else {
                         None
                     };
