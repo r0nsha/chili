@@ -123,6 +123,7 @@ impl Parser {
     }
 
     pub fn parse_struct_literal_or_parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
+        let last_index = self.current;
         let start_span = require!(self, OpenCurly, "{")?.span;
 
         if eat!(self, CloseCurly) {
@@ -132,11 +133,11 @@ impl Parser {
                 span: start_span.to(self.previous_span()),
             }))
         } else if eat!(self, Ident(_)) {
-            self.revert(2);
-
             if is!(self, Colon | Comma) {
+                self.current = last_index;
                 self.parse_struct_literal(None)
             } else {
+                self.current = last_index;
                 Ok(Ast::Block(self.parse_block()?))
             }
         } else {

@@ -1,26 +1,26 @@
 fn main() = {
-    primitives_and_variables();
-    operators();
-    control_flow_if();
-    control_flow_while();
-    arrays();
-    control_flow_for();
-    pointers_and_references();
-    slices();
-    functions();
-    variadic_functions();
-    structs();
-    tuples();
-    imports();
-    binding_patterns();
-    builtin_functions();
-    extern_functions();
-    running_code_at_compile_time();
-    starting_a_workspace();
-};
+    primitives_and_variables()
+    operators()
+    control_flow_if()
+    control_flow_while()
+    arrays()
+    control_flow_for()
+    pointers_and_references()
+    slices()
+    functions()
+    variadic_functions()
+    structs()
+    tuples()
+    imports()
+    binding_patterns()
+    builtin_functions()
+    extern_functions()
+    running_code_at_compile_time()
+    starting_a_workspace()
+}
 
 fn primitives_and_variables = {
-    println("primitives_and_variables");
+    println("primitives_and_variables")
     
     // Primitive types:
 
@@ -53,374 +53,374 @@ fn primitives_and_variables = {
 
     // A variable declaration follows the syntax
     // let [pattern]: [type] = [value]
-    let num: int = 5;
-    let pi: float = 3.14;
-    let hello: *str = "Hello";
+    let num: int = 5
+    let pi: float = 3.14
+    let hello: *str = "Hello"
 
     // The variable's type can be be inferred by its value
-    let num = 5;
-    let pi = 3.14;
-    let hello = "Hello";
+    let num = 5
+    let pi = 3.14
+    let hello = "Hello"
 
     // Variables are immutable by default, meaning you can't reassign them twice.
     // Uncomment the next line to get a compiler error:
-    // num = 42;
+    // num = 42
 
     // To declare a variable as mutable, add the `mut` keyword after the `let`
-    let mut foo = 42;
-    foo = 1;
+    let mut foo = 42
+    foo = 1
 
     // Variables can also be shadowed, meaning you can declare the same name twice (in local scope)
-    let foo = true;
-};
+    let foo = true
+}
 
 fn operators() = {
-    println("operators");
+    println("operators")
     
     // Not
-    let x = !true;
+    let x = !true
 
     // Negate
-    let x = -5;
+    let x = -5
 
     // Addition
-    let mut x = 1 + 2;
-    x += 3;
+    let mut x = 1 + 2
+    x += 3
 
     // Subtraction
-    let mut x = 1 - 2;
-    x -= 3;
+    let mut x = 1 - 2
+    x -= 3
 
     // Multiplication
-    let mut x = 1 * 2;
-    x *= 3;
+    let mut x = 1 * 2
+    x *= 3
     
     // Division
-    let mut x = 1 / 2;
-    x /= 3;
+    let mut x = 1 / 2
+    x /= 3
     
     // And
-    let mut x = true && false;
-    x &&= false;
+    let mut x = true && false
+    x &&= false
     
     // Or
-    let mut x = true || false;
-    x ||= false;
+    let mut x = true || false
+    x ||= false
     
     // Equal
-    let x = 1 == 2;
+    let x = 1 == 2
 
     // Not equal
-    let x = 1 != 2;
+    let x = 1 != 2
 
     // Less than
-    let x = 1 < 2;
+    let x = 1 < 2
 
     // Less than or equal
-    let x = 1 <= 2;
+    let x = 1 <= 2
 
     // Greater than
-    let x = 1 > 2;
+    let x = 1 > 2
 
     // Greater than or equal
-    let x = 1 >= 2;
+    let x = 1 >= 2
         
     // Bitwise not
-    let x = !1;
+    let x = !1
 
     // Bitwise and
-    let mut x = 1 & 2;
-    x &= 3;
+    let mut x = 1 & 2
+    x &= 3
     
     // Bitwise or
-    let mut x = 1 | 2;
-    x |= 3;
+    let mut x = 1 | 2
+    x |= 3
 
     // Bitwise xor
-    let mut x = 1 ^ 2;
-    x ^= 3;
+    let mut x = 1 ^ 2
+    x ^= 3
 
     // Shift left
-    let mut x = 1 << 2;
-    x <<= 3;
+    let mut x = 1 << 2
+    x <<= 3
 
     // Shift right
-    let mut x = 1 >> 2;
-    x >>= 3;
-};
+    let mut x = 1 >> 2
+    x >>= 3
+}
 
 fn control_flow_if = {
-    println("control_flow_if");
+    println("control_flow_if")
 
     // If can be used as a statement
-    let is_nice = true;
+    let is_nice = true
 
     if is_nice {
-        println("Nice!");
+        println("Nice!")
     } else {
-        println("Oof...");
+        println("Oof...")
     }
 
     // If is an expression, which yields 
     // the last value of the block, depending on the condition
-    let answer = if true { 42 } else { -1 };
+    let answer = if true { 42 } else { -1 }
 
     // Since everything is an expression, you can compose blocks and ifs easily
-    let some_condition = true;
+    let some_condition = true
     let calculation = if some_condition { 
         let this = {
-            let is = 1;
-            let really = 2;
-        };
+            let is = 1
+            let really = 2
+        }
 
-        let complicated = true;
+        let complicated = true
 
-        let result = 42;
+        let result = 42
 
         // The last expression in a block is yielded from the block,
-        42 // You can make the 42 not be yielded, by adding a `;` after it
+        42 // You can make the 42 not be yielded, by adding a `` after it
     } else { 
         -1 
-    };
-};
+    }
+}
 
 
 fn control_flow_while = {
-    println("control_flow_while");
+    println("control_flow_while")
 
-    let mut i = 3;
+    let mut i = 3
 
     while i > 0 {
-        std.c.printf("Countdown: %d\n".data, i);
-        i -= 1;
+        std.c.printf("Countdown: %d\n".data, i)
+        i -= 1
     }
 
-    println("Launch!");
-};
+    println("Launch!")
+}
 
 fn arrays = {
     // An array is a sequence of data, which its size is statically known at compile-time.
     // Arrays are bounds checked, meaning you can't index them out of bounds.
-    println("arrays");
+    println("arrays")
 
-    let array: [3]int = [1, 2, 3];
+    let array: [3]int = [1, 2, 3]
 
     // As before, we can infer the variables type
-    let words = ["Hello", ",", "World"];
+    let words = ["Hello", ",", "World"]
 
     // Indexing the array
-    let one = array[0];
-    let world = words[2];
+    let one = array[0]
+    let world = words[2]
 
     // Uncomment to get an error:
-    // let what_are_you_doing = words[5];
-};
+    // let what_are_you_doing = words[5]
+}
 
 fn control_flow_for = {
-    println("control_flow_for");
+    println("control_flow_for")
 
     for item, index in [42, 3.14, 666.0] {
-        std.c.printf("array[%d]: %f\n".data, index, item);
+        std.c.printf("array[%d]: %f\n".data, index, item)
     }
-};
+}
 
 fn pointers_and_references = {
-    println("pointers_and_references");
+    println("pointers_and_references")
 
-    let foo = 5;
+    let foo = 5
 
     // Take the address of `foo` immutably with `&`
-    std.c.printf("foo = %d, addr = %p\n".data, foo, &foo);
+    std.c.printf("foo = %d, addr = %p\n".data, foo, &foo)
 
-    let addr = &foo;
+    let addr = &foo
 
     // Dereference using a postfix `.*`
-    let bar = addr.* + 42;
-    std.c.printf("bar = %d\n".data, bar);
+    let bar = addr.* + 42
+    std.c.printf("bar = %d\n".data, bar)
 
     // `&` references are immutable.
     // You can take a mutable reference by using `&mut`
     // In order to take something mutably, is also has to be mutable.
     // Uncomment the next two lines to get a compiler error:
-    // let x = 5;
-    // let y = &mut x;
+    // let x = 5
+    // let y = &mut x
 
-    let mut x = 5;
-    let y = &mut x;
+    let mut x = 5
+    let y = &mut x
 
-    y.* += 95;
-    std.c.printf("x = %d, y = %d\n".data, x, y.*);
-};
+    y.* += 95
+    std.c.printf("x = %d, y = %d\n".data, x, y.*)
+}
 
 fn slices = {
-    // println("slices");
+    // println("slices")
 
     // Slices are useful when you want to represent an array
     // that doesn't have statically known size, safely, since they are
     // bounds checked. They are essentially a pointer to some underlying data, and a length.
 
-    let array = [1, 2, 3, 4, 5];
+    let array = [1, 2, 3, 4, 5]
     
     fn print_slice(slice: *[]int) = {
         for x in slice {
-           std.c.printf("%d\n".data, x);
-        };
-        println("");
-    };
+           std.c.printf("%d\n".data, x)
+        }
+        println("")
+    }
 
     // TODO (ICE): This crashes...
-    // print_slice(&array[0..3]);
+    // print_slice(&array[0..3])
     
     // Slicing the elements 1-3 of the array
-    let slice = &array[1..3];
-    print_slice(slice);
+    let slice = &array[1..3]
+    print_slice(slice)
     
     // Slicing the first 3 elements of the array
-    let slice = &array[..3];
-    print_slice(slice);
+    let slice = &array[..3]
+    print_slice(slice)
     
     // Slicing the last 3 elements of the array
-    let slice = &array[3..];
-    print_slice(slice);
-};
+    let slice = &array[3..]
+    print_slice(slice)
+}
 
 fn functions = {
-    println("functions");
+    println("functions")
 
     // Declaring a named function
-    fn answer() -> i32 = 42;
-    std.c.printf("answer = %d\n".data, answer());
+    fn answer() -> i32 = 42
+    std.c.printf("answer = %d\n".data, answer())
 
     // Function types can be fully inferred
-    fn five() = 5;
-    std.c.printf("five = %d\n".data, five());
+    fn five() = 5
+    std.c.printf("five = %d\n".data, five())
 
     // If the function takes no parameters, the parentheses can be omitted
-    fn pi = 3.14;
-    std.c.printf("pi = %f\n".data, pi());
+    fn pi = 3.14
+    std.c.printf("pi = %f\n".data, pi())
 
     // A function can also be used as an expression, which makes it anonymous.
     // Function expressions follow the same rules as function declaration regarding type inference, omitting parentheses, etc.
-    let hello = fn { "Hello" };
-    println(hello());
+    let hello = fn { "Hello" }
+    println(hello())
 
     // Functions are first-class values, and can be passed to other functions
-    fn for_each(array: *[]int, f: fn(x) -> ()) = 
+    fn for_each(array: *[]int, f: fn(x)) = 
         for x in array {
             f(x)
-        };
+        }
     
-    let array = [1 as int, 2, 3];
+    let array = [1 as int, 2, 3]
     
     for_each(&array, fn(x: int) { 
-        std.c.printf("x = %d\n".data, x);
-    });
+        std.c.printf("x = %d\n".data, x)
+    })
 
     // When a function has only one *expected* argument, is can be elided, 
     // and will implicitly be called `it`.
     for_each(&array, fn { 
-        std.c.printf("it = %d\n".data, it);
-    });
+        std.c.printf("it = %d\n".data, it)
+    })
 
     // Trailing functions:
     // When a function expects another function as its last argument,
     // that function argument can be put after the call. This doesn't
     // have any semantic implications, it's only syntax sugar.
     for_each(&array) fn { 
-        std.c.printf("it = %d\n".data, it);
-    };
+        std.c.printf("it = %d\n".data, it)
+    }
 
     // Functions can have default arguments
     // - Parameters with a default value must come last
     // - Default values must be compile-time known
-    fn mul(a: i32, b: i32 = 2) = a * b;
-    std.c.printf("mul(5) = %d\n".data, mul(5));
-};
+    fn mul(a: i32, b: i32 = 2) = a * b
+    std.c.printf("mul(5) = %d\n".data, mul(5))
+}
 
 fn variadic_functions = {
-    println("variadic functions");
+    println("variadic functions")
 
     // Variadic parameters are treated as a boundless number of optional parameters.
     // When passing arguments for a variadic parameter, you can pass as many as you want.
     // You can even pass none. Under the hood, the compiler will build a slice of the
     // arguments passed in.
     fn printints(args: int...) = for a in args {
-        std.c.printf("%d\n".data, a);
-    };
+        std.c.printf("%d\n".data, a)
+    }
 
-    println("printing integers:");
-    printints(1, 2, 3);
+    println("printing integers:")
+    printints(1, 2, 3)
 
     // You can also "spread" a slice or an array as the variadic argument
-    println("printing spreaded slice:");
-    let slice: *[]int = &[4, 5, 6];
-    printints(slice...);
+    println("printing spreaded slice:")
+    let slice: *[]int = &[4, 5, 6]
+    printints(slice...)
     
-    println("printing spreaded array:");
-    let array = [7, 8, 9];
-    printints(array...);
-};
+    println("printing spreaded array:")
+    let array = [7, 8, 9]
+    printints(array...)
+}
 
 fn structs = {
-    println("structs");
+    println("structs")
 
-    type Point = struct { x: int, y: int };
+    type Point = struct { x: int, y: int }
 
     // Access a struct's fields by using `.field`
-    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.x, p.y);
+    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.x, p.y)
 
     // Named initialization
-    let my_point = Point { x: 1, y: 2 };
-    print_point(my_point);
+    let my_point = Point { x: 1, y: 2 }
+    print_point(my_point)
 
     // Anonymous initialization
-    let my_point = { x: 1, y: 2 };
-    print_point(my_point);
+    let my_point = { x: 1, y: 2 }
+    print_point(my_point)
 
     // If a value is the same name as an identifer, you can omit the value as a shorthand
-    let x = 3;
-    let y = 4;
-    let my_point = { x, y };
-    print_point(my_point);
-};
+    let x = 3
+    let y = 4
+    let my_point = { x, y }
+    print_point(my_point)
+}
 
 fn tuples = {
-    println("tuples");
+    println("tuples")
     
     // Tuples are essentially anonymous structs, with positional elements
-    type Point = (i32, i32);
+    type Point = (i32, i32)
 
     // Access a tuple's elements by using `.index`
-    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.0, p.1);
+    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.0, p.1)
 
     // Construct a tuple by listing its elements between parentheses
-    let point = (5, 10);
-    print_point(point);
+    let point = (5, 10)
+    print_point(point)
 
     // An empty tuple `()` is also called also the `unit` value. Its size is 0.
     // We usually use the unit value to represent some kind of `void`.
-    let unit = ();
-};
+    let unit = ()
+}
 
 fn imports = {
-    println("imports");
+    println("imports")
 
     // Import using the builtin `import` function.
 
     // An import path starting with . are relative to the current directory.
-    let foo = import foo;
+    let foo = import foo
 
     // An import path starting with `lib` are relative to the root directory.
-    let foo = import lib/foo;
+    let foo = import lib/foo
 
     // An import path starting with `std` are relative to the `std` library.
-    let fmt = import std/fmt;
+    let fmt = import std/fmt
 
-    foo.hello();
-};
+    foo.hello()
+}
 
 fn binding_patterns = {
-    println("binding_patterns");
+    println("binding_patterns")
 
     // Unpack patterns are used for conveniently using inner elements of
     // compound structures such as tuples, structs and modules.
@@ -429,73 +429,73 @@ fn binding_patterns = {
     // Tuple unpack:
     // This pattern's sub-patterns are positional, so the first identifier maps
     // to the first element, etc.
-    let (x, y) = (1, 2);
-    std.c.printf("%d %d\n".data, x, y);
+    let (x, y) = (1, 2)
+    std.c.printf("%d %d\n".data, x, y)
 
     // All patterns are not exhaustive, and can be partially applied
-    let (x) = (5, 6);
-    std.c.printf("%d\n".data, x);
+    let (x) = (5, 6)
+    std.c.printf("%d\n".data, x)
 
     // Struct unpack:
-    let { x, y } = { x: 40, y: 33 };
-    std.c.printf("%d %d\n".data, x, y);
+    let { x, y } = { x: 40, y: 33 }
+    std.c.printf("%d %d\n".data, x, y)
 
     // This pattern's sub-patterns are named, so it is order-free.
     // Here we unpack the `y` field, even though it is the second one in the struct. 
-    let { y } = { x: 40, y: 33 };
-    std.c.printf("%d\n".data, x);
+    let { y } = { x: 40, y: 33 }
+    std.c.printf("%d\n".data, x)
 
     // Module unpack:
     // Patterns also apply to module imports, and look exactly the same
     // as the struct unpack pattern.
     // Unpacked declarations can be aliased to name collision.
-    let { hello: my_hello } = import foo;
-    my_hello();
+    let { hello: my_hello } = import foo
+    my_hello()
 
     // As a side note, the import function returns a module `value`,
     // and as such, can be used directly.
-    import foo.hello();
+    import foo.hello()
 
     // The wildcard pattern unpacks all *public* fields/declarations from a 
-    // given struct/module;
+    // given struct/module
 
     // The next line automatically unpacks the `hello` function.
-    let { * } = import foo;
+    let { * } = import foo
     //    ^---- `hello` comes from here
 
-    hello();
+    hello()
 
-    let { * } = { a: 3, b: 4 };
+    let { * } = { a: 3, b: 4 }
     //    ^---- `a` and `b` come from here
 
-    std.c.printf("a=%d b=%d\n".data, a, b);
+    std.c.printf("a=%d b=%d\n".data, a, b)
 
     // Wildcard patterns can be partially applied
-    let { a, * } = { a: 8, b: 99 };
+    let { a, * } = { a: 8, b: 99 }
     //       ^---- only `b` is unpacked here
 
-    std.c.printf("a=%d b=%d\n".data, a, b);
+    std.c.printf("a=%d b=%d\n".data, a, b)
 
     // The curly braces can be elided if only an `*` is used
-    let * = import foo;
+    let * = import foo
 
     // You can both alias and unpack a value using `@`
-    let foo @ { hello: second_hello } = import foo;
-    foo.hello();
-    second_hello();
+    let foo @ { hello: second_hello } = import foo
+    foo.hello()
+    second_hello()
 
     // Patterns can be arbitrarily nested!
     let std @ {
         fmt: { println },
         c: { printf }
-    } = import std;
+    } = import std
 
-    let ({first, last}, age) = ({ first: "John", last: "Doe"}, 42);
-    std.c.printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age);
+    let ({first, last}, age) = ({ first: "John", last: "Doe"}, 42)
+    std.c.printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age)
 
-    let { name: { first, last }, age } = { name: { first: "Rick", last: "Sanchez" }, age: 9000 };
-    printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age);
-};
+    let { name: { first, last }, age } = { name: { first: "Rick", last: "Sanchez" }, age: 9000 }
+    printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age)
+}
 
 fn builtin_functions = {
     // There are two builtin functions
@@ -505,50 +505,50 @@ fn builtin_functions = {
     // Note that builtin functions will be removed once 
     // polymorphic functions are implemented.
 
-    std.c.printf("size_of(i32) = %d\n".data, size_of!(i32));
-    std.c.printf("align_of(u8) = %d\n".data, align_of!(u8));
-};
+    std.c.printf("size_of(i32) = %d\n".data, size_of!(i32))
+    std.c.printf("align_of(u8) = %d\n".data, align_of!(u8))
+}
 
 fn extern_functions = {
     // To use a function or variable declared externally of our program,
     // likely in some static/dynamic library, we declare an `extern` function.
-    extern fn printf(fmt: *u8, args...) -> int;
-    printf("Hello from my '%s'\n".data, "printf".data);
+    extern fn printf(fmt: *u8, args...) -> int
+    printf("Hello from my '%s'\n".data, "printf".data)
 
     // Extern variables are declared like so:
-    // extern let baz: int;
-};
+    // extern let baz: int
+}
 
 fn running_code_at_compile_time = {
     // Use a static block to run arbitrary code to return at compile time!
     // Static blocks translate to a no-op at runtime
-    println("running_code_at_compile_time");
-    static { println("Compile time: I appear first"); };
-};
+    println("running_code_at_compile_time")
+    static { println("Compile time: I appear first") }
+}
 
 fn starting_a_workspace = {
-    println("starting_a_workspace:");
-    static { println("Compile time: I appear second"); };
+    println("starting_a_workspace:")
+    static { println("Compile time: I appear second") }
 
     static {
-        let * = import std/build;
+        let * = import std/build
 
         let build_options = BuildOptions {
             input_file: "static.chl",
             output_file: "static",
             target: BuildTarget_auto,
             optimization_level: OptimizationLevel_debug,
-        };
+        }
 
         let workspace = Workspace {
             name: "hello",
             build_options
-        };
+        }
 
-        let (output_file, ok) = start_workspace(workspace);
+        let (output_file, ok) = start_workspace(workspace)
 
         if ok {
-            run_output_file(output_file);
+            run_output_file(output_file)
         }
-    };
-};
+    }
+}
