@@ -56,7 +56,7 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expression_inner(allow_assignments))
+        self.with_res(Restrictions::empty(), |p| p.parse_operand(allow_assignments))
     }
 
     pub fn parse_expression_res(
@@ -64,12 +64,7 @@ impl Parser {
         restrictions: Restrictions,
         allow_assignments: bool,
     ) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_expression_inner(allow_assignments))
-    }
-
-    fn parse_expression_inner(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        let expr = self.parse_logic_or()?;
-        self.parse_operand_postfix_operator(expr, allow_assignments)
+        self.with_res(restrictions, |p| p.parse_operand(allow_assignments))
     }
 
     pub fn parse_if(&mut self) -> DiagnosticResult<Ast> {
@@ -188,37 +183,16 @@ impl Parser {
     }
 
     pub fn parse_factor(&mut self) -> DiagnosticResult<Ast> {
-        parse_binary!(self, pattern = Star | FwSlash | Percent, next_fn = Parser::parse_unary)
+        parse_binary!(
+            self,
+            pattern = Star | FwSlash | Percent,
+            next_fn = Parser::parse_operand_base
+        )
     }
 
-    pub fn parse_unary(&mut self) -> DiagnosticResult<Ast> {
-        if eat!(self, Amp | AmpAmp | Bang | Minus | Plus) {
-            let start_span = self.previous_span();
-            let token = self.previous().kind;
-
-            let op = match token {
-                Amp => ast::UnaryOp::Ref(eat!(self, Mut)),
-                Star => ast::UnaryOp::Deref,
-                Minus => ast::UnaryOp::Neg,
-                Plus => ast::UnaryOp::Plus,
-                Bang => ast::UnaryOp::Not,
-                t => panic!("{} is not a unary op", t),
-            };
-
-            let lhs = self.parse_unary()?;
-
-            let span = start_span.to(self.previous_span());
-
-            let expr = Ast::Unary(ast::Unary {
-                op,
-                value: Box::new(lhs),
-                span,
-            });
-
-            Ok(expr)
-        } else {
-            self.parse_operand_base()
-        }
+    pub fn parse_operand(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
+        let expr = self.parse_logic_or()?;
+        self.parse_operand_postfix_operator(expr, allow_assignments)
     }
 
     pub fn parse_operand_base(&mut self) -> DiagnosticResult<Ast> {
@@ -239,6 +213,47 @@ impl Parser {
         } else if eat!(self, Placeholder) {
             Ast::Placeholder(ast::Empty {
                 span: self.previous_span(),
+            })
+        } else if eat!(self, Amp) {
+            let start_span = self.previous_span();
+
+            let op = ast::UnaryOp::Ref(eat!(self, Mut));
+            let value = self.parse_operand(false)?;
+
+            Ast::Unary(ast::Unary {
+                op,
+                value: Box::new(value),
+                span: start_span.to(self.previous_span()),
+            })
+        } else if eat!(self, Minus) {
+            let start_span = self.previous_span();
+
+            let value = self.parse_operand(false)?;
+
+            Ast::Unary(ast::Unary {
+                op: ast::UnaryOp::Neg,
+                value: Box::new(value),
+                span: start_span.to(self.previous_span()),
+            })
+        } else if eat!(self, Plus) {
+            let start_span = self.previous_span();
+
+            let value = self.parse_operand(false)?;
+
+            Ast::Unary(ast::Unary {
+                op: ast::UnaryOp::Plus,
+                value: Box::new(value),
+                span: start_span.to(self.previous_span()),
+            })
+        } else if eat!(self, Bang) {
+            let start_span = self.previous_span();
+
+            let value = self.parse_operand(false)?;
+
+            Ast::Unary(ast::Unary {
+                op: ast::UnaryOp::Not,
+                value: Box::new(value),
+                span: start_span.to(self.previous_span()),
             })
         } else if eat!(self, Import) {
             self.parse_import()?

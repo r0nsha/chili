@@ -119,7 +119,6 @@ pub enum TokenKind {
     Char(char),
 
     // Misc
-    Unknown(char),
     Eof,
 }
 
@@ -238,7 +237,6 @@ impl TokenKind {
             Float(_) => "{float}",
             Str(_) => "{string}",
             Char(_) => "{char}",
-            Unknown(_) => "?",
             Eof => "EOF",
         }
     }

@@ -704,19 +704,6 @@ impl Display for UnaryOp {
     }
 }
 
-impl From<TokenKind> for UnaryOp {
-    fn from(kind: TokenKind) -> Self {
-        use TokenKind::*;
-        match kind {
-            Amp => UnaryOp::Ref(false),
-            Minus => UnaryOp::Neg,
-            Plus => UnaryOp::Plus,
-            Bang => UnaryOp::Not,
-            _ => panic!("{} is not a unary op", kind),
-        }
-    }
-}
-
 impl fmt::Display for FunctionSig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
