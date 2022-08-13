@@ -69,21 +69,21 @@ macro_rules! require {
 }
 
 macro_rules! parse_delimited_list {
-    ($parser:expr, $close_delim:pat, $sep:pat, $parse:expr, $msg:expr) => {{
+    ($parser:expr, $close_delim:pat, $($sep : pat_param) | +, $parse:expr, $msg:expr) => {{
         let mut items = vec![];
 
         while !eat!($parser, $close_delim) && !$parser.eof() {
             $parser.skip_newlines();
             items.push($parse);
 
-            if eat!($parser, $sep) {
+            if eat!($parser, $( $sep )|+) {
                 $parser.skip_newlines();
                 continue;
             } else if eat!($parser, $close_delim) {
                 break;
             } else {
                 let span = Parser::get_missing_delimiter_span($parser.previous_span());
-                return Err(SyntaxError::expected(span, $msg));
+                return Err(SyntaxError::expected(span, &format!("{}, got {}", $msg, $parser.peek().kind.lexeme())));
             }
         }
 

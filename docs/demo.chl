@@ -366,7 +366,13 @@ fn variadic_functions = {
 fn structs = {
     println("structs")
 
-    type Point = struct { x: int, y: int }
+    // Struct fields are either separated by semicolons or newlines
+    type Foo = struct { bar: i32; baz: f32 }
+
+    type Point = struct { 
+        x: int
+        y: int 
+    }
 
     // Access a struct's fields by using `.field`
     fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.x, p.y)

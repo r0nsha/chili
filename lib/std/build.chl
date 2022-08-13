@@ -3,15 +3,15 @@ pub let { start_workspace } = import intrinsics
 let { waitpid, fork, execl } = import c
 
 pub type Workspace = struct {
-    name: *str,
+    name: *str
     build_options: BuildOptions
 }
 
 pub type BuildOptions = struct {
-    input_file: *str,
-    output_file: *str,
-    target: BuildTarget,
-    optimization_level: OptimizationLevel,
+    input_file: *str
+    output_file: *str
+    target: BuildTarget
+    optimization_level: OptimizationLevel
 }
 
 // TODO: turn into enum

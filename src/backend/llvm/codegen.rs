@@ -6,7 +6,7 @@ use crate::{
     ast::ExternLibrary,
     common::{build_options, scopes::Scopes, target::TargetMetrics},
     hir,
-    infer::{normalize::Normalize, type_ctx::TypeCtx},
+    infer::type_ctx::TypeCtx,
     types::*,
     workspace::{BindingId, BindingInfo, ModuleId, ModuleInfo, Workspace},
 };
@@ -17,7 +17,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
     types::{BasicTypeEnum, IntType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, PointerValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
     OptimizationLevel,
 };
 use std::{

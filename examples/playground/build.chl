@@ -18,29 +18,6 @@ fn build = {
 	if ok {
 		run_output_file(output_file)
 	}
-
-	let x = 1 +
-	+ 2 *
-		3
-		-
-			5
-
-	
-	let name = workspace
-
-	.name  .
-		data
-
-
-	let name = workspace   .
-			name
-
-	println(
-		name
-	)
-
-
-	std.c.printf("%d\n".data, x)
 }
 
 static { build() }

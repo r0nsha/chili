@@ -2,8 +2,8 @@ let { println } = import std/fmt
 let { printf, malloc } = import std/c
 
 type Node = struct {
-    l: *mut Node,
-    r: *mut Node,
+    l: *mut Node
+    r: *mut Node
 }
 
 fn node_check(node: *Node) -> i32 = {
