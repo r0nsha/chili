@@ -504,8 +504,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let return_value = call_value.try_as_basic_value().left().unwrap();
 
-        let result = self.gep_struct(return_value, 0, "result");
-        let overflow_bit = self.gep_struct(return_value, 1, "overflow_bit");
+        let result = self.gep_struct(return_value, 0, "result", false);
+        let overflow_bit = self.gep_struct(return_value, 1, "overflow_bit", false);
 
         self.gen_runtime_check_overflow(state, overflow_bit.into_int_value(), span, op);
 

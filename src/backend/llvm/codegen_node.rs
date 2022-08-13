@@ -145,15 +145,12 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Assign {
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::MemberAccess {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
-
-        // Hack: Compensate for the fact that a fat pointer can be a double pointer here
-        let value = if self.value.ty().normalize(generator.tcx).is_fat_pointer() {
-            generator.build_load(value.into_pointer_value())
-        } else {
-            value
-        };
-
-        generator.gep_struct(value, self.member_index, &self.member_name)
+        generator.gep_struct(
+            value,
+            self.member_index,
+            &self.member_name,
+            self.value.ty().normalize(generator.tcx).is_fat_pointer(),
+        )
     }
 }
 

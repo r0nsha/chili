@@ -4,7 +4,7 @@ use super::{
     traits::{IsALoadInst, IsAggregateType},
     ty::IntoLlvmType,
 };
-use crate::{common::mem::calculate_align, types::*, workspace::BindingId};
+use crate::{common::mem::calculate_align, infer::normalize::Normalize, types::*, workspace::BindingId};
 use inkwell::{
     basic_block::BasicBlock,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
@@ -16,11 +16,11 @@ use ustr::ustr;
 
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn gep_slice_ptr(&self, slice: BasicValueEnum<'ctx>) -> PointerValue<'ctx> {
-        self.gep_struct(slice, 0, "ptr").into_pointer_value()
+        self.gep_struct(slice, 0, "ptr", true).into_pointer_value()
     }
 
     pub(super) fn gep_slice_len(&self, slice: BasicValueEnum<'ctx>) -> IntValue<'ctx> {
-        self.gep_struct(slice, 1, "len").into_int_value()
+        self.gep_struct(slice, 1, "len", true).into_int_value()
     }
 
     pub(super) fn build_slice(
@@ -407,7 +407,15 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         value: BasicValueEnum<'ctx>,
         field_index: u32,
         field_name: &str,
+        is_fat_pointer: bool,
     ) -> BasicValueEnum<'ctx> {
+        // Hack: Compensate for the fact that a fat pointer can be a double pointer here
+        let value = if is_fat_pointer {
+            self.build_load(value.into_pointer_value())
+        } else {
+            value
+        };
+
         match value {
             BasicValueEnum::PointerValue(pointer) => {
                 let pointer = match pointer.as_instruction_value() {
@@ -424,22 +432,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 self.builder.build_load(gep, field_name)
             }
-            // match pointer.as_instruction_value() {
-            //     Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
-            //         let pointer = instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value();
 
-            //         let gep = self
-            //             .builder
-            //             .build_struct_gep(pointer, field_index, field_name)
-            //             .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
-
-            //         self.build_load(gep)
-            //     }
-            //     _ => self
-            //         .builder
-            //         .build_extract_value(value.into_struct_value(), field_index, field_name)
-            //         .unwrap_or_else(|| panic!("{:#?}", value)),
-            // },
             BasicValueEnum::StructValue(value) => self
                 .builder
                 .build_extract_value(value, field_index, field_name)
