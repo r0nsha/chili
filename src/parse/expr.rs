@@ -41,20 +41,18 @@ impl Parser {
 
         let parse_binding_result = self.try_parse_any_binding(attrs, ast::Visibility::Private, false)?;
 
-        let expr = match parse_binding_result {
+        match parse_binding_result {
             Some(binding) => Ok(Ast::Binding(binding?)),
             None => {
                 if !has_attrs {
-                    self.parse_logic_or()
+                    self.parse_expr(true)
                 } else {
                     Err(Diagnostic::error()
                         .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
                         .with_label(Label::primary(self.span(), "unexpected token")))
                 }
             }
-        }?;
-
-        self.parse_operand_postfix_operator(expr, true)
+        }
     }
 
     pub fn parse_expr(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
