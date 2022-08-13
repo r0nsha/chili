@@ -8,7 +8,7 @@ use crate::{
 use ustr::ustr;
 
 impl Parser {
-    pub fn parse_operand_postfix_operator(&mut self, mut expr: Ast, allow_assignments: bool) -> DiagnosticResult<Ast> {
+    pub fn parse_operand_postfix_operator(&mut self, mut expr: Ast) -> DiagnosticResult<Ast> {
         // named struct literal
         if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
             return self.parse_struct_literal(Some(Box::new(expr)));

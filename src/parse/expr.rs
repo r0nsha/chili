@@ -56,7 +56,7 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_operand(allow_assignments))
+        self.with_res(Restrictions::empty(), |p| p.parse_operand())
     }
 
     pub fn parse_expression_res(
@@ -64,7 +64,7 @@ impl Parser {
         restrictions: Restrictions,
         allow_assignments: bool,
     ) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_operand(allow_assignments))
+        self.with_res(restrictions, |p| p.parse_operand())
     }
 
     pub fn parse_if(&mut self) -> DiagnosticResult<Ast> {
@@ -252,13 +252,13 @@ impl Parser {
         )
     }
 
-    pub fn parse_operand(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
+    pub fn parse_operand(&mut self) -> DiagnosticResult<Ast> {
         let expr = self.parse_logic_or()?;
-        self.parse_operand_postfix_operator(expr, allow_assignments)
+        self.parse_operand_postfix_operator(expr)
     }
 
     pub fn parse_operand_base(&mut self) -> DiagnosticResult<Ast> {
-        let expr = if eat!(self, Ident(_)) {
+        if eat!(self, Ident(_)) {
             // TODO: `Self` should be a keyword
             const SYM_SELF: &str = "Self";
 
@@ -266,121 +266,120 @@ impl Parser {
             let name = token.name();
 
             if name == SYM_SELF {
-                Ast::SelfType(ast::Empty { span: token.span })
+                Ok(Ast::SelfType(ast::Empty { span: token.span }))
             } else if eat!(self, Bang) {
-                self.parse_builtin(name, token.span)?
+                self.parse_builtin(name, token.span)
             } else {
-                Ast::Ident(ast::Ident { name, span: token.span })
+                Ok(Ast::Ident(ast::Ident { name, span: token.span }))
             }
         } else if eat!(self, Placeholder) {
-            Ast::Placeholder(ast::Empty {
+            Ok(Ast::Placeholder(ast::Empty {
                 span: self.previous_span(),
-            })
+            }))
         } else if eat!(self, Amp) {
             let start_span = self.previous_span();
 
             let op = ast::UnaryOp::Ref(eat!(self, Mut));
-            let value = self.parse_operand(false)?;
+            let value = self.parse_operand()?;
 
-            Ast::Unary(ast::Unary {
+            Ok(Ast::Unary(ast::Unary {
                 op,
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
-            })
+            }))
         } else if eat!(self, Minus) {
             let start_span = self.previous_span();
 
-            let value = self.parse_operand(false)?;
+            let value = self.parse_operand()?;
 
-            Ast::Unary(ast::Unary {
+            Ok(Ast::Unary(ast::Unary {
                 op: ast::UnaryOp::Neg,
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
-            })
+            }))
         } else if eat!(self, Plus) {
             let start_span = self.previous_span();
 
-            let value = self.parse_operand(false)?;
+            let value = self.parse_operand()?;
 
-            Ast::Unary(ast::Unary {
+            Ok(Ast::Unary(ast::Unary {
                 op: ast::UnaryOp::Plus,
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
-            })
+            }))
         } else if eat!(self, Bang) {
             let start_span = self.previous_span();
 
-            let value = self.parse_operand(false)?;
+            let value = self.parse_operand()?;
 
-            Ast::Unary(ast::Unary {
+            Ok(Ast::Unary(ast::Unary {
                 op: ast::UnaryOp::Not,
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
-            })
+            }))
         } else if eat!(self, Import) {
-            self.parse_import()?
+            self.parse_import()
         } else if is!(self, Static) {
-            Ast::StaticEval(self.parse_static_eval()?)
+            Ok(Ast::StaticEval(self.parse_static_eval()?))
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
-            let expr = self.parse_expression(false)?;
 
-            Ast::PointerType(ast::PointerType {
+            let expr = self.parse_operand()?;
+
+            Ok(Ast::PointerType(ast::PointerType {
                 inner: Box::new(expr),
                 is_mutable,
                 span: start_span.to(self.previous_span()),
-            })
+            }))
         } else if eat!(self, If) {
-            self.parse_if()?
+            self.parse_if()
         } else if eat!(self, While) {
-            self.parse_while()?
+            self.parse_while()
         } else if eat!(self, For) {
-            self.parse_for()?
+            self.parse_for()
         } else if is!(self, OpenCurly) {
-            self.parse_struct_literal_or_parse_block_expr()?
+            self.parse_struct_literal_or_parse_block_expr()
         } else if eat!(self, OpenBracket) {
-            self.parse_array_type_or_literal()?
+            self.parse_array_type_or_literal()
         } else if eat!(self, Break | Continue | Return) {
-            self.parse_terminator()?
+            self.parse_terminator()
         } else if eat!(self, Nil | True | False | Int(_) | Float(_) | Str(_) | Char(_)) {
-            self.parse_literal()?
+            self.parse_literal()
         } else if eat!(self, OpenParen) {
             let start_span = self.previous_span();
 
             if eat!(self, CloseParen) {
-                Ast::TupleLiteral(ast::TupleLiteral {
+                Ok(Ast::TupleLiteral(ast::TupleLiteral {
                     elements: vec![],
                     span: start_span.to(self.previous_span()),
-                })
+                }))
             } else {
                 let mut expr = self.parse_expression(false)?;
 
                 if eat!(self, Comma) {
-                    self.parse_tuple_literal(expr, start_span)?
+                    self.parse_tuple_literal(expr, start_span)
                 } else {
                     require!(self, CloseParen, ")")?;
 
                     expr.span().range().start -= 1;
                     *expr.span_mut() = Span::to(&expr.span(), self.previous_span());
 
-                    expr
+                    Ok(expr)
                 }
             }
         } else if eat!(self, Fn) {
-            self.parse_function(None, false)?
+            self.parse_function(None, false)
         } else if eat!(self, Struct) {
-            self.parse_struct_type()?
+            self.parse_struct_type()
         } else if eat!(self, Union) {
-            self.parse_struct_union_type()?
+            self.parse_struct_union_type()
         } else {
-            return Err(SyntaxError::expected(
+            Err(SyntaxError::expected(
                 self.span(),
                 &format!("an expression, got `{}`", self.peek().lexeme),
-            ));
-        };
-
-        self.parse_operand_postfix_operator(expr, false)
+            ))
+        }
     }
 
     fn parse_array_type_or_literal(&mut self) -> DiagnosticResult<Ast> {
