@@ -1,16 +1,16 @@
-let { Workspace } = import build;
+let { Workspace } = import build
 
 @intrinsic
-pub extern fn start_workspace(workspace: Workspace) -> (*str, bool);
+pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)
 
 pub type Location = struct {
     file: *str,
     line: u32,
     column: u32,
-};
+}
 
 @intrinsic
-pub extern fn location() -> Location;
+pub extern fn location() -> Location
 
 @intrinsic
-pub extern fn caller_location() -> Location;
+pub extern fn caller_location() -> Location

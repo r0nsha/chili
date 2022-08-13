@@ -60,6 +60,8 @@ impl Parser {
         let mut wildcard_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.eof() {
+            self.skip_newlines();
+
             if eat!(self, Star) {
                 wildcard_span = Some(self.previous().span);
                 require!(self, CloseCurly, "}")?;
@@ -100,6 +102,7 @@ impl Parser {
                 }
 
                 if eat!(self, Comma) {
+                    self.skip_newlines();
                     continue;
                 } else if eat!(self, CloseCurly) {
                     break;

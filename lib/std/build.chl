@@ -1,39 +1,43 @@
-pub let { start_workspace } = import intrinsics;
-let { waitpid, fork, execl } = import c;
+let { panic } = import lib
+pub let { start_workspace } = import intrinsics
+let { waitpid, fork, execl } = import c
 
 pub type Workspace = struct {
     name: *str,
     build_options: BuildOptions
-};
+}
 
 pub type BuildOptions = struct {
     input_file: *str,
     output_file: *str,
     target: BuildTarget,
     optimization_level: OptimizationLevel,
-};
+}
 
 // TODO: turn into enum
-pub type BuildTarget = u8;
-pub let BuildTarget_auto: BuildTarget = 0;
-pub let BuildTarget_linux: BuildTarget = 1;
-pub let BuildTarget_windows: BuildTarget = 2;
+pub type BuildTarget = u8
+pub let BuildTarget_auto: BuildTarget = 0
+pub let BuildTarget_linux: BuildTarget = 1
+pub let BuildTarget_windows: BuildTarget = 2
 
 // TODO: turn into enum
-pub type OptimizationLevel = u8;
-pub let OptimizationLevel_debug: OptimizationLevel = 0;
-pub let OptimizationLevel_release: OptimizationLevel = 1;
+pub type OptimizationLevel = u8
+pub let OptimizationLevel_debug: OptimizationLevel = 0
+pub let OptimizationLevel_release: OptimizationLevel = 1
 
 pub fn run_output_file(output_file: *str) = {
-    let pid = fork();
+    let pid = fork()
+
     if pid == 0 {
         // child process
-        execl(output_file.data, 0);
+        execl(output_file.data, 0)
     } else if pid > 0 {
         // parent process
-        waitpid(pid, (0 as int) as _, 0);
+        waitpid(pid, (0 as int) as _, 0)
     } else {
         // error
-        // TODO: panic
+        panic("fork failed")
     }
-};
+
+    ()
+}

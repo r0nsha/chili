@@ -140,7 +140,8 @@ impl<'lx> Lexer<'lx> {
                 }
                 ',' => Comma,
                 // skip this character
-                ' ' | '\r' | '\t' | '\n' => self.eat_token()?,
+                ' ' | '\r' | '\t' => self.eat_token()?,
+                '\n' => Newline,
                 DOUBLE_QUOTE => {
                     if self.eat(DOUBLE_QUOTE) {
                         if self.eat(DOUBLE_QUOTE) {

@@ -1,10 +1,10 @@
-let { printf } = import std/c;
+let { printf } = import std/c
 
 fn main = {
     for i in 0..100 {
         fizzbuzz(i)
     }
-};
+}
 
 fn fizzbuzz(i) = {
     if i % 3 == 0 && i % 5 == 0 {
@@ -16,4 +16,4 @@ fn fizzbuzz(i) = {
     } else {
         printf("%d\n".data, i)
     }
-};
+}

@@ -30,6 +30,7 @@ impl Parser {
         let mut is_first_el = true;
 
         while !eat!(self, CloseBracket) && !self.eof() {
+            self.skip_newlines();
             let expr = self.parse_expression(false, true)?;
 
             if is_first_el {
@@ -51,6 +52,7 @@ impl Parser {
             elements.push(expr);
 
             if eat!(self, Comma) {
+                self.skip_newlines();
                 continue;
             } else {
                 require!(self, CloseBracket, "]")?;
@@ -90,6 +92,8 @@ impl Parser {
                 } else {
                     break;
                 };
+
+                self.skip_newlines();
 
                 let expr = if eat!(self, Colon) {
                     self.parse_expression(false, true)?

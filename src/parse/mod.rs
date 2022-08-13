@@ -73,9 +73,11 @@ macro_rules! parse_delimited_list {
         let mut items = vec![];
 
         while !eat!($parser, $close_delim) && !$parser.eof() {
+            $parser.skip_newlines();
             items.push($parse);
 
             if eat!($parser, $sep) {
+                $parser.skip_newlines();
                 continue;
             } else if eat!($parser, $close_delim) {
                 break;
@@ -183,7 +185,7 @@ impl Parser {
         match Lexer::new(file_id, &source).scan() {
             Ok(tokens) => {
                 self.tokens = tokens;
-                self.parse_all_top_level(file_id)
+                self.parse_module(file_id)
             }
             Err(diag) => ParserResult::LexerFailed(ast::Module::new(file_id, self.module_info), diag),
         }
@@ -213,7 +215,12 @@ impl Parser {
 
     #[inline]
     pub fn eof(&self) -> bool {
-        self.peek().kind == Eof
+        matches!(self.peek().kind, Eof)
+    }
+
+    #[inline]
+    pub fn eol(&self) -> bool {
+        matches!(self.peek().kind, Newline | Eof)
     }
 
     #[inline]
@@ -237,15 +244,8 @@ impl Parser {
     }
 
     #[inline]
-    pub fn skip_semicolons(&mut self) {
-        while is!(self, Semicolon) {
-            self.bump();
-        }
-    }
-
-    #[inline]
     pub fn skip_until_recovery_point(&mut self) {
-        while !is!(self, Semicolon) && !self.eof() {
+        while !is!(self, Semicolon | Newline) && !self.eof() {
             self.bump();
         }
     }
@@ -266,36 +266,8 @@ impl Parser {
     }
 
     pub fn skip_newlines(&mut self) {
-        // TODO
-        // while .current() is Eol {
-        //     .index++
-        // }
-    }
-}
-pub(super) trait Recover<T> {
-    fn recover(self, parser: &mut Parser) -> T;
-}
-
-impl Recover<Ast> for DiagnosticResult<Ast> {
-    fn recover(self, parser: &mut Parser) -> Ast {
-        match self {
-            Ok(expr) => expr,
-            Err(_) => {
-                let start_span = parser.previous_span();
-                parser.skip_until_recovery_point();
-                ast::Ast::Error(ast::Empty {
-                    span: start_span.to(parser.previous_span()),
-                })
-            }
-        }
-    }
-}
-
-impl Recover<()> for DiagnosticResult<()> {
-    fn recover(self, parser: &mut Parser) -> () {
-        match self {
-            Ok(()) => (),
-            Err(_) => parser.skip_until_recovery_point(),
+        while is!(self, Newline) {
+            self.bump();
         }
     }
 }

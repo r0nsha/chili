@@ -16,6 +16,20 @@ impl Parser {
 
         // postfix expressions (recursive)
         loop {
+            let last_index = self.current;
+
+            // Special case `.` to be allowed in a new line.
+            // We skip all new lines and then check if the next token is a `.`.
+            // If it is, we parse a member access, else, we return to the last index.
+            self.skip_newlines();
+
+            if eat!(self, Dot) {
+                expr = self.parse_member_access(expr)?;
+                continue;
+            } else {
+                self.current = last_index;
+            }
+
             expr = if eat!(self, Dot) {
                 self.parse_member_access(expr)?
             } else if eat!(self, OpenParen) {
@@ -75,6 +89,8 @@ impl Parser {
     fn parse_member_access(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
+        self.skip_newlines();
+
         let token = self.bump();
 
         let expr = match token.kind {
@@ -125,6 +141,7 @@ impl Parser {
 
     fn parse_call(&mut self, callee: Ast) -> DiagnosticResult<Ast> {
         let start_span = callee.span();
+
         let args = parse_delimited_list!(
             self,
             CloseParen,

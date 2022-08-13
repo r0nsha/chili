@@ -1,4 +1,4 @@
-let { printf } = import std/c;
+let { printf } = import std/c
 
 fn fib(n) = {
     if n <= 1 {
@@ -6,8 +6,8 @@ fn fib(n) = {
     } else {
         fib(n - 1) + fib(n - 2)
     }
-};
+}
 
 fn main() = {
-    printf("result = %lu\n".data, fib(24));
-};
+    printf("result = %lu\n".data, fib(24))
+}

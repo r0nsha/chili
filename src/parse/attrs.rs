@@ -6,6 +6,8 @@ impl Parser {
         let mut attrs = vec![];
 
         while is!(self, At) {
+            self.skip_newlines();
+
             let start_span = self.bump().span;
 
             let id = require!(self, Ident(_), "an identifier")?;
@@ -29,6 +31,8 @@ impl Parser {
 
             attrs.push(attr);
         }
+
+        self.skip_newlines();
 
         Ok(attrs)
     }

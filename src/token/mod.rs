@@ -39,9 +39,11 @@ pub enum TokenKind {
     CloseCurly,
     OpenBracket,
     CloseBracket,
-    Semicolon,
     Colon,
     At,
+    Semicolon,
+    Newline,
+    Eof,
 
     // Operators
     Plus,
@@ -117,9 +119,6 @@ pub enum TokenKind {
     Float(f64),
     Str(Ustr),
     Char(char),
-
-    // Misc
-    Eof,
 }
 
 impl From<&str> for TokenKind {
@@ -163,6 +162,7 @@ impl TokenKind {
         match self {
             At => "@",
             Semicolon => ";",
+            Newline => "{newline}",
             Colon => ":",
             OpenParen => "(",
             CloseParen => ")",

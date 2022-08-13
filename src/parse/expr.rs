@@ -22,10 +22,10 @@ impl Parser {
             Some(binding) => Ok(Ast::Binding(binding?)),
             None => {
                 if !has_attrs {
-                    self.parse_expression(true, true)
+                    self.parse_expression(true, false)
                 } else {
                     Err(Diagnostic::error()
-                        .with_message(format!("expected a binding, got `{}`", self.peek().lexeme))
+                        .with_message(format!("expected a binding, got `{}`", self.peek().kind.lexeme()))
                         .with_label(Label::primary(self.span(), "unexpected token")))
                 }
             }
@@ -61,12 +61,10 @@ impl Parser {
                 if self.eof() {
                     break;
                 }
-                self.skip_newlines()
+                self.skip_newlines();
+            } else if self.eol() {
+                break;
             }
-            // TODO
-            // else if self.eol() {
-            //     break;
-            // }
 
             let op = match self.parse_operator() {
                 Some(op) => {
@@ -168,44 +166,41 @@ impl Parser {
 
         let start_span = self.previous_span();
 
-        let mut exprs = vec![];
-        let mut yields = false;
+        let mut statements = vec![];
 
-        while !eat!(self, CloseCurly) && !self.eof() {
-            self.skip_semicolons();
-
-            let expr = self.parse_statement().unwrap_or_else(|diag| {
-                let span = self.previous_span();
-
-                self.cache.lock().diagnostics.push(diag);
-                self.skip_until_recovery_point();
-
-                ast::Ast::Error(ast::Empty { span })
-            });
-
-            exprs.push(expr);
-
-            if eat!(self, Semicolon) {
-                yields = false;
-                continue;
-            } else if eat!(self, CloseCurly) {
-                yields = true;
-                break;
-            } else if exprs.last().map_or(false, ast_doesnt_require_semicolon) {
+        while !self.eof() {
+            if eat!(self, CloseCurly) {
+                return Ok(ast::Block {
+                    statements,
+                    yields: true,
+                    span: start_span.to(self.previous_span()),
+                });
+            } else if eat!(self, Semicolon | Newline) {
                 continue;
             } else {
-                let span = Parser::get_missing_delimiter_span(self.previous_span());
-                self.cache
-                    .lock()
-                    .diagnostics
-                    .push(SyntaxError::expected(span, "; or }"));
-                self.skip_until_recovery_point();
+                // let expr = self.parse_statement().unwrap_or_else(|diag| {
+                //     let span = self.previous_span();
+
+                //     self.cache.lock().diagnostics.push(diag);
+                //     self.skip_until_recovery_point();
+
+                //     ast::Ast::Error(ast::Empty { span })
+                // });
+
+                statements.push(self.parse_statement()?);
             }
         }
 
+        self.cache
+            .lock()
+            .diagnostics
+            .push(SyntaxError::expected(self.span(), "}"));
+
+        // self.skip_until_recovery_point();
+
         Ok(ast::Block {
-            statements: exprs,
-            yields,
+            statements,
+            yields: true,
             span: start_span.to(self.previous_span()),
         })
     }
@@ -252,6 +247,7 @@ impl Parser {
     }
 
     pub fn parse_operand(&mut self) -> DiagnosticResult<Ast> {
+        self.skip_newlines();
         let expr = self.parse_operand_base()?;
         self.parse_operand_postfix_operator(expr)
     }
@@ -376,7 +372,7 @@ impl Parser {
         } else {
             Err(SyntaxError::expected(
                 self.span(),
-                &format!("an expression, got `{}`", self.peek().lexeme),
+                &format!("an expression, got `{}`", self.peek().kind.lexeme()),
             ))
         }
     }
@@ -535,6 +531,7 @@ impl Parser {
 
         let iter_ident = require!(self, Ident(_), "an identifier")?;
 
+        self.skip_newlines();
         let iter_index_ident = if eat!(self, Comma) {
             Some(require!(self, Ident(_), "an identifier")?)
         } else {
@@ -543,11 +540,16 @@ impl Parser {
 
         require!(self, In, "in")?;
 
+        self.skip_newlines();
+
         let iter_start = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
         let iterator = if eat!(self, DotDot) {
+            self.skip_newlines();
+
             let iter_end =
                 self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
+
             ast::ForIter::Range(Box::new(iter_start), Box::new(iter_end))
         } else {
             ast::ForIter::Value(Box::new(iter_start))
@@ -572,12 +574,20 @@ impl Parser {
             Break => Ok(Ast::Break(ast::Empty { span })),
             Continue => Ok(Ast::Continue(ast::Empty { span })),
             Return => {
-                let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
-                    None
-                } else {
-                    let expr = self.parse_expression(false, true)?;
-                    Some(Box::new(expr))
+                let expr = match self.peek().kind {
+                    Newline | CloseCurly | Eof => None,
+                    _ => {
+                        let expr = self.parse_expression(false, true)?;
+                        Some(Box::new(expr))
+                    }
                 };
+
+                // let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
+                //     None
+                // } else {
+                //     let expr = self.parse_expression(false, true)?;
+                //     Some(Box::new(expr))
+                // };
 
                 Ok(Ast::Return(ast::Return {
                     expr,
@@ -608,13 +618,5 @@ impl Parser {
             Ast::FunctionType(sig) => sig.name = Some(name),
             _ => (),
         }
-    }
-}
-
-#[inline(always)]
-fn ast_doesnt_require_semicolon(ast: &ast::Ast) -> bool {
-    match ast {
-        ast::Ast::For(_) | ast::Ast::While(_) | ast::Ast::If(_) | ast::Ast::Block(_) => true,
-        _ => false,
     }
 }
