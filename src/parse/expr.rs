@@ -62,39 +62,22 @@ impl Parser {
                     break;
                 }
                 self.skip_newlines()
-            } else {
-                // TODO
-                // if self.eol() {
-                //     break
-                // }
             }
+            // TODO
+            // else if self.eol() {
+            //     break;
+            // }
 
-            if allow_assignments {
-                if is!(
-                    self,
-                    PlusEq
-                        | MinusEq
-                        | StarEq
-                        | FwSlashEq
-                        | PercentEq
-                        | AmpEq
-                        | BarEq
-                        | CaretEq
-                        | LtLtEq
-                        | GtGtEq
-                        | AmpAmpEq
-                        | BarBarEq
-                ) {
-                    let lhs = expr_stack.into_iter().next().unwrap();
-                    return self.parse_compound_assignment(lhs);
-                } else if is!(self, Eq) {
-                    let lhs = expr_stack.into_iter().next().unwrap();
-                    return self.parse_assignment(lhs);
+            let op = match self.parse_operator() {
+                Some(op) => {
+                    if op.is_assignment() && !allow_assignments {
+                        break;
+                    }
+
+                    self.bump();
+
+                    op
                 }
-            }
-
-            let op = match self.parse_operator(allow_assignments)? {
-                Some(op) => op,
                 None => break,
             };
 
@@ -231,37 +214,40 @@ impl Parser {
         Ok(Ast::Block(self.parse_block()?))
     }
 
-    pub fn parse_operator(&mut self, allow_assignments: bool) -> DiagnosticResult<Option<ast::BinaryOp>> {
-        let op = match &self.peek().kind {
-            Plus | PlusEq => ast::BinaryOp::Add,
-            Minus | MinusEq => ast::BinaryOp::Sub,
-            Star | StarEq => ast::BinaryOp::Mul,
-            FwSlash | FwSlashEq => ast::BinaryOp::Div,
-            Percent | PercentEq => ast::BinaryOp::Rem,
-            EqEq => ast::BinaryOp::Eq,
-            BangEq => ast::BinaryOp::Ne,
-            Lt => ast::BinaryOp::Lt,
-            LtEq => ast::BinaryOp::Le,
-            Gt => ast::BinaryOp::Gt,
-            GtEq => ast::BinaryOp::Ge,
-            AmpAmp | AmpAmpEq => ast::BinaryOp::And,
-            BarBar | BarBarEq => ast::BinaryOp::Or,
-            LtLt | LtLtEq => ast::BinaryOp::Shl,
-            GtGt | GtGtEq => ast::BinaryOp::Shr,
-            Amp | AmpEq => ast::BinaryOp::BitAnd,
-            Bar | BarEq => ast::BinaryOp::BitOr,
-            Caret | CaretEq => ast::BinaryOp::BitXor,
-            _ => return Ok(None),
-        };
-
-        let token = self.bump();
-
-        if op.is_assignment() && !allow_assignments {
-            Err(Diagnostic::error()
-                .with_message("assignment is not allowed in this position")
-                .with_label(Label::primary(token.span, "assignment not allowed")))
-        } else {
-            Ok(Some(op))
+    pub fn parse_operator(&mut self) -> Option<ast::BinaryOp> {
+        match &self.peek().kind {
+            Plus => Some(ast::BinaryOp::Add),
+            Minus => Some(ast::BinaryOp::Sub),
+            Star => Some(ast::BinaryOp::Mul),
+            FwSlash => Some(ast::BinaryOp::Div),
+            Percent => Some(ast::BinaryOp::Rem),
+            EqEq => Some(ast::BinaryOp::Eq),
+            BangEq => Some(ast::BinaryOp::Ne),
+            Lt => Some(ast::BinaryOp::Lt),
+            LtEq => Some(ast::BinaryOp::Le),
+            Gt => Some(ast::BinaryOp::Gt),
+            GtEq => Some(ast::BinaryOp::Ge),
+            AmpAmp => Some(ast::BinaryOp::And),
+            BarBar => Some(ast::BinaryOp::Or),
+            LtLt => Some(ast::BinaryOp::Shl),
+            GtGt => Some(ast::BinaryOp::Shr),
+            Amp => Some(ast::BinaryOp::BitAnd),
+            Bar => Some(ast::BinaryOp::BitOr),
+            Caret => Some(ast::BinaryOp::BitXor),
+            Eq => Some(ast::BinaryOp::Assign),
+            PlusEq => Some(ast::BinaryOp::AddAssign),
+            MinusEq => Some(ast::BinaryOp::SubAssign),
+            StarEq => Some(ast::BinaryOp::MulAssign),
+            FwSlashEq => Some(ast::BinaryOp::DivAssign),
+            PercentEq => Some(ast::BinaryOp::RemAssign),
+            AmpAmpEq => Some(ast::BinaryOp::AndAssign),
+            BarBarEq => Some(ast::BinaryOp::OrAssign),
+            LtLtEq => Some(ast::BinaryOp::ShlAssign),
+            GtGtEq => Some(ast::BinaryOp::ShrAssign),
+            AmpEq => Some(ast::BinaryOp::BitAndAssign),
+            BarEq => Some(ast::BinaryOp::BitOrAssign),
+            CaretEq => Some(ast::BinaryOp::BitXorAssign),
+            _ => None,
         }
     }
 

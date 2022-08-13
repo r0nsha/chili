@@ -806,7 +806,6 @@ impl Check for ast::Ast {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         match self {
             ast::Ast::Binding(binding) => binding.check(sess, env, None),
-            ast::Ast::Assign(assign) => assign.check(sess, env, expected_type),
             ast::Ast::Cast(cast) => cast.check(sess, env, expected_type),
             ast::Ast::Import(import) => {
                 let import_path = import.path.to_str().unwrap();
@@ -2046,42 +2045,6 @@ impl Check for ast::Function {
     }
 }
 
-impl Check for ast::Assign {
-    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
-        sess.in_lvalue_context = true;
-        let lhs_node = self.lhs.check(sess, env, None)?;
-        sess.in_lvalue_context = false;
-
-        let mut rhs_node = self.rhs.check(sess, env, Some(lhs_node.ty()))?;
-
-        rhs_node
-            .ty()
-            .unify(&lhs_node.ty(), &mut sess.tcx)
-            .or_coerce_into_ty(
-                &mut rhs_node,
-                &lhs_node.ty(),
-                &mut sess.tcx,
-                sess.target_metrics.word_size,
-            )
-            .or_report_err(
-                &sess.tcx,
-                &lhs_node.ty(),
-                Some(lhs_node.span()),
-                &rhs_node.ty(),
-                rhs_node.span(),
-            )?;
-
-        sess.check_mutable_lvalue_access(&lhs_node)?;
-
-        Ok(hir::Node::Assign(hir::Assign {
-            ty: sess.tcx.common_types.unit,
-            span: self.span,
-            lhs: Box::new(lhs_node),
-            rhs: Box::new(rhs_node),
-        }))
-    }
-}
-
 impl Check for ast::Return {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         let function_frame = sess
@@ -2206,9 +2169,15 @@ impl Check for ast::If {
 
 impl Check for ast::Binary {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
+        let is_assignment = self.op.is_assignment();
+
+        sess.in_lvalue_context = is_assignment;
+
         let mut lhs_node = self.lhs.check(sess, env, None)?;
 
-        // Apply short circuiting to && and ||
+        sess.in_lvalue_context = false;
+
+        // Apply short circuiting to && and || when const folding
         match (&self.op, lhs_node.as_const_value()) {
             (ast::BinaryOp::And, Some(ConstValue::Bool(false))) => {
                 let bool_type = sess.tcx.common_types.bool;
@@ -2359,11 +2328,25 @@ impl Check for ast::Binary {
                 | ast::BinaryOp::Ge
                 | ast::BinaryOp::And
                 | ast::BinaryOp::Or => sess.tcx.common_types.bool,
+
+                ast::BinaryOp::Assign
+                | ast::BinaryOp::AddAssign
+                | ast::BinaryOp::SubAssign
+                | ast::BinaryOp::MulAssign
+                | ast::BinaryOp::DivAssign
+                | ast::BinaryOp::RemAssign
+                | ast::BinaryOp::AndAssign
+                | ast::BinaryOp::OrAssign
+                | ast::BinaryOp::ShlAssign
+                | ast::BinaryOp::ShrAssign
+                | ast::BinaryOp::BitAndAssign
+                | ast::BinaryOp::BitOrAssign
+                | ast::BinaryOp::BitXorAssign => sess.tcx.common_types.unit,
             },
         };
 
         match (lhs_node.as_const_value(), rhs_node.as_const_value()) {
-            (Some(lhs), Some(rhs)) => {
+            (Some(lhs), Some(rhs)) if const_fold::is_valid_binary_op(self.op) => {
                 let const_value = const_fold::binary(lhs, rhs, self.op, self.span, &sess.tcx)?;
 
                 Ok(hir::Node::Const(hir::Const {
@@ -2373,35 +2356,92 @@ impl Check for ast::Binary {
                 }))
             }
             _ => {
-                let binary = hir::Binary {
-                    lhs: Box::new(lhs_node),
-                    rhs: Box::new(rhs_node),
-                    ty: result_type,
-                    span: self.span,
+                let op_node = |op: ast::BinaryOp| {
+                    let binary = hir::Binary {
+                        lhs: Box::new(lhs_node.clone()),
+                        rhs: Box::new(rhs_node.clone()),
+                        ty: result_type,
+                        span: self.span,
+                    };
+
+                    match op {
+                        ast::BinaryOp::Add => hir::Node::Builtin(hir::Builtin::Add(binary)),
+                        ast::BinaryOp::Sub => hir::Node::Builtin(hir::Builtin::Sub(binary)),
+                        ast::BinaryOp::Mul => hir::Node::Builtin(hir::Builtin::Mul(binary)),
+                        ast::BinaryOp::Div => hir::Node::Builtin(hir::Builtin::Div(binary)),
+                        ast::BinaryOp::Rem => hir::Node::Builtin(hir::Builtin::Rem(binary)),
+                        ast::BinaryOp::Eq => hir::Node::Builtin(hir::Builtin::Eq(binary)),
+                        ast::BinaryOp::Ne => hir::Node::Builtin(hir::Builtin::Ne(binary)),
+                        ast::BinaryOp::Lt => hir::Node::Builtin(hir::Builtin::Lt(binary)),
+                        ast::BinaryOp::Le => hir::Node::Builtin(hir::Builtin::Le(binary)),
+                        ast::BinaryOp::Gt => hir::Node::Builtin(hir::Builtin::Gt(binary)),
+                        ast::BinaryOp::Ge => hir::Node::Builtin(hir::Builtin::Ge(binary)),
+                        ast::BinaryOp::And => hir::Node::Builtin(hir::Builtin::And(binary)),
+                        ast::BinaryOp::Or => hir::Node::Builtin(hir::Builtin::Or(binary)),
+                        ast::BinaryOp::Shl => hir::Node::Builtin(hir::Builtin::Shl(binary)),
+                        ast::BinaryOp::Shr => hir::Node::Builtin(hir::Builtin::Shr(binary)),
+                        ast::BinaryOp::BitAnd => hir::Node::Builtin(hir::Builtin::BitAnd(binary)),
+                        ast::BinaryOp::BitOr => hir::Node::Builtin(hir::Builtin::BitOr(binary)),
+                        ast::BinaryOp::BitXor => hir::Node::Builtin(hir::Builtin::BitXor(binary)),
+                        _ => unreachable!(),
+                    }
                 };
 
-                let builtin = match self.op {
-                    ast::BinaryOp::Add => hir::Builtin::Add(binary),
-                    ast::BinaryOp::Sub => hir::Builtin::Sub(binary),
-                    ast::BinaryOp::Mul => hir::Builtin::Mul(binary),
-                    ast::BinaryOp::Div => hir::Builtin::Div(binary),
-                    ast::BinaryOp::Rem => hir::Builtin::Rem(binary),
-                    ast::BinaryOp::Eq => hir::Builtin::Eq(binary),
-                    ast::BinaryOp::Ne => hir::Builtin::Ne(binary),
-                    ast::BinaryOp::Lt => hir::Builtin::Lt(binary),
-                    ast::BinaryOp::Le => hir::Builtin::Le(binary),
-                    ast::BinaryOp::Gt => hir::Builtin::Gt(binary),
-                    ast::BinaryOp::Ge => hir::Builtin::Ge(binary),
-                    ast::BinaryOp::And => hir::Builtin::And(binary),
-                    ast::BinaryOp::Or => hir::Builtin::Or(binary),
-                    ast::BinaryOp::Shl => hir::Builtin::Shl(binary),
-                    ast::BinaryOp::Shr => hir::Builtin::Shr(binary),
-                    ast::BinaryOp::BitAnd => hir::Builtin::BitAnd(binary),
-                    ast::BinaryOp::BitOr => hir::Builtin::BitOr(binary),
-                    ast::BinaryOp::BitXor => hir::Builtin::BitXor(binary),
-                };
+                if is_assignment {
+                    sess.check_mutable_lvalue_access(&lhs_node)?;
+                }
 
-                Ok(hir::Node::Builtin(builtin))
+                match self.op {
+                    ast::BinaryOp::Add
+                    | ast::BinaryOp::Sub
+                    | ast::BinaryOp::Mul
+                    | ast::BinaryOp::Div
+                    | ast::BinaryOp::Rem
+                    | ast::BinaryOp::Eq
+                    | ast::BinaryOp::Ne
+                    | ast::BinaryOp::Lt
+                    | ast::BinaryOp::Le
+                    | ast::BinaryOp::Gt
+                    | ast::BinaryOp::Ge
+                    | ast::BinaryOp::And
+                    | ast::BinaryOp::Or
+                    | ast::BinaryOp::Shl
+                    | ast::BinaryOp::Shr
+                    | ast::BinaryOp::BitAnd
+                    | ast::BinaryOp::BitOr
+                    | ast::BinaryOp::BitXor => Ok(op_node(self.op)),
+
+                    ast::BinaryOp::Assign => Ok(hir::Node::Assign(hir::Assign {
+                        lhs: Box::new(lhs_node),
+                        rhs: Box::new(rhs_node),
+                        ty: result_type,
+                        span: self.span,
+                    })),
+
+                    ast::BinaryOp::AddAssign
+                    | ast::BinaryOp::SubAssign
+                    | ast::BinaryOp::MulAssign
+                    | ast::BinaryOp::DivAssign
+                    | ast::BinaryOp::RemAssign
+                    | ast::BinaryOp::AndAssign
+                    | ast::BinaryOp::OrAssign
+                    | ast::BinaryOp::ShlAssign
+                    | ast::BinaryOp::ShrAssign
+                    | ast::BinaryOp::BitAndAssign
+                    | ast::BinaryOp::BitOrAssign
+                    | ast::BinaryOp::BitXorAssign => {
+                        let inner_op = self.op.inner();
+
+                        let assign = hir::Node::Assign(hir::Assign {
+                            lhs: Box::new(lhs_node.clone()),
+                            rhs: Box::new(op_node(inner_op)),
+                            ty: result_type,
+                            span: self.span,
+                        });
+
+                        Ok(assign)
+                    }
+                }
             }
         }
     }

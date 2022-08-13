@@ -45,7 +45,6 @@ define_id_type!(FunctionId);
 #[derive(Debug, PartialEq, Clone)]
 pub enum Ast {
     Binding(Binding),
-    Assign(Assign),
     Cast(Cast),
     Import(Import),
     Builtin(Builtin),
@@ -86,7 +85,6 @@ macro_rules! ast_field_dispatch {
             pub fn $field(&self) -> $ty {
                 match self {
                     Self::Binding(x) => x.$field,
-                    Self::Assign(x) => x.$field,
                     Self::Cast(x) => x.$field,
                     Self::Import(x) => x.$field,
                     Self::Builtin(x) => x.$field,
@@ -126,7 +124,6 @@ macro_rules! ast_field_dispatch {
                 pub fn [< $field:snake _mut >](&mut self) -> &mut $ty {
                     match self {
                         Self::Binding(x) => &mut x.$field,
-                        Self::Assign(x) => &mut x.$field,
                         Self::Cast(x) => &mut x.$field,
                         Self::Import(x) => &mut x.$field,
                         Self::Builtin(x) => &mut x.$field,
@@ -619,6 +616,19 @@ pub enum BinaryOp {
     BitAnd,
     BitOr,
     BitXor,
+    Assign,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    RemAssign,
+    AndAssign,
+    OrAssign,
+    ShlAssign,
+    ShrAssign,
+    BitAndAssign,
+    BitOrAssign,
+    BitXorAssign,
 }
 
 impl Display for BinaryOp {
@@ -646,6 +656,19 @@ impl Display for BinaryOp {
                 BitAnd => "&",
                 BitOr => "|",
                 BitXor => "^",
+                Assign => "=",
+                AddAssign => "+=",
+                SubAssign => "-=",
+                MulAssign => "*=",
+                DivAssign => "/=",
+                RemAssign => "%=",
+                AndAssign => "&&=",
+                OrAssign => "||=",
+                ShlAssign => "<<=",
+                ShrAssign => ">>=",
+                BitAndAssign => "&=",
+                BitOrAssign => "|=",
+                BitXorAssign => "^=",
             }
         )
     }
@@ -654,26 +677,88 @@ impl Display for BinaryOp {
 impl BinaryOp {
     pub fn is_assignment(&self) -> bool {
         match self {
-            _ => false,
+            BinaryOp::Add
+            | BinaryOp::Sub
+            | BinaryOp::Mul
+            | BinaryOp::Div
+            | BinaryOp::Rem
+            | BinaryOp::Eq
+            | BinaryOp::Ne
+            | BinaryOp::Lt
+            | BinaryOp::Le
+            | BinaryOp::Gt
+            | BinaryOp::Ge
+            | BinaryOp::And
+            | BinaryOp::Or
+            | BinaryOp::Shl
+            | BinaryOp::Shr
+            | BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor => false,
+
+            BinaryOp::Assign
+            | BinaryOp::AddAssign
+            | BinaryOp::SubAssign
+            | BinaryOp::MulAssign
+            | BinaryOp::DivAssign
+            | BinaryOp::RemAssign
+            | BinaryOp::AndAssign
+            | BinaryOp::OrAssign
+            | BinaryOp::ShlAssign
+            | BinaryOp::ShrAssign
+            | BinaryOp::BitAndAssign
+            | BinaryOp::BitOrAssign
+            | BinaryOp::BitXorAssign => true,
         }
     }
 
     pub fn precedence(&self) -> usize {
         match self {
-            BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => 100,
+            Self::Mul | Self::Div | Self::Rem => 100,
 
-            BinaryOp::Add | BinaryOp::Sub => 90,
+            Self::Add | Self::Sub => 90,
 
-            BinaryOp::Shl | BinaryOp::Shr => 85,
+            Self::Shl | Self::Shr => 85,
 
-            BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => 80,
+            Self::Eq | Self::Ne | Self::Lt | Self::Le | Self::Gt | Self::Ge => 80,
 
-            BinaryOp::BitAnd => 73,
-            BinaryOp::BitXor => 72,
-            BinaryOp::BitOr => 71,
-            BinaryOp::Or => 70,
-            BinaryOp::And => 69,
-            // TODO: Assign operators => 50
+            Self::BitAnd => 73,
+            Self::BitXor => 72,
+            Self::BitOr => 71,
+            Self::Or => 70,
+            Self::And => 69,
+
+            Self::Assign
+            | Self::AddAssign
+            | Self::SubAssign
+            | Self::MulAssign
+            | Self::DivAssign
+            | Self::RemAssign
+            | Self::AndAssign
+            | Self::OrAssign
+            | Self::ShlAssign
+            | Self::ShrAssign
+            | Self::BitAndAssign
+            | Self::BitOrAssign
+            | Self::BitXorAssign => 50,
+        }
+    }
+
+    pub fn inner(&self) -> Self {
+        match self {
+            Self::AddAssign => Self::Add,
+            Self::SubAssign => Self::Sub,
+            Self::MulAssign => Self::Mul,
+            Self::DivAssign => Self::Div,
+            Self::RemAssign => Self::Rem,
+            Self::AndAssign => Self::And,
+            Self::OrAssign => Self::Or,
+            Self::ShlAssign => Self::Shl,
+            Self::ShrAssign => Self::Shr,
+            Self::BitAndAssign => Self::BitAnd,
+            Self::BitOrAssign => Self::BitOr,
+            Self::BitXorAssign => Self::BitXor,
+            op => panic!("non-compound {} doesn't have an inner operator", op),
         }
     }
 }

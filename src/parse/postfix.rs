@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{self, Ast, BinaryOp, Call, Cast, UnaryOp},
+    ast::{self, Ast, Call, Cast, UnaryOp},
     error::*,
     span::EndPosition,
     token::TokenKind::*,
@@ -58,40 +58,6 @@ impl Parser {
         }
 
         Ok(expr)
-    }
-
-    pub fn parse_assignment(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
-        require!(self, Eq, "=")?;
-
-        let start_span = expr.span();
-
-        let rhs = self.parse_expression(false, true)?;
-        let end_span = self.previous_span();
-
-        Ok(Ast::Assign(ast::Assign {
-            lhs: Box::new(expr),
-            rhs: Box::new(rhs),
-            span: start_span.to(end_span),
-        }))
-    }
-
-    pub fn parse_compound_assignment(&mut self, lhs: Ast) -> DiagnosticResult<Ast> {
-        let op: BinaryOp = self.parse_operator(true)?.unwrap();
-        let rhs = self.parse_expression(false, true)?;
-
-        let lhs_span = lhs.span();
-        let rhs_span = rhs.span();
-
-        Ok(Ast::Assign(ast::Assign {
-            lhs: Box::new(lhs.clone()),
-            rhs: Box::new(Ast::Binary(ast::Binary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
-                span: rhs_span,
-            })),
-            span: lhs_span.to(rhs_span),
-        }))
     }
 
     fn parse_cast(&mut self, expr: Ast) -> DiagnosticResult<Ast> {

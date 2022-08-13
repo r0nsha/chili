@@ -9,6 +9,30 @@ use crate::{
     span::Span,
 };
 
+pub fn is_valid_binary_op(op: ast::BinaryOp) -> bool {
+    match op {
+        ast::BinaryOp::Add
+        | ast::BinaryOp::Sub
+        | ast::BinaryOp::Mul
+        | ast::BinaryOp::Div
+        | ast::BinaryOp::Rem
+        | ast::BinaryOp::Eq
+        | ast::BinaryOp::Ne
+        | ast::BinaryOp::Lt
+        | ast::BinaryOp::Le
+        | ast::BinaryOp::Gt
+        | ast::BinaryOp::Ge
+        | ast::BinaryOp::And
+        | ast::BinaryOp::Or
+        | ast::BinaryOp::Shl
+        | ast::BinaryOp::Shr
+        | ast::BinaryOp::BitAnd
+        | ast::BinaryOp::BitOr
+        | ast::BinaryOp::BitXor => true,
+        _ => false,
+    }
+}
+
 pub fn binary(
     lhs: &ConstValue,
     rhs: &ConstValue,
@@ -43,6 +67,7 @@ pub fn binary(
         ast::BinaryOp::BitAnd => Ok(lhs.bitand(rhs)),
         ast::BinaryOp::BitOr => Ok(lhs.bitor(rhs)),
         ast::BinaryOp::BitXor => Ok(lhs.bitxor(rhs)),
+        _ => unreachable!("{}", op),
     }
 }
 
