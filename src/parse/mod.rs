@@ -113,7 +113,6 @@ pub struct Parser {
     current: usize,
     module_info: ModuleInfo,
     module_path: ModulePath,
-    decl_name_frames: Vec<Ustr>,
     restrictions: Restrictions,
 }
 
@@ -148,7 +147,6 @@ impl Parser {
             current: 0,
             module_info: ModuleInfo::from(&module_path),
             module_path,
-            decl_name_frames: Default::default(),
             restrictions: Restrictions::empty(),
         }
     }
@@ -197,14 +195,6 @@ impl Parser {
         let res = f(self);
         self.restrictions = old;
         res
-    }
-
-    pub fn get_decl_name(&self) -> Ustr {
-        if !self.decl_name_frames.is_empty() {
-            *self.decl_name_frames.last().unwrap()
-        } else {
-            ustr("")
-        }
     }
 
     #[inline]

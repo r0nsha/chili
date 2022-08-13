@@ -10,7 +10,6 @@ use crate::{
     types::StructTypeKind,
 };
 use std::vec;
-use ustr::ustr;
 
 macro_rules! parse_binary {
     ($parser:expr, pattern = $(|) ? $($pattern : pat_param) | +, next_fn = $next:expr) => {{
@@ -59,28 +58,16 @@ impl Parser {
     }
 
     pub fn parse_expr(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| {
-            p.parse_expr_inner(ustr(""), allow_assignments)
-        })
-    }
-
-    pub fn parse_named_expr(&mut self, name: Ustr, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(name, allow_assignments))
+        self.with_res(Restrictions::empty(), |p| p.parse_expr_inner(allow_assignments))
     }
 
     pub fn parse_expr_res(&mut self, restrictions: Restrictions, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.with_res(restrictions, |p| p.parse_expr_inner(ustr(""), allow_assignments))
+        self.with_res(restrictions, |p| p.parse_expr_inner(allow_assignments))
     }
 
-    fn parse_expr_inner(&mut self, decl_name: Ustr, allow_assignments: bool) -> DiagnosticResult<Ast> {
-        self.decl_name_frames.push(decl_name);
-
+    fn parse_expr_inner(&mut self, allow_assignments: bool) -> DiagnosticResult<Ast> {
         let expr = self.parse_logic_or()?;
-        let expr = self.parse_operand_postfix_operator(expr, allow_assignments)?;
-
-        self.decl_name_frames.pop();
-
-        Ok(expr)
+        self.parse_operand_postfix_operator(expr, allow_assignments)
     }
 
     pub fn parse_if(&mut self) -> DiagnosticResult<Ast> {
@@ -361,7 +348,6 @@ impl Parser {
 
     fn parse_struct_type(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
-        let name = self.get_decl_name();
 
         let kind = if eat!(self, OpenParen) {
             const SYM_PACKED: &str = "packed";
@@ -384,7 +370,7 @@ impl Parser {
         let fields = self.parse_struct_type_fields()?;
 
         Ok(Ast::StructType(ast::StructType {
-            name,
+            name: ustr(""),
             fields,
             kind,
             span: start_span.to(self.previous_span()),
@@ -393,14 +379,13 @@ impl Parser {
 
     fn parse_struct_union_type(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
-        let name = self.get_decl_name();
 
         require!(self, OpenCurly, "{")?;
 
         let fields = self.parse_struct_type_fields()?;
 
         Ok(Ast::StructType(ast::StructType {
-            name,
+            name: ustr(""),
             fields,
             kind: StructTypeKind::Union,
             span: start_span.to(self.previous_span()),
@@ -418,7 +403,8 @@ impl Parser {
 
                 require!(self, Colon, ":")?;
 
-                let ty = self.parse_named_expr(name, false)?;
+                let mut ty = self.parse_expr(false)?;
+                Self::assign_expr_name_if_needed(&mut ty, name);
 
                 ast::StructTypeField {
                     name,
@@ -535,6 +521,15 @@ impl Parser {
             expr: Box::new(expr),
             span: start_span.to(self.previous_span()),
         })
+    }
+
+    pub fn assign_expr_name_if_needed(ast: &mut Ast, name: Ustr) {
+        match ast {
+            Ast::Function(function) => function.sig.name = Some(name),
+            Ast::StructType(struct_type) => struct_type.name = name,
+            Ast::FunctionType(sig) => sig.name = Some(name),
+            _ => (),
+        }
     }
 }
 

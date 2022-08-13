@@ -59,10 +59,12 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let value = match &pattern {
-            Pattern::Name(pattern) => self.parse_named_expr(pattern.name, false)?,
-            _ => self.parse_expr(false)?,
-        };
+        let mut value = self.parse_expr(false)?;
+
+        match &pattern {
+            Pattern::Name(pattern) => Self::assign_expr_name_if_needed(&mut value, pattern.name),
+            _ => (),
+        }
 
         Ok(ast::Binding {
             module_id: Default::default(),
@@ -174,7 +176,8 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let type_expr = self.parse_named_expr(name, false)?;
+        let mut type_expr = self.parse_expr(false)?;
+        Self::assign_expr_name_if_needed(&mut type_expr, name);
 
         Ok(ast::Binding {
             module_id: ModuleId::unknown(),
